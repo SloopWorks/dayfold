@@ -96,6 +96,11 @@ end to end, including the journal entry and inbox/digest close-out.
 - **Design-first (ADR 0008).** No deep planning or build of any surface
   before a hi-fi UI/UX mockup of it exists in `designs/` (authored with
   Claude Code + `frontend-design`) and the operator has signed off.
+- **Agent-operated build (ADR 0012).** Agents may configure/deploy (incl.
+  prod) + take cost actions ≤ cap + drive consoles after operator login —
+  only behind the safety rails (test-green-before, verify-and-rollback-after,
+  log every prod/cost action). See `processes/agent-build-automation.md`.
+  Does NOT widen the external-action/legal/pricing/spend guardrails below.
 - **External actions** (emails, calls, sign-ups, payments, anything a
   customer, prospect, or vendor can see) are operator-gated. Agents draft;
   the operator sends.

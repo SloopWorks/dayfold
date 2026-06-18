@@ -18,3 +18,4 @@ editing it.
 | 0009 | Design System — Material 3 Expressive, Adaptive, Compose | Accepted 2026-06-18 |
 | 0010 | Auth & Family-Tenancy Architecture (Firebase Auth, M:N membership, RFC 8628 device grant) | **Superseded by 0011** (2026-06-18) |
 | 0011 | Auth & Family-Tenancy Architecture (Hardened) | Accepted 2026-06-18 (supersedes 0010; post-5-agent-review) |
+| 0012 | Agent-Operated Build & Deploy — Autonomy Boundaries | Accepted 2026-06-18 (operator-set: full prod autonomy + safety rails, budget cap, browser-after-login) |

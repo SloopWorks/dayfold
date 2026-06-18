@@ -97,24 +97,39 @@ file maps to one `markdown` block (or a Section that is one `markdown` block).
   Transport: accept gzip on the upsert; the tenant-explicit
   `PUT /families/{fid}/.../blocks/{bid}` carries the full body (chunked
   transfer only if a block ever exceeds the body limit — not expected).
-- **Sanitization (markdown comes from a CLI / external source → untrusted):**
-  **raw HTML is stripped/escaped, never passed through or executed**; no
-  `<script>`, no inline event handlers, no `javascript:`/`data:` URLs.
-  Sanitize on **ingest** (store clean) AND render safely (defense in depth).
-- **Images:** at MVP, markdown images follow the docs scope (links + small
-  refs) — render via a **safe image loader** with allow-listed schemes, or
-  degrade to a tappable link; no arbitrary auto-loading of untrusted remote
-  images. Full inline image rendering is post-MVP (ties to doc storage).
-- **Links:** open **externally on tap** (calm — no surprise in-app
-  navigation), consistent with the deep-link arrival behavior.
-- **Mobile render component:** a single reusable **Markdown renderer**
-  component in the M3 Expressive system (ADR 0009) renders `text`/`markdown`
-  blocks; lengthy docs render lazily (don't recompose the whole doc at once).
-  Renderer library feasibility verified separately (see open question).
+- **Sanitization (markdown comes from a CLI / external source → untrusted).**
+  The chosen renderer is **XSS-safe by structure** (native Compose, no
+  WebView/HTML engine — raw `<script>`/`onerror` are inert text). The real
+  residual surface is **URL-borne**, and the app MUST enforce it (the
+  renderer gives control points but enforces nothing):
+  - **Image-URL exfiltration is the top risk** (`![](https://attacker/x)`
+    auto-fetches → leaks IP/UA/data). → images **off by default** at MVP.
+  - **Allowlist link schemes** to `http`/`https`/`mailto` (block
+    `javascript:`/`data:`/`file:`/`intent:`) by wrapping `LocalUriHandler`.
+  - **Show the link target** before navigating; strip raw HTML on ingest too
+    (defense in depth).
+- **Images:** at MVP, markdown images render via the renderer's **default
+  no-op image transformer (off)** — consistent with the docs scope
+  (links/small refs). When enabled post-MVP, load via Coil3 with a **host
+  allowlist** (or tap-to-load). No arbitrary auto-loading of remote images.
+- **Links:** open **externally on tap** (calm — no surprise in-app nav),
+  consistent with deep-link arrival behavior.
+- **Mobile render component:** one reusable **Markdown renderer** in the M3
+  Expressive system (ADR 0009) using **`mikepenz/multiplatform-markdown-
+  renderer` (+ `-coil3`)** — the only maintained true Android+iOS CMP
+  renderer (verified 2026). Render lengthy docs with **`LazyMarkdownSuccess`
+  + off-main-thread `parseMarkdownFlow()`** (a plain `Column` is ~12× slower
+  on long docs). Verify task-list + autolink rendering, and that the path
+  stays WebView-free across upgrades.
 - **Briefing cards** support only **limited inline markdown** (bold/italic/
   links) — they're short nudges, not documents.
-- **Full-text search ready:** a generated `tsvector` over `body_md` (or
-  external index) is available later without schema change.
+- **Full-text search ready:** `tsvector` + GIN over the **raw** `body_md`
+  (not rendered HTML); Meilisearch later only if typo-tolerance/relevance
+  demands. Available without schema change.
+- **Very large bodies (>~1–few MB):** spill `body_md` to object storage and
+  keep a metadata row + key in Postgres (DB storage is ~5–20× the cost and
+  hurts backups/replication). Serve raw `text/markdown`, brotli/gzip, with
+  range/section pagination — not JSON-wrapped.
 
 ## Template catalog (bounded — ADR 0004 "template-catalog-bounded")
 
