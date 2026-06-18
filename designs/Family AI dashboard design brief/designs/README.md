@@ -12,11 +12,12 @@ dark is first-class. Component names map 1:1 to Compose M3.
 | Design system | `Design-System.dc.html` | Color roles + tonal palettes (L+D), type scale, shape, elevation/surface tiers, motion, component inventory (L+D), provenance & accessibility |
 | Now (briefing) | `Now.dc.html` | Feed, empty, loading — light + dark |
 | Hubs (dossiers) | `Hubs.dc.html` | List, detail (all 8 block types), deep-link arrival (highlight pulse), graceful fallback, empty — light + dark |
+| Auth & invite | `Auth.dc.html` | Not-signed-in sign-in/up (Google/Apple/phone + OTP), backup-method nudge, create-family onboarding, member-join, QR / link invite + approvals — light + dark (ADR 0010) |
 | Adaptive + Wear | `Adaptive.dc.html` | Tablet list-detail + rail, foldable dual-pane, desktop drawer + grid, Wear tile + complication |
 
-`Now-Phone.dc.html` and `Hubs-Phone.dc.html` are the parameterized phone
-components (props: `mode` = light/dark, `view`) the galleries mount — they
-map to single Compose screens.
+`Now-Phone.dc.html`, `Hubs-Phone.dc.html` and `Auth-Phone.dc.html` are the
+parameterized phone components (props: `mode` = light/dark, `view`) the
+galleries mount — they map to single Compose screens.
 
 ## Seed colors
 Coral `#FF5436` (primary) · Teal `#11B5A4` (secondary) · Violet (tertiary).
