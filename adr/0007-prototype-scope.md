@@ -2,13 +2,13 @@
 
 ## Status
 
-**Proposed** (2026-06-18) — **operator approved in-session 2026-06-18**;
-formal ratification batched with ADR 0006 (Event Hubs) in the next inbox
-sweep, since this ADR presumes the Event Hubs surface. Scopes the first
-build (the dogfood prototype, Gate G1a in `planning/workstreams.md`).
-Operator-gated. Refines ADR 0004 (content-API MVP) and ADR 0006 (Event
-Hubs) into a concrete buildable prototype; defers a set of features
-explicitly rather than leaving them as open gaps.
+**Accepted** 2026-06-18 (operator inbox sweep, INB-8; dependency ADR 0006
+accepted in the same sweep). Immutable — supersede, do not edit. Scopes the
+first build (the dogfood prototype, Gate G1a in `planning/workstreams.md`).
+Refines ADR 0004 (content-API MVP) and ADR 0006 (Event Hubs) into a concrete
+buildable prototype; defers a set of features explicitly rather than leaving
+them as open gaps. **Build of this prototype is itself gated behind the
+hi-fi UI/UX mockup requirement (ADR 0008).**
 
 ## Context
 

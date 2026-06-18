@@ -93,6 +93,9 @@ end to end, including the journal entry and inbox/digest close-out.
   automation-autonomy boundaries, or maintenance burden) must be written as
   a Proposed ADR and accepted by the operator before they take effect.
   Accepted ADRs are immutable — supersede, don't edit.
+- **Design-first (ADR 0008).** No deep planning or build of any surface
+  before a hi-fi UI/UX mockup of it exists in `designs/` (authored with
+  Claude Code + `frontend-design`) and the operator has signed off.
 - **External actions** (emails, calls, sign-ups, payments, anything a
   customer, prospect, or vendor can see) are operator-gated. Agents draft;
   the operator sends.

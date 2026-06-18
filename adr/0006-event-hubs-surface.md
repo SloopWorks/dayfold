@@ -2,10 +2,10 @@
 
 ## Status
 
-**Proposed** (2026-06-18). Extends ADR 0004 (Product Framing). Scope-class
-decision → **operator-gated** (CLAUDE.md hard guardrail: scope changes via
-ADR). Requires operator acceptance before the Event Hubs design
-(`specs/event-hubs-design.md`) becomes a binding spec.
+**Accepted** 2026-06-18 (operator inbox sweep, INB-7). Immutable —
+supersede, do not edit. Extends ADR 0004 (Product Framing). The Event Hubs
+design (`specs/event-hubs-design.md`) is now cleared to become a binding
+spec at board item C1b.
 
 ## Context
 

@@ -26,8 +26,10 @@ agent-desk-researchable vs truly operator-only.
   content-API MVP architecture is specced and the wall-avoiding scope is
   confirmed buildable (adults-only, Calendar-only/no-Gmail-OAuth, plain
   deep-links). Validation round 1 found **no fatal flaw for the learning
-  goal**, so G1a is close — only A3 gates it. The dogfood prototype is a
-  learning artifact; it does NOT need WTP evidence.
+  goal**, so G1a is close. **A8 (hi-fi mockups, ADR 0008) gates A3** — no
+  build before the look-and-feel is mocked, committed to `designs/`, and
+  operator-approved. The dogfood prototype is a learning artifact; it does
+  NOT need WTP evidence.
 - **G1b — Paid-business path authorized (income track).** Passes when: a
   flip-condition (ADR 0004) is evidenced OR a defensible niche is found
   (A1); the legal posture is operator-confirmed for any scope beyond
@@ -40,11 +42,12 @@ agent-desk-researchable vs truly operator-only.
 |---|---|---|---|
 | A1 Niche & differentiation brief (riskiest dimension = WTP/defensibility) | `research/niche-and-wedge-2026.md`: does a defensible niche exist (co-parenting/split-household, special-needs/IEP, eldercare) or does this stay a pure learning lab? Map each flip-condition (ADR 0004) to a cheap test. DoD: operator can decide pursue-niche / learning-lab-only from this doc | round 1 (done) | todo |
 | A2 Legal posture confirmation (regulated edge) | COPPA + Google restricted-scope + LLM-data-handling memo for the **chosen scope**; agenda prepped from `research/.../compliance.md`. Desk-researchable: draft the memo + attorney agenda. **Operator-only:** retain a COPPA attorney *if/when* scope expands beyond adults-only/Calendar-only | compliance findings (done); operator | todo (desk part) / blocked(operator) |
-| A3 Prototype build — operator-driven dumb renderer (gates G1a; scope = ADR 0007) | Exactly 5 parts, nothing more: (1) cloud DB + content API w/ idempotent upsert for cards + Hub/Section/Block; (2) Claude Code push skill/CLI; (3) two render surfaces (Now + Hubs); (4) in-app card→hub/block tap-through (internal nav, no Universal Links); (5) CMP native Android+iOS (no web) + single-household token auth. Deferred per ADR 0007: push, multi-member auth, permissions, integrations, Universal Links, widgets. DoD: operator using it daily on device | round 1 (done); ADR 0007 | todo |
+| A3 Prototype build — operator-driven dumb renderer (gates G1a; scope = ADR 0007) | Exactly 5 parts, nothing more: (1) cloud DB + content API w/ idempotent upsert for cards + Hub/Section/Block; (2) Claude Code push skill/CLI; (3) two render surfaces (Now + Hubs); (4) in-app card→hub/block tap-through (internal nav, no Universal Links); (5) CMP native Android+iOS (no web) + single-household token auth. Deferred per ADR 0007: push, multi-member auth, permissions, integrations, Universal Links, widgets. DoD: operator using it daily on device | round 1 (done); ADR 0007; **A8 mockups (ADR 0008)** | blocked(A8) |
 | A4 Field-validation kit + concierge pilot | Interview script + concierge-pilot design (hand-author briefings for ~5 friend families, no Gmail OAuth); two adversarial rounds; then analyzed conversations. DoD: WTP signal for G1b. **Operator-only:** running the conversations | A1 framing | todo |
 | A5 Margin model | Per-family contribution incl. operator-hours, at $39-79/yr anchors; annual-first; store-commission sensitivity. Draft now from `pricing-structure.md` | round 1 (draft-ready) | todo |
 | A6 Entity + product-name decision | Resolved. Working repo name = `family-ai-dashboard`; consumer product name TBD. Entity only needed at paid launch / commerce-API gate | A1 | todo |
 | A7 Confidence case (gates G1b) | `research/confidence-case.md`: scorecard vs the MODERATE bar; claims tiered desk-proven/inference/only-field-provable; 2 adversarial rounds. DoD: operator can make go / field-test-first / no-go on the paid path | A1–A5 | todo |
+| A8 Hi-fi UI/UX mockups (gates A3 + deep planning; ADR 0008) | Hi-fi mockups of **Now** (briefing cards) + **Hubs** (Event Hub dossier, incl. card→block deep-link highlight state) via Claude Code (`frontend-design` skill), committed to `designs/`; operator sign-off. **DoD: operator approves the look-and-feel.** This is the immediate next item — blocks A3 and any deep PRD/architecture work | round 1 (done); ADR 0008 | **todo (next)** |
 
 ## Phase B — Business strategy → **Gate G2: "Strategy accepted"**
 
