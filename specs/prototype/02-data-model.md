@@ -143,6 +143,8 @@ CREATE TABLE user_identities (
   provider_uid  text NOT NULL,               -- Apple: sub. Join key — never dedupe on relay email
   email_verified text,
   phone_verified text,
+  apple_refresh_token_enc text,               -- [F9] encrypted; captured once at 1st Apple auth; for revokeToken on delete
+  relay_email   text,                          -- recorded pre-delete for audit / data-subject requests
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (provider, provider_uid)
 );
@@ -199,7 +201,7 @@ CREATE TABLE credentials (                  -- "Connected devices & apps"; also 
   family_scope  text REFERENCES families(id),                 -- single family for kind='cli'
   kind          credential_kind NOT NULL,
   scopes        text[] NOT NULL DEFAULT '{content:write}',
-  refresh_hash  text UNIQUE,
+  -- [F6] refresh tokens live in refresh_tokens(credential_id) as a lineage; not a single column here
   label         text,
   last_used_at  timestamptz,
   last_used_ip  text,
@@ -208,6 +210,17 @@ CREATE TABLE credentials (                  -- "Connected devices & apps"; also 
   revoked_at    timestamptz,
   CHECK (kind <> 'cli' OR family_scope IS NOT NULL)   -- cli creds (incl. M0 token) MUST be family-scoped
 );
+
+CREATE TABLE refresh_tokens (              -- [F6] rotation lineage; revoke-lineage = by credential_id
+  id            text PRIMARY KEY,
+  credential_id text NOT NULL REFERENCES credentials(id) ON DELETE CASCADE,
+  token_hash    text NOT NULL UNIQUE,       -- SHA-256 of the opaque refresh token
+  superseded_by text REFERENCES refresh_tokens(id),  -- set on rotation (the chain)
+  consumed_at   timestamptz,                -- atomic CAS sets this; loser of a race gets nothing
+  expires_at    timestamptz NOT NULL,       -- absolute lifetime (e.g. 30–60d) → forces re-auth
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON refresh_tokens (credential_id);   -- revoke-lineage + reuse-detection lookup
 ```
 
 > **M0 note:** the household token is a `credentials` row (`kind='cli'`,

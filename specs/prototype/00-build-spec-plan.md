@@ -28,7 +28,7 @@ Universal Links). The specs note which milestone each part belongs to.
 | 01 | Architecture overview | `01-architecture.md` | **done (2-agent review applied)** | — |
 | 02 | Data model & DB schema (Postgres DDL) | `02-data-model.md` | **done (review applied)** | — |
 | 03 | API design (OpenAPI) | `03-api.md` | **done (2-agent review applied)** | — |
-| 04 | Authentication & token service | `04-auth.md` | **draft → in review** | apply 2-agent review (correctness + security) |
+| 04 | Authentication & token service | `04-auth.md` | **done (2-agent review applied)** | — (recovery-floor = hard gate before build) |
 | 05 | Invite system | `05-invite.md` | **next** | owner-approved flow, token lifecycle |
 | 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | todo | refs, large-body spill, signed URLs |
 | 07 | CLI tool | `07-cli.md` | todo | device-grant auth, content push, markdown files, **trigger/place metadata flags (ADR 0014)** |
@@ -37,9 +37,10 @@ Universal Links). The specs note which milestone each part belongs to.
 
 ## Current
 
-- **Done:** 01 architecture, 02 DB DDL, 03 API (each 1–2-agent reviewed +
-  applied). **Next: 04 Authentication & token service** — Firebase verify →
-  mint, per-request scope/revoke, app-driven linking, recovery/SIM-swap.
+- **Done:** 01 architecture, 02 DB DDL, 03 API, 04 auth (each 1–2-agent
+  reviewed + applied). 04 added a `refresh_tokens` lineage table + Apple-token
+  storage to the DDL; **recovery-floor procedure is a hard gate before build**.
+  **Next: 05 Invite system.**
 
 ## Log
 
