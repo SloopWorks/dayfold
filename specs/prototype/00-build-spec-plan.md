@@ -27,8 +27,8 @@ Universal Links). The specs note which milestone each part belongs to.
 |---|---|---|---|---|
 | 01 | Architecture overview | `01-architecture.md` | **done (2-agent review applied)** | — |
 | 02 | Data model & DB schema (Postgres DDL) | `02-data-model.md` | **done (review applied)** | — |
-| 03 | API design (OpenAPI) | `03-api.md` | **draft → in review** | apply 2-agent review (correctness + security) |
-| 04 | Authentication & token service | `04-auth.md` | todo | Firebase verify → mint, per-request scope/revoke |
+| 03 | API design (OpenAPI) | `03-api.md` | **done (2-agent review applied)** | — |
+| 04 | Authentication & token service | `04-auth.md` | **next** | Firebase verify → mint, per-request scope/revoke, linking, recovery |
 | 05 | Invite system | `05-invite.md` | todo | owner-approved flow, token lifecycle |
 | 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | todo | refs, large-body spill, signed URLs |
 | 07 | CLI tool | `07-cli.md` | todo | device-grant auth, content push, markdown files |
@@ -37,9 +37,9 @@ Universal Links). The specs note which milestone each part belongs to.
 
 ## Current
 
-- **Done:** 01 architecture (2-agent review applied), 02 DB DDL (review
-  applied). **Next: 03 API design (OpenAPI)** off the DDL — content
-  (tenant-explicit), then M1 auth/invite/device-grant endpoints.
+- **Done:** 01 architecture, 02 DB DDL, 03 API (each 1–2-agent reviewed +
+  applied). **Next: 04 Authentication & token service** — Firebase verify →
+  mint, per-request scope/revoke, app-driven linking, recovery/SIM-swap.
 
 ## Log
 
