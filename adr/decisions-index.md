@@ -20,3 +20,4 @@ editing it.
 | 0011 | Auth & Family-Tenancy Architecture (Hardened) | Accepted 2026-06-18 (supersedes 0010; post-5-agent-review) |
 | 0012 | Agent-Operated Build & Deploy — Autonomy Boundaries | Accepted 2026-06-18 (operator-set: full prod autonomy + safety rails, budget cap, browser-after-login) |
 | 0013 | Client Architecture — KMP/CMP Shared UI + redux-kotlin 1.0.0-alpha1 | Accepted 2026-06-18 (shared code+UI all clients; redux-kotlin; agent-first) |
+| 0014 | Private On-Device Trigger Engine (geo/time/activity) | Accepted 2026-06-18 (triggers=metadata; device matches locally; live position never leaves) |

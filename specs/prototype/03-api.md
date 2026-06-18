@@ -44,8 +44,10 @@
 | `DELETE /families/{fid}/hubs/{id}` | — | **soft-delete** (`deleted_at`); cascades in app |
 | `DELETE /families/{fid}/hubs/{hid}/sections/{sid}` | — | soft-delete, cascade |
 | `DELETE /families/{fid}/hubs/{hid}/sections/{sid}/blocks/{bid}` | — | soft-delete |
-| `PUT /families/{fid}/cards/{id}` | BriefingCard (+`target`) | the "Now" surface |
+| `PUT /families/{fid}/cards/{id}` | BriefingCard (+`target`, +`triggers`) | the "Now" surface |
 | `DELETE /families/{fid}/cards/{id}` | — | soft-delete |
+| `PUT /families/{fid}/places/{id}` | Place `{label,lat,lng,radius_m}` | reusable named place (ADR 0014); referenced by `place_ref` |
+| `DELETE /families/{fid}/places/{id}` | — | soft-delete |
 
 - A whole markdown file → one `block` (`type:"markdown"`, `body_md`) via the
   block PUT. **`body_md` limited to 1 MB at M0** (else `413`; M0 has no spill,
@@ -80,6 +82,11 @@ cache, nearest-ancestor fallback.
 The client renders only from its local cache, populated by `sync`. Deep-link
 `target` resolves against the cache (nearest-ancestor fallback) — never a
 server round-trip per tap.
+
+**Triggers & places (ADR 0014):** `triggers[]` ride inside block/card payloads
+and `places` are returned by `sync` (added to the `changes` envelope). The
+server never receives the device's live location/time/activity — geofence +
+local-notification matching happens entirely on-device.
 
 ## [M1] Auth & account
 

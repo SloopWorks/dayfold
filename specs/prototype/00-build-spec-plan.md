@@ -31,8 +31,8 @@ Universal Links). The specs note which milestone each part belongs to.
 | 04 | Authentication & token service | `04-auth.md` | **next** | Firebase verify → mint, per-request scope/revoke, linking, recovery |
 | 05 | Invite system | `05-invite.md` | todo | owner-approved flow, token lifecycle |
 | 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | todo | refs, large-body spill, signed URLs |
-| 07 | CLI tool | `07-cli.md` | todo | device-grant auth, content push, markdown files |
-| 08 | Mobile client (CMP) | `08-mobile-client.md` | todo (anchored by **ADR 0013**) | redux-kotlin store/features/effects, SQLDelight cache, M3E render+markdown, state-keyed deep-link, AGENTS.md + skill |
+| 07 | CLI tool | `07-cli.md` | todo | device-grant auth, content push, markdown files, **trigger/place metadata flags (ADR 0014)** |
+| 08 | Mobile client (CMP) | `08-mobile-client.md` | todo (anchored by **ADR 0013**) | redux-kotlin store/features/effects, SQLDelight cache, M3E render+markdown, state-keyed deep-link, **on-device trigger matcher (geofence/local-notif, ADR 0014)**, AGENTS.md + skill |
 | 09 | Security controls + test/verify plan | `09-security-and-test.md` | todo | from the 5-agent review + ADR 0011/0012 |
 
 ## Current

@@ -131,6 +131,41 @@ file maps to one `markdown` block (or a Section that is one `markdown` block).
   hurts backups/replication). Serve raw `text/markdown`, brotli/gzip, with
   range/section pagination — not JSON-wrapped.
 
+## Triggers & places (private on-device matching — ADR 0014)
+
+Content carries **triggers**; the **client matches them on-device** against
+the device's live location/time/activity, which **never leaves the device**.
+Claude authors the trigger metadata from context; the client geofences /
+schedules locally and surfaces the linked card calmly.
+
+**Block/Card `triggers[]` (discriminated):**
+```
+trigger:
+  - geo      { place_ref | {lat,lng}, radius_m, label? }   // proximity
+  - when     { at? | window{start,end}? | relative? | recurring? , alert_offset? }
+  - activity { kind: walking|running|biking|driving }       // schema slot; matching DEFERRED
+```
+
+**Family-scoped `places`** (define home/school/store once; reference by
+`place_ref`). Place coords are **family content** (encrypted at rest, never
+logged, never the user's live position):
+```
+places(id, family_id FK NOT NULL, label, lat, lng, radius_m,
+       created_at, updated_at, deleted_at, PRIMARY KEY(family_id, id))
+```
+
+**Storage:** `triggers jsonb` on `blocks` and `briefing_cards` (low cardinality
+per row). For the client's nearest-N/soonest-N selection within geofence
+limits (iOS ~20 / Android ~100), the client derives an in-memory active set
+from synced triggers; a server-side `triggers` view/table is **not** needed at
+MVP (no live position server-side, by design).
+
+**Client behavior:** on `sync` → register the nearest-N geofences + schedule
+soonest-N local time-notifications → on enter/fire surface/boost the linked
+card. Respect quiet hours, dedupe, daily cap (constitution). **Progressive
+permission:** when-in-use → "Always" opt-in for background; time triggers use
+only the notification permission. Background geo + activity = later milestone.
+
 ## Template catalog (bounded — ADR 0004 "template-catalog-bounded")
 
 Starter Hub types, each = default sections + checklist skeleton:

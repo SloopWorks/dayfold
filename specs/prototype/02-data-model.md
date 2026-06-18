@@ -74,6 +74,7 @@ CREATE TABLE blocks (
   body_md     text,                          -- long-form markdown (text/markdown blocks) — inline at M0
   body_ref    text,                          -- [M1] object-storage key when body spilled (>~1–few MB)
   provenance  jsonb NOT NULL,                -- { source, at, credential_id }
+  triggers    jsonb,                          -- [ADR 0014] geo/when/activity; matched on-device only
   ord         int NOT NULL DEFAULT 0,
   version     bigint NOT NULL DEFAULT 1,
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -95,6 +96,7 @@ CREATE TABLE briefing_cards (              -- the "Now" surface
   target_section_id text,
   target_block_id   text,
   provenance  jsonb NOT NULL,
+  triggers    jsonb,                          -- [ADR 0014] geo/when/activity; matched on-device only
   not_before  timestamptz,                   -- when the card should surface
   expires_at  timestamptz,
   version     bigint NOT NULL DEFAULT 1,
@@ -109,6 +111,19 @@ CREATE TABLE briefing_cards (              -- the "Now" surface
   -- server never dereferences them cross-row, so no IDOR surface.
 );
 ```
+
+CREATE TABLE places (                       -- [ADR 0014] reusable named places; family content
+  id          text NOT NULL,
+  family_id   text NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  label       text NOT NULL,
+  lat         double precision NOT NULL,     -- encrypted at rest; never logged; never live position
+  lng         double precision NOT NULL,
+  radius_m    int NOT NULL DEFAULT 150,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz,
+  PRIMARY KEY (family_id, id)
+);
 
 ## [M1] Identity, tenancy, credentials
 
