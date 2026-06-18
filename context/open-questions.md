@@ -22,6 +22,12 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
 ## Important, not blocking
 
+- **OQ-auth-recovery-floor:** passwordless last-resort recovery (all linked
+  methods lost) + its abuse surface. → ADR 0010 / C4 security model.
+- **OQ-family-switcher:** family-switcher UX when the multi-family UI ships
+  (M:N model is built; UI is single-family at MVP). → ADR 0010.
+- **OQ-invite-roles:** can a non-owner adult invite members? Default
+  owner-only at MVP. → `specs/auth-and-family-design.md`.
 - **OQ-hub-collab:** At MVP, is Hub authoring push/Claude-only, or can family
   members edit Hubs in-app? (Lean: push-only at MVP, in-app edit post-MVP.)
   → feeds `specs/event-hubs-design.md`, C1b.

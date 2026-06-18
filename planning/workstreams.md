@@ -47,7 +47,8 @@ agent-desk-researchable vs truly operator-only.
 | A5 Margin model | Per-family contribution incl. operator-hours, at $39-79/yr anchors; annual-first; store-commission sensitivity. Draft now from `pricing-structure.md` | round 1 (draft-ready) | todo |
 | A6 Entity + product-name decision | Resolved. Working repo name = `family-ai-dashboard`; consumer product name TBD. Entity only needed at paid launch / commerce-API gate | A1 | todo |
 | A7 Confidence case (gates G1b) | `research/confidence-case.md`: scorecard vs the MODERATE bar; claims tiered desk-proven/inference/only-field-provable; 2 adversarial rounds. DoD: operator can make go / field-test-first / no-go on the paid path | A1–A5 | todo |
-| A8 Hi-fi UI/UX mockups (gates A3 + deep planning; ADR 0008/0009) | Execute `designs/DESIGN-BRIEF.md` via Claude Code (`frontend-design`): **M3 Expressive** design-system page + full hi-fi **Now** + **Hubs** phone screens (light+dark, incl. card→block deep-link highlight + fallback) + adaptive specs (tablet/foldable/desktop) + a **Wear** tile. Committed to `designs/`; operator sign-off. **DoD per brief §8.** Immediate next item — blocks A3 + deep PRD/architecture | round 1 (done); ADRs 0008, 0009 | **todo (next)** |
+| A8 Hi-fi UI/UX mockups (gates A3 + deep planning; ADR 0008/0009) | Execute `designs/DESIGN-BRIEF.md` via Claude Code (`frontend-design`): **M3 Expressive** design-system page + full hi-fi **Now** + **Hubs** phone screens (light+dark, incl. card→block deep-link highlight + fallback) + adaptive specs (tablet/foldable/desktop) + a **Wear** tile. Committed to `designs/`; operator sign-off. **DoD per brief §8.** Immediate next item — blocks A3 + deep PRD/architecture | round 1 (done); ADRs 0008, 0009 | **in progress (initial designs added)** |
+| A8b Auth/family/invite hi-fi mockups (ADR 0008/0009/0010) | Hi-fi M3E mockups of the 9 auth screens in `specs/auth-and-family-design.md` §Screens (sign-in, onboarding/create-family, null state, invite QR+link, **authorize-device** RFC 8628, family members, connected devices) — light+dark. Operator hands the design doc to Claude Design. Gates building the auth/family layer | `specs/auth-and-family-design.md`; ADRs 0009, 0010 | todo |
 
 ## Phase B — Business strategy → **Gate G2: "Strategy accepted"**
 
@@ -72,9 +73,9 @@ review finds no unaddressed gaps (design-complete ≠ delivery-ready).
 |---|---|---|---|
 | C1 PRD v0 | `specs/prd-v0.md` + 2 adversarial rounds. Covers **Now (briefing) + Event Hubs as co-equal surfaces** (feeds from `specs/event-hubs-design.md`, pending ADR 0006) | G2 | gate-wait |
 | C1b Event Hubs spec + Hub JSON schema | Promote `specs/event-hubs-design.md` → binding spec; schemas in `specs/domain-model/schemas/`; 2 adversarial rounds | C1, ADR 0006 Accepted | gate-wait |
-| C2 System design | `specs/architecture.md` (content API + Hub upsert + render layer) | C1 | gate-wait |
+| C2 System design | `specs/architecture.md` (content API + Hub upsert + render layer + **auth/tenancy services per ADR 0010**: Firebase Auth, backend token mint, memberships, invites, device-grant) | C1 | gate-wait |
 | C3 Infrastructure plan | `specs/infrastructure.md`: stack, environments, cost model, secrets, backup/DR | C2 | gate-wait |
-| C4 Security & compliance model | `specs/security-model.md` + compliance operationalization + threat register | C1, A2 | gate-wait |
+| C4 Security & compliance model | `specs/security-model.md` + compliance operationalization + threat register (incl. **auth threat model per ADR 0010**: invite-token leak, device-grant abuse, SMS-OTP toll fraud/SIM-swap, token revocation, recovery floor) | C1, A2 | gate-wait |
 | C5 Delivery review | Design-complete ≠ delivery-ready audit: CI, test substrate, gates | C1–C4 | gate-wait |
 
 ## Phase D — Implementation planning → **Gate G4: "Build authorized"**

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration:none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(39,24,20,0.16); }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:64px 40px 80px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- hero -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:26px;">
+      <div style="width:52px;height:52px;border-radius:17px;background:linear-gradient(135deg,#FF5436,#C0381E);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(192,56,30,0.32);"><span class="msr fill" style="font-size:30px;color:#fff;">local_fire_department</span></div>
+      <div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;">Hearth</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#8C726B;">working name · family-ai-dashboard</div>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(40px,6vw,60px);line-height:1.04;letter-spacing:-0.025em;margin:0 0 16px;max-width:16ch;">Hi-fi design system &amp; screens</h1>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:60ch;margin:0 0 14px;">A calm, AI-powered household dashboard. Two surfaces — a daily <b>briefing</b> and persistent <b>Hubs</b> — rendered in <b>Material 3 Expressive</b>: vibrant pixels, calm behavior. The app is a dumb renderer; AI authors the content and every curated block shows its provenance.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px;">
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FFDAD2;color:#5A1100;padding:7px 13px;border-radius:999px;">Material 3 Expressive</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Light + dark</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Adaptive · phone → Wear</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Maps 1:1 to Compose</span>
+    </div>
+
+    <!-- cards -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+        <a class="card" href="{{ l.href }}" style="background:{{ l.bg }};border:1px solid {{ l.border }};border-radius:28px;padding:28px;display:flex;flex-direction:column;min-height:200px;color:inherit;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:auto;">
+            <div style="width:54px;height:54px;border-radius:17px;background:{{ l.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ l.iconFg }};">{{ l.icon }}</span></div>
+            <span class="msr" style="font-size:24px;color:{{ l.arrow }};">arrow_outward</span>
+          </div>
+          <div style="margin-top:24px;">
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ l.kicker }};margin-bottom:6px;">{{ l.kick }}</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.01em;margin-bottom:6px;">{{ l.title }}</div>
+            <div style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ l.body }};">{{ l.desc }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+
+    <!-- footer note -->
+    <div style="margin-top:40px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
+      <span class="msr" style="font-size:22px;color:#6438AE;margin-top:1px;">auto_awesome</span>
+      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">Mockups are living references, not contracts — once a surface ships, the Compose code is the source of truth for its look. Scope is two surfaces only (no auth / onboarding / settings beyond a placeholder), no kids UI, no gamification. Per <b>ADR 0008 / 0009</b>.</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      links: [
+        { href:'Design-System.dc.html', kick:'FOUNDATION', kicker:'#7A2615', title:'Design System', desc:'Color roles & tonal palettes (L+D), type scale, shape, elevation, motion, full component inventory, provenance & accessibility.', icon:'palette', iconBg:'#C0381E', iconFg:'#fff', bg:'#FCEBE6', border:'#EBD3CB', arrow:'#C0381E', body:'#5A423C' },
+        { href:'Now.dc.html', kick:'SURFACE 01', kicker:'#005048', title:'Now — briefing', desc:'The daily feed: action, countdown, logistics & weather cards with deep links. Plus empty and loading states. Light + dark.', icon:'today', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', body:'#1A4540' },
+        { href:'Hubs.dc.html', kick:'SURFACE 02', kicker:'#4C2092', title:'Hubs — dossiers', desc:'List + the detail centerpiece with all 8 block types, plus deep-link arrival (highlight pulse) and graceful fallback. Light + dark.', icon:'dashboard', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', body:'#3F2A6E' },
+        { href:'Adaptive.dc.html', kick:'SIZE CLASSES', kicker:'#7A2615', title:'Adaptive + Wear', desc:'One frame each: tablet list-detail with rail, hinge-aware foldable dual-pane, desktop drawer & grid, and a glanceable Wear tile.', icon:'devices', iconBg:'#3D2D28', iconFg:'#FFEDE8', bg:'#FFF8F6', border:'#EBD3CB', arrow:'#3D2D28', body:'#5A423C' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

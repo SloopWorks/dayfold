@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <div style="margin-bottom:40px;max-width:820px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Adaptive · size classes</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">Adaptive — one frame each</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;">The two surfaces reflow across window size classes per Material adaptive guidance. Phone gets full hi-fi (see Now / Hubs); here is a spec + one representative frame per larger class, plus a Wear paradigm that is its own thing — not a shrunken phone.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:52px;">
+
+    <!-- ============ TABLET ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#00796F;">tablet_mac</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Tablet / medium width</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">600–839dp</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:70ch;"><b>List-detail canonical layout.</b> Hubs list and detail sit side-by-side; tapping a list card updates the detail pane (no navigation). Navigation moves from bottom bar to a <b>NavigationRail</b> on the leading edge. Now collapses to a single comfortable column with max content width.</p>
+      <div style="width:912px;height:600px;border-radius:28px;overflow:hidden;background:#FFF8F6;box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+        <!-- nav rail -->
+        <div style="width:88px;background:#FCEBE6;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:8px;">
+          <div style="width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#FF5436,#C0381E);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><span class="msr fill" style="font-size:23px;color:#fff;">local_fire_department</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:#5A423C;">today</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:#5A423C;">Now</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;background:#9DF2E4;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:#00201C;">dashboard</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#271814;">Hubs</span></div>
+        </div>
+        <!-- list pane -->
+        <div style="width:320px;border-right:1px solid #F0DFDA;padding:22px 18px;overflow:hidden;">
+          <h3 style="font-family:'Outfit';font-weight:600;font-size:24px;margin:0 0 16px;">Hubs</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#FFDAD2;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#C0381E;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#fff;">celebration</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;">Maya's party</div><div style="font-family:'Figtree';font-size:12px;color:#5A423C;">Today · 12 guests</div></div></div>
+            <div style="background:#FCEBE6;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#ECDCFF;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#23005C;">school</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;">Starts college</div><div style="font-family:'Figtree';font-size:12px;color:#5A423C;">in 12 days</div></div></div>
+            <div style="background:#FCEBE6;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#9DF2E4;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#00201C;">flight_takeoff</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;">Lisbon trip</div><div style="font-family:'Figtree';font-size:12px;color:#5A423C;">in 48 days</div></div></div>
+          </div>
+        </div>
+        <!-- detail pane -->
+        <div style="flex:1;padding:26px 28px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;"><div style="width:46px;height:46px;border-radius:15px;background:#C0381E;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:#fff;">celebration</span></div><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:#00201C;background:#9DF2E4;padding:4px 10px;border-radius:8px;">ACTIVE</span></div>
+          <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 4px;">Maya's birthday party</h2>
+          <div style="font-family:'Figtree';font-size:14px;color:#5A423C;margin-bottom:20px;">Today · 3:00 PM · home</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div style="background:#FCEBE6;border-radius:18px;padding:16px;"><div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:#5A423C;margin-bottom:8px;">SHOPPING</div><div style="font-family:'Figtree';font-size:13.5px;color:#271814;line-height:1.6;">○ Sheet cake<br>○ Plates + cups<br>✓ Candles</div></div>
+            <div style="background:#FCEBE6;border-radius:18px;padding:16px;"><div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:#5A423C;margin-bottom:8px;">BUDGET</div><div style="font-family:'Outfit';font-weight:700;font-size:22px;">$248 <span style="font-family:'Figtree';font-weight:500;font-size:13px;color:#5A423C;">/ $300</span></div><div style="height:9px;border-radius:999px;background:#F0DFDA;margin-top:10px;overflow:hidden;"><div style="width:82%;height:100%;background:#00796F;"></div></div></div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:14px;font-weight:600;background:#FFDAD2;color:#5A1100;padding:12px 18px;border-radius:14px;margin-top:18px;"><span class="msr" style="font-size:19px;">edit_note</span>Hub is pushed, not edited here</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOLDABLE ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#6438AE;">devices_fold</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Foldable</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">hinge-aware dual-pane</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;"><b>Folded</b> = the phone layout exactly (single column, bottom bar). <b>Unfolded</b> = a hinge-aware two-pane: Now on the leading pane, the deep-linked Hub on the trailing pane, so a tapped briefing card opens its hub beside the feed instead of replacing it. Content respects the hinge gutter — nothing critical under the fold.</p>
+      <div style="width:1000px;height:560px;border-radius:26px;overflow:hidden;background:#FFF8F6;box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;position:relative;">
+        <!-- left pane: Now -->
+        <div style="flex:1;padding:26px 26px;overflow:hidden;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#5A423C;letter-spacing:0.03em;margin-bottom:8px;">SATURDAY · NOW</div>
+          <h2 style="font-family:'Outfit';font-weight:600;font-size:30px;letter-spacing:-0.02em;margin:0 0 18px;">Good morning, Pat</h2>
+          <div style="background:#FFDAD2;border-radius:22px;padding:18px;margin-bottom:13px;"><div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#5A1100;margin-bottom:6px;">PARTY · TODAY</div><div style="font-family:'Outfit';font-weight:600;font-size:18px;color:#5A1100;line-height:1.2;">Ordered the groceries?</div><div style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;background:#C0381E;color:#fff;font-family:'Figtree';font-weight:600;font-size:13px;padding:9px 15px;border-radius:999px;">Open list <span class="msr" style="font-size:15px;">arrow_outward</span></div></div>
+          <div style="background:#ECDCFF;border-radius:22px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;"><div><div style="font-family:'Figtree';font-size:11px;font-weight:600;color:#23005C;">COUNTDOWN</div><div style="font-family:'Outfit';font-weight:600;font-size:16px;color:#23005C;">Maya starts college</div></div><div style="font-family:'Outfit';font-weight:700;font-size:28px;color:#23005C;">12</div></div>
+        </div>
+        <!-- hinge -->
+        <div style="width:22px;background:linear-gradient(90deg,rgba(39,24,20,0.10),rgba(39,24,20,0.02),rgba(39,24,20,0.10));"></div>
+        <!-- right pane: Hub -->
+        <div style="flex:1;padding:26px 26px;overflow:hidden;background:#FCEBE6;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:40px;height:40px;border-radius:13px;background:#C0381E;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:#fff;">celebration</span></div><span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:#00201C;background:#9DF2E4;padding:3px 9px;border-radius:7px;">DEEP-LINKED</span></div>
+          <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;margin:0 0 14px;letter-spacing:-0.01em;">Maya's party · Shopping</h2>
+          <div style="background:#FFF8F6;border-radius:18px;padding:6px 8px;box-shadow:0 0 0 3px #C0381E;">
+            <div style="display:flex;align-items:center;gap:12px;padding:11px;"><span style="width:22px;height:22px;border-radius:7px;border:2px solid #85736E;"></span><div style="font-family:'Figtree';font-size:14px;font-weight:500;">Sheet cake (GF)</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px;"><span style="width:22px;height:22px;border-radius:7px;border:2px solid #85736E;"></span><div style="font-family:'Figtree';font-size:14px;font-weight:500;">Plates + cups</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px;"><span style="width:22px;height:22px;border-radius:7px;background:#C0381E;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:#fff;">check</span></span><div style="font-family:'Figtree';font-size:14px;font-weight:500;color:#5A423C;text-decoration:line-through;">Candles</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DESKTOP ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#C0381E;">desktop_windows</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Desktop / expanded</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">≥1240dp · Compose for Web</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;"><b>Permanent NavigationDrawer</b> on the leading edge with labeled destinations. Now becomes a centered single column with a generous max content width (~720px) so lines never run long; Hubs uses list-detail in the remaining space. Multi-column hub grid for browsing.</p>
+      <div style="width:1280px;height:680px;border-radius:24px;overflow:hidden;background:#FFF8F6;box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+        <!-- drawer -->
+        <div style="width:248px;background:#FCEBE6;padding:24px 16px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 22px;"><div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#FF5436,#C0381E);display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#fff;">local_fire_department</span></div><span style="font-family:'Outfit';font-weight:600;font-size:19px;">Hearth</span></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 18px;border-radius:999px;"><span class="msr" style="font-size:22px;color:#5A423C;">today</span><span style="font-family:'Figtree';font-weight:500;font-size:15px;color:#5A423C;">Now</span></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 18px;border-radius:999px;background:#FFDAD2;"><span class="msr fill" style="font-size:22px;color:#5A1100;">dashboard</span><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:#5A1100;">Hubs</span><span style="margin-left:auto;font-family:'Figtree';font-size:12px;font-weight:600;color:#5A1100;">5</span></div>
+        </div>
+        <!-- content -->
+        <div style="flex:1;padding:30px 36px;overflow:hidden;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;"><h2 style="font-family:'Outfit';font-weight:600;font-size:30px;letter-spacing:-0.015em;margin:0;">Hubs</h2><span style="font-family:'Figtree';font-size:13px;color:#5A423C;">5 projects · 2 active</span></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+            <div style="background:#FFDAD2;border-radius:22px;padding:20px;"><div style="width:46px;height:46px;border-radius:15px;background:#C0381E;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><span class="msr fill" style="font-size:24px;color:#fff;">celebration</span></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:#5A1100;">Maya's party</div><div style="font-family:'Figtree';font-size:13px;color:#7A2615;margin-top:3px;">Today · 12 guests</div></div>
+            <div style="background:#ECDCFF;border-radius:22px;padding:20px;"><div style="width:46px;height:46px;border-radius:15px;background:#6438AE;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><span class="msr fill" style="font-size:24px;color:#fff;">school</span></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:#23005C;">Starts college</div><div style="font-family:'Figtree';font-size:13px;color:#4C2092;margin-top:3px;">in 12 days</div></div>
+            <div style="background:#9DF2E4;border-radius:22px;padding:20px;"><div style="width:46px;height:46px;border-radius:15px;background:#00796F;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><span class="msr fill" style="font-size:24px;color:#fff;">flight_takeoff</span></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:#00201C;">Lisbon trip</div><div style="font-family:'Figtree';font-size:13px;color:#005048;margin-top:3px;">in 48 days</div></div>
+            <div style="background:#FCEBE6;border-radius:22px;padding:20px;"><div style="width:46px;height:46px;border-radius:15px;background:#ECDCFF;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><span class="msr fill" style="font-size:24px;color:#23005C;">medical_services</span></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;">Dad's surgery</div><div style="font-family:'Figtree';font-size:13px;color:#5A423C;margin-top:3px;">in 3 days</div></div>
+            <div style="background:#FCEBE6;border-radius:22px;padding:20px;opacity:0.72;"><div style="width:46px;height:46px;border-radius:15px;background:#F0DFDA;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><span class="msr fill" style="font-size:24px;color:#5A423C;">home_work</span></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;">House move</div><div style="font-family:'Figtree';font-size:13px;color:#5A423C;margin-top:3px;">Archived · May</div></div>
+            <div style="border:2px dashed #D8C2BB;border-radius:22px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8C726B;"><span class="msr" style="font-size:30px;margin-bottom:8px;">add</span><div style="font-family:'Figtree';font-size:13px;font-weight:500;">Hubs appear automatically</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WEAR ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#00796F;">watch</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Wear OS</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">its own paradigm — a glanceable tile</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;"><b>Not a shrunken phone.</b> A single <b>Tile</b> shows only the one next thing — title, the single most useful action, a countdown — and a small <b>complication</b> on the watch face surfaces the nearest deadline. No feed, no scrolling dossier. Tapping the tile opens the phone/web app.</p>
+      <div style="display:flex;gap:40px;align-items:flex-start;">
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:12px;">NEXT-THING TILE</div>
+          <div style="width:240px;height:240px;border-radius:999px;background:#1A110E;box-shadow:0 14px 40px rgba(39,24,20,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:38px;">
+            <span class="msr fill" style="font-size:30px;color:#FFB4A3;margin-bottom:8px;">celebration</span>
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#A08D87;letter-spacing:0.04em;">PARTY · TODAY 3PM</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:18px;color:#F0DFDA;line-height:1.15;margin:6px 0 14px;">7 items still<br>to buy</div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:#5F1500;background:#FFB4A3;padding:8px 18px;border-radius:999px;">Open list</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:12px;">FACE COMPLICATION</div>
+          <div style="width:240px;height:240px;border-radius:999px;background:radial-gradient(circle at 50% 40%,#322824,#140C0A);box-shadow:0 14px 40px rgba(39,24,20,0.3);position:relative;display:flex;align-items:center;justify-content:center;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:46px;color:#F0DFDA;letter-spacing:-0.02em;">9:41</div>
+            <div style="position:absolute;bottom:58px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:#9A2A12;border-radius:999px;padding:6px 13px;"><span class="msr fill" style="font-size:15px;color:#FFDAD2;">celebration</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#FFDAD2;">Party · 0d</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
