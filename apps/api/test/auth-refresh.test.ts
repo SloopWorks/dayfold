@@ -31,4 +31,20 @@ describe("refresh lineage", () => {
     const cred = await q(`SELECT revoked_at FROM credentials WHERE id='c1'`);
     expect(cred.rows[0].revoked_at).not.toBeNull();
   });
+
+  it("concurrent rotate on same token: exactly one winner gets a new refresh", async () => {
+    // reset credential revoked_at so rotate isn't blocked
+    await q(`UPDATE credentials SET revoked_at=NULL WHERE id='c1'`);
+    const token = await issueRefresh("c1");
+    const [r1, r2] = await Promise.all([rotate(token), rotate(token)]);
+    const winners = [r1, r2].filter((r) => r !== null && "refresh" in r);
+    const losers  = [r1, r2].filter((r) => r === null || !("refresh" in r));
+    expect(winners).toHaveLength(1);
+    expect(losers).toHaveLength(1);
+  });
+
+  it("rotate on never-issued token returns null", async () => {
+    const result = await rotate("this-token-was-never-issued");
+    expect(result).toBeNull();
+  });
 });
