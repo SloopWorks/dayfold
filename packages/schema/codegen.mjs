@@ -33,8 +33,34 @@ for (const name of order) {
   out += `export type ${name} = z.infer<typeof ${name}Schema>;\n\n`;
 }
 
-const outDir = resolve(here, "../../apps/api/src/generated");
-mkdirSync(outDir, { recursive: true });
-const outPath = resolve(outDir, "content.ts");
-writeFileSync(outPath, out);
-console.log(`codegen OK → ${outPath} (${out.length} bytes, ${order.length} types)`);
+const tsDir = resolve(here, "../../apps/api/src/generated");
+mkdirSync(tsDir, { recursive: true });
+const tsPath = resolve(tsDir, "content.ts");
+writeFileSync(tsPath, out);
+console.log(`TS  codegen OK → ${tsPath} (${out.length} bytes, ${order.length} types)`);
+
+// --- Kotlin (quicktype) ---------------------------------------------------
+// quicktype needs a root type; our schema is $defs-only, so build a wrapper
+// root that references every top-level entity, then generate kotlinx classes.
+import { execSync } from "node:child_process";
+const topLevel = ["Hub", "Section", "Block", "BriefingCard", "Place", "SyncResponse"];
+const wrapper = {
+  $schema: schema.$schema,
+  type: "object",
+  properties: Object.fromEntries(topLevel.map((n) => [n, { $ref: `#/$defs/${n}` }])),
+  $defs: defs,
+};
+const wrapPath = resolve(here, ".wrapper.schema.json");
+writeFileSync(wrapPath, JSON.stringify(wrapper));
+const ktDir = resolve(here, "../../packages/schema/kotlin-gen");
+mkdirSync(ktDir, { recursive: true });
+const ktPath = resolve(ktDir, "Content.kt");
+try {
+  execSync(
+    `npx --yes quicktype -s schema --lang kotlin --framework kotlinx --package com.familyai.schema -o "${ktPath}" "${wrapPath}"`,
+    { stdio: "inherit", cwd: here }
+  );
+  console.log(`KT  codegen OK → ${ktPath}`);
+} finally {
+  try { execSync(`rm -f "${wrapPath}"`); } catch {}
+}
