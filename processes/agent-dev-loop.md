@@ -22,11 +22,25 @@ device-screencap-every-iteration → faster, fewer tokens.
 cd apps/api
 export DATABASE_URL=postgres:///fad_test
 psql -d fad_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" && psql -d fad_test -f migrations/0001_m0_init.sql
-node scripts/provision.mjs "Fam"          # → FAMILY_ID / HOUSEHOLD_CREDENTIAL_ID / HOUSEHOLD_SECRET
-npx vitest run                            # 19 tests vs live PG
+psql -d fad_test -f migrations/0002_auth.sql   # AUTH-S1 tenancy tables (ADR 0021)
+node scripts/provision.mjs "Fam"          # → FAMILY_ID / HOUSEHOLD_CREDENTIAL_ID / HOUSEHOLD_SECRET (legacy path)
+npx vitest run                            # vs live PG (content + auth suites)
 node src/server.ts                        # local server :8787 (background)
 ```
-Cloud (live): `https://family-ai-dashboard.vercel.app`. Redeploy:
+
+**Auth (AUTH-S1, ADR 0021) — real tokens without hardcoding (LOCAL/test only).**
+The API now mints its own EdDSA tokens + enforces per-request tenancy. Env needed:
+`AUTH_SIGNING_KEY` (Ed25519 private JWK w/ `kid`), `AUTH_ISS`, `AUTH_AUD`. To get a
+token locally without Firebase, enable the **gated dev-token** endpoint (refuses in
+prod/preview): `ENABLE_DEV_AUTH=1 DEV_AUTH_SECRET=… node src/server.ts`, then
+`POST /auth/dev-token` (Bearer `$DEV_AUTH_SECRET`, body `{provider:"dev",provider_uid:"alice"}`)
+→ `{access, refresh}`. `POST /families {name}` with that access JWT → mints a family
+(creator=owner) + binds the cred. Use `access` as `Bearer` on `/families/{fid}/*`.
+**The legacy `HOUSEHOLD_SECRET` still works on content routes until the S3 cutover.**
+Cloud/device (Pixel) hardcoding fully dies at **AUTH-S3** (CLI device grant).
+
+Cloud (live): `https://family-ai-dashboard.vercel.app`. Redeploy (operator-gated;
+set the `AUTH_*` env in Vercel first):
 `npm run build:fn && vercel deploy --prod --yes --scope patrick-jacksons-projects-c406a118`.
 
 ## ⚠ Single Gradle build at `apps/` (TASK-KMP, 2026-06-19)

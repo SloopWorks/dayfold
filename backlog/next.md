@@ -8,6 +8,34 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## AUTH (ADR 0021 — S1→S3→S2→S4→S5/S6)
+
+**AUTH-S1 (Tenancy & token backbone) — ✅ DONE + MERGED** to `main` 2026-06-19
+(branch `auth-s1`). Backend-only, Firebase-stubbed, non-breaking. EdDSA token
+service + refresh lineage + `authorizeTenant` middleware (JWT + legacy household
+path, default-deny, fail-closed, per-request membership re-resolution, cross-tenant
+404) + `/auth/{refresh,signout}` + `POST /families` + JWKS + **gated local-only
+dev-token** (kills LOCAL build/test hardcoding) + content routes migrated. 51 tests
++ 1 skipped, vs live PG; final whole-branch security review passed (no Critical,
+no fail-open seam). Spec/plan in `docs/superpowers/{specs,plans}/2026-06-19-auth-s1*`.
+- **Carried debt (from the final review):**
+  - **→ S3:** refresh **~20s reuse-grace not implemented** — a client that retries a
+    refresh (timeout+retry) presents the same token twice → loser hits reuse-detect →
+    **revokes its own credential**. Fails closed; harmless at S1 (single test client),
+    but a real CLI/mobile client at S3 will need the grace re-serve. (Spec §token model.)
+  - **→ S4:** `POST /families` binds only the user's first null-`family_scope`
+    credential → one user creating a **2nd family** gets fail-closed 404s on it
+    (documented by a skipped E2E test). S4 (invites/multi-family) redesigns
+    cred→family binding (per-family creds).
+  - Cleanup (S3 cutover / pass): `:any` typing on the middleware boundary; dev-token
+    `Math.random` cred id → crypto + reuse `mintCredentialFor`; dup `content:*` scope
+    literal; lazy-import = first-request (not boot) detection of missing `AUTH_*`.
+- **NEXT: AUTH-S3** (CLI device grant, RFC 8628) — fully kills cloud/device
+  hardcoding + triggers the legacy household-token cutover. Then S2 (Firebase), S4
+  (invites), S5/S6 (UI, ADR 0008 design-gated).
+- **Deploy note:** the live API still runs the household token until a prod deploy of
+  this branch (operator-gated); the regenerated `api/index.js` carries the auth surface.
+
 ## TASK-KMP — Restructure apps/client into a true KMP module (prerequisite)
 
 **Status:** ready (next session). **Blocks:** TASK-SYNC step 2+ (Android offline
