@@ -36,6 +36,28 @@ blocked** behind a queued Claude-Design expanded-detail pass.
 
 ## AUTH (ADR 0021 — S1→S3→S2→S4→S5/S6)
 
+**AUTH-S4 (owner-approved invites + family-agnostic cred fix) — ✅ DONE (branch
+`auth-s4`, pending merge) 2026-06-19.** `invites` table; app creds family-agnostic
+(`family_scope=NULL`, membership-gated) — **clears the S1 two-family limit** (that
+test un-skipped); `/auth/whoami`→`{family_id, families}` (S3 CLI compat kept);
+mint / redeem (atomic single-use FOR-UPDATE claim) / approve / decline / revoke /
+remove (≥1-owner **row-lock**) / list-queue (invitee identity for the approver);
+owner+`kind='app'` gate; uniform-404 + per-account lockout; never-owner role.
+Spec twice-reviewed (5-dim multi-agent) + 7 TDD tasks each task-reviewed + clean
+final whole-branch security review (no Critical/Important, no fail-open seam). 96
+API tests / 0 skips. Legacy household token still works.
+- **AUTH-S4 follow tickets (deferred, non-blocking):** (1) **S6-facing:** dedupe the
+  approval-queue `user_identities` LEFT JOIN (a multi-identity user fans out to N
+  rows — surfaces at Firebase S2) — note on the S6 task; (2) cleanup: drop dead
+  `clientIp` import (mint) + dead `RETURNING role` (approve); mint `expires_at` via
+  `RETURNING`; (3) soft pending-cap is racy across distinct invites of one family
+  (anti-abuse, non-security); (4) the expiry **sweep** (shared with the S3 m-2
+  follow) for `invites`/`rate_limits`/terminal rows.
+- **NEXT after S4 merge: AUTH-S2** (Firebase identity — needs the operator's
+  Firebase vendor/cost go-ahead + the recovery-floor counsel gate) or the **A8b
+  auth mockups** (authorize-device + connected-devices + invite/approval screens)
+  to unblock **S5/S6 UI**.
+
 **AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE + MERGED** to `main` 2026-06-19
 (PR #2, all CI green). `/device/{authorize,token}` + `/families/:fid/device/{approve,deny}`
 + `/auth/whoami` + the refresh ~20s reuse-grace (resolves the S1 carried debt) +
