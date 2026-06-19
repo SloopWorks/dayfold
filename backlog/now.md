@@ -31,8 +31,15 @@ The immediate next work = **A8: hi-fi mockups of Now + Hubs** (Claude Code +
   = **briefing-feed only** (Hubs → next slice); redux default **0.6.2**.
 - **Spec suite + impl plan + JSON-schema contract = done; schema freeze
   unblocked.** Ready to build the M0 spine.
-- **INB-9 RESOLVED → TypeScript on Vercel (ADR 0018). All P0 gates cleared —
-  build can begin (P0 scaffold is agent-autonomous per ADR 0012).**
+- **INB-9 RESOLVED → TypeScript on Vercel (ADR 0018).**
+- **✅ M0 PROTOTYPE BUILT (12 build-loop iterations; build loop now STOPPED).**
+  server (TS/Hono/Postgres) · CLI (Kotlin) · client core (redux-kotlin 0.6.2) ·
+  feed UI (Compose, headless-render-tested) — all green, CI-enforced on GitHub,
+  every component multi-agent-reviewed + fixes applied. Full CLI→API→DB→/sync
+  round-trip verified live; the feed renders. Deploy config ready (Vercel + Neon
+  pooler). Tracker: `specs/prototype/00-build-spec-plan.md`.
+- **Blocked only on operator gates for literal G1a:** **INB-12** (create Vercel +
+  Neon → deploy, recipe in inbox) · **INB-14** (Android SDK/device; iOS = Mac).
 - **Next product gaps to write (review): G1 content-authoring-loop runbook
   (`processes/`), G2 usefulness signal, the `payload` $defs, the Claude-Design
   triggers brief + the M3-Expressive signature upgrades.**
