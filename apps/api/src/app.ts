@@ -64,7 +64,15 @@ app.post("/auth/refresh", async (c) => {
   const { rotate, hashToken } = await import("./auth/refresh.ts");
   const out = await rotate(body?.refresh || "");
   if (!out) return c.body(null, 401);
-  if ("reuse" in out) return c.body(null, 401);
+  if ("refresh" in out) {
+    if ((out as any).graced) {
+      const { audit } = await import("./auth/audit.ts");
+      await audit("refresh.grace_reissued", {});
+    }
+    // fall through to the existing access re-mint (works for graced rows too)
+  } else { // { reuse: true }
+    return c.body(null, 401);
+  }
   // Look up the credential for the new refresh token to re-mint access.
   // rotate() already inserted the new token row; query by hash of nextOpaque.
   const h = hashToken(out.refresh);
@@ -89,6 +97,18 @@ app.post("/auth/signout", async (c) => {
   await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
   await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
   return c.body(null, 204);
+});
+
+app.get("/auth/whoami", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  try {
+    const { verifyAccess } = await import("./auth/tokens.ts");
+    const payload = await verifyAccess(t);
+    // family_scope lives on the credential row; the JWT cid field points to it.
+    const row = await q(`SELECT family_scope FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [payload.cid]);
+    if (!row || row.rowCount === 0) return c.body(null, 401);
+    return c.json({ family_id: row.rows[0].family_scope });
+  } catch { return c.body(null, 401); }
 });
 
 app.post("/families", async (c) => {
@@ -140,6 +160,81 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, (await repo.softDeleteCard(fid, id)) ? 204 : 404);
+});
+
+app.post("/device/authorize", async (c) => {
+  const { clientIp, hit } = await import("./auth/ratelimit.ts");
+  const ip = clientIp(c);
+  const rl = await hit(`ip:authorize:${ip}`, 600, 10);
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => ({})); // permissive [E2EE hook]
+  const { createAuthorization } = await import("./auth/device.ts");
+  const { audit } = await import("./auth/audit.ts");
+  const { device_code, user_code } = await createAuthorization(body?.client ?? "familyai-cli", ip, c.req.header("user-agent") ?? null);
+  await audit("device.authorize", { detail: { ip } });
+  const base = `${new URL(c.req.url).origin}/device`;
+  return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });
+});
+
+app.post("/device/token", async (c) => {
+  const { clientIp, hit } = await import("./auth/ratelimit.ts");
+  const ip = clientIp(c);
+  const rl = await hit(`ip:token:${ip}`, 600, 600);   // [I-2] anti-DoS, generous
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => null);
+  if (!body?.device_code) return c.json({ error: "invalid_request" }, 400);
+  const { redeem } = await import("./auth/device.ts");
+  const { mintAccess } = await import("./auth/tokens.ts");
+  const { issueRefresh } = await import("./auth/refresh.ts");
+  const out = await redeem(body.device_code, mintAccess, issueRefresh);
+  if ("tokens" in out) {
+    const { audit } = await import("./auth/audit.ts");
+    await audit("device.token.redeemed", { detail: { device_code: body.device_code } });
+    return c.json(out.tokens, 200);
+  }
+  return c.json({ error: out.error }, 400);
+});
+
+async function deviceOwnerGate(c: any, fid: string) {
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return { status: a.status };
+  if (a.role !== "owner") return { status: 403 };
+  if (a.cred.kind !== "app") return { status: 403 }; // [C2] reject cli/content-only
+  return { sub: a.userId as string };
+}
+
+app.post("/families/:fid/device/approve", async (c) => {
+  const fid = c.req.param("fid");
+  const g = await deviceOwnerGate(c, fid);
+  if ("status" in g) return c.body(null, g.status);
+  const { isLocked, recordFailure, resetFailures } = await import("./auth/ratelimit.ts");
+  const { audit } = await import("./auth/audit.ts");
+  const lockKey = `account:approve:${g.sub}`;
+  if (await isLocked(lockKey)) { await audit("device.lockout", { actorUserId: g.sub }); return c.body(null, 429); }
+  const body = await c.req.json().catch(() => null);
+  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  const r = await q(
+    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now()
+     WHERE user_code=$3 AND status='pending' AND expires_at > now() RETURNING device_code`,
+    [g.sub, fid, body.user_code],
+  );
+  if (r.rowCount !== 1) { await recordFailure(lockKey, 900, 5, 900); return c.body(null, 404); } // uniform
+  await resetFailures(lockKey);
+  const { clientIp } = await import("./auth/ratelimit.ts");
+  await audit("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp(c) } });
+  return c.body(null, 204);
+});
+
+app.post("/families/:fid/device/deny", async (c) => {
+  const fid = c.req.param("fid");
+  const g = await deviceOwnerGate(c, fid);
+  if ("status" in g) return c.body(null, g.status);
+  const body = await c.req.json().catch(() => null);
+  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  const r = await q(`UPDATE device_authorizations SET status='denied' WHERE user_code=$1 AND status='pending' AND expires_at > now() RETURNING device_code`, [body.user_code]);
+  const { audit } = await import("./auth/audit.ts");
+  if (r.rowCount === 1) await audit("device.deny", { actorUserId: g.sub, familyId: fid });
+  return c.body(null, r.rowCount === 1 ? 204 : 404);
 });
 
 app.get("/families/:fid/sync", async (c) => {

@@ -36,6 +36,33 @@ blocked** behind a queued Claude-Design expanded-detail pass.
 
 ## AUTH (ADR 0021 — S1→S3→S2→S4→S5/S6)
 
+**AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE (branch `auth-s3`, pending merge)
+2026-06-19.** `/device/{authorize,token}` + `/families/:fid/device/{approve,deny}`
++ `/auth/whoami` + the refresh ~20s reuse-grace (resolves the S1 carried debt) +
+Kotlin CLI `login`/`logout`/`whoami` + device-granted `push` (0600 file,
+cross-process refresh lockfile, legacy env fallback). Owner+`kind='app'` approve
+gate (stolen-CLI + legacy both 403), PATH-resolved tenancy (anti-IDOR), lazy-mint
+at redeem (one-time, atomic), DB-backed rate-limit + per-account lockout, audit
+log. Spec twice-reviewed (7-dim + 4-dim multi-agent) + 7 TDD tasks each
+task-reviewed + a clean final whole-branch security review (no Critical/Important,
+no fail-open seam). 67 API tests + CLI CredentialsTest + live round-trip green.
+- **AUTH-S3 follow tickets (deferred, non-blocking):** (1) retention sweep for
+  `rate_limits` / `audit_log` / terminal `device_authorizations` (unbounded growth
+  — land before non-dogfood traffic); (2) drop the vestigial `genuineReuse` var in
+  refresh.ts; (3) align `/device/deny` already-denied → 204 (vs current 404) +
+  tighten the lockout test to the exact 6th-attempt 429; (4) `genUserCode` modulo
+  bias (cosmetic; device_code is the secret); (5) `slow_down` interval cap (CLI is
+  wall-clock-bounded already).
+- **⚠ Governance note:** ADR 0021 §3 says the legacy household-token branch is
+  "removed in S3." This slice **deliberately KEPT it** (the S3 brainstorm chose
+  non-breaking coexistence; removal gated to a follow once the device-granted CLI
+  is deployed + the operator migrates). Intentional spec-over-ADR narrowing — the
+  legacy-removal cutover remains a tracked follow (the `TODO(S3-cutover)` in
+  `middleware.ts`). ADR 0021's "removed in S3" should not be read as done.
+- **NEXT after S3 merge: AUTH-S2** (Firebase identity) or **S4** (invites) per ADR
+  0021. S3 fully kills CLI hardcoding once deployed (operator-gated prod deploy +
+  `AUTH_*` env in Vercel).
+
 **AUTH-S1 (Tenancy & token backbone) — ✅ DONE + MERGED** to `main` 2026-06-19
 (branch `auth-s1`). Backend-only, Firebase-stubbed, non-breaking. EdDSA token
 service + refresh lineage + `authorizeTenant` middleware (JWT + legacy household

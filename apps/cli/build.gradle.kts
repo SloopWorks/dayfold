@@ -1,12 +1,13 @@
 plugins {
   kotlin("jvm") version "2.3.20"
+  kotlin("plugin.serialization") version "2.3.20"
   application
 }
 
 repositories { mavenCentral() }
 
-// JDK-only (java.net.http for the API client) — keeps the build small/fast.
 dependencies {
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
   testImplementation(kotlin("test"))
 }
 

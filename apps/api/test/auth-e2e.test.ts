@@ -109,4 +109,12 @@ describe("auth E2E + multitenancy", () => {
     // to the first family. This is accepted S1 behavior; S4 redesigns
     // cred→family binding to allow multiple families per credential.
   });
+  it("whoami returns family_id for a valid device-flow token", async () => {
+    const t = await devToken("whoami-user");
+    const fam = await (await app.request("/families", { method: "POST", headers: { ...dev, authorization: `Bearer ${t}` },
+      body: JSON.stringify({ name: "Whoami Fam" }) })).json();
+    const r = await app.request("/auth/whoami", { headers: { authorization: `Bearer ${t}` } });
+    expect(r.status).toBe(200);
+    expect((await r.json()).family_id).toBe(fam.familyId);
+  });
 });
