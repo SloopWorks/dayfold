@@ -1,5 +1,13 @@
 # Prototype Build-Spec Plan (loop state)
 
+> ✅ **GATE G1a — MET (2026-06-18).** Operator authors via the CLI → TS API →
+> Postgres → Android app pulls `/sync` → Compose feed renders on device
+> (verified on the emulator; screenshot `g1a-android-feed.png`). The full M0
+> loop works end to end. **I-build-13:** Android app (`apps/androidApp`) reusing
+> the shared `FeedScreen`+store+`SyncClient` (srcDir, no dup); `SyncClient`
+> moved to `HttpURLConnection` (desktop+Android). 3 CLI-authored cards rendered
+> in feed order. Remaining M0: iOS shell (INB-14 Mac) + cloud deploy (INB-12).
+>
 > 🔨 **BUILD PHASE (loop `18ff12bf`, started 2026-06-18).** Implementing M0 per
 > `10-implementation-plan.md`. **I-build-1:** schema `payload` $defs (C4 closed);
 > P-1 escalated (INB-12). **I-build-2:** monorepo skeleton (root package.json

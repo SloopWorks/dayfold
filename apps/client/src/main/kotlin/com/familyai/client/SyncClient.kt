@@ -2,37 +2,40 @@ package com.familyai.client
 
 import kotlinx.serialization.json.Json
 import org.reduxkotlin.Store
-import java.net.URI
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 
 // Pulls /sync (M0 household token) and dispatches the delta into the store.
-// JDK-only HTTP so the core stays dependency-light; the same logic ports to
-// ktor in the KMP/Compose shell later.
+// HttpURLConnection works on BOTH desktop JVM and Android (java.net.http is
+// JVM-only) so this stays in the shared source. The KMP/ktor swap is a later
+// cleanup; the contract is identical.
 class SyncClient(
   private val api: String,
   private val familyId: String,
   private val secret: String,
-  private val http: HttpClient = HttpClient.newHttpClient(),
   private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
   fun sync(store: Store<AppState>) {
     store.dispatch(SyncStarted)
     try {
-      // [review F4] drain all pages — each SyncSucceeded advances the cursor on
-      // commit, so re-reading store.state.cursor walks to the next page.
+      // [F4] drain all pages — each SyncSucceeded advances the cursor on commit.
       do {
         val cursor = store.state.cursor
         val qs = cursor?.let { "?since=" + URLEncoder.encode(it, "UTF-8") } ?: ""
-        val req = HttpRequest.newBuilder(URI.create("$api/families/$familyId/sync$qs"))
-          .header("authorization", "Bearer $secret").GET().build()
-        val res = http.send(req, HttpResponse.BodyHandlers.ofString())
-        if (res.statusCode() != 200) {
-          store.dispatch(SyncFailed("HTTP ${res.statusCode()}")); return
+        val conn = (URL("$api/families/$familyId/sync$qs").openConnection() as HttpURLConnection).apply {
+          requestMethod = "GET"
+          setRequestProperty("authorization", "Bearer $secret")
+          connectTimeout = 10_000
+          readTimeout = 10_000
         }
-        val resp = json.decodeFromString(SyncResponse.serializer(), res.body())
+        val code = conn.responseCode
+        if (code != 200) {
+          conn.disconnect(); store.dispatch(SyncFailed("HTTP $code")); return
+        }
+        val body = conn.inputStream.bufferedReader().use { it.readText() }
+        conn.disconnect()
+        val resp = json.decodeFromString(SyncResponse.serializer(), body)
         store.dispatch(SyncSucceeded(resp))
         if (!resp.hasMore) break
       } while (true)
