@@ -29,19 +29,17 @@ export async function isLocked(key: string): Promise<boolean> {
 }
 
 export async function recordFailure(key: string, windowSecs: number, threshold: number, lockSecs: number): Promise<void> {
-  const r = await q(
+  await q(
     `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
-     ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
-     RETURNING count`,
-    [key, windowSecs],
+     ON CONFLICT (key, window_start) DO UPDATE SET
+       count = rate_limits.count + 1,
+       locked_until = CASE
+         WHEN rate_limits.count + 1 >= $3
+         THEN now() + ($4 || ' seconds')::interval
+         ELSE rate_limits.locked_until
+       END`,
+    [key, windowSecs, threshold, String(lockSecs)],
   );
-  if ((r.rows[0].count as number) >= threshold) {
-    await q(
-      `UPDATE rate_limits SET locked_until = now() + ($2 || ' seconds')::interval
-       WHERE key=$1 AND window_start = ${winSql.replace("$2", "$3")}`,
-      [key, String(lockSecs), windowSecs],
-    );
-  }
 }
 
 export async function resetFailures(key: string): Promise<void> {

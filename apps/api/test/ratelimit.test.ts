@@ -28,6 +28,13 @@ describe("ratelimit + audit", () => {
     await resetFailures("account:approve:uX");
     expect(await isLocked("account:approve:uX")).toBe(false);
   });
+  it("lockout: fires when lockSecs != windowSecs (regression for window-keying bug)", async () => {
+    // window=600s, threshold=5, lock=900s — the bug caused locked_until to never be set
+    for (let i = 0; i < 5; i++) await recordFailure("account:approve:uY", 600, 5, 900);
+    expect(await isLocked("account:approve:uY")).toBe(true);
+    await resetFailures("account:approve:uY");
+    expect(await isLocked("account:approve:uY")).toBe(false);
+  });
   it("audit writes a row", async () => {
     await audit("device.approve", { actorUserId: "u1", familyId: "f1", detail: { x: 1 } });
     const r = await q(`SELECT event, actor_user_id, detail FROM audit_log WHERE event='device.approve'`);
