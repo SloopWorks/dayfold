@@ -94,9 +94,16 @@ initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
   grant anti-phishing, no-auto-link, per-request revocation, Firebase dedupe
   corrected, relational content tables. Spec + Hub schema hardened.
 
-## Auth is a separate later milestone
+## Auth is now in ACTIVE BUILD (ADR 0021, supersedes the "later milestone" note)
 
-Per ADR 0011: the **prototype (A3) keeps the single household token** — no
-RFC 8628, no Universal Links. The full auth/family/invite story builds after
-the prototype. A8b (auth mockups, incl. the missing authorize-device screen)
-can be designed now via Claude Design.
+Operator pulled auth forward 2026-06-19 (ADR 0021, extends 0011): build order
+**S1→S3→S2→S4→S5/S6**. **AUTH-S1 (tenancy & token backbone) ✅ DONE + MERGED**
+(`main` 5753b32): EdDSA tokens + refresh lineage + `authorizeTenant` (JWT + legacy
+household path, default-deny, fail-closed, cross-tenant 404) + `/auth/{refresh,
+signout}` + `POST /families` + JWKS + gated local-only dev-token. 51 tests + final
+security review passed; legacy household token still works (cutover at S3). Details
++ carried debt (S3 refresh-grace, S4 per-family cred binding) in `backlog/next.md`.
+**NEXT = AUTH-S3** (CLI device-grant, RFC 8628) — kills cloud/device hardcoding +
+triggers the household-token cutover. S5/S6 (client auth UI) stay ADR 0008
+design-gated (A8b auth mockups, incl. authorize-device screen, design via Claude
+Design). Prod deploy of the auth surface = operator-gated (set `AUTH_*` env in Vercel).
