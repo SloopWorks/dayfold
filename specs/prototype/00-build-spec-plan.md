@@ -13,9 +13,13 @@
 > gate (cross-tenant 404) + repo (idempotent upsert, keyset sync w/ tombstones,
 > soft-delete) against live Postgres. **16 tests GREEN** (9 unit + 7
 > integration: round-trip, version bump, tombstone-sync, 401, 404, mass-assign,
-> provenance). The G1a content path works over HTTP. **Next:** the seed/token
-> provision script + the CLI push (P2) — INB-12 (Vercel/Neon) pending for
-> preview/prod deploy.
+> provenance). **I-build-6:** provision script (seed family + mint household
+> credential + 256-bit secret) — **end-to-end VERIFIED** (provision → that
+> secret PUTs a card → 200 → sync returns it). **✅ P1 COMPLETE: the whole
+> server side of G1a is built + verified** (DDL, content API, auth, provision).
+> **Next: P2 the Kotlin CLI `push`** (needs the Gradle wrapper) — the operator's
+> authoring side. Then P3 feed client = G1a. INB-12 (Vercel/Neon) pending for
+> the cloud deploy (everything verifies locally meanwhile).
 
 ## Milestone glossary (C6 — bind the vocabularies)
 
