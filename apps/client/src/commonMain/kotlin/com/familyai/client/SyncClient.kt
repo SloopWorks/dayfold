@@ -5,7 +5,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.Json
 // Transport layer for the /sync endpoint (M0 household token).
 // ktor-client = cross-platform HTTP (cio desktop · okhttp android · darwin iOS),

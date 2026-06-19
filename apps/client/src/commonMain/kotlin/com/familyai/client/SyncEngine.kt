@@ -29,7 +29,10 @@ class SyncEngine(
   private var bridgeJob: Job? = null
   private var pollJob: Job? = null
 
-  /** Cold-start hydration: project the DB into the store. First emission = cached rows, zero network. */
+  /**
+   * Cold-start hydration: project the DB into the store. First emission = cached rows, zero network.
+   * Not thread-safe — must be called from the main thread ([bridgeJob] guard is non-atomic).
+   */
   fun start() {
     if (bridgeJob != null) return
     bridgeJob = scope.launch {
@@ -37,7 +40,10 @@ class SyncEngine(
     }
   }
 
-  /** Foreground: sync immediately + (re)start the poll loop. */
+  /**
+   * Foreground: sync immediately + (re)start the poll loop.
+   * Not thread-safe — must be called from the main thread ([pollJob] guard is non-atomic).
+   */
   fun resume() {
     scope.launch { syncNow() }
     if (pollJob == null) {
