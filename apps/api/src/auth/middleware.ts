@@ -2,8 +2,10 @@
 // new EdDSA access-JWT OR the legacy household token (a distinct, content-scope-
 // only path — TODO(S3-cutover): remove the legacy branch once the CLI is on JWTs).
 import { q } from "../db.ts";
-import { verifyAccess } from "./tokens.ts";
 import { constantTimeEqual } from "../security.ts";
+// verifyAccess is imported lazily inside the function so that importing this
+// module does not trigger the module-level AUTH_* env guards in tokens.ts.
+// Tests that don't set AUTH vars (api.test.ts) can still load app.ts safely.
 
 function bearer(c: any): string | undefined {
   const h = c.req.header("authorization") || "";
@@ -32,7 +34,10 @@ export async function authorizeTenant(c: any, fid: string): Promise<Ok | Err> {
 
   // Access-JWT branch.
   let claims: { sub: string; cid: string };
-  try { claims = await verifyAccess(token); } catch { return { status: 401 }; }
+  try {
+    const { verifyAccess } = await import("./tokens.ts");
+    claims = await verifyAccess(token);
+  } catch { return { status: 401 }; }
   try {
     const r = await q(`SELECT * FROM credentials WHERE id=$1`, [claims.cid]);
     const cred = r.rows[0];

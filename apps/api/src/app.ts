@@ -3,9 +3,12 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { q } from "./db.ts";
-import { constantTimeEqual, stripServerManaged, stampProvenance } from "./security.ts";
+import { stripServerManaged, stampProvenance } from "./security.ts";
 import { BriefingCardSchema } from "./generated/content.ts";
 import * as repo from "./repo.ts";
+// Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
+// load app.ts without triggering the module-level env-guard throws in tokens.ts.
+import { authorizeTenant } from "./auth/middleware.ts";
 
 export const app = new Hono();
 
@@ -26,29 +29,95 @@ function bearer(c: any): string | undefined {
   return h.startsWith("Bearer ") ? h.slice(7) : undefined;
 }
 
-// One auth+tenancy gate (M0 household token). Cross-tenant → 404; bad → 401.
-// [F1] FAIL CLOSED: any DB/lookup error → 401, never fail-open.
-async function auth(c: any, fid: string) {
-  const token = bearer(c);
-  const secret = process.env.HOUSEHOLD_SECRET || "";
-  if (!token || !secret || !constantTimeEqual(token, secret)) return { status: 401 as const };
-  const credId = process.env.HOUSEHOLD_CREDENTIAL_ID || "";
-  let cred: any;
-  try {
-    const r = await q(`SELECT * FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [credId]);
-    cred = r.rows[0];
-  } catch { return { status: 401 as const }; }
-  if (!cred) return { status: 401 as const };
-  if (cred.family_scope !== fid) return { status: 404 as const }; // identical body, no enumeration
-  return { cred, scopes: (cred.scopes ?? []) as string[] };
+function devAuthAllowed(_c: any): boolean {
+  if (process.env.ENABLE_DEV_AUTH !== "1") return false;
+  const env = process.env.VERCEL_ENV;
+  if (env === "production" || env === "preview") return false;
+  return true;
 }
-const can = (a: any, s: string) => (a.scopes ?? []).includes(s);
+
+// Gated, local-only: mint a real token from a dev identity (kills local hardcoding).
+app.post("/auth/dev-token", async (c) => {
+  if (!devAuthAllowed(c)) return c.body(null, 404);                 // invisible in prod/preview
+  if (bearer(c) !== (process.env.DEV_AUTH_SECRET || "\0")) return c.body(null, 401);
+  const body = await c.req.json().catch(() => null);
+  const { StubVerifier, findOrCreateUser } = await import("./auth/identity.ts");
+  const idn = await new StubVerifier().verify(body).catch(() => null);
+  if (!idn) return c.json({ type: "bad-identity" }, 400);
+  const { userId } = await findOrCreateUser(idn);
+  console.warn(`[dev-auth] minted token for ${idn.provider}:${idn.provider_uid} user=${userId}`);
+  // Insert a null-family-scope app credential for this user
+  const credentialId = "cred_" + Math.random().toString(16).slice(2);
+  await q(
+    `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
+    [credentialId, userId],
+  );
+  const { mintAccess } = await import("./auth/tokens.ts");
+  const { issueRefresh } = await import("./auth/refresh.ts");
+  const access = await mintAccess({ sub: userId, cid: credentialId });
+  const refresh = await issueRefresh(credentialId);
+  return c.json({ access, refresh });
+});
+
+app.post("/auth/refresh", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const { rotate, hashToken } = await import("./auth/refresh.ts");
+  const out = await rotate(body?.refresh || "");
+  if (!out) return c.body(null, 401);
+  if ("reuse" in out) return c.body(null, 401);
+  // Look up the credential for the new refresh token to re-mint access.
+  // rotate() already inserted the new token row; query by hash of nextOpaque.
+  const h = hashToken(out.refresh);
+  const row = await q(
+    `SELECT rt.credential_id, c.user_id FROM refresh_tokens rt JOIN credentials c ON c.id=rt.credential_id WHERE rt.token_hash=$1`,
+    [h],
+  ).catch(() => null);
+  if (!row || row.rowCount === 0) return c.body(null, 401);
+  const { credential_id: cid, user_id: sub } = row.rows[0];
+  const { mintAccess } = await import("./auth/tokens.ts");
+  const access = await mintAccess({ sub, cid });
+  return c.json({ access, refresh: out.refresh });
+});
+
+app.post("/auth/signout", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let cid: string;
+  try {
+    const { verifyAccess } = await import("./auth/tokens.ts");
+    cid = (await verifyAccess(t)).cid;
+  } catch { return c.body(null, 401); }
+  await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
+  await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
+  return c.body(null, 204);
+});
+
+app.post("/families", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let sub: string;
+  try {
+    const { verifyAccess } = await import("./auth/tokens.ts");
+    sub = (await verifyAccess(t)).sub;
+  } catch { return c.body(null, 401); }
+  const body = await c.req.json().catch(() => null);
+  if (!body?.name || typeof body.name !== "string") return c.json({ type: "bad-name" }, 400);
+  const { createFamily } = await import("./auth/identity.ts");
+  const { familyId } = await createFamily(sub, body.name);
+  // bind the caller's credential to this family so the JWT can write content
+  await q(`UPDATE credentials SET family_scope=$1 WHERE user_id=$2 AND family_scope IS NULL`, [familyId, sub]);
+  return c.json({ familyId });
+});
+
+app.get("/.well-known/jwks.json", async (c) => {
+  c.header("cache-control", "public, max-age=300");
+  const { jwks } = await import("./auth/tokens.ts");
+  return c.json(await jwks());
+});
 
 app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  const a = await auth(c, fid);
+  const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!can(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   let body: any = stripServerManaged(raw);          // mass-assignment: drop server fields
@@ -60,22 +129,22 @@ app.put("/families/:fid/cards/:id", async (c) => {
 
 app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
-  const a = await auth(c, fid);
+  const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   return c.json(await repo.listCards(fid));
 });
 
 app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  const a = await auth(c, fid);
+  const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!can(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, (await repo.softDeleteCard(fid, id)) ? 204 : 404);
 });
 
 app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
-  const a = await auth(c, fid);
+  const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   const cursor = c.req.query("since");
   let su: string | null = null, si: string | null = null;
