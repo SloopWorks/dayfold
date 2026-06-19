@@ -2,11 +2,12 @@
 
 ## Status
 
-**Proposed** 2026-06-19 (operator-directed re-prioritization). Extends — does not
-supersede — **ADR 0011** (Auth & Family-Tenancy, Hardened, Accepted). Triggered by
-ADR 0011's own revisit clause: *"or auth moves from 'later milestone' into active
-build (re-confirm the sequencing boundary then)."* This ADR records that
-re-confirmation. **Must be Accepted before any auth build begins.** Design of
+**Accepted** 2026-06-19 (operator-directed re-prioritization; approved in-session,
+build order S1→S3→S2→S4→S5/S6 confirmed). Immutable — supersede, do not edit.
+Extends — does not supersede — **ADR 0011** (Auth & Family-Tenancy, Hardened,
+Accepted). Triggered by ADR 0011's own revisit clause: *"or auth moves from
+'later milestone' into active build (re-confirm the sequencing boundary then)."*
+This ADR records that re-confirmation. Design of
 record: `docs/superpowers/specs/2026-06-19-auth-s1-tenancy-token-backbone-design.md`
 + `specs/prototype/04-auth.md` + `specs/auth-and-family-design.md`.
 
