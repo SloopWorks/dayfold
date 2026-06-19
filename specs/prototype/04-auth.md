@@ -115,7 +115,9 @@ fallback for 5.1.1(v)).
 ## M0 household token [M0]
 
 A `credentials` row (`kind='cli'`, `user_id NULL`, `family_scope`=one family,
-`scopes={content:write}`). Resolution: middleware computes
+**`scopes={content:read, content:write}`** — read is required for the client's
+`GET /sync` render path and the CLI `--diff`; both are *content* scopes so
+"403 on every non-content route" still holds). Resolution: middleware computes
 `constant_time_eq(presented, $HOUSEHOLD_SECRET)` → loads the row by
 `$HOUSEHOLD_CREDENTIAL_ID` → still applies step 3 `revoked_at`. Secret in the
 platform secret store (deploy role **cannot read-back**; scrubbed from logs).

@@ -112,7 +112,6 @@ CREATE TABLE briefing_cards (              -- the "Now" surface
   -- the requester's own tenant-scoped cache, nearest-ancestor fallback. The
   -- server never dereferences them cross-row, so no IDOR surface.
 );
-```
 
 CREATE TABLE places (                       -- [ADR 0014] reusable named places; family content
   id          text NOT NULL,
@@ -126,6 +125,7 @@ CREATE TABLE places (                       -- [ADR 0014] reusable named places;
   deleted_at  timestamptz,
   PRIMARY KEY (family_id, id)
 );
+```
 
 ## [M1] Identity, tenancy, credentials
 
@@ -230,7 +230,8 @@ CREATE INDEX ON refresh_tokens (credential_id);   -- revoke-lineage + reuse-dete
 ```
 
 > **M0 note:** the household token is a `credentials` row (`kind='cli'`,
-> `user_id NULL`, `family_scope` = the one family, `scopes='{content:write}'`,
+> `user_id NULL`, `family_scope` = the one family,
+> `scopes='{content:read,content:write}'` (read for client sync + CLI --diff),
 > revocable via `revoked_at`). The same middleware resolves it to that family —
 > no skip-authz path. Secret itself lives in the platform secret store, not the DB.
 
@@ -245,7 +246,9 @@ CREATE INDEX ON briefing_cards (family_id, not_before) WHERE deleted_at IS NULL;
 CREATE INDEX ON invites (family_id, status);
 CREATE INDEX ON credentials (user_id) WHERE revoked_at IS NULL;
 CREATE INDEX ON device_authorizations (expires_at) WHERE status='pending';  -- reaper/sweep
--- FTS (event-hubs §Markdown): GIN over raw body_md, live rows only
+-- FTS (event-hubs §Markdown): GIN over raw body_md, live rows only.
+-- [M0 / non-E2E ONLY] — dropped under ADR 0015 (server can't index ciphertext);
+-- search moves client-side. Resolve at the INB-10 gate before DDL freeze.
 CREATE INDEX blocks_body_fts ON blocks USING gin (to_tsvector('english', coalesce(body_md,'')))
   WHERE deleted_at IS NULL;
 ```
@@ -286,8 +289,11 @@ CREATE INDEX blocks_body_fts ON blocks USING gin (to_tsvector('english', coalesc
   0004/0006) at the **app layer** (or a `hub_types` lookup table + FK); not free
   text in practice.
 - **`updated_at` + `version` ownership:** `updated_at` auto-touched by a DB
-  trigger; `version` bumped by the app per write (drives `If-Match`). State this
-  so optimistic-concurrency semantics are reliable.
+  trigger **including on soft-delete** (so tombstones always advance past the
+  sync cursor — 03 §sync). **`version` authority is mode-gated:** **M0 /
+  non-E2E = server bumps** per write; **under ADR 0015 (E2E) = client supplies
+  next version, server validates monotonic** (AAD must match). Resolve at the
+  INB-10 gate **before DDL freeze**.
 - **Empty `text`/`markdown` blocks** are permitted (drafts); add
   `CHECK (type NOT IN ('text','markdown') OR body_md IS NOT NULL OR body_ref IS NOT NULL)`
   only if empties should be rejected — deferred.

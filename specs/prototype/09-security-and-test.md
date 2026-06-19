@@ -64,7 +64,11 @@ intents (when built)`. Automated; one test per resource per verb.
    cross tenant or be replayed past expiry.
 9. Privacy egress: no coordinate-shaped / plaintext payload in any log, crash
    report, or non-essential network call.
-10. M0 household token: 403 on every non-content route.
+10. M0 household token: 403 on every non-content route — AND **can read+write
+    content** (`GET /sync` + `--diff` function; scope = content:read+write).
+11. **Sync tombstone:** a soft-deleted row surfaces as a tombstone past the
+    cursor on the next sync page (soft-delete bumps `updated_at`) — the row is
+    never silently missed. *(Integration test, M0 read path.)*
 
 ## Verify loop & CI gates (ADR 0012)
 

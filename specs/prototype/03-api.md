@@ -69,7 +69,11 @@
 | `GET /families/{fid}/sync?since=<cursor>&limit=` | **delta pull** for the local cache (see schema below) |
 
 **Sync contract (F4):** cursor = opaque keyset `(updated_at, id)` (no change-log
-table at M0). Response:
+table at M0). **Query** per table: `WHERE (updated_at, id) > cursor ORDER BY
+updated_at, id LIMIT n`. **Soft-delete bumps `updated_at`** (02 trigger), so a
+deleted row sorts *after* the cursor and ships as a **tombstone** (`deleted_at
+IS NOT NULL`) — never missed. Changes = live rows, tombstones = soft-deleted
+rows, in the same keyset stream. Response:
 ```
 { "changes": { "hubs":[…], "sections":[…], "blocks":[…], "cards":[…] },
   "tombstones": [ {"type":"block","id":"…"}, … ],   // rows with deleted_at > since

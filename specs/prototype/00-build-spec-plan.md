@@ -33,9 +33,24 @@ Universal Links). The specs note which milestone each part belongs to.
 | 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | **done (review applied)** | — |
 | 07 | CLI tool | `07-cli.md` | **done (review applied)** | — |
 | 08 | Mobile client (CMP) | `08-mobile-client.md` | **done (2-agent review applied)** | ⚠ pre-build gate: confirm redux-kotlin alpha1 coordinates |
-| 09 | Security controls + test/verify plan | `09-security-and-test.md` | **draft → final cross-spec review** | apply capstone review |
+| 09 | Security controls + test/verify plan | `09-security-and-test.md` | **done (cross-spec review applied)** | — |
+
+> ✅ **SUITE COMPLETE (2026-06-18).** Final cross-spec verification:
+> **implementation-ready for the M0 dumb-store spine.** The 4 close-items are
+> applied (M0 token = content:read+write; places-table fence fixed; sync
+> tombstone predicate pinned; version-authority + FTS stated as M0-vs-E2E
+> modes). Cross-spec consistency confirmed (path shape, body_md/body_ref XOR,
+> ULID IDs, reserved actions/triggers/intents, milestone tags).
 
 ## Current
+
+- **🎉 ALL 9 COMPONENTS DONE — M0 spec suite implementation-ready.** Remaining
+  before build = the **hard gates** (not spec gaps): redux-kotlin `1.0.0-alpha1`
+  coordinate confirm (08); recovery-floor procedure (04, operator+counsel);
+  **operator decisions INB-9 (TS host) + INB-10 (ADR 0015 E2EE — changes M0
+  schema/version-authority/FTS)**; ADR 0005/0006/0007/0015/0016 ratifications.
+  **Loop's next focus:** close those gates + deepen M1, or hand off to build
+  (the M0 build order is in `09 §Build order`).
 
 - **Done:** 01 architecture, 02 DB DDL, 03 API, 04 auth (each 1–2-agent
   reviewed + applied). 04 added a `refresh_tokens` lineage table + Apple-token
