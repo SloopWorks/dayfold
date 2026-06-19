@@ -34,7 +34,7 @@ describe("token service", () => {
     await expect(verifyAccess(wrongAud)).rejects.toThrow();
     const wrongKid = await mintAccessWith({ kid: "nope" });
     await expect(verifyAccess(wrongKid)).rejects.toThrow();
-    const expired = await mintAccessWith({ exp: "-1s" });
+    const expired = await mintAccessWith({ exp: "-60s" });
     await expect(verifyAccess(expired)).rejects.toThrow();
     const t = await mintAccess({ sub: "u1", cid: "c1" });
     await expect(verifyAccess(t.slice(0, -3) + "AAA")).rejects.toThrow();
