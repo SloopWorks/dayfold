@@ -1,5 +1,14 @@
 # M0 Cloud Deploy Runbook (INB-12)
 
+> **STATUS 2026-06-18 — Neon DONE (via `neonctl`):** project
+> `spring-waterfall-37999618` (aws-us-west-2, pg17); M0 migration applied (7
+> tables); family `fam_b47fc75bfb5a` + household token provisioned. The
+> **pooled** DSN host is `ep-lively-sun-a6gu4yu6-pooler.us-west-2.aws.neon.tech`.
+> **Verified:** local API pointed at the Neon pooler → CLI `push` → `/sync`
+> round-trip works, `updated_at` keeps microsecond precision (F3 holds on Neon).
+> Secret + DSNs are in `/tmp/neon.env` (local, NOT committed) — they go into
+> Vercel's env at deploy. **Remaining: Vercel** (account + deploy §2).
+
 Move the M0 API off `localhost` to **Vercel + Neon**. Single household,
 plaintext, household token. Cost target: **$0** (Neon free + Vercel hobby),
 well under the <$50/mo cap (ADR 0012). The app + CLI + Android client are
