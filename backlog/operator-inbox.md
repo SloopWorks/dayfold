@@ -9,39 +9,25 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
-- **INB-15 · 2026-06-19 · med · open — Accept ADR 0022 + the D2 storage fork.**
-  The Claude-Design import (`designs/content/*`, `Brand.dc.html`) introduced a
-  typed content library (6 types → Now/Hub/Detail), the container-transform
-  **fold gesture**, and the **Dayfold** brand — none of which had an ADR (the
-  designs mis-cite "ADR 0015", which is actually E2EE). ADR 0022 (Proposed) +
-  epic `planning/content-detail-epic.md` capture it. **Decide:** (a) accept ADR
-  0022; (b) the **D2 fork** — *extend `briefing_cards` in place* (recommended for
-  M0) vs *unify into `content_item`* (cleaner, defer to M1 E2EE migration).
-  **Proposed default:** accept + extend-in-place for M0. ADR-class (scope +
-  schema). Blocks all build tasks.
+- **INB-15 · ANSWERED 2026-06-19 → ADR 0022 ACCEPTED; D2 = extend in place.**
+  Accepted the typed content library / fold gesture / Dayfold theme. **D2 fork =
+  extend `briefing_cards` (type+payload+detail cols)**; unify into `content_item`
+  deferred to M1 (migrate with E2EE). Build tasks unblocked; index updated to
+  Accepted.
 
-- **INB-16 · 2026-06-19 · med · open — Sign off the imported content/detail
-  mockups (ADR 0008 design-first gate).** `designs/content/Content-Library`,
-  `Detail-Phone`, `Tap-To-Detail`, `Brand` are now in-repo. These are NEW
-  surfaces; ADR 0008 needs operator sign-off before build. **Note the design
-  GAP:** only phone detail is designed — the **adaptive two-pane detail** needs
-  a follow-up Claude-Design pass (CL-10 blocked on it). **Proposed default:**
-  sign off the phone surfaces; queue the adaptive-detail design pass. Operator-
-  only (taste call).
+- **INB-16 · ANSWERED 2026-06-19 → Phone mockups SIGNED OFF; adaptive queued.**
+  `Content-Library`, `Detail-Phone`, `Tap-To-Detail`, `Brand` approved → ADR 0008
+  gate cleared for phone surfaces (CL-0…CL-7 may build). **Queued:** a Claude-
+  Design pass for the adaptive two-pane detail (CL-10 stays blocked on it).
 
-- **INB-17 · 2026-06-19 · low · open — Confirm the "Dayfold" product name.**
-  The designs adopt **Dayfold** ("your day, folded into one place") as the brand;
-  repo/product is still "family-ai-dashboard". The *visual* M3 theme (CL-0)
-  proceeds regardless; only the **name** needs your call (product naming = ADR-
-  class). **Proposed default:** adopt "Dayfold" as the product name; keep the
-  repo slug. Confirm or pick another.
+- **INB-17 · ANSWERED 2026-06-19 → "Dayfold" confirmed** as the product name
+  (repo slug stays `family-ai-dashboard`). CL-0 theme + brand copy proceed under
+  Dayfold. Product-naming decision recorded; fold into ADR 0022 D5 on accept.
 
-- **INB-18 · 2026-06-19 · low · open — Confirm the M0 build slice = 2 types,
-  not 6.** The 8-dimension review converged: prove the renderer+detail+fold with
-  **`file` + `invite`** first, add the other 4 types in a follow-on slice; defer
-  CLI typed-authoring, related-edges, real maps, and adaptive. **Proposed
-  default:** yes, 2-type M0 slice (build order in the epic). Agent-recommendable
-  but flagged so you can widen to all 6 if you want the full surface sooner.
+- **INB-18 · ANSWERED 2026-06-19 → M0 ships ALL 6 content types.** Operator
+  widened the review's recommended 2-type (file+invite) slice for full-surface
+  coverage sooner. Build order stays CL-0→CL-1(spike, 6 payloads)→CL-2(extend)→
+  CL-4→CL-5(6 cards)→CL-6→CL-7(base transition); CL-3/8/9-realmaps/10 deferred.
 
 - **INB-9 · ANSWERED 2026-06-18 → TypeScript on Vercel** (ADR 0018). CLI/client stay Kotlin; types codegen from schema; Postgres via pooler. **Last P0 gate cleared.**
 

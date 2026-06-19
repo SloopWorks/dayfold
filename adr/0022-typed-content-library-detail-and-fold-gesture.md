@@ -2,12 +2,15 @@
 
 ## Status
 
-**Proposed — 2026-06-19 (operator-gated).** Authored from the Claude Design
-import "Family AI dashboard design brief" (`designs/content/*`,
-`designs/Brand.dc.html`). This is **ADR-class**: it touches product scope
-(what a content item *is*), the M0 schema/data-model, and the brand name. It
-must be operator-accepted before the dependent build tasks
-(`planning/content-detail-epic.md`) start.
+**Accepted — 2026-06-19 (operator).** Authored from the Claude Design import
+"Family AI dashboard design brief" (`designs/content/*`, `designs/Brand.dc.html`).
+ADR-class (product scope + M0 schema/data-model + brand). **Operator decisions
+(INB-15/16/17/18):** accepted; **D2 = Option B (extend `briefing_cards` in
+place); unify `content_item` deferred to M1**; **D5 name = "Dayfold" confirmed**;
+the phone mockups are **signed off** (ADR 0008 gate cleared for phone surfaces;
+adaptive two-pane queued for a Claude-Design pass); **M0 ships all 6 content
+types** (operator widened the recommended 2-type slice). Immutable from here —
+supersede, don't edit.
 
 > **Citation correction.** The imported designs label the content library
 > "ADR 0015". Repo ADR 0015 is **End-to-End Encryption**. No content-library
@@ -66,12 +69,10 @@ rule, and its **provenance source**.
   `type` + `payload` + `detail` to `briefing_cards`. Smaller diff; perpetuates
   two type systems and two payload schemas to keep in lockstep.
 
-**Recommendation (revised post-review): Option B for M0, Option A as M1 debt.**
-The simplicity review converged: M0 data is throwaway, `briefing_cards` already
-works, and unify's real payoff (one cleartext/ciphertext boundary) only pays off
-when E2EE lands — and you migrate for E2EE at M1 anyway. So **extend in place
-now**, file the unified `content_item` migration as an M1 task. *(Operator still
-owns the call; this is the recommendation the build tasks default to.)* Either
+**DECIDED (operator, INB-15): Option B — extend `briefing_cards` in place for
+M0; unify into `content_item` deferred to M1** (you migrate for E2EE anyway).
+Rationale: M0 data is throwaway, `briefing_cards` works, and unify's payoff (one
+cleartext/ciphertext boundary) only lands with E2EE at M1. Either
 way, `payload` per-type `$defs` must be **fully generated** via a JSON-schema
 `discriminator` → zod `discriminatedUnion` + Kotlin `@JsonClassDiscriminator`
 sealed interface (TS + Kotlin) — today payload is a codegen catch-all (`z.any()`),
@@ -104,16 +105,17 @@ author-stamped, never server- or client-fetched (no SSRF / timing oracle).
 
 Replace library-default theming with the brand token set (light+dark color
 scheme, Outfit/Figtree type, 26dp/999 shape, warm elevation, expressive motion
-scheme). **The brand *name* "Dayfold" is a separate operator call** (product
-naming, ADR-class) — D5 adopts the *visual system* regardless of final name.
+scheme). **The brand name "Dayfold" is confirmed** (operator, INB-17; "your day,
+folded into one place"); the repo slug stays `family-ai-dashboard`.
 
 ### D6 — Design-first gate (ADR 0008)
 
-These are **new surfaces**. The imported `designs/content/*` mockups satisfy
-the "hi-fi mockup exists" half. **Build is gated on operator sign-off** of the
-imported designs. The **adaptive (tablet/web/foldable) two-pane detail is a
-design GAP** — phone-only is designed — so the adaptive build task is blocked
-behind a Claude-Design pass.
+These are **new surfaces**. The imported `designs/content/*` mockups are
+**signed off** (operator, INB-16) — the ADR 0008 gate is **cleared for the
+phone surfaces**, so CL-0…CL-7 may build. The **adaptive (tablet/foldable/
+desktop) two-pane detail remains a design GAP** — phone-only is designed — so
+**CL-10 stays blocked behind a queued Claude-Design pass** for the expanded
+detail + fold-at-width behavior.
 
 ## Consequences
 

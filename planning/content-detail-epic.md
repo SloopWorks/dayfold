@@ -11,14 +11,15 @@ This epic turns the import into agent-buildable tasks across **schema → server
 CLI/API → client data → client UI (cards, detail, transition, theme) → adaptive**.
 Tracking convention = `TASK-<slug>` (promote to `backlog/now.md` when active).
 
-## Decision gates (block the build tasks)
+## Decision gates — RESOLVED 2026-06-19 (INB-15/16/17/18)
 
-| Gate | What | Owner | Blocks |
-|---|---|---|---|
-| **G-ADR** | Accept ADR 0022; pick the **D2 storage fork** (unify vs extend) | Operator | CL-1, CL-2, CL-4 |
-| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | Operator | all UI tasks |
-| **G-NAME** | Confirm/deny the **"Dayfold"** product name (visual theme proceeds regardless) | Operator | branding copy only |
-| **G-SCOPE** | Confirm **invite** + **email** content types don't widen Guardrail 3 (email-body storage). M0 = operator's own data, so low risk; confirm posture | Operator | CL-1 schema for those 2 types |
+| Gate | What | Status |
+|---|---|---|
+| **G-ADR** | Accept ADR 0022; **D2 storage fork** | ✅ Accepted; **D2 = extend `briefing_cards` in place** (unify→M1) |
+| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | ✅ Phone surfaces signed off (CL-0…7 unblocked); **adaptive pass queued** (CL-10 still blocked) |
+| **G-NAME** | "Dayfold" product name | ✅ **Confirmed** (repo slug unchanged) |
+| **G-SCOPE** | Guardrail 3 (email-body storage) | ✅ Binding constraint: email authored via CLI/Claude over operator's OWN data, **no server-side Gmail restricted-scope read** (ADR 0022; CL-1/CL-3) |
+| **Slice** | How many types in M0 | ✅ **All 6** (operator widened the 2-type rec) |
 
 ---
 
@@ -285,10 +286,15 @@ Reviewed across correctness, gaps, security/privacy, simplicity, performance,
 best-practice, M3-Expressive fidelity, and cross-platform reuse. Convergent
 fixes below are now binding on the task specs above.
 
-## Recommended M0 slice (simplicity — strongly convergent)
+## M0 slice
 
-Don't build all 10 tasks / 6 types for M0 dogfood. **Minimum coherent slice
-that proves the architecture:**
+> **DECIDED (operator, INB-18): M0 ships ALL 6 content types** — operator
+> widened the review's recommended 2-type slice for full-surface coverage
+> sooner. The review's minimum-slice analysis is retained below for context and
+> as the fallback if codegen/UI cost balloons. The other M0 decisions
+> (extend-in-place, codegen spike first, base transition first) **still apply**.
+
+**Review's minimum coherent slice (NOT taken — for reference):**
 - **2 content types, not 6** — **`file` + `invite`** (file = heaviest hero/
   provenance; invite = most interactive). Adds the other 4 in a follow-on slice
   once the renderer + detail + fold pattern is proven.
@@ -303,8 +309,10 @@ that proves the architecture:**
   by hand; fold a ½-day per-type template generator into CL-1 instead), CL-8
   (related-edges), CL-9 real maps (ship placeholder + Navigate handoff only),
   CL-10 (adaptive), predictive-back polish.
-- **M0 build order:** CL-0 → CL-1(spike) → CL-2(extend) → CL-4 → CL-5(2 types) →
-  CL-6(no related) → CL-7(base transition). ~8 tasks, not 14.
+- **M0 build order (6 types, per INB-18):** CL-0 → CL-1(codegen spike, all 6
+  payloads) → CL-2(extend in place) → CL-4 → CL-5(6 cards) → CL-6(detail, no
+  related) → CL-7(base transition). CL-8/CL-9-realmaps/CL-10 + CLI typed-author
+  (CL-3) stay deferred; map = placeholder + Navigate handoff.
 
 ## Inline-action write-path (CRITICAL correctness — ADR 0020/0016)
 

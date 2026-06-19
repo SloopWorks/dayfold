@@ -8,14 +8,15 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
-## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Proposed)
+## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 From the Claude Design import (`designs/content/*`, `designs/Brand.dc.html`).
 **Full breakdown + DoD + file touchpoints: `planning/content-detail-epic.md`.**
-**Gated:** operator must accept **ADR 0022** (incl. the D2 storage fork:
-unify `content_item` vs extend `briefing_cards`) + sign off the imported
-mockups (ADR 0008) before the build tasks start. Brand *name* "Dayfold" =
-separate operator call (G-NAME).
+**Gates CLEARED (INB-15/16/17/18):** ADR 0022 accepted · **D2 = extend
+`briefing_cards` in place** (unify→M1) · phone mockups signed off (ADR 0008) ·
+name **Dayfold** confirmed · **M0 ships all 6 content types**. Ready to promote
+to `now.md` and build (order in the epic). **Only CL-10 (adaptive) stays
+blocked** behind a queued Claude-Design expanded-detail pass.
 
 - **TASK-CL-0** — Dayfold M3 theme (color/type/shape/motion, light+dark). No
   schema dep; starts after G-DESIGN.
