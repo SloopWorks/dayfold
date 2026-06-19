@@ -21,6 +21,13 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-card-actions:** External card deep-links (the value-prop "[list]"→
+  Instacart / "[reply]"→mail) have no structured home — `target` is
+  internal-nav-only, `actions[]` is ADR 0016 2-way-reserved. M0 ships them as
+  allowlisted **markdown links in `body_md`**; decide whether a structured
+  external action layer (`links[]`, distinct from 2-way `actions[]`) is worth
+  it before the action surface matters for WTP. → `specs/prototype/12-briefing-
+  card-spec.md`.
 
 - **OQ-e2e-encryption:** Adopt end-to-end encryption (CLI encrypts → server
   stores blind → device decrypts)? Feasible because the server never processes

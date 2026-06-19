@@ -6,22 +6,28 @@
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
-Stage: **bootstrapped 2026-06-18; inbox swept.** Validation verdict:
-**CONDITIONAL — learning-lab GO, business NO-GO.** ADRs 0006/0007/0008
-Accepted; 0005 (14+) Proposed pending counsel.
+Stage: **M0 render prototype BUILT + cloud-live (2026-06-19).** server · Kotlin
+CLI · KMP/Compose client · feed — on Vercel + Neon, rendering on the Pixel 10.
+Validation verdict still stands: **CONDITIONAL — learning-lab GO, business
+NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemini)
+are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
+later milestone; interim authoring = operator + Claude Code via the CLI. Next
+build = **TASK-SYNC** (offline-first persistence).
 
-## ⛔ Design-first gate (ADR 0008)
+## Design-first gate (ADR 0008) — status
 
-**No deep planning or build until hi-fi mockups exist + are approved.**
-The immediate next work = **A8: hi-fi mockups of Now + Hubs** (Claude Code +
-`frontend-design`, committed to `designs/`). A3 build is `blocked(A8)`.
+The **feed-only** M0 slice was built **build-first** (operator-directed) from the
+initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
+**Event Hubs render** and the **M1 trigger surface** need their hi-fi mockups
+(A8 full Now+Hubs; trigger v2 = INB-13) **before** they're built.
 
 ## Operator actions pending
 
 - [ ] **INB-3** kill-checks (~2 hrs): Gemini Daily Brief + Maple+ hands-on;
-  note the niche gap → feeds A1.
-- [ ] Counsel confirm for ADR 0005 (14+): age-gate sufficiency + Maryland
-  DPIA — only if/when pursuing teen accounts.
+  note the niche gap → feeds A1. *(Only matters if pursuing the business path.)*
+- [ ] **INB-13** hand the trigger-design v2 fix-list (`designs/DESIGN-BRIEF-
+  triggers.md §6b`) back to Claude Design before the M1 trigger surface.
+- [ ] Counsel confirm for ADR 0005 (14+) — only if/when pursuing teen accounts.
 
 ## State (2026-06-18 — post 6-agent review)
 

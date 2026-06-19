@@ -38,7 +38,7 @@ Each item: question, context link, **proposed default**, urgency.
   calls `fieldState` (not `fieldStateOf`). Confirm stable-default / insist on
   alpha01.
 
-- **INB-10 · 2026-06-18 · high · open — Adopt E2E encryption (ADR 0015)?**
+- **INB-10 · RESOLVED 2026-06-18 → M0 = PLAINTEXT; live E2E = M1 option gated by ADR 0017 (see ANSWERED INB-10 above). Original prompt:**
   Investigation (`research/e2e-encryption-investigation.md`) verdict:
   **CONDITIONAL GO** — the dumb-store architecture makes E2EE nearly free;
   encrypt at M0, distribute keys at M1 (per-member X25519 wrap mapping onto
@@ -62,7 +62,7 @@ Each item: question, context link, **proposed default**, urgency.
   (1.0.0-alpha01) — now wired + verified on-device (ADR 0019).** Doc has the
   full list + severities for 1.0.0; `DevTools.md` text predates the publish.
 
-- **INB-14 · 2026-06-18 · high · open — P3 device-render shell needs your hardware (final G1a step).**
+- **INB-14 · DONE 2026-06-19 → Android SDK + Pixel 10 Pro + emulators working; G1a met on-device (feed renders from cloud). iOS shell still needs your Mac. (Was: P3 device-render shell.)**
   The client CORE is built + tested (redux-kotlin 0.6.2 store + /sync reducer,
   5 tests green). What remains to literally "see the feed on your phone" needs
   hardware agents can't supply:
@@ -86,7 +86,7 @@ Each item: question, context link, **proposed default**, urgency.
   to Claude Design before the trigger surface (M1) gates (ADR 0008).** Schema
   side (`Place.kind`) already fixed.
 
-- **INB-12 · 2026-06-18 · high · open — P-1 operator bootstrap (human-only; blocks cloud P0/P1).**
+- **INB-12 · DONE 2026-06-19 → Vercel + Neon created; M0 API deployed live at `family-ai-dashboard.vercel.app` (verified). (Was: P-1 operator bootstrap.)**
   The build loop is running; these account/auth steps only you can do (ADR
   0012 — agents can provision *within* an authed account, but not create the
   account/billing/domain):
