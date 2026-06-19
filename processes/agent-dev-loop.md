@@ -44,7 +44,11 @@ android · darwin iOS (when added). SyncClient is now `suspend` (no Dispatchers.
 cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest
 ```
 - Reducer/selector/sync unit tests + **Compose snapshot tests** (all in
-  `desktopTest`). 17 tests green post-restructure.
+  `desktopTest`). 24 tests green post-TASK-SYNC.
+- **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
+  isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
+  **silently NOT run** (JUnit ignores non-void test methods). Use
+  `runBlocking<Unit> { … }`. Verify test COUNTS, not just BUILD SUCCESSFUL.
 - **Snapshots land in `apps/client/build/snapshots/*.png`** — `Read` them to
   verify UI without a device. (Regenerated each run; gitignored. Golden-diff =
   next, ADR 0019.)
