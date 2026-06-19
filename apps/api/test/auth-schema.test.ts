@@ -67,8 +67,10 @@ describe("0005 invites schema", () => {
     await q(`INSERT INTO users(id) VALUES ('u5')`);
     await q(`INSERT INTO invites(id,family_id,token_hash,mode,created_by,expires_at) VALUES ('i1','f5','h1','qr','u5', now()+interval '1h')`);
     await expect(q(`INSERT INTO invites(id,family_id,role,token_hash,mode,created_by,expires_at) VALUES ('i2','f5','owner','h2','qr','u5', now())`)).rejects.toThrow();
+    await expect(q(`INSERT INTO invites(id,family_id,role,token_hash,mode,created_by,expires_at) VALUES ('i6','f5','teen','h6','qr','u5', now())`)).rejects.toThrow(); // teen not allowed
     await expect(q(`INSERT INTO invites(id,family_id,token_hash,mode,created_by,expires_at) VALUES ('i3','f5','h1','qr','u5', now())`)).rejects.toThrow(); // dup token_hash
     await expect(q(`INSERT INTO invites(id,family_id,token_hash,mode,max_uses,created_by,expires_at) VALUES ('i4','f5','h4','link',11,'u5', now())`)).rejects.toThrow(); // >10
+    await expect(q(`INSERT INTO invites(id,family_id,token_hash,mode,max_uses,created_by,expires_at) VALUES ('i5','f5','h5','link',0,'u5', now())`)).rejects.toThrow(); // max_uses<1
     await expect(q(`UPDATE invites SET used_count=2 WHERE id='i1'`)).rejects.toThrow(); // used_count>max_uses(1)
   });
   it("memberships.invite_id FK + created_at present", async () => {
