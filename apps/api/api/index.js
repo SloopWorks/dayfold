@@ -158,6 +158,24 @@ var init_identity = __esm({
   }
 });
 
+// src/auth/audit.ts
+var audit_exports = {};
+__export(audit_exports, {
+  audit: () => audit
+});
+async function audit(event, opts = {}) {
+  await q(
+    `INSERT INTO audit_log(event, actor_user_id, family_id, detail) VALUES ($1,$2,$3,$4)`,
+    [event, opts.actorUserId ?? null, opts.familyId ?? null, JSON.stringify(opts.detail ?? {})]
+  );
+}
+var init_audit = __esm({
+  "src/auth/audit.ts"() {
+    "use strict";
+    init_db();
+  }
+});
+
 // src/auth/refresh.ts
 var refresh_exports = {};
 __export(refresh_exports, {
@@ -166,9 +184,10 @@ __export(refresh_exports, {
   rotate: () => rotate
 });
 import { randomBytes as randomBytes2, createHash as createHash2 } from "node:crypto";
-async function issueRefresh(credentialId) {
+async function issueRefresh(credentialId, client) {
   const opaque = randomBytes2(32).toString("base64url");
-  await q(
+  const run = client ? client.query.bind(client) : q;
+  await run(
     `INSERT INTO refresh_tokens(token_hash, credential_id, expires_at)
      VALUES ($1,$2, now() + ($3 || ' days')::interval)`,
     [hashToken(opaque), credentialId, String(ABS_TTL_DAYS)]
@@ -209,13 +228,90 @@ async function rotate(opaque) {
   } finally {
     client.release();
   }
-  const row = await q(`SELECT credential_id, consumed_at FROM refresh_tokens WHERE token_hash=$1`, [h]);
+  const row = await q(
+    `SELECT credential_id, consumed_at, superseded_by FROM refresh_tokens WHERE token_hash=$1`,
+    [h]
+  );
   if (row.rowCount === 0) return null;
-  if (row.rows[0].consumed_at) {
-    await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`, [row.rows[0].credential_id]);
-    return { reuse: true };
+  const { credential_id: cid, consumed_at, superseded_by } = row.rows[0];
+  if (!consumed_at) return null;
+  const gc = await pool.connect();
+  let graceResult = null;
+  let graceCollision = false;
+  let genuineReuse = false;
+  try {
+    await gc.query("BEGIN");
+    await gc.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [cid]);
+    const grace = await gc.query(
+      `SELECT 1 FROM refresh_tokens prior
+         JOIN refresh_tokens succ ON succ.token_hash = prior.superseded_by
+        WHERE prior.token_hash=$1 AND prior.consumed_at > now() - interval '20 seconds'
+          AND succ.consumed_at IS NULL`,
+      [h]
+    );
+    if (grace.rowCount === 1 && superseded_by) {
+      const cas2 = await gc.query(
+        `UPDATE refresh_tokens SET consumed_at=now()
+           WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at > now() RETURNING credential_id`,
+        [superseded_by]
+      );
+      if (cas2.rowCount === 1) {
+        const nextOpaque = randomBytes2(32).toString("base64url");
+        const nextHash = hashToken(nextOpaque);
+        await gc.query(
+          `INSERT INTO refresh_tokens(token_hash, credential_id, expires_at, graced_from)
+           VALUES ($1,$2, now() + ($3 || ' days')::interval, $4)`,
+          [nextHash, cid, String(ABS_TTL_DAYS), h]
+        );
+        await gc.query(
+          `UPDATE refresh_tokens SET superseded_by=$1 WHERE token_hash=$2`,
+          [nextHash, superseded_by]
+        );
+        graceResult = { refresh: nextOpaque, graced: true };
+      } else {
+        genuineReuse = true;
+        await gc.query(
+          `UPDATE credentials SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`,
+          [cid]
+        );
+      }
+    } else if (!superseded_by) {
+      genuineReuse = true;
+      await gc.query(
+        `UPDATE credentials SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`,
+        [cid]
+      );
+    } else {
+      const collision = await gc.query(
+        `SELECT 1 FROM refresh_tokens next_token
+           JOIN refresh_tokens issued ON issued.token_hash = next_token.superseded_by
+          WHERE next_token.token_hash=$1
+            AND issued.graced_from=$2
+            AND next_token.consumed_at > now() - interval '20 seconds'`,
+        [superseded_by, h]
+      );
+      if (collision.rowCount === 1) {
+        graceCollision = true;
+      } else {
+        genuineReuse = true;
+        await gc.query(
+          `UPDATE credentials SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`,
+          [cid]
+        );
+      }
+    }
+    await gc.query("COMMIT");
+  } catch (e) {
+    await gc.query("ROLLBACK");
+    throw e;
+  } finally {
+    gc.release();
   }
-  return null;
+  if (graceResult) return graceResult;
+  if (graceCollision) return { reuse: true };
+  const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+  await audit2("refresh.reuse_revoked", { detail: { credential_id: cid } });
+  return { reuse: true };
 }
 var ABS_TTL_DAYS, hashToken;
 var init_refresh = __esm({
@@ -224,6 +320,151 @@ var init_refresh = __esm({
     init_db();
     ABS_TTL_DAYS = 45;
     hashToken = (s) => createHash2("sha256").update(s, "utf8").digest("hex");
+  }
+});
+
+// src/auth/ratelimit.ts
+var ratelimit_exports = {};
+__export(ratelimit_exports, {
+  clientIp: () => clientIp,
+  hit: () => hit,
+  isLocked: () => isLocked,
+  recordFailure: () => recordFailure,
+  resetFailures: () => resetFailures
+});
+function clientIp(c) {
+  return c.req.header("x-vercel-forwarded-for") || c.req.header("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
+}
+async function hit(key, windowSecs, cap) {
+  const r = await q(
+    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
+     ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
+     RETURNING count`,
+    [key, windowSecs]
+  );
+  const count = r.rows[0].count;
+  return { ok: count <= cap, count };
+}
+async function isLocked(key) {
+  const r = await q(`SELECT 1 FROM rate_limits WHERE key=$1 AND locked_until > now() LIMIT 1`, [key]);
+  return (r.rowCount ?? 0) > 0;
+}
+async function recordFailure(key, windowSecs, threshold, lockSecs) {
+  await q(
+    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
+     ON CONFLICT (key, window_start) DO UPDATE SET
+       count = rate_limits.count + 1,
+       locked_until = CASE
+         WHEN rate_limits.count + 1 >= $3
+         THEN now() + ($4 || ' seconds')::interval
+         ELSE rate_limits.locked_until
+       END`,
+    [key, windowSecs, threshold, String(lockSecs)]
+  );
+}
+async function resetFailures(key) {
+  await q(`DELETE FROM rate_limits WHERE key=$1`, [key]);
+}
+var winSql;
+var init_ratelimit = __esm({
+  "src/auth/ratelimit.ts"() {
+    "use strict";
+    init_db();
+    winSql = `to_timestamp(floor(extract(epoch from now())/$2)*$2)`;
+  }
+});
+
+// src/auth/device.ts
+var device_exports = {};
+__export(device_exports, {
+  createAuthorization: () => createAuthorization,
+  genDeviceCode: () => genDeviceCode,
+  genUserCode: () => genUserCode,
+  redeem: () => redeem
+});
+import { randomBytes as randomBytes3 } from "node:crypto";
+function genUserCode() {
+  const pick = () => ALPHABET[randomBytes3(1)[0] % ALPHABET.length];
+  const block = () => Array.from({ length: 4 }, pick).join("");
+  return `${block()}-${block()}`;
+}
+async function createAuthorization(client, ip, ua) {
+  const device_code = genDeviceCode();
+  for (let attempt = 0; ; attempt++) {
+    const user_code = genUserCode();
+    try {
+      await q(
+        `INSERT INTO device_authorizations(device_code,user_code,client,origin_ip,origin_ua,interval_s,expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6, now() + ($7||' seconds')::interval)`,
+        [device_code, user_code, client, ip, ua, INTERVAL_S, String(EXPIRES_S)]
+      );
+      return { device_code, user_code };
+    } catch (e) {
+      if (e?.code === "23505" && attempt < 3) continue;
+      throw e;
+    }
+  }
+}
+async function redeem(device_code, mintAccess2, issueRefresh2) {
+  const row = (await q(`SELECT * FROM device_authorizations WHERE device_code=$1`, [device_code])).rows[0];
+  if (!row) return { error: "expired_token" };
+  const expired = new Date(row.expires_at).getTime() < Date.now();
+  if (expired) {
+    if (row.status === "pending") await q(`UPDATE device_authorizations SET status='expired' WHERE device_code=$1 AND status='pending'`, [device_code]);
+    return { error: "expired_token" };
+  }
+  if (row.status === "denied") return { error: "access_denied" };
+  if (row.status === "consumed") return { error: "expired_token" };
+  if (row.status === "pending") {
+    const upd = await q(
+      `UPDATE device_authorizations SET last_polled_at=now()
+       WHERE device_code=$1 AND status='pending'
+         AND (last_polled_at IS NULL OR last_polled_at < now() - make_interval(secs => interval_s)) RETURNING 1`,
+      [device_code]
+    );
+    return { error: (upd.rowCount ?? 0) === 1 ? "authorization_pending" : "slow_down" };
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const cas = await client.query(
+      `UPDATE device_authorizations SET status='consumed' WHERE device_code=$1 AND status='approved'
+       RETURNING user_id, family_id, origin_ua`,
+      [device_code]
+    );
+    if (cas.rowCount !== 1) {
+      await client.query("COMMIT");
+      return { error: "expired_token" };
+    }
+    const { user_id, family_id, origin_ua } = cas.rows[0];
+    const cid = credId();
+    await client.query(
+      `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
+       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'familyai-cli '||left(coalesce($4,''),64))`,
+      [cid, user_id, family_id, origin_ua]
+    );
+    const refresh = await issueRefresh2(cid, client);
+    await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
+    await client.query("COMMIT");
+    const access = await mintAccess2({ sub: user_id, cid });
+    return { tokens: { access_token: access, refresh_token: refresh, token_type: "Bearer", expires_in: 300 } };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+var ALPHABET, genDeviceCode, credId, EXPIRES_S, INTERVAL_S;
+var init_device = __esm({
+  "src/auth/device.ts"() {
+    "use strict";
+    init_db();
+    ALPHABET = "23456789CFGHJMPQRVWX";
+    genDeviceCode = () => randomBytes3(32).toString("base64url");
+    credId = () => "cred_" + randomBytes3(9).toString("hex");
+    EXPIRES_S = 600;
+    INTERVAL_S = 5;
   }
 });
 
@@ -486,7 +727,14 @@ app.post("/auth/refresh", async (c) => {
   const { rotate: rotate2, hashToken: hashToken2 } = await Promise.resolve().then(() => (init_refresh(), refresh_exports));
   const out = await rotate2(body?.refresh || "");
   if (!out) return c.body(null, 401);
-  if ("reuse" in out) return c.body(null, 401);
+  if ("refresh" in out) {
+    if (out.graced) {
+      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+      await audit2("refresh.grace_reissued", {});
+    }
+  } else {
+    return c.body(null, 401);
+  }
   const h = hashToken2(out.refresh);
   const row = await q(
     `SELECT rt.credential_id, c.user_id FROM refresh_tokens rt JOIN credentials c ON c.id=rt.credential_id WHERE rt.token_hash=$1 AND c.revoked_at IS NULL`,
@@ -511,6 +759,19 @@ app.post("/auth/signout", async (c) => {
   await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
   await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
   return c.body(null, 204);
+});
+app.get("/auth/whoami", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    const payload = await verifyAccess2(t);
+    const row = await q(`SELECT family_scope FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [payload.cid]);
+    if (!row || row.rowCount === 0) return c.body(null, 401);
+    return c.json({ family_id: row.rows[0].family_scope });
+  } catch {
+    return c.body(null, 401);
+  }
 });
 app.post("/families", async (c) => {
   const t = bearer2(c);
@@ -559,6 +820,82 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, await softDeleteCard(fid, id2) ? 204 : 404);
+});
+app.post("/device/authorize", async (c) => {
+  const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
+  const ip = clientIp2(c);
+  const rl = await hit2(`ip:authorize:${ip}`, 600, 10);
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => ({}));
+  const { createAuthorization: createAuthorization2 } = await Promise.resolve().then(() => (init_device(), device_exports));
+  const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+  const { device_code, user_code } = await createAuthorization2(body?.client ?? "familyai-cli", ip, c.req.header("user-agent") ?? null);
+  await audit2("device.authorize", { detail: { ip } });
+  const base = `${new URL(c.req.url).origin}/device`;
+  return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });
+});
+app.post("/device/token", async (c) => {
+  const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
+  const ip = clientIp2(c);
+  const rl = await hit2(`ip:token:${ip}`, 600, 600);
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => null);
+  if (!body?.device_code) return c.json({ error: "invalid_request" }, 400);
+  const { redeem: redeem2 } = await Promise.resolve().then(() => (init_device(), device_exports));
+  const { mintAccess: mintAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+  const { issueRefresh: issueRefresh2 } = await Promise.resolve().then(() => (init_refresh(), refresh_exports));
+  const out = await redeem2(body.device_code, mintAccess2, issueRefresh2);
+  if ("tokens" in out) {
+    const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+    await audit2("device.token.redeemed", { detail: { device_code: body.device_code } });
+    return c.json(out.tokens, 200);
+  }
+  return c.json({ error: out.error }, 400);
+});
+async function deviceOwnerGate(c, fid) {
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return { status: a.status };
+  if (a.role !== "owner") return { status: 403 };
+  if (a.cred.kind !== "app") return { status: 403 };
+  return { sub: a.userId };
+}
+app.post("/families/:fid/device/approve", async (c) => {
+  const fid = c.req.param("fid");
+  const g = await deviceOwnerGate(c, fid);
+  if ("status" in g) return c.body(null, g.status);
+  const { isLocked: isLocked2, recordFailure: recordFailure2, resetFailures: resetFailures2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
+  const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+  const lockKey = `account:approve:${g.sub}`;
+  if (await isLocked2(lockKey)) {
+    await audit2("device.lockout", { actorUserId: g.sub });
+    return c.body(null, 429);
+  }
+  const body = await c.req.json().catch(() => null);
+  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  const r = await q(
+    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now()
+     WHERE user_code=$3 AND status='pending' AND expires_at > now() RETURNING device_code`,
+    [g.sub, fid, body.user_code]
+  );
+  if (r.rowCount !== 1) {
+    await recordFailure2(lockKey, 900, 5, 900);
+    return c.body(null, 404);
+  }
+  await resetFailures2(lockKey);
+  const { clientIp: clientIp2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
+  await audit2("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp2(c) } });
+  return c.body(null, 204);
+});
+app.post("/families/:fid/device/deny", async (c) => {
+  const fid = c.req.param("fid");
+  const g = await deviceOwnerGate(c, fid);
+  if ("status" in g) return c.body(null, g.status);
+  const body = await c.req.json().catch(() => null);
+  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  const r = await q(`UPDATE device_authorizations SET status='denied' WHERE user_code=$1 AND status='pending' AND expires_at > now() RETURNING device_code`, [body.user_code]);
+  const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+  if (r.rowCount === 1) await audit2("device.deny", { actorUserId: g.sub, familyId: fid });
+  return c.body(null, r.rowCount === 1 ? 204 : 404);
 });
 app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
