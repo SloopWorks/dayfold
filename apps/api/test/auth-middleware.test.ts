@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -53,5 +53,42 @@ describe("authorizeTenant", () => {
   });
   it("legacy token on another family → 404", async () => {
     expect(await authorizeTenant(ctx("legacy-secret"), "famB")).toEqual({ status: 404 });
+  });
+
+  // --- backfill tests ---
+
+  it("inactive (removed) membership → 403", async () => {
+    // Fresh user + family to avoid coupling with uA/famA state.
+    await q(`INSERT INTO families(id,name) VALUES ('famX','X')`);
+    await q(`INSERT INTO users(id) VALUES ('uX')`);
+    await q(`INSERT INTO memberships(user_id,family_id,role,status) VALUES ('uX','famX','adult','removed')`);
+    await q(`INSERT INTO credentials(id,user_id,family_scope,kind) VALUES ('cX','uX','famX','app')`);
+    const t = await mintAccess({ sub: "uX", cid: "cX" });
+    expect(await authorizeTenant(ctx(t), "famX")).toEqual({ status: 403 });
+  });
+
+  it("garbage bearer token → 401", async () => {
+    expect(await authorizeTenant(ctx("not-a-real-token"), "famA")).toEqual({ status: 401 });
+  });
+
+  it("JWT credential family_scope ≠ path family → 404", async () => {
+    // uY has active membership on famA, but credential cY is scoped to famB.
+    // Membership check passes; family_scope guard fires → 404.
+    await q(`INSERT INTO users(id) VALUES ('uY')`);
+    await q(`INSERT INTO memberships(user_id,family_id,role,status) VALUES ('uY','famA','adult','active')`);
+    await q(`INSERT INTO credentials(id,user_id,family_scope,kind) VALUES ('cY','uY','famB','app')`);
+    const t = await mintAccess({ sub: "uY", cid: "cY" });
+    expect(await authorizeTenant(ctx(t), "famA")).toEqual({ status: 404 });
+  });
+
+  it("fail-closed: DB error during JWT path → 401 (never fail-open)", async () => {
+    // Spy on the `q` export so the second call (credential lookup) rejects once.
+    // We import the db module through the already-loaded module graph.
+    const dbMod = await import("../src/db.ts");
+    const spy = vi.spyOn(dbMod, "q").mockRejectedValueOnce(new Error("simulated DB failure"));
+    const t = await mintAccess({ sub: "uA", cid: "cA" });
+    const result = await authorizeTenant(ctx(t), "famA");
+    spy.mockRestore();
+    expect(result).toEqual({ status: 401 });
   });
 });
