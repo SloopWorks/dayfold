@@ -70,6 +70,39 @@ regression); a `ColorScheme`-completeness unit check.
 **DoD:** feed renders in Dayfold light+dark; tokens centralized; fonts load on
 android+desktop+iOS; snapshots green.
 
+## CL-SNAP — rk snapshot scenes + rk devtools bridge (dev-loop foundation)
+
+**Goal:** Stand up the **`rk` redux-kotlin CLI** (Homebrew, 1.0.0-alpha02) as the
+client's rapid-confirmation + golden-diff harness, so every later UI task (CL-5/6/7)
+verifies by rendering a state→PNG in ms and diffing against a golden — and so
+agents inspect redux behavior as text. **Realizes ADR 0019's deferred golden-diff
++ CLI items.** Full how-to: `processes/agent-dev-loop.md` (rk sections).
+**Files:** new `apps/client/src/desktopMain/.../snapshot/Snapshots.kt`
+(`snapshotApp { scene(...) }` registry + `main { runCli(args) }`); a
+`:client:snapshotUi` Gradle task (group `render`); debug-only `BridgeOutput`
+registration in the store init; `shots.json` batch manifest; goldens dir
+(`designs/goldens/` or `src/test/resources/snapshots/`).
+**Scope:**
+- Add test-scoped `redux-kotlin-snapshot`. **⚠ confirm availability** — the docs
+  say it is *not yet on Maven Central*; the operator owns/maintains reduxkotlin
+  and `rk` is now published, so verify the published coordinate/version (or
+  publish it) **before** committing CL-5/6/7 to this harness; fallback = keep the
+  hand-rolled `FeedSnapshotTest` until the dep is published.
+- Define **one scene per surface** with **presets = states** and **theme =
+  light|dark**: `feed`(loaded/empty/loading), one per **card type** (×default/
+  urgent), one per **detail type**, the **fold transition** key frames where
+  capturable. Scenes build a real store + render the actual composable (no mocks).
+- Wire **`rk devtools` BridgeOutput** (127.0.0.1:9090) into the debug store so
+  `rk devtools actions/diff/state/tail` work against the running android/desktop app.
+- **CI:** add a `:client:snapshotUi --batch shots.json --golden-dir … --json`
+  step to the client job (exit 1 on drift) — the golden-diff gate.
+**Test:** `rk snapshot --list` shows our scenes; a known-good shot `--verify`
+passes; a deliberately-broken render fails the batch with a dashboard diff.
+**DoD:** `:client:snapshotUi` renders+verifies our scenes headlessly; goldens
+committed; CI fails on visual drift; `rk devtools` reads live actions/state from
+the running client. **Blocks-soft:** CL-5/6/7 *should* land their scenes here as
+they build (each UI task adds its scenes + goldens).
+
 ## CL-1 — Schema + codegen: typed content + detail payload
 
 **Goal:** Make `type` + per-type `payload` + detail fields **first-class and
@@ -164,8 +197,9 @@ see CL-9). Each: icon tile + accent, kicker chip (type+urgency), title (Outfit),
 body, primary action pill, provenance pill. M3: ElevatedCard 26dp, pill buttons,
 assist/filter chips, circular icon buttons. States: default, urgent, inline-
 actionable, dismissed-on-answer (invite), loading skeleton.
-**Test:** snapshot each type light+dark; interaction test for RSVP/Call inline
-actions (dispatch correct action); golden skeleton state.
+**Test:** add an **rk scene per card type** (presets = states, theme = light|dark)
++ commit goldens (CL-SNAP harness); interaction test for inline actions
+(dispatch correct action; M0 RSVP = display-only); golden skeleton state.
 **DoD:** all 6 cards match mockups light+dark; inline actions dispatch; tap
 opens detail (wires to CL-6/CL-7); snapshots green.
 
@@ -183,9 +217,9 @@ contact avatar+reach FABs, geo map+ETA+Navigate, email message+attachment) →
 **PROVENANCE + PRIVACY** chips → **RELATED** rows (→ CL-8). No detail-level FAB.
 **Navigation:** hand-rolled redux nav (no nav lib needed for one feed↔detail
 pair) — keep it minimal so it composes with CL-7's SharedTransition.
-**Test:** snapshot each type's detail light+dark; back action clears selection;
-deep-link actions emit handoff intents (allowlisted schemes only, reuse
-`CardRender` link allowlist).
+**Test:** **rk scene per detail type** (theme light|dark) + goldens; back action
+clears selection (verify via `rk devtools state`/`diff`); deep-link actions emit
+handoff intents (allowlisted schemes only, reuse `CardRender` link allowlist).
 **DoD:** detail renders for all 6 types light+dark; open/back via redux; matches
 mockups; snapshots green.
 
@@ -266,9 +300,13 @@ Output → `designs/content/adaptive/`; operator sign-off → unblocks this buil
 
 ## Cross-cutting test & process
 
-- **Snapshot harness** (`apps/client/src/desktopTest/.../*SnapshotTest`) gets a
-  golden per card + per detail, light + dark. Golden-diff CI is ADR 0019-
-  deferred; at minimum write the PNGs + a manual review checklist.
+- **Snapshot harness = `rk snapshot`** (CL-SNAP): one **scene** per card + per
+  detail, **presets = states**, **theme = light|dark**; a golden per shot,
+  verified in CI (`:client:snapshotUi --batch … --golden-dir …` exits 1 on
+  drift). This is the golden-diff CI ADR 0019 deferred — not deferred anymore.
+  Agent rapid loop: `rk snapshot --scene <x> --preset <s> --out /tmp/x.png` then
+  `Read` it. (Falls back to the hand-rolled `*SnapshotTest` only if the
+  `redux-kotlin-snapshot` dep isn't published yet — see CL-SNAP.)
 - **Server** tests run vs **live PG** (existing pattern). **CLI** local-validate
   tests. **Schema** example-validation in CI.
 - Each task ships **subagent-driven** with spec+plan in
@@ -311,10 +349,11 @@ fixes below are now binding on the task specs above.
   by hand; fold a ½-day per-type template generator into CL-1 instead), CL-8
   (related-edges), CL-9 real maps (ship placeholder + Navigate handoff only),
   CL-10 (adaptive), predictive-back polish.
-- **M0 build order (6 types, per INB-18):** CL-0 → CL-1(codegen spike, all 6
-  payloads) → CL-2(extend in place) → CL-4 → CL-5(6 cards) → CL-6(detail, no
-  related) → CL-7(base transition). CL-8/CL-9-realmaps/CL-10 + CLI typed-author
-  (CL-3) stay deferred; map = placeholder + Navigate handoff.
+- **M0 build order (6 types, per INB-18):** CL-0 → **CL-SNAP** (rk snapshot/
+  devtools harness — early, so every UI task verifies via golden) → CL-1(codegen
+  spike, all 6 payloads) → CL-2(extend in place) → CL-4 → CL-5(6 cards) →
+  CL-6(detail, no related) → CL-7(base transition). CL-8/CL-9-realmaps/CL-10 +
+  CLI typed-author (CL-3) stay deferred; map = placeholder + Navigate handoff.
 
 ## Inline-action write-path (CRITICAL correctness — ADR 0020/0016)
 
@@ -427,8 +466,9 @@ effects are per-platform. Map render (CL-9): commonMain stylized placeholder +
 - **Fonts:** Outfit + Figtree are **SIL OFL** (bundling OK; confirm at task
   time). Material Symbols → decide bundle-font vs `compose.material.icons`
   mapping in CL-0.
-- **Snapshots:** golden-diff CI is ADR 0019-deferred; commit PNGs are CI-
-  generated artifacts + a manual review checklist until Roborazzi lands.
+- **Snapshots:** golden-diff is now **`rk snapshot`** (CL-SNAP) — commit goldens,
+  CI verifies via `:client:snapshotUi --batch … --golden-dir …`. Supersedes the
+  ADR-0019 Roborazzi-DIY note.
 - **Web target is NOT built** (`apps/client/build.gradle.kts` has no `wasmJs`).
   Strike "web" from CL-10's claims → **tablet/foldable/desktop** only until a
   `wasmJs()` target is added (out of scope here).

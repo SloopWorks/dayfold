@@ -9,6 +9,20 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-19 · 2026-06-19 · low · open — Ratify `rk` as the client dev+CI snapshot/
+  devtools toolchain + pin.** The redux-kotlin CLI is now published (Homebrew
+  `reduxkotlin/tap/rk` **1.0.0-alpha02**, unified devtools+snapshot). Incorporated
+  into `processes/agent-dev-loop.md` + epic task **CL-SNAP** (rk snapshot golden-
+  diff CI + rk devtools bridge) — this realizes ADR 0019's deferred golden-diff +
+  CLI items. **Two caveats:** (a) it's **alpha** → pin like the redux-kotlin alpha
+  bet; (b) `redux-kotlin-snapshot` (the app-side scene dep) is **not yet on Maven
+  Central** per the docs — you own reduxkotlin, so confirm/publish the coordinate
+  before CL-5/6/7 commit to it. **Also: the Homebrew formula symlink is broken**
+  (keg `bin/` empty; binary at `…/libexec/Contents/MacOS/rk`; formula points at
+  `libexec/rk.app/…`) — worth a fix in `reduxkotlin/homebrew-tap`. **Proposed
+  default:** ratify rk as the toolchain, pin alpha02, publish `redux-kotlin-
+  snapshot`. Tooling/maintenance = mild ADR-class; note as ADR-0019-realized.
+
 - **INB-15 · ANSWERED 2026-06-19 → ADR 0022 ACCEPTED; D2 = extend in place.**
   Accepted the typed content library / fold gesture / Dayfold theme. **D2 fork =
   extend `briefing_cards` (type+payload+detail cols)**; unify into `content_item`

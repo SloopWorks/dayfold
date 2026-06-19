@@ -16,6 +16,14 @@ device-screencap-every-iteration → faster, fewer tokens.
   **extensions** → `store.selectorState{}` (not `selectorState(store)`); the
   compose module needs `redux-kotlin-granular` added **explicitly** (not pulled
   transitively); the android module pins `kotlin-stdlib` to 2.3.20.
+- **`rk` CLI `1.0.0-alpha02`** (NOW PUBLISHED — Homebrew `reduxkotlin/tap/rk`):
+  the unified redux-kotlin CLI = **devtools + snapshot**. Alpha — pin like the
+  redux-kotlin alpha bet. **Brew symlink is broken** (the formula points at
+  `libexec/rk.app/...` but the keg lays the binary at
+  `…/Cellar/rk/1.0.0-alpha02/libexec/Contents/MacOS/rk`, and keg `bin/` is
+  empty) → `rk` is NOT on PATH after install. **Workaround (done on this Mac):**
+  `ln -sf "$(brew --prefix)/Cellar/rk/1.0.0-alpha02/libexec/Contents/MacOS/rk" ~/.local/bin/rk`.
+  Verify: `rk --version`. JDK 17+ (it's a bundled-JVM jpackage app, ~219MB).
 
 ## API (apps/api — TS/Hono/Postgres)
 ```
@@ -64,8 +72,47 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest
   **silently NOT run** (JUnit ignores non-void test methods). Use
   `runBlocking<Unit> { … }`. Verify test COUNTS, not just BUILD SUCCESSFUL.
 - **Snapshots land in `apps/client/build/snapshots/*.png`** — `Read` them to
-  verify UI without a device. (Regenerated each run; gitignored. Golden-diff =
-  next, ADR 0019.)
+  verify UI without a device. (The hand-rolled `FeedSnapshotTest` writes raw
+  PNGs, no diff.) **Golden-diff is now `rk snapshot` — see below; it supersedes
+  the Roborazzi-DIY plan in ADR 0019's "remaining".**
+
+## ⭐ rk snapshot — headless render + golden diff (the rapid-confirmation loop)
+`rk snapshot` renders a **scene** (a Compose screen) from a **state** to a PNG
+**off-screen in ms**, and verifies it against a **golden** — the fastest way for
+an agent to *see* what a change produced and to catch visual regressions.
+
+**App side (one-time, = epic task CL-SNAP):** add a test-scoped
+`redux-kotlin-snapshot` dep (⚠ not yet on Maven Central per the docs — operator
+owns reduxkotlin; confirm the published coordinate/version at task time), define
+a scene registry, and expose it as a Gradle task `:client:snapshotUi`:
+```kotlin
+val clientSnapshots = snapshotApp {
+  defaults { width = 411; height = 891; density = 2f; theme = "light" }
+  scene("feed") { presets("loaded", "empty", "loading")
+    render { args -> DayfoldTheme(args.theme) { FeedScreen(stateOf(args)) } } }
+  scene("card-invite") { presets("default", "urgent")
+    render { args -> DayfoldTheme(args.theme) { CardItem(cardOf(args)) } } }
+  // …one scene per card type + per detail type; presets = states; theme = light|dark
+}
+fun main(args: Array<String>) { clientSnapshots.runCli(args); kotlin.system.exitProcess(0) }
+```
+The brew `rk` binary only carries its own demo scenes (`rk snapshot --list` →
+`counter`/`demo`) — **our scenes run through `./gradlew :client:snapshotUi --args="…"`**.
+
+**Rapid single-shot (agent loop):** render one state → PNG, then `Read` it.
+```
+cd apps && ./gradlew :client:snapshotUi --args="snapshot --scene card-invite --preset urgent --theme dark --out /tmp/x.png"
+```
+**Golden verify (single):** `--verify golden.png` exits 1 on drift.
+**Batch + golden CI:** a manifest of shots, verified against a golden dir, with
+an HTML report:
+```
+./gradlew :client:snapshotUi --args="snapshot --batch shots.json --out-dir build/snapshots --golden-dir designs/goldens --dashboard --json"
+```
+`shots.json` = `{ "defaults": {…}, "shots": [ {"id","scene","preset"|"stateJson","theme"?} ] }`.
+Exit 1 if any shot mismatches → **this is the golden-diff CI ADR 0019 deferred.**
+JUnit path also exists: `SnapshotApp.assertGolden(...)` (goldens under
+`src/test/resources/snapshots/`, record with `-Dsnapshot.record=true`).
 
 ## Android (`:androidApp` — the real device target)
 ```
@@ -99,12 +146,31 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :client:compileKotlinIosArm64 \
   line from `createAppStore`'s middleware): on Android
   `adb -s $DEV logcat -s System.out:I | grep redux`; on desktop it's the run
   stdout. Use this FIRST — it's text, no vision tokens.
-- **DevTools drawer** (Android debug): a floating **BUBBLE** (shows action count)
-  opens ACTIONS/STATE/DIFF/PIPELINE/OUTPUTS (time-travel). Needs a screenshot to
-  read → use only when the text log isn't enough.
-- **Snapshot PNGs** (above) for UI checks.
+- **`rk devtools` (text-first, scriptable — preferred over the drawer):** wire a
+  debug-only `BridgeOutput` into the store init (alongside the existing
+  `devTools(...)` enhancer) → the store streams to `127.0.0.1:9090`:
+  ```kotlin
+  // debug builds only:
+  DevToolsHub.registerOutput(BridgeOutput(BridgeConfig(
+    host="127.0.0.1", port=9090, startEnabled=true, clientLabel="dayfold-client")))
+  ```
+  Then, in a side terminal: `rk devtools serve` (writes `.rk-devtools/<store>.jsonl`).
+  Inspect from the CLI — all **text**, no vision tokens:
+  `rk devtools actions --last 5 --type '*Card*'` · `rk devtools diff --since N --until N --pretty`
+  (per-field `{op,path,before,after}`) · `rk devtools state --at N --pretty` ·
+  `rk devtools tail --follow --type '*Detail*'` (live) · `rk devtools stores`.
+  Captures are `.jsonl` → committable to a bug report and agent-readable directly.
+  **Use this to confirm reducer behavior** (e.g. `OpenDetail`/`CloseDetail`, the
+  M0 display-only RSVP, sync deltas) without a screenshot.
+- **DevTools drawer** (Android debug): a floating **BUBBLE** (action count) opens
+  ACTIONS/STATE/DIFF/PIPELINE/OUTPUTS (time-travel). Needs a screenshot to read →
+  use only when the text log + `rk devtools` aren't enough.
+- **Snapshot PNGs / `rk snapshot`** (above) for UI checks.
 
-## Not available (don't hunt for these)
-- **redux-kotlin CLI**: not published (npm/maven) — nothing to wire (INB-15).
-- **screenshot/golden module**: none from reduxkotlin; golden-diff = Roborazzi
-  (DIY, ADR 0019 remaining).
+## Now available (2026-06-19 — supersedes the old "not available" note)
+- **redux-kotlin CLI `rk`**: **PUBLISHED** via Homebrew (`reduxkotlin/tap/rk`,
+  1.0.0-alpha02). devtools + snapshot, both wired above. (Mind the broken brew
+  symlink — see Toolchain.)
+- **screenshot/golden module**: **`rk snapshot`** provides headless render +
+  golden-diff + dashboard — no Roborazzi DIY needed. Realizes ADR 0019's
+  remaining golden-diff + CLI items.
