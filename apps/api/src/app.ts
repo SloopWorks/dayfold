@@ -150,6 +150,39 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   return c.body(null, (await repo.softDeleteCard(fid, id)) ? 204 : 404);
 });
 
+app.post("/device/authorize", async (c) => {
+  const { clientIp, hit } = await import("./auth/ratelimit.ts");
+  const ip = clientIp(c);
+  const rl = await hit(`ip:authorize:${ip}`, 600, 10);
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => ({})); // permissive [E2EE hook]
+  const { createAuthorization } = await import("./auth/device.ts");
+  const { audit } = await import("./auth/audit.ts");
+  const { device_code, user_code } = await createAuthorization(body?.client ?? "familyai-cli", ip, c.req.header("user-agent") ?? null);
+  await audit("device.authorize", { detail: { ip } });
+  const base = `${new URL(c.req.url).origin}/device`;
+  return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });
+});
+
+app.post("/device/token", async (c) => {
+  const { clientIp, hit } = await import("./auth/ratelimit.ts");
+  const ip = clientIp(c);
+  const rl = await hit(`ip:token:${ip}`, 600, 600);   // [I-2] anti-DoS, generous
+  if (!rl.ok) return c.body(null, 429);
+  const body = await c.req.json().catch(() => null);
+  if (!body?.device_code) return c.json({ error: "invalid_request" }, 400);
+  const { redeem } = await import("./auth/device.ts");
+  const { mintAccess } = await import("./auth/tokens.ts");
+  const { issueRefresh } = await import("./auth/refresh.ts");
+  const out = await redeem(body.device_code, mintAccess, issueRefresh);
+  if ("tokens" in out) {
+    const { audit } = await import("./auth/audit.ts");
+    await audit("device.token.redeemed", { detail: { device_code: body.device_code } });
+    return c.json(out.tokens, 200);
+  }
+  return c.json({ error: out.error }, 400);
+});
+
 app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
