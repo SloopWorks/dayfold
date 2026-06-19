@@ -117,6 +117,7 @@ CREATE TABLE places (                       -- [ADR 0014] reusable named places;
   id          text NOT NULL,
   family_id   text NOT NULL REFERENCES families(id) ON DELETE CASCADE,
   label       text NOT NULL,
+  kind        text NOT NULL DEFAULT 'other', -- home|school|store|other (drives UI icon; design alignment)
   lat         double precision NOT NULL,     -- encrypted at rest; never logged; never live position
   lng         double precision NOT NULL,
   radius_m    int NOT NULL DEFAULT 150,

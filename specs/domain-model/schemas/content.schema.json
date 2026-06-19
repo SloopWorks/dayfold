@@ -121,8 +121,9 @@
       "type": "object",
       "required": ["id", "label", "lat", "lng"],
       "properties": {
-        "id": { "$ref": "#/$defs/ulid" }, "label": { "type": "string", "description": "[CONTENT/E2E-hole]" },
-        "lat": { "type": "number", "description": "[CONTENT/E2E-hole]" }, "lng": { "type": "number", "description": "[CONTENT/E2E-hole]" },
+        "id": { "$ref": "#/$defs/ulid" }, "label": { "type": "string" },
+        "kind": { "enum": ["home", "school", "store", "other"], "default": "other", "description": "category (drives the place icon in the UI; design alignment)" },
+        "lat": { "type": "number" }, "lng": { "type": "number" },
         "radius_m": { "type": "integer", "default": 150 }, "version": { "$ref": "#/$defs/version" }
       },
       "additionalProperties": false

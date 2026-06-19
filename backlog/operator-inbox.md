@@ -45,6 +45,16 @@ Each item: question, context link, **proposed default**, urgency.
   02/05/06/08 specs for the encrypted column split. Accept / amend recovery
   posture / defer.
 
+- **INB-13 · 2026-06-18 · med · open — Trigger designs need a v2 pass (Claude Design).**
+  The new trigger/place/notification mockups are complete (14.5/15) + calm, but
+  the 3-agent review found a **P0 honesty bug**: the Places/affordance copy says
+  saved place coords "never leave the device" — false per ADR 0014 (they're
+  encrypted server-side family content; only *live position* stays local). Fix
+  list is in `designs/DESIGN-BRIEF-triggers.md §6b` (privacy copy + the four
+  M3-Expressive signatures + offline screen + geo=M1 labeling). **Hand §6b back
+  to Claude Design before the trigger surface (M1) gates (ADR 0008).** Schema
+  side (`Place.kind`) already fixed.
+
 - **INB-12 · 2026-06-18 · high · open — P-1 operator bootstrap (human-only; blocks cloud P0/P1).**
   The build loop is running; these account/auth steps only you can do (ADR
   0012 — agents can provision *within* an authed account, but not create the

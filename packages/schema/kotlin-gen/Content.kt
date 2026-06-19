@@ -313,18 +313,12 @@ data class Place (
     val id: String,
 
     /**
-     * [CONTENT/E2E-hole]
+     * category (drives the place icon in the UI; design alignment)
      */
+    val kind: PlaceKind? = null,
+
     val label: String,
-
-    /**
-     * [CONTENT/E2E-hole]
-     */
     val lat: Double,
-
-    /**
-     * [CONTENT/E2E-hole]
-     */
     val lng: Double,
 
     @SerialName("radius_m")
@@ -332,6 +326,17 @@ data class Place (
 
     val version: Long? = null
 )
+
+/**
+ * category (drives the place icon in the UI; design alignment)
+ */
+@Serializable
+enum class PlaceKind(val value: String) {
+    @SerialName("home") Home("home"),
+    @SerialName("other") Other("other"),
+    @SerialName("school") School("school"),
+    @SerialName("store") Store("store");
+}
 
 /**
  * GET /families/{fid}/sync (03 §sync)

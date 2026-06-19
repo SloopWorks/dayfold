@@ -108,6 +108,62 @@ designs/triggers/
   adaptive/               (tablet/desktop frames + a Wear trigger tile)
 ```
 
+## 6b. REVISION v2 — required fixes (3-agent review, 2026-06-18)
+
+The first pass shipped (14.5/15 screens, token-consistent, calm). Fix these:
+
+**P0 — privacy copy is dishonest (contradicts ADR 0014):**
+- `Places.dc.html` ("They live on your devices", "Stored on-device; live
+  location never recorded", `cloud_off`) and `Privacy-Affordance.dc.html`
+  step 3 ("Nothing is sent") **overclaim**. Place coords (home/school) ARE
+  **server-side family content, encrypted** — only the **live position** stays
+  local. Rewrite to: *"Saved places sync to your family, encrypted. Only your
+  live position — where you are right now — stays on this phone."* Add a
+  one-time consent beat when first saving home/school ("shared with your
+  family, stored encrypted"). Keep the true chip ("Location never leaves" =
+  live position) but never imply saved places don't reach the server. Same fix
+  in the Always-upgrade `promiseBody` and notification chips ("Matched on your
+  device", not "Location never leaves").
+
+**P1 — permission honesty:** `Permission-Phone.dc.html` `locPrime` over-promises
+background proximity that when-in-use can't deliver. Reserve "the moment you
+walk in / without opening the app" language for the **Always-upgrade** screen;
+when-in-use surfaces nearby places *while the app is open*.
+
+**P1 — geo = M1:** tag all geo-proximity + background-notification frames as
+**M1** (M0 = time triggers + feed only; ADR 0014 §6 / 08-mobile-client). Mirror
+the `activity`-deferred labeling so a builder doesn't ship M0 geofencing.
+
+**P0 — offline state (#15) MISSING:** add a `Content-Phone` `offline` screen —
+time triggers still fire + geo still matches on-device offline; only deep-link
+content/map tiles degrade. "Offline · still matched on your device" tonal
+banner (privacy teal). The on-device promise is *strongest* offline.
+
+**Modern M3 Expressive (still missing the four May-2025 signatures):**
+- **Physics motion:** replace the CSS keyframe pulses (`ct-halo`/`nt-pulse`)
+  with **`MotionScheme.expressive()`** — **spatial spring** (overshoot) on the
+  active-card container/elevation lift; **effects spring** (high-damp) on the
+  teal color crossfade + halo. Collapse to the 4 Design-System motion tokens.
+- **New components:** Places add = a **FAB Menu** expanding to the 4 place
+  kinds (home/school/store/other — now in the schema); add the **Loading
+  indicator** (waveform) on save + map-resolve + deep-link fetch; render the
+  priming primary/secondary CTAs as a **button group / split button**.
+- **Shape morph:** on proximity-active, **morph the card shape** (large→XL or a
+  scalloped live-dot) synced to the spatial spring — the Design-System claims
+  morph but no trigger screen shows it.
+- **Emphasized type:** apply the M3E **emphasized** role to countdowns
+  ("12 days", "In 1 hour") + imminent-alert chips; add the emphasized variant
+  to the Design-System type ramp.
+
+**P2 — a11y:** wrap all halo/pulse keyframes in `@media (prefers-reduced-
+motion)` → static ring; bump the privacy chip to ≥11px; 48dp invisible hit-slop
+on the radius slider thumb. **Softer glyph** (`my_location`/`pin_drop`) for the
+Always-upgrade hero (the `radar` icon leans tracking-creepy).
+
+**Schema note (already applied):** `Place.kind` (home|school|store|other) is now
+in the schema/DDL — the add-place category chips are backed; render the per-
+place icon from `kind`.
+
 ## 7. Definition of done
 - All §3 phone screens, light + dark, clickable from `index.html`.
 - The privacy affordance designed as a reusable component and shown in context.
