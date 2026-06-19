@@ -17,6 +17,7 @@ dependencies {
   implementation("org.reduxkotlin:redux-kotlin-threadsafe-jvm:1.0.0-alpha01") // latest (operator owns reduxkotlin); [F5] threadsafe
   implementation("org.reduxkotlin:redux-kotlin-compose-jvm:1.0.0-alpha01")     // selectorState/fieldState → f(store.state)→UI (needs Kotlin 2.3+)
   implementation("org.reduxkotlin:redux-kotlin-granular-jvm:1.0.0-alpha01")     // FieldStateKt depends on it; not pulled transitively by the compose .module
+  implementation("org.reduxkotlin:redux-kotlin-devtools-core-jvm:1.0.0-alpha01") // devTools() store enhancer (records to DevToolsHub)
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
   implementation(compose.desktop.currentOs)
   implementation(compose.material3)

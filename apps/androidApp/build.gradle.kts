@@ -49,6 +49,9 @@ dependencies {
   implementation("org.reduxkotlin:redux-kotlin-threadsafe-jvm:1.0.0-alpha01")
   implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha01")  // selectorState → f(store.state)→UI
   implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha01")  // FieldStateKt dep (not pulled transitively)
+  implementation("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha01")          // devTools() enhancer (shared store)
+  debugImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha01")    // in-app debug drawer
+  releaseImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp-noop:1.0.0-alpha01") // release: no-op facade
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

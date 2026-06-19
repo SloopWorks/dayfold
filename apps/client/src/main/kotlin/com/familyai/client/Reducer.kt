@@ -1,8 +1,8 @@
 package com.familyai.client
 
 import org.reduxkotlin.Store
-import org.reduxkotlin.applyMiddleware
-import org.reduxkotlin.middleware
+import org.reduxkotlin.devtools.DevToolsConfig
+import org.reduxkotlin.devtools.devTools
 import org.reduxkotlin.threadsafe.createThreadSafeStore
 
 // Hand-written root reducer (locked decision: no combineReducers). Applies a
@@ -27,19 +27,11 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   else -> state
 }
 
-// Debug middleware — logs every action + the state delta. A stand-in for the
-// redux-kotlin devtools module (not yet published); swap/augment with the real
-// devtools enhancer when it ships. Gated off in release builds via `debug`.
-private val loggingMiddleware = middleware<AppState> { store, next, action ->
-  val before = store.state
-  val result = next(action)
-  val after = store.state
-  println("[redux] ${action::class.simpleName}: cards ${before.cards.size}→${after.cards.size}, syncing=${after.syncing}, error=${after.error}")
-  result
-}
-
 // [F5] thread-safe store: the SyncClient effect dispatches from Dispatchers.IO
 // while the Compose UI reads on main — needs synchronized dispatch.
+// `debug=true` attaches the redux-kotlin-devtools `devTools()` enhancer, which
+// records actions + state diffs to DevToolsHub (observed by the in-app drawer
+// on Android; ADR 0019). Release builds pass debug=false (no recording).
 fun createAppStore(initial: AppState = AppState(), debug: Boolean = true): Store<AppState> =
-  if (debug) createThreadSafeStore(::rootReducer, initial, applyMiddleware(loggingMiddleware))
+  if (debug) createThreadSafeStore(::rootReducer, initial, devTools(DevToolsConfig(instanceId = "family-ai", name = "Family AI")))
   else createThreadSafeStore(::rootReducer, initial)

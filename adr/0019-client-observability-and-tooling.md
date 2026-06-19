@@ -2,9 +2,11 @@
 
 ## Status
 
-**Proposed** 2026-06-19. Operator-gated (extends ADR 0013; the operator
-maintains reduxkotlin). Composes with ADR 0013 (KMP/CMP + redux-kotlin) and the
-findings in `research/reduxkotlin-1.0-feedback.md`.
+**Accepted** 2026-06-19 (operator-directed; operator maintains reduxkotlin).
+Extends ADR 0013; composes with `research/reduxkotlin-1.0-feedback.md`.
+**DevTools is now LIVE** — the modules publish at `1.0.0-alpha01` on Maven
+Central (also `1.0.0-SNAPSHOT`). Verified on-device: in-app drawer recording
+real actions (`specs/prototype/devtools-{bubble,drawer}.png`).
 
 ## Context
 
@@ -21,22 +23,27 @@ Adopt client observability in two tiers — **now** (what's published) and
 **when-published** (gated on reduxkotlin releases) — and back each with tests.
 
 **Now (implemented):**
-1. **Debug middleware** — `applyMiddleware(loggingMiddleware)` on the store logs
-   every action + state delta (`createAppStore(debug = true)`; off in release).
-   This is the interim stand-in for the devtools module.
-2. **Compose UI snapshot tests** — `runComposeUiTest { … captureToImage() }`
-   renders `FeedScreen(state)` off-screen (headless, no device) and captures
-   pixels. `FeedSnapshotTest` establishes the pipeline.
+1. **DevTools enhancer** — `createAppStore(debug = true)` attaches
+   `devTools(DevToolsConfig(instanceId="family-ai", name="Family AI"))` from
+   `redux-kotlin-devtools-core`, recording actions + state diffs to the global
+   `DevToolsHub`. Release passes `debug = false` (no recording).
+2. **In-app debug drawer (Android)** — `ReduxDevToolsHost(InAppConfig(triggers =
+   {BUBBLE}))` wraps the UI: a floating bubble (with action count) opens the
+   Redux DevTools drawer (ACTIONS / STATE / DIFF / PIPELINE / OUTPUTS — i.e.
+   the action log + time-travel + state inspection). `debugImplementation`
+   `redux-kotlin-devtools-inapp`; `releaseImplementation` `-inapp-noop` (the
+   no-op facade strips the UI from release).
+3. **Compose UI snapshot tests** — `runComposeUiTest { … captureToImage() }`
+   renders `FeedScreen(state)` off-screen (headless) → pixels (`FeedSnapshotTest`).
 
-**When-published (gated on reduxkotlin — tracked in the feedback doc / INB-15):**
-3. **DevTools integration** — wire the real `redux-kotlin-devtools` enhancer
-   (action log, time-travel) once it ships; it replaces/augments the debug
-   middleware. Time-travel also underpins the card→block deep-link (ADR 0013).
-4. **Golden-image snapshot diffing** — add Roborazzi (Android) / a desktop
-   golden harness so snapshots *assert against goldens* in CI, not just capture.
-   Adopt any reduxkotlin screenshot helper if/when published.
-5. **redux-kotlin CLI** — adopt for store/reducer scaffolding + devtools driving
-   once published; wire into the agent-build flow (ADR 0012) if it fits.
+**Remaining (lower priority):**
+4. **Golden-image snapshot diffing** — add Roborazzi / a desktop golden harness
+   so snapshots *assert against goldens* in CI (today's test captures only).
+   Pure Compose infra — no reduxkotlin dependency.
+5. **Remote DevTools** — optionally add `redux-kotlin-devtools-remote` /
+   `-bridge` to stream to the standalone monitor / browser extension.
+6. **redux-kotlin CLI** — adopt for scaffolding / driving devtools if it fits
+   the agent-build flow (ADR 0012) once a CLI artifact is available.
 
 **Test policy:** every store-driven surface gets (a) reducer unit tests, (b) a
 Compose snapshot, and — once #4 lands — a golden assertion in CI.

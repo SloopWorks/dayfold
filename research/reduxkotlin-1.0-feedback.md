@@ -58,10 +58,17 @@ the Compose/Compose-MP compatibility floor for the compose module.
 `concurrentStore` is the intended 1.0 name for the thread-safe/concurrent store,
 publish it (and consider deprecating/aliasing `createThreadSafeStore`).
 
-**M2 · devtools** — no `redux-kotlin-devtools` artifact on Maven Central. A
-store enhancer + a way to connect to Redux DevTools (time-travel, action log)
-would be high-value for the `f(store.state)→UI` story. Published modules seen:
-core, threadsafe, compose, granular, thunk, reselect (0.2.10).
+**M2 · devtools — RESOLVED (my earlier "not published" was wrong).** I searched
+`redux-kotlin-devtools` (singular); the real modules are
+`redux-kotlin-devtools-{core,inapp,inapp-noop,bridge,remote,ui}`, published at
+`1.0.0-alpha01` on Maven Central (+ `1.0.0-SNAPSHOT`). **Now wired + verified
+on-device** (ADR 0019): `devTools()` enhancer + the in-app `ReduxDevToolsHost`
+drawer (BUBBLE trigger) recording real actions. *Doc nit:* `DevTools.md` text
+predates the publish and reads as "not yet published" — update it. *Minor API
+notes:* the enhancer↔drawer auto-connect via the `DevToolsHub` singleton (nice);
+`DevToolsConfig(instanceId=, name=)` worked with defaults for the rest;
+`InAppConfig(triggers=setOf(BUBBLE))` exposes a visible affordance (good for
+QA/screenshots).
 
 **M3 · reduxkotlin CLI** — no artifact found (npm/maven/brew). If it scaffolds
 stores/reducers or drives devtools, publishing + a one-line install would help.

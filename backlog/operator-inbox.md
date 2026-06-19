@@ -58,8 +58,9 @@ Each item: question, context link, **proposed default**, urgency.
   though the POM declares it) → `FieldStateKt` (selectorState/fieldState) fails
   to load → bare "unresolved reference". Also: compose needs Kotlin ≥2.3.x while
   core/threadsafe read from 2.2.x; selectorState/fieldState are extensions
-  (top-level call = "unresolved"); and `concurrentStore`/devtools/CLI/screenshots
-  aren't on Maven Central yet. Doc has the full list + severities for 1.0.0.
+  (top-level call = "unresolved"); and `concurrentStore`/CLI aren't on Maven Central yet. **DevTools IS published
+  (1.0.0-alpha01) — now wired + verified on-device (ADR 0019).** Doc has the
+  full list + severities for 1.0.0; `DevTools.md` text predates the publish.
 
 - **INB-14 · 2026-06-18 · high · open — P3 device-render shell needs your hardware (final G1a step).**
   The client CORE is built + tested (redux-kotlin 0.6.2 store + /sync reducer,
