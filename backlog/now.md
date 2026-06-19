@@ -58,11 +58,22 @@ initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
   compile + debug framework links** (iosX64/intel-sim dropped — granular alpha01
   lacks that publication). **Operator-gated remainder (DoD "run gated on Mac"):**
   Xcode iosApp project (Swift @main + signing + sim run) + iOS sync-config
-  plumbing → folds into **TASK-SYNC**. **NEXT BUILD SLICE = `TASK-SYNC`**
-  (offline-first:
-  SQLDelight DB-as-SoT, unidirectional network→DB→store→UI, instant offline cold
-  start, foreground poll, WorkManager/BGTask). **DB layer + ContentStore already
-  built + tested on desktop (TASK-SYNC step 1); SQLDelight proven on Kotlin 2.3.20.**
+  plumbing → folds into **TASK-SYNC**.
+- **✅ DONE + MERGED — `TASK-SYNC` (offline-first DB-as-SoT, ADR 0020).** Merged to
+  `main` 2026-06-19 (merge `13db28b`, pushed; branch deleted). Delivered **R1**
+  (instant offline cold-start), **R2** (foreground poll ~45s + sync-on-resume),
+  **R4** (unidirectional `network→DB→store→UI`, crash-safe cursor in `sync_meta`).
+  `SyncClient`→transport (`fetchPage`); new **`SyncEngine`** owns the mutex-guarded
+  drain loop + DB→store bridge (`activeCardsFlow`→`CardsLoaded`) + poll lifecycle
+  (`start`/`resume`/`pause`/`stop`, public `syncNow` = future push hook). Store is a
+  pure DB projection (no network→store path); cursor removed from `AppState`. Desktop
+  file DB + WAL; iOS native driver. **24 desktop tests green, Android APK assembles,
+  iOS framework links.** Built subagent-driven (spec+plan in `docs/superpowers/`,
+  3 review rounds + final whole-branch review). kotlinx-datetime bumped 0.6.1→0.7.1
+  (`Clock`→`kotlin.time`). **OUT (deferred):** R3 background (WorkManager/BGTask),
+  push (FCM/APNs/SSE), E2EE (ADR 0017), 2-way/outbox (ADR 0016), iOS sync-config,
+  the `payload`/`$defs` richer card fields. **ADR 0020 still marked *Proposed* —
+  operator may flip to *Accepted* now that it's built.**
 - **Deferred by design (operator, 2026-06-19): G1 content-authoring loop ("the
   brains") = much-later milestone; interim authoring = operator + Claude Code via
   the CLI.**

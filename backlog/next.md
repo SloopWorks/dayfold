@@ -46,18 +46,18 @@ SQLDelight + sync; android/desktop build from it (no srcDir, no excludes); tests
 
 ## TASK-SYNC — Persistence & Sync (offline-first client) · ADR 0020
 
-**Status:** IN PROGRESS. **Done (2026-06-19):** step 1 — SQLDelight DB layer
-(`Content.sq` cards+sync_meta, 3.38 dialect for UPSERT) + `ContentStore` wrapper
-(applyDelta txn / activeCards / cursor) + 3 tests green on desktop; **SQLDelight
-toolchain proven on Kotlin 2.3.20**. **Remaining:** (2) wire the shared DB into
-the **Android** compile — the `srcDir` code-sharing can't carry SQLDelight's
-per-variant generated code, so this wants the **proper KMP restructure** of
-`apps/client` (commonMain + android/jvm/ios targets); (3) rewrite `SyncClient`
-network→DB; (4) DB→store bridge + cold-start; (5) foreground poll + WorkManager/
-BGTaskScheduler. **Why now:** the shipped M0 client is
-**in-memory** — round-trips the network every open, no offline, no background
-refresh, no persisted cursor. ADR 0020 + `specs/prototype/08-mobile-client.md`
-§"Data freshness & offline-first sync" spec the target.
+**Status:** ✅ DONE + MERGED to `main` 2026-06-19 (merge `13db28b`). Steps 1–4 +
+foreground poll shipped: SQLDelight DB-as-SoT, `SyncClient`→transport, `SyncEngine`
+(mutex drain + `activeCardsFlow`→`CardsLoaded` bridge + start/resume/pause/poll),
+instant offline cold-start, unidirectional `network→DB→store→UI`, crash-safe cursor.
+24 desktop tests green, Android APK assembles, iOS framework links. Spec+plan in
+`docs/superpowers/{specs,plans}/2026-06-19-task-sync*`. **REMAINING (deferred,
+new slices):** **R3 background** — Android `WorkManager` `PeriodicWorkRequest` +
+iOS `BGTaskScheduler` `BGAppRefreshTask` (both call the shared `SyncEngine.syncNow`;
+iOS needs the Xcode iosApp shell first); **push** (FCM/APNs/SSE → `syncNow` hook);
+**iOS sync-config** plumbing (api/family/secret, the BuildConfig analogue);
+`payload`/`$defs` richer card fields. **Why it mattered:** the M0 client was
+in-memory (network round-trip every open, no offline/cursor) — now fixed.
 
 **Scope (build slice):**
 1. **SQLDelight (KMP)** as source of truth — drivers per platform
