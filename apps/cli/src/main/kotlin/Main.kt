@@ -97,7 +97,7 @@ fun main(args: Array<String>) {
         var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
         if (code == 401) {
           access = store.withRefreshLock {
-            val cur = store.load()!!
+            val cur = store.load() ?: run { System.err.println("credentials removed — run: familyai login"); exitProcess(1) }
             val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
             if (rc != 200) { System.err.println("session expired — run: familyai login"); exitProcess(1) }
             val o = J.parseToJsonElement(rt).jsonObject
@@ -140,7 +140,11 @@ private fun deviceLogin(api: String) {
       val refreshToken = obj["refresh_token"]!!.jsonPrimitive.content
       // Fetch familyId from /auth/whoami so push needs no env
       val (wc, wt) = getStatus("$api/auth/whoami", accessToken)
-      val familyId = if (wc == 200) runCatching { J.parseToJsonElement(wt).jsonObject["family_id"]?.jsonPrimitive?.content ?: "" }.getOrDefault("") else ""
+      val familyId = if (wc == 200) runCatching { J.parseToJsonElement(wt).jsonObject["family_id"]?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() } }.getOrNull() else null
+      if (familyId.isNullOrEmpty()) {
+        System.err.println("login succeeded but could not resolve family — is the approving owner's family set up? run: familyai login")
+        exitProcess(1)
+      }
       Credentials().save(Creds(api = api, accessToken = accessToken, refreshToken = refreshToken, familyId = familyId, obtainedAt = java.time.Instant.now().toString()))
       println("logged in")
       return
