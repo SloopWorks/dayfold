@@ -37,6 +37,11 @@ Check `backlog/now.md` and `planning/workstreams.md` for the live front.
 **If asked to "run a loop iteration":** follow `processes/planning-loop.md`
 end to end, including the journal entry and inbox/digest close-out.
 **If asked to "bootstrap this project":** follow `BOOTSTRAP.md`.
+**If building/editing the apps (`apps/`):** read `processes/agent-dev-loop.md`
+first — the fixed toolchain (JDK17, Kotlin 2.3.20, redux-kotlin alpha01 gotchas)
++ the cheap feedback loop (text action log, snapshot PNGs, devtools, cloud URL).
+The M0 prototype is **built + live** (Vercel+Neon; Android renders on-device) —
+see `specs/prototype/00-build-spec-plan.md`.
 
 ## Directory map
 
