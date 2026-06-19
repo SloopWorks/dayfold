@@ -8,9 +8,14 @@
 > codegen complete BOTH languages. **I-build-4 (P1 start):** M0 DDL migration
 > applied clean to **real local Postgres** (7 tables + keyset round-trip);
 > security module (constant-time token compare, mass-assignment strip,
-> provenance stamp) + **6 vitest unit tests GREEN** (incl. generated-zod
-> validation). **Next:** content API routes + token middleware wiring against
-> local PG — INB-12 (Vercel/Neon) pending for the cloud pipeline/preview deploy.
+> provenance stamp) + unit tests GREEN. **I-build-5 (P1 content API):** the
+> card vertical — Hono routes (PUT/GET/DELETE/sync) + one household-token auth
+> gate (cross-tenant 404) + repo (idempotent upsert, keyset sync w/ tombstones,
+> soft-delete) against live Postgres. **16 tests GREEN** (9 unit + 7
+> integration: round-trip, version bump, tombstone-sync, 401, 404, mass-assign,
+> provenance). The G1a content path works over HTTP. **Next:** the seed/token
+> provision script + the CLI push (P2) — INB-12 (Vercel/Neon) pending for
+> preview/prod deploy.
 
 ## Milestone glossary (C6 — bind the vocabularies)
 

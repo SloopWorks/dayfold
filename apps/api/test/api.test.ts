@@ -1,0 +1,79 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
+process.env.DATABASE_URL ||= "postgres:///fad_test";
+process.env.HOUSEHOLD_SECRET = "test-secret-123";
+process.env.HOUSEHOLD_CREDENTIAL_ID = "hcred";
+
+// import AFTER env is set (db pool reads DATABASE_URL on import)
+const { pool, q } = await import("../src/db.ts");
+const { app } = await import("../src/app.ts");
+
+const AUTH = { authorization: "Bearer test-secret-123" };
+const card = (over = {}) => ({ kind: "info", title: "Party Sat",
+  provenance: { source: "claude", at: "2026-06-18T10:00:00Z" }, ...over });
+
+async function put(fid: string, id: string, body: any, headers = AUTH) {
+  return app.request(`/families/${fid}/cards/${id}`, {
+    method: "PUT", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+}
+
+beforeAll(async () => {
+  const sql = readFileSync(resolve(here, "../migrations/0001_m0_init.sql"), "utf8");
+  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+  await q(sql);
+  await q(`INSERT INTO families(id,name) VALUES ('fam1','Test')`);
+  await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','fam1','{content:read,content:write}')`);
+});
+afterAll(async () => { await pool.end(); });
+
+describe("M0 content API — card round-trip + security (vs live Postgres)", () => {
+  it("PUT (auth) → 200 version 1; re-PUT → version 2 (idempotent)", async () => {
+    const r1 = await put("fam1", "c1", card());
+    expect(r1.status).toBe(200);
+    expect((await r1.json()).version).toBe("1");
+    const r2 = await put("fam1", "c1", card({ title: "Party (edited)" }));
+    expect((await r2.json()).version).toBe("2");
+  });
+
+  it("GET cards + GET sync return the card", async () => {
+    const cards = await (await app.request("/families/fam1/cards", { headers: AUTH })).json();
+    expect(cards.some((c: any) => c.id === "c1")).toBe(true);
+    const sync = await (await app.request("/families/fam1/sync", { headers: AUTH })).json();
+    expect(sync.changes.cards.some((c: any) => c.id === "c1")).toBe(true);
+  });
+
+  it("DELETE → 204; sync surfaces a tombstone (trigger bumped updated_at)", async () => {
+    await put("fam1", "c2", card({ title: "to delete" }));
+    const del = await app.request("/families/fam1/cards/c2", { method: "DELETE", headers: AUTH });
+    expect(del.status).toBe(204);
+    const sync = await (await app.request("/families/fam1/sync", { headers: AUTH })).json();
+    expect(sync.tombstones.some((t: any) => t.id === "c2" && t.type === "card")).toBe(true);
+  });
+
+  it("bad token → 401", async () => {
+    expect((await put("fam1", "c3", card(), { authorization: "Bearer WRONG" })).status).toBe(401);
+    expect((await app.request("/families/fam1/cards")).status).toBe(401);
+  });
+
+  it("cross-tenant → 404 (not 403, no enumeration)", async () => {
+    expect((await app.request("/families/OTHER/cards", { headers: AUTH })).status).toBe(404);
+    expect((await put("OTHER", "c4", card())).status).toBe(404);
+  });
+
+  it("mass-assignment: body family_id/version ignored", async () => {
+    const r = await put("fam1", "c5", card({ family_id: "EVIL", version: 999 } as any));
+    const row = await r.json();
+    expect(row.family_id).toBe("fam1");   // from path, not body
+    expect(row.version).toBe("1");         // server-bumped, not 999
+  });
+
+  it("provenance credential_id is stamped, not client-forged", async () => {
+    const r = await put("fam1", "c6", card({ provenance: { source: "claude", at: "2026-06-18T10:00:00Z", credential_id: "FORGED" } }));
+    const row = await r.json();
+    expect(row.provenance.credential_id).toBe("hcred");
+  });
+});
