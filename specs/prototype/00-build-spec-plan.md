@@ -33,9 +33,13 @@
 > **I-build-10 (P0 CI):** Gradle wrappers (apps/cli + apps/client, 9.5.1) +
 > `.github/workflows/ci.yml` — 3 jobs (api vitest vs Postgres-service +
 > codegen-freshness guard; cli `./gradlew build`; client `./gradlew test`
-> headless Compose). Codifies the green build on every push. **Next unblocked:**
-> Vercel deploy prep (vercel.json + hono/vercel handler — write-only till
-> INB-12) + F5/F3 hardening.
+> headless Compose). Codifies the green build on every push. **I-build-11:** CI verified
+> **GREEN on GitHub** (3/3 jobs). Vercel deploy prep — `api/index.ts`
+> (hono/vercel handler) + `vercel.json` + db.ts tuned (`pg` → Neon
+> transaction-pooler, no driver swap, F3 preserved; max:1 on Vercel). Handler
+> imports clean, 19 api tests still green; concrete deploy steps in INB-12.
+> **Next unblocked:** F5/F3 client hardening + the content-authoring-loop
+> runbook (G1). Device render (INB-14) + the actual deploy (INB-12) operator-gated.
 
 ## Milestone glossary (C6 — bind the vocabularies)
 

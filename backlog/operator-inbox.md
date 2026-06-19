@@ -77,12 +77,21 @@ Each item: question, context link, **proposed default**, urgency.
   2. **Postgres** — create a **Neon** (or Supabase) project + billing; put the
      pooled connection string into Vercel's secret store. (Neon serverless
      driver, per ADR 0018.)
-  3. **Domain** `api.<host>` DNS (operator-owned).
-  4. **Apple** Developer account + a **Mac** (for the iOS client, P3 — not
-     needed for P0/P1/P2).
-  The loop proceeds on **unblocked** work meanwhile (schema codegen, the TS API
-  + Kotlin CLI against a **local Postgres** + seed fixture). Reply when the
-  Vercel + Neon items are done and the loop will wire the cloud pipeline.
+  3. **Domain** `api.<host>` DNS (operator-owned) — optional at first (use the
+     `*.vercel.app` URL to start).
+  4. **Apple** Developer account + a **Mac** (for the iOS client — see INB-14).
+  **The deploy config now exists** (`apps/api/vercel.json` + `api/index.ts` Hono
+  handler; `pg` talks to Neon's **transaction-pooler** endpoint, no driver
+  swap). Once you do the above, deploy is ~3 steps:
+  - `npm i -g vercel && vercel link` (in `apps/api`), set env **DATABASE_URL** =
+    the Neon **pooled** connection string, **HOUSEHOLD_SECRET** + **HOUSEHOLD_
+    CREDENTIAL_ID** (from `node scripts/provision.mjs` run against the Neon DB
+    after applying `migrations/0001_m0_init.sql`).
+  - `vercel deploy` (preview) → smoke-test `PUT/GET /sync` → `vercel promote`.
+  - point the CLI/client `FAMILYAI_API` at the deploy URL.
+  *(First-deploy unknown to verify: Vercel bundling the `.ts`-extension imports —
+  if it balks, add a tiny build step; the app itself is fully CI-tested.)*
+  Reply when Vercel + Neon exist and the loop wires/verifies the live deploy.
 
 - **INB-3 · 2026-06-18 · med · open — Cheapest kill-checks (you, ~2 hrs).**
   Before/while building: (a) run Gemini Daily Brief's school-email→family-

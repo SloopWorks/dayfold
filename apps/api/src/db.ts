@@ -1,6 +1,7 @@
-// DB access (M0). Local/dev uses node-postgres Pool; on Vercel this swaps to
-// the Neon serverless driver (HTTP/WS, no held TCP) per ADR 0018 — same query()
-// surface, so callers don't change.
+// DB access (M0). Plain node-postgres `pg` everywhere — including Vercel, where
+// it connects to Neon's TRANSACTION-MODE POOLER endpoint over TCP (ADR 0018:
+// pooler mandatory). No serverless-driver swap, so the F3 timestamptz parser
+// below stays valid on every path.
 import pg from "pg";
 const { Pool, types } = pg;
 
@@ -10,7 +11,12 @@ const { Pool, types } = pg;
 types.setTypeParser(1184, (s: string) => s); // timestamptz
 types.setTypeParser(1114, (s: string) => s); // timestamp
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// On Vercel each function instance keeps ≤1 connection (the pooler multiplexes);
+// locally/CI: default sizing.
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: process.env.VERCEL ? 1 : 10,
+});
 
 export function q(text: string, params?: unknown[]) {
   return pool.query(text, params);
