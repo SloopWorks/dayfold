@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .dv-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes dv-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+</style>
+</helmet>
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:{{ c.surface }};font-family:'Figtree',sans-serif;overflow:hidden;position:relative;">
+
+  <!-- ===== top bar / hero header ===== -->
+  <div style="flex:0 0 auto;background:{{ heroBg }};padding:10px 16px 18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span onClick="{{ onBack }}" class="msr" style="font-size:26px;color:{{ heroFg }};cursor:pointer;width:40px;height:40px;display:flex;align-items:center;border-radius:999px;">arrow_back</span>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span class="msr" style="font-size:23px;color:{{ heroFg }};width:40px;height:40px;display:flex;align-items:center;justify-content:center;">ios_share</span>
+        <span class="msr" style="font-size:23px;color:{{ heroFg }};width:40px;height:40px;display:flex;align-items:center;justify-content:center;">more_vert</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;">
+      <div style="width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:{{ accentBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:25px;color:{{ accentFg }};">{{ icon }}</span></div>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ kickerFg }};background:{{ kickerBg }};padding:5px 11px;border-radius:8px;"><span class="msr" style="font-size:14px;">{{ kickerIcon }}</span>{{ kicker }}</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.015em;color:{{ heroFg }};margin:0 0 5px;line-height:1.12;">{{ title }}</h1>
+    <div style="font-family:'Figtree';font-size:13.5px;color:{{ heroSubFg }};line-height:1.4;">{{ sub }}</div>
+  </div>
+
+  <!-- ===== scroll body ===== -->
+  <div class="dv-scroll" style="flex:1;overflow-y:auto;padding:14px 16px 26px;display:flex;flex-direction:column;gap:16px;">
+
+    <!-- ====== HERO MEDIA ====== -->
+
+    <!-- doc preview -->
+    <sc-if value="{{ isDoc }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;overflow:hidden;background:{{ c.surfaceContainer }};box-shadow:{{ pageShadow }};">
+        <div style="height:208px;background:{{ c.pageBg }};padding:22px 22px 0;position:relative;overflow:hidden;">
+          <div style="height:11px;width:62%;border-radius:4px;background:{{ c.pageInk }};margin-bottom:13px;"></div>
+          <div style="height:8px;width:96%;border-radius:4px;background:{{ c.pageLine }};margin-bottom:8px;"></div>
+          <div style="height:8px;width:90%;border-radius:4px;background:{{ c.pageLine }};margin-bottom:8px;"></div>
+          <div style="height:8px;width:97%;border-radius:4px;background:{{ c.pageLine }};margin-bottom:8px;"></div>
+          <div style="height:8px;width:48%;border-radius:4px;background:{{ c.pageLine }};margin-bottom:18px;"></div>
+          <div style="height:8px;width:80%;border-radius:4px;background:{{ c.pageLine }};margin-bottom:8px;"></div>
+          <div style="height:8px;width:88%;border-radius:4px;background:{{ c.pageLine }};"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(to bottom,transparent,{{ c.surfaceContainer }});"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;">
+          <span class="msr" style="font-size:20px;color:{{ accentSolid }};">picture_as_pdf</span>
+          <span style="flex:1;font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">Page 1 of 2 · preview</span>
+          <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ accentSolid }};">Full screen</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- link / web preview -->
+    <sc-if value="{{ isLink }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;overflow:hidden;background:{{ c.surfaceContainer }};">
+        <div style="height:150px;background:{{ ogBg }};display:flex;align-items:center;justify-content:center;position:relative;">
+          <span class="msr" style="font-size:46px;color:{{ ogFg }};opacity:0.9;">{{ ogIcon }}</span>
+          <span style="position:absolute;left:12px;top:12px;display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;background:{{ c.surface }};color:{{ c.onSurface }};padding:5px 10px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,0.12);"><span class="msr" style="font-size:14px;color:{{ accentSolid }};">public</span>{{ domain }}</span>
+        </div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Outfit';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};line-height:1.25;margin-bottom:5px;">{{ ogTitle }}</div>
+          <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};line-height:1.45;">{{ ogDesc }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- invite -->
+    <sc-if value="{{ isInvite }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;overflow:hidden;background:{{ accentBg }};padding:20px;">
+        <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;">
+          <div style="flex:0 0 auto;text-align:center;background:{{ c.surface }};border-radius:16px;padding:10px 16px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.06em;color:{{ accentSolid }};">{{ inviteMon }}</div>
+            <div style="font-family:'Outfit';font-weight:700;font-size:28px;line-height:1;color:{{ c.onSurface }};">{{ inviteDay }}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-family:'Figtree';font-size:13.5px;color:{{ accentFg }};line-height:1.5;"><span class="msr" style="font-size:15px;vertical-align:-3px;">schedule</span> {{ inviteTime }}</div>
+            <div style="font-family:'Figtree';font-size:13.5px;color:{{ accentFg }};line-height:1.5;"><span class="msr" style="font-size:15px;vertical-align:-3px;">place</span> {{ invitePlace }}</div>
+            <div style="font-family:'Figtree';font-size:13.5px;color:{{ accentFg }};line-height:1.5;"><span class="msr" style="font-size:15px;vertical-align:-3px;">person</span> {{ inviteHost }}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:9px;">
+          <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:{{ accentSolid }};color:{{ accentOnSolid }};font-family:'Figtree';font-weight:600;font-size:14px;padding:12px;border-radius:999px;"><span class="msr" style="font-size:18px;">check</span>RSVP yes</span>
+          <span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:{{ c.surface }};color:{{ c.onSurfaceVar }};font-family:'Figtree';font-weight:600;font-size:14px;padding:12px 18px;border-radius:999px;">No</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- contact -->
+    <sc-if value="{{ isContact }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;background:{{ c.surfaceContainer }};padding:22px 18px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+        <div style="width:76px;height:76px;border-radius:999px;background:{{ accentBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:28px;color:{{ accentFg }};margin-bottom:13px;">{{ contactInitials }}</div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onSurface }};">{{ contactName }}</div>
+        <div style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};margin-bottom:18px;">{{ contactRole }}</div>
+        <div style="display:flex;gap:22px;">
+          <sc-for list="{{ contactActions }}" as="a" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:7px;">
+              <span style="width:50px;height:50px;border-radius:999px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:23px;color:{{ c.onSecondaryContainer }};">{{ a.icon }}</span></span>
+              <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ a.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- geo / map -->
+    <sc-if value="{{ isGeo }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;overflow:hidden;background:{{ c.surfaceContainer }};">
+        <div style="height:230px;position:relative;background:{{ c.mapBg }};background-image:linear-gradient({{ c.mapLine }} 1px,transparent 1px),linear-gradient(90deg,{{ c.mapLine }} 1px,transparent 1px);background-size:30px 30px;">
+          <div style="position:absolute;left:-6%;top:62%;width:74%;height:16px;background:{{ c.mapRoad }};transform:rotate(-15deg);border-radius:4px;"></div>
+          <div style="position:absolute;left:30%;top:18%;width:16px;height:70%;background:{{ c.mapRoad }};transform:rotate(8deg);border-radius:4px;"></div>
+          <div style="position:absolute;left:18%;top:74%;width:46%;height:6px;background:{{ accentSolid }};transform:rotate(-15deg);border-radius:999px;"></div>
+          <div style="position:absolute;left:16%;top:73%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:999px;background:{{ c.surface }};border:4px solid {{ c.secondary }};"></div>
+          <div style="position:absolute;left:60%;top:30%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:42px;color:{{ accentSolid }};filter:drop-shadow(0 3px 4px rgba(0,0,0,0.25));">location_on</span></div>
+          <div style="position:absolute;left:12px;top:12px;display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;background:{{ c.surface }};color:{{ c.onSurface }};padding:6px 11px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,0.14);"><span class="msr" style="font-size:14px;color:{{ c.secondary }};">directions_car</span>{{ geoEta }}</div>
+        </div>
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};">{{ geoPlace }}</div>
+            <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ geoAddress }}</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:7px;background:{{ c.secondary }};color:{{ c.onSecondary }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:999px;"><span class="msr fill" style="font-size:18px;">navigation</span>Navigate</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- email -->
+    <sc-if value="{{ isEmail }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:22px;background:{{ c.surfaceContainer }};padding:16px 18px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="width:42px;height:42px;flex:0 0 42px;border-radius:999px;background:{{ accentBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:16px;color:{{ accentFg }};">{{ emailInitials }}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ emailFrom }}</div>
+            <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">to me · {{ emailDate }}</div>
+          </div>
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">star_border</span>
+        </div>
+        <div style="height:1px;background:{{ c.outlineVar }};margin-bottom:13px;"></div>
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.55;color:{{ c.onSurface }};margin:0 0 12px;">{{ emailBody }}</p>
+        <div style="display:inline-flex;align-items:center;gap:9px;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:12px;padding:9px 13px;">
+          <span class="msr" style="font-size:19px;color:{{ c.secondary }};">attach_file</span>
+          <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">{{ emailAttach }}</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ====== PRIMARY ACTIONS ====== -->
+    <div style="display:flex;gap:9px;flex-wrap:wrap;">
+      <sc-for list="{{ actions }}" as="a" hint-placeholder-count="3">
+        <span style="display:inline-flex;align-items:center;gap:7px;background:{{ a.bg }};color:{{ a.fg }};border:{{ a.border }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:11px 17px;border-radius:999px;"><span class="msr" style="font-size:17px;">{{ a.icon }}</span>{{ a.label }}</span>
+      </sc-for>
+    </div>
+
+    <!-- ====== DETAILS / METADATA ====== -->
+    <div>
+      <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 9px;">DETAILS</div>
+      <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:5px 4px;">
+        <sc-for list="{{ meta }}" as="m" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-bottom:1px solid {{ m.divider }};">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">{{ m.icon }}</span>
+            <span style="flex:0 0 96px;font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ m.label }}</span>
+            <span style="flex:1;font-family:'Figtree';font-size:13.5px;font-weight:500;color:{{ c.onSurface }};text-align:right;">{{ m.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ====== PROVENANCE ====== -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ provFg }};background:{{ provBg }};border:1px solid {{ provBorder }};border-radius:9px;padding:6px 11px;"><span class="msr" style="font-size:15px;">{{ provIcon }}</span>{{ provText }}</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:9px;padding:6px 11px;"><span class="msr fill" style="font-size:15px;">verified_user</span>{{ privacyText }}</span>
+    </div>
+
+    <!-- ====== RELATED ====== -->
+    <div>
+      <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 9px;">{{ relatedKicker }}</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <sc-for list="{{ related }}" as="r" hint-placeholder-count="2">
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:13px;">
+            <span style="width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:{{ r.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ r.iconFg }};">{{ r.icon }}</span></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.title }}</div>
+              <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.sub }}</div>
+            </div>
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:760},&quot;type&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;file&quot;,&quot;link&quot;,&quot;invite&quot;,&quot;contact&quot;,&quot;geo&quot;,&quot;email&quot;],&quot;default&quot;:&quot;file&quot;,&quot;tsType&quot;:&quot;'file' | 'link' | 'invite' | 'contact' | 'geo' | 'email'&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;onBack&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const type = this.props.type || 'file';
+    const light = {
+      surface:'#FFF8F6', headerBg:'#FCEBE6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC',
+      mapBg:'#EAE0DB', mapLine:'#DBCBC4', mapRoad:'#CDB9B1',
+      pageBg:'#FFFFFF', pageInk:'#C0381E', pageLine:'#E2D3CD',
+    };
+    const dark = {
+      surface:'#1A110E', headerBg:'#271D1A', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048',
+      mapBg:'#231A16', mapLine:'#322824', mapRoad:'#3D332E',
+      pageBg:'#2E2320', pageInk:'#FFB4A3', pageLine:'#473A35',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const prov = {
+      email:   { provIcon:'mail', provFg: c.privacyFg, provBg: c.privacyBg, provBorder: c.privacyBorder },
+    };
+    const provColor = mode === 'dark'
+      ? { fg:'#D3BBFF', bg:'#2A1F3D', border:'#4C2092' }
+      : { fg:'#4C2092', bg:'#F4ECFB', border:'#E0CDF5' };
+
+    // accent palettes per type
+    const tealAccent  = { bg:c.secondaryContainer, fg:c.onSecondaryContainer, solid:c.secondary,  onSolid:c.onSecondary };
+    const violetAccent= { bg:c.tertiaryContainer,  fg:c.onTertiaryContainer,  solid:c.tertiary,   onSolid: mode==='dark'?'#3A0080':'#FFFFFF' };
+    const coralAccent = { bg:c.primaryContainer,    fg:c.onPrimaryContainer,   solid:c.primary,    onSolid:c.onPrimary };
+
+    // shared action button styles
+    const filled  = (label, icon, ac) => ({ label, icon, bg: ac.solid, fg: ac.onSolid, border:'none' });
+    const tonal   = (label, icon) => ({ label, icon, bg: c.surfaceContainerHigh, fg: c.onSurface, border:'none' });
+    const outlined= (label, icon) => ({ label, icon, bg:'transparent', fg: c.onSurface, border:'1px solid '+c.outline });
+    const div = c.outlineVar;
+    const last = 'transparent';
+
+    const defs = {
+      file: {
+        icon:'description', accent: tealAccent,
+        kicker:'PDF · 240 KB', kickerIcon:'picture_as_pdf',
+        title:'Field-trip permission slip', sub:'Lincoln Elementary · due Thursday',
+        hero:'doc',
+        actions:[ filled('Open','open_in_new',tealAccent), tonal('Share','ios_share'), outlined('Add to Hub','add') ],
+        meta:[
+          {icon:'description', label:'File', value:'permission-slip.pdf', divider:div},
+          {icon:'folder', label:'Source', value:'Email attachment', divider:div},
+          {icon:'data_usage', label:'Size', value:'240 KB · 2 pages', divider:div},
+          {icon:'schedule', label:'Due', value:'Thu, Jun 25', divider:div},
+          {icon:'person', label:'Owner', value:'Lincoln Elementary', divider:last},
+        ],
+        prov:{ icon:'mail', text:'From your email' }, privacy:'Stored on your device',
+        relatedKicker:'FROM THE SAME EMAIL',
+        related:[
+          {icon:'event', title:'Field trip · permission needed', sub:'School email · RSVP Thu', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer},
+          {icon:'description', title:'supply-list.pdf', sub:'88 KB · attachment', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+        ],
+      },
+      link: {
+        icon:'link', accent: violetAccent,
+        kicker:'WEBSITE · FORM', kickerIcon:'public',
+        title:'Soccer registration form', sub:'riversideyouth.org · closes Friday',
+        hero:'link', domain:'riversideyouth.org', ogIcon:'sports_soccer',
+        ogTitle:'Fall 2026 Youth Soccer — Registration', ogDesc:'Sign up Leo for the fall season. 8 fields · takes ~3 min.',
+        actions:[ filled('Open form','open_in_new',violetAccent), tonal('Copy link','content_copy'), outlined('Add to Hub','add') ],
+        meta:[
+          {icon:'link', label:'URL', value:'riversideyouth.org/reg', divider:div},
+          {icon:'public', label:'Site', value:'Riverside Youth', divider:div},
+          {icon:'edit_note', label:'Type', value:'Form · 8 fields', divider:div},
+          {icon:'schedule', label:'Closes', value:'Fri, Jun 26', divider:div},
+          {icon:'bookmark', label:'Saved', value:'2 days ago', divider:last},
+        ],
+        prov:{ icon:'bookmark', text:'Link you saved' }, privacy:'Opened in your browser',
+        relatedKicker:'RELATED LINKS',
+        related:[
+          {icon:'link', title:'Season schedule (PDF)', sub:'riversideyouth.org', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer},
+          {icon:'link', title:'Carpool sign-up sheet', sub:'docs.google.com', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+        ],
+      },
+      invite: {
+        icon:'celebration', accent: coralAccent,
+        kicker:'INVITATION · RSVP NEEDED', kickerIcon:'mark_email_unread',
+        title:'Maya’s birthday party', sub:'Reply by Thursday · 12 guests',
+        hero:'invite', inviteMon:'JUN', inviteDay:'20', inviteTime:'Saturday · 3:00 PM',
+        invitePlace:'Home — backyard', inviteHost:'Hosted by Pat & Sam',
+        actions:[ tonal('Add to calendar','event'), outlined('Directions','navigation'), outlined('Message host','chat') ],
+        meta:[
+          {icon:'event', label:'When', value:'Sat Jun 20 · 3:00 PM', divider:div},
+          {icon:'place', label:'Where', value:'Home — backyard', divider:div},
+          {icon:'how_to_reg', label:'RSVP by', value:'Thu, Jun 18', divider:div},
+          {icon:'group', label:'Guests', value:'12 · 8 confirmed', divider:div},
+          {icon:'checkroom', label:'Note', value:'Casual · cake is GF', divider:last},
+        ],
+        prov:{ icon:'mail', text:'From your email' }, privacy:'Matched on your device',
+        relatedKicker:'PART OF THIS HUB',
+        related:[
+          {icon:'checklist', title:'Party shopping list', sub:'7 of 11 open', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+          {icon:'contacts', title:'Jake’s Rentals', sub:'Bouncy castle · 1pm', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer},
+        ],
+      },
+      contact: {
+        icon:'contacts', accent: coralAccent,
+        kicker:'VENDOR · DELIVERS TODAY', kickerIcon:'local_shipping',
+        title:'Jake’s Rentals', sub:'Bouncy castle · delivery 1:00 PM',
+        hero:'contact', contactInitials:'JR', contactName:'Jake’s Rentals', contactRole:'Party equipment · Riverside',
+        contactActions:[ {icon:'call', label:'Call'}, {icon:'chat', label:'Text'}, {icon:'mail', label:'Email'} ],
+        actions:[ filled('Directions','navigation',tealAccent), tonal('Save contact','person_add'), outlined('Add to Hub','add') ],
+        meta:[
+          {icon:'call', label:'Phone', value:'(555) 0142', divider:div},
+          {icon:'mail', label:'Email', value:'hello@jakes.co', divider:div},
+          {icon:'place', label:'Address', value:'14 Mill St, Riverside', divider:div},
+          {icon:'schedule', label:'Window', value:'Today · 1:00–1:30 PM', divider:div},
+          {icon:'inventory_2', label:'Order', value:'Bouncy castle · paid', divider:last},
+        ],
+        prov:{ icon:'mail', text:'From your email' }, privacy:'Stored on your device',
+        relatedKicker:'FOR THIS EVENT',
+        related:[
+          {icon:'celebration', title:'Maya’s birthday party', sub:'Today · 3:00 PM', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer},
+          {icon:'receipt_long', title:'Rental receipt.pdf', sub:'$120 · paid Jun 12', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+        ],
+      },
+      geo: {
+        icon:'pin_drop', accent: tealAccent,
+        kicker:'OUTING · LEAVE BY 2:40', kickerIcon:'directions_car',
+        title:'Riverside Park · Shelter B', sub:'Rain backup for the party · 8 min away',
+        hero:'geo', geoEta:'8 min · 2.4 mi', geoPlace:'Riverside Park — Shelter B', geoAddress:'200 Riverside Dr, Riverside',
+        actions:[ filled('Navigate','navigation',tealAccent), tonal('Copy address','content_copy'), outlined('Share ETA','ios_share') ],
+        meta:[
+          {icon:'place', label:'Address', value:'200 Riverside Dr', divider:div},
+          {icon:'directions_car', label:'Drive', value:'8 min · 2.4 mi', divider:div},
+          {icon:'schedule', label:'Leave by', value:'2:40 PM', divider:div},
+          {icon:'local_parking', label:'Parking', value:'Lot C · free', divider:div},
+          {icon:'event', label:'For', value:'Maya’s party (backup)', divider:last},
+        ],
+        prov:{ icon:'event', text:'From your calendar' }, privacy:'Location never leaves',
+        relatedKicker:'ON THIS TRIP',
+        related:[
+          {icon:'storefront', title:'Lincoln Market', sub:'Stop on the way · 4 min', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+          {icon:'celebration', title:'Maya’s birthday party', sub:'Today · 3:00 PM', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer},
+        ],
+      },
+      email: {
+        icon:'mail', accent: violetAccent,
+        kicker:'EMAIL · NEEDS REPLY', kickerIcon:'mark_email_unread',
+        title:'Field trip permission by Thursday', sub:'From Lincoln Elementary · 2 days ago',
+        hero:'email', emailInitials:'LE', emailFrom:'Lincoln Elementary', emailDate:'Mon, Jun 16',
+        emailBody:'Hi Pat — Maya’s class visits the science museum next week. Please return the signed permission slip by Thursday so she can attend. The slip is attached.',
+        emailAttach:'permission-slip.pdf',
+        actions:[ filled('Reply','reply',violetAccent), tonal('Open in Mail','open_in_new'), outlined('Add to Hub','add') ],
+        meta:[
+          {icon:'person', label:'From', value:'office@lincoln.edu', divider:div},
+          {icon:'subject', label:'Subject', value:'Permission slip', divider:div},
+          {icon:'schedule', label:'Received', value:'Mon, Jun 16', divider:div},
+          {icon:'forum', label:'Thread', value:'1 message', divider:div},
+          {icon:'attach_file', label:'Attached', value:'permission-slip.pdf', divider:last},
+        ],
+        prov:{ icon:'mail', text:'From your email' }, privacy:'Stored on your device',
+        relatedKicker:'IN THIS THREAD',
+        related:[
+          {icon:'description', title:'permission-slip.pdf', sub:'240 KB · due Thu', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer},
+          {icon:'event', title:'Science museum trip', sub:'Next Tue · 9 AM', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer},
+        ],
+      },
+    };
+
+    const d = defs[type] || defs.file;
+    const ac = d.accent;
+    const heroIsInvite = d.hero === 'invite';
+
+    return {
+      c, onBack: this.props.onBack || (() => {}),
+      icon: d.icon, accentBg: ac.bg, accentFg: ac.fg, accentSolid: ac.solid, accentOnSolid: ac.onSolid,
+      kicker: d.kicker, kickerIcon: d.kickerIcon, kickerFg: ac.fg, kickerBg: ac.bg,
+      title: d.title, sub: d.sub,
+      heroBg: heroIsInvite ? c.headerBg : c.headerBg,
+      heroFg: c.onSurface, heroSubFg: c.onSurfaceVar,
+      pageShadow: mode === 'dark' ? 'none' : '0 1px 3px rgba(39,24,20,0.10)',
+      // hero switches
+      isDoc: d.hero==='doc', isLink: d.hero==='link', isInvite: d.hero==='invite',
+      isContact: d.hero==='contact', isGeo: d.hero==='geo', isEmail: d.hero==='email',
+      // link hero
+      domain: d.domain, ogIcon: d.ogIcon, ogTitle: d.ogTitle, ogDesc: d.ogDesc,
+      ogBg: ac.bg, ogFg: ac.fg,
+      // invite hero
+      inviteMon: d.inviteMon, inviteDay: d.inviteDay, inviteTime: d.inviteTime, invitePlace: d.invitePlace, inviteHost: d.inviteHost,
+      // contact hero
+      contactInitials: d.contactInitials, contactName: d.contactName, contactRole: d.contactRole, contactActions: d.contactActions,
+      // geo hero
+      geoEta: d.geoEta, geoPlace: d.geoPlace, geoAddress: d.geoAddress,
+      // email hero
+      emailInitials: d.emailInitials, emailFrom: d.emailFrom, emailDate: d.emailDate, emailBody: d.emailBody, emailAttach: d.emailAttach,
+      // shared
+      actions: d.actions, meta: d.meta,
+      provIcon: d.prov.icon, provText: d.prov.text, provFg: provColor.fg, provBg: provColor.bg, provBorder: provColor.border,
+      privacyText: d.privacy,
+      relatedKicker: d.relatedKicker, related: d.related,
+    };
+  }
+}
+</script>
+</body>
+</html>

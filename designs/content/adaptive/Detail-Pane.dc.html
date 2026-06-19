@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="max-width:900px;margin-bottom:26px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Adaptive index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">B · The six types in the detail pane</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.06;">Same skeleton, hero reflows</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 18px;max-width:76ch;">Every detail keeps the constant anatomy — hero → actions → DETAILS → provenance &amp; privacy → related. Only the <b>hero</b> and the <b>column count</b> change with width: a single column at medium, a two-column dossier at expanded (hero left; actions, DETAILS &amp; related right). Use the toggle for light + dark on every frame.</p>
+    <div style="display:inline-flex;background:#FFF8F6;border:1px solid #D8C2BB;border-radius:999px;padding:4px;gap:2px;">
+      <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+      <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:48px;">
+    <sc-for list="{{ types }}" as="t" hint-placeholder-count="6">
+      <section>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+          <span style="width:34px;height:34px;border-radius:11px;background:{{ t.chipBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:19px;color:{{ t.chipFg }};">{{ t.icon }}</span></span>
+          <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">{{ t.name }}</h2>
+        </div>
+        <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:80ch;"><b>Reflow ·</b> {{ t.note }}</p>
+        <div style="display:flex;gap:28px;align-items:flex-start;">
+          <!-- medium -->
+          <div style="flex:none;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:10px;">MEDIUM · SINGLE COLUMN · 640dp</div>
+            <div style="width:600px;height:660px;border-radius:24px;overflow:hidden;box-shadow:0 12px 34px rgba(39,24,20,0.16);background:#fff;">
+              <dc-import name="Detail-Pane-View" type="{{ t.type }}" size="medium" mode="{{ mode }}" hint-size="600px,660px"></dc-import>
+            </div>
+          </div>
+          <!-- expanded -->
+          <div style="flex:none;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:10px;">EXPANDED · TWO COLUMN · ≥840dp</div>
+            <div style="width:940px;height:660px;border-radius:24px;overflow:hidden;box-shadow:0 12px 34px rgba(39,24,20,0.16);background:#fff;">
+              <dc-import name="Detail-Pane-View" type="{{ t.type }}" size="expanded" mode="{{ mode }}" hint-size="940px,660px"></dc-import>
+            </div>
+          </div>
+        </div>
+      </section>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: props.mode === 'dark' ? 'dark' : 'light' }; }
+  renderVals() {
+    const mode = this.state.mode;
+    const teal = mode === 'dark' ? { bg: '#005048', fg: '#A8F4E7' } : { bg: '#9DF2E4', fg: '#00201C' };
+    const violet = mode === 'dark' ? { bg: '#4C2092', fg: '#ECDCFF' } : { bg: '#ECDCFF', fg: '#23005C' };
+    const coral = mode === 'dark' ? { bg: '#9A2A12', fg: '#FFDAD2' } : { bg: '#FFDAD2', fg: '#5A1100' };
+    const T = (type, name, icon, ac, note) => ({ type, name, icon, chipBg: ac.bg, chipFg: ac.fg, note });
+    return {
+      mode,
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      lightPillBg: mode === 'light' ? (mode === 'dark' ? '#3D2D28' : '#9DF2E4') : 'transparent',
+      lightPillFg: mode === 'light' ? '#00201C' : '#5A423C',
+      darkPillBg: mode === 'dark' ? '#3D2D28' : 'transparent',
+      darkPillFg: mode === 'dark' ? '#F0DFDA' : '#5A423C',
+      types: [
+        T('file', 'File', 'description', teal, 'A larger page preview rather than a stretched strip — at expanded the page sits left and the actions, DETAILS and related move to the right column.'),
+        T('link', 'Link', 'public', violet, 'The OG preview grows and the description opens to a real reading width; the URL and metadata move beside it at expanded.'),
+        T('invite', 'Invite', 'celebration', coral, 'The date block, logistics and RSVP stay together as the hero; at width the DETAILS sit beside them instead of below. RSVP is display-of-state only (M0).'),
+        T('contact', 'Contact', 'contacts', coral, 'Stays centered with the reach buttons (Call / Text / Email) as the hero; DETAILS become a side column at expanded. Call is an OS handoff.'),
+        T('geo', 'Geo / map', 'pin_drop', teal, 'A genuinely larger map — taller and wider, not a stretched banner. Navigate stays on the map card; the privacy line still reads "Location never leaves" for live position only.'),
+        T('email', 'Email', 'mail', violet, 'The body opens to a ~60ch reading measure so a real message is comfortable; metadata moves out of the reading column at expanded. Reply is an OS handoff.'),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

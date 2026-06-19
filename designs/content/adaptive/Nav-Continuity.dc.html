@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .nc-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="max-width:880px;margin-bottom:30px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Adaptive index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">D · Navigation continuity</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.06;">One nav, three hosts</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 18px;max-width:76ch;">The same three destinations — Now, Hubs, Settings — move through a single <code style="font-family:monospace;background:#FCEBE6;padding:1px 5px;border-radius:5px;font-size:12.5px;">NavigationSuiteScaffold</code> as the window grows: bottom bar → rail → drawer. The fold gesture's <code style="font-family:monospace;background:#FCEBE6;padding:1px 5px;border-radius:5px;font-size:12.5px;">SharedTransitionLayout</code> sits <b>above</b> the nav, so an open detail survives the host swap.</p>
+    <div style="display:inline-flex;background:#FFF8F6;border:1px solid #D8C2BB;border-radius:999px;padding:4px;gap:2px;">
+      <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+      <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+    </div>
+  </div>
+
+  <!-- ============ THREE HOSTS ============ -->
+  <section style="margin-bottom:54px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;"><span class="msr" style="font-size:22px;color:#C0381E;">bottom_navigation</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">NavigationSuiteScaffold across widths</h2></div>
+    <div style="display:flex;gap:30px;align-items:flex-start;">
+
+      <!-- COMPACT · bar -->
+      <div style="flex:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:#fff;background:#C0381E;padding:3px 9px;border-radius:7px;">NavigationBar</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">compact · &lt;600dp</span></div>
+        <div style="width:300px;height:560px;border-radius:38px;overflow:hidden;background:{{ c.surface }};box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;flex-direction:column;">
+          <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span style="font-family:'Figtree';font-weight:600;font-size:11px;color:{{ c.onSurface }};">9:41</span><div style="display:flex;gap:5px;color:{{ c.onSurface }};"><span class="msr fill" style="font-size:13px;">wifi</span><span class="msr fill" style="font-size:14px;">battery_full</span></div></div>
+          <div class="nc-scroll" style="flex:1;overflow:hidden;padding:6px 16px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:3px;">SATURDAY · NOW</div><h3 style="font-family:'Outfit';font-weight:600;font-size:21px;margin:0 0 12px;color:{{ c.onSurface }};">Good morning</h3>
+            <div style="display:flex;flex-direction:column;gap:9px;">
+              <sc-for list="{{ miniCards }}" as="m" hint-placeholder-count="3"><div style="background:{{ m.bg }};border-radius:16px;padding:12px;"><div style="font-family:'Figtree';font-size:9.5px;font-weight:600;color:{{ m.fg }};margin-bottom:5px;">{{ m.kicker }}</div><div style="font-family:'Outfit';font-weight:600;font-size:13px;line-height:1.15;color:{{ c.onSurface }};">{{ m.title }}</div></div></sc-for>
+            </div>
+          </div>
+          <!-- bottom bar -->
+          <div style="flex:0 0 70px;background:{{ c.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:9px 18px 0;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="width:52px;height:28px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:20px;color:{{ c.navActiveIcon }};">today</span></span><span style="font-family:'Figtree';font-weight:600;font-size:10.5px;color:{{ c.onSurface }};">Now</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="width:52px;height:28px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">dashboard</span></span><span style="font-family:'Figtree';font-weight:500;font-size:10.5px;color:{{ c.navInactive }};">Hubs</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="width:52px;height:28px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">settings</span></span><span style="font-family:'Figtree';font-weight:500;font-size:10.5px;color:{{ c.navInactive }};">Settings</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEDIUM · rail -->
+      <div style="flex:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:#fff;background:#00796F;padding:3px 9px;border-radius:7px;">NavigationRail</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">medium · 600–840dp</span></div>
+        <div style="width:500px;height:560px;border-radius:24px;overflow:hidden;background:{{ c.surface }};box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+          <div style="flex:0 0 84px;background:{{ c.navBg }};display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:13px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:12px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:{{ c.navActiveIcon }};">today</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSurface }};">Now</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.navInactive }};">dashboard</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.navInactive }};">Hubs</span></div>
+            <div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.navInactive }};">settings</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.navInactive }};">Settings</span></div>
+          </div>
+          <div style="flex:0 0 190px;border-right:1px solid {{ c.outlineVar }};padding:16px 13px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:10px;">NOW</div><div style="display:flex;flex-direction:column;gap:9px;"><sc-for list="{{ miniCards }}" as="m" hint-placeholder-count="3"><div style="background:{{ m.bg }};border-radius:15px;padding:11px;"><div style="font-family:'Figtree';font-size:9px;font-weight:600;color:{{ m.fg }};margin-bottom:4px;">{{ m.kicker }}</div><div style="font-family:'Outfit';font-weight:600;font-size:12px;line-height:1.15;color:{{ c.onSurface }};">{{ m.title }}</div></div></sc-for></div></div>
+          <div style="flex:1;background:{{ c.surfaceContainerLow }};padding:18px;"><div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;"><div style="width:38px;height:38px;border-radius:13px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:20px;color:{{ c.onPrimaryContainer }};">celebration</span></div></div><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onSurface }};margin-bottom:4px;line-height:1.12;">Maya's party</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};margin-bottom:14px;">Reply by Thursday</div><div style="height:90px;border-radius:15px;background:{{ c.primaryContainer }};"></div></div>
+        </div>
+      </div>
+
+      <!-- EXPANDED · drawer -->
+      <div style="flex:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:#fff;background:#6438AE;padding:3px 9px;border-radius:7px;">NavigationDrawer</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">expanded · ≥840dp</span></div>
+        <div style="width:680px;height:560px;border-radius:24px;overflow:hidden;background:{{ c.surface }};box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+          <div style="flex:0 0 210px;background:{{ c.navBg }};padding:18px 12px;display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;gap:9px;padding:6px 10px 16px;"><div style="width:34px;height:34px;border-radius:11px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div><span style="font-family:'Outfit';font-weight:700;font-size:17px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Dayfold</span></div>
+            <div style="display:flex;align-items:center;gap:11px;padding:11px 15px;border-radius:999px;background:{{ c.navActivePill }};"><span class="msr fill" style="font-size:20px;color:{{ c.navActiveIcon }};">today</span><span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.navActiveIcon }};">Now</span></div>
+            <div style="display:flex;align-items:center;gap:11px;padding:11px 15px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">dashboard</span><span style="font-family:'Figtree';font-weight:500;font-size:13.5px;color:{{ c.navInactive }};">Hubs</span></div>
+            <div style="display:flex;align-items:center;gap:11px;padding:11px 15px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">settings</span><span style="font-family:'Figtree';font-weight:500;font-size:13.5px;color:{{ c.navInactive }};">Settings</span></div>
+          </div>
+          <div style="flex:0 0 200px;border-right:1px solid {{ c.outlineVar }};padding:16px 13px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:10px;">NOW</div><div style="display:flex;flex-direction:column;gap:9px;"><sc-for list="{{ miniCards }}" as="m" hint-placeholder-count="3"><div style="background:{{ m.bg }};border-radius:15px;padding:11px;"><div style="font-family:'Figtree';font-size:9px;font-weight:600;color:{{ m.fg }};margin-bottom:4px;">{{ m.kicker }}</div><div style="font-family:'Outfit';font-weight:600;font-size:12px;line-height:1.15;color:{{ c.onSurface }};">{{ m.title }}</div></div></sc-for></div></div>
+          <div style="flex:1;background:{{ c.surfaceContainerLow }};padding:18px;"><div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;"><div style="width:38px;height:38px;border-radius:13px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:20px;color:{{ c.onPrimaryContainer }};">celebration</span></div></div><div style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onSurface }};margin-bottom:4px;line-height:1.12;">Maya's birthday party</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-bottom:14px;">Reply by Thursday · 12 guests</div><div style="height:120px;border-radius:16px;background:{{ c.primaryContainer }};"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCAFFOLD NESTING ============ -->
+  <section>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;"><span class="msr" style="font-size:22px;color:#00796F;">account_tree</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Scaffold nesting — why the fold survives</h2></div>
+    <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:80ch;">The shared element that runs the container transform is owned by the outermost <code style="font-family:monospace;font-size:12px;">SharedTransitionLayout</code>. Because it wraps the nav suite, switching from bar → rail → drawer (or resizing across the hinge) re-parents the panes without unmounting the transition — so a detail that's open mid-resize keeps its identity and animates, never hard-cuts.</p>
+
+    <div style="max-width:900px;border-radius:24px;padding:26px;background:#FFF8F6;border:2px dashed #C0381E;position:relative;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span class="msr" style="font-size:18px;color:#C0381E;">all_inclusive</span><span style="font-family:'Figtree';font-size:13px;font-weight:700;color:#C0381E;">SharedTransitionLayout</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">— owns the container transform · persists across size classes</span></div>
+
+      <div style="border-radius:20px;padding:22px;background:#FCEBE6;border:1.5px solid #EBD3CB;margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span class="msr" style="font-size:17px;color:#00796F;">dashboard</span><span style="font-family:'Figtree';font-size:13px;font-weight:700;color:#00796F;">NavigationSuiteScaffold</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">— picks NavigationBar / Rail / Drawer by width</span></div>
+
+        <div style="border-radius:16px;padding:20px;background:#FFF8F6;border:1.5px solid #E0CDF5;margin-top:14px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="msr" style="font-size:17px;color:#6438AE;">view_column</span><span style="font-family:'Figtree';font-size:13px;font-weight:700;color:#6438AE;">ListDetailPaneScaffold</span><span style="font-family:'Figtree';font-size:11.5px;color:#8C726B;">— list pane + detail pane (+ supporting pane)</span></div>
+          <div style="display:flex;gap:12px;">
+            <div style="flex:0 0 150px;border-radius:13px;background:#ECDCFF;padding:14px;display:flex;flex-direction:column;align-items:center;gap:7px;"><span class="msr" style="font-size:22px;color:#4C2092;">list</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#4C2092;">List pane</span></div>
+            <div style="flex:1;border-radius:13px;background:#9DF2E4;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;position:relative;"><span class="msr" style="font-size:22px;color:#00201C;">article</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#00201C;">Detail pane</span>
+              <span style="position:absolute;right:10px;top:10px;display:inline-flex;align-items:center;gap:5px;background:#C0381E;color:#fff;font-family:'Figtree';font-size:10px;font-weight:600;padding:4px 9px;border-radius:999px;"><span class="msr" style="font-size:13px;">open_in_full</span>transform target</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- floating connector note -->
+      <div style="margin-top:18px;display:flex;align-items:center;gap:9px;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:14px;padding:12px 16px;">
+        <span class="msr fill" style="font-size:19px;color:#6438AE;">bolt</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#4C2092;">Because the transform target lives in the outer layer, resizing the window swaps the nav host and pane arrangement <b>underneath</b> a still-running animation — the open detail keeps its identity instead of unmounting and re-cutting.</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: props.mode === 'dark' ? 'dark' : 'light' }; }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface: '#FFF8F6', surfaceContainerLow: '#FDF1ED', surfaceContainer: '#FCEBE6', surfaceContainerHigh: '#F6E5E0',
+      onSurface: '#271814', onSurfaceVar: '#5A423C', outline: '#A98B84', outlineVar: '#E6D2CB',
+      primary: '#C0381E', onPrimary: '#FFFFFF', primaryContainer: '#FFDAD2', onPrimaryContainer: '#5A1100',
+      secondary: '#00796F', secondaryContainer: '#9DF2E4', onSecondaryContainer: '#00201C',
+      tertiary: '#6438AE', tertiaryContainer: '#ECDCFF', onTertiaryContainer: '#23005C',
+      navBg: '#F6E5E0', navActivePill: '#FFDAD2', navActiveIcon: '#5A1100', navInactive: '#5A423C',
+    };
+    const dark = {
+      surface: '#1A110E', surfaceContainerLow: '#211713', surfaceContainer: '#271D1A', surfaceContainerHigh: '#322824',
+      onSurface: '#F0DFDA', onSurfaceVar: '#D8C2BB', outline: '#A08D87', outlineVar: '#3D322E',
+      primary: '#FFB4A3', onPrimary: '#5F1500', primaryContainer: '#9A2A12', onPrimaryContainer: '#FFDAD2',
+      secondary: '#50DBC9', secondaryContainer: '#005048', onSecondaryContainer: '#A8F4E7',
+      tertiary: '#D3BBFF', tertiaryContainer: '#4C2092', onTertiaryContainer: '#ECDCFF',
+      navBg: '#271D1A', navActivePill: '#9A2A12', navActiveIcon: '#FFDAD2', navInactive: '#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const miniCards = [
+      { kicker: 'INVITATION · RSVP', title: 'Maya’s party', bg: c.primaryContainer, fg: c.onPrimaryContainer },
+      { kicker: 'PDF · DUE THU', title: 'Permission slip', bg: c.secondaryContainer, fg: c.onSecondaryContainer },
+      { kicker: 'FORM · CLOSES FRI', title: 'Soccer sign-up', bg: c.tertiaryContainer, fg: c.onTertiaryContainer },
+    ];
+    return {
+      c,
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      lightPillBg: mode === 'light' ? '#9DF2E4' : 'transparent',
+      lightPillFg: mode === 'light' ? '#00201C' : '#5A423C',
+      darkPillBg: mode === 'dark' ? '#3D2D28' : 'transparent',
+      darkPillFg: mode === 'dark' ? '#F0DFDA' : '#5A423C',
+      miniCards,
+    };
+  }
+}
+</script>
+</body>
+</html>

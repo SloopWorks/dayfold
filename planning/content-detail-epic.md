@@ -16,7 +16,7 @@ Tracking convention = `TASK-<slug>` (promote to `backlog/now.md` when active).
 | Gate | What | Status |
 |---|---|---|
 | **G-ADR** | Accept ADR 0022; **D2 storage fork** | ✅ Accepted; **D2 = extend `briefing_cards` in place** (unify→M1) |
-| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | ✅ Phone surfaces signed off (CL-0…7 unblocked); **adaptive pass queued** (CL-10 still blocked) |
+| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | ✅ Phone surfaces signed off (CL-0…7 unblocked). **Adaptive pass DELIVERED + imported** (`designs/content/adaptive/`, 2026-06-19) → CL-NAV/CL-10 design-satisfied, **pending operator sign-off (INB-16)** |
 | **G-NAME** | "Dayfold" product name | ✅ **Confirmed** (repo slug unchanged) |
 | **G-SCOPE** | Guardrail 3 (email-body storage) | ✅ Binding constraint: email authored via CLI/Claude over operator's OWN data, **no server-side Gmail restricted-scope read** (ADR 0022; CL-1/CL-3) |
 | **Slice** | How many types in M0 | ✅ **All 6** (operator widened the 2-type rec) |
@@ -32,7 +32,7 @@ CL-1 schema+codegen ─┬─ CL-2 server ──┐
 CL-0 theme ──────────────────────────────┴─ CL-6 detail ──────┼─ CL-7 transition
                                                                └─ CL-8 related-edges
 CL-9 map-strategy (spike) ─ feeds CL-5/CL-6 geo
-CL-10 adaptive two-pane ── BLOCKED on G-DESIGN-adaptive (design pass first)
+CL-NAV nav shell ── CL-10 adaptive two-pane (design DELIVERED; depends CL-5/6 + CL-NAV)
 ```
 
 CL-0 (theme) and CL-9 (map spike) have no schema dependency — can start once
@@ -132,6 +132,9 @@ codegen produces compiling TS + Kotlin; round-trip serialize test in client +
 zod parse test in server.
 **DoD:** 6 types codegen'd both sides, payloads strongly typed, examples
 validate, no `z.any()` for payload.
+**Adaptive delta (2026-06-19 spec):** also add a **parent-Hub reference**
+(`hubRef`/membership) to the content item — the expanded supporting pane shows
+"PART OF THIS HUB". (Sibling edges = CL-8; parent-Hub = here.)
 
 ## CL-2 — Server: typed storage, validation, sync
 
@@ -222,6 +225,11 @@ clears selection (verify via `rk devtools state`/`diff`); deep-link actions emit
 handoff intents (allowlisted schemes only, reuse `CardRender` link allowlist).
 **DoD:** detail renders for all 6 types light+dark; open/back via redux; matches
 mockups; snapshots green.
+**Adaptive delta (2026-06-19 spec):** make the detail content **size-class-aware**
+— single column (phone/medium pane, reuse this composable verbatim) vs **two-
+column dossier** at expanded (`bodyDir:row`, hero ~1.15 / meta ~1; per-type media
+scales: file 210→380, geo 220→380, link 150→240, email →60ch). At expanded,
+**RELATED rows move to the supporting pane** (CL-10), not the detail body.
 
 ## CL-7 — Client UI: the fold gesture (container transform)
 
@@ -283,18 +291,70 @@ detail hero.
 **DoD:** geo card+detail render a map affordance + working Navigate handoff
 within the ADR 0014 privacy posture; decision recorded.
 
-## CL-10 — Adaptive two-pane detail (BLOCKED — design gap)
+## CL-NAV — Adaptive nav shell (SharedTransitionLayout → NavigationSuiteScaffold → ListDetailPaneScaffold)
 
-**Goal:** Tablet/web/foldable **list-detail** (`ListDetailPaneScaffold`) hosting
-the detail in the detail pane.
-**Status:** **BLOCKED on a design pass** — only **phone** detail is designed
-(`Detail-Views.dc.html` is a desktop *catalog*, not an expanded layout). Per
-ADR 0008, the design brief is written: **`designs/DESIGN-BRIEF-content-
-adaptive.md`** — hand it to a fresh Claude Design session. It specifies the
-expanded/two-pane detail (`ListDetailPaneScaffold`), the 6 detail-pane types,
-and the fold-gesture-at-width decision (in-pane transform vs shared-axis swap).
-Output → `designs/content/adaptive/`; operator sign-off → unblocks this build.
-**DoD (design):** expanded detail mockup signed off → unblocks the build task.
+**Goal:** The outer shell that hosts feed/detail across window sizes and keeps the
+fold transition alive across resize/hinge. Prereq for CL-10 (and makes CL-7's
+transition survive window changes). Specified by `designs/content/adaptive/
+Nav-Continuity.dc.html`.
+**Files:** new `apps/client/src/commonMain/.../shell/AppShell.kt`.
+**Scope:** nesting **`SharedTransitionLayout` (outer — owns the shared element) →
+`NavigationSuiteScaffold` (bottom bar <600 / rail 600–840 / drawer ≥840; dests
+Now·Hubs·Settings) → `ListDetailPaneScaffold`** (the detail pane = transform
+target). Because the shared element lives in the outer layer, an open detail
+keeps identity and animates (not hard-cut) when the window resizes or crosses a
+fold. **⚠ New deps:** `material3-adaptive` + `adaptive-navigation-suite`
+artifacts — **confirm availability at Compose-MP 1.9.3** (same spike class as the
+shared-transition spike; do it in CL-SNAP/CL-7's spike).
+**Test:** rk scenes for bar/rail/drawer; resize keeps a selected detail mounted.
+**DoD:** one shell drives all three window classes; nav morphs bar→rail→drawer;
+an open detail survives a size-class change without unmounting.
+
+## CL-10 — Adaptive two-pane content detail (design gate RESOLVED 2026-06-19)
+
+**Goal:** Tablet/foldable/desktop **list-detail** (`ListDetailPaneScaffold`)
+hosting the content detail in the detail pane. **Web is NOT a target** (no
+`wasmJs`); desktop = the "expanded" reference.
+**Design:** ✅ **delivered + imported** — `designs/content/adaptive/`
+(`Breakpoints`, `Detail-Pane`(+`-View`), `States`, `Nav-Continuity`, `Index`).
+ADR 0008 gate **design-satisfied; pending operator sign-off** (INB-16). Built on
+CL-NAV.
+**Spec (from the import — this is the updated, authoritative spec):**
+- **Breakpoints:** compact `<600` (bottom bar, 1 pane — card→fullscreen, the
+  existing phone path) · medium `600–840` (rail, **2 panes**: list 330dp + detail)
+  · expanded `≥840` (drawer, **3 panes**: list 320 + detail + **supporting 296**).
+- **Two transition motions (NOT one):** (a) **first open** of an empty pane =
+  the **container-transform unfold** into the detail pane (460ms, emphasized-
+  decel / expressive spring, corner 20→12); (b) **switching** to another card
+  while a detail shows = **shared-axis fade-through inside the pane** (~180–240ms,
+  ~10px x-shift) — list never moves. `prefers-reduced-motion` → plain cross-fade
+  for both. (CL-7 implements motion (a); CL-10 adds motion (b).)
+- **Selected-card state in the list pane** (new client state): `surfaceContainer
+  High` fill + **2px accent ring** + trailing `chevron_right`→filled `check_circle`
+  in the type accent. Syncs to the `detailStack` top. → **add a `selected` variant
+  to CL-5 cards.**
+- **Supporting (3rd) pane (expanded):** parent **Hub** ("PART OF THIS HUB") +
+  siblings ("FROM THE SAME EMAIL"). **RELATED rows relocate here from the detail
+  pane at expanded** (→ CL-6 detail layout is width-dependent). **Needs a
+  parent-Hub reference on the content item** → **add `hubRef`/parent-membership to
+  CL-1 schema + CL-8 edges** (siblings = CL-8; parent-Hub = new).
+- **Size-class-aware detail:** medium = single column (`Detail-Phone` reused
+  verbatim in the pane — confirms commonMain reuse); expanded = **two-column
+  dossier** (`bodyDir:row`, hero ~1.15 left / actions+DETAILS+related ~1 right);
+  per-type hero media scales (file 210→380, geo 220→380, link 150→240, email body
+  →60ch). → **CL-6 DetailScreen must take a `WindowSizeClass` and reflow.**
+- **States (pane-level, new):** empty detail pane ("Nothing to unfold yet"),
+  foldable dual-pane with rendered hinge gutter (book + tabletop; folded collapses
+  to compact), in-pane loading skeleton, in-pane offline (cached text stays, media
+  → placeholder). Mirrors the phone media-never-blocks rule.
+- **Honesty preserved at width:** RSVP display-only ("saved to this family, not
+  sent to the host"); "Location never leaves" = live position only; Call/Navigate/
+  Reply = OS handoffs. No guardrail widened.
+**Test:** rk scenes per breakpoint × per detail type (light/dark) + the 4 pane
+states + both transition motions; goldens.
+**DoD:** medium 2-pane + expanded 3-pane render all 6 types reflowed; both
+transition motions; selected-list state; supporting pane shows parent Hub +
+siblings; pane states; survives resize (CL-NAV). Operator sign-off pending.
 
 ---
 

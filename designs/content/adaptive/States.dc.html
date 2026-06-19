@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .st-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes st-shimmer { 0% { opacity: .55; } 50% { opacity: 1; } 100% { opacity: .55; } }
+  .st-sk { animation: st-shimmer 1.5s ease-in-out infinite; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="max-width:880px;margin-bottom:26px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Adaptive index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">C · Empty · foldable · loading &amp; offline</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.06;">The in-between states</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 18px;max-width:76ch;">What two panes look like when nothing is picked, when the device physically folds, and when the network is slow — the detail pane carries its own empty / loading / offline state so the list never blanks out.</p>
+    <div style="display:inline-flex;background:#FFF8F6;border:1px solid #D8C2BB;border-radius:999px;padding:4px;gap:2px;">
+      <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+      <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:52px;">
+
+    <!-- ============ 1 · EMPTY PANE ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;"><span class="msr" style="font-size:22px;color:#6438AE;">check_box_outline_blank</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Empty detail pane</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">expanded · nothing selected yet</span></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:76ch;">On first open at width, the list is full and the detail pane invites the first unfold — calm, on-brand, never a dead grey box. Back from a detail returns here.</p>
+
+      <div style="width:1180px;height:600px;border-radius:26px;overflow:hidden;background:{{ c.surface }};box-shadow:0 14px 40px rgba(39,24,20,0.16);display:flex;">
+        <!-- drawer -->
+        <div style="flex:0 0 224px;background:{{ c.navBg }};padding:20px 14px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 18px;"><div style="width:36px;height:36px;border-radius:11px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div><span style="font-family:'Outfit';font-weight:700;font-size:18px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Dayfold</span></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:999px;background:{{ c.navActivePill }};"><span class="msr fill" style="font-size:20px;color:{{ c.navActiveIcon }};">today</span><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.navActiveIcon }};">Now</span></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">dashboard</span><span style="font-family:'Figtree';font-weight:500;font-size:14px;color:{{ c.navInactive }};">Hubs</span></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">settings</span><span style="font-family:'Figtree';font-weight:500;font-size:14px;color:{{ c.navInactive }};">Settings</span></div>
+        </div>
+        <!-- list -->
+        <div class="st-scroll" style="flex:0 0 326px;border-right:1px solid {{ c.outlineVar }};overflow-y:auto;padding:20px 16px;">
+          <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:3px;">SATURDAY · NOW</div>
+          <h3 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0 0 14px;color:{{ c.onSurface }};">Good morning, Pat</h3>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <sc-for list="{{ cards }}" as="it" hint-placeholder-count="4">
+              <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:14px 15px;">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:11px;background:{{ it.chipBg }};color:{{ it.chipFg }};padding:4px 9px;border-radius:8px;"><span class="msr" style="font-size:13px;">{{ it.kickIcon }}</span>{{ it.kicker }}</span></div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:15px;line-height:1.18;color:{{ c.onSurface }};margin-bottom:4px;">{{ it.title }}</div>
+                <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ it.body }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- empty pane -->
+        <div style="flex:1;background:{{ c.surfaceContainerLow }};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px;">
+          <div style="width:88px;height:88px;border-radius:28px;background:{{ c.surfaceContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr" style="font-size:42px;color:{{ c.outline }};">auto_awesome_motion</span></div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:23px;color:{{ c.onSurface }};margin-bottom:8px;">Nothing to unfold yet</div>
+          <div style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:{{ c.onSurfaceVar }};max-width:32ch;">Pick a card from Now and it opens here — its full detail, beside the day.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 2 · FOLDABLE DUAL-PANE ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;"><span class="msr" style="font-size:22px;color:#00796F;">devices_fold</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Foldable · dual-pane across the hinge</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">book posture · hinge-aware</span></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:80ch;">Unfolded, the two scaffold panes snap to the two physical halves: Now on the leading half, the open detail on the trailing half. The fold gesture maps to the device fold — the card unfolds <i>across</i> the hinge from list to detail. Nothing critical sits under the hinge gutter.</p>
+
+      <div style="width:1080px;height:600px;border-radius:24px;overflow:hidden;background:{{ c.surface }};box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;position:relative;">
+        <!-- leading half: rail + list -->
+        <div style="flex:1;display:flex;">
+          <div style="flex:0 0 76px;background:{{ c.navBg }};display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:6px;">
+            <div style="width:38px;height:38px;border-radius:12px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:12px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:{{ c.navActiveIcon }};">today</span></span>
+            <span style="width:50px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.navInactive }};">dashboard</span></span>
+          </div>
+          <div class="st-scroll" style="flex:1;overflow-y:auto;padding:18px 16px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:3px;">SATURDAY · NOW</div>
+            <h3 style="font-family:'Outfit';font-weight:600;font-size:20px;margin:0 0 13px;color:{{ c.onSurface }};">Good morning, Pat</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ foldCards }}" as="it" hint-placeholder-count="3">
+                <div style="background:{{ it.cardBg }};border-radius:18px;padding:13px 14px;box-shadow:{{ it.ring }};">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:10.5px;background:{{ it.chipBg }};color:{{ it.chipFg }};padding:4px 8px;border-radius:7px;"><span class="msr" style="font-size:12px;">{{ it.kickIcon }}</span>{{ it.kicker }}</span><sc-if value="{{ it.sel }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="margin-left:auto;font-size:16px;color:{{ it.chevColor }};">check_circle</span></sc-if></div>
+                  <div style="font-family:'Outfit';font-weight:600;font-size:14px;line-height:1.18;color:{{ c.onSurface }};">{{ it.title }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <!-- hinge gutter -->
+        <div style="flex:0 0 26px;position:relative;background:linear-gradient(90deg,rgba(39,24,20,0.12),rgba(39,24,20,0.02),rgba(39,24,20,0.12));">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:{{ c.outline }};opacity:0.4;transform:translateX(-50%);"></div>
+        </div>
+        <!-- trailing half: detail -->
+        <div class="st-scroll" style="flex:1;overflow-y:auto;background:{{ c.surfaceContainerLow }};">
+          <div style="background:{{ c.surfaceContainer }};padding:16px 22px 18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span><div style="display:flex;gap:6px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:20px;">ios_share</span><span class="msr" style="font-size:20px;">more_vert</span></div></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;"><div style="width:42px;height:42px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:23px;color:{{ c.onPrimaryContainer }};">celebration</span></div><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onPrimaryContainer }};background:{{ c.primaryContainer }};padding:4px 10px;border-radius:8px;"><span class="msr" style="font-size:13px;">mark_email_unread</span>INVITATION · RSVP</span></div>
+            <h1 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 4px;line-height:1.1;">Maya's birthday party</h1>
+            <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">Reply by Thursday · 12 guests</div>
+          </div>
+          <div style="padding:18px 22px 26px;display:flex;flex-direction:column;gap:14px;">
+            <div style="border-radius:20px;background:{{ c.primaryContainer }};padding:18px;display:flex;align-items:flex-start;gap:14px;">
+              <div style="text-align:center;background:{{ c.surface }};border-radius:15px;padding:9px 15px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;letter-spacing:0.06em;color:{{ c.primary }};">JUN</div><div style="font-family:'Outfit';font-weight:700;font-size:26px;line-height:1;color:{{ c.onSurface }};">20</div></div>
+              <div style="flex:1;font-family:'Figtree';font-size:13px;color:{{ c.onPrimaryContainer }};line-height:1.7;"><div><span class="msr" style="font-size:15px;vertical-align:-3px;">schedule</span> Saturday · 3:00 PM</div><div><span class="msr" style="font-size:15px;vertical-align:-3px;">place</span> Home — backyard</div></div>
+            </div>
+            <div style="display:flex;gap:8px;"><span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:11px;border-radius:999px;"><span class="msr" style="font-size:17px;">check</span>RSVP yes</span><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:11px 20px;border-radius:999px;">No</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;"><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:9px;padding:6px 10px;"><span class="msr" style="font-size:14px;">mail</span>From your email</span><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:9px;padding:6px 10px;"><span class="msr fill" style="font-size:14px;">verified_user</span>Matched on your device</span></div>
+          </div>
+        </div>
+        <!-- fold-gesture annotation -->
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:7px 13px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSurfaceVar }};box-shadow:0 4px 14px rgba(0,0,0,0.18);"><span class="msr" style="font-size:15px;color:{{ c.primary }};">double_arrow</span>unfolds across the hinge</div>
+      </div>
+      <div style="margin-top:12px;font-family:'Figtree';font-size:12.5px;color:#8C726B;max-width:78ch;">Tabletop posture (horizontal hinge) keeps the same split — list above, detail below. Folded, it collapses to the compact single-pane phone layout exactly.</div>
+    </section>
+
+    <!-- ============ 3 · LOADING & OFFLINE ============ -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;"><span class="msr" style="font-size:22px;color:#00796F;">cloud_sync</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Loading &amp; offline</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">the list stays — only the pane changes</span></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:80ch;">A skeleton lives <i>inside</i> the pane, never a full-screen spinner — the Now list is always usable. Media (map, OG image, page preview) renders a placeholder first and fades in, so it never blocks the pane transition.</p>
+
+      <div style="display:flex;gap:28px;align-items:flex-start;">
+        <!-- LOADING -->
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:10px;">LOADING · SKELETON IN PANE</div>
+          <div style="width:560px;height:540px;border-radius:24px;overflow:hidden;background:{{ c.surface }};box-shadow:0 12px 34px rgba(39,24,20,0.16);display:flex;">
+            <div style="flex:0 0 70px;background:{{ c.navBg }};display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:8px;"><div style="width:36px;height:36px;border-radius:11px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:8px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div></div><span style="width:48px;height:28px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:19px;color:{{ c.navActiveIcon }};">today</span></span><span style="width:48px;height:28px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.navInactive }};">dashboard</span></span></div>
+            <div style="flex:0 0 200px;border-right:1px solid {{ c.outlineVar }};padding:16px 13px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:11px;">NOW</div><div style="display:flex;flex-direction:column;gap:9px;"><div style="background:{{ c.surfaceContainerHigh }};border-radius:16px;padding:12px;box-shadow:0 0 0 2px {{ c.secondary }};"><div style="height:8px;width:50%;background:{{ c.secondary }};border-radius:4px;margin-bottom:8px;opacity:0.5;"></div><div style="height:10px;width:85%;background:{{ c.outlineVar }};border-radius:4px;"></div></div><div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px;"><div style="height:8px;width:40%;background:{{ c.outlineVar }};border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:80%;background:{{ c.outlineVar }};border-radius:4px;"></div></div><div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px;"><div style="height:8px;width:45%;background:{{ c.outlineVar }};border-radius:4px;margin-bottom:8px;"></div><div style="height:10px;width:70%;background:{{ c.outlineVar }};border-radius:4px;"></div></div></div></div>
+            <!-- skeleton pane -->
+            <div style="flex:1;background:{{ c.surfaceContainerLow }};padding:18px;">
+              <div class="st-sk" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;"><div style="width:42px;height:42px;border-radius:14px;background:{{ c.surfaceContainerHigh }};"></div><div style="width:120px;height:24px;border-radius:8px;background:{{ c.surfaceContainerHigh }};"></div></div>
+              <div class="st-sk" style="height:18px;width:80%;border-radius:6px;background:{{ c.surfaceContainerHigh }};margin-bottom:9px;"></div>
+              <div class="st-sk" style="height:13px;width:55%;border-radius:5px;background:{{ c.surfaceContainerHigh }};margin-bottom:18px;"></div>
+              <div class="st-sk" style="height:150px;border-radius:18px;background:{{ c.surfaceContainerHigh }};margin-bottom:16px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:30px;color:{{ c.outline }};">image</span></div>
+              <div class="st-sk" style="height:48px;border-radius:14px;background:{{ c.surfaceContainerHigh }};margin-bottom:9px;"></div>
+              <div class="st-sk" style="height:48px;border-radius:14px;background:{{ c.surfaceContainerHigh }};"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OFFLINE -->
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:10px;">OFFLINE · CACHED COPY + MEDIA PLACEHOLDER</div>
+          <div style="width:560px;height:540px;border-radius:24px;overflow:hidden;background:{{ c.surface }};box-shadow:0 12px 34px rgba(39,24,20,0.16);display:flex;">
+            <div style="flex:0 0 70px;background:{{ c.navBg }};display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:8px;"><div style="width:36px;height:36px;border-radius:11px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:8px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div></div><span style="width:48px;height:28px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:19px;color:{{ c.navActiveIcon }};">today</span></span><span style="width:48px;height:28px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.navInactive }};">dashboard</span></span></div>
+            <div style="flex:0 0 200px;border-right:1px solid {{ c.outlineVar }};padding:16px 13px;"><div style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:11px;">NOW</div><div style="display:flex;flex-direction:column;gap:9px;"><sc-for list="{{ offlineCards }}" as="it" hint-placeholder-count="3"><div style="background:{{ it.cardBg }};border-radius:16px;padding:11px 12px;box-shadow:{{ it.ring }};"><div style="font-family:'Figtree';font-size:9.5px;font-weight:600;color:{{ it.chipFg }};margin-bottom:5px;">{{ it.kicker }}</div><div style="font-family:'Outfit';font-weight:600;font-size:12.5px;line-height:1.15;color:{{ c.onSurface }};">{{ it.title }}</div></div></sc-for></div></div>
+            <!-- offline pane -->
+            <div class="st-scroll" style="flex:1;background:{{ c.surfaceContainerLow }};overflow-y:auto;">
+              <!-- offline banner -->
+              <div style="display:flex;align-items:center;gap:9px;background:{{ c.surfaceContainerHigh }};padding:11px 16px;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">cloud_off</span><span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">Offline — showing the last saved copy</span></div>
+              <div style="padding:16px 18px 24px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:42px;height:42px;border-radius:14px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:23px;color:{{ c.onSecondaryContainer }};">description</span></div><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">PDF · 240 KB</span></div>
+                <h1 style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 4px;line-height:1.12;">Field-trip permission slip</h1>
+                <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-bottom:16px;">Lincoln Elementary · due Thursday</div>
+                <!-- media placeholder (not yet loaded) -->
+                <div style="height:150px;border-radius:18px;background:{{ c.surfaceContainer }};border:1px dashed {{ c.outline }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;margin-bottom:16px;"><span class="msr" style="font-size:30px;color:{{ c.outline }};">cloud_download</span><span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Preview loads when you're back online</span></div>
+                <!-- cached details still readable -->
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;"><div style="display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid {{ c.outlineVar }};"><span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">schedule</span><span style="flex:1;font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Due</span><span style="font-family:'Figtree';font-size:12.5px;font-weight:500;color:{{ c.onSurface }};">Thu, Jun 25</span></div><div style="display:flex;align-items:center;gap:11px;padding:10px 13px;"><span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">person</span><span style="flex:1;font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Owner</span><span style="font-family:'Figtree';font-size:12.5px;font-weight:500;color:{{ c.onSurface }};">Lincoln Elementary</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: props.mode === 'dark' ? 'dark' : 'light' }; }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface: '#FFF8F6', surfaceContainerLow: '#FDF1ED', surfaceContainer: '#FCEBE6', surfaceContainerHigh: '#F6E5E0',
+      onSurface: '#271814', onSurfaceVar: '#5A423C', outline: '#A98B84', outlineVar: '#E6D2CB',
+      primary: '#C0381E', onPrimary: '#FFFFFF', primaryContainer: '#FFDAD2', onPrimaryContainer: '#5A1100',
+      secondary: '#00796F', onSecondary: '#FFFFFF', secondaryContainer: '#9DF2E4', onSecondaryContainer: '#00201C',
+      tertiary: '#6438AE', tertiaryContainer: '#ECDCFF', onTertiaryContainer: '#23005C',
+      privacyFg: '#0B5048', privacyBg: '#E2F4EF', privacyBorder: '#BFE3DC',
+      provFg: '#4C2092', provBg: '#F4ECFB', provBorder: '#E0CDF5',
+      navBg: '#F6E5E0', navActivePill: '#FFDAD2', navActiveIcon: '#5A1100', navInactive: '#5A423C',
+    };
+    const dark = {
+      surface: '#1A110E', surfaceContainerLow: '#211713', surfaceContainer: '#271D1A', surfaceContainerHigh: '#322824',
+      onSurface: '#F0DFDA', onSurfaceVar: '#D8C2BB', outline: '#A08D87', outlineVar: '#3D322E',
+      primary: '#FFB4A3', onPrimary: '#5F1500', primaryContainer: '#9A2A12', onPrimaryContainer: '#FFDAD2',
+      secondary: '#50DBC9', onSecondary: '#00382F', secondaryContainer: '#005048', onSecondaryContainer: '#A8F4E7',
+      tertiary: '#D3BBFF', tertiaryContainer: '#4C2092', onTertiaryContainer: '#ECDCFF',
+      privacyFg: '#A8F4E7', privacyBg: '#14322D', privacyBorder: '#1E5048',
+      provFg: '#D3BBFF', provBg: '#2A1F3D', provBorder: '#4C2092',
+      navBg: '#271D1A', navActivePill: '#9A2A12', navActiveIcon: '#FFDAD2', navInactive: '#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const teal = { bg: c.secondaryContainer, fg: c.onSecondaryContainer, solid: c.secondary };
+    const violet = { bg: c.tertiaryContainer, fg: c.onTertiaryContainer, solid: c.tertiary };
+    const coral = { bg: c.primaryContainer, fg: c.onPrimaryContainer, solid: c.primary };
+
+    const cards = [
+      { kicker: 'INVITATION · RSVP', kickIcon: 'mark_email_unread', title: 'Maya’s party — reply Thursday', body: '3pm at home. 8 of 12 replied.', ac: coral },
+      { kicker: 'OUTING · LEAVE 2:40', kickIcon: 'directions_car', title: 'Riverside Park — 8 min away', body: 'Rain backup for the party.', ac: teal },
+      { kicker: 'PDF · DUE THU', kickIcon: 'description', title: 'Permission slip — sign by Thursday', body: 'Lincoln Elementary field trip.', ac: teal },
+      { kicker: 'FORM · CLOSES FRI', kickIcon: 'public', title: 'Soccer registration closes Friday', body: '8 fields, about 3 minutes.', ac: violet },
+    ].map(x => ({ ...x, chipBg: x.ac.bg, chipFg: x.ac.fg }));
+
+    const foldCards = [
+      { kicker: 'INVITATION', kickIcon: 'mark_email_unread', title: 'Maya’s party — reply Thursday', ac: coral, sel: true },
+      { kicker: 'OUTING', kickIcon: 'directions_car', title: 'Riverside Park — 8 min away', ac: teal, sel: false },
+      { kicker: 'PDF', kickIcon: 'description', title: 'Permission slip — Thursday', ac: teal, sel: false },
+    ].map(x => ({
+      ...x, chipBg: x.ac.bg, chipFg: x.ac.fg,
+      cardBg: x.sel ? c.surfaceContainerHigh : c.surfaceContainer,
+      ring: x.sel ? ('0 0 0 2px ' + x.ac.solid) : 'none', chevColor: x.ac.solid,
+    }));
+
+    const offlineCards = [
+      { kicker: 'PDF · DUE THU', title: 'Permission slip', ac: teal, sel: true },
+      { kicker: 'INVITATION', title: 'Maya’s party', ac: coral, sel: false },
+      { kicker: 'FORM', title: 'Soccer registration', ac: violet, sel: false },
+    ].map(x => ({
+      ...x, chipFg: mode === 'dark' ? c.onSurfaceVar : x.ac.solid,
+      cardBg: x.sel ? c.surfaceContainerHigh : c.surfaceContainer,
+      ring: x.sel ? ('0 0 0 2px ' + x.ac.solid) : 'none',
+    }));
+
+    return {
+      c,
+      setLight: () => this.setState({ mode: 'light' }),
+      setDark: () => this.setState({ mode: 'dark' }),
+      lightPillBg: mode === 'light' ? '#9DF2E4' : 'transparent',
+      lightPillFg: mode === 'light' ? '#00201C' : '#5A423C',
+      darkPillBg: mode === 'dark' ? '#3D2D28' : 'transparent',
+      darkPillFg: mode === 'dark' ? '#F0DFDA' : '#5A423C',
+      cards, foldCards, offlineCards,
+    };
+  }
+}
+</script>
+</body>
+</html>

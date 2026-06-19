@@ -9,6 +9,23 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-20 · 2026-06-19 · med · open — Sign off the adaptive two-pane design +
+  confirm its added scope.** The CL-10 design pass is **delivered + imported**
+  (`designs/content/adaptive/` — Breakpoints, Detail-Pane(+View), States,
+  Nav-Continuity). It resolves the ADR 0008 adaptive gate (pending your sign-off)
+  but **adds scope** the epic now reflects: (a) a **second transition motion**
+  (shared-axis fade-through for in-pane card-switching, on top of CL-7's container
+  transform); (b) a **selected-card state** in the list pane (→ CL-5); (c) a
+  **third "supporting" pane** at expanded showing the **parent Hub + siblings** →
+  needs a **`hubRef` on the content item** (→ CL-1/CL-8) and relocates RELATED out
+  of the detail at expanded (→ CL-6); (d) **size-class-aware detail** (→ CL-6);
+  (e) a new **CL-NAV** shell task + **new adaptive Compose deps** (`material3-
+  adaptive` / `adaptive-navigation-suite`) whose **1.9.3 availability needs a
+  spike**. Honesty/M0 constraints preserved (RSVP display-only, on-device privacy
+  copy). **Proposed default:** sign off the adaptive mockups; accept the added
+  scope (CL-NAV + the CL-1/5/6/8/10 deltas in the epic). Visual taste = operator;
+  the schema/dep deltas are agent-buildable once accepted.
+
 - **INB-19 · 2026-06-19 · low · open — Ratify `rk` as the client dev+CI snapshot/
   devtools toolchain + pin.** The redux-kotlin CLI is now published (Homebrew
   `reduxkotlin/tap/rk` **1.0.0-alpha02**, unified devtools+snapshot). Incorporated
