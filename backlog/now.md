@@ -47,16 +47,19 @@ initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
   pooler). Tracker: `specs/prototype/00-build-spec-plan.md`.
 - **Blocked only on operator gates for literal G1a:** **INB-12** (create Vercel +
   Neon → deploy, recipe in inbox) · **INB-14** (Android SDK/device; iOS = Mac).
-- **IN PROGRESS — `TASK-KMP` (restructure apps/client → true KMP module).**
-  Prerequisite that unblocks both Android-offline (TASK-SYNC step 2+) and iOS.
-  **Done (2026-06-19, branch `task-kmp-multiplatform`, commit 59e8fd2):** single
-  Gradle build at `apps/` (8.11.1 + AGP 8.7.2); `:client` = KMP (commonMain holds
-  all shared logic+UI+SQLDelight+ktor sync; android+desktop targets); `:androidApp`
-  thin app dep on `:client` (srcDir borrow + ContentStore/Main excludes GONE —
-  unblocks TASK-SYNC step 2); SyncClient → ktor suspend; driver via expect/actual.
-  17 desktop tests green + snapshots + android APK assembles. **Remaining (DoD):**
-  iOS target (ktor-darwin + NativeSqliteDriver actual + iosMain), gated on operator
-  Mac/Xcode. Then `TASK-SYNC` (offline-first:
+- **✅ DONE (code) — `TASK-KMP` (apps/client → true KMP module).** Branch
+  `task-kmp-multiplatform` (commits 59e8fd2 → 2881680). Single Gradle build at
+  `apps/` (8.11.1 + AGP 8.7.2); `:client` = KMP — commonMain holds all shared
+  logic+UI+SQLDelight+ktor sync; **android + desktop + iOS** targets all build
+  from it. `:androidApp` = thin app dep on `:client` (srcDir borrow +
+  ContentStore/Main excludes GONE → TASK-SYNC step 2 unblocked). SyncClient →
+  ktor `suspend`; driver via expect/actual `DriverFactory`. 17 desktop tests +
+  snapshots green; Android APK assembles; **both iOS targets compile + debug
+  framework links** with the compose UI (iosX64/intel-sim dropped — granular
+  alpha01 lacks that publication). **Operator-gated remainder (DoD "run gated on
+  Mac"):** Xcode iosApp project (Swift @main + signing + sim run) + iOS
+  sync-config plumbing → folds into TASK-SYNC. **Branch not yet merged.** Then
+  `TASK-SYNC` (offline-first:
   SQLDelight DB-as-SoT, unidirectional network→DB→store→UI, instant offline cold
   start, foreground poll, WorkManager/BGTask). **DB layer + ContentStore already
   built + tested on desktop (TASK-SYNC step 1); SQLDelight proven on Kotlin 2.3.20.**

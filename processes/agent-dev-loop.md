@@ -64,6 +64,18 @@ $SDK/platform-tools/adb -s $DEV exec-out screencap -p > /tmp/x.png   # then Read
 - BuildConfig bakes `FAMILYAI_API/FAMILY_ID/HOUSEHOLD_SECRET` at build time
   (emulator→host = `http://10.0.2.2:8799`).
 
+## iOS (`:client` framework — TASK-KMP)
+```
+cd apps && JAVA_HOME=<jdk17> ./gradlew :client:compileKotlinIosArm64 \
+  :client:linkDebugFrameworkIosSimulatorArm64    # → client/build/bin/iosSimulatorArm64/debugFramework/client.framework
+```
+- Targets: **iosArm64** (device) + **iosSimulatorArm64** (Apple-Silicon sim).
+  **No iosX64** (intel sim) — redux-kotlin-granular alpha01 has no iosX64 publish.
+- `MainViewController()` (iosMain) = `ComposeUIViewController { FeedApp(store) }`,
+  the entry a Swift `@main` app embeds. **No Xcode project yet** — the runnable
+  iosApp shell (Swift host + signing + sim run) + iOS sync-config = operator-gated
+  / TASK-SYNC. Xcode 26.2 + Kotlin/Native 2.3.20 confirmed present on this Mac.
+
 ## Observe the redux loop (cheap, text-first)
 - **Action log → stdout/logcat** (the `[redux] <Action> → cards=… syncing=… error=…`
   line from `createAppStore`'s middleware): on Android
