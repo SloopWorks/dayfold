@@ -30,7 +30,7 @@ Universal Links). The specs note which milestone each part belongs to.
 | 03 | API design (OpenAPI) | `03-api.md` | **done (2-agent review applied)** | — |
 | 04 | Authentication & token service | `04-auth.md` | **done (2-agent review applied)** | — (recovery-floor = hard gate before build) |
 | 05 | Invite system | `05-invite.md` | **done (2-agent review applied)** | — |
-| 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | **draft → in review** | apply review |
+| 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | **done (review applied)** | — |
 | 07 | CLI tool | `07-cli.md` | **next** | device-grant auth, content push, markdown files, **trigger/place metadata flags (ADR 0014)** |
 | 08 | Mobile client (CMP) | `08-mobile-client.md` | todo (anchored by **ADR 0013**) | redux-kotlin store/features/effects, SQLDelight cache, M3E render+markdown, state-keyed deep-link, **on-device trigger matcher (geofence/local-notif, ADR 0014)**, AGENTS.md + skill |
 | 09 | Security controls + test/verify plan | `09-security-and-test.md` | todo | from the 5-agent review + ADR 0011/0012 |
@@ -40,10 +40,12 @@ Universal Links). The specs note which milestone each part belongs to.
 - **Done:** 01 architecture, 02 DB DDL, 03 API, 04 auth (each 1–2-agent
   reviewed + applied). 04 added a `refresh_tokens` lineage table + Apple-token
   storage to the DDL; **recovery-floor procedure is a hard gate before build**.
-  05 added `memberships.invite_id` + identity-bound approval. **Next: 06
-  Storage.** ⚠ **Pending operator: INB-10 / ADR 0015 (E2EE)** — if accepted,
-  02/05/06/08 adjust for encrypted content (drop server FTS). Hold heavy
-  storage/FTS detail in 06 until that's decided.
+  05 added `memberships.invite_id` + identity-bound approval; 06 storage
+  reviewed (atomic spill-confirm, content-length-range, key-from-stored-ref,
+  GC race-safety, E2E ciphertext interaction). **Next: 07 CLI tool** (the
+  operator's primary dogfood interface). ⚠ **Pending operator: INB-10 / ADR
+  0015 (E2EE)** — if accepted, 02/06/08 adjust for encrypted content (drop
+  server FTS); 06 already written E2E-aware.
 
 ## Log
 
