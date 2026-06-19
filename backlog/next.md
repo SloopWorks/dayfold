@@ -26,8 +26,16 @@ blocked** behind a queued Claude-Design expanded-detail pass.
   `FontFamily.Default`), adopt `MaterialExpressiveTheme`+`MotionScheme.expressive()`
   (coupled to CL-7; gated on the material3-expressive artifact at 1.9.3), Android
   `dynamicColorScheme` (androidMain). Seam = the one `DayfoldTheme` function body.
-- **TASK-CL-1** — Schema + codegen: 6 typed content types with **fully
-  generated payload `$defs`** (kills the deferred `payload`/`$defs` gap).
+- **TASK-CL-1** — Schema + codegen. ✅ **DONE + MERGED** 2026-06-19. BriefingCard
+  gained `type` (file/link/invite/contact/geo/email) + an **inline-oneOf typed
+  `payload`** (6 variants, no `z.any` — kills the payload/`$defs` gap), + `hubRef`
+  (adaptive supporting pane) + `privacy.storage` (honesty chip). All optional →
+  back-compat (D2 extend-in-place). Regenerated TS (zod) + Kotlin; 6 new schema
+  tests + full api suite (73/1-skip) green. **Follows:** (a) `type`↔payload-key
+  **cross-validation** → CL-2 server `superRefine` (M0 authoring is trusted); (b)
+  **static** payload typing (`z.infer`=`any`) → a codegen pass to emit
+  `z.discriminatedUnion`; (c) pre-existing `$ref`→`z.any` for id/version/provenance
+  (separate codegen issue, not CL-1).
 - **TASK-CL-2** — Server: typed storage + nested validation + keyset sync.
 - **TASK-CL-3** — CLI + Claude-skill typed authoring (the content-API wedge).
 - **TASK-CL-4** — Client data: typed model + SQLDelight + store.

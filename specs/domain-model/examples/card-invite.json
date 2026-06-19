@@ -1,0 +1,21 @@
+{
+  "id": "01J9ZX8K3QFT7V2N5M6P4R8W0A",
+  "kind": "action",
+  "title": "Maya's party — reply by Thursday",
+  "provenance": { "source": "email", "at": "2026-06-19T10:00:00Z" },
+  "type": "invite",
+  "privacy": { "storage": "on_device" },
+  "payload": {
+    "invite": {
+      "eventName": "Maya's Birthday",
+      "host": "The Garcias",
+      "startAt": "2026-06-21T15:00:00Z",
+      "place": "home",
+      "rsvpBy": "2026-06-19T23:59:59Z",
+      "rsvpState": "none",
+      "guestCount": 12,
+      "confirmedCount": 8,
+      "notes": "Bouncy castle for the party"
+    }
+  }
+}

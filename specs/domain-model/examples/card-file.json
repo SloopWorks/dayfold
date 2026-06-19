@@ -1,0 +1,19 @@
+{
+  "id": "01J9ZX8K3QFT7V2N5M6P4R8W0B",
+  "kind": "action",
+  "title": "Permission slip — sign by Thursday",
+  "provenance": { "source": "email", "at": "2026-06-19T10:00:00Z" },
+  "type": "file",
+  "hubRef": "01J9ZX8K3QFT7V2N5M6P4R8HUB",
+  "payload": {
+    "file": {
+      "filename": "permission.pdf",
+      "mime": "application/pdf",
+      "size": 240000,
+      "pages": 2,
+      "source": "email",
+      "modified": "2026-06-18T09:00:00Z",
+      "docRef": "https://drive.example/abc"
+    }
+  }
+}

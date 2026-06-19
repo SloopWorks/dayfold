@@ -54,7 +54,7 @@ data class Block (
     /**
      * structured fields for non-markdown block types; variant by `type` (see $comment)
      */
-    val payload: Payload? = null,
+    val payload: BlockPayload? = null,
 
     val provenance: Provenance,
     val triggers: List<TriggerElement>? = null,
@@ -78,7 +78,7 @@ data class ActionElement (
  * structured fields for non-markdown block types; variant by `type` (see $comment)
  */
 @Serializable
-data class Payload (
+data class BlockPayload (
     val label: String? = null,
     val source: String? = null,
     val url: String? = null,
@@ -135,7 +135,7 @@ data class Provenance (
  */
 @Serializable
 data class TriggerElement (
-    val geo: Geo? = null,
+    val geo: TriggerGeo? = null,
 
     @SerialName("when")
     val wrapperSchemaWhen: When? = null,
@@ -157,7 +157,7 @@ enum class ActivityKind(val value: String) {
 }
 
 @Serializable
-data class Geo (
+data class TriggerGeo (
     val label: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
@@ -209,11 +209,29 @@ data class BriefingCard (
     @SerialName("expires_at")
     val expiresAt: String? = null,
 
+    /**
+     * parent Hub id — the adaptive supporting pane's 'PART OF THIS HUB' (ADR 0022; CL-10).
+     * Optional.
+     */
+    val hubRef: String? = null,
+
     val id: String,
     val kind: BriefingCardKind,
 
     @SerialName("not_before")
     val notBefore: String? = null,
+
+    /**
+     * [E2E-ciphertext at M1] typed content payload, variant selected by `type` (ADR 0022 D1).
+     * Inline oneOf (no internal $ref) so codegen emits TYPED variants, never z.any.
+     */
+    val payload: BriefingCardPayload? = null,
+
+    /**
+     * honesty chip (ADR 0014/0015) — a claim allowed ONLY where a real schema/API/client
+     * boundary enforces it.
+     */
+    val privacy: Privacy? = null,
 
     val provenance: Provenance,
 
@@ -224,6 +242,13 @@ data class BriefingCard (
 
     val title: String,
     val triggers: List<TriggerElement>? = null,
+
+    /**
+     * content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for
+     * back-compat with kind-only M0 cards.
+     */
+    val type: BriefingCardType? = null,
+
     val version: Long? = null
 )
 
@@ -233,6 +258,164 @@ enum class BriefingCardKind(val value: String) {
     @SerialName("countdown") Countdown("countdown"),
     @SerialName("info") Info("info"),
     @SerialName("weather") Weather("weather");
+}
+
+/**
+ * [E2E-ciphertext at M1] typed content payload, variant selected by `type` (ADR 0022 D1).
+ * Inline oneOf (no internal $ref) so codegen emits TYPED variants, never z.any.
+ */
+@Serializable
+data class BriefingCardPayload (
+    val file: File? = null,
+    val link: Link? = null,
+    val invite: Invite? = null,
+    val contact: Contact? = null,
+    val geo: PayloadGeo? = null,
+    val email: Email? = null
+)
+
+@Serializable
+data class Contact (
+    val address: String? = null,
+    val company: String? = null,
+    val deliveryWindow: String? = null,
+    val email: String? = null,
+    val hours: String? = null,
+
+    @SerialName("linkedEventId")
+    val linkedEventID: String? = null,
+
+    val name: String? = null,
+    val phone: String? = null,
+    val role: String? = null
+)
+
+@Serializable
+data class Email (
+    val attachments: List<Attachment>? = null,
+
+    /**
+     * [E2E-ciphertext] authored over the operator's OWN mail (CLI/Claude) — never a server-side
+     * Gmail restricted-scope read (Guardrail 3)
+     */
+    val bodyExcerpt: String? = null,
+
+    val date: String? = null,
+    val from: String? = null,
+    val fromAddr: String? = null,
+    val labels: List<String>? = null,
+    val subject: String? = null,
+    val threadLen: Long? = null
+)
+
+@Serializable
+data class Attachment (
+    val mime: String? = null,
+    val name: String? = null,
+    val size: Long? = null
+)
+
+@Serializable
+data class File (
+    /**
+     * url | opaque storage ref
+     */
+    val docRef: String? = null,
+
+    val filename: String? = null,
+    val mime: String? = null,
+    val modified: String? = null,
+    val owner: String? = null,
+    val pages: Long? = null,
+    val sharedWith: List<String>? = null,
+    val size: Long? = null,
+    val source: String? = null
+)
+
+@Serializable
+data class PayloadGeo (
+    val address: String? = null,
+    val distance: String? = null,
+    val etaMin: Long? = null,
+    val label: String? = null,
+    val lat: Double? = null,
+    val leaveBy: String? = null,
+
+    @SerialName("linkedEventId")
+    val linkedEventID: String? = null,
+
+    val lng: Double? = null,
+    val parking: String? = null,
+    val travelMode: String? = null
+)
+
+@Serializable
+data class Invite (
+    val confirmedCount: Long? = null,
+    val eventName: String? = null,
+    val guestCount: Long? = null,
+    val host: String? = null,
+    val notes: String? = null,
+    val place: String? = null,
+    val rsvpBy: String? = null,
+
+    /**
+     * display-of-state at M0 (no write path; ADR 0020/0016)
+     */
+    val rsvpState: RsvpState? = null,
+
+    val startAt: String? = null
+)
+
+/**
+ * display-of-state at M0 (no write path; ADR 0020/0016)
+ */
+@Serializable
+enum class RsvpState(val value: String) {
+    @SerialName("no") No("no"),
+    @SerialName("none") None("none"),
+    @SerialName("yes") Yes("yes");
+}
+
+@Serializable
+data class Link (
+    val closesAt: String? = null,
+    val domain: String? = null,
+    val favicon: String? = null,
+    val fieldCount: Long? = null,
+    val kind: LinkKind? = null,
+
+    /**
+     * author-stamped OG; server never fetches the URL (no SSRF)
+     */
+    val ogDesc: String? = null,
+
+    val savedAt: String? = null,
+    val title: String? = null,
+    val url: String? = null
+)
+
+@Serializable
+enum class LinkKind(val value: String) {
+    @SerialName("form") Form("form"),
+    @SerialName("page") Page("page");
+}
+
+/**
+ * honesty chip (ADR 0014/0015) — a claim allowed ONLY where a real schema/API/client
+ * boundary enforces it.
+ */
+@Serializable
+data class Privacy (
+    val storage: Storage? = null
+)
+
+@Serializable
+enum class Storage(val value: String) {
+    @SerialName("in_browser") InBrowser("in_browser"),
+    @SerialName("location_local") LocationLocal("location_local"),
+    @SerialName("matched_on_device") MatchedOnDevice("matched_on_device"),
+    @SerialName("on_device") OnDevice("on_device");
 }
 
 /**
@@ -249,6 +432,20 @@ data class Target (
     @SerialName("sectionId")
     val sectionID: String? = null
 )
+
+/**
+ * content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for
+ * back-compat with kind-only M0 cards.
+ */
+@Serializable
+enum class BriefingCardType(val value: String) {
+    @SerialName("contact") Contact("contact"),
+    @SerialName("email") Email("email"),
+    @SerialName("file") File("file"),
+    @SerialName("geo") Geo("geo"),
+    @SerialName("invite") Invite("invite"),
+    @SerialName("link") Link("link");
+}
 
 @Serializable
 data class Hub (
