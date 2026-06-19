@@ -41,9 +41,16 @@ The immediate next work = **A8: hi-fi mockups of Now + Hubs** (Claude Code +
   pooler). Tracker: `specs/prototype/00-build-spec-plan.md`.
 - **Blocked only on operator gates for literal G1a:** **INB-12** (create Vercel +
   Neon → deploy, recipe in inbox) · **INB-14** (Android SDK/device; iOS = Mac).
-- **Next product gaps to write (review): G1 content-authoring-loop runbook
-  (`processes/`), G2 usefulness signal, the `payload` $defs, the Claude-Design
-  triggers brief + the M3-Expressive signature upgrades.**
+- **NEXT BUILD SLICE — "Persistence & Sync" (ADR 0020, spec'd in 08 §Data
+  freshness).** Closes the in-memory→offline-first gap: SQLDelight (KMP) DB as
+  source of truth, unidirectional network→DB→store→UI, instant offline cold
+  start, foreground poll (~30–60 s; push later), background sync (Android
+  WorkManager / iOS BGTaskScheduler). Operator-directed 2026-06-19.
+- **Deferred by design (operator, 2026-06-19): G1 content-authoring loop ("the
+  brains") = much-later milestone; interim authoring = operator + Claude Code via
+  the CLI.**
+- **Still-queued gaps: G2 usefulness signal, the `payload` $defs, the
+  Claude-Design triggers v2 (INB-13) + M3-Expressive upgrades.**
 
 ## Done this period
 

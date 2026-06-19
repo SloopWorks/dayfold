@@ -26,3 +26,4 @@ editing it.
 | 0017 | E2E Key-Authenticity + Deploy Trust-Root Boundary | **Proposed** 2026-06-18 (M1 security gate; from the 6-agent review — fake-key MITM + trust-root concentration) |
 | 0018 | API Host — TypeScript on Vercel | Accepted 2026-06-18 (INB-9; CLI/client stay Kotlin; types codegen from schema; Postgres via pooler) |
 | 0019 | Client Observability & Tooling (devtools/snapshots/CLI) | **Accepted** 2026-06-19 (operator-directed) — redux-kotlin-devtools enhancer + in-app drawer LIVE (verified on-device) + Compose snapshots; golden-diff/remote/CLI remaining |
+| 0020 | Offline-First Client Data + Freshness (DB-as-source-of-truth) | **Proposed** 2026-06-19 — network→DB(SQLDelight)→store→UI unidirectional; instant offline cold-start; foreground poll ~30–60s (push later); background WorkManager/BGTask. Build slice pending (shipped client is in-memory) |

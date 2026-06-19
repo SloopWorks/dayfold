@@ -37,7 +37,7 @@ Effects in middleware, off-main (Rule E, `NotificationContext` → main).
 AppState {
   session { credential?, family_id?, status }            // M0: household token implicit
   sync    { cursor?, lastSyncedAt?, status }
-  content { hubsById, sectionsById, blocksById, cardsById, placesById }  // store = render SoT
+  content { hubsById, sectionsById, blocksById, cardsById, placesById }  // store = reactive PROJECTION of the DB; DB = persistent source of truth (ADR 0020)
   nav     { backstack:[Route], listDetail{selectedHubId?}, focusBlockId? }  // full tree, state-keyed
   ui      { permissionStates, banners }
 }
@@ -56,8 +56,9 @@ SQLDelight directly.
   `CacheUpdated(changedIds)` → re-hydrate only touched slices. Tombstone-apply
   idempotent; tombstone+change for same id → **tombstone wins if
   `deleted_at > updated_at`**. `has_more` paginates; cursor never advances past
-  an uncommitted page. **M0 cadence (normative):** foreground-resume pull +
-  pull-to-refresh (no push, ADR 0007).
+  an uncommitted page. **Cadence (ADR 0020):** sync-on-open/foreground-resume +
+  **foreground poll ~30–60 s** (paused when backgrounded) + pull-to-refresh +
+  **background sync** (below). Push (FCM/APNs/SSE) deferred — same flow when added.
 - **Cache effect:** **plaintext SQLDelight at M0**; **SQLCipher at M1** (under
   E2E). **WAL mode** so readers get a consistent snapshot during a write tx —
   no half-applied delta on screen.
@@ -140,6 +141,52 @@ false`** (else the build silently links system SQLite and the DB is
 - Testing: pure reducers (fast unit), effect fakes, selector + screenshot tests;
   **`./gradlew build`** verify gate; ship **`AGENTS.md`** + `.claude/skills/
   redux-kotlin/`.
+
+## Data freshness & offline-first sync (ADR 0020)
+
+**Unidirectional, DB-as-source-of-truth:**
+`network /sync ──writes──▶ SQLDelight (truth) ──reactive query (Flow)──▶ store ──selectorState──▶ UI`.
+The UI never reads the network; the store is a **reactive projection of the DB**.
+One writer per layer.
+
+- **Instant cold start (R1):** on launch, hydrate the store from the DB and
+  render **before any network** — the app shows last-synced content offline,
+  instantly. Then kick a foreground sync; the DB write flows back to the UI.
+- **Foreground freshness (R2):** immediate sync on open/resume + a **poll loop
+  (~30–60 s, configurable)** while foreground (cancelled on background) +
+  pull-to-refresh. A push lands within one interval. **Push deferred** (FCM/APNs
+  or SSE/WebSocket) — when added it just *triggers the same sync*, no dataflow
+  change.
+- **Background freshness (R3):** one **shared sync engine** in `commonMain`,
+  invoked by:
+  - **Android `WorkManager`** — `PeriodicWorkRequest` (~15–30 min, the platform
+    floor), constraints `NetworkType.CONNECTED`; runs the engine → writes the DB.
+  - **iOS `BGTaskScheduler`** — `BGAppRefreshTask` registered at launch,
+    rescheduled on completion; same engine.
+  No UI in background — just the DB write, so the next open is already fresh.
+- **Cursor + `lastSyncedAt` persist in the DB** (`sync_meta`): foreground,
+  background, and cold-start all resume from the same keyset cursor → no gaps,
+  no double-pull, crash-safe (cursor commits with the page).
+- **Single-writer (M0):** content is server-authored, so the client DB is a pure
+  read-replica — no client-write conflicts. 2-way (ADR 0016) later adds an
+  `outbox` table feeding the same one-way flow.
+
+### Build slice — "Persistence & Sync" (closes the in-memory → offline gap)
+The shipped M0 client is **in-memory** (store fed straight from the network).
+To reach this design:
+1. **SQLDelight (KMP)** — drivers `AndroidSqliteDriver` / `NativeSqliteDriver`
+   (iOS) / `JdbcSqliteDriver` (desktop); tables = content (cards at M0) +
+   `sync_meta(cursor, last_synced_at)`; WAL.
+2. **Sync engine** (`commonMain`) — `SyncClient` writes the DB in one tx
+   (upsert + tombstone + cursor) instead of dispatching to the store; drains
+   `has_more`.
+3. **DB→store bridge** — SQLDelight reactive `Flow` → dispatch hydrate actions →
+   store → `selectorState` (FeedApp unchanged).
+4. **Cold-start** — hydrate store from DB first, then sync.
+5. **Foreground poll loop** (coroutine) + **WorkManager** (Android) +
+   **BGTaskScheduler** (iOS) glue, all calling the shared engine.
+6. **Tests** — offline-open (DB only, no net), sync-updates-DB-updates-UI,
+   background-sync-writes-DB, cursor survives restart.
 
 ## Open questions
 - Confirm redux-kotlin alpha1 coordinates/modules (the pre-build gate).
