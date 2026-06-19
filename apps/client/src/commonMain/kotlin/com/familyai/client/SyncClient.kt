@@ -5,6 +5,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.Json
 import org.reduxkotlin.Store
 
@@ -19,6 +20,16 @@ class SyncClient(
   private val http: HttpClient = HttpClient(),
   private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+  /** Transport only: GET one /sync page. Throws on non-200 or network error. */
+  suspend fun fetchPage(since: String?): SyncResponse {
+    val resp = http.get("$api/families/$familyId/sync") {
+      if (since != null) parameter("since", since)
+      header("authorization", "Bearer $secret")
+    }
+    if (resp.status.value != 200) throw IllegalStateException("HTTP ${resp.status.value}")
+    return json.decodeFromString(SyncResponse.serializer(), resp.bodyAsText())
+  }
+
   suspend fun sync(store: Store<AppState>) {
     store.dispatch(SyncStarted)
     try {
