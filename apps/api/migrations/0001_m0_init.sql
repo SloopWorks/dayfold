@@ -136,4 +136,19 @@ CREATE INDEX ON credentials (user_id) WHERE revoked_at IS NULL;
 CREATE INDEX blocks_body_fts ON blocks USING gin (to_tsvector('english', coalesce(body_md,'')))
   WHERE deleted_at IS NULL;
 
+-- updated_at auto-touch (LOAD-BEARING for sync: a soft-delete UPDATE must bump
+-- updated_at so the tombstone sorts PAST the keyset cursor, else deletes are
+-- silently never synced — 02 §version-ownership, 03 §sync).
+CREATE FUNCTION touch_updated_at() RETURNS trigger AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_touch BEFORE UPDATE ON families        FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_touch BEFORE UPDATE ON hubs            FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_touch BEFORE UPDATE ON sections        FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_touch BEFORE UPDATE ON blocks          FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_touch BEFORE UPDATE ON briefing_cards  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+CREATE TRIGGER trg_touch BEFORE UPDATE ON places          FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- NOTE: intentionally hardens 02 — places.version added (sync needs it; matches
+-- the generated PlaceSchema) and *_kind/status use enums not free text.
+
 COMMIT;

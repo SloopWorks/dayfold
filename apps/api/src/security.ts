@@ -25,9 +25,11 @@ export const SERVER_MANAGED_CONTENT_FIELDS = [
   "created_at",
   "updated_at",
   "deleted_at",
-  "last_used_at",
+  "body_ref",     // M1 object-storage spill key — never client-set at M0
+  "provenance",   // defense-in-depth: rebuilt server-side by stampProvenance
 ] as const;
 
+/** Returns a copy; never mutates input. Top-level strip (documented). */
 export function stripServerManaged<T extends Record<string, unknown>>(body: T): T {
   const out: Record<string, unknown> = { ...body };
   for (const k of SERVER_MANAGED_CONTENT_FIELDS) delete out[k];
@@ -35,17 +37,20 @@ export function stripServerManaged<T extends Record<string, unknown>>(body: T): 
 }
 
 /**
- * The server stamps provenance.credential_id from the authenticated credential
- * (audit). The client may set provenance.source/at; it can NEVER forge
- * credential_id.
+ * Rebuild provenance SERVER-SIDE: allowlist only `source` + `at` from the client
+ * (rejecting arrays / non-plain objects / unknown keys), and stamp the
+ * server-owned `credential_id`. A client can never forge credential_id nor
+ * inject arbitrary provenance keys.
  */
 export function stampProvenance(
   body: Record<string, unknown>,
   credentialId: string,
 ): Record<string, unknown> {
-  const prov = (body.provenance && typeof body.provenance === "object")
-    ? { ...(body.provenance as Record<string, unknown>) }
-    : {};
-  prov.credential_id = credentialId; // server-owned
-  return { ...body, provenance: prov };
+  const raw = body.provenance;
+  const isPlain = raw != null && typeof raw === "object" && !Array.isArray(raw);
+  const src = isPlain ? (raw as Record<string, unknown>) : {};
+  const provenance: Record<string, unknown> = { credential_id: credentialId };
+  if (typeof src.source === "string") provenance.source = src.source;
+  if (typeof src.at === "string") provenance.at = src.at;
+  return { ...body, provenance };
 }
