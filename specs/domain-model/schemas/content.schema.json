@@ -42,17 +42,27 @@
       "additionalProperties": false
     },
 
+    "LinkPayload":     { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "label": { "type": "string" }, "source": { "type": "string" } }, "additionalProperties": false },
+    "ChecklistPayload":{ "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "type": "object", "required": ["text"], "properties": { "text": { "type": "string" }, "done": { "type": "boolean", "default": false }, "due": { "$ref": "#/$defs/timestamp" }, "assignee": { "type": "string" } }, "additionalProperties": false } } }, "additionalProperties": false },
+    "DocumentPayload": { "type": "object", "required": ["ref"], "properties": { "ref": { "type": "string", "description": "url | fileRef (links+small refs at MVP)" }, "label": { "type": "string" }, "kind": { "type": "string" } }, "additionalProperties": false },
+    "MilestonePayload":{ "type": "object", "required": ["date", "label"], "properties": { "date": { "$ref": "#/$defs/timestamp" }, "label": { "type": "string" } }, "additionalProperties": false },
+    "ContactPayload":  { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "role": { "type": "string" }, "phone": { "type": "string" }, "email": { "type": "string" } }, "additionalProperties": false },
+    "LocationPayload": { "type": "object", "required": ["label"], "properties": { "label": { "type": "string" }, "address": { "type": "string" }, "mapUrl": { "type": "string" } }, "additionalProperties": false },
+    "BudgetPayload":   { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "type": "object", "required": ["label", "amount"], "properties": { "label": { "type": "string" }, "amount": { "type": "number" }, "paid": { "type": "boolean", "default": false } }, "additionalProperties": false } } }, "additionalProperties": false },
+
     "Block": {
       "type": "object",
       "required": ["id", "type", "provenance"],
+      "$comment": "payload variant is bound by `type`: link→LinkPayload, checklist→ChecklistPayload, document→DocumentPayload, milestone→MilestonePayload, contact→ContactPayload, location→LocationPayload, budget→BudgetPayload. text/markdown use body_md, no payload. Codegen emits the discriminated union.",
       "properties": {
         "id": { "$ref": "#/$defs/ulid" },
         "type": { "enum": ["text", "markdown", "link", "checklist", "document", "milestone", "contact", "location", "budget"] },
         "ord": { "type": "integer", "default": 0 },
         "version": { "$ref": "#/$defs/version" },
-        "body_md": { "type": "string", "maxLength": 1048576, "description": "[CONTENT/E2E-hole] long-form markdown; inline ≤1MB at M0, else spill to body_ref (06)" },
+        "body_md": { "type": "string", "maxLength": 1048576, "description": "long-form markdown (text/markdown blocks); inline ≤1MB at M0, else spill to body_ref (06, M1)" },
         "body_ref": { "type": "string", "description": "object-storage KEY when spilled (M1); never a URL; XOR with body_md" },
-        "payload": { "type": "object", "description": "[CONTENT/E2E-hole] structured fields for non-markdown block types (link/checklist/contact/location/milestone/budget)" },
+        "payload": { "description": "structured fields for non-markdown block types; variant by `type` (see $comment)",
+          "oneOf": [ { "$ref": "#/$defs/LinkPayload" }, { "$ref": "#/$defs/ChecklistPayload" }, { "$ref": "#/$defs/DocumentPayload" }, { "$ref": "#/$defs/MilestonePayload" }, { "$ref": "#/$defs/ContactPayload" }, { "$ref": "#/$defs/LocationPayload" }, { "$ref": "#/$defs/BudgetPayload" } ] },
         "triggers": { "type": "array", "items": { "$ref": "#/$defs/Trigger" } },
         "actions": { "type": "array", "items": { "$ref": "#/$defs/Action" } },
         "provenance": { "$ref": "#/$defs/Provenance" }

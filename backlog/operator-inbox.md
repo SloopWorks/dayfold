@@ -45,6 +45,21 @@ Each item: question, context link, **proposed default**, urgency.
   02/05/06/08 specs for the encrypted column split. Accept / amend recovery
   posture / defer.
 
+- **INB-12 · 2026-06-18 · high · open — P-1 operator bootstrap (human-only; blocks cloud P0/P1).**
+  The build loop is running; these account/auth steps only you can do (ADR
+  0012 — agents can provision *within* an authed account, but not create the
+  account/billing/domain):
+  1. **Vercel** — create/auth the project + org (for the MCP deploy rail).
+  2. **Postgres** — create a **Neon** (or Supabase) project + billing; put the
+     pooled connection string into Vercel's secret store. (Neon serverless
+     driver, per ADR 0018.)
+  3. **Domain** `api.<host>` DNS (operator-owned).
+  4. **Apple** Developer account + a **Mac** (for the iOS client, P3 — not
+     needed for P0/P1/P2).
+  The loop proceeds on **unblocked** work meanwhile (schema codegen, the TS API
+  + Kotlin CLI against a **local Postgres** + seed fixture). Reply when the
+  Vercel + Neon items are done and the loop will wire the cloud pipeline.
+
 - **INB-3 · 2026-06-18 · med · open — Cheapest kill-checks (you, ~2 hrs).**
   Before/while building: (a) run Gemini Daily Brief's school-email→family-
   digest flow yourself; (b) use Maple+ a bit and name what it can't do for a
