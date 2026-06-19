@@ -19,7 +19,8 @@ editing it.
 | 0010 | Auth & Family-Tenancy Architecture (Firebase Auth, M:N membership, RFC 8628 device grant) | **Superseded by 0011** (2026-06-18) |
 | 0011 | Auth & Family-Tenancy Architecture (Hardened) | Accepted 2026-06-18 (supersedes 0010; post-5-agent-review) |
 | 0012 | Agent-Operated Build & Deploy — Autonomy Boundaries | Accepted 2026-06-18 (operator-set: full prod autonomy + safety rails, budget cap, browser-after-login) |
-| 0013 | Client Architecture — KMP/CMP Shared UI + redux-kotlin 1.0.0-alpha1 | Accepted 2026-06-18 (shared code+UI all clients; redux-kotlin; agent-first) |
+| 0013 | Client Architecture — KMP/CMP Shared UI + redux-kotlin 1.0.0-alpha1 | Accepted 2026-06-18. **Build pin (INB-11): default `0.6.2` stable** (alpha01 verified 1-day-old) — alpha01 is the opt-in upgrade; code calls `fieldState` not `fieldStateOf`. |
 | 0014 | Private On-Device Trigger Engine (geo/time/activity) | Accepted 2026-06-18 (triggers=metadata; device matches locally; live position never leaves) |
-| 0015 | End-to-End Encryption | **Proposed** 2026-06-18 (operator-gated; CONDITIONAL GO — encrypt M0, distribute keys M1; changes M0 schema) |
+| 0015 | End-to-End Encryption | **Proposed — scoped to M1** (INB-10: M0 = PLAINTEXT; live E2EE is an M1 option gated by ADR 0017) |
 | 0016 | Two-Way Interactive Pull-Loop (reserved, bounded-now) | **Proposed** 2026-06-18 (additive; reasoning stays in the key-holding loop; reserved actions[]/intents) |
+| 0017 | E2E Key-Authenticity + Deploy Trust-Root Boundary | **Proposed** 2026-06-18 (M1 security gate; from the 6-agent review — fake-key MITM + trust-root concentration) |

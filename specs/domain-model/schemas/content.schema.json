@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://family-ai-dashboard/schemas/content.schema.json",
   "title": "family-ai-dashboard content contract (M0)",
-  "description": "SINGLE SOURCE OF TRUTH (ADR 0006; 'schema wins over prose'). Codegen emits TS (zod) + Kotlin types from this (03-api/07-cli/08-client). Routing/cleartext fields are E2E-invariant. CONTENT fields (title, body_md, payload, triggers, actions, place label/lat/lng) are the typed hole resolved at the INB-10/ADR-0015 gate: non-E2E = the plain types below; under E2E = an `EncryptedEnvelope` ($defs) carrying ciphertext+nonce, AAD=(family_id,id,version). Decide before P0 freeze (10-implementation-plan §gates).",
+  "description": "SINGLE SOURCE OF TRUTH (ADR 0006; 'schema wins over prose'). Codegen emits TS (zod) + Kotlin types from this (03-api/07-cli/08-client). RESOLVED 2026-06-18 (INB-10): M0 = PLAINTEXT — CONTENT fields (title, body_md, payload, triggers, actions, place label/lat/lng) use the plain types below; schema is FROZEN for M0. The `EncryptedEnvelope` $def is M1-only (live E2EE per ADR 0015/0017) and replaces each CONTENT field's plain type IF/when adopted. M0 surface = briefing-card feed (D2); Hub/Section/Block stay in the schema (authorable, dormant render). NOTE: define the `payload` per-block-type $defs before codegen (gaps review C4).",
 
   "$defs": {
     "ulid":        { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$", "description": "client-supplied stable id (07 deterministic-id rule)" },

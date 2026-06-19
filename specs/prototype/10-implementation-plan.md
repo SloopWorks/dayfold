@@ -11,7 +11,7 @@
 | Gate | Blocks | Owner |
 |---|---|---|
 | **INB-9** — API host = TS/Vercel | P0 scaffold | operator |
-| **INB-10** — ADR 0015 E2EE | **P0 SCHEMA authoring** (not just P1 DDL — E2E changes the JSON-schema content-field shape = the codegen source for zod+Kotlin+CLI+client). Decide first, OR build P0 schema-skeleton-only with the content-field representation as a typed hole | operator |
+| ~~INB-10~~ — **RESOLVED 2026-06-18: M0 = PLAINTEXT** (no E2E; live E2EE = M1 decision, gated by ADR 0017). **Schema freeze UNBLOCKED** — content fields are plaintext, server FTS kept, version = server-bumps. No typed-hole needed at M0. | done |
 | **redux-kotlin coordinates** — ✅ **CONFIRMED** (verification done): all modules exist at `1.0.0-alpha01` (KMP), but it's ~1-day-old → **pin `0.6.2` stable as default**, alpha01 behind a feature flag; code calls **`fieldState`** (not `fieldStateOf`). **INB-11** for the operator's alpha01-vs-stable preference | P3 | resolved; operator preference INB-11 |
 | ADR 0005/0006/0007/0015/0016 ratifications | scope lock | operator (inbox sweep) |
 | Recovery-floor procedure | **M1 only** (no auth at M0) | operator+counsel |
@@ -75,6 +75,11 @@ Enumerated so the agent loop doesn't stall on an un-surfaced human gate:
   has it; second push is a no-op diff; **the `.claude/skills/familyai/` never
   reads token/FCK — the binary owns auth+keychain (07 invariant)**.
 
+> **M0 SURFACE = BRIEFING FEED ONLY (D2, 2026-06-18).** Event Hubs render +
+> deep-link are **deferred to the next slice (M0.5/M1)**. The Hub schema stays
+> dormant in DB/CLI (still authorable); the M0 app renders **one card feed**.
+> This removes the entire Hub-detail render + deep-link-scroll work from P3.
+
 ### P3 — CMP client (M0 slice)  *(NOT hard-gated; agent + operator Mac for iOS)*
 - **State lib (resolved):** default **pin `redux-kotlin 0.6.2` stable** +
   **hand-written root reducer** + manual `selectorState`/`store.select{}` for
@@ -85,12 +90,11 @@ Enumerated so the agent loop doesn't stall on an un-surfaced human gate:
   preference: INB-11.)
 - CMP scaffold (Android+iOS); plaintext SQLDelight cache; sync engine (per-page
   tx + `CacheUpdated` + WAL + foreground-resume/pull-to-refresh).
-- Render: Now feed + Hub detail (M3E + mikepenz **lazy** markdown; **single
-  outer LazyColumn keyed by blockId**); **deep-link** (state-keyed,
-  `scrollToItem`+highlight, nearest-ancestor fallback → "that item moved"
-  banner). **M0 deep-links resolve entirely against the local cache — NO
-  Universal Links / AASA at M0** (that's the M1 invite-QR concern; don't build
-  it early). **Time-trigger local notifications only** (no geofencing at M0).
+- Render: **the Now briefing-card feed only** (M3E cards; provenance + trigger
+  chips; limited inline markdown via mikepenz). **No Hub detail, no card→block
+  deep-link render at M0** (deferred with Hubs). Card tap = card detail/expand
+  (no hub destination). **Time-trigger local notifications only** (no
+  geofencing). **No Universal Links at M0.**
 - **Error/empty/offline states:** first-launch empty cache, sync failure (quiet
   stale indicator), deep-link fallback banner — all non-crashing.
 - **Tests:** reducer units, selector, screenshot, deep-link scroll, empty/error

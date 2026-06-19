@@ -255,8 +255,8 @@ CREATE INDEX ON briefing_cards (family_id, updated_at, id);
 CREATE INDEX ON places         (family_id, updated_at, id);
 -- without these the keyset sync (03 §sync) is a full scan + filesort on the hot path.
 -- FTS (event-hubs §Markdown): GIN over raw body_md, live rows only.
--- [M0 / non-E2E ONLY] — dropped under ADR 0015 (server can't index ciphertext);
--- search moves client-side. Resolve at the INB-10 gate before DDL freeze.
+-- KEPT at M0 (plaintext, resolved). Only dropped if M1 live-E2EE is adopted
+-- (server can't index ciphertext → search moves client-side then).
 CREATE INDEX blocks_body_fts ON blocks USING gin (to_tsvector('english', coalesce(body_md,'')))
   WHERE deleted_at IS NULL;
 ```
@@ -298,10 +298,10 @@ CREATE INDEX blocks_body_fts ON blocks USING gin (to_tsvector('english', coalesc
   text in practice.
 - **`updated_at` + `version` ownership:** `updated_at` auto-touched by a DB
   trigger **including on soft-delete** (so tombstones always advance past the
-  sync cursor — 03 §sync). **`version` authority is mode-gated:** **M0 /
-  non-E2E = server bumps** per write; **under ADR 0015 (E2E) = client supplies
-  next version, server validates monotonic** (AAD must match). Resolve at the
-  INB-10 gate **before DDL freeze**.
+  sync cursor — 03 §sync). **`version` authority: M0 = server bumps** per write
+  (resolved — plaintext M0). *(Only if M1 live-E2EE is later adopted does it
+  flip to client-supplies + server-validates-monotonic, so the AEAD AAD
+  matches — ADR 0015/0017.)*
 - **Empty `text`/`markdown` blocks** are permitted (drafts); add
   `CHECK (type NOT IN ('text','markdown') OR body_md IS NOT NULL OR body_ref IS NOT NULL)`
   only if empties should be rejected — deferred.

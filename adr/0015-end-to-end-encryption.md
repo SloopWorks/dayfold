@@ -2,20 +2,26 @@
 
 ## Status
 
-**Proposed** (2026-06-18). Operator-gated — touches customer-data posture, a
-**values-shaped recovery policy**, a server-feature cut (FTS), and the **M0
-schema column-split** (cheap pre-data, expensive to retrofit). Decide soon:
-the report recommends locking the cleartext/ciphertext split **before any real
-data exists**. Investigation: `research/e2e-encryption-investigation.md`.
-Composes with the constitution ("privacy by architecture"), ADR 0004/0007
-(dumb store), ADR 0011 (auth), ADR 0013 (KMP client), ADR 0014 (private
-triggers). Resolves `OQ-e2e-encryption`; folds in `OQ-auth-recovery-floor`.
+**Proposed — scoped to M1 by operator decision 2026-06-18 (INB-10).**
+**M0 is PLAINTEXT** (single operator, own private device — encryption there is
+theater per the investigation; server-side FTS is kept). This ADR governs the
+**live E2EE option at M1** (multi-member), and remains operator-gated — it
+touches customer-data posture and a **values-shaped recovery policy**.
+**Hard M1 gate: the key-authenticity binding of ADR 0017** (without it, server-
+mediated key wrap is defeated by a fake-key MITM). Investigation:
+`research/e2e-encryption-investigation.md`. Resolves `OQ-e2e-encryption`.
+
+> **Naming correction (cohesiveness review):** the investigation's "encrypt at
+> M0" meant only *lock the cleartext/ciphertext column split early* so there's
+> no painful re-encrypt migration. With the **plaintext-M0** decision that
+> concern is moot (M0 data is throwaway dogfood) — so there is **no E2E
+> obligation at M0 and no schema gate**. Live E2EE machinery is entirely M1.
 
 ## Context
 
-The server is a dumb store that never processes content, so **E2EE removes
-nothing the server does** (except one search index). Verdict from the
-investigation: **CONDITIONAL GO — adopt; encrypt at M0; distribute keys at M1.**
+The server is a dumb store that never processes content, so **E2EE (at M1)
+removes nothing the server does** except one search index. Investigation
+verdict: CONDITIONAL GO. **M0 = plaintext; live E2EE = an M1 decision.**
 
 ## Decision (proposed)
 
@@ -57,9 +63,14 @@ truthfully in marketing/UX.
 
 ## Consequences
 
-Positive: privacy becomes structural (survives server breach, subpoena,
-insider, even ADR 0012 deploy/signing-key compromise → only ciphertext); a
-real, honest differentiator; key handoff reuses owner-approval + device-grant.
+Positive: privacy becomes structural for **data-at-rest / past content**
+(survives server breach, subpoena, insider, signing-key compromise → only
+ciphertext). **Correction (security review):** this does NOT cover *forward*
+content or tenancy — a compromised ADR-0012 deploy agent can bind a new signing
+key, ship a client that exfiltrates `FCK`, or substitute a wrap key (ADR 0017).
+So E2E is honest as "we can't read your *stored* content," NOT "nothing can
+ever break it" — and only with ADR 0017's trust-root boundary + key-
+authenticity in place. Key handoff reuses owner-approval + device-grant.
 Negative: loses server FTS; **lost keys = unrecoverable content** (recovery
 posture is the load-bearing UX risk); SQLCipher + decrypt pipeline + per-
 member wrapping is real client work (M1); a pre-1.0 crypto lib dependency;

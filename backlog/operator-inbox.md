@@ -17,7 +17,11 @@ Each item: question, context link, **proposed default**, urgency.
   schema. Platform choice = ADR-class. **Proposed default:** ratify at C3 as
   an ADR. Confirm or pick Kotlin/JVM + Cloud Run instead.
 
-- **INB-11 · 2026-06-18 · low · open — redux-kotlin: alpha01 or 0.6.2 stable?**
+- **INB-11 · ANSWERED 2026-06-18 → default `0.6.2` stable** (alpha01 opt-in). Indexed on ADR 0013.
+- **INB-10 · ANSWERED 2026-06-18 → M0 = PLAINTEXT** (live E2EE = M1 option, gated by ADR 0017). Schema freeze unblocked.
+- *(review decisions 2026-06-18: M0 = briefing-feed-only [Hubs→next slice]; planning-loop ritual suspended for the solo M0 build — keep spec-gate + inbox + multi-agent reviews.)*
+
+- **INB-11 (orig) · redux-kotlin: alpha01 or 0.6.2 stable?**
   You chose `1.0.0-alpha1` (ADR 0013). Verified: it exists (exact
   `1.0.0-alpha01`, all modules, KMP), but it's ~1-day-old (pub 2026-06-17) with
   two alpha01-only modules. **Proposed default:** build P3 on **`0.6.2` stable**

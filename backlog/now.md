@@ -23,10 +23,18 @@ The immediate next work = **A8: hi-fi mockups of Now + Hubs** (Claude Code +
 - [ ] Counsel confirm for ADR 0005 (14+): age-gate sufficiency + Maryland
   DPIA — only if/when pursuing teen accounts.
 
-## Loop state
+## State (2026-06-18 — post 6-agent review)
 
-- **Armed.** Iteration 1 = **A8 (hi-fi mockups)**, per the design-first gate.
-  Say "run a loop iteration" to begin. A1 (niche brief) may run in parallel.
+- **Spec-build loop SUSPENDED** (cron stopped) — process right-sized for the
+  solo M0 build (kept: spec-gate + inbox + multi-agent reviews).
+- **Decisions:** M0 = **plaintext** (live E2EE → M1, ADR 0017 gate); M0 surface
+  = **briefing-feed only** (Hubs → next slice); redux default **0.6.2**.
+- **Spec suite + impl plan + JSON-schema contract = done; schema freeze
+  unblocked.** Ready to build the M0 spine.
+- **One open operator decision before P0 build: INB-9 (API host = TS/Vercel).**
+- **Next product gaps to write (review): G1 content-authoring-loop runbook
+  (`processes/`), G2 usefulness signal, the `payload` $defs, the Claude-Design
+  triggers brief + the M3-Expressive signature upgrades.**
 
 ## Done this period
 
