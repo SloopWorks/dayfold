@@ -17,6 +17,15 @@ Each item: question, context link, **proposed default**, urgency.
   schema. Platform choice = ADR-class. **Proposed default:** ratify at C3 as
   an ADR. Confirm or pick Kotlin/JVM + Cloud Run instead.
 
+- **INB-11 · 2026-06-18 · low · open — redux-kotlin: alpha01 or 0.6.2 stable?**
+  You chose `1.0.0-alpha1` (ADR 0013). Verified: it exists (exact
+  `1.0.0-alpha01`, all modules, KMP), but it's ~1-day-old (pub 2026-06-17) with
+  two alpha01-only modules. **Proposed default:** build P3 on **`0.6.2` stable**
+  (hand-written root reducer + `selectorState`/`select{}`) and adopt alpha01
+  behind a feature flag once it matures — no hard block either way, and code
+  calls `fieldState` (not `fieldStateOf`). Confirm stable-default / insist on
+  alpha01.
+
 - **INB-10 · 2026-06-18 · high · open — Adopt E2E encryption (ADR 0015)?**
   Investigation (`research/e2e-encryption-investigation.md`) verdict:
   **CONDITIONAL GO** — the dumb-store architecture makes E2EE nearly free;

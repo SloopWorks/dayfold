@@ -34,7 +34,7 @@ Universal Links). The specs note which milestone each part belongs to.
 | 07 | CLI tool | `07-cli.md` | **done (review applied)** | — |
 | 08 | Mobile client (CMP) | `08-mobile-client.md` | **done (2-agent review applied)** | ⚠ pre-build gate: confirm redux-kotlin alpha1 coordinates |
 | 09 | Security controls + test/verify plan | `09-security-and-test.md` | **done (cross-spec review applied)** | — |
-| 10 | M0 implementation plan | `10-implementation-plan.md` | **draft → in review** | apply plan review; redux-kotlin coordinate verify in flight |
+| 10 | M0 implementation plan | `10-implementation-plan.md` | **done (review applied)** | redux-kotlin gate RESOLVED (alpha01 exists; default 0.6.2 stable, INB-11) |
 
 > ✅ **SUITE COMPLETE (2026-06-18).** Final cross-spec verification:
 > **implementation-ready for the M0 dumb-store spine.** The 4 close-items are

@@ -7,12 +7,13 @@
 > proximity only, **plaintext SQLDelight**) · [M1] auth/invite/device UI +
 > multi-member + **background geofencing + SQLCipher** · [later] activity.
 
-> **PRE-BUILD GATE (biggest risk):** redux-kotlin `1.0.0-alpha1` and the
-> claimed modules (`StableStore`, `granular`/`fieldStateOf`, `compose-saveable`)
-> are **unverified in public docs (only `0.6.x` is visible)**. Resolve exact
-> Maven coordinates + confirm the module set **before any feature code**. If
-> absent: fall back to manual `store.select{}` for render-isolation (Rule C) or
-> reconsider per ADR 0013's revisit trigger.
+> **STATE LIB — verified 2026-06-18:** all modules exist at exact version
+> **`1.0.0-alpha01`** (KMP; `org.reduxkotlin:redux-kotlin[-compose|-granular|
+> -compose-saveable|-threadsafe|-concurrent|-multimodel]`). **Real API is
+> `fieldState` — NOT `fieldStateOf`** (docs/skill drift). BUT alpha01 is
+> ~1-day-old with 2 alpha01-only modules → **default to `0.6.2` stable** +
+> hand-written root reducer + `selectorState`/`store.select{}`; treat alpha01
+> as a feature-flag upgrade. Operator preference: **INB-11**.
 
 ## Architecture & modules (redux-kotlin, package-by-feature)
 
