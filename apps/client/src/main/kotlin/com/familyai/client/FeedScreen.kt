@@ -45,10 +45,32 @@ fun FeedScreen(state: AppState) {
 @Composable
 private fun CardItem(card: Card) {
   ElevatedCard(Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      Text(card.title, style = MaterialTheme.typography.titleMedium)
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      // kind chip (info = none)
+      kindLabel(card.kind)?.let { label ->
+        Text(
+          label.uppercase(),
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.primary,
+        )
+      }
+      // countdown → emphasized title; others → titleMedium
+      Text(
+        card.title,
+        style = if (card.kind == "countdown") MaterialTheme.typography.headlineSmall
+        else MaterialTheme.typography.titleMedium,
+      )
+      // body with allowlisted tappable action-links
       card.bodyMd?.takeIf { it.isNotBlank() }?.let {
-        Text(it, style = MaterialTheme.typography.bodyMedium)
+        Text(renderCardBody(it), style = MaterialTheme.typography.bodyMedium)
+      }
+      // provenance source chip (user = none)
+      sourceLabel(card.provenance?.source)?.let { src ->
+        Text(
+          src,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
       }
     }
   }

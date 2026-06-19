@@ -29,8 +29,13 @@ class FeedSnapshotTest {
   fun populatedFeedSnapshot() = snapshot(
     "feed-populated",
     AppState(cards = listOf(
-      Card("a", title = "Party Saturday — order groceries?", notBefore = "2026-06-20T09:00:00Z"),
-      Card("b", title = "Rain at soccer 4pm — pack jackets", notBefore = "2026-06-18T15:00:00Z"),
+      Card("a", kind = "action", title = "Party Saturday — order groceries?",
+        bodyMd = "Tap [the list](https://instacart.com) to reorder.",
+        provenance = Provenance("claude"), notBefore = "2026-06-18T09:00:00Z"),
+      Card("b", kind = "weather", title = "Rain at soccer 4pm — pack jackets",
+        provenance = Provenance("claude"), notBefore = "2026-06-18T15:00:00Z"),
+      Card("c", kind = "countdown", title = "Maya starts college",
+        bodyMd = "12 days", provenance = Provenance("claude")),
     )),
   )
 

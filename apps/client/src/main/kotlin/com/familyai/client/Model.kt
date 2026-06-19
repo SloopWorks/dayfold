@@ -7,11 +7,15 @@ import kotlinx.serialization.Serializable
 // (snake_case). NOTE: keep aligned with the SyncResponse contract in
 // content.schema.json — a follow-up wires these to the generated Kotlin types.
 @Serializable
+data class Provenance(val source: String? = null) // "claude" | "email" | "user" | <url>
+
+@Serializable
 data class Card(
   val id: String,
   val kind: String = "info",
   val title: String,
   @SerialName("body_md") val bodyMd: String? = null,
+  val provenance: Provenance? = null,
   // [review F2] /sync returns the full row — keep the feed-ordering + deep-link
   // fields, not just the title. not_before drives feed order (F1); target_* is
   // the deep-link the render layer will use when Hubs land.
