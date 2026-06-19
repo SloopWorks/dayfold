@@ -33,7 +33,7 @@ Universal Links). The specs note which milestone each part belongs to.
 | 06 | Storage (object storage, docs/large markdown) | `06-storage.md` | **done (review applied)** | — |
 | 07 | CLI tool | `07-cli.md` | **done (review applied)** | — |
 | 08 | Mobile client (CMP) | `08-mobile-client.md` | **done (2-agent review applied)** | ⚠ pre-build gate: confirm redux-kotlin alpha1 coordinates |
-| 09 | Security controls + test/verify plan | `09-security-and-test.md` | **next (final)** | consolidate all review findings + ADR 0011/0012 + IDOR/test matrix |
+| 09 | Security controls + test/verify plan | `09-security-and-test.md` | **draft → final cross-spec review** | apply capstone review |
 
 ## Current
 
