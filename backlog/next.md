@@ -59,7 +59,28 @@ blocked** behind a queued Claude-Design expanded-detail pass.
   **Integrated into `cl-next`** (ff-merge `8f11301`, local; not pushed). **NEXT =
   CL-4** (client data: typed model + SQLDelight + store).
 - **TASK-CL-3** — CLI + Claude-skill typed authoring (the content-API wedge).
-- **TASK-CL-4** — Client data: typed model + SQLDelight + store.
+- **TASK-CL-4** — Client data: typed model + SQLDelight + store. ✅ **DONE**
+  (branch `cl-4-client-typed-data` → integrated into `cl-next`) 2026-06-20.
+  `Card` gains `type`/`payload`/`privacy`/`hubRef`; new wrapper `Payload` + 6
+  variant data classes (mirrors generated `BriefingCardPayload` — externally-
+  tagged `{"file":{…}}`, not a sealed interface: matches wire + codegen +
+  simpler). `Content.sq` `card` table + `upsertCard` + `activeCards` carry
+  `type`/`payload`(JSON TEXT)/`privacy`(JSON TEXT)/`hub_ref`. `ContentStore`
+  encodes on write, **guarded per-field decode at the DB→store projection**
+  (off the recomposition path; corrupt JSON → null, card still renders). Wire
+  `@SerialName("hub_ref")` (server `/sync` returns DB-shaped snake rows).
+  ADR 0020 preserved (no new network/store path; cold-start instant). **36
+  desktop tests green** (ContentStoreTest 8: 6-variant round-trip, kind-only
+  back-compat, corrupt-payload guard, wire-decode); **Android + iOS-sim
+  compile**. Twice-reviewed (pre-impl adversarial: caught the activeCards-SELECT
+  omission + decode-once overclaim, fixed; final whole-branch: SHIP). Spec:
+  `docs/superpowers/specs/2026-06-20-cl-4-client-typed-data-design.md`.
+  **Follows (out of scope, filed):** (i) wire-to-`kotlin-gen` — note the
+  server/codegen drift: server emits `hub_ref` but generated `BriefingCard.hubRef`
+  has no `@SerialName`, so the deferred codegen-typing follow must align it; (ii)
+  M0 cache has **no SQLDelight migration** → clear-app-data on schema change
+  (post-M0). **NEXT = CL-5** (6 typed Now cards, light+dark) — gated on CL-0
+  theme (done) + this.
 - **TASK-CL-5** — Client UI: 6 typed Now cards (light+dark, inline actions).
 - **TASK-CL-6** — Client UI: DetailScreen (per-type hero + provenance/privacy).
 - **TASK-CL-7** — Fold gesture: container transform (SharedTransitionLayout;

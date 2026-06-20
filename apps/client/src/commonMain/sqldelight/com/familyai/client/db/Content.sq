@@ -7,9 +7,18 @@ CREATE TABLE card (
   source      TEXT,                       -- provenance.source
   not_before  TEXT,
   expires_at  TEXT,
+  type        TEXT,                       -- CL-4: content type (ADR 0022 D1)
+  payload     TEXT,                       -- CL-4: JSON {"file":{…}}; decoded once at projection
+  privacy     TEXT,                       -- CL-4: JSON {"storage":…}
+  hub_ref     TEXT,                       -- CL-4: parent Hub id (adaptive pane)
   updated_at  TEXT NOT NULL,
   deleted     INTEGER NOT NULL DEFAULT 0  -- tombstone flag
 );
+-- NOTE (ADR 0020): disposable M0 cache, no .sqm migration infra. Schema.create
+-- is idempotent-skip on an existing device DB, so the old `card` table survives
+-- WITHOUT these columns → the next upsertCard write CRASHES (no such column)
+-- until app data is cleared. Mandatory clear-on-upgrade at M0; real SQLDelight
+-- migrations are post-M0.
 
 CREATE TABLE sync_meta (
   id             INTEGER NOT NULL PRIMARY KEY DEFAULT 0,
@@ -18,11 +27,12 @@ CREATE TABLE sync_meta (
 );
 
 upsertCard:
-INSERT INTO card(id, kind, title, body_md, source, not_before, expires_at, updated_at, deleted)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+INSERT INTO card(id, kind, title, body_md, source, not_before, expires_at, type, payload, privacy, hub_ref, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 ON CONFLICT(id) DO UPDATE SET
   kind=excluded.kind, title=excluded.title, body_md=excluded.body_md,
   source=excluded.source, not_before=excluded.not_before, expires_at=excluded.expires_at,
+  type=excluded.type, payload=excluded.payload, privacy=excluded.privacy, hub_ref=excluded.hub_ref,
   updated_at=excluded.updated_at, deleted=0;
 
 markDeleted:
@@ -30,7 +40,7 @@ UPDATE card SET deleted=1, updated_at=? WHERE id=?;
 
 -- feed query: live cards, not_before NULLS LAST then id (matches the API contract)
 activeCards:
-SELECT id, kind, title, body_md, source, not_before, expires_at
+SELECT id, kind, title, body_md, source, not_before, expires_at, type, payload, privacy, hub_ref
 FROM card WHERE deleted=0
 ORDER BY (not_before IS NULL), not_before, id;
 
