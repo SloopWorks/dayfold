@@ -62,12 +62,18 @@ dependencies {
   androidTestImplementation("androidx.compose.ui:ui-test-junit4")
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test:runner:1.6.2")
-  // espresso 3.6.1 has the API 34/35 InputManager fix. NOTE: the only emulators
-  // here are API 37 (Android 16 preview), where even 3.6.1's reflection breaks
-  // (InputManager.getInstance removed) — Compose's test rule hard-needs espresso,
-  // so the instrumented AuthFlowE2ETest can't run on API 37. It is correct and
-  // runs on a standard-API (≤36) emulator / CI. The same flow is covered now by
-  // the desktop runComposeUiTest e2e (AuthFlowUiTest, JVM — no espresso).
+  // espresso 3.6.1 has the API 34/35 InputManager.getInstance() fix (older
+  // espresso throws NoSuchMethodException via the compose idling bridge).
+  // ⚠ API 37 (Android 16 preview) removed getInstance() entirely → espresso
+  // breaks there AND Compose's test rule hard-needs espresso, so the instrumented
+  // AuthFlowE2ETest can't run on an API-37 emulator. Run it on a standard-API
+  // (≤36) emulator — e.g. the AOSP ATD AVD used here:
+  //   sdkmanager "system-images;android-35;aosp_atd;arm64-v8a"
+  //   avdmanager create avd -n fad_atd35 -k "system-images;android-35;aosp_atd;arm64-v8a" -d pixel
+  //   emulator -avd fad_atd35 -no-window -no-audio -no-snapshot -gpu swiftshader_indirect &
+  //   ANDROID_SERIAL=emulator-5558 ./gradlew :androidApp:connectedDebugAndroidTest
+  // ✅ Verified PASS on fad_atd35 (API 35). The desktop AuthFlowUiTest covers the
+  // same flow headlessly (JVM, no espresso) for the default test loop.
   androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
   debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
