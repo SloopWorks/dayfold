@@ -46,6 +46,9 @@ fun main() = application {
       onCreateFamily = { name -> scope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
       onSignOut = { scope.launch { authEngine.signOut() } },
       onRedeemInvite = { token -> scope.launch { authEngine.redeemInvite(token) } },
+      onLoadApprovals = { scope.launch { store.state.activeFamilyId?.let { authEngine.loadApprovals(it) } } },
+      onApproveMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.approveMember(it, uid) } } },
+      onDeclineMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.declineMember(it, uid) } } },
     )
   }
 }

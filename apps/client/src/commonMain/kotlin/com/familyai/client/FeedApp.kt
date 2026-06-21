@@ -48,6 +48,9 @@ fun FeedApp(
   onCreateFamily: (String) -> Unit = {},
   onSignOut: () -> Unit = {},
   onRedeemInvite: (String) -> Unit = {},
+  onLoadApprovals: () -> Unit = {},
+  onApproveMember: (String) -> Unit = {},
+  onDeclineMember: (String) -> Unit = {},
 ) {
   val state by store.selectorState { it }
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
@@ -66,7 +69,14 @@ fun FeedApp(
       )
       Route.JoinInvite -> JoinInviteScreen(state, onJoin = onRedeemInvite, onDismiss = { store.dispatch(JoinDismissed) })
       Route.Feed -> ContentHost(store, state, handle)
-      Route.Account -> AccountScreen(state, onSignOut = onSignOut, onClose = { store.dispatch(CloseAccount) })
+      Route.Account -> AccountScreen(
+        state, onSignOut = onSignOut, onClose = { store.dispatch(CloseAccount) },
+        onOpenMembers = { store.dispatch(OpenMembers) },
+      )
+      Route.Members -> MembersScreen(
+        state, onApprove = onApproveMember, onDecline = onDeclineMember,
+        onLoad = onLoadApprovals, onBack = { store.dispatch(OpenAccount) },
+      )
     }
   }
 }

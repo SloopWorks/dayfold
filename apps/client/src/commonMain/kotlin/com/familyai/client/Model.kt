@@ -150,7 +150,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, CreateFamily, Feed, Account, JoinInvite }
+enum class Route { Loading, SignIn, CreateFamily, Feed, Account, JoinInvite, Members }
 
 // Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
 // not here — the store is a projection of the DB. The auth fields below are the
@@ -219,6 +219,7 @@ data class InviteRedeemed(val familyName: String?) : Action   // success → pen
 data class InviteRejected(val reason: String) : Action        // expired | locked | already | removed | error
 data object JoinDismissed : Action                            // leave the join flow → back to the gate
 // owner-side approvals (S6). Load the queue; resolve removes one (approved/declined).
+data object OpenMembers : Action                              // → the family members/approvals screen
 data object ApprovalsRequested : Action
 data class ApprovalsLoaded(val pending: List<PendingMember>) : Action
 data class MemberResolved(val uid: String) : Action           // approved or declined → drop from the queue

@@ -54,4 +54,12 @@ class AuthScreensSnapshotTest {
   @Test fun joinError() = snap("auth-join-error", dark = true) {
     JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "error"))
   }
+
+  @Test fun members() = snap("auth-members") {
+    MembersScreen(AppState(
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera"), PendingMember("u8", "Mo Diallo")),
+    ))
+  }
 }

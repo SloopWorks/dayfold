@@ -101,4 +101,35 @@ class AuthFlowUiTest {
     onNodeWithText("Done").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Name your family") }
   }
+
+  @Test fun owner_approvesPendingMember() = runComposeUiTest {
+    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    setContent {
+      DayfoldTheme {
+        FeedApp(
+          store,
+          onSignIn = {
+            store.dispatch(SignInSucceeded(Session("a", "r")))
+            store.dispatch(MembershipsLoaded(listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))))
+          },
+          onLoadApprovals = { store.dispatch(ApprovalsLoaded(listOf(PendingMember("u9", "Sam Rivera")))) },
+          onApproveMember = { uid -> store.dispatch(MemberResolved(uid)) },
+        )
+      }
+    }
+    fun seen(t: String) = onAllNodesWithText(t).fetchSemanticsNodes().isNotEmpty()
+
+    // owner with an active family → Feed
+    onNodeWithText("Continue with Google").performClick()
+    waitUntil(timeoutMillis = 5_000L) { seen("Today") }
+    // Feed → account → members
+    onNodeWithText("Y").performClick()
+    waitUntil(timeoutMillis = 5_000L) { seen("Members & approvals") }
+    onNodeWithText("Members & approvals").performClick()
+    // the queue loads (onLoad) → the pending member shows
+    waitUntil(timeoutMillis = 5_000L) { seen("Sam Rivera") }
+    // approve → drops from the queue
+    onNodeWithTag("approve-u9").performClick()
+    waitUntil(timeoutMillis = 5_000L) { onAllNodesWithText("Sam Rivera").fetchSemanticsNodes().isEmpty() }
+  }
 }

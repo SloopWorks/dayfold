@@ -43,6 +43,7 @@ fun AccountScreen(
   state: AppState,
   onSignOut: () -> Unit = {},
   onClose: () -> Unit = {},
+  onOpenMembers: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
@@ -99,6 +100,25 @@ fun AccountScreen(
             style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
           )
         }
+      }
+
+      Spacer(Modifier.height(22.dp))
+      SectionLabel("FAMILY")
+      Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(onClick = onOpenMembers).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text("Members & approvals", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(active?.name ?: "Your family", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+        }
+        if (state.pendingApprovals.isNotEmpty()) {
+          Box(Modifier.clip(RoundedCornerShape(50)).background(cs.primary).padding(horizontal = 9.dp, vertical = 3.dp)) {
+            Text("${state.pendingApprovals.size}", style = MaterialTheme.typography.labelLarge, color = cs.onPrimary)
+          }
+        }
+        Text("›", style = MaterialTheme.typography.titleLarge, color = cs.onSurfaceVariant)
       }
 
       Spacer(Modifier.height(22.dp))
