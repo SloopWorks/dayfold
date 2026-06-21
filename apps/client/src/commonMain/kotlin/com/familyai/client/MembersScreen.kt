@@ -27,20 +27,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-// AUTH-S6 Slice 3c — the family members/approvals surface (Dayfold, A8b `members`).
-// Shows the owner-approval queue (approve/decline closes invitee-join) + the
-// owner's own row. The full active-member roster needs a GET /members endpoint
-// (backend gap — tracked) so M0 lists pending + you. onLoad runs once on entry.
+// AUTH-S6 — the family members/approvals surface (Dayfold, A8b `members`). The
+// owner-approval queue (approve/decline closes invitee-join) + the active roster
+// (GET /members) with remove on non-owner members. onLoad/onLoadMembers run once
+// on entry.
 @Composable
 fun MembersScreen(
   state: AppState,
   onApprove: (String) -> Unit = {},
   onDecline: (String) -> Unit = {},
   onLoad: () -> Unit = {},
+  onLoadMembers: () -> Unit = {},
+  onRemoveMember: (String) -> Unit = {},
   onBack: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
-  LaunchedEffect(Unit) { onLoad() }
+  LaunchedEffect(Unit) { onLoad(); onLoadMembers() }
   val me = state.families.firstOrNull { it.familyId == state.activeFamilyId }
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
@@ -67,18 +69,41 @@ fun MembersScreen(
       }
 
       Label("MEMBERS", cs.onSurfaceVariant)
-      // M0: the owner's own row (full roster pending a GET /members endpoint).
-      Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer).padding(13.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        Avatar("Y", cs.primaryContainer, cs.onPrimaryContainer)
-        Column(Modifier.weight(1f)) {
-          Text("You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
-          Text(((me?.role ?: "adult")).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+      if (state.members.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+          state.members.forEach { m -> MemberRow(m, isOwner = m.role == "owner", onRemove = onRemoveMember) }
         }
-        if (me?.role == "owner") RoleBadge("OWNER")
+      } else {
+        // fallback before the roster loads — the caller's own row.
+        MemberRow(
+          FamilyMember(uid = "me", displayName = "You", role = me?.role ?: "adult"),
+          isOwner = me?.role == "owner", onRemove = {},
+        )
       }
+    }
+  }
+}
+
+@Composable
+private fun MemberRow(m: FamilyMember, isOwner: Boolean, onRemove: (String) -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer).padding(13.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    Avatar((m.displayName ?: "?").take(1).uppercase(), cs.primaryContainer, cs.onPrimaryContainer)
+    Column(Modifier.weight(1f)) {
+      Text(m.displayName ?: "Member", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+      Text(m.role.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+    }
+    if (isOwner) {
+      RoleBadge("OWNER")          // owners can't be removed (≥1-owner invariant)
+    } else {
+      Box(
+        Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainerHigh)
+          .testTag("remove-${m.uid}").clickable { onRemove(m.uid) },
+        contentAlignment = Alignment.Center,
+      ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge) }
     }
   }
 }

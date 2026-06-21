@@ -59,7 +59,11 @@ class AuthScreensSnapshotTest {
     MembersScreen(AppState(
       families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
       activeFamilyId = "fam1",
-      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera"), PendingMember("u8", "Mo Diallo")),
+      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
+      members = listOf(
+        FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
+        FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
+      ),
     ))
   }
 }

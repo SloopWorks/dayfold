@@ -113,7 +113,13 @@ class AuthFlowUiTest {
             store.dispatch(MembershipsLoaded(listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))))
           },
           onLoadApprovals = { store.dispatch(ApprovalsLoaded(listOf(PendingMember("u9", "Sam Rivera")))) },
+          onLoadMembers = {
+            store.dispatch(RosterLoaded(listOf(
+              FamilyMember("u1", "Pat Jackson", role = "owner"), FamilyMember("u2", "Maya Jackson", role = "adult"),
+            )))
+          },
           onApproveMember = { uid -> store.dispatch(MemberResolved(uid)) },
+          onRemoveMember = { uid -> store.dispatch(MemberRemoved(uid)) },
         )
       }
     }
@@ -126,10 +132,13 @@ class AuthFlowUiTest {
     onNodeWithText("Y").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Members & approvals") }
     onNodeWithText("Members & approvals").performClick()
-    // the queue loads (onLoad) → the pending member shows
-    waitUntil(timeoutMillis = 5_000L) { seen("Sam Rivera") }
-    // approve → drops from the queue
+    // pending queue + active roster both load
+    waitUntil(timeoutMillis = 5_000L) { seen("Sam Rivera") && seen("Maya Jackson") }
+    // approve the pending member → drops from the queue
     onNodeWithTag("approve-u9").performClick()
     waitUntil(timeoutMillis = 5_000L) { onAllNodesWithText("Sam Rivera").fetchSemanticsNodes().isEmpty() }
+    // remove an adult member → drops from the roster
+    onNodeWithTag("remove-u2").performClick()
+    waitUntil(timeoutMillis = 5_000L) { onAllNodesWithText("Maya Jackson").fetchSemanticsNodes().isEmpty() }
   }
 }
