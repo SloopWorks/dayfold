@@ -109,6 +109,17 @@ API tests / 0 skips. Legacy household token still works.
     already-member + provider-link-conflict) · **S6** (invite gen, authorize-device,
     members+approvals, devices, account) · **S2** (real Firebase Google/Apple behind
     the same buttons — gate cleared by ADR 0023).
+- **A8b failure/destructive design gaps — ✅ CLOSED + IMPORTED 2026-06-21** (Claude
+  Design pass from `designs/DESIGN-BRIEF-auth-gaps.md`, pulled via the claude_design
+  MCP). `Auth-Phone.dc.html` now **25 views** (18 → +7): **slice-2 invitee
+  failures** `invitedeclined` / `invitelocked` (429) / `joinerror` (transient) and
+  **S6 destructive** `deleteconfirm` (type-DELETE + Apple-disconnect) /
+  `transferowner` (≥1-owner member picker; also the members-409 path) /
+  `devicedenied` / `deviceexpired`. Gallery = 37 frames (light+dark). Verified
+  render-valid (tags 29/29·7/7·277/277, all views through `renderVals()`, token
+  parity, frames ∈ enum). **Slice-2 now has full happy+failure design coverage;
+  S6 destructive-action screens designed.** Operator sign-off (ADR 0008) → build.
+  *(Open TODO from the pass: confirm the invitelocked cooldown constant vs S4.)*
 
 **AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE + MERGED** to `main` 2026-06-19
 (PR #2, all CI green). `/device/{authorize,token}` + `/families/:fid/device/{approve,deny}`

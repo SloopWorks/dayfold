@@ -513,10 +513,110 @@
     </div>
   </sc-if>
 
+  <!-- ============ A1 · DECLINED BY OWNER ============ -->
+  <sc-if value="{{ isInviteDeclined }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">person_off</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">This didn't go through</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:32ch;">Pat reviews everyone who joins the Jacksons, and didn't add you this time. If you think it's a mistake, the best next step is to reach out to them directly.</p>
+      <div style="display:flex;align-items:center;justify-content:center;height:52px;width:100%;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Use a different account</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ A2 · TOO MANY ATTEMPTS / LOCKED OUT ============ -->
+  <!-- TODO(product): confirm exact redeem lockout constant + cooldown copy vs specs/auth-and-family-design.md §Cross-cutting / S4 (spec says "locked-out after N", no number; assumed ~5 / 15 min). -->
+  <sc-if value="{{ isInviteLocked }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">lock_clock</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Take a breather</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:32ch;">You've tried to join a few times in a row. Wait a few minutes, then open the invite link again.</p>
+      <div style="display:flex;align-items:center;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 16px;margin-bottom:30px;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">schedule</span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};">You can try again in about <b style="color:{{ c.onSurface }};">15 minutes</b></span></div>
+      <div style="display:flex;align-items:center;justify-content:center;height:52px;width:100%;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Done</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ A3 · COULDN'T JOIN — RETRY ============ -->
+  <sc-if value="{{ isJoinError }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">sync_problem</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Something went wrong</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:32ch;">We couldn't reach Dayfold to finish joining the Jacksons. Check your connection and try again — your invite is still good.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;width:100%;border-radius:16px;background:{{ c.primary }};margin-bottom:12px;"><span class="msr" style="font-size:20px;color:{{ c.onPrimary }};">refresh</span><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onPrimary }};">Try again</span></div>
+      <span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurfaceVar }};">Use a different account</span>
+    </div>
+  </sc-if>
+
+  <!-- ============ B4 · DELETE ACCOUNT — CONFIRM ============ -->
+  <sc-if value="{{ isDeleteConfirm }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 26px;">
+      <span class="msr" style="font-size:25px;color:{{ c.onSurface }};margin-bottom:18px;">close</span>
+      <div style="width:62px;height:62px;border-radius:20px;background:{{ c.errorContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><span class="msr" style="font-size:34px;color:{{ c.onErrorContainer }};">delete_forever</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 8px;">Delete your account?</h1>
+      <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">This can't be undone. Here's exactly what happens:</p>
+      <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;"><span style="width:36px;height:36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">group_remove</span></span><span style="font-family:'Figtree';font-size:14px;line-height:1.4;color:{{ c.onSurface }};">You're removed from every family you're in</span></div>
+        <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;"><span style="width:36px;height:36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">folder_off</span></span><span style="font-family:'Figtree';font-size:14px;line-height:1.4;color:{{ c.onSurface }};">Your Dayfold data is permanently erased</span></div>
+        <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;"><span style="width:36px;height:36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">link_off</span></span><span style="font-family:'Figtree';font-size:14px;line-height:1.4;color:{{ c.onSurface }};">Sign in with Apple is disconnected</span></div>
+      </div>
+      <div style="font-family:'Figtree';font-size:12.5px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:7px;">TYPE DELETE TO CONFIRM</div>
+      <div style="height:54px;border-radius:16px;background:{{ c.surface }};border:2px solid {{ c.error }};display:flex;align-items:center;padding:0 18px;"><span style="font-family:'Roboto Mono';font-weight:600;font-size:17px;letter-spacing:0.18em;color:{{ c.onSurface }};">DELETE</span><span style="width:2px;height:22px;background:{{ c.error }};margin-left:2px;animation:caret 1s step-end infinite;"></span></div>
+      <div style="flex:1;min-height:16px;"></div>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Cancel</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.error }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onError }};">Delete</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ B4/B5 · TRANSFER OWNERSHIP FIRST ============ -->
+  <!-- Entry points: account → Delete my account (sole owner) AND members → remove/leave as last owner (S4 409). -->
+  <!-- TODO(product): no-other-members variant — replace the picker with a warning that deleting also deletes <Family> and all its content. -->
+  <sc-if value="{{ isTransferOwner }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 26px;">
+      <span class="msr" style="font-size:25px;color:{{ c.onSurface }};margin-bottom:22px;">arrow_back</span>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Choose a new owner first</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">Every family needs at least one owner. Pick someone to take over the Jacksons before you leave.</p>
+      <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 10px;">PROMOTE TO OWNER</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <sc-for list="{{ transferMembers }}" as="m" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:12px;background:{{ c.surfaceContainer }};border:2px solid {{ m.selected ? c.primary : c.surfaceContainer }};border-radius:16px;padding:12px 15px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ m.bg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.fg }};">{{ m.initial }}</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ m.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.sub }}</div></div>
+            <span style="width:24px;height:24px;border-radius:999px;border:2px solid {{ m.selected ? c.primary : c.outline }};background:{{ m.selected ? c.primary : 'transparent' }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ m.selected ? c.onPrimary : 'transparent' }};">check</span></span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:1;min-height:16px;"></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onPrimary }};">Make owner &amp; continue</span><span class="msr" style="font-size:20px;color:{{ c.onPrimary }};">arrow_forward</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ B6 · DEVICE APPROVAL — DENIED ============ -->
+  <sc-if value="{{ isDeviceDenied }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">block</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Denied</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:32ch;">That device won't get access to your family. If you didn't start this, you're all set — nothing happened and nothing changed.</p>
+      <div style="display:flex;align-items:center;justify-content:center;height:52px;width:100%;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Done</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ B6 · DEVICE APPROVAL — EXPIRED / ALREADY HANDLED ============ -->
+  <sc-if value="{{ isDeviceExpired }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">history</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">This request has expired</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:32ch;">For your security, approval requests time out — and this one may already have been handled elsewhere. Start again on the computer that asked to sign in.</p>
+      <div style="display:flex;align-items:center;justify-content:center;height:52px;width:100%;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Done</span></div>
+    </div>
+  </sc-if>
+
   <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:6;"></div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;offline&quot;,&quot;otp&quot;,&quot;otperror&quot;,&quot;linkmethod&quot;,&quot;createfamily&quot;,&quot;invited&quot;,&quot;waiting&quot;,&quot;inviteerror&quot;,&quot;alreadymember&quot;,&quot;familynull&quot;,&quot;invite&quot;,&quot;authorizedevice&quot;,&quot;entercode&quot;,&quot;members&quot;,&quot;devices&quot;,&quot;linkconflict&quot;,&quot;account&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;reason&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;expired&quot;,&quot;revoked&quot;,&quot;exhausted&quot;],&quot;default&quot;:&quot;expired&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;offline&quot;,&quot;otp&quot;,&quot;otperror&quot;,&quot;linkmethod&quot;,&quot;createfamily&quot;,&quot;invited&quot;,&quot;waiting&quot;,&quot;inviteerror&quot;,&quot;alreadymember&quot;,&quot;familynull&quot;,&quot;invite&quot;,&quot;authorizedevice&quot;,&quot;entercode&quot;,&quot;members&quot;,&quot;devices&quot;,&quot;linkconflict&quot;,&quot;account&quot;,&quot;invitedeclined&quot;,&quot;invitelocked&quot;,&quot;joinerror&quot;,&quot;deleteconfirm&quot;,&quot;transferowner&quot;,&quot;devicedenied&quot;,&quot;deviceexpired&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;reason&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;expired&quot;,&quot;revoked&quot;,&quot;exhausted&quot;],&quot;default&quot;:&quot;expired&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
 class Component extends DCLogic {
   buildQR(n) {
     const m = Array.from({length:n}, () => Array(n).fill(false));
@@ -592,6 +692,11 @@ class Component extends DCLogic {
         caret: isCaret ? c.primary : 'transparent',
       };
     });
+    const transferMembers = [
+      { initial:'M', name:'Maya Jackson', sub:'Adult · joined Jun 2026', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, selected:true },
+      { initial:'L', name:'Leo Rivera', sub:'Adult · joined Jun 2026', bg:c.secondaryContainer, fg:c.onSecondaryContainer, selected:false },
+      { initial:'S', name:'Sam Rivera', sub:'Adult · joined Jun 2026', bg:c.primaryContainer, fg:c.onPrimaryContainer, selected:false },
+    ];
     const inviteErrMap = {
       expired:   { icon:'schedule', title:'This invite has expired', body:'Invite links last about 3 days. Ask Pat to send you a fresh one and you’ll be right in.' },
       revoked:   { icon:'link_off', title:'This invite was turned off', body:'Pat revoked this invite before you joined. Reach out and ask them to send a new one.' },
@@ -618,6 +723,14 @@ class Component extends DCLogic {
       isDevices: view === 'devices',
       isConflict: view === 'linkconflict',
       isAccount: view === 'account',
+      isInviteDeclined: view === 'invitedeclined',
+      isInviteLocked: view === 'invitelocked',
+      isJoinError: view === 'joinerror',
+      isDeleteConfirm: view === 'deleteconfirm',
+      isTransferOwner: view === 'transferowner',
+      isDeviceDenied: view === 'devicedenied',
+      isDeviceExpired: view === 'deviceexpired',
+      transferMembers,
       otpCells,
       otpErrCells,
       codeCells,
