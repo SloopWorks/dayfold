@@ -136,6 +136,24 @@ class AuthEngine(
     }
   }
 
+  /** Load the caller's connected devices/apps. */
+  suspend fun loadDevices() = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    try { store.dispatch(DevicesLoaded(callWithRefresh(session) { authClient.credentials(it.access) })) }
+    catch (e: Exception) { /* keep the last list; a reload reconciles */ }
+  }
+
+  /** Revoke one of the caller's credentials → drop on success (reload on a guarded failure). */
+  suspend fun revokeDevice(id: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    try {
+      callWithRefresh(session) { authClient.revokeCredential(it.access, id) }
+      store.dispatch(DeviceRevoked(id))
+    } catch (e: Exception) {
+      store.dispatch(DevicesLoaded(runCatching { callWithRefresh(session) { authClient.credentials(it.access) } }.getOrDefault(store.state.devices)))
+    }
+  }
+
   /** Current access token (for the SyncClient token provider, wired at T6). */
   fun accessToken(): String? = store.state.session?.access
 

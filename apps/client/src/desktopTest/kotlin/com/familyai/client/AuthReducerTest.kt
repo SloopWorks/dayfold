@@ -129,6 +129,13 @@ class AuthReducerTest {
     assertEquals(listOf("u1"), s.members.map { it.uid })
   }
 
+  @Test fun `devices load then a credential is revoked`() {
+    var s = rootReducer(AppState(), DevicesLoaded(listOf(DeviceCredential("c1", current = true), DeviceCredential("c2", kind = "cli"))))
+    assertEquals(listOf("c1", "c2"), s.devices.map { it.id })
+    s = rootReducer(s, DeviceRevoked("c2"))
+    assertEquals(listOf("c1"), s.devices.map { it.id })
+  }
+
   @Test fun `sign-out clears session and feed back to SignIn`() {
     val signedIn = AppState(
       cards = listOf(Card("c", title = "T")), session = sess,

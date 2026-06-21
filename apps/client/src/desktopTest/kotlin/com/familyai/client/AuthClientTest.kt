@@ -211,4 +211,36 @@ class AuthClientTest {
     val ex = assertFailsWith<AuthHttpException> { client(engine).removeMember("A", "f", "u") }
     assertEquals(409, ex.status)
   }
+
+  // ── connected devices ──
+  @Test fun `credentials parses the device list with the current flag`() = runBlocking {
+    var path = ""
+    val engine = MockEngine { req ->
+      path = req.url.encodedPath
+      respond(
+        """{"credentials":[
+          {"id":"c1","kind":"app","label":"iPhone","current":true,"last_used_at":"2026-06-21T10:00:00Z"},
+          {"id":"c2","kind":"cli","label":"claude-code","scopes":["content:write"],"current":false}]}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val creds = client(engine).credentials("ACCESS")
+    assertEquals("/auth/me/credentials", path)
+    assertEquals(2, creds.size)
+    assertTrue(creds[0].current); assertEquals("cli", creds[1].kind)
+  }
+
+  @Test fun `revokeCredential deletes the path and accepts 204`() = runBlocking {
+    var method = ""; var path = ""
+    val engine = MockEngine { req -> method = req.method.value; path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }
+    client(engine).revokeCredential("ACCESS", "c2")
+    assertEquals("DELETE", method)
+    assertEquals("/auth/me/credentials/c2", path)
+  }
+
+  @Test fun `revokeCredential throws on 404 (not yours)`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("", HttpStatusCode.NotFound) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).revokeCredential("A", "x") }
+    assertEquals(404, ex.status)
+  }
 }

@@ -46,6 +46,7 @@ class AuthClient(
   @Serializable private data class ConflictResp(val type: String? = null)
   @Serializable private data class ApprovalsResp(val pending: List<PendingMember> = emptyList())
   @Serializable private data class MembersResp(val members: List<FamilyMember> = emptyList())
+  @Serializable private data class CredsResp(val credentials: List<DeviceCredential> = emptyList())
 
   /** POST /auth/dev-token (Bearer DEV_AUTH_SECRET) → a real backend session. Dev/test only. */
   suspend fun devToken(provider: String, providerUid: String, devSecret: String): Session {
@@ -148,7 +149,36 @@ class AuthClient(
     val resp = http.delete("$api/families/$fid/members/$uid") { header("authorization", "Bearer $access") }
     if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "remove-member")
   }
+
+  /** GET /auth/me/credentials → the caller's connected devices/apps (sessions + CLI). */
+  suspend fun credentials(access: String): List<DeviceCredential> {
+    val resp = http.get("$api/auth/me/credentials") { header("authorization", "Bearer $access") }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "credentials")
+    return json.decodeFromString(CredsResp.serializer(), resp.bodyAsText()).credentials
+  }
+
+  /** DELETE /auth/me/credentials/{id} — revoke one of the caller's own credentials (404 = not yours). */
+  suspend fun revokeCredential(access: String, id: String) {
+    val resp = http.delete("$api/auth/me/credentials/$id") { header("authorization", "Bearer $access") }
+    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "revoke-credential")
+  }
 }
+
+// A connected device/app — one of the caller's credentials (GET /auth/me/
+// credentials). kind: "app" (a phone session) | "cli" (a CLI/device grant).
+// `current` = this very session. No secrets.
+@Serializable
+data class DeviceCredential(
+  val id: String,
+  val kind: String = "app",
+  val label: String? = null,
+  val scopes: List<String> = emptyList(),
+  @SerialName("family_scope") val familyScope: String? = null,
+  @SerialName("last_used_at") val lastUsedAt: String? = null,
+  @SerialName("last_used_ip") val lastUsedIp: String? = null,
+  @SerialName("created_at") val createdAt: String? = null,
+  val current: Boolean = false,
+)
 
 // An active member of a family (GET /families/{fid}/members → members[]).
 @Serializable

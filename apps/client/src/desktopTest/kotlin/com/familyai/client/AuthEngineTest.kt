@@ -195,4 +195,27 @@ class AuthEngineTest {
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).removeMember("fam1", "u2")
     assertEquals(listOf("u1"), store.state.members.map { it.uid })
   }
+
+  // ── connected devices ──
+  @Test fun `loadDevices fills the device list`() = runBlocking {
+    val store = createAppStore(AppState(session = Session("a", "r")), debug = false)
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
+      if (req.url.encodedPath == "/auth/me/credentials")
+        respond("""{"credentials":[{"id":"c1","kind":"app","current":true}]}""", HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.NotFound)
+    }))
+    AuthEngine(store, client, MemTokenStore(Session("a", "r"))).loadDevices()
+    assertEquals(1, store.state.devices.size)
+    assertEquals("c1", store.state.devices[0].id)
+  }
+
+  @Test fun `revokeDevice drops from the list on success`() = runBlocking {
+    val store = createAppStore(
+      AppState(session = Session("a", "r"), devices = listOf(DeviceCredential("c1", current = true), DeviceCredential("c2"))),
+      debug = false,
+    )
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
+    AuthEngine(store, client, MemTokenStore(Session("a", "r"))).revokeDevice("c2")
+    assertEquals(listOf("c1"), store.state.devices.map { it.id })
+  }
 }
