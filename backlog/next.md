@@ -89,16 +89,26 @@ API tests / 0 skips. Legacy household token still works.
   buildable (recovery-floor counsel gate smaller without phone). **S5/S6 sign-in
   renders Google + Apple only** — the phone button + OTP/OTP-error screens stay
   designed-not-built (A8b mockups unchanged).
-- **AUTH-S5 (client identity + onboarding UI) — 🔨 IN PLANNING 2026-06-20**
-  (operator chose "build Firebase-stubbed" via dev-token). Scope split locked:
-  **S5 = authenticated session + onboarding gate** (sign-in [Google/Apple,
-  dev-token stub] → create-family → route-gate to feed); invitee-join flow
-  (invited/waiting/invite-error/already-member) + the provider-link-conflict =
-  **S5 slice 2**; member/device/account management = **S6**. Spec/plan in
-  `docs/superpowers/{specs,plans}/2026-06-20-auth-s5*`. **Client today is
-  single-screen, no nav, no session** (baked `HOUSEHOLD_SECRET`) — S5 introduces
-  the first nav + session/token layer (`AuthClient` dev-token path, expect/actual
-  token store, route-gated `FeedApp`).
+- **AUTH-S5 slice-1 (authenticated session + onboarding gate) — ✅ DONE 2026-06-20
+  (branch `auth-s5`, PR pending).** Firebase-stubbed via dev-token (operator-chosen).
+  Introduced the app's **first navigation** (pure `when(route)` gate, ADR 0013) +
+  the **session/token layer**. T1 route gate · T2 `AuthClient` (ktor) · T3
+  `TokenStore` (desktop 0600 / Android prefs / iOS NSUserDefaults) · T4 `AuthEngine`
+  (mutex orchestrator + 401 refresh-and-retry) · T5 Dayfold screens (sign-in
+  Google/Apple, create-family, family-null) + 9 snapshots vs mockups · T6 wired
+  all 3 shells + `SyncClient`→token/family providers. **Verified:** 74 desktopTest
+  green, android compiles, iOS framework links, **LIVE ROUND-TRIP PASS**
+  (`apps/api/scripts/s5-roundtrip.mjs`: dev-token→whoami→create-family→push→sync).
+  No `HOUSEHOLD_SECRET` on the JWT path. Spec/plan in `docs/superpowers/{specs,
+  plans}/2026-06-20-auth-s5*`.
+  - **S5 slice-1 follows (non-blocking):** (1) `SyncEngine` 401→`AuthEngine.refresh`
+    hook (mid-session access-expiry mid-poll; restore already refreshes); (2) secure
+    token stores (EncryptedSharedPreferences / Keychain); (3) immediate post-create
+    sync polish; (4) a Feed sign-out affordance.
+  - **NEXT: AUTH-S5 slice-2** (invitee-join: invited/waiting/invite-error/
+    already-member + provider-link-conflict) · **S6** (invite gen, authorize-device,
+    members+approvals, devices, account) · **S2** (real Firebase Google/Apple behind
+    the same buttons — gate cleared by ADR 0023).
 
 **AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE + MERGED** to `main` 2026-06-19
 (PR #2, all CI green). `/device/{authorize,token}` + `/families/:fid/device/{approve,deny}`
