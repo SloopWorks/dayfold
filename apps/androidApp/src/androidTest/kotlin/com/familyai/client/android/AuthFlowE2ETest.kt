@@ -13,12 +13,15 @@ import com.familyai.client.AppState
 import com.familyai.client.ApprovalsLoaded
 import com.familyai.client.FamilyCreated
 import com.familyai.client.FamilyMembership
+import com.familyai.client.FamilyMember
 import com.familyai.client.FeedApp
 import com.familyai.client.InviteRedeemed
 import com.familyai.client.MemberResolved
+import com.familyai.client.MemberRemoved
 import com.familyai.client.MembershipsLoaded
 import com.familyai.client.PendingMember
 import com.familyai.client.RedeemRequested
+import com.familyai.client.RosterLoaded
 import com.familyai.client.Route
 import com.familyai.client.Session
 import com.familyai.client.SignInSucceeded
@@ -113,15 +116,24 @@ class AuthFlowE2ETest {
             store.dispatch(MembershipsLoaded(listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))))
           },
           onLoadApprovals = { store.dispatch(ApprovalsLoaded(listOf(PendingMember("u9", "Sam Rivera")))) },
+          onLoadMembers = {
+            store.dispatch(RosterLoaded(listOf(
+              FamilyMember("u1", "Pat Jackson", role = "owner"), FamilyMember("u2", "Maya Jackson", role = "adult"),
+            )))
+          },
           onApproveMember = { uid -> store.dispatch(MemberResolved(uid)) },
+          onRemoveMember = { uid -> store.dispatch(MemberRemoved(uid)) },
         )
       }
     }
     rule.onNodeWithText("Continue with Google").performClick()
     rule.onNodeWithText("Y").performClick()                     // Feed → account
     rule.onNodeWithText("Members & approvals").assertIsDisplayed().performClick()
-    rule.onNodeWithText("Sam Rivera").assertIsDisplayed()       // queue loaded
+    rule.onNodeWithText("Sam Rivera").assertIsDisplayed()       // pending queue loaded
+    rule.onNodeWithText("Maya Jackson").assertIsDisplayed()     // active roster loaded
     rule.onNodeWithTag("approve-u9").performClick()
     rule.onAllNodesWithText("Sam Rivera").assertCountEquals(0)  // approved → dropped
+    rule.onNodeWithTag("remove-u2").performClick()
+    rule.onAllNodesWithText("Maya Jackson").assertCountEquals(0) // removed → dropped
   }
 }

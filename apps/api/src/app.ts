@@ -116,6 +116,60 @@ app.get("/auth/whoami", async (c) => {
   return c.json({ family_id, families: r.rows });
 });
 
+// Data export (guardrail #4 — honor data-export on request). The caller's own
+// data only; NO secrets (refresh hashes, token hashes) ever leave. Read-only.
+app.get("/auth/me/export", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let sub: string, cid: string;
+  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
+  catch { return c.body(null, 401); }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const user = (await q(`SELECT id, display_name, created_at FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  if (!user) return c.body(null, 401);
+  const identities = (await q(`SELECT provider, email_verified, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at`, [sub])).rows;
+  const memberships = (await q(
+    `SELECT m.family_id, f.name AS family_name, m.role, m.status, m.joined_at
+       FROM memberships m JOIN families f ON f.id=m.family_id WHERE m.user_id=$1 ORDER BY m.created_at`, [sub])).rows;
+  const credentials = (await q(
+    `SELECT kind, scopes, label, last_used_at, created_at FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at`, [sub])).rows;
+  return c.json({ exported_at: new Date().toISOString(), user, identities, memberships, credentials });
+});
+
+// Connected devices & apps (S6) — the caller's own active credentials (app
+// sessions + CLI grants) with last-used metadata; `current` flags this session.
+// No secrets. Read-only.
+app.get("/auth/me/credentials", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let sub: string, cid: string;
+  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
+  catch { return c.body(null, 401); }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rows = (await q(
+    `SELECT id, kind, label, scopes, family_scope, last_used_at, last_used_ip, created_at
+       FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST, created_at DESC`, [sub])).rows;
+  return c.json({ credentials: rows.map((r: any) => ({ ...r, current: r.id === cid })) });
+});
+
+// Revoke one of the caller's own credentials (a session or CLI grant). Effective
+// within one request — the per-request not-revoked check gates every token tied
+// to it. Revoking the current credential signs this device out on its next call.
+app.delete("/auth/me/credentials/:id", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let sub: string, cid: string;
+  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
+  catch { return c.body(null, 401); }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const target = c.req.param("id");
+  // own credentials only — never another user's (anti-IDOR)
+  const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
+  if (r.rowCount === 0) return c.body(null, 404);   // not yours / already revoked / unknown
+  (await import("./auth/audit.ts")).audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
+  return c.body(null, 204);
+});
+
 app.post("/families", async (c) => {
   const t = bearer(c); if (!t) return c.body(null, 401);
   let sub: string;
