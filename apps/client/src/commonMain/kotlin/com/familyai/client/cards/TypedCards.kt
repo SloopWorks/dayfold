@@ -144,7 +144,7 @@ private fun BaseCard(
     onClick = { onAction(CardAction.OpenDetail(card.id)) },
     shape = MaterialTheme.shapes.large, // 26dp
     colors = colors,
-    modifier = Modifier.fillMaxWidth(),
+    modifier = Modifier.fillMaxWidth().cardSharedBounds(card.id), // CL-7b: morph source
   ) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

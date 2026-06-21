@@ -46,7 +46,7 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
   androidx.compose.ui.backhandler.BackHandler(enabled = true) { onBack() }
   val accent = accentFor(card.type)
   val (heroBg, heroFg) = accentColors(accent, solid = false) // container + onContainer (AA)
-  Column(Modifier.fillMaxSize()) {
+  Column(Modifier.fillMaxSize().cardSharedBounds(card.id)) { // CL-7b: morph target
     HeroHeader(card, accent, heroBg, heroFg, onBack, onAction)
     LazyColumn(
       Modifier.fillMaxSize(),

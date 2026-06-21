@@ -26,6 +26,12 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     val store = createAppStore()
     val cs = ContentStore(DriverFactory(applicationContext).createDriver())
+    // Debug-only: seed the DB with sample cards so the UI (cards/detail/transition)
+    // is exercisable on-device without a live API. Sync (if reachable) only
+    // adds/tombstones, never wipes these — so they persist when no server is up.
+    if (BuildConfig.DEBUG && BuildConfig.FAMILY_ID.isEmpty()) {
+      cs.applyDelta(com.familyai.client.SampleData.cards, emptyList(), null, "2026-06-20T10:00:00Z")
+    }
     val engine = SyncEngine(
       store, cs,
       SyncClient(BuildConfig.FAMILYAI_API, BuildConfig.FAMILY_ID, BuildConfig.HOUSEHOLD_SECRET),

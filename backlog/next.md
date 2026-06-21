@@ -156,12 +156,24 @@ blocked** behind a queued Claude-Design expanded-detail pass.
   **72 desktop tests green** (FeedAppHost 3: host renders feed/detail + the
   route-split branch); **Android + iOS-sim compile**. Reviewed (spike + final =
   SHIP). Spec: `docs/superpowers/specs/2026-06-20-cl-7-base-transition-design.md`.
-  **→ CL-7b (polish follow, unblocked):** the full **SharedTransitionLayout
-  container transform** (shared `card-$id` bounds card→full, corner morph 26→0,
-  content-fade-after-grow, scrim) + **predictive-back scrub** — deferred because
-  shared-element animation correctness needs on-device iteration (can't verify
-  headlessly). Also: animation smoothness of the base transition = on-device
-  manual check.
+  **→ CL-7b v1 ✅ DONE** (folded into branch `cl-7b-container-transform` →
+  integrated into `cl-next`) 2026-06-20. **SharedTransitionLayout container
+  transform**: feed card ↔ detail share bounds keyed `card-$id`
+  (`cards/SharedScopes.kt` CompositionLocals + `@Composable Modifier.
+  cardSharedBounds`, no-op when scopes absent → snapshots unaffected); `FeedApp`
+  host wraps the `AnimatedContent` swap in `SharedTransitionLayout`; the morph
+  source = `BaseCard` ElevatedCard, target = `DetailScreen` root. Plus a
+  **debug card-seed** (`SampleData` + `MainActivity` gated `BuildConfig.DEBUG &&
+  FAMILY_ID empty`) so the on-device UI is exercisable without an API. **Verified:
+  compiles 3 targets; 76 desktop tests (FeedAppHostTest renders FeedApp WITH
+  SharedTransitionLayout in feed+detail, no crash); base feed→detail→back +
+  hardware-back + seeded feed + RELATED nav all verified LIVE on the emulator.**
+  Reviewed = SHIP. **CL-7b-remaining (spec-sanctioned, on-device iteration):**
+  corner-morph 26→0 + scrim 0→0.18 + content-fade-after-grow tuning;
+  **predictive-back scrub** (PredictiveBackHandler); live mid-transition frame
+  capture (shared emulators were occupied by another agent's app this session).
+  type==null legacy cards fall back to plain crossfade (no morph). Spec:
+  `docs/superpowers/specs/2026-06-20-cl-7-base-transition-design.md`.
 - **TASK-CL-8** — Related-edges (cross-links / attachment↔email). ✅ **DONE**
   (branch `cl-8-related-edges` → integrated into `cl-next`) 2026-06-20. Schema:
   `BriefingCard` gains `relatedKicker` + `related[]` edges
