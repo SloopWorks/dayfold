@@ -28,8 +28,8 @@
       <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
       <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Auth · family scope · invite</span>
     </div>
-    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Sign in, sign up &amp; invite</h1>
-    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;">The not-signed-in entry and the passwordless flows from ADR 0010 — one-tap providers, phone OTP, a backup-method nudge, create-family onboarding, the member-join variant, and the owner's QR / shared-link invite with outstanding-invite controls. <b>Firebase Auth · QR auto-join · link → owner approval</b>.</p>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Sign in, family &amp; invite</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;">The full passwordless auth set from <b>ADR 0011</b> (supersedes 0010) — one-tap providers, phone OTP with error/offline states, the owner backup-method nudge, create-family onboarding and every invitee state (waiting · expired/revoked/exhausted · already-member), the owner's QR / link invite, the <b>RFC 8628</b> authorize-device screen, family members + pending approvals, connected devices, the provider-link-conflict resolve, and account export/delete. <b>Firebase Auth · every invite owner-approved (no auto-join) · per-device revoke</b>.</p>
   </div>
 
   <div style="display:flex;gap:40px;align-items:flex-start;">
@@ -58,12 +58,27 @@ class Component extends DCLogic {
       frames: [
         { title: 'Sign in (not signed in)', mode: 'light', view: 'signin', note: 'App launch, no session. Google / Apple / phone — one tap.', ...L },
         { title: 'Sign in (not signed in)', mode: 'dark', view: 'signin', note: 'Same entry, dark theme.', ...D },
+        { title: 'Offline', mode: 'light', view: 'offline', note: 'No connection at sign-in — calm retry, no dead end.', ...L },
         { title: 'Phone OTP', mode: 'light', view: 'otp', note: 'Single SMS code — passwordless verification.', ...L },
+        { title: 'OTP error + resend limit', mode: 'light', view: 'otperror', note: 'Wrong code, tries remaining, resend cooldown.', ...L },
         { title: 'Backup method nudge', mode: 'light', view: 'linkmethod', note: 'Skippable — link a 2nd way in to avoid lockout.', ...L },
         { title: 'Create family', mode: 'light', view: 'createfamily', note: 'Onboarding when no membership exists yet.', ...L },
+        { title: 'Family null state', mode: 'light', view: 'familynull', note: 'First family, empty — invite a member or connect a device.', ...L },
         { title: "You've been invited", mode: 'light', view: 'invited', note: 'Member-join variant — invite ≠ identity.', ...L },
-        { title: 'Invite a member', mode: 'light', view: 'invite', note: 'QR auto-join + share link + outstanding invites (revoke / approve).', ...L },
+        { title: 'Waiting for approval', mode: 'light', view: 'waiting', note: 'Invitee state until the owner approves — no auto-join.', ...L },
+        { title: 'Invite not active', mode: 'light', view: 'inviteerror', note: 'Expired / revoked / exhausted (editor: reason prop).', ...L },
+        { title: 'Already a member', mode: 'light', view: 'alreadymember', note: 'Invitee already belongs — jump back to the briefing.', ...L },
+        { title: 'Invite a member', mode: 'light', view: 'invite', note: 'QR + share link + outstanding invites; every join owner-approved.', ...L },
         { title: 'Invite a member', mode: 'dark', view: 'invite', note: 'Same, dark theme.', ...D },
+        { title: 'Authorize device (RFC 8628)', mode: 'light', view: 'authorizedevice', note: 'user_code confirm · origin/ASN warning · scope · family selector.', ...L },
+        { title: 'Authorize device (RFC 8628)', mode: 'dark', view: 'authorizedevice', note: 'Anti-phishing approval, dark theme.', ...D },
+        { title: 'Enter device code', mode: 'light', view: 'entercode', note: 'Manual user_code entry variant (no QR scan).', ...L },
+        { title: 'Family members', mode: 'light', view: 'members', note: 'Roles · pending approvals · remove · leave (≥1 owner).', ...L },
+        { title: 'Family members', mode: 'dark', view: 'members', note: 'Same, dark theme.', ...D },
+        { title: 'Connected devices', mode: 'light', view: 'devices', note: 'Phones + CLI creds, last-used, immediate revoke.', ...L },
+        { title: 'Provider link conflict', mode: 'light', view: 'linkconflict', note: 'App-driven link on conflict — proof-of-control, no auto-link.', ...L },
+        { title: 'Account — export &amp; delete', mode: 'light', view: 'account', note: 'Data export + delete (last-owner guard, Apple revoke).', ...L },
+        { title: 'Account — export &amp; delete', mode: 'dark', view: 'account', note: 'Danger zone, dark theme.', ...D },
       ],
     };
   }

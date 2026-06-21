@@ -67,10 +67,24 @@ API tests / 0 skips. Legacy household token still works.
   `RETURNING`; (3) soft pending-cap is racy across distinct invites of one family
   (anti-abuse, non-security); (4) the expiry **sweep** (shared with the S3 m-2
   follow) for `invites`/`rate_limits`/terminal rows.
-- **NEXT after S4 merge: AUTH-S2** (Firebase identity — needs the operator's
-  Firebase vendor/cost go-ahead + the recovery-floor counsel gate) or the **A8b
-  auth mockups** (authorize-device + connected-devices + invite/approval screens)
-  to unblock **S5/S6 UI**.
+- **AUTH-S4 ✅ MERGED** to `main` 2026-06-20 (PR #4, `66c783d`). Branch `auth-s4`
+  == origin/main (no diff).
+- **A8b auth/family/invite mockups — ✅ DELIVERED 2026-06-20 (pending operator
+  sign-off, ADR 0008).** `designs/Family AI dashboard design brief/designs/
+  Auth-Phone.dc.html` extended 6→18 views — all 9 spec screen-groups incl. the
+  previously-missing **authorize-device (RFC 8628)**, **enter-code**, **members +
+  pending approvals**, **connected devices**, **provider-link-conflict**,
+  **account export/delete**, plus offline / OTP-error+resend-limit / waiting-for-
+  approval / invite expired·revoked·exhausted / already-member. Light+dark;
+  rebranded **HEARTH→Dayfold** (turned-corner mark, per Brand.dc.html). `Auth.dc.html`
+  gallery refreshed (23 frames; header ADR 0010→0011, "auto-join" removed); stale
+  Index footer "(no auth)" fixed. Verified outside the dc runtime (extension was
+  offline): tag-balance, 36 render-combos through `renderVals()`, all 32 `c.*`
+  tokens defined w/ light/dark parity, all frame views ∈ enum. **GATE: operator
+  opens the dc files + signs off → unblocks S5/S6.**
+- **NEXT after sign-off: AUTH-S5/S6** (client identity/onboarding + member/device
+  UI — now design-unblocked) **or AUTH-S2** (Firebase identity — still needs the
+  operator's Firebase vendor/cost go-ahead + the recovery-floor counsel gate).
 
 **AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE + MERGED** to `main` 2026-06-19
 (PR #2, all CI green). `/device/{authorize,token}` + `/families/:fid/device/{approve,deny}`

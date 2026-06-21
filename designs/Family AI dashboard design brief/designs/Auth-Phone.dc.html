@@ -8,13 +8,14 @@
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
 <style>
   .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
   .msr.fill { font-variation-settings: 'FILL' 1; }
   .qr-on { background:#201712; } .qr-off { background:transparent; }
   @keyframes caret { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  @keyframes pend { 0%,100% { opacity:0.55; } 50% { opacity:1; } }
   .auth-scroll::-webkit-scrollbar { width:0; height:0; }
 </style>
 </helmet>
@@ -24,8 +25,8 @@
   <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.statusBg }};z-index:5;">
     <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onStatus }};">9:41</span>
     <div style="display:flex;align-items:center;gap:7px;color:{{ c.onStatus }};">
-      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
-      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">signal_cellular_off</span></sc-if>
+      <sc-if value="{{ hasSignal }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
       <span class="msr fill" style="font-size:19px;">battery_full</span>
     </div>
   </div>
@@ -34,8 +35,11 @@
   <sc-if value="{{ isSignin }}" hint-placeholder-val="{{ true }}">
     <div style="flex:1;display:flex;flex-direction:column;padding:0 28px 30px;">
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-        <div style="width:74px;height:74px;border-radius:24px;background:linear-gradient(135deg,#FF5436,#C0381E);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(192,56,30,0.34);margin-bottom:26px;"><span class="msr fill" style="font-size:42px;color:#fff;">local_fire_department</span></div>
-        <div style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:8px;">HEARTH</div>
+        <div style="position:relative;width:74px;height:74px;border-radius:23px;background:{{ c.markBg }};box-shadow:0 10px 30px rgba(192,56,30,0.34);overflow:hidden;margin-bottom:26px;">
+          <div style="position:absolute;top:0;right:0;width:46%;height:46%;background:{{ c.markFoldHi }};clip-path:polygon(100% 0,100% 100%,0 0);"></div>
+          <div style="position:absolute;top:0;right:0;width:46%;height:46%;background:{{ c.markFoldSh }};clip-path:polygon(0 0,100% 100%,0 100%);"></div>
+        </div>
+        <div style="font-family:'Outfit';font-size:13px;font-weight:700;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};margin-bottom:8px;">DAYFOLD</div>
         <h1 style="font-family:'Outfit';font-weight:600;font-size:38px;line-height:1.06;letter-spacing:-0.025em;color:{{ c.onSurface }};margin:0 0 14px;">One calm view of family life.</h1>
         <p style="font-family:'Figtree';font-size:15.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;">Your day's briefing and every family project, gathered in one place. No feeds to refresh, no notifications to chase.</p>
       </div>
@@ -57,6 +61,16 @@
     </div>
   </sc-if>
 
+  <!-- ============ OFFLINE / cannot reach sign-in ============ -->
+  <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onSurfaceVar }};">cloud_off</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">You're offline</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:30ch;">Dayfold needs a connection to sign you in. Your briefing will be waiting the moment you're back.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;width:100%;border-radius:16px;background:{{ c.primary }};"><span class="msr" style="font-size:20px;color:{{ c.onPrimary }};">refresh</span><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onPrimary }};">Try again</span></div>
+    </div>
+  </sc-if>
+
   <!-- ============ OTP ============ -->
   <sc-if value="{{ isOtp }}" hint-placeholder-val="{{ false }}">
     <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;">
@@ -74,6 +88,24 @@
     </div>
   </sc-if>
 
+  <!-- ============ OTP ERROR / resend-limit ============ -->
+  <sc-if value="{{ isOtpError }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;">
+      <span class="msr" style="font-size:26px;color:{{ c.onSurface }};margin-bottom:30px;">arrow_back</span>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:30px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 8px;">Enter the code</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;">We texted a 6-digit code to <b style="color:{{ c.onSurface }};">+1 (415) •••-4821</b>.</p>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <sc-for list="{{ otpErrCells }}" as="d" hint-placeholder-count="6">
+          <div style="flex:1;height:62px;border-radius:15px;background:{{ c.errorContainer }};border:2px solid {{ c.error }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:26px;color:{{ c.onErrorContainer }};">{{ d }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;font-family:'Figtree';font-size:13.5px;font-weight:500;color:{{ c.error }};margin-bottom:18px;"><span class="msr fill" style="font-size:17px;">error</span>That code didn't match. 2 tries left.</div>
+      <div style="display:flex;align-items:center;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">lock_clock</span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};">Resend limit reached — try again in <b style="color:{{ c.onSurface }};">9:42</b>.</span></div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurfaceVar }};">Verify</span></div>
+    </div>
+  </sc-if>
+
   <!-- ============ LINK A SECOND METHOD (nudge) ============ -->
   <sc-if value="{{ isLink }}" hint-placeholder-val="{{ false }}">
     <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;">
@@ -81,7 +113,7 @@
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
         <div style="width:68px;height:68px;border-radius:22px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:36px;color:{{ c.onTertiaryContainer }};">add_moderator</span></div>
         <h1 style="font-family:'Outfit';font-weight:600;font-size:30px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 12px;">Add a backup way in</h1>
-        <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 24px;">Hearth has no passwords. Linking a second method means a lost phone never locks you out of the family.</p>
+        <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 24px;">Dayfold has no passwords. Linking a second method means a lost phone never locks you out of the family.</p>
         <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:6px;">
           <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
             <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">check_circle</span></span>
@@ -129,13 +161,83 @@
           <span style="width:54px;height:54px;border-radius:999px;background:{{ c.tertiaryContainer }};border:3px solid {{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onTertiaryContainer }};margin-left:-14px;">M</span>
           <span style="width:54px;height:54px;border-radius:999px;background:{{ c.secondaryContainer }};border:3px solid {{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onSecondaryContainer }};margin-left:-14px;">L</span>
         </div>
-        <h1 style="font-family:'Outfit';font-weight:600;font-size:32px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Join the Jacksons on Hearth</h1>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:32px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Join the Jacksons on Dayfold</h1>
         <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;">Pat invited you to join as an <b style="color:{{ c.onSurface }};">adult</b>. Sign in to accept — your invite stays separate from how you log in.</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:11px;">
         <div style="display:flex;align-items:center;justify-content:center;gap:11px;height:54px;border-radius:16px;background:{{ c.googleBg }};border:1px solid {{ c.googleBorder }};"><span style="width:22px;height:22px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.googleFg }};">Continue with Google</span></div>
         <div style="display:flex;align-items:center;justify-content:center;gap:11px;height:54px;border-radius:16px;background:{{ c.appleBg }};"><span class="msr fill" style="font-size:22px;color:{{ c.appleFg }};">phone_iphone</span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.appleFg }};">Continue with Apple</span></div>
         <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-top:6px;">Invite expires in 2 days</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ WAITING FOR APPROVAL (invitee) ============ -->
+  <sc-if value="{{ isWaiting }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+        <div style="position:relative;width:80px;height:80px;margin-bottom:24px;">
+          <div style="position:absolute;inset:0;border-radius:999px;background:{{ c.tertiaryContainer }};animation:pend 1.8s ease-in-out infinite;"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:40px;color:{{ c.onTertiaryContainer }};">hourglass_top</span></div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:12px;">PENDING APPROVAL</div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Almost in</h1>
+        <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;max-width:30ch;"><b style="color:{{ c.onSurface }};">Pat</b> needs to approve you joining the Jacksons. We'll let you know the moment they do.</p>
+      </div>
+      <div style="width:100%;display:flex;align-items:center;gap:11px;background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:12px;">
+        <span style="width:36px;height:36px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onPrimaryContainer }};">P</span>
+        <div style="flex:1;text-align:left;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Request sent to Pat Jackson</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Owner · notified just now</div></div>
+        <span class="msr" style="font-size:20px;color:{{ c.secondary }};">notifications_active</span>
+      </div>
+      <span style="font-family:'Figtree';font-size:13.5px;font-weight:600;color:{{ c.onSurfaceVar }};">Use a different account</span>
+    </div>
+  </sc-if>
+
+  <!-- ============ INVITE NOT ACTIVE (expired / revoked / exhausted) ============ -->
+  <sc-if value="{{ isInviteErr }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.errorContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:40px;color:{{ c.onErrorContainer }};">{{ inviteErr.icon }}</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">{{ inviteErr.title }}</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:32ch;">{{ inviteErr.body }}</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;width:100%;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Ask for a new invite</span></div>
+      <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-top:16px;">Editor prop <b>reason</b>: expired · revoked · exhausted</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ALREADY A MEMBER ============ -->
+  <sc-if value="{{ isAlready }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;text-align:center;align-items:center;justify-content:center;">
+      <div style="width:74px;height:74px;border-radius:23px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr fill" style="font-size:40px;color:{{ c.onSecondaryContainer }};">groups</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">You're already in</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:30ch;">You're already a member of the <b style="color:{{ c.onSurface }};">Jacksons</b>. Jump straight back to your briefing.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;width:100%;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onPrimary }};">Open Dayfold</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY NULL STATE ============ -->
+  <sc-if value="{{ isNull }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 24px 10px;">
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.02em;color:{{ c.onSurface }};">The Jacksons</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">1 member · you're the owner</div></div>
+        <span style="width:40px;height:40px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onPrimaryContainer }};">P</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 26px;">
+        <div style="position:relative;width:64px;height:64px;border-radius:20px;background:{{ c.markBg }};box-shadow:0 8px 22px rgba(192,56,30,0.30);overflow:hidden;margin-bottom:22px;">
+          <div style="position:absolute;top:0;right:0;width:46%;height:46%;background:{{ c.markFoldHi }};clip-path:polygon(100% 0,100% 100%,0 0);"></div>
+          <div style="position:absolute;top:0;right:0;width:46%;height:46%;background:{{ c.markFoldSh }};clip-path:polygon(0 0,100% 100%,0 100%);"></div>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:28px;line-height:1.12;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 10px;">Your family space is ready</h1>
+        <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 26px;">Invite the people you share a home with, or connect a device so Dayfold can start gathering your day.</p>
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;margin-bottom:11px;">
+          <span style="width:46px;height:46px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:{{ c.onPrimaryContainer }};">person_add</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Invite a member</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Share a QR or link — you approve each one</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;">
+          <span style="width:46px;height:46px;border-radius:14px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:{{ c.onTertiaryContainer }};">terminal</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Connect a device or CLI</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Let Claude Code or a script add cards</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
       </div>
     </div>
   </sc-if>
@@ -167,7 +269,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:7px;margin-top:18px;font-family:'Figtree';font-size:13.5px;font-weight:600;color:#5A423C;"><span class="msr" style="font-size:18px;color:#C0381E;">timer</span>Expires in 14:32 · one-time use</div>
         </div>
-        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};text-align:center;margin:0 0 22px;padding:0 12px;">Have them scan this with their camera. In-person scans join instantly. A shared link instead waits for your approval.</p>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};text-align:center;margin:0 0 22px;padding:0 12px;">Have them scan this with their camera, then sign in. Every join waits for your approval before they see anything.</p>
 
         <!-- role -->
         <div style="display:flex;align-items:center;justify-content:space-between;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 16px;margin-bottom:22px;">
@@ -198,10 +300,223 @@
     </div>
   </sc-if>
 
+  <!-- ============ AUTHORIZE DEVICE (RFC 8628) ============ -->
+  <sc-if value="{{ isAuthDev }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 22px 10px;background:{{ c.statusBg }};">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onSurface }};">Authorize device</span>
+        <span style="width:25px;"></span>
+      </div>
+      <div class="auth-scroll" style="flex:1;overflow-y:auto;padding:6px 20px 22px;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:18px;">
+          <span style="width:54px;height:54px;border-radius:16px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><span class="msr" style="font-size:28px;color:{{ c.onTertiaryContainer }};">terminal</span></span>
+          <h1 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 4px;">Dayfold CLI wants access</h1>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:0;">A device is asking to sign in to your account.</p>
+        </div>
+        <!-- code confirm -->
+        <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 2px 7px;">CONFIRM THIS CODE MATCHES YOUR SCREEN</div>
+        <div style="display:flex;justify-content:center;gap:8px;background:{{ c.surfaceContainer }};border-radius:16px;padding:16px;margin-bottom:18px;">
+          <sc-for list="{{ codeCells }}" as="ch" hint-placeholder-count="9">
+            <span style="font-family:'Roboto Mono';font-weight:600;font-size:25px;letter-spacing:0;color:{{ ch.color }};">{{ ch.v }}</span>
+          </sc-for>
+        </div>
+        <!-- caution banner -->
+        <div style="display:flex;align-items:flex-start;gap:10px;background:{{ c.errorContainer }};border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+          <span class="msr fill" style="font-size:20px;color:{{ c.onErrorContainer }};margin-top:1px;">gpp_maybe</span>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onErrorContainer }};">This request comes from <b>a data center</b>, not a home network. Only approve if you started it yourself.</div>
+        </div>
+        <!-- detail rows -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px 4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">location_on</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">San Jose, CA · US</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Comcast Cable · AS7922</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">key</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Push &amp; manage content</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Can't manage members or read kids' info</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">groups</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">For The Jacksons</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You're an owner here</div></div>
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">expand_more</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;border:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Deny</span></div>
+          <div style="flex:1.2;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onPrimary }};">Approve</span></div>
+        </div>
+        <p style="font-family:'Figtree';font-size:11.5px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:12px 6px 0;">Only approve if <b style="color:{{ c.onSurface }};">you</b> just started this on <b style="color:{{ c.onSurface }};">your</b> computer.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ENTER DEVICE CODE (manual user_code) ============ -->
+  <sc-if value="{{ isEnterCode }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;">
+      <span class="msr" style="font-size:26px;color:{{ c.onSurface }};margin-bottom:28px;">arrow_back</span>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:30px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 8px;">Enter device code</h1>
+      <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;">Type the code shown on your computer, then confirm the request on the next screen.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:24px;">
+        <sc-for list="{{ entryCells }}" as="e" hint-placeholder-count="9">
+          <sc-if value="{{ e.dash }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Outfit';font-weight:600;font-size:24px;color:{{ c.onSurfaceVar }};">–</span></sc-if>
+          <sc-if value="{{ e.cell }}" hint-placeholder-val="{{ true }}"><div style="width:34px;height:50px;border-radius:12px;background:{{ e.bg }};border:2px solid {{ e.border }};display:flex;align-items:center;justify-content:center;font-family:'Roboto Mono';font-weight:600;font-size:22px;color:{{ c.onSurface }};">{{ e.v }}<span style="width:2px;height:24px;background:{{ e.caret }};animation:caret 1s step-end infinite;"></span></div></sc-if>
+        </sc-for>
+      </div>
+      <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};text-align:center;margin:0;">Codes are 8 characters and expire in about 10 minutes.</p>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:16px;color:{{ c.onPrimary }};">Continue</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY MEMBERS + PENDING APPROVALS ============ -->
+  <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:14px;padding:6px 22px 12px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:19px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The Jacksons · 3 members</div></div>
+      </div>
+      <div class="auth-scroll" style="flex:1;overflow-y:auto;padding:4px 18px 24px;">
+        <!-- pending -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.primary }};margin:6px 4px 9px;">PENDING APPROVAL · 1</div>
+        <div style="background:{{ c.surfaceContainer }};border:1.5px solid {{ c.primaryContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+          <span style="width:40px;height:40px;border-radius:999px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onTertiaryContainer }};">S</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sam Rivera</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Invited as adult · 2h ago</div></div>
+          <div style="display:flex;gap:7px;">
+            <span style="width:36px;height:36px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.error }};">close</span></span>
+            <span style="width:36px;height:36px;border-radius:999px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onPrimary }};">check</span></span>
+          </div>
+        </div>
+        <!-- members -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">MEMBERS</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onPrimaryContainer }};">P</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You · joined Jun 2026</div></div>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">OWNER</span>
+          </div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onTertiaryContainer }};">M</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Maya Jackson</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Adult · joined Jun 2026</div></div>
+            <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">more_vert</span>
+          </div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSecondaryContainer }};">L</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Leo Rivera</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Adult · joined Jun 2026</div></div>
+            <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">more_vert</span>
+          </div>
+        </div>
+        <!-- invite cta -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:16px;border:1.5px dashed {{ c.outline }};margin-top:14px;"><span class="msr" style="font-size:20px;color:{{ c.primary }};">person_add</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.primary }};">Invite a member</span></div>
+        <div style="height:1px;background:{{ c.outlineVar }};margin:22px 4px 16px;"></div>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Leave family</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ CONNECTED DEVICES ============ -->
+  <sc-if value="{{ isDevices }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:14px;padding:6px 22px 12px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div style="font-family:'Outfit';font-weight:600;font-size:19px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Connected devices</div>
+      </div>
+      <div class="auth-scroll" style="flex:1;overflow-y:auto;padding:4px 18px 24px;">
+        <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:2px 4px 18px;">Phones you sign in on and any CLI or script you've authorized. Revoke anything you don't recognize.</p>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;display:flex;align-items:center;gap:13px;">
+            <span style="width:42px;height:42px;border-radius:12px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onSecondaryContainer }};">phone_iphone</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">iPhone 15 Pro</div><div style="display:flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;color:{{ c.secondary }};"><span style="width:7px;height:7px;border-radius:999px;background:{{ c.secondary }};"></span>This device · active now</div></div>
+          </div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;display:flex;align-items:center;gap:13px;">
+            <span style="width:42px;height:42px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">laptop_mac</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Dayfold CLI · MacBook Pro</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Last used 2h ago · San Jose</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.error }};">Revoke</span>
+          </div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;display:flex;align-items:center;gap:13px;">
+            <span style="width:42px;height:42px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">terminal</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">claude-code · CI runner</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Last used 3d ago · content only</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.error }};">Revoke</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:13px 14px;margin-top:16px;">
+          <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Revoking takes effect immediately — that device must sign in again to regain access.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PROVIDER LINK CONFLICT ============ -->
+  <sc-if value="{{ isConflict }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;padding:6px 28px 30px;">
+      <span class="msr" style="font-size:26px;color:{{ c.onSurface }};margin-bottom:24px;">arrow_back</span>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+        <div style="width:68px;height:68px;border-radius:22px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><span class="msr" style="font-size:36px;color:{{ c.onTertiaryContainer }};">join_inner</span></div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 12px;">This email already has an account</h1>
+        <p style="font-family:'Figtree';font-size:15px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 24px;"><b style="color:{{ c.onSurface }};">pat@gmail.com</b> already signs in with Google. To keep one account, continue with Google — then add Apple from settings.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:6px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span style="width:20px;height:20px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Google</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.secondary }};">Your existing sign-in</div></div>
+            <span class="msr fill" style="font-size:20px;color:{{ c.secondary }};">check_circle</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;opacity:0.75;">
+            <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:20px;color:{{ c.onSurfaceVar }};">phone_iphone</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Apple</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Just tried · not linked yet</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:11px;height:54px;border-radius:16px;background:{{ c.googleBg }};border:1px solid {{ c.googleBorder }};"><span style="width:22px;height:22px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.googleFg }};">Continue with Google</span></div>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurfaceVar }};">Cancel</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ACCOUNT — export + delete ============ -->
+  <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:14px;padding:6px 22px 12px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div style="font-family:'Outfit';font-weight:600;font-size:19px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Account</div>
+      </div>
+      <div class="auth-scroll" style="flex:1;overflow-y:auto;padding:4px 18px 24px;">
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;margin-bottom:20px;">
+          <span style="width:46px;height:46px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onPrimaryContainer }};">P</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Google · pat@gmail.com</div></div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">YOUR DATA</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">download</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Export your data</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">A copy of everything you've added</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">logout</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign out</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.error }};margin:0 4px 9px;">DANGER ZONE</div>
+        <div style="background:{{ c.errorContainer }};border-radius:16px;padding:16px;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:{{ c.onErrorContainer }};">delete_forever</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onErrorContainer }};">Delete account</span></div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onErrorContainer }};margin:0 0 14px;opacity:0.92;">Removes you from every family and erases your data. If you're the last owner of a family, you'll pick a new owner first. We'll also disconnect Sign in with Apple.</p>
+          <div style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:14px;background:{{ c.error }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onError }};">Delete my account</span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:6;"></div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;otp&quot;,&quot;linkmethod&quot;,&quot;createfamily&quot;,&quot;invited&quot;,&quot;invite&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;offline&quot;,&quot;otp&quot;,&quot;otperror&quot;,&quot;linkmethod&quot;,&quot;createfamily&quot;,&quot;invited&quot;,&quot;waiting&quot;,&quot;inviteerror&quot;,&quot;alreadymember&quot;,&quot;familynull&quot;,&quot;invite&quot;,&quot;authorizedevice&quot;,&quot;entercode&quot;,&quot;members&quot;,&quot;devices&quot;,&quot;linkconflict&quot;,&quot;account&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;reason&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;expired&quot;,&quot;revoked&quot;,&quot;exhausted&quot;],&quot;default&quot;:&quot;expired&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
 class Component extends DCLogic {
   buildQR(n) {
     const m = Array.from({length:n}, () => Array(n).fill(false));
@@ -226,23 +541,28 @@ class Component extends DCLogic {
   renderVals() {
     const mode = this.props.mode === 'dark' ? 'dark' : 'light';
     const view = this.props.view || 'signin';
+    const reason = this.props.reason || 'expired';
     const light = {
       surface:'#FFF8F6', statusBg:'#FFF8F6', onStatus:'#271814', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA',
-      onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#E2C7C0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#D8C2BB', outlineVar:'#E2C7C0',
       primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
       secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
-      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C', error:'#BA1A1A',
+      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      error:'#BA1A1A', onError:'#FFFFFF', errorContainer:'#FFDAD6', onErrorContainer:'#410002',
       googleBg:'#FFFFFF', googleBorder:'#D8C2BB', googleFg:'#271814',
       appleBg:'#201712', appleFg:'#FFF8F6', phoneBg:'#FCEBE6', phoneFg:'#7A2615',
+      markBg:'linear-gradient(143deg,#FF8A6E,#C0381E)', markFoldHi:'linear-gradient(225deg,#FFE2D8,#FFB4A3)', markFoldSh:'rgba(90,17,0,0.20)',
     };
     const dark = {
       surface:'#1A110E', statusBg:'#1A110E', onStatus:'#F0DFDA', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
-      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#53433E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
       primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
       secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
-      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF', error:'#FFB4AB',
+      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      error:'#FFB4AB', onError:'#690005', errorContainer:'#93000A', onErrorContainer:'#FFDAD6',
       googleBg:'#FFFFFF', googleBorder:'#FFFFFF', googleFg:'#201712',
       appleBg:'#F0DFDA', appleFg:'#201712', phoneBg:'#322824', phoneFg:'#FFDAD2',
+      markBg:'linear-gradient(143deg,#FFB4A3,#FF5436)', markFoldHi:'linear-gradient(225deg,#FFF1ED,#FFD9CE)', markFoldSh:'rgba(95,21,0,0.28)',
     };
     const c = mode === 'dark' ? dark : light;
     const filled = ['4','2','1'];
@@ -252,15 +572,57 @@ class Component extends DCLogic {
       border: i === filled.length ? c.primary : (i < filled.length ? c.primary : c.outlineVar),
       caret: i === filled.length ? c.primary : 'transparent',
     }));
+    const otpErrCells = ['4','9','2','0','3','1'];
+    // device user_code WDJF-7K2P → display cells (with a dash slot)
+    const codeStr = 'WDJF-7K2P';
+    const codeCells = codeStr.split('').map(ch => ({ v: ch, color: ch === '-' ? c.onSurfaceVar : c.onSurface }));
+    // manual entry: 4 chars typed (WDJF), caret on 5th, dash slot, then empty
+    const typed = 'WDJF';
+    const entryChars = 'WDJF-7K2P'.split('');
+    const entryCells = entryChars.map((ch, i) => {
+      if (ch === '-') return { dash: true, cell: false };
+      const idx = i > 4 ? i - 1 : i; // account for dash position
+      const isTyped = idx < typed.length;
+      const isCaret = idx === typed.length;
+      return {
+        dash: false, cell: true,
+        v: isTyped ? typed[idx] : '',
+        bg: isTyped ? c.surfaceContainer : c.surface,
+        border: (isTyped || isCaret) ? c.primary : c.outlineVar,
+        caret: isCaret ? c.primary : 'transparent',
+      };
+    });
+    const inviteErrMap = {
+      expired:   { icon:'schedule', title:'This invite has expired', body:'Invite links last about 3 days. Ask Pat to send you a fresh one and you’ll be right in.' },
+      revoked:   { icon:'link_off', title:'This invite was turned off', body:'Pat revoked this invite before you joined. Reach out and ask them to send a new one.' },
+      exhausted: { icon:'group_off', title:'This invite is all used up', body:'This invite hit its limit of joins. Ask Pat for a new link made just for you.' },
+    };
     return {
       c,
+      hasSignal: view !== 'offline',
+      isOffline: view === 'offline',
       isSignin: view === 'signin',
       isOtp: view === 'otp',
+      isOtpError: view === 'otperror',
       isLink: view === 'linkmethod',
       isCreate: view === 'createfamily',
       isInvited: view === 'invited',
+      isWaiting: view === 'waiting',
+      isInviteErr: view === 'inviteerror',
+      isAlready: view === 'alreadymember',
+      isNull: view === 'familynull',
       isInvite: view === 'invite',
+      isAuthDev: view === 'authorizedevice',
+      isEnterCode: view === 'entercode',
+      isMembers: view === 'members',
+      isDevices: view === 'devices',
+      isConflict: view === 'linkconflict',
+      isAccount: view === 'account',
       otpCells,
+      otpErrCells,
+      codeCells,
+      entryCells,
+      inviteErr: inviteErrMap[reason] || inviteErrMap.expired,
       qr: this.buildQR(23),
     };
   }
