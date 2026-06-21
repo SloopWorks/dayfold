@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .set-scroll::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;">
+
+  <div style="margin-bottom:34px;max-width:920px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Settings · account · preferences</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Settings, account &amp; preferences</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 16px;max-width:90ch;">The low-frequency settings tree — calm as behavioral restraint, not muted pixels. One <b>full-vision</b> 7-group home and the <b>M1-minimal</b> 3-group collapse, profile + sign-in methods (phone <b>designed-not-built</b>), owner vs adult family views, anchor/timezone confirm sheets, app preferences, notifications, privacy (location + telemetry opt-in, default OFF), the devices hand-off into the hardened auth screens, plus the load-bearing states: <b>step-up re-auth</b>, <b>last-owner delete guard</b>, <b>offline</b> (ADR 0020) and <b>location-permission blocked</b>. Names map 1:1 to Compose M3 · token parity with the design system · ADR 0009 / 0024.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#005048;background:#D8F5EE;padding:5px 11px;border-radius:999px;">Full vision</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;padding:5px 11px;border-radius:999px;">M1</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#4C2092;background:#EFE4FB;padding:5px 11px;border-radius:999px;">M-next</span>
+      <a href="Settings-Adaptive.dc.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:12px;font-weight:600;color:#3D2D28;background:#FFF8F6;border:1px solid #E2C7C0;padding:5px 11px;border-radius:999px;"><span class="msr" style="font-size:15px;">devices</span>Post-MVP two-pane →</a>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:40px;align-items:flex-start;">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="8">
+      <div style="flex:none;">
+        <div style="margin-bottom:14px;max-width:390px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:#271814;">{{ f.title }}</span>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ f.msColor }};background:{{ f.msBg }};border-radius:999px;padding:3px 9px;">{{ f.ms }}</span>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.modeColor }};background:{{ f.modeBg }};border-radius:999px;padding:3px 9px;">{{ f.modeLabel }}</span>
+          </div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:#8C726B;">{{ f.note }}</div>
+        </div>
+        <dc-import name="Settings-Phone" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const ms = {
+      'Full vision': { msColor:'#005048', msBg:'#D8F5EE' },
+      'M1':          { msColor:'#7A2615', msBg:'#FCEBE6' },
+      'M-next':      { msColor:'#4C2092', msBg:'#EFE4FB' },
+    };
+    const L = { mode:'light', modeLabel:'Light', modeColor:'#5A423C', modeBg:'#F3E0DA' };
+    const D = { mode:'dark', modeLabel:'Dark', modeColor:'#D3BBFF', modeBg:'#2A1F3D' };
+    const defs = [
+      ['Settings home — full vision','home','Full vision','Account · Family · Devices · Notifications · Preferences · Privacy · About + version footer.'],
+      ['Settings home — M1 minimal','home-m1','M1','Collapses to three groups — Account · Family · App — plus the footer line.'],
+      ['Profile','profile','M1','Display name (editable), monogram color picker, read-only role, methods, sign out, delete.'],
+      ['Sign-in methods','signin','M1','Google ✓ · Apple ✓ · phone slot rendered designed-not-built (“available later”).'],
+      ['Family — owner','family-owner','M1','Pending approvals (1), members, anchor/timezone, invite, transfer ownership, leave.'],
+      ['Family — adult','family-adult','M1','No pending list; shared family values read-only with the owner-only label.'],
+      ['Anchor time','anchor','M1','Owner picker + confirm sheet — “recomputes today, anchor & countdowns for everyone.”'],
+      ['Timezone','timezone-confirm','M1','Owner picker + the per-family confirm sheet.'],
+      ['App / Preferences','app','M1','Theme + time-format SegmentedButtons; dynamic-color / language / a11y tagged Later.'],
+      ['Notifications','notifications','M-next','Type toggles + quiet hours, with the “push coming later” affordance.'],
+      ['Privacy & data','privacy','M1','Location + telemetry opt-in, default OFF; what Dayfold reads; export; policy.'],
+      ['Devices & connections','devices','M1','Entry row + a thumbnail into the hardened auth devices screen — not redesigned.'],
+      ['Step-up re-auth','reauth','M1','“Confirm it’s you” sheet gating sign-in changes, delete, transfer.'],
+      ['Delete — last-owner guard','delete-last-owner','M1','Transfer-first blocking state → export offered → typed-confirm (disabled).'],
+      ['Offline','offline','M1','Structure instant; server-truth lists “Updated · 2h ago” + skeleton; mutations disabled (ADR 0020).'],
+      ['Location permission blocked','location-blocked','M1','Synced ON + missing OS grant → “fix permission” CTA.'],
+    ];
+    const frames = [];
+    defs.forEach(([title, view, milestone, note]) => {
+      frames.push({ title, view, ms:milestone, ...ms[milestone], ...L, note });
+      frames.push({ title, view, ms:milestone, ...ms[milestone], ...D, note });
+    });
+    return { frames };
+  }
+}
+</script>
+</body>
+</html>

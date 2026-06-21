@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes caret { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  @keyframes shimmer { 0%,100% { opacity:0.55; } 50% { opacity:1; } }
+  .set-scroll::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">signal_cellular_off</span></sc-if>
+      <sc-if value="{{ online }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ HOME — full vision (7 groups) ============ -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 6px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+      </div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:32px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:2px 0 16px;padding:0 24px;">Settings</h1>
+      <div style="padding:0 18px 26px;">
+        <!-- account header -->
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:22px;padding:15px 16px;margin-bottom:18px;">
+          <span style="width:50px;height:50px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onPrimaryContainer }};">P</span>
+          <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:17px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Google · Apple linked</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <!-- groups card -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:4px;">
+          <sc-for list="{{ groups7 }}" as="g" hint-placeholder-count="7">
+            <sc-if value="{{ g.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 16px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;">
+              <span style="width:42px;height:42px;border-radius:13px;background:{{ g.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ g.fg }};">{{ g.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">{{ g.title }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ g.sub }}</div></div>
+              <sc-if value="{{ g.badge }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-weight:700;font-size:12px;color:{{ c.onPrimary }};background:{{ c.primary }};min-width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 7px;margin-right:2px;">{{ g.badge }}</span></sc-if>
+              <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:20px;">Dayfold 1.0 (build 142) · <span style="color:{{ c.primary }};font-weight:600;">Privacy</span> · <span style="color:{{ c.primary }};font-weight:600;">Terms</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ HOME — M1 minimal (3 groups) ============ -->
+  <sc-if value="{{ isHomeM1 }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 6px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+      </div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:32px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:2px 0 16px;padding:0 24px;">Settings</h1>
+      <div style="padding:0 18px 26px;">
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:22px;padding:15px 16px;margin-bottom:18px;">
+          <span style="width:50px;height:50px;border-radius:999px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onPrimaryContainer }};">P</span>
+          <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:17px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Google · Apple linked</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:4px;">
+          <sc-for list="{{ groups3 }}" as="g" hint-placeholder-count="3">
+            <sc-if value="{{ g.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 16px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;">
+              <span style="width:42px;height:42px;border-radius:13px;background:{{ g.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ g.fg }};">{{ g.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">{{ g.title }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ g.sub }}</div></div>
+              <sc-if value="{{ g.badge }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-weight:700;font-size:12px;color:{{ c.onPrimary }};background:{{ c.primary }};min-width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 7px;margin-right:2px;">{{ g.badge }}</span></sc-if>
+              <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:20px;">Dayfold 1.0 (build 142) · <span style="color:{{ c.primary }};font-weight:600;">Privacy</span> · <span style="color:{{ c.primary }};font-weight:600;">Terms</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PROFILE ============ -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Profile</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <!-- avatar + monogram picker -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:22px;">
+          <span style="width:84px;height:84px;border-radius:999px;background:{{ monoColor }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:34px;color:#FFFFFF;margin-bottom:16px;">P</span>
+          <div style="display:flex;gap:11px;">
+            <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6">
+              <span style="width:30px;height:30px;border-radius:999px;background:{{ s.color }};border:3px solid {{ s.selected ? c.onSurface : 'transparent' }};box-shadow:0 0 0 2px {{ s.selected ? c.surface : 'transparent' }} inset;"></span>
+            </sc-for>
+          </div>
+        </div>
+        <!-- display name field -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin:0 2px 7px;">DISPLAY NAME</div>
+        <div style="height:56px;border-radius:16px;background:{{ c.surfaceContainer }};border:2px solid {{ c.primary }};display:flex;align-items:center;padding:0 16px;margin-bottom:6px;">
+          <span style="flex:1;font-family:'Outfit';font-weight:500;font-size:17px;color:{{ c.onSurface }};">Pat Jackson</span>
+          <span class="msr" style="font-size:20px;color:{{ c.primary }};">edit</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};margin:0 2px 22px;">Shown to everyone in your family. Tap save to apply.</div>
+        <!-- role + methods -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">verified_user</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Role</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Set by your family — read-only</div></div>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">OWNER</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">passkey</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign-in methods</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Google · Apple</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <!-- sign out -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">logout</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign out</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">devices_other</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign out everywhere</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Ends every session and device</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <!-- delete -->
+        <div style="display:flex;align-items:center;gap:11px;padding:14px;border:1.5px solid {{ c.errorOutline }};border-radius:16px;">
+          <span class="msr" style="font-size:21px;color:{{ c.error }};">delete_forever</span>
+          <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.error }};">Delete account</div>
+          <span class="msr" style="font-size:21px;color:{{ c.error }};">chevron_right</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SIGN-IN METHODS ============ -->
+  <sc-if value="{{ isSignin }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Sign-in methods</span>
+      </div>
+      <div style="padding:6px 18px 26px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 18px;">Dayfold is passwordless. Keep at least two ways in so a lost phone never locks you out.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span style="width:20px;height:20px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Google</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">pat@gmail.com</div></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};"><span class="msr fill" style="font-size:18px;">check_circle</span>Linked</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:{{ c.onSurface }};">phone_iphone</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Apple</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Hidden relay · linked</div></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};"><span class="msr fill" style="font-size:18px;">check_circle</span>Linked</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <!-- phone — designed-not-built -->
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;opacity:0.5;">
+            <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:{{ c.onSurfaceVar }};">sms</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Phone number</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Text-message sign-in</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:11.5px;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:5px 10px;border-radius:8px;">Available later</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:13px 14px;">
+          <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};margin-top:1px;">lock</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Linking a new method asks you to confirm it's you first — we never auto-link by email.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY — owner ============ -->
+  <sc-if value="{{ isFamilyOwner }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 10px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The Jacksons · 3 members</div></div>
+      </div>
+      <div style="padding:2px 18px 26px;">
+        <!-- pending (owner only) -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.primary }};margin:6px 4px 9px;">PENDING APPROVAL · 1</div>
+        <div style="background:{{ c.surfaceContainer }};border:1.5px solid {{ c.primaryContainer }};border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+          <span style="width:40px;height:40px;border-radius:999px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onTertiaryContainer }};">S</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sam Rivera</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Invited as adult · 2h ago</div></div>
+          <div style="display:flex;gap:7px;">
+            <span style="width:36px;height:36px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.error }};">close</span></span>
+            <span style="width:36px;height:36px;border-radius:999px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onPrimary }};">check</span></span>
+          </div>
+        </div>
+        <!-- members -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">MEMBERS</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">
+          <sc-for list="{{ members }}" as="m" hint-placeholder-count="3">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 15px;display:flex;align-items:center;gap:12px;">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ m.bg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.fg }};">{{ m.initial }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ m.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.sub }}</div></div>
+              <sc-if value="{{ m.owner }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">OWNER</span></sc-if>
+              <sc-if value="{{ m.actionable }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">more_vert</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <!-- family settings -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">FAMILY SETTINGS</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">wb_twilight</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Anchor time</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">When "today" begins</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">6:00 AM</span>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">schedule</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Timezone</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Pacific Time · US</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <!-- owner actions -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:16px;border:1.5px dashed {{ c.outline }};margin-bottom:11px;"><span class="msr" style="font-size:20px;color:{{ c.primary }};">person_add</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.primary }};">Invite a member</span></div>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px;margin-bottom:18px;">
+          <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">swap_horiz</span>
+          <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Transfer ownership</div>
+          <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Leave family</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY — adult (read-only) ============ -->
+  <sc-if value="{{ isFamilyAdult }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 10px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The Jacksons · 3 members</div></div>
+      </div>
+      <div style="padding:2px 18px 26px;">
+        <!-- members (no actions) -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:6px 4px 9px;">MEMBERS</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">
+          <sc-for list="{{ membersAdult }}" as="m" hint-placeholder-count="3">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 15px;display:flex;align-items:center;gap:12px;">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ m.bg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.fg }};">{{ m.initial }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ m.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.sub }}</div></div>
+              <sc-if value="{{ m.owner }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">OWNER</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <!-- read-only family settings -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">FAMILY SETTINGS</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">wb_twilight</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Anchor time</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">When "today" begins</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurfaceVar }};">6:00 AM</span>
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">lock</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">schedule</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Timezone</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Pacific Time · US</div></div>
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">lock</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;margin-bottom:24px;">
+          <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Family setting — only an owner can change this.</span>
+        </div>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Leave family</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ANCHOR TIME — picker + confirm sheet ============ -->
+  <sc-if value="{{ isAnchor }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Anchor time</span>
+      </div>
+      <div style="padding:6px 18px 20px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 16px;">The moment a new "today" begins for the whole family. Early risers often set this before they wake.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <sc-for list="{{ anchorTimes }}" as="t" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:13px;padding:13px 16px;">
+              <span style="flex:1;font-family:'Outfit';font-weight:500;font-size:16px;color:{{ t.sel ? c.onSurface : c.onSurfaceVar }};">{{ t.label }}</span>
+              <span style="width:22px;height:22px;border-radius:999px;border:2px solid {{ t.sel ? c.primary : c.outline }};background:{{ t.sel ? c.primary : 'transparent' }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:14px;color:{{ t.sel ? c.onPrimary : 'transparent' }};">check</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <!-- confirm sheet -->
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Change anchor time to 6:00 AM?</h2>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">This changes how today, anchor and countdowns compute for everyone in the Jacksons.</p>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Cancel</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Save</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ TIMEZONE — picker + confirm sheet ============ -->
+  <sc-if value="{{ isTimezone }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Timezone</span>
+      </div>
+      <div style="padding:6px 18px 20px;">
+        <div style="height:48px;border-radius:14px;background:{{ c.surfaceContainer }};display:flex;align-items:center;gap:10px;padding:0 14px;margin:0 4px 14px;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">search</span><span style="font-family:'Figtree';font-size:14px;color:{{ c.onSurfaceVar }};">Search timezone</span></div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <sc-for list="{{ zones }}" as="z" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:13px;padding:13px 16px;">
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ z.sel ? c.onSurface : c.onSurface }};">{{ z.label }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ z.offset }}</div></div>
+              <span style="width:22px;height:22px;border-radius:999px;border:2px solid {{ z.sel ? c.primary : c.outline }};background:{{ z.sel ? c.primary : 'transparent' }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:14px;color:{{ z.sel ? c.onPrimary : 'transparent' }};">check</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Change timezone for the Jacksons?</h2>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">This changes how today, anchor and countdowns compute for everyone in the family.</p>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Cancel</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Save</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ APP / PREFERENCES ============ -->
+  <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">App</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <!-- theme -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">THEME</div>
+        <div style="display:flex;border:1.5px solid {{ c.outline }};border-radius:999px;overflow:hidden;margin-bottom:20px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 0;background:{{ c.secondaryContainer }};border-right:1.5px solid {{ c.outline }};"><span class="msr" style="font-size:17px;color:{{ c.onSecondaryContainer }};">check</span><span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSecondaryContainer }};">System</span></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:11px 0;border-right:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:500;font-size:13.5px;color:{{ c.onSurface }};">Light</span></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:11px 0;"><span style="font-family:'Figtree';font-weight:500;font-size:13.5px;color:{{ c.onSurface }};">Dark</span></div>
+        </div>
+        <!-- time format -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">TIME FORMAT</div>
+        <div style="display:flex;border:1.5px solid {{ c.outline }};border-radius:999px;overflow:hidden;margin-bottom:24px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 0;background:{{ c.secondaryContainer }};border-right:1.5px solid {{ c.outline }};"><span class="msr" style="font-size:17px;color:{{ c.onSecondaryContainer }};">check</span><span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSecondaryContainer }};">12-hour</span></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:11px 0;"><span style="font-family:'Figtree';font-weight:500;font-size:13.5px;color:{{ c.onSurface }};">24-hour</span></div>
+        </div>
+        <!-- later -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">COMING LATER</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <sc-for list="{{ appLater }}" as="r" hint-placeholder-count="3">
+            <sc-if value="{{ r.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:13px;padding:14px;opacity:0.55;">
+              <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">{{ r.icon }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.sub }}</div></div>
+              <span style="font-family:'Figtree';font-weight:600;font-size:11px;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:4px 9px;border-radius:7px;">Later</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ NOTIFICATIONS (M-next) ============ -->
+  <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Notifications</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="display:flex;align-items:flex-start;gap:11px;background:{{ c.tertiaryContainer }};border-radius:16px;padding:14px;margin-bottom:20px;">
+          <span class="msr" style="font-size:21px;color:{{ c.onTertiaryContainer }};margin-top:1px;">schedule_send</span>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onTertiaryContainer }};"><b>Push is coming later.</b> For now Dayfold gathers quietly — you'll see these the next time you open the app.</div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Pending approvals</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">When someone asks to join</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.primary }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:{{ c.onPrimary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:{{ c.primary }};">check</span></span></span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Family activity</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">New members, role changes</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.primary }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:{{ c.onPrimary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:{{ c.primary }};">check</span></span></span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Daily briefing ready</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">A nudge when today is gathered</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.surfaceContainerHighest }};border:2px solid {{ c.outline }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:7px;left:7px;width:14px;height:14px;border-radius:999px;background:{{ c.outline }};"></span></span>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">bedtime</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Quiet hours</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Pause anything time-based</div></div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">10 PM – 7 AM</span>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PRIVACY & DATA ============ -->
+  <sc-if value="{{ isPrivacy }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Privacy & data</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <!-- location -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.tertiary }};">location_on</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Location-aware highlights</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Off by default</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.surfaceContainerHighest }};border:2px solid {{ c.outline }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:7px;left:7px;width:14px;height:14px;border-radius:999px;background:{{ c.outline }};"></span></span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid {{ c.outlineVar }};">
+            <span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">shield_lock</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Surfaced when you arrive somewhere — matched on your device — your live location never leaves it.</span>
+          </div>
+        </div>
+        <!-- telemetry -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">insights</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Usage analytics</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Anonymous · off by default</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.surfaceContainerHighest }};border:2px solid {{ c.outline }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:7px;left:7px;width:14px;height:14px;border-radius:999px;background:{{ c.outline }};"></span></span>
+          </div>
+        </div>
+        <!-- rows -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">visibility</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">What Dayfold reads</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">download</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Export your data</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">policy</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Privacy policy</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">open_in_new</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ DEVICES & CONNECTIONS — links to auth screen ============ -->
+  <sc-if value="{{ isDevices }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Devices & connections</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;margin-bottom:16px;">
+          <span style="width:46px;height:46px;border-radius:14px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:{{ c.onSecondaryContainer }};">devices</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Connected devices & apps</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">iPhone · MacBook CLI · CI runner</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <!-- destination thumbnail (do not redesign) -->
+        <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};margin:0 4px 8px;">OPENS THE SECURE DEVICES SCREEN</div>
+        <div style="border:1.5px solid {{ c.outlineVar }};border-radius:18px;padding:14px;background:{{ c.surfaceContainerLow }};">
+          <sc-for list="{{ deviceThumb }}" as="d" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;background:{{ c.surfaceContainer }};border-radius:11px;padding:9px 11px;margin-bottom:7px;">
+              <span style="width:28px;height:28px;border-radius:8px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ d.fg }};">{{ d.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:11.5px;color:{{ c.onSurface }};">{{ d.name }}</div><div style="font-family:'Figtree';font-size:10px;color:{{ c.onSurfaceVar }};">{{ d.sub }}</div></div>
+              <sc-if value="{{ d.revoke }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-weight:600;font-size:10px;color:{{ c.error }};">Revoke</span></sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;"><span class="msr" style="font-size:15px;color:{{ c.primary }};">open_in_full</span><span style="font-family:'Figtree';font-weight:600;font-size:12px;color:{{ c.primary }};">Open full screen</span></div>
+        </div>
+        <p style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:14px 4px 0;">Revoking a device takes effect immediately — it must sign in again to regain access.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ DELETE — last-owner guard ============ -->
+  <sc-if value="{{ isDeleteOwner }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Delete account</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <!-- blocking -->
+        <div style="background:{{ c.errorContainer }};border-radius:18px;padding:16px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px;"><span class="msr fill" style="font-size:22px;color:{{ c.onErrorContainer }};">shield_person</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onErrorContainer }};">You're the last owner</span></div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onErrorContainer }};margin:0 0 14px;opacity:0.92;">Every family needs an owner. Transfer the Jacksons to another adult before you can delete your account.</p>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:14px;background:{{ c.onErrorContainer }};"><span class="msr" style="font-size:19px;color:{{ c.errorContainer }};">swap_horiz</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.errorContainer }};">Transfer ownership</span></div>
+        </div>
+        <!-- export offer -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">download</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Export your data first</span></div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 14px;">Download a copy of everything you've added — deletion can't be undone.</p>
+          <div style="display:flex;align-items:center;justify-content:center;height:46px;border-radius:14px;border:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Export data</span></div>
+        </div>
+        <!-- typed confirm (disabled until transfer) -->
+        <div style="opacity:0.45;">
+          <div style="font-family:'Figtree';font-size:12.5px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:7px;">TYPE DELETE TO CONFIRM</div>
+          <div style="height:52px;border-radius:16px;background:{{ c.surfaceContainer }};border:2px solid {{ c.outlineVar }};display:flex;align-items:center;padding:0 16px;margin-bottom:12px;"><span style="font-family:'Roboto Mono';font-weight:500;font-size:15px;letter-spacing:0.1em;color:{{ c.onSurfaceVar }};">DELETE</span></div>
+          <div style="display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurfaceVar }};">Delete my account</span></div>
+        </div>
+        <p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:12px 6px 0;">Available once ownership is transferred.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ OFFLINE (ADR 0020) ============ -->
+  <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 10px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The Jacksons · 3 members</div></div>
+      </div>
+      <div style="padding:2px 18px 26px;">
+        <div style="display:flex;align-items:center;gap:11px;background:{{ c.surfaceContainerHigh }};border-radius:14px;padding:12px 14px;margin-bottom:20px;">
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">cloud_off</span>
+          <span style="font-family:'Figtree';font-size:13px;line-height:1.4;color:{{ c.onSurface }};"><b>You're offline.</b> Showing the last synced copy.</span>
+        </div>
+        <!-- pending — mutation blocked -->
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">PENDING APPROVAL · 1</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:12px;opacity:0.5;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onTertiaryContainer }};">S</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sam Rivera</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Invited as adult · 2h ago</div></div>
+            <div style="display:flex;gap:7px;">
+              <span style="width:36px;height:36px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">close</span></span>
+              <span style="width:36px;height:36px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">check</span></span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;margin:0 4px 22px;"><span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">lock</span><span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You're offline — reconnect to change this.</span></div>
+        <!-- members, last synced -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 9px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">MEMBERS</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:14px;">history</span>Updated · 2h ago</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <sc-for list="{{ members }}" as="m" hint-placeholder-count="3">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 15px;display:flex;align-items:center;gap:12px;">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ m.bg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.fg }};">{{ m.initial }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ m.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.sub }}</div></div>
+              <sc-if value="{{ m.owner }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">OWNER</span></sc-if>
+            </div>
+          </sc-for>
+          <!-- skeleton: refreshing -->
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ c.skeleton }};animation:shimmer 1.4s ease-in-out infinite;flex:0 0 auto;"></span>
+            <div style="flex:1;"><div style="height:13px;width:120px;border-radius:6px;background:{{ c.skeleton }};margin-bottom:7px;animation:shimmer 1.4s ease-in-out infinite;"></div><div style="height:11px;width:80px;border-radius:6px;background:{{ c.skeleton }};animation:shimmer 1.4s ease-in-out infinite;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ LOCATION PERMISSION BLOCKED ============ -->
+  <sc-if value="{{ isLocationBlocked }}" hint-placeholder-val="{{ false }}">
+    <div class="set-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Privacy & data</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px 18px 0 0;padding:16px;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.tertiary }};">location_on</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Location-aware highlights</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.secondary }};">On for this family</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.primary }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:{{ c.onPrimary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:{{ c.primary }};">check</span></span></span>
+          </div>
+        </div>
+        <!-- blocked CTA row -->
+        <div style="background:{{ c.errorContainer }};border-radius:0 0 18px 18px;padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+            <span class="msr fill" style="font-size:20px;color:{{ c.onErrorContainer }};margin-top:1px;">location_off</span>
+            <div><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onErrorContainer }};">Location permission is off</div><div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onErrorContainer }};opacity:0.92;">It's on here, but your phone is blocking it — Dayfold can't match places until you allow it.</div></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:13px;background:{{ c.onErrorContainer }};"><span class="msr" style="font-size:18px;color:{{ c.errorContainer }};">settings</span><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.errorContainer }};">Fix permission</span></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:0 6px;">
+          <span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">shield_lock</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">matched on your device — your live location never leaves it.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ STEP-UP RE-AUTH SHEET ============ -->
+  <sc-if value="{{ isReauth }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.6;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 8px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Sign-in methods</span></div>
+      <div style="height:70px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:70px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:70px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <div style="width:58px;height:58px;border-radius:18px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr fill" style="font-size:30px;color:{{ c.onPrimaryContainer }};">lock</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Confirm it's you</h2>
+      <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">For your security, re-confirm before changing how you sign in.</p>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:11px;height:54px;border-radius:16px;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};"><span style="width:22px;height:22px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Continue with Google</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:11px;height:54px;border-radius:16px;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};"><span class="msr fill" style="font-size:22px;color:{{ c.onSurface }};">phone_iphone</span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Continue with Apple</span></div>
+        <div style="text-align:center;margin-top:6px;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurfaceVar }};">Cancel</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;home-m1&quot;,&quot;profile&quot;,&quot;signin&quot;,&quot;family-owner&quot;,&quot;family-adult&quot;,&quot;anchor&quot;,&quot;timezone-confirm&quot;,&quot;app&quot;,&quot;notifications&quot;,&quot;privacy&quot;,&quot;devices&quot;,&quot;reauth&quot;,&quot;delete-last-owner&quot;,&quot;offline&quot;,&quot;location-blocked&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'home';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA', surfaceContainerHighest:'#EDD9D2',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      error:'#BA1A1A', onError:'#FFFFFF', errorContainer:'#FFDAD6', onErrorContainer:'#410002', errorOutline:'#E7A9A2',
+      scrim:'rgba(39,24,20,0.42)', skeleton:'#F0DFDA',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322D',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      error:'#FFB4AB', onError:'#690005', errorContainer:'#93000A', onErrorContainer:'#FFDAD6', errorOutline:'#5C1410',
+      scrim:'rgba(0,0,0,0.55)', skeleton:'#322824',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const groups7 = [
+      { icon:'account_circle', bg:c.primaryContainer, fg:c.onPrimaryContainer, title:'Account', sub:'Profile, sign-in methods, sign out', divider:false },
+      { icon:'groups', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, title:'Family', sub:'Members, roles, anchor time', badge:'1', divider:true },
+      { icon:'devices', bg:c.secondaryContainer, fg:c.onSecondaryContainer, title:'Devices & connections', sub:'Phones and CLI access', divider:true },
+      { icon:'notifications', bg:c.surfaceContainerHigh, fg:c.secondary, title:'Notifications', sub:'Approvals, updates, quiet hours', divider:true },
+      { icon:'tune', bg:c.surfaceContainerHigh, fg:c.primary, title:'Preferences', sub:'Theme, time format', divider:true },
+      { icon:'shield', bg:c.surfaceContainerHigh, fg:c.tertiary, title:'Privacy & data', sub:'Location, telemetry, export', divider:true },
+      { icon:'info', bg:c.surfaceContainerHigh, fg:c.onSurfaceVar, title:'About', sub:'Version, legal', divider:true },
+    ];
+    const groups3 = [
+      { icon:'account_circle', bg:c.primaryContainer, fg:c.onPrimaryContainer, title:'Account', sub:'Profile, sign-in, sign out', divider:false },
+      { icon:'groups', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, title:'Family', sub:'Members, roles, anchor time', badge:'1', divider:true },
+      { icon:'tune', bg:c.surfaceContainerHigh, fg:c.primary, title:'App', sub:'Theme, notifications, privacy', divider:true },
+    ];
+    const members = [
+      { initial:'P', bg:c.primaryContainer, fg:c.onPrimaryContainer, name:'Pat Jackson', sub:'You · joined Jun 2026', owner:true, actionable:false },
+      { initial:'M', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, name:'Maya Jackson', sub:'Adult · joined Jun 2026', owner:false, actionable:true },
+      { initial:'L', bg:c.secondaryContainer, fg:c.onSecondaryContainer, name:'Leo Rivera', sub:'Adult · joined Jun 2026', owner:false, actionable:true },
+    ];
+    const membersAdult = [
+      { initial:'P', bg:c.primaryContainer, fg:c.onPrimaryContainer, name:'Pat Jackson', sub:'Owner · joined Jun 2026', owner:true },
+      { initial:'M', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, name:'Maya Jackson', sub:'You · joined Jun 2026', owner:false },
+      { initial:'L', bg:c.secondaryContainer, fg:c.onSecondaryContainer, name:'Leo Rivera', sub:'Adult · joined Jun 2026', owner:false },
+    ];
+    const swatchColors = ['#C0381E','#00796F','#6438AE','#1D6FB8','#A1356E','#7A5900'];
+    const swatches = swatchColors.map((color, i) => ({ color, selected: i === 0 }));
+    const anchorTimes = ['5:00 AM','5:30 AM','6:00 AM','6:30 AM','7:00 AM','7:30 AM'].map(label => ({ label, sel: label === '6:00 AM' }));
+    const zones = [
+      { label:'Pacific Time', offset:'UTC−8 · Los Angeles', sel:true },
+      { label:'Mountain Time', offset:'UTC−7 · Denver', sel:false },
+      { label:'Central Time', offset:'UTC−6 · Chicago', sel:false },
+      { label:'Eastern Time', offset:'UTC−5 · New York', sel:false },
+      { label:'Hawaii Time', offset:'UTC−10 · Honolulu', sel:false },
+    ];
+    const appLater = [
+      { icon:'palette', title:'Dynamic color', sub:'Match your wallpaper (Android)', divider:false },
+      { icon:'translate', title:'Language & region', sub:'English (US)', divider:true },
+      { icon:'accessibility_new', title:'Accessibility', sub:'Text size, motion, contrast', divider:true },
+    ];
+    const deviceThumb = [
+      { icon:'phone_iphone', fg:c.onSecondaryContainer, name:'iPhone 15 Pro', sub:'This device · active now', revoke:false },
+      { icon:'laptop_mac', fg:c.onSurfaceVar, name:'Dayfold CLI · MacBook Pro', sub:'Last used 2h ago', revoke:true },
+      { icon:'terminal', fg:c.onSurfaceVar, name:'claude-code · CI runner', sub:'Content only · 3d ago', revoke:true },
+    ];
+    return {
+      c,
+      online: view !== 'offline',
+      isOffline: view === 'offline',
+      isHome: view === 'home',
+      isHomeM1: view === 'home-m1',
+      isProfile: view === 'profile',
+      isSignin: view === 'signin',
+      isFamilyOwner: view === 'family-owner',
+      isFamilyAdult: view === 'family-adult',
+      isAnchor: view === 'anchor',
+      isTimezone: view === 'timezone-confirm',
+      isApp: view === 'app',
+      isNotifications: view === 'notifications',
+      isPrivacy: view === 'privacy',
+      isDevices: view === 'devices',
+      isReauth: view === 'reauth',
+      isDeleteOwner: view === 'delete-last-owner',
+      isLocationBlocked: view === 'location-blocked',
+      groups7, groups3, members, membersAdult, swatches,
+      anchorTimes, zones, appLater, deviceThumb,
+      monoColor: swatchColors[0],
+    };
+  }
+}
+</script>
+</body>
+</html>
