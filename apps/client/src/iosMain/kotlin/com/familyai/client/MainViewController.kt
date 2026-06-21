@@ -33,5 +33,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onPlatformAction = actions::perform,
     onSignIn = { provider -> scope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
     onCreateFamily = { name -> scope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
+    onSignOut = { scope.launch { authEngine.signOut() } },
+    onRedeemInvite = { token -> scope.launch { authEngine.redeemInvite(token) } },
   )
 }

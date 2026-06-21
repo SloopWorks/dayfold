@@ -73,6 +73,50 @@ class AuthEngine(
     store.dispatch(SignedOut)
   }
 
+  /** Redeem an invite token (slice-2): success = a pending membership awaiting
+   *  owner approval; everything else maps to a join-result the UI renders. */
+  suspend fun redeemInvite(token: String) = mutex.withLock {
+    store.dispatch(RedeemRequested(token))
+    val session = store.state.session
+    if (session == null) { store.dispatch(InviteRejected("error")); return@withLock }
+    try {
+      when (val res = callWithRefresh(session) { authClient.redeemInvite(it.access, token) }) {
+        is RedeemResult.Pending -> store.dispatch(InviteRedeemed(res.familyName))
+        RedeemResult.Expired -> store.dispatch(InviteRejected("expired"))
+        RedeemResult.Locked -> store.dispatch(InviteRejected("locked"))
+        RedeemResult.AlreadyMember -> store.dispatch(InviteRejected("already"))
+        RedeemResult.Removed -> store.dispatch(InviteRejected("removed"))
+      }
+    } catch (e: Exception) {
+      store.dispatch(InviteRejected("error"))            // transient 401/5xx/network → join-retry
+    }
+  }
+
+  /** Owner: load the pending-approval queue for a family. */
+  suspend fun loadApprovals(fid: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    store.dispatch(ApprovalsRequested)
+    try {
+      store.dispatch(ApprovalsLoaded(callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }))
+    } catch (e: Exception) {
+      store.dispatch(ApprovalsFailed)
+    }
+  }
+
+  /** Owner: approve / decline a pending member → drop them from the queue on success. */
+  suspend fun approveMember(fid: String, uid: String) = resolveMember(fid, uid, approve = true)
+  suspend fun declineMember(fid: String, uid: String) = resolveMember(fid, uid, approve = false)
+
+  private suspend fun resolveMember(fid: String, uid: String, approve: Boolean) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    try {
+      callWithRefresh(session) { if (approve) authClient.approveMember(it.access, fid, uid) else authClient.declineMember(it.access, fid, uid) }
+      store.dispatch(MemberResolved(uid))
+    } catch (e: Exception) {
+      store.dispatch(ApprovalsFailed)   // already-handled / transient → the next load reconciles
+    }
+  }
+
   /** Current access token (for the SyncClient token provider, wired at T6). */
   fun accessToken(): String? = store.state.session?.access
 

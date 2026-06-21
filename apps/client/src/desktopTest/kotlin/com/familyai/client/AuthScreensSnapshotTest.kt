@@ -34,4 +34,24 @@ class AuthScreensSnapshotTest {
   @Test fun familyNull() = snap("auth-familynull") { FamilyNullState() }
   @Test fun familyNullDark() = snap("auth-familynull-dark", dark = true) { FamilyNullState() }
   @Test fun splash() = snap("auth-splash") { SplashScreen() }
+
+  private val acctState = AppState(
+    session = Session("a", "r"),
+    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+    activeFamilyId = "fam1", route = Route.Account,
+  )
+  @Test fun account() = snap("auth-account") { AccountScreen(acctState) }
+  @Test fun accountDark() = snap("auth-account-dark", dark = true) { AccountScreen(acctState) }
+
+  // invitee-join (slice-2b)
+  @Test fun joinEntry() = snap("auth-join-entry") { JoinInviteScreen(AppState(route = Route.JoinInvite)) }
+  @Test fun joinWaiting() = snap("auth-join-waiting") {
+    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "waiting", joinFamilyName = "The Riveras"))
+  }
+  @Test fun joinLocked() = snap("auth-join-locked") {
+    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "locked"))
+  }
+  @Test fun joinError() = snap("auth-join-error", dark = true) {
+    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "error"))
+  }
 }

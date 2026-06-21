@@ -2,6 +2,7 @@ package com.familyai.client
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,7 +101,8 @@ private fun AuthButton(
       .height(54.dp)
       .clip(RoundedCornerShape(16.dp))
       .background(if (enabled) container else cs.surfaceContainerHigh)
-      .then(if (border != null) Modifier.border(1.dp, border, RoundedCornerShape(16.dp)) else Modifier),
+      .then(if (border != null) Modifier.border(1.dp, border, RoundedCornerShape(16.dp)) else Modifier)
+      .clickable(enabled = enabled, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
@@ -208,6 +210,7 @@ fun CreateFamilyScreen(
   error: String? = null,
   initialName: String = "",
   onCreate: (String) -> Unit = {},
+  onJoinInvite: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   var name by remember { mutableStateOf(initialName) }
@@ -244,6 +247,17 @@ fun CreateFamilyScreen(
       container = cs.primary, content = cs.onPrimary,
       enabled = !busy && name.isNotBlank(), onClick = { onCreate(name.trim()) },
     )
+    Spacer(Modifier.height(14.dp))
+    // invitee path — someone shared an invite with you
+    Box(
+      Modifier.fillMaxWidth().clickable(onClick = onJoinInvite),
+      contentAlignment = Alignment.Center,
+    ) {
+      Text(
+        "Have an invite? Join a family",
+        style = MaterialTheme.typography.labelLarge, color = cs.primary,
+      )
+    }
   }
 }
 

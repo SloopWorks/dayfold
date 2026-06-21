@@ -1,5 +1,7 @@
 package com.familyai.client
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,8 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.familyai.client.cards.CardAction
 import com.familyai.client.cards.TypedCardItem
@@ -26,8 +31,25 @@ import com.familyai.client.cards.TypedCardItem
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}) {
-  Scaffold(topBar = { TopAppBar(title = { Text("Today") }) }) { pad ->
+fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}) {
+  Scaffold(topBar = {
+    TopAppBar(
+      title = { Text("Today") },
+      actions = {
+        // account entry — monogram avatar → AccountScreen (sign-out lives there)
+        Box(
+          Modifier.padding(end = 12.dp).size(34.dp).clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onOpenAccount),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            "Y", style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+          )
+        }
+      },
+    )
+  }) { pad ->
     if (state.cards.isEmpty()) {
       // S5: an empty family shows the family-null onboarding (invite/connect),
       // not a bare "nothing yet". Sync/error keep their terse status.

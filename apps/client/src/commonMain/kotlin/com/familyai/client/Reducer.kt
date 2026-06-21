@@ -67,8 +67,26 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     )
   }
   is AuthOpFailed -> state.copy(authBusy = false, authError = action.message)
+  is OpenAccount -> state.copy(route = Route.Account)    // overlay on the signed-in Feed
+  is CloseAccount -> state.copy(route = routeFor(state.session, state.families))  // back to the gate
   is SignedOut -> AppState(route = Route.SignIn)        // clear session + feed
   // SignOutRequested is an effect trigger (AuthEngine); no state change until SignedOut.
+
+  // ── invitee-join (S5 slice-2) ──
+  is OpenJoinInvite -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = null, joinFamilyName = null)
+  is RedeemRequested -> state.copy(joinBusy = true, joinOutcome = null)
+  is InviteRedeemed -> state.copy(joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName)
+  is InviteRejected -> state.copy(joinBusy = false, joinOutcome = action.reason)
+  is JoinDismissed -> state.copy(
+    joinBusy = false, joinOutcome = null, joinFamilyName = null,
+    route = routeFor(state.session, state.families),    // exit the join flow → gate (CreateFamily/Feed)
+  )
+
+  // ── owner-side approvals (S6) ──
+  is ApprovalsRequested -> state.copy(approvalsBusy = true)
+  is ApprovalsLoaded -> state.copy(approvalsBusy = false, pendingApprovals = action.pending)
+  is MemberResolved -> state.copy(pendingApprovals = state.pendingApprovals.filterNot { it.uid == action.uid })
+  is ApprovalsFailed -> state.copy(approvalsBusy = false)
 
   else -> state
 }

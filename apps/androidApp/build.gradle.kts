@@ -24,6 +24,7 @@ android {
     buildConfigField("String", "HOUSEHOLD_SECRET", "\"${System.getenv("HOUSEHOLD_SECRET") ?: ""}\"")
     // S5 dev sign-in (local only; the server hard-refuses dev-token in prod/preview).
     buildConfigField("String", "DEV_AUTH_SECRET", "\"${System.getenv("DEV_AUTH_SECRET") ?: ""}\"")
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   buildFeatures { compose = true; buildConfig = true }
@@ -53,4 +54,26 @@ dependencies {
   implementation("androidx.activity:activity-compose:1.9.3")
   implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
   implementation("androidx.core:core-ktx:1.15.0")
+
+  // Instrumented e2e (Slice B): drive the real route gate + screens on the
+  // emulator. Hermetic — callbacks dispatch actions (no network); AuthEngine
+  // logic is covered by desktop unit tests.
+  androidTestImplementation(composeBom)
+  androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+  androidTestImplementation("androidx.test.ext:junit:1.2.1")
+  androidTestImplementation("androidx.test:runner:1.6.2")
+  // espresso 3.6.1 has the API 34/35 InputManager.getInstance() fix (older
+  // espresso throws NoSuchMethodException via the compose idling bridge).
+  // ⚠ API 37 (Android 16 preview) removed getInstance() entirely → espresso
+  // breaks there AND Compose's test rule hard-needs espresso, so the instrumented
+  // AuthFlowE2ETest can't run on an API-37 emulator. Run it on a standard-API
+  // (≤36) emulator — e.g. the AOSP ATD AVD used here:
+  //   sdkmanager "system-images;android-35;aosp_atd;arm64-v8a"
+  //   avdmanager create avd -n fad_atd35 -k "system-images;android-35;aosp_atd;arm64-v8a" -d pixel
+  //   emulator -avd fad_atd35 -no-window -no-audio -no-snapshot -gpu swiftshader_indirect &
+  //   ANDROID_SERIAL=emulator-5558 ./gradlew :androidApp:connectedDebugAndroidTest
+  // ✅ Verified PASS on fad_atd35 (API 35). The desktop AuthFlowUiTest covers the
+  // same flow headlessly (JVM, no espresso) for the default test loop.
+  androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+  debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

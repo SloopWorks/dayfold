@@ -79,6 +79,49 @@ class AuthReducerTest {
     assertFalse(s.authBusy); assertEquals("name taken", s.authError); assertEquals(Route.CreateFamily, s.route)
   }
 
+  @Test fun `open then close account overlays the signed-in Feed`() {
+    val signedIn = AppState(session = sess, families = listOf(active), activeFamilyId = "fam1", route = Route.Feed)
+    val opened = rootReducer(signedIn, OpenAccount)
+    assertEquals(Route.Account, opened.route)
+    assertEquals(sess, opened.session)                 // session/family untouched
+    val closed = rootReducer(opened, CloseAccount)
+    assertEquals(Route.Feed, closed.route)             // back through the gate
+    assertEquals("fam1", closed.activeFamilyId)
+  }
+
+  @Test fun `open join-invite routes there and dismiss returns to the gate`() {
+    val opened = rootReducer(AppState(session = sess, route = Route.CreateFamily), OpenJoinInvite)
+    assertEquals(Route.JoinInvite, opened.route)
+    assertNull(opened.joinOutcome)
+    val waiting = rootReducer(opened, InviteRedeemed("Riveras"))
+    assertEquals("waiting", waiting.joinOutcome)
+    val dismissed = rootReducer(waiting, JoinDismissed)
+    assertEquals(Route.CreateFamily, dismissed.route)   // no active family → back to CreateFamily
+    assertNull(dismissed.joinOutcome)
+  }
+
+  @Test fun `invitee-join outcomes (waiting then dismiss, and a rejection)`() {
+    var s = rootReducer(AppState(session = sess), RedeemRequested("tok"))
+    assertTrue(s.joinBusy); assertNull(s.joinOutcome)
+    s = rootReducer(s, InviteRedeemed("The Jacksons"))
+    assertFalse(s.joinBusy); assertEquals("waiting", s.joinOutcome); assertEquals("The Jacksons", s.joinFamilyName)
+    val cleared = rootReducer(s, JoinDismissed)
+    assertNull(cleared.joinOutcome); assertNull(cleared.joinFamilyName)
+
+    val rejected = rootReducer(rootReducer(AppState(), RedeemRequested("t")), InviteRejected("expired"))
+    assertEquals("expired", rejected.joinOutcome); assertFalse(rejected.joinBusy)
+  }
+
+  @Test fun `owner approvals queue loads and resolves`() {
+    var s = rootReducer(AppState(), ApprovalsRequested)
+    assertTrue(s.approvalsBusy)
+    s = rootReducer(s, ApprovalsLoaded(listOf(PendingMember("u9", "Sam"), PendingMember("u8", "Mo"))))
+    assertFalse(s.approvalsBusy)
+    assertEquals(listOf("u9", "u8"), s.pendingApprovals.map { it.uid })
+    s = rootReducer(s, MemberResolved("u9"))
+    assertEquals(listOf("u8"), s.pendingApprovals.map { it.uid })   // approved/declined → dropped
+  }
+
   @Test fun `sign-out clears session and feed back to SignIn`() {
     val signedIn = AppState(
       cards = listOf(Card("c", title = "T")), session = sess,

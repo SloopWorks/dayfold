@@ -100,4 +100,82 @@ class AuthClientTest {
     val ex = assertFailsWith<AuthHttpException> { client(engine).createFamily("ACCESS", "") }
     assertEquals(400, ex.status)
   }
+
+  // ── redeemInvite: status → RedeemResult ──
+  @Test fun `redeemInvite 200 fresh success is Pending with family info`() = runBlocking {
+    var path = ""; var sent = ""
+    val engine = MockEngine { req ->
+      path = req.url.encodedPath; sent = body(req)
+      respond("""{"family_id":"fam1","family_name":"The Jacksons","role":"adult","status":"pending"}""", HttpStatusCode.OK, jsonCt)
+    }
+    val r = client(engine).redeemInvite("ACCESS", "tok123")
+    assertEquals("/invites:redeem", path)
+    assertTrue(sent.contains("\"token\":\"tok123\""), "body was: $sent")
+    assertEquals(RedeemResult.Pending("fam1", "The Jacksons", "adult"), r)
+  }
+
+  @Test fun `redeemInvite 200 already-requested is Pending with nulls`() = runBlocking {
+    val engine = MockEngine { respond("""{"status":"pending"}""", HttpStatusCode.OK, jsonCt) }
+    assertEquals(RedeemResult.Pending(null, null, null), client(engine).redeemInvite("A", "t"))
+  }
+
+  @Test fun `redeemInvite 404 is Expired`() = runBlocking {
+    val engine = MockEngine { respond("", HttpStatusCode.NotFound) }
+    assertEquals(RedeemResult.Expired, client(engine).redeemInvite("A", "t"))
+  }
+
+  @Test fun `redeemInvite 429 is Locked`() = runBlocking {
+    val engine = MockEngine { respond("", HttpStatusCode.TooManyRequests) }
+    assertEquals(RedeemResult.Locked, client(engine).redeemInvite("A", "t"))
+  }
+
+  @Test fun `redeemInvite 409 already-member vs removed`() = runBlocking {
+    val already = MockEngine { respond("""{"type":"already-member"}""", HttpStatusCode.Conflict, jsonCt) }
+    assertEquals(RedeemResult.AlreadyMember, client(already).redeemInvite("A", "t"))
+    val removed = MockEngine { respond("""{"type":"removed"}""", HttpStatusCode.Conflict, jsonCt) }
+    assertEquals(RedeemResult.Removed, client(removed).redeemInvite("A", "t"))
+  }
+
+  @Test fun `redeemInvite throws on 401 (transient → engine retries or joinerror)`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("", HttpStatusCode.Unauthorized) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).redeemInvite("A", "t") }
+    assertEquals(401, ex.status)
+  }
+
+  // ── owner-side approvals ──
+  @Test fun `familyApprovals parses the pending queue with the bearer`() = runBlocking {
+    var path = ""; var auth: String? = null
+    val engine = MockEngine { req ->
+      path = req.url.encodedPath; auth = req.headers[HttpHeaders.Authorization]
+      respond(
+        """{"invites":[],"pending":[
+          {"uid":"u9","display_name":"Sam Rivera","role":"adult","provider":"google","requested_at":"2026-06-21T10:00:00Z"}]}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val pending = client(engine).familyApprovals("ACCESS", "fam1")
+    assertEquals("/families/fam1/invites", path)
+    assertEquals("Bearer ACCESS", auth)
+    assertEquals(1, pending.size)
+    assertEquals("u9", pending[0].uid)
+    assertEquals("Sam Rivera", pending[0].displayName)
+  }
+
+  @Test fun `approveMember posts the colon-action path and accepts 204`() = runBlocking {
+    var path = ""
+    val engine = MockEngine { req -> path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }
+    client(engine).approveMember("ACCESS", "fam1", "u9")
+    assertEquals("/families/fam1/members/u9:approve", path)
+  }
+
+  @Test fun `declineMember accepts 204`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("", HttpStatusCode.NoContent) }
+    client(engine).declineMember("ACCESS", "fam1", "u9")   // no throw
+  }
+
+  @Test fun `approveMember throws on 404 (no longer pending)`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("", HttpStatusCode.NotFound) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).approveMember("A", "f", "u") }
+    assertEquals(404, ex.status)
+  }
 }

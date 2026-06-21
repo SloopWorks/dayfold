@@ -150,7 +150,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, CreateFamily, Feed }
+enum class Route { Loading, SignIn, CreateFamily, Feed, Account, JoinInvite }
 
 // Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
 // not here — the store is a projection of the DB. The auth fields below are the
@@ -173,6 +173,14 @@ data class AppState(
   val route: Route = Route.Loading,
   val authBusy: Boolean = false,
   val authError: String? = null,
+  // invitee-join (S5 slice-2). outcome: null | waiting | expired | locked |
+  // already | removed | error — the join screen renders the matching A8b state.
+  val joinBusy: Boolean = false,
+  val joinOutcome: String? = null,
+  val joinFamilyName: String? = null,
+  // owner-side approvals (S6). The pending-member queue + a busy flag.
+  val pendingApprovals: List<PendingMember> = emptyList(),
+  val approvalsBusy: Boolean = false,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -199,5 +207,19 @@ data class MembershipsLoaded(val families: List<FamilyMembership>) : Action // �
 data class CreateFamilyRequested(val name: String) : Action
 data class FamilyCreated(val familyId: String, val name: String) : Action   // → Feed (owner, active)
 data class AuthOpFailed(val message: String) : Action
+data object OpenAccount : Action                           // Feed → Account (signed-in overlay)
+data object CloseAccount : Action                          // Account → back to the route gate (Feed)
 data object SignOutRequested : Action
 data object SignedOut : Action                             // clears session + feed → SignIn
+// invitee-join (S5 slice-2). RedeemRequested is an effect trigger (AuthEngine);
+// InviteRedeemed/Rejected carry the outcome the join screen renders.
+data object OpenJoinInvite : Action                           // CreateFamily → the paste-invite screen
+data class RedeemRequested(val token: String) : Action
+data class InviteRedeemed(val familyName: String?) : Action   // success → pending, waiting for approval
+data class InviteRejected(val reason: String) : Action        // expired | locked | already | removed | error
+data object JoinDismissed : Action                            // leave the join flow → back to the gate
+// owner-side approvals (S6). Load the queue; resolve removes one (approved/declined).
+data object ApprovalsRequested : Action
+data class ApprovalsLoaded(val pending: List<PendingMember>) : Action
+data class MemberResolved(val uid: String) : Action           // approved or declined → drop from the queue
+data object ApprovalsFailed : Action
