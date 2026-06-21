@@ -33,8 +33,11 @@ fun sourceLabel(source: String?): String? = when {
 // value-prop "[list]"/"[reply]" now without a heavy markdown dep; the full
 // markdown renderer (lists/tables/images) is a later upgrade. (OQ-markdown-render)
 private val LINK = Regex("""\[([^\]]+)]\(([^)]+)\)""")
-private val ALLOWED_SCHEMES = setOf("https", "mailto", "tel", "geo")
-private fun schemeOf(url: String) = url.substringBefore(":", "").lowercase()
+// Single source of truth for outbound-handoff schemes — shared by the body-link
+// renderer AND the card action effect layer (cards/PlatformActions). `sms` added
+// per the epic finding (contact Text action). https only (never plain http).
+internal val ALLOWED_SCHEMES = setOf("https", "mailto", "tel", "geo", "sms")
+internal fun schemeOf(url: String) = url.trim().substringBefore(":", "").lowercase()
 private val LINK_STYLE = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
 
 fun renderCardBody(md: String): AnnotatedString = buildAnnotatedString {

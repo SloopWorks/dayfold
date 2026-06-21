@@ -13,6 +13,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   val engine = remember {
     SyncEngine(store, ContentStore(DriverFactory().createDriver()), SyncClient("", "", ""))
   }
+  val actions = remember { com.familyai.client.cards.PlatformActions() }
   DisposableEffect(Unit) { engine.start(); onDispose { engine.stop() } }
-  MaterialTheme { FeedApp(store) }
+  MaterialTheme { FeedApp(store, actions::perform) }
 }

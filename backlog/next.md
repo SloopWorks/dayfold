@@ -110,6 +110,25 @@ blocked** behind a queued Claude-Design expanded-detail pass.
 - **TASK-CL-10** — Adaptive two-pane detail — **BLOCKED** on a Claude-Design
   expanded-detail pass (design gap; phone-only designed).
 
+- **TASK-CL-PLAT** — Platform action effect layer (CL-6 prerequisite, epic
+  "Platform shims"). ✅ **DONE** (branch `cl-platform-actions` → integrated into
+  `cl-next`) 2026-06-20. `expect class PlatformActions { perform(CardAction) }`
+  (mirrors the `DriverFactory` Context-ctor precedent) + 3 actuals (android
+  `ACTION_VIEW`/clipboard/`ACTION_SEND`; desktop `Desktop.browse`/AWT clipboard;
+  iOS `openURL`/`UIPasteboard`). Pure **`cardActionUri`** vets at one seam —
+  **shared allowlist with `CardRender.ALLOWED_SCHEMES`** (now `internal`, **`sms`
+  added**, https-only); mailto **address-only** (rejects params/CRLF/multi-
+  recipient/`%`); phone allowlist `+`+digits (drops DTMF/USSD); geo `%`-encoded
+  UTF-8 place query (ADR 0014 — never live coords). `OpenDetail` = no-op here
+  (in-app nav → CL-6). All 3 shells construct + pass `onAction = pa::perform`;
+  `FeedApp` gained the param. Read-only (ADR 0020) — every effect is an OS
+  handoff. **54 desktop tests green** (PlatformActions 8: scheme/mailto/phone/geo
+  vetting + desktop smoke); **androidApp + iOS-sim compile**. Twice-reviewed
+  (pre-impl caught 4 vetting holes — all fixed; final = SHIP). Spec:
+  `docs/superpowers/specs/2026-06-20-cl-platform-actions-design.md`. **Now CL-5's
+  Open/Call/Text/Navigate/Reply perform real handoffs on device.** **NEXT = CL-6**
+  (DetailScreen + redux nav — route `OpenDetail` through the nav layer).
+
 ## AUTH (ADR 0021 — S1→S3→S2→S4→S5/S6)
 
 **AUTH-S3 (CLI device grant, RFC 8628) — ✅ DONE + MERGED** to `main` 2026-06-19

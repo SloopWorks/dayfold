@@ -1,0 +1,72 @@
+package com.familyai.client.cards
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+// Pure vetting logic for the platform effect layer (CL-PLAT). Security core:
+// scheme allowlist, mailto address-only vetting, phone allowlist, geo encoding.
+class PlatformActionsTest {
+
+  @Test fun `openUrl is https-only`() {
+    assertEquals("https://x.org/f", cardActionUri(CardAction.OpenUrl("https://x.org/f")))
+    assertNull(cardActionUri(CardAction.OpenUrl("http://x.org")))        // plain http dropped
+    assertNull(cardActionUri(CardAction.OpenUrl("javascript:alert(1)"))) // injection dropped
+    assertNull(cardActionUri(CardAction.OpenUrl("file:///etc/passwd")))
+    assertEquals("https://x.org", cardActionUri(CardAction.OpenUrl(" https://x.org"))) // leading space trimmed
+  }
+
+  @Test fun `call and message sanitize the phone to + and digits`() {
+    assertEquals("tel:+15551234567", cardActionUri(CardAction.Call("+1 (555) 123-4567")))
+    assertEquals("sms:5551234567", cardActionUri(CardAction.Message("555.123.4567")))
+    // DTMF / USSD / pause chars dropped (no auto-dial abuse)
+    assertEquals("tel:1234", cardActionUri(CardAction.Call("12,34#*p")))
+    assertNull(cardActionUri(CardAction.Call("no digits here")))
+  }
+
+  @Test fun `mailto is address-only, params and injection rejected`() {
+    assertEquals("mailto:a@x.com", cardActionUri(CardAction.Email("mailto:a@x.com")))
+    // params dropped (kept clean address)
+    assertEquals("mailto:a@x.com", cardActionUri(CardAction.Email("mailto:a@x.com?subject=hi&body=yo")))
+    assertNull(cardActionUri(CardAction.Email("mailto:a@x.com,b@y.com")))      // multi-recipient
+    assertNull(cardActionUri(CardAction.Email("mailto:a@x.com\r\ncc:v@e.com"))) // CRLF header injection
+    assertNull(cardActionUri(CardAction.Email("mailto:notanemail")))            // no @
+    assertNull(cardActionUri(CardAction.Email("https://x.org")))                // wrong scheme
+  }
+
+  @Test fun `navigate is a percent-encoded geo query, never coordinates`() {
+    assertEquals("geo:0,0?q=Riverside%20Park", cardActionUri(CardAction.Navigate("Riverside Park")))
+    // multibyte UTF-8 percent-encoded (café), space → %20 not +
+    assertEquals("geo:0,0?q=caf%C3%A9", cardActionUri(CardAction.Navigate("café")))
+    assertNull(cardActionUri(CardAction.Navigate("   ")))
+  }
+
+  @Test fun `copy share and openDetail are not URI handoffs`() {
+    assertNull(cardActionUri(CardAction.Copy("x")))
+    assertNull(cardActionUri(CardAction.Share("x")))
+    assertNull(cardActionUri(CardAction.OpenDetail("id")))
+  }
+
+  @Test fun `sanitizePhone allowlist`() {
+    assertEquals("+15551234567", sanitizePhone("+1 555-123-4567"))
+    assertEquals("8005551234", sanitizePhone("800.555.1234"))
+    assertNull(sanitizePhone("###"))
+    assertNull(sanitizePhone(""))
+  }
+
+  @Test fun `percentEncode keeps unreserved, encodes the rest as UTF-8`() {
+    assertEquals("Aa1-_.~", percentEncode("Aa1-_.~"))
+    assertEquals("a%20b", percentEncode("a b"))
+    assertEquals("%E6%97%A5", percentEncode("日"))
+  }
+
+  @Test fun `desktop perform does not throw on any action`() {
+    val pa = PlatformActions()
+    // smoke: none of these should throw even with no browser/handler (runCatching)
+    listOf(
+      CardAction.OpenUrl("https://x.org"), CardAction.Call("+1555"), CardAction.Message("555"),
+      CardAction.Email("mailto:a@x.com"), CardAction.Navigate("Park"), CardAction.Copy("c"),
+      CardAction.Share("s"), CardAction.OpenDetail("id"),
+    ).forEach { pa.perform(it) }
+  }
+}

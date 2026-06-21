@@ -37,9 +37,10 @@ class MainActivity : ComponentActivity() {
         try { awaitCancellation() } finally { engine.pause() }
       }
     }
+    val actions = com.familyai.client.cards.PlatformActions(applicationContext)
     setContent {
       ReduxDevToolsHost(InAppConfig(triggers = setOf(DevToolsTrigger.BUBBLE))) {
-        MaterialTheme { FeedApp(store) }
+        MaterialTheme { FeedApp(store, actions::perform) }
       }
     }
   }
