@@ -3,6 +3,7 @@ package com.familyai.client.android
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -55,8 +56,10 @@ class AuthFlowE2ETest {
     rule.onNodeWithText("Your family space is ready").assertIsDisplayed()
     rule.onNodeWithText("Y").performClick()
 
-    // 4) Account → sign out
+    // 4) Account → sign out → confirm dialog → confirm
     rule.onNodeWithText("Sign out").assertIsDisplayed().performClick()
+    rule.onNodeWithText("Sign out?").assertIsDisplayed()
+    rule.onNodeWithTag("confirm-signout").performClick()
 
     // 5) Back at the sign-in screen — the loop is closed
     rule.onNodeWithText("Continue with Google").assertIsDisplayed()

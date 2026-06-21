@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -53,9 +54,11 @@ class AuthFlowUiTest {
     waitUntil(timeoutMillis = 5_000L) { seen("Your family space is ready") }
     onNodeWithText("Y").performClick()
 
-    // 4) Account → sign out
+    // 4) Account → sign out → confirm dialog → confirm
     waitUntil(timeoutMillis = 5_000L) { seen("Sign out") }
-    onNodeWithText("Sign out").performClick()
+    onNodeWithText("Sign out").performClick()                 // opens the confirm dialog
+    waitUntil(timeoutMillis = 5_000L) { seen("Sign out?") }
+    onNodeWithTag("confirm-signout").performClick()
 
     // 5) Back at sign-in — the loop is closed
     waitUntil(timeoutMillis = 5_000L) { seen("Continue with Google") }

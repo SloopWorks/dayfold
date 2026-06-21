@@ -16,13 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -40,6 +47,25 @@ fun AccountScreen(
   val cs = MaterialTheme.colorScheme
   val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
   val role = (active?.role ?: "adult").replaceFirstChar { it.uppercase() }
+  // Transient UI — a local confirm flag, not app state (ADR 0013 is nav, not
+  // every ephemeral dialog). Signing out is reversible but deliberate; a one-tap
+  // guard avoids an accidental session clear.
+  var confirmSignOut by remember { mutableStateOf(false) }
+
+  if (confirmSignOut) {
+    AlertDialog(
+      onDismissRequest = { confirmSignOut = false },
+      title = { Text("Sign out?", style = MaterialTheme.typography.titleLarge) },
+      text = { Text("You'll need to sign in again to see your family.", style = MaterialTheme.typography.bodyMedium) },
+      confirmButton = {
+        TextButton(onClick = { confirmSignOut = false; onSignOut() }, modifier = Modifier.testTag("confirm-signout")) {
+          Text("Sign out", color = cs.error)
+        }
+      },
+      dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+      containerColor = cs.surfaceContainerHigh,
+    )
+  }
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
     // top bar — back + title (chevron glyph, no icon font)
@@ -86,10 +112,10 @@ fun AccountScreen(
       }
 
       Spacer(Modifier.height(26.dp))
-      // sign out
+      // sign out — confirm first (guards an accidental session clear)
       Box(
         Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp))
-          .border(1.5.dp, cs.outline, RoundedCornerShape(16.dp)).clickable(onClick = onSignOut),
+          .border(1.5.dp, cs.outline, RoundedCornerShape(16.dp)).clickable { confirmSignOut = true },
         contentAlignment = Alignment.Center,
       ) { Text("Sign out", style = MaterialTheme.typography.labelLarge, color = cs.onSurface) }
 
