@@ -162,7 +162,27 @@ blocked** behind a queued Claude-Design expanded-detail pass.
   shared-element animation correctness needs on-device iteration (can't verify
   headlessly). Also: animation smoothness of the base transition = on-device
   manual check.
-- **TASK-CL-8** — Related-edges (cross-links / attachment↔email).
+- **TASK-CL-8** — Related-edges (cross-links / attachment↔email). ✅ **DONE**
+  (branch `cl-8-related-edges` → integrated into `cl-next`) 2026-06-20. Schema:
+  `BriefingCard` gains `relatedKicker` + `related[]` edges
+  `{relation, targetId, targetType, title?, sub?}` (denormalized title/sub →
+  renders without resolving; codegen regen TS+Kotlin). **Server:** migration
+  `0006_related.sql` (`related` jsonb + `related_kicker`) + `repo.upsertCard`;
+  `/sync` serves them; regenerated `BriefingCardSchema` strict-rejects bad edges
+  (422). **Client:** `Card.related: List<RelatedRef>?` (+ `@SerialName
+  ("related_kicker")`); `Content.sq` cols + `upsertCard`/`activeCards`;
+  `ContentStore` guarded encode/decode (corrupt → null, card still renders).
+  **UI:** `DetailScreen` RELATED section (header + rows + chevron, 56dp + a11y
+  labels) → `OpenDetail(targetId)` → host `NavToDetail` (detail→detail chaining;
+  **dangling targetId not in cache = no-op**, not a feed dump). **Tenancy:** edges
+  ride `authorizeTenant`; targetId resolved client-side vs OWN cache only (no
+  server resolution → no cross-tenant leak). **76 client tests + 82 api
+  (1-skip)**; detail-related snapshot visually verified; Android + iOS-sim
+  compile. Twice-reviewed (pre-impl caught the `@SerialName`/strict-enum/sq-edit/
+  tenancy-test items; final = SHIP + the dangling-ref no-op fix). Spec:
+  `docs/superpowers/specs/2026-06-20-cl-8-related-edges-design.md`. **Follow
+  (minor):** unbounded A→B→A stack chaining (acceptable M0); resolving live
+  title/sub vs denormalized.
 - **TASK-CL-9** — Map-render strategy spike (ADR 0014 privacy posture).
 - **TASK-CL-10** — Adaptive two-pane detail — **BLOCKED** on a Claude-Design
   expanded-detail pass (design gap; phone-only designed).

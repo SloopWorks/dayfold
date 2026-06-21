@@ -31,6 +31,23 @@ data class Card(
   val payload: Payload? = null,
   val privacy: CardPrivacy? = null,
   @SerialName("hub_ref") val hubRef: String? = null,
+  // CL-8 related-edges. `related_kicker` arrives snake from the DB-shaped /sync row
+  // (like target_*/hub_ref). `related` jsonb decodes verbatim (edge keys are camel).
+  val related: List<RelatedRef>? = null,
+  @SerialName("related_kicker") val relatedKicker: String? = null,
+)
+
+// A cross-link to another card in THIS family (CL-8). targetId resolves
+// client-side vs the local cache for navigation; title/sub are author-
+// denormalized so the row renders without resolving. targetType kept String
+// (forward-compat, parity with Card.type) though codegen `Related` uses an enum.
+@Serializable
+data class RelatedRef(
+  val relation: String,
+  val targetId: String,
+  val targetType: String? = null,
+  val title: String? = null,
+  val sub: String? = null,
 )
 
 // Typed content payload (ADR 0022 D1). The wire is externally tagged —

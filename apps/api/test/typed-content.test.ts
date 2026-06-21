@@ -37,7 +37,7 @@ const typedCard = (type: string, over: any = {}) =>
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0005_typed_content.sql"])
+  for (const m of ["0001_m0_init.sql", "0005_typed_content.sql", "0006_related.sql"])
     await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
   await q(`INSERT INTO families(id,name) VALUES ('famA','A'),('famB','B')`);
   await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','famA','{content:read,content:write}')`);
@@ -117,5 +117,40 @@ describe("CL-2 typed content storage (vs live Postgres)", () => {
     const second = await (await get(`/families/famA/sync?since=${encodeURIComponent(first.next_cursor)}`)).json();
     expect(second.changes.cards.length).toBe(0);
     expect(second.tombstones.length).toBe(0);
+  });
+
+  // ── CL-8 related-edges ────────────────────────────────────────────────────
+
+  it("related[] + relatedKicker round-trip (incl. attachment↔email edge)", async () => {
+    const r = await put("famA", "email1", typedCard("email", {
+      relatedKicker: "FROM THE SAME EMAIL",
+      related: [
+        { relation: "attachment", targetId: "c_file", targetType: "file", title: "permission.pdf", sub: "240 KB" },
+        { relation: "same-hub", targetId: "c_invite", targetType: "invite", title: "Maya's party" },
+      ],
+    }));
+    expect(r.status).toBe(200);
+    const row = await r.json();
+    expect(row.related_kicker).toBe("FROM THE SAME EMAIL");
+    expect(Array.isArray(row.related)).toBe(true);
+    expect(row.related[0]).toEqual({ relation: "attachment", targetId: "c_file", targetType: "file", title: "permission.pdf", sub: "240 KB" });
+
+    const sync = await (await get("/families/famA/sync")).json();
+    const synced = sync.changes.cards.find((c: any) => c.id === "email1");
+    expect(synced.related.length).toBe(2);
+    expect(synced.related.find((e: any) => e.relation === "attachment").targetId).toBe("c_file");
+  });
+
+  it("a malformed related edge is rejected (422)", async () => {
+    // missing required targetId
+    const bad = await put("famA", "bad_rel", typedCard("email", {
+      related: [{ relation: "attachment", targetType: "file" }],
+    }));
+    expect(bad.status).toBe(422);
+    // unknown targetType enum value
+    const badEnum = await put("famA", "bad_rel2", typedCard("email", {
+      related: [{ relation: "x", targetId: "t", targetType: "spaceship" }],
+    }));
+    expect(badEnum.status).toBe(422);
   });
 });

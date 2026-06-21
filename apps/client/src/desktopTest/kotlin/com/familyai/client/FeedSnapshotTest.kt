@@ -116,4 +116,19 @@ class FeedSnapshotTest {
   @Test fun detailEmailSnapshot() = detailSnap("detail-email", "email")
   @Test fun detailInviteDarkSnapshot() = detailSnap("detail-invite-dark", "invite", dark = true)
   @Test fun detailContactDarkSnapshot() = detailSnap("detail-contact-dark", "contact", dark = true)
+
+  // CL-8: a detail with RELATED rows (attachment↔email + same-hub).
+  @Test fun detailRelatedSnapshot() = runComposeUiTest {
+    val card = Card("email", kind = "action", title = "School RSVP needs a reply", provenance = Provenance("email"),
+      type = "email", payload = Payload(email = EmailPayload(from = "Lincoln Elementary", subject = "Field trip")),
+      relatedKicker = "FROM THE SAME EMAIL",
+      related = listOf(
+        RelatedRef("attachment", "f1", "file", "permission.pdf", "240 KB · attachment"),
+        RelatedRef("same-hub", "i1", "invite", "Maya's party", "Sat · 3:00 PM"),
+      ))
+    setContent { com.familyai.client.theme.DayfoldTheme { com.familyai.client.cards.DetailScreen(card, onBack = {}, onAction = {}) } }
+    val img = onRoot().captureToImage()
+    assertTrue(img.width > 0 && img.height > 0)
+    ImageIO.write(img.toAwtImage(), "png", File("build/snapshots".also { File(it).mkdirs() }, "detail-related.png"))
+  }
 }

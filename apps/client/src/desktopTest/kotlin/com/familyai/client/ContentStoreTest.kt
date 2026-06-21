@@ -102,6 +102,38 @@ class ContentStoreTest {
     assertNull(p.type); assertNull(p.payload); assertNull(p.privacy); assertNull(p.hubRef)
   }
 
+  @Test fun `related edges + relatedKicker survive applyDelta to activeCards`() {
+    val s = store()
+    s.applyDelta(
+      changed = listOf(
+        Card(id = "e", kind = "action", title = "School email", provenance = Provenance("email"),
+          type = "email", payload = Payload(email = EmailPayload(from = "Lincoln")),
+          relatedKicker = "FROM THE SAME EMAIL",
+          related = listOf(
+            RelatedRef(relation = "attachment", targetId = "f1", targetType = "file", title = "permission.pdf", sub = "240 KB"),
+            RelatedRef(relation = "same-hub", targetId = "i1", targetType = "invite", title = "Maya's party"),
+          )),
+      ),
+      tombstoneIds = emptyList(), nextCursor = "c1", nowIso = "2026-06-20T10:00:00Z",
+    )
+    val e = assertNotNull(s.activeCards().firstOrNull { it.id == "e" })
+    assertEquals("FROM THE SAME EMAIL", e.relatedKicker)
+    assertEquals(2, e.related?.size)
+    assertEquals("f1", e.related?.first()?.targetId)
+    assertEquals("attachment", e.related?.first()?.relation)
+  }
+
+  @Test fun `corrupt cached related JSON yields null related, card still renders`() {
+    val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+    val s = ContentStore.create(driver)
+    driver.execute(null,
+      "INSERT INTO card(id,kind,title,type,related,updated_at,deleted) " +
+      "VALUES('z','info','Z','email','not-json[',  '2026-06-20T10:00:00Z',0)", 0)
+    val z = assertNotNull(s.activeCards().firstOrNull { it.id == "z" })
+    assertEquals("Z", z.title)
+    assertNull(z.related)
+  }
+
   @Test fun `corrupt cached payload JSON yields null payload, card still renders, no crash`() {
     val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     val s = ContentStore.create(driver)

@@ -236,6 +236,18 @@ data class BriefingCard (
     val provenance: Provenance,
 
     /**
+     * cross-links to other cards in THIS family (CL-8). targetId resolves client-side vs the
+     * local cache; title/sub are author-denormalized so a row renders without resolving.
+     * Same-tenant only (rides authorizeTenant).
+     */
+    val related: List<Related>? = null,
+
+    /**
+     * section header for the RELATED rows (e.g. 'FROM THE SAME EMAIL'). CL-8.
+     */
+    val relatedKicker: String? = null,
+
+    /**
      * deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)
      */
     val target: Target? = null,
@@ -247,7 +259,7 @@ data class BriefingCard (
      * content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for
      * back-compat with kind-only M0 cards.
      */
-    val type: BriefingCardType? = null,
+    val type: TargetTypeEnum? = null,
 
     val version: Long? = null
 )
@@ -418,6 +430,36 @@ enum class Storage(val value: String) {
     @SerialName("on_device") OnDevice("on_device");
 }
 
+@Serializable
+data class Related (
+    /**
+     * same-email | same-thread | same-hub | same-trip | attachment | contact-of
+     */
+    val relation: String,
+
+    val sub: String? = null,
+
+    @SerialName("targetId")
+    val targetID: String,
+
+    val targetType: TargetTypeEnum,
+    val title: String? = null
+)
+
+/**
+ * content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for
+ * back-compat with kind-only M0 cards.
+ */
+@Serializable
+enum class TargetTypeEnum(val value: String) {
+    @SerialName("contact") Contact("contact"),
+    @SerialName("email") Email("email"),
+    @SerialName("file") File("file"),
+    @SerialName("geo") Geo("geo"),
+    @SerialName("invite") Invite("invite"),
+    @SerialName("link") Link("link");
+}
+
 /**
  * deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)
  */
@@ -432,20 +474,6 @@ data class Target (
     @SerialName("sectionId")
     val sectionID: String? = null
 )
-
-/**
- * content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for
- * back-compat with kind-only M0 cards.
- */
-@Serializable
-enum class BriefingCardType(val value: String) {
-    @SerialName("contact") Contact("contact"),
-    @SerialName("email") Email("email"),
-    @SerialName("file") File("file"),
-    @SerialName("geo") Geo("geo"),
-    @SerialName("invite") Invite("invite"),
-    @SerialName("link") Link("link");
-}
 
 @Serializable
 data class Hub (

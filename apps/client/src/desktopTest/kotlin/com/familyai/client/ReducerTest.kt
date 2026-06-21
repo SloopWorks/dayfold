@@ -66,6 +66,12 @@ class ReducerTest {
     s = rootReducer(s, NavBack); assertEquals(emptyList(), s.detailStack)             // empty-safe
   }
 
+  @Test fun `NavToDetail to a card not in cache is a no-op (dangling related ref)`() {
+    val s = AppState(cards = listOf(Card("a", title = "A")), detailStack = listOf("a"))
+    val after = rootReducer(s, NavToDetail("ghost")) // target not cached
+    assertEquals(listOf("a"), after.detailStack)      // unchanged — stays on current detail
+  }
+
   @Test fun `CardsLoaded prunes nav-stack ids that synced away`() {
     var s = AppState(cards = listOf(Card("a", title = "A")), detailStack = listOf("a"))
     s = rootReducer(s, CardsLoaded(listOf(Card("b", title = "B")))) // 'a' gone

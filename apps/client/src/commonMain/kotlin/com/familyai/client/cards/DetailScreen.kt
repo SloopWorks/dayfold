@@ -1,6 +1,7 @@
 package com.familyai.client.cards
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.ExperimentalComposeUiApi
 import com.familyai.client.Card
+import com.familyai.client.RelatedRef
 
 // CL-6 — full-screen per-type detail (mockup designs/content/Detail-Phone.dc.html).
 // Colored hero header + per-type hero media + safe actions row + DETAILS list +
@@ -54,7 +56,40 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
       item { HeroMedia(card, onAction) }
       item { ActionsRow(detailActions(card), onAction) }
       detailMeta(card).takeIf { it.isNotEmpty() }?.let { rows -> item { DetailsCard(rows) } }
+      card.related?.takeIf { it.isNotEmpty() }?.let { rels ->
+        item { RelatedSection(card.relatedKicker, rels, onAction) }
+      }
       item { ProvenancePrivacy(card) }
+    }
+  }
+}
+
+/** CL-8 RELATED rows — navigate detail→detail via OpenDetail(targetId) (the host
+ *  routes it to NavToDetail → pushes the stack → re-renders the target). */
+@Composable
+private fun RelatedSection(kicker: String?, related: List<RelatedRef>, onAction: (CardAction) -> Unit) {
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Text((kicker ?: "RELATED").uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+      Column(Modifier.padding(horizontal = 16.dp)) {
+        related.forEachIndexed { i, r ->
+          Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+              .clickable { onAction(CardAction.OpenDetail(r.targetId)) }
+              .semantics { contentDescription = "Open related: ${r.title ?: r.relation}" }
+              .padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Column(Modifier.weight(1f)) {
+              Text(r.title ?: r.relation, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+              r.sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+          if (i < related.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+      }
     }
   }
 }

@@ -19,8 +19,10 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
       cards = action.cards,
       detailStack = state.detailStack.filter { id -> action.cards.any { it.id == id } },
     )
-  is NavToDetail ->                                     // push, dedup re-tap of the top
-    if (state.detailStack.lastOrNull() == action.cardId) state
+  is NavToDetail ->                                     // push, dedup re-tap of top;
+    // only navigate to a card we actually have — a dangling related-edge targetId
+    // (target not in the family cache) is a no-op, not a jarring dump to the feed.
+    if (state.detailStack.lastOrNull() == action.cardId || state.cards.none { it.id == action.cardId }) state
     else state.copy(detailStack = state.detailStack + action.cardId)
   is NavBack -> state.copy(detailStack = state.detailStack.dropLast(1))
   else -> state

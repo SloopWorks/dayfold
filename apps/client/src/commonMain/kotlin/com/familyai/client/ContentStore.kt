@@ -7,7 +7,10 @@ import com.familyai.client.db.ContentDb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+
+private val RELATED_SER = ListSerializer(RelatedRef.serializer())
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
@@ -30,6 +33,8 @@ class ContentStore(driver: SqlDriver) {
           c.payload?.let { json.encodeToString(Payload.serializer(), it) },
           c.privacy?.let { json.encodeToString(CardPrivacy.serializer(), it) },
           c.hubRef,
+          c.related?.let { json.encodeToString(RELATED_SER, it) },
+          c.relatedKicker,
           nowIso,
         )
       }
@@ -45,6 +50,7 @@ class ContentStore(driver: SqlDriver) {
     type = row.type, hubRef = row.hub_ref,
     payload = decode(row.payload, Payload.serializer()),
     privacy = decode(row.privacy, CardPrivacy.serializer()),
+    related = decode(row.related, RELATED_SER), relatedKicker = row.related_kicker,
   )
 
   // Guarded decode: corrupt cached JSON must not crash the feed — skip → null,

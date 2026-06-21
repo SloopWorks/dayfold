@@ -115,6 +115,15 @@
 
         "type": { "enum": ["file", "link", "invite", "contact", "geo", "email"], "description": "content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for back-compat with kind-only M0 cards." },
         "hubRef": { "type": "string", "description": "parent Hub id — the adaptive supporting pane's 'PART OF THIS HUB' (ADR 0022; CL-10). Optional." },
+        "relatedKicker": { "type": "string", "description": "section header for the RELATED rows (e.g. 'FROM THE SAME EMAIL'). CL-8." },
+        "related": { "type": "array", "description": "cross-links to other cards in THIS family (CL-8). targetId resolves client-side vs the local cache; title/sub are author-denormalized so a row renders without resolving. Same-tenant only (rides authorizeTenant).",
+          "items": { "type": "object", "additionalProperties": false, "required": ["relation", "targetId", "targetType"],
+            "properties": {
+              "relation": { "type": "string", "description": "same-email | same-thread | same-hub | same-trip | attachment | contact-of" },
+              "targetId": { "type": "string" },
+              "targetType": { "enum": ["file", "link", "invite", "contact", "geo", "email"] },
+              "title": { "type": "string" }, "sub": { "type": "string" }
+            } } },
         "privacy": { "type": "object", "additionalProperties": false, "description": "honesty chip (ADR 0014/0015) — a claim allowed ONLY where a real schema/API/client boundary enforces it.",
           "properties": { "storage": { "enum": ["on_device", "in_browser", "location_local", "matched_on_device"] } } },
         "payload": { "description": "[E2E-ciphertext at M1] typed content payload, variant selected by `type` (ADR 0022 D1). Inline oneOf (no internal $ref) so codegen emits TYPED variants, never z.any.",

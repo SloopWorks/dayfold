@@ -26,6 +26,7 @@ beforeAll(async () => {
   await q(readFileSync(resolve(here, "../migrations/0001_m0_init.sql"), "utf8"));
   await q(readFileSync(resolve(here, "../migrations/0002_auth.sql"), "utf8"));
   await q(readFileSync(resolve(here, "../migrations/0005_typed_content.sql"), "utf8")); // CL-2 typed-card cols
+  await q(readFileSync(resolve(here, "../migrations/0006_related.sql"), "utf8")); // CL-8 related cols
 });
 afterAll(async () => { await pool.end(); });
 
