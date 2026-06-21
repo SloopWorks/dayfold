@@ -9,17 +9,17 @@ plugins {
 }
 
 android {
-  namespace = "com.familyai.client.android"
+  namespace = "com.sloopworks.dayfold.android"
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.familyai.client"
+    applicationId = "com.sloopworks.dayfold"
     minSdk = 34 // matches :client
     targetSdk = 35
     versionCode = 1
     versionName = "0.0.0-M0"
     // dev config baked at build time (emulator → host = 10.0.2.2)
-    buildConfigField("String", "FAMILYAI_API", "\"${System.getenv("FAMILYAI_API") ?: "http://10.0.2.2:8799"}\"")
+    buildConfigField("String", "DAYFOLD_API", "\"${System.getenv("DAYFOLD_API") ?: "http://10.0.2.2:8799"}\"")
     buildConfigField("String", "FAMILY_ID", "\"${System.getenv("FAMILY_ID") ?: ""}\"")
     buildConfigField("String", "HOUSEHOLD_SECRET", "\"${System.getenv("HOUSEHOLD_SECRET") ?: ""}\"")
     // S5 dev sign-in (local only; the server hard-refuses dev-token in prod/preview).
@@ -36,7 +36,7 @@ android {
 }
 
 // keep the documented APK name stable across the KMP restructure
-base.archivesName.set("familyai-android")
+base.archivesName.set("dayfold-android")
 
 dependencies {
   implementation(project(":client"))

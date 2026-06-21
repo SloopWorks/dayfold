@@ -22,12 +22,12 @@
 >
 > **Redeploy:** `cd apps/api && npm run build:fn && vercel deploy --prod --yes
 > --scope patrick-jacksons-projects-c406a118`. **Remaining: point the phone at
-> the cloud URL** (rebuild the Android app with `FAMILYAI_API=https://family-ai-dashboard.vercel.app`).
+> the cloud URL** (rebuild the Android app with `DAYFOLD_API=https://family-ai-dashboard.vercel.app`).
 
 Move the M0 API off `localhost` to **Vercel + Neon**. Single household,
 plaintext, household token. Cost target: **$0** (Neon free + Vercel hobby),
 well under the <$50/mo cap (ADR 0012). The app + CLI + Android client are
-unchanged — only `FAMILYAI_API` and `DATABASE_URL`/secrets move.
+unchanged — only `DAYFOLD_API` and `DATABASE_URL`/secrets move.
 
 Operator-gated steps (account creation, billing, auth) are marked **[YOU]**;
 agent-doable-after-auth steps are **[AGENT]** (per ADR 0012 — once you've
@@ -90,11 +90,11 @@ this on the first deploy if needed.
 
 ## 4. Repoint the clients — [AGENT]
 
-- **CLI:** `export FAMILYAI_API="https://<prod-url>"` (FAMILY_ID + HOUSEHOLD_SECRET
-  from §1.4). `familyai push …` now writes to the cloud.
+- **CLI:** `export DAYFOLD_API="https://<prod-url>"` (FAMILY_ID + HOUSEHOLD_SECRET
+  from §1.4). `dayfold push …` now writes to the cloud.
 - **Android:** rebuild with the prod config:
   ```
-  FAMILYAI_API="https://<prod-url>" FAMILY_ID=… HOUSEHOLD_SECRET=… \
+  DAYFOLD_API="https://<prod-url>" FAMILY_ID=… HOUSEHOLD_SECRET=… \
     ./gradlew assembleRelease   # (or assembleDebug for dogfood)
   ```
   Install on your phone (`adb install`) — now syncs from the cloud, no laptop.

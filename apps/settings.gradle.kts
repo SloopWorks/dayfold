@@ -17,5 +17,5 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "familyai-apps"
+rootProject.name = "dayfold-apps"
 include(":client", ":androidApp")

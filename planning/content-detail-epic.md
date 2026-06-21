@@ -44,7 +44,7 @@ G-DESIGN passes.
 
 **Goal:** Replace library-default M3 theming with the brand token set so every
 surface renders in-brand, light + dark.
-**Files:** new `apps/client/src/commonMain/kotlin/com/familyai/client/theme/`
+**Files:** new `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/theme/`
 (`Color.kt`, `Type.kt`, `Shape.kt`, `Theme.kt`); wrap `FeedApp`/root in
 `DayfoldTheme { }`. Fonts: bundle **Outfit** + **Figtree** as Compose resources
 (`composeResources/font/`), Material Symbols Rounded as an icon font or migrate
@@ -164,7 +164,7 @@ templates** (`apps/cli/templates/<type>.json`); a Claude **skill/doc** update so
 the authoring loop emits valid typed payloads.
 **Scope:** validate the pushed JSON against the **generated Kotlin types**
 before PUT (fail fast with field errors, not a server 422); optional
-`familyai push --type invite card.json`; `familyai template <type>` to emit a
+`dayfold push --type invite card.json`; `dayfold template <type>` to emit a
 starter. Keep env config + Bearer.
 **Test:** CLI unit test — valid type passes, malformed payload rejected locally;
 a golden template per type parses.

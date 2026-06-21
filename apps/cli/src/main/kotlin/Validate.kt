@@ -1,7 +1,7 @@
-package com.familyai.cli
+package com.sloopworks.dayfold.cli
 
-import com.familyai.schema.BriefingCard
-import com.familyai.schema.BriefingCardPayload
+import com.sloopworks.dayfold.schema.BriefingCard
+import com.sloopworks.dayfold.schema.BriefingCardPayload
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -9,12 +9,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
 // CL-3 — local STRUCTURAL validation of a typed card against the GENERATED schema
-// types (com.familyai.schema.*, the single source of truth): variant↔type match,
+// types (com.sloopworks.dayfold.schema.*, the single source of truth): variant↔type match,
 // unknown/mistyped fields (strict decode). It is a fast pre-check, NOT a full
 // replica of the server gate — format rules (url(), ISO datetimes, length caps,
 // int-ness) are still enforced server-side (CL-2), which remains the authority.
 // Note two codegen asymmetries: this requires `kind` and `provenance.at` even
-// though the server defaults/relaxes them — so author from `familyai template`.
+// though the server defaults/relaxes them — so author from `dayfold template`.
 
 // Strict: reject unknown fields (catches typos) + wrong types. Mirrors the
 // server's .strict() zod posture.

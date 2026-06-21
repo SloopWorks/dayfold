@@ -72,10 +72,10 @@ blocked** behind a queued Claude-Design expanded-detail pass.
 - **TASK-CL-3** — CLI typed authoring (content-API wedge). ✅ **DONE**
   (branch `cl-3-cli-typed-authoring` → integrated into `cl-next`) 2026-06-20.
   **Operator-authorized** (was INB-18-deferred). CLI now consumes the generated
-  `com.familyai.schema.*` types (srcDir `kotlin-gen` — one source of truth).
-  `familyai push <id> <file> --type <t>` runs **local structural validation**
+  `com.sloopworks.dayfold.schema.*` types (srcDir `kotlin-gen` — one source of truth).
+  `dayfold push <id> <file> --type <t>` runs **local structural validation**
   (`validateCard`: strict decode + type↔payload-key cross-check + `--type` assert)
-  and fails fast with field errors before the server; `familyai template <type>`
+  and fails fast with field errors before the server; `dayfold template <type>`
   emits a valid starter (6 templates in `src/main/resources/templates/`).
   Authoring doc `apps/cli/templates/README.md` (incl. Guardrail-3 own-mail
   constraint + geo `on_device` privacy honesty). **Validator is STRUCTURAL only**

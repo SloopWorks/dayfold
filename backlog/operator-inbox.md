@@ -156,7 +156,7 @@ Each item: question, context link, **proposed default**, urgency.
     CREDENTIAL_ID** (from `node scripts/provision.mjs` run against the Neon DB
     after applying `migrations/0001_m0_init.sql`).
   - `vercel deploy` (preview) → smoke-test `PUT/GET /sync` → `vercel promote`.
-  - point the CLI/client `FAMILYAI_API` at the deploy URL.
+  - point the CLI/client `DAYFOLD_API` at the deploy URL.
   *(First-deploy unknown to verify: Vercel bundling the `.ts`-extension imports —
   if it balks, add a tiny build step; the app itself is fully CI-tested.)*
   Reply when Vercel + Neon exist and the loop wires/verifies the live deploy.

@@ -118,15 +118,15 @@ JUnit path also exists: `SnapshotApp.assertGolden(...)` (goldens under
 ```
 cd apps
 SDK=~/Library/Android/sdk; DEV=$($SDK/platform-tools/adb devices | awk 'NR>1&&$2=="device"{print $1;exit}')
-FAMILYAI_API=https://family-ai-dashboard.vercel.app FAMILY_ID=… HOUSEHOLD_SECRET=… \
+DAYFOLD_API=https://family-ai-dashboard.vercel.app FAMILY_ID=… HOUSEHOLD_SECRET=… \
   ANDROID_HOME=$SDK JAVA_HOME=<jdk17> ./gradlew :androidApp:assembleDebug
-$SDK/platform-tools/adb -s $DEV install -r androidApp/build/outputs/apk/debug/familyai-android-debug.apk
-$SDK/platform-tools/adb -s $DEV shell am start -n com.familyai.client/com.familyai.client.android.MainActivity
+$SDK/platform-tools/adb -s $DEV install -r androidApp/build/outputs/apk/debug/dayfold-android-debug.apk
+$SDK/platform-tools/adb -s $DEV shell am start -n com.sloopworks.dayfold/com.sloopworks.dayfold.android.MainActivity
 $SDK/platform-tools/adb -s $DEV exec-out screencap -p > /tmp/x.png   # then Read it
 ```
 - Emulators are usually up (`emulator-5554/5556`); the physical **Pixel 10 Pro**
   comes and goes on USB — re-pick `$DEV` each time.
-- BuildConfig bakes `FAMILYAI_API/FAMILY_ID/HOUSEHOLD_SECRET` at build time
+- BuildConfig bakes `DAYFOLD_API/FAMILY_ID/HOUSEHOLD_SECRET` at build time
   (emulator→host = `http://10.0.2.2:8799`).
 
 ## iOS (`:client` framework — TASK-KMP)

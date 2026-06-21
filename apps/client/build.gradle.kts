@@ -82,7 +82,7 @@ kotlin {
 }
 
 android {
-  namespace = "com.familyai.client"
+  namespace = "com.sloopworks.dayfold.client"
   compileSdk = 35
   defaultConfig { minSdk = 34 }
   compileOptions {
@@ -94,13 +94,13 @@ android {
 sqldelight {
   databases {
     create("ContentDb") {
-      packageName.set("com.familyai.client.db")
+      packageName.set("com.sloopworks.dayfold.client.db")
       dialect("app.cash.sqldelight:sqlite-3-38-dialect:2.3.2") // UPSERT
     }
   }
 }
 
-compose.desktop { application { mainClass = "com.familyai.client.MainKt" } }
+compose.desktop { application { mainClass = "com.sloopworks.dayfold.client.MainKt" } }
 
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
 tasks.named<Test>("desktopTest") { useJUnitPlatform() }

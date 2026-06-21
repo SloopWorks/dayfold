@@ -440,7 +440,7 @@ async function redeem(device_code, mintAccess2, issueRefresh2) {
     const cid = credId();
     await client.query(
       `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
-       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'familyai-cli '||left(coalesce($4,''),64))`,
+       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'dayfold-cli '||left(coalesce($4,''),64))`,
       [cid, user_id, family_id, origin_ua]
     );
     const refresh = await issueRefresh2(cid, client);
@@ -653,9 +653,55 @@ var BlockSchema = z.object({ "id": z.any(), "type": z.enum(["text", "markdown", 
 }).describe("structured fields for non-markdown block types; variant by `type` (see $comment)").optional(), "triggers": z.array(z.any()).optional(), "actions": z.array(z.any()).optional(), "provenance": z.any() }).strict().and(z.any());
 var SectionSchema = z.object({ "id": z.any(), "title": z.string().describe("[CONTENT/E2E-hole]").optional(), "ord": z.number().int().default(0), "version": z.any().optional(), "blocks": z.array(z.any()).optional() }).strict();
 var HubSchema = z.object({ "id": z.any(), "type": z.string().describe("bounded template-catalog key (ADR 0004/0006): vacation|starting-college|move|party-event|new-baby|medical|school-year \u2014 app-validated"), "title": z.string().describe("[CONTENT/E2E-hole]"), "status": z.enum(["planning", "active", "archived"]).default("active"), "start_at": z.any().optional(), "end_at": z.any().optional(), "countdown_to": z.any().optional(), "version": z.any().optional(), "sections": z.array(z.any()).optional() }).strict();
-var BriefingCardSchema = z.object({ "id": z.any(), "kind": z.enum(["action", "info", "weather", "countdown"]).default("info"), "title": z.string().max(4096), "body_md": z.string().max(1048576).describe("limited inline markdown only (1MB cap, F8)").optional(), "target": z.object({ "hubId": z.string().optional(), "sectionId": z.string().optional(), "blockId": z.string().optional() }).strict().describe("deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)").optional(), "triggers": z.array(z.any()).optional(), "actions": z.array(z.any()).optional(), "not_before": z.any().optional(), "expires_at": z.any().optional(), "version": z.any().optional(), "provenance": z.any() }).strict().describe("the 'Now' surface");
+var BriefingCardSchema = z.object({ "id": z.any(), "kind": z.enum(["action", "info", "weather", "countdown"]).default("info"), "title": z.string().max(4096), "body_md": z.string().max(1048576).describe("limited inline markdown only (1MB cap, F8)").optional(), "target": z.object({ "hubId": z.string().optional(), "sectionId": z.string().optional(), "blockId": z.string().optional() }).strict().describe("deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)").optional(), "triggers": z.array(z.any()).optional(), "actions": z.array(z.any()).optional(), "not_before": z.any().optional(), "expires_at": z.any().optional(), "version": z.any().optional(), "provenance": z.any(), "type": z.enum(["file", "link", "invite", "contact", "geo", "email"]).describe("content type (ADR 0022 D1) \u2014 drives the Now-card / detail layout. OPTIONAL for back-compat with kind-only M0 cards.").optional(), "hubRef": z.string().describe("parent Hub id \u2014 the adaptive supporting pane's 'PART OF THIS HUB' (ADR 0022; CL-10). Optional.").optional(), "relatedKicker": z.string().describe("section header for the RELATED rows (e.g. 'FROM THE SAME EMAIL'). CL-8.").optional(), "related": z.array(z.object({ "relation": z.string().describe("same-email | same-thread | same-hub | same-trip | attachment | contact-of"), "targetId": z.string(), "targetType": z.enum(["file", "link", "invite", "contact", "geo", "email"]), "title": z.string().optional(), "sub": z.string().optional() }).strict()).describe("cross-links to other cards in THIS family (CL-8). targetId resolves client-side vs the local cache; title/sub are author-denormalized so a row renders without resolving. Same-tenant only (rides authorizeTenant).").optional(), "privacy": z.object({ "storage": z.enum(["on_device", "in_browser", "location_local", "matched_on_device"]).optional() }).strict().describe("honesty chip (ADR 0014/0015) \u2014 a claim allowed ONLY where a real schema/API/client boundary enforces it.").optional(), "payload": z.any().superRefine((x, ctx) => {
+  const schemas = [z.object({ "file": z.object({ "filename": z.string().optional(), "mime": z.string().optional(), "size": z.number().int().optional(), "pages": z.number().int().optional(), "source": z.string().optional(), "owner": z.string().optional(), "modified": z.string().datetime({ offset: true }).optional(), "sharedWith": z.array(z.string()).optional(), "docRef": z.string().describe("url | opaque storage ref").optional() }).strict() }).strict(), z.object({ "link": z.object({ "url": z.string().url().optional(), "domain": z.string().optional(), "title": z.string().optional(), "ogDesc": z.string().describe("author-stamped OG; server never fetches the URL (no SSRF)").optional(), "favicon": z.string().optional(), "kind": z.enum(["page", "form"]).optional(), "fieldCount": z.number().int().optional(), "closesAt": z.string().datetime({ offset: true }).optional(), "savedAt": z.string().datetime({ offset: true }).optional() }).strict() }).strict(), z.object({ "invite": z.object({ "eventName": z.string().optional(), "host": z.string().optional(), "startAt": z.string().datetime({ offset: true }).optional(), "place": z.string().optional(), "rsvpBy": z.string().datetime({ offset: true }).optional(), "rsvpState": z.enum(["yes", "no", "none"]).describe("display-of-state at M0 (no write path; ADR 0020/0016)").optional(), "guestCount": z.number().int().optional(), "confirmedCount": z.number().int().optional(), "notes": z.string().optional() }).strict() }).strict(), z.object({ "contact": z.object({ "name": z.string().optional(), "company": z.string().optional(), "role": z.string().optional(), "phone": z.string().optional(), "email": z.string().optional(), "address": z.string().optional(), "hours": z.string().optional(), "linkedEventId": z.string().optional(), "deliveryWindow": z.string().optional() }).strict() }).strict(), z.object({ "geo": z.object({ "label": z.string().optional(), "address": z.string().optional(), "lat": z.number().optional(), "lng": z.number().optional(), "etaMin": z.number().int().optional(), "distance": z.string().optional(), "travelMode": z.string().optional(), "parking": z.string().optional(), "leaveBy": z.string().datetime({ offset: true }).optional(), "linkedEventId": z.string().optional() }).strict() }).strict(), z.object({ "email": z.object({ "from": z.string().optional(), "fromAddr": z.string().optional(), "subject": z.string().optional(), "date": z.string().datetime({ offset: true }).optional(), "threadLen": z.number().int().optional(), "bodyExcerpt": z.string().describe("[E2E-ciphertext] authored over the operator's OWN mail (CLI/Claude) \u2014 never a server-side Gmail restricted-scope read (Guardrail 3)").optional(), "attachments": z.array(z.object({ "name": z.string().optional(), "mime": z.string().optional(), "size": z.number().int().optional() }).strict()).optional(), "labels": z.array(z.string()).optional() }).strict() }).strict()];
+  const { errors, failed } = schemas.reduce(
+    ({ errors: errors2, failed: failed2 }, schema) => ((result) => result.error ? {
+      errors: [...errors2, ...result.error.issues],
+      failed: failed2 + 1
+    } : { errors: errors2, failed: failed2 })(
+      schema.safeParse(x)
+    ),
+    { errors: [], failed: 0 }
+  );
+  const passed = schemas.length - failed;
+  if (passed !== 1) {
+    ctx.addIssue(errors.length ? {
+      path: [],
+      code: "invalid_union",
+      errors: [errors],
+      message: "Invalid input: Should pass single schema. Passed " + passed
+    } : {
+      path: [],
+      code: "custom",
+      errors: [errors],
+      message: "Invalid input: Should pass single schema. Passed " + passed
+    });
+  }
+}).describe("[E2E-ciphertext at M1] typed content payload, variant selected by `type` (ADR 0022 D1). Inline oneOf (no internal $ref) so codegen emits TYPED variants, never z.any.").optional() }).strict().describe("the 'Now' surface");
 var PlaceSchema = z.object({ "id": z.any(), "label": z.string(), "kind": z.enum(["home", "school", "store", "other"]).describe("category (drives the place icon in the UI; design alignment)").default("other"), "lat": z.number(), "lng": z.number(), "radius_m": z.number().int().default(150), "version": z.any().optional() }).strict().describe("ADR 0014 reusable named place; family content (encrypted at rest, never live position)");
 var SyncResponseSchema = z.object({ "changes": z.object({ "hubs": z.array(z.any()).optional(), "sections": z.array(z.any()).optional(), "blocks": z.array(z.any()).optional(), "cards": z.array(z.any()).optional(), "places": z.array(z.any()).optional() }), "tombstones": z.array(z.object({ "type": z.enum(["hub", "section", "block", "card", "place"]), "id": z.string() }).strict()), "next_cursor": z.string().optional(), "has_more": z.boolean() }).strict().describe("GET /families/{fid}/sync (03 \xA7sync)");
+
+// src/content-validation.ts
+function crossValidateCard(card) {
+  const hasType = card.type != null;
+  const hasPayload = card.payload != null;
+  if (!hasType && !hasPayload) return [];
+  if (hasType !== hasPayload) {
+    return [{
+      path: [hasType ? "payload" : "type"],
+      message: hasType ? "a typed card (`type` set) must carry a matching `payload`" : "`payload` requires a `type` discriminator"
+    }];
+  }
+  const keys = Object.keys(card.payload);
+  if (keys.length !== 1 || keys[0] !== card.type) {
+    return [{
+      path: ["payload"],
+      message: `payload variant "${keys[0] ?? "(none)"}" does not match type "${String(card.type)}"`
+    }];
+  }
+  return [];
+}
 
 // src/repo.ts
 init_db();
@@ -665,14 +711,17 @@ async function upsertCard(familyId, id3, b) {
   const r = await q(
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
-        target_block_id, provenance, triggers, actions, not_before, expires_at, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
+        target_block_id, provenance, triggers, actions, not_before, expires_at,
+        type, payload, privacy, hub_ref, related, related_kicker, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
        target_block_id=EXCLUDED.target_block_id, provenance=EXCLUDED.provenance,
        triggers=EXCLUDED.triggers, actions=EXCLUDED.actions,
        not_before=EXCLUDED.not_before, expires_at=EXCLUDED.expires_at,
+       type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
+       hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
     [
@@ -688,7 +737,13 @@ async function upsertCard(familyId, id3, b) {
       J(b.triggers),
       J(b.actions),
       b.not_before ?? null,
-      b.expires_at ?? null
+      b.expires_at ?? null,
+      b.type ?? null,
+      J(b.payload),
+      J(b.privacy),
+      b.hubRef ?? null,
+      J(b.related),
+      b.relatedKicker ?? null
     ]
   );
   return r.rows[0];
@@ -865,6 +920,134 @@ app.get("/auth/whoami", async (c) => {
   );
   return c.json({ family_id, families: r.rows });
 });
+app.get("/auth/me", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const u = (await q(`SELECT id, display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  if (!u) return c.body(null, 401);
+  return c.json({ user_id: u.id, display_name: u.display_name });
+});
+app.patch("/auth/me", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const body = await c.req.json().catch(() => null);
+  const name = typeof body?.display_name === "string" ? body.display_name.trim() : null;
+  if (!name || name.length < 1 || name.length > 80) return c.json({ type: "bad-display-name" }, 400);
+  const r = await q(
+    `UPDATE users SET display_name=$1, updated_at=now() WHERE id=$2 AND deleted_at IS NULL RETURNING display_name`,
+    [name, sub]
+  );
+  if (r.rowCount === 0) return c.body(null, 401);
+  return c.json({ display_name: r.rows[0].display_name });
+});
+app.get("/auth/me/export", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const user = (await q(`SELECT id, display_name, created_at FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  if (!user) return c.body(null, 401);
+  const identities = (await q(`SELECT provider, email_verified, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at`, [sub])).rows;
+  const memberships = (await q(
+    `SELECT m.family_id, f.name AS family_name, m.role, m.status, m.joined_at
+       FROM memberships m JOIN families f ON f.id=m.family_id WHERE m.user_id=$1 ORDER BY m.created_at`,
+    [sub]
+  )).rows;
+  const credentials = (await q(
+    `SELECT kind, scopes, label, last_used_at, created_at FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at`,
+    [sub]
+  )).rows;
+  return c.json({ exported_at: (/* @__PURE__ */ new Date()).toISOString(), user, identities, memberships, credentials });
+});
+app.get("/auth/me/credentials", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rows = (await q(
+    `SELECT id, kind, label, scopes, family_scope, last_used_at, last_used_ip, created_at
+       FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST, created_at DESC`,
+    [sub]
+  )).rows;
+  return c.json({ credentials: rows.map((r) => ({ ...r, current: r.id === cid })) });
+});
+app.delete("/auth/me/credentials/:id", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const target = c.req.param("id");
+  const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
+  if (r.rowCount === 0) return c.body(null, 404);
+  (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
+  return c.body(null, 204);
+});
+app.delete("/auth/me", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const blocked = await q(
+    `SELECT m.family_id, f.name FROM memberships m JOIN families f ON f.id=m.family_id
+      WHERE m.user_id=$1 AND m.role='owner' AND m.status='active'
+        AND (SELECT count(*) FROM memberships o WHERE o.family_id=m.family_id AND o.role='owner' AND o.status='active' AND o.user_id<>$1)=0
+        AND (SELECT count(*) FROM memberships x WHERE x.family_id=m.family_id AND x.status='active' AND x.user_id<>$1)>0`,
+    [sub]
+  );
+  if (blocked.rowCount && blocked.rowCount > 0)
+    return c.json({ type: "transfer-required", families: blocked.rows }, 409);
+  await q(`UPDATE users SET deleted_at=now() WHERE id=$1 AND deleted_at IS NULL`, [sub]);
+  await q(`UPDATE memberships SET status='removed', updated_at=now() WHERE user_id=$1 AND status<>'removed'`, [sub]);
+  await q(`UPDATE credentials SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [sub]);
+  (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("account.soft_delete", { actorUserId: sub });
+  return c.body(null, 204);
+});
 app.post("/families", async (c) => {
   const t = bearer2(c);
   if (!t) return c.body(null, 401);
@@ -897,6 +1080,8 @@ app.put("/families/:fid/cards/:id", async (c) => {
   body = stampProvenance(body, a.cred.id);
   const parsed = BriefingCardSchema.safeParse({ ...body, id: id3 });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  const cross = crossValidateCard(parsed.data);
+  if (cross.length) return c.json({ type: "validation", issues: cross }, 422);
   return c.json(await upsertCard(fid, id3, parsed.data), 200);
 });
 app.get("/families/:fid/cards", async (c) => {
@@ -904,6 +1089,19 @@ app.get("/families/:fid/cards", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   return c.json(await listCards(fid));
+});
+app.get("/families/:fid/members", async (c) => {
+  const fid = c.req.param("fid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const rows = await q(
+    `SELECT m.user_id AS uid, u.display_name, m.role, m.status, m.joined_at
+       FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.family_id = $1 AND m.status = 'active'
+      ORDER BY (m.role = 'owner') DESC, m.joined_at`,
+    [fid]
+  );
+  return c.json({ members: rows.rows });
 });
 app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -920,7 +1118,7 @@ app.post("/device/authorize", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const { createAuthorization: createAuthorization2 } = await Promise.resolve().then(() => (init_device(), device_exports));
   const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
-  const { device_code, user_code } = await createAuthorization2(body?.client ?? "familyai-cli", ip, c.req.header("user-agent") ?? null);
+  const { device_code, user_code } = await createAuthorization2(body?.client ?? "dayfold-cli", ip, c.req.header("user-agent") ?? null);
   await audit2("device.authorize", { detail: { ip } });
   const base = `${new URL(c.req.url).origin}/device`;
   return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });
@@ -1056,10 +1254,19 @@ app.post("/families/:fid/members/*", async (c) => {
   if (colonIdx === -1) return c.body(null, 404);
   const uid = seg.slice(0, colonIdx);
   const action = seg.slice(colonIdx + 1);
-  if (action !== "approve" && action !== "decline") return c.body(null, 404);
+  if (action !== "approve" && action !== "decline" && action !== "promote") return c.body(null, 404);
   const g = await ownerGate(c, fid);
   if ("status" in g) return c.body(null, g.status);
-  if (action === "approve") {
+  if (action === "promote") {
+    const r = await q(`UPDATE memberships SET role='owner', updated_at=now() WHERE user_id=$1 AND family_id=$2 AND status='active' AND role<>'owner' RETURNING 1`, [uid, fid]);
+    if (r.rowCount === 1) {
+      (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("member.promote", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+      return c.body(null, 204);
+    }
+    const cur = await q(`SELECT role, status FROM memberships WHERE user_id=$1 AND family_id=$2`, [uid, fid]);
+    if (cur.rowCount === 0 || cur.rows[0].status !== "active") return c.body(null, 404);
+    return c.body(null, 200);
+  } else if (action === "approve") {
     const r = await q(`UPDATE memberships SET status='active', joined_at=now() WHERE user_id=$1 AND family_id=$2 AND status='pending' RETURNING role`, [uid, fid]);
     if (r.rowCount === 1) {
       (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("invite.approve", { actorUserId: g.sub, familyId: fid, detail: { uid } });

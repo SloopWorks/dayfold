@@ -57,3 +57,15 @@ jobs:
       # apps/client no longer has its own wrapper. Run the module task from apps/.
       - working-directory: apps
         run: ./gradlew --no-daemon :client:desktopTest
+
+  naming-guard:
+    name: No legacy com.familyai package (ADR 0026)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: reject com.familyai / FAMILYAI_API in code
+        run: |
+          if git grep -nE 'com\.familyai|FAMILYAI_API' -- apps packages ':!**/build/**'; then
+            echo "::error::legacy com.familyai / FAMILYAI_API found — package is com.sloopworks.dayfold per ADR 0026"
+            exit 1
+          fi

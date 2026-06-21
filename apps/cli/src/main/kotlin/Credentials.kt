@@ -1,4 +1,4 @@
-package com.familyai.cli
+package com.sloopworks.dayfold.cli
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -14,7 +14,7 @@ data class Creds(val v: Int = 1, val api: String, val accessToken: String, val r
 class Credentials(private val file: Path = defaultPath()) {
   private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
   companion object {
-    fun defaultPath(): Path = Path.of(System.getProperty("user.home"), ".config", "familyai", "credentials.json")
+    fun defaultPath(): Path = Path.of(System.getProperty("user.home"), ".config", "dayfold", "credentials.json")
   }
   fun path(): Path = file
   fun load(): Creds? = if (Files.exists(file)) runCatching { json.decodeFromString<Creds>(Files.readString(file)) }.getOrNull() else null

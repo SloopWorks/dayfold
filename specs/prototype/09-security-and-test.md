@@ -90,7 +90,7 @@ skips the rails.
 
 1. DB (02) + content API write/read/sync (03) + **M0 household token** (04 M0
    slice) — the dumb-store spine.
-2. CLI push/auth + deterministic-ID authoring + `familyai push` (07) — the
+2. CLI push/auth + deterministic-ID authoring + `dayfold push` (07) — the
    operator can author.
 3. CMP client render: cache + sync + Now/Hubs + deep-link (08 M0 slice) — the
    operator sees it on device. **← first dogfood (Gate G1a DoD).**

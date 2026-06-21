@@ -69,10 +69,10 @@ Enumerated so the agent loop doesn't stall on an un-surfaced human gate:
 ### P2 — CLI  *(agent builds; operator dogfoods)*
 - Kotlin CLI (07): M0 token from keychain; manifest authoring + **deterministic
   IDs (ULID write-back) + anchor injection**; `push/--dry-run/--diff`;
-  markdown→blocks; hub/card/place verbs; the **`.claude/skills/familyai/`**.
+  markdown→blocks; hub/card/place verbs; the **`.claude/skills/dayfold/`**.
 - **Tests:** re-push idempotent (no dup); rename keeps IDs stable; `--diff`
-  reads via the M0 token. **Acceptance:** `familyai push <manifest>` → server
-  has it; second push is a no-op diff; **the `.claude/skills/familyai/` never
+  reads via the M0 token. **Acceptance:** `dayfold push <manifest>` → server
+  has it; second push is a no-op diff; **the `.claude/skills/dayfold/` never
   reads token/FCK — the binary owns auth+keychain (07 invariant)**.
 
 > **M0 SURFACE = BRIEFING FEED ONLY (D2, 2026-06-18).** Event Hubs render +

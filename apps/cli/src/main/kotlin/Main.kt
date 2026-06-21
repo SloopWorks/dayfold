@@ -1,4 +1,4 @@
-package com.familyai.cli
+package com.sloopworks.dayfold.cli
 
 import java.net.URI
 import java.net.http.HttpClient
@@ -11,7 +11,7 @@ import kotlinx.serialization.json.*
 
 // M0 CLI: the operator's (and Claude Code's) authoring side. JDK-only HTTP.
 // Config from env (M0 household token; never a flag, never in the repo):
-//   FAMILYAI_API   e.g. http://localhost:8787
+//   DAYFOLD_API   e.g. http://localhost:8787
 //   FAMILY_ID      the provisioned family id
 //   HOUSEHOLD_SECRET  the provisioned token (keychain/secret store)
 
@@ -70,7 +70,7 @@ private fun signout(c: Creds) {
 
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
-    "login" -> deviceLogin(api = System.getenv("FAMILYAI_API") ?: "https://family-ai-dashboard.vercel.app")
+    "login" -> deviceLogin(api = System.getenv("DAYFOLD_API") ?: "https://family-ai-dashboard.vercel.app")
 
     "logout" -> {
       val s = Credentials()
@@ -82,10 +82,10 @@ fun main(args: Array<String>) {
     "whoami" -> {
       val c = Credentials().load()
       if (c != null) println("family=${c.familyId} api=${c.api} (device)")
-      else println("family=${System.getenv("FAMILY_ID")} api=${System.getenv("FAMILYAI_API")} (legacy)")
+      else println("family=${System.getenv("FAMILY_ID")} api=${System.getenv("DAYFOLD_API")} (legacy)")
     }
 
-    // familyai push <cardId> <file.json>  — PUT a briefing card (M0 feed).
+    // dayfold push <cardId> <file.json>  — PUT a briefing card (M0 feed).
     "push" -> {
       val id = args.getOrNull(1) ?: usage()
       val file = args.getOrNull(2) ?: usage()
@@ -107,9 +107,9 @@ fun main(args: Array<String>) {
         var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
         if (code == 401) {
           access = store.withRefreshLock {
-            val cur = store.load() ?: run { System.err.println("credentials removed — run: familyai login"); exitProcess(1) }
+            val cur = store.load() ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
             val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
-            if (rc != 200) { System.err.println("session expired — run: familyai login"); exitProcess(1) }
+            if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
             val o = J.parseToJsonElement(rt).jsonObject
             val newAccess = o["access"]!!.jsonPrimitive.content
             store.save(cur.copy(accessToken = newAccess, refreshToken = o["refresh"]!!.jsonPrimitive.content))
@@ -122,14 +122,14 @@ fun main(args: Array<String>) {
         if (code != 200) { System.err.println(body); exitProcess(1) }
       } else {
         // legacy env path (unchanged)
-        val api = env("FAMILYAI_API"); val fam = env("FAMILY_ID"); val secret = env("HOUSEHOLD_SECRET")
+        val api = env("DAYFOLD_API"); val fam = env("FAMILY_ID"); val secret = env("HOUSEHOLD_SECRET")
         val (code, body) = putStatus("$api/families/$fam/cards/$id", payload, secret)
         println("push $id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       }
     }
 
-    // familyai template <type>  — print a valid starter card for the type.
+    // dayfold template <type>  — print a valid starter card for the type.
     "template" -> {
       val t = args.getOrNull(1) ?: usage()
       if (t !in CONTENT_TYPES) {
@@ -171,7 +171,7 @@ private fun deviceLogin(api: String) {
       val (wc, wt) = getStatus("$api/auth/whoami", accessToken)
       val familyId = if (wc == 200) runCatching { J.parseToJsonElement(wt).jsonObject["family_id"]?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() } }.getOrNull() else null
       if (familyId.isNullOrEmpty()) {
-        System.err.println("login succeeded but could not resolve family — is the approving owner's family set up? run: familyai login")
+        System.err.println("login succeeded but could not resolve family — is the approving owner's family set up? run: dayfold login")
         exitProcess(1)
       }
       Credentials().save(Creds(api = api, accessToken = accessToken, refreshToken = refreshToken, familyId = familyId, obtainedAt = java.time.Instant.now().toString()))
@@ -189,7 +189,7 @@ private fun deviceLogin(api: String) {
 
 private fun usage(): Nothing {
   System.err.println(
-    "usage: familyai <command>\n" +
+    "usage: dayfold <command>\n" +
       "  login | logout | whoami\n" +
       "  push <cardId> <file.json> [--type file|link|invite|contact|geo|email]\n" +
       "        (--type runs local typed validation before the server)\n" +

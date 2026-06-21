@@ -3,7 +3,7 @@
 // val json    = Json { allowStructuredMapKeys = true }
 // val content = json.parse(Content.serializer(), jsonString)
 
-package com.familyai.schema
+package com.sloopworks.dayfold.schema
 
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*

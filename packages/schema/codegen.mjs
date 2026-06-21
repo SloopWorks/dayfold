@@ -57,7 +57,7 @@ mkdirSync(ktDir, { recursive: true });
 const ktPath = resolve(ktDir, "Content.kt");
 try {
   execSync(
-    `npx --yes quicktype -s schema --lang kotlin --framework kotlinx --package com.familyai.schema -o "${ktPath}" "${wrapPath}"`,
+    `npx --yes quicktype -s schema --lang kotlin --framework kotlinx --package com.sloopworks.dayfold.schema -o "${ktPath}" "${wrapPath}"`,
     { stdio: "inherit", cwd: here }
   );
   console.log(`KT  codegen OK → ${ktPath}`);

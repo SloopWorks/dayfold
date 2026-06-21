@@ -113,7 +113,7 @@ device/CLI).
 
 ## Flow 3b — CLI / Claude-Code auth (RFC 8628, hardened)
 
-1. `familyai login` → device endpoint returns `device_code`, `user_code`
+1. `dayfold login` → device endpoint returns `device_code`, `user_code`
    (≥8 chars, unambiguous ~20-symbol alphabet), `verification_uri_complete`,
    `expires_in` (~10 min), `interval`.
 2. CLI shows a **QR** + the `user_code` text.

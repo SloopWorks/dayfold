@@ -1,8 +1,8 @@
 {
-  "name": "family-ai-dashboard",
+  "name": "dayfold",
   "private": true,
   "version": "0.0.0-M0",
-  "description": "family-ai-dashboard monorepo (M0). specs/ = source of truth; code under packages/ + apps/.",
+  "description": "dayfold monorepo (Dayfold / Sloopworks) (M0). specs/ = source of truth; code under packages/ + apps/.",
   "workspaces": [
     "packages/*",
     "apps/api"

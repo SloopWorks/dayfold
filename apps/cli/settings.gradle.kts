@@ -1,1 +1,1 @@
-rootProject.name = "familyai-cli"
+rootProject.name = "dayfold-cli"

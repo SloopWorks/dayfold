@@ -231,7 +231,7 @@ can resolve.
 - **Web:** `https://<app>/hubs/{hubId}#block-{blockId}` — real anchor.
 - **Native (Android/iOS):** the same https URL via **Android App Links /
   iOS Universal Links** opens the app; fallback custom scheme
-  `familyai://hub/{hubId}?block={blockId}`.
+  `dayfold://hub/{hubId}?block={blockId}`.
 - **CMP shared route:** `HubRoute(hubId, focusBlockId?)` renders the Hub,
   scrolls to the target, **transiently highlights** it, and expands its
   section.

@@ -306,7 +306,7 @@ app.post("/device/authorize", async (c) => {
   const body = await c.req.json().catch(() => ({})); // permissive [E2EE hook]
   const { createAuthorization } = await import("./auth/device.ts");
   const { audit } = await import("./auth/audit.ts");
-  const { device_code, user_code } = await createAuthorization(body?.client ?? "familyai-cli", ip, c.req.header("user-agent") ?? null);
+  const { device_code, user_code } = await createAuthorization(body?.client ?? "dayfold-cli", ip, c.req.header("user-agent") ?? null);
   await audit("device.authorize", { detail: { ip } });
   const base = `${new URL(c.req.url).origin}/device`;
   return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });

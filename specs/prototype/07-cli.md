@@ -1,4 +1,4 @@
-# 07 — CLI Tool (`familyai`)
+# 07 — CLI Tool (`dayfold`)
 
 > Status: **reviewed (1 agent) → fixes applied**. The operator's + Claude Code's content
 > authoring interface — the **dogfood critical path**. Pushes cards / hubs /
@@ -13,7 +13,7 @@
   warning** (env = plaintext-in-process: leaks via `ps`/CI logs/child procs) —
   not a co-equal default. Read **statelessly per invocation**, so a rotated
   secret (04-auth overlap window) is picked up automatically.
-- **[M1]** **`familyai login`** = RFC 8628 device grant **+ E2E key bootstrap**:
+- **[M1]** **`dayfold login`** = RFC 8628 device grant **+ E2E key bootstrap**:
   CLI **generates an X25519 keypair**, calls `POST /device/authorize` **sending
   its public key** → prints a **QR + `user_code`** → operator scans with the
   signed-in app, **confirms the `user_code` + selects the family**, approves →
@@ -48,7 +48,7 @@ the files are the optional upstream.
   `id:` is **mandatory** for persisted content. On first `push` of a file
   without one, the CLI **mints a ULID and writes it back into the frontmatter**
   (so the ID survives file rename/move — a path-hash would orphan+duplicate on
-  rename). A **local manifest** (`~/.config/familyai/<family>.manifest`) maps
+  rename). A **local manifest** (`~/.config/dayfold/<family>.manifest`) maps
   `path ↔ id ↔ server version`; `status` reads it.
 - **Edit-stable section/block IDs (P0 — load-bearing for deep-links):** each
   section/block gets a stable anchor, NOT a heading-text/position derivation
@@ -63,13 +63,13 @@ the files are the optional upstream.
 
 | Command | Action |
 |---|---|
-| `familyai login` / `logout` / `whoami` | device-grant auth (M1) |
-| `familyai push [path]` | upsert content from a file/dir (the main verb) |
-| `familyai push --dry-run` / `--diff` | show what would change; no write |
-| `familyai hub get <id>` / `archive <id>` / `rm <id>` | hub ops |
-| `familyai card put …` / `rm <id>` | briefing card ops |
-| `familyai place put <ref> --geo lat,lng --radius 150` / `rm <ref>` | places (ADR 0014) |
-| `familyai status` | local manifest vs server (drift) |
+| `dayfold login` / `logout` / `whoami` | device-grant auth (M1) |
+| `dayfold push [path]` | upsert content from a file/dir (the main verb) |
+| `dayfold push --dry-run` / `--diff` | show what would change; no write |
+| `dayfold hub get <id>` / `archive <id>` / `rm <id>` | hub ops |
+| `dayfold card put …` / `rm <id>` | briefing card ops |
+| `dayfold place put <ref> --geo lat,lng --radius 150` / `rm <ref>` | places (ADR 0014) |
+| `dayfold status` | local manifest vs server (drift) |
 
 - **Inline flags** mirror frontmatter for one-off pushes:
   `--geo place_ref|lat,lng --radius`, `--at/--when`, `--alert-offset`,
@@ -95,7 +95,7 @@ the files are the optional upstream.
 
 ## E2E (if ADR 0015 accepted)
 
-Encryption happens **inside the `familyai` binary** (never in skill JS/prompt
+Encryption happens **inside the `dayfold` binary** (never in skill JS/prompt
 context): it holds `FCK` and encrypts `body_md`/`payload`/titles/`triggers`/
 place coords client-side (AEAD) **before** push; uploads ciphertext for spill.
 The server never sees plaintext or `FCK`.
@@ -113,19 +113,19 @@ The server never sees plaintext or `FCK`.
   `0600` file, **behind `--allow-env-key` + loud warning**. Without this, the
   "scheduled-task/loop authoring" use is impossible.
 
-## Claude skill (`.claude/skills/familyai/`)
+## Claude skill (`.claude/skills/dayfold/`)
 
 Ship a Claude Code skill wrapping the CLI so **Claude authors + pushes content
 as a power-user** — the original wedge + ADR 0012 agent-buildability. The skill
-**only shells out to the `familyai` binary** (which owns auth + encryption +
+**only shells out to the `dayfold` binary** (which owns auth + encryption +
 keychain); the skill JS/prompt context **never touches `FCK` or tokens**. It
 documents the manifest format, the commands, and the ID rules, so an AI loop
-generates a hub/card from context and `familyai push`es it. For unattended
+generates a hub/card from context and `dayfold push`es it. For unattended
 loops, the binary sources `FCK`/token per the headless rules above.
 
 ## DX / config
 
-- Config under `~/.config/familyai/` (profiles per family); **secrets in the
+- Config under `~/.config/dayfold/` (profiles per family); **secrets in the
   OS keychain**, never the config file.
 - Errors mapped from `problem+json` (content) + OAuth2 error JSON (device
   grant) into clear CLI messages; `--json` for machine output (for the skill).

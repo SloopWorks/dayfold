@@ -18,7 +18,7 @@ it locally before the server does.
    truth for these lives in `apps/cli/src/main/resources/templates/`):
 
    ```
-   familyai template invite > card.json
+   dayfold template invite > card.json
    ```
 
 2. **Edit** `card.json` — set the real fields; replace `REPLACE_WITH_CARD_ID`'s
@@ -30,7 +30,7 @@ it locally before the server does.
    the network, with field errors instead of a server 422):
 
    ```
-   familyai push <cardId> card.json --type invite
+   dayfold push <cardId> card.json --type invite
    ```
 
    Without `--type`, `push` sends the file unchanged (no local validation).
@@ -49,7 +49,7 @@ It does **not** check the server's format rules — `link.url` well-formedness,
 ISO-8601 `*At`/`date` fields, string length caps, integer-ness. Those still 422
 at the server, which **remains the authority** (CL-2). Two known asymmetries from
 codegen: the validator **requires** `kind` and `provenance.at` even though the
-server defaults/relaxes them — so author from `familyai template` (the starters
+server defaults/relaxes them — so author from `dayfold template` (the starters
 include both) rather than a bare hand-written stub.
 
 ## Guardrail 3 — email content (binding)

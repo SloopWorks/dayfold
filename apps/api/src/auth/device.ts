@@ -64,7 +64,7 @@ export async function redeem(device_code: string, mintAccess: (a:{sub:string;cid
     const cid = credId();
     await client.query(
       `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
-       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'familyai-cli '||left(coalesce($4,''),64))`,
+       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'dayfold-cli '||left(coalesce($4,''),64))`,
       [cid, user_id, family_id, origin_ua],
     );
     const refresh = await issueRefresh(cid, client);
