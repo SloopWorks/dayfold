@@ -29,7 +29,7 @@
       <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Auth · family scope · invite</span>
     </div>
     <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Sign in, family &amp; invite</h1>
-    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;">The full passwordless auth set from <b>ADR 0011</b> (supersedes 0010) — one-tap providers, phone OTP with error/offline states, the owner backup-method nudge, create-family onboarding and every invitee state (waiting · expired/revoked/exhausted · already-member), the owner's QR / link invite, the <b>RFC 8628</b> authorize-device screen, family members + pending approvals, connected devices, the provider-link-conflict resolve, and account export/delete. <b>Firebase Auth · every invite owner-approved (no auto-join) · per-device revoke</b>.</p>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;">The full passwordless auth set from <b>ADR 0011</b> (supersedes 0010) — one-tap providers, phone OTP with error/offline states, the owner backup-method nudge, create-family onboarding and every invitee state (waiting · expired/revoked/exhausted · already-member), the owner's QR / link invite, the <b>RFC 8628</b> authorize-device screen, family members + pending approvals, connected devices, the provider-link-conflict resolve, and account export/delete — plus the <b>A8b failure/destructive set</b>: invite declined / locked / join-retry, delete-account confirm, ownership transfer (≥1-owner), and device deny / expired. <b>Firebase Auth · every invite owner-approved (no auto-join) · per-device revoke</b>.</p>
   </div>
 
   <div style="display:flex;gap:40px;align-items:flex-start;">
@@ -79,6 +79,21 @@ class Component extends DCLogic {
         { title: 'Provider link conflict', mode: 'light', view: 'linkconflict', note: 'App-driven link on conflict — proof-of-control, no auto-link.', ...L },
         { title: 'Account — export &amp; delete', mode: 'light', view: 'account', note: 'Data export + delete (last-owner guard, Apple revoke).', ...L },
         { title: 'Account — export &amp; delete', mode: 'dark', view: 'account', note: 'Danger zone, dark theme.', ...D },
+
+        { title: 'A1 · Declined by owner', mode: 'light', view: 'invitedeclined', note: 'Owner tapped Decline — calm, low-blame, no self-retry.', ...L },
+        { title: 'A1 · Declined by owner', mode: 'dark', view: 'invitedeclined', note: 'Same, dark theme.', ...D },
+        { title: 'A2 · Too many attempts', mode: 'light', view: 'invitelocked', note: 'Redeem lockout (429) — cooldown, no accusation. [TODO: confirm constant]', ...L },
+        { title: 'A2 · Too many attempts', mode: 'dark', view: 'invitelocked', note: 'Same, dark theme.', ...D },
+        { title: 'A3 · Couldn’t join — retry', mode: 'light', view: 'joinerror', note: 'Transient 5xx/network drop in the join flow — primary Try again.', ...L },
+        { title: 'A3 · Couldn’t join — retry', mode: 'dark', view: 'joinerror', note: 'Same, dark theme.', ...D },
+        { title: 'B4 · Delete account — confirm', mode: 'light', view: 'deleteconfirm', note: 'Spells out the loss; type-DELETE gate; Apple disconnect.', ...L },
+        { title: 'B4 · Delete account — confirm', mode: 'dark', view: 'deleteconfirm', note: 'Same, dark theme.', ...D },
+        { title: 'B4/B5 · Transfer ownership', mode: 'light', view: 'transferowner', note: '≥1-owner invariant — promote before delete/leave (also members 409).', ...L },
+        { title: 'B4/B5 · Transfer ownership', mode: 'dark', view: 'transferowner', note: 'Same, dark theme.', ...D },
+        { title: 'B6 · Device denied', mode: 'light', view: 'devicedenied', note: 'After Deny — reassures if they didn’t start it.', ...L },
+        { title: 'B6 · Device denied', mode: 'dark', view: 'devicedenied', note: 'Same, dark theme.', ...D },
+        { title: 'B6 · Device request expired', mode: 'light', view: 'deviceexpired', note: 'user_code timed out / already handled — restart on the computer.', ...L },
+        { title: 'B6 · Device request expired', mode: 'dark', view: 'deviceexpired', note: 'Same, dark theme.', ...D },
       ],
     };
   }
