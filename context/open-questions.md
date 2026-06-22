@@ -21,6 +21,20 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-geocode-claim-wording** *(ADR 0028)*: the exact, legally-defensible
+  marketing/UX wording for the location-privacy tiers — especially any
+  first-party opt-in geocoding service (T5) "not sold / not shared / not linked
+  to your identity / not retained" language. FTC + state privacy laws police
+  "we don't sell" against actual data flows. **Counsel-gated before any
+  external launch.** Structural tiers (T1–T4) need no such promise. → ADR 0028
+  §Honest-claim, `[pending-counsel]`.
+- **OQ-geocode-cpra-reading** *(ADR 0028)*: confirm the reading that an
+  *authored venue coordinate* falls **outside** CPRA "precise geolocation" SPI
+  (the statutory def is data "derived from a device…to locate a consumer", not
+  a referenced place) — and the Apple/Play app-store-label conclusions for
+  author-time/transient geocoding. Reasoning, not settled law → **privacy
+  attorney to confirm before external launch.** → ADR 0028.
+
 - **OQ-card-actions:** External card deep-links (the value-prop "[list]"→
   Instacart / "[reply]"→mail) have no structured home — `target` is
   internal-nav-only, `actions[]` is ADR 0016 2-way-reserved. M0 ships them as
