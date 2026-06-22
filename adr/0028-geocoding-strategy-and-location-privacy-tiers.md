@@ -2,13 +2,20 @@
 
 ## Status
 
-**Proposed — operator-gated (guardrail-class #3/#4: customer-data handling +
-vendor choice + values-shaped privacy claims).** Refines/operationalizes
-ADR 0014 (the "how is the place coordinate produced?" question 0014 left
-implicit); composes with ADR 0015 (E2EE column split) and ADR 0024 (settings
-privacy posture / E2EE line). Claim wording is `[pending-counsel]`. Spike
-evidence: `docs/superpowers/specs/2026-06-21-cl-9-map-render-spike.md` +
-session research 2026-06-22.
+**Accepted 2026-06-22 (operator-directed)** — the load-bearing principle is
+locked: **geocoding is never server-side; the server stays zero-knowledge**
+(§1). The M0 author-side tiers (T1 author-supplied / T2 CLI offline) stand. The
+**deferred tiers (T3/T4/T5) and any third-party provider choice remain
+deferred** and are to be **revisited once CLI encoding (the ADR 0015
+encrypt-before-upload path) lands and we are post-prototype/MVP** — not before.
+Claim wording stays `[pending-counsel]` (does not block this acceptance).
+Immutable now — supersede, don't edit.
+
+Refines/operationalizes ADR 0014 (the "how is the place coordinate produced?"
+question 0014 left implicit); composes with ADR 0015 (E2EE column split) and
+ADR 0024 (settings privacy posture / E2EE line). Spike evidence:
+`docs/superpowers/specs/2026-06-21-cl-9-map-render-spike.md` + session research
+2026-06-22.
 
 ## Context
 
@@ -168,6 +175,10 @@ chosen geocoder. The content `geo` payload must gain a `place_ref` (it has
 
 ## Revisit triggers
 
+- **Scheduled (operator, 2026-06-22):** revisit the full tier/provider model
+  **once CLI encoding (ADR 0015 encrypt-before-upload) is built + post-
+  prototype/MVP.** Until then: T1/T2 author-side only, never server-side. This
+  acceptance locks only the never-server-side / zero-knowledge principle.
 - If zero-third-party becomes a hard wedge requirement → promote **self-hosted
   geocoder** (CLI T2 / a self-run Photon) from option to default; reassess T4/T5.
 - If phone authoring (ADR 0016 two-way) ships → T3 GPS-capture becomes live;
