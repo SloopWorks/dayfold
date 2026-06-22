@@ -39,6 +39,17 @@ android {
 // keep the documented APK name stable across the KMP restructure
 base.archivesName.set("dayfold-android")
 
+// Release-only: the no-op devtools facade (inapp-noop) is a fat aar that bundles
+// the org.reduxkotlin.devtools.* classes, which :client also exports via
+// api(redux-kotlin-devtools-core) → duplicate-class clash in the release variant.
+// Drop the standalone core in release; the noop's bundled copies satisfy it.
+// Debug uses the real inapp host (core as a normal transitive) and is unaffected.
+configurations.configureEach {
+  if (name == "releaseRuntimeClasspath") {
+    exclude(group = "org.reduxkotlin", module = "redux-kotlin-devtools-core")
+  }
+}
+
 dependencies {
   implementation(project(":client"))
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
@@ -54,11 +65,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
   // In-app redux devtools (debug build = real drawer; release = no-op facade).
-  // NOTE: the drawer is TEMPORARILY bypassed in MainActivity (not invoked) — the
-  // alpha01 inapp host is built against Compose-MP 1.11.1 and calls a 1.11-only
-  // ComposeUiNode API that crashes against the pinned 1.9.3 matrix (ADR 0013).
-  // The enhancer still records; only the on-screen drawer is off. Restore once
-  // reduxkotlin is rebuilt @1.9.3 or the matrix moves to 1.11.1.
+  // Real drawer needs Compose-MP 1.11.1, which the matrix now provides.
   debugImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha01")
   releaseImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp-noop:1.0.0-alpha01")
 
