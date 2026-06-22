@@ -32,41 +32,41 @@ kotlin {
         // redux-kotlin KMP coordinates (unsuffixed → per-target variant resolved
         // by Gradle). api() for the types the platform shells touch (Store etc.).
         api("org.reduxkotlin:redux-kotlin-threadsafe:1.0.0-alpha01")
-        implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha01")
-        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha01")
+        implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha02")
+        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha02")
         api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha01")
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         implementation("app.cash.sqldelight:runtime:2.3.2")
         implementation("app.cash.sqldelight:coroutines-extensions:2.3.2")
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
-        implementation("io.ktor:ktor-client-core:3.1.1")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
+        implementation("io.ktor:ktor-client-core:3.5.0")
         implementation(compose.runtime)
         implementation(compose.foundation)
         implementation(compose.material3)
         implementation(compose.ui)
         // CL-7: BackHandler / PredictiveBackHandler (separate artifact, not pulled
         // by compose.ui transitively) — enables hardware/gesture back → NavBack.
-        implementation("org.jetbrains.compose.ui:ui-backhandler:1.9.3")
+        implementation("org.jetbrains.compose.ui:ui-backhandler:1.11.1")
       }
     }
     val androidMain by getting {
       dependencies {
         implementation("app.cash.sqldelight:android-driver:2.3.2")
-        implementation("io.ktor:ktor-client-okhttp:3.1.1")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+        implementation("io.ktor:ktor-client-okhttp:3.5.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
       }
     }
     val desktopMain by getting {
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
-        implementation("io.ktor:ktor-client-cio:3.1.1")
+        implementation("io.ktor:ktor-client-cio:3.5.0")
       }
     }
     iosMain.dependencies {
       implementation("app.cash.sqldelight:native-driver:2.3.2")
-      implementation("io.ktor:ktor-client-darwin:3.1.1")
+      implementation("io.ktor:ktor-client-darwin:3.5.0")
     }
     val desktopTest by getting {
       dependencies {
@@ -74,8 +74,8 @@ kotlin {
         @OptIn(ExperimentalComposeLibrary::class)
         implementation(compose.uiTest)
         implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
-        implementation("io.ktor:ktor-client-mock:3.1.1")
-        implementation("app.cash.turbine:turbine:1.2.0")
+        implementation("io.ktor:ktor-client-mock:3.5.0")
+        implementation("app.cash.turbine:turbine:1.2.1")
       }
     }
   }
@@ -83,7 +83,7 @@ kotlin {
 
 android {
   namespace = "com.sloopworks.dayfold.client"
-  compileSdk = 35
+  compileSdk = 37
   defaultConfig { minSdk = 34 }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
