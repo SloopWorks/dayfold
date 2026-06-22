@@ -176,8 +176,19 @@ class AuthEngine(
     try {
       val who = callWithRefresh(session) { authClient.whoami(it.access) }
       store.dispatch(MembershipsLoaded(who.families))
+    } catch (e: AuthHttpException) {
+      // 401 here = access expired AND refresh couldn't recover (revoked/expired/
+      // reused) → the saved session is dead. Clear it and fall back to Sign-in so
+      // the spinner never wedges. Other statuses = a reachable-but-erroring server.
+      if (e.status == 401) {
+        tokenStore.clear()
+        store.dispatch(SessionExpired)
+      } else {
+        store.dispatch(RestoreFailed("Dayfold had a problem (HTTP ${e.status}). Tap retry."))
+      }
     } catch (e: Exception) {
-      store.dispatch(AuthOpFailed(e.message ?: "Couldn't load your family"))
+      // Network/unknown → keep the session, offer Retry (don't strand on Loading).
+      store.dispatch(RestoreFailed("Couldn't reach Dayfold. Check your connection and retry."))
     }
   }
 

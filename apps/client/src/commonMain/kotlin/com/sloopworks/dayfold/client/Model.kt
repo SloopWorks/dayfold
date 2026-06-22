@@ -150,7 +150,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, CreateFamily, Feed, Account, JoinInvite, Members, Devices }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Account, JoinInvite, Members, Devices }
 
 // Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
 // not here — the store is a projection of the DB. The auth fields below are the
@@ -211,6 +211,12 @@ data class MembershipsLoaded(val families: List<FamilyMembership>) : Action // �
 data class CreateFamilyRequested(val name: String) : Action
 data class FamilyCreated(val familyId: String, val name: String) : Action   // → Feed (owner, active)
 data class AuthOpFailed(val message: String) : Action
+// Restore-path terminal outcomes — Loading must never be terminal (else the
+// splash spinner wedges forever). SessionExpired = the saved session is dead
+// (401 + refresh couldn't recover: revoked/expired) → clear + SignIn. RestoreFailed
+// = transient (network/5xx) → an AuthError screen with Retry (session kept).
+data object SessionExpired : Action
+data class RestoreFailed(val message: String) : Action
 data object OpenAccount : Action                           // Feed → Account (signed-in overlay)
 data object CloseAccount : Action                          // Account → back to the route gate (Feed)
 data object SignOutRequested : Action

@@ -67,6 +67,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     )
   }
   is AuthOpFailed -> state.copy(authBusy = false, authError = action.message)
+  // Restore-path terminal outcomes — both exit Loading (never wedge the spinner).
+  is SessionExpired -> AppState(route = Route.SignIn, authError = "Your session expired — please sign in again.")
+  is RestoreFailed -> state.copy(route = Route.AuthError, authBusy = false, authError = action.message)
   is OpenAccount -> state.copy(route = Route.Account)    // overlay on the signed-in Feed
   is CloseAccount -> state.copy(route = routeFor(state.session, state.families))  // back to the gate
   is SignedOut -> AppState(route = Route.SignIn)        // clear session + feed

@@ -47,6 +47,7 @@ fun FeedApp(
   onSignIn: (String) -> Unit = {},
   onCreateFamily: (String) -> Unit = {},
   onSignOut: () -> Unit = {},
+  onRetry: () -> Unit = {},
   onRedeemInvite: (String) -> Unit = {},
   onLoadApprovals: () -> Unit = {},
   onApproveMember: (String) -> Unit = {},
@@ -67,6 +68,7 @@ fun FeedApp(
     when (state.route) {
       Route.Loading -> SplashScreen()
       Route.SignIn -> SignInScreen(busy = state.authBusy, error = state.authError, onProvider = onSignIn)
+      Route.AuthError -> AuthErrorScreen(message = state.authError, onRetry = onRetry, onSignOut = onSignOut)
       Route.CreateFamily -> CreateFamilyScreen(
         busy = state.authBusy, error = state.authError,
         onCreate = onCreateFamily, onJoinInvite = { store.dispatch(OpenJoinInvite) },

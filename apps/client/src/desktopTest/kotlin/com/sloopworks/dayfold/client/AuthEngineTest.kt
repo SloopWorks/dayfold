@@ -54,6 +54,36 @@ class AuthEngineTest {
     assertEquals("ax", store.state.session?.access)
   }
 
+  @Test fun `restore with a dead session (401 + refresh fails) clears tokens and routes to SignIn`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond("", HttpStatusCode.Unauthorized)        // access expired
+        "/auth/refresh" -> respond("", HttpStatusCode.Unauthorized)       // …and refresh can't recover → dead
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    assertEquals(Route.SignIn, store.state.route)                         // never wedges on Loading
+    assertNull(store.state.session)
+    assertNull(ts.session)                                                // dead token cleared
+    assertTrue(store.state.authError?.contains("expired") == true, "was: ${store.state.authError}")
+  }
+
+  @Test fun `restore with a transient failure routes to AuthError and keeps the session`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond("", HttpStatusCode.InternalServerError) // reachable but erroring → retryable
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    assertEquals(Route.AuthError, store.state.route)                      // not Loading, not SignIn
+    assertEquals(Session("ax", "rx"), store.state.session)               // session kept for Retry
+    assertEquals(Session("ax", "rx"), ts.session)                        // not cleared
+  }
+
   @Test fun `sign-in success persists the session and routes by memberships`() = runBlocking {
     val ts = MemTokenStore(null)
     val (eng, store) = engine(ts, handler = MockEngine { req ->

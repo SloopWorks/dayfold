@@ -151,6 +151,34 @@ fun SplashScreen() {
   }
 }
 
+// ── Auth error / recovery ──
+// Shown when the cold-start restore fails transiently (RestoreFailed: network /
+// reachable-but-erroring server). The session is kept; Retry re-runs restore.
+// Sign out is the escape hatch. A dead session (SessionExpired) routes to SignIn
+// instead, so this screen is for recoverable failures — never a dead end.
+@Composable
+fun AuthErrorScreen(
+  message: String? = null,
+  onRetry: () -> Unit = {},
+  onSignOut: () -> Unit = {},
+) {
+  val cs = MaterialTheme.colorScheme
+  Box(Modifier.fillMaxSize().background(cs.surface).padding(24.dp), contentAlignment = Alignment.Center) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+      DayfoldMark(size = 64)
+      Text("Couldn't load Dayfold", style = MaterialTheme.typography.titleLarge, color = cs.onSurface)
+      Text(
+        message ?: "Something went wrong reaching Dayfold.",
+        style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+      )
+      Spacer(Modifier.height(8.dp))
+      AuthButton("Retry", container = cs.primary, content = cs.onPrimary, onClick = onRetry)
+      AuthButton("Sign out", container = cs.surface, content = cs.onSurface, border = cs.outlineVariant, onClick = onSignOut)
+    }
+  }
+}
+
 // ── Sign in ──
 @Composable
 fun SignInScreen(

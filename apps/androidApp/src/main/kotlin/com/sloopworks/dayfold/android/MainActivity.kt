@@ -76,6 +76,7 @@ class MainActivity : ComponentActivity() {
           onSignIn = { provider -> lifecycleScope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
           onCreateFamily = { name -> lifecycleScope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
           onSignOut = { lifecycleScope.launch { authEngine.signOut() } },
+          onRetry = { lifecycleScope.launch { authEngine.restore() } },
           onRedeemInvite = { token -> lifecycleScope.launch { authEngine.redeemInvite(token) } },
           onLoadApprovals = { lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.loadApprovals(it) } } },
           onApproveMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.approveMember(it, uid) } } },
