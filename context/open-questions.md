@@ -64,7 +64,25 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 - **OQ-hub-collab:** At MVP, is Hub authoring push/Claude-only, or can family
   members edit Hubs in-app? (Lean: push-only at MVP, in-app edit post-MVP.)
   → feeds `specs/event-hubs-design.md`, C1b.
-- **OQ-hub-archival:** Retention + export policy for archived Hubs. → C4.
+- **OQ-hub-archival:** Retention + export policy for archived Hubs. **Narrowed
+  2026-06-23:** delete-on-request (Guardrail 4) is now covered by the MVP **manual
+  hard-purge tool** (operator-chosen, schema review); what remains here is the
+  *auto*-retention/export policy (auto-TTL stays OUT at MVP). → C4.
+- **OQ-now-emission** *(NEW 2026-06-23, schema review)*: Does **Hub → "Now"**
+  card emission stay **manual** (the Claude skill pulls hubs + authors imminent-
+  item cards — the MVP choice) or gain a **server-side cron / hybrid deriver**
+  post-MVP? MVP = manual, no server logic. → `specs/domain-model/scope-and-access-
+  model.md` §7.
+- **OQ-hub-created-by** *(NEW 2026-06-23 → decided same day by ADR 0030 round-1
+  review)*: Hubs (and cards) get a resolved-`user_id` `created_by` column —
+  resolving authorship through child-block `provenance` fails closed on credential
+  deletion / zero-block hubs. **Decided: add it.** Kept here only as a build-task
+  pointer. → content-slice build.
+- **OQ-owner-visibility-default** *(NEW 2026-06-23, values-shaped — operator call)*:
+  In ADR 0030, is a family **owner auto-permitted** to read every `restricted`
+  hub/card (transparent-household model), or **not** (proposed: owner gains read
+  only by authoring or being allow-listed — protects co-parent/eldercare privacy)?
+  One-line filter difference. **Gates ADR 0030 → Accepted.** → INB-21.
 - **OQ-doc-storage:** When do we add real document upload + its privacy tier
   (vs links + small refs at MVP)? → ADR 0006 revisit, C4.
 - **OQ-minor-age-gate:** Is a self-attested age gate sufficient for 14+
@@ -95,7 +113,6 @@ earns the next build (per ADR 0007 revisit trigger):
 
 - Push notifications / FCM + APNs (needs Apple Dev $99/yr + Firebase). [review-gap G1]
 - Multi-member login / household tenancy / roles. [review-gap G2]
-- Per-Hub / per-member visibility + permissions (esp. sensitive Hubs). [review-gap G3]
 - Data-source integrations: native EventKit/CalendarContract (no-OAuth path)
   or Google Calendar API (sensitive scope); Gmail/weather/commerce. [N4]
 - Universal Links / App Links + `assetlinks.json` / `apple-app-site-
@@ -111,6 +128,16 @@ New prototype-level open items:
 
 ## Resolved
 
+- **review-gap G3 — per-Hub / per-member visibility** *(2026-06-23, schema
+  review)*: Moved from "Deferred by design" **into MVP**. Operator chose per-hub
+  visibility at MVP; resolved by **ADR 0030** (`family`|`restricted` + allow-list,
+  read-path filter, shares ADR 0029's resource model). Builds with the content-API
+  slice. Residual values-shaped sub-question → OQ-owner-visibility-default (above).
+- **OQ-now-scope** *(2026-06-23, schema review)*: Is "Now" a subscription query
+  over subscribed Hubs, or self-contained? **Resolved: self-contained, own table
+  (`briefing_cards`).** Not a live query; coupled to Hubs by one-way reference
+  edges only (deep-link out; manual CLI-authored cards in). →
+  `specs/domain-model/scope-and-access-model.md` §2/§7.
 - **OQ-child-accounts** *(2026-06-18)*: Can children have their own logins
   reading their own Gmail? **No — structurally blocked** by Google's
   supervised-account architecture (under-13s can't self-grant restricted

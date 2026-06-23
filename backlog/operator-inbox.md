@@ -9,6 +9,33 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-21 · 2026-06-23 · med · open — Accept ADR 0030 (per-member visibility) +
+  pick the owner-visibility default.** Schema/scope review produced: **ADR 0030**
+  (`adr/0030-per-member-hub-and-card-visibility.md`, Proposed), the consolidated
+  **scope & access spec** (`specs/domain-model/scope-and-access-model.md`), and
+  the **MVP feature boundary** (`specs/mvp-feature-boundary.md`). Your in-session
+  answers are baked in: per-hub visibility IN at MVP; Hub→Now emission stays manual
+  (Claude skill authors imminent-item cards); retention = soft-delete + manual
+  hard-purge tool. **Two things need you:** (1) **Accept/amend ADR 0030** (it's
+  ADR-class — scope + access posture; agents draft, you accept). (2) **Pick the
+  owner-visibility default (values-shaped, OQ-owner-visibility-default):** owner
+  **NOT** auto-permitted on `restricted` content (proposed — protects co-parent/
+  eldercare privacy; owner reads only by authoring or being allow-listed) **vs**
+  owner-sees-all (transparent household). One-line filter difference; gates ADR
+  0030 → Accepted. **Proposed default:** accept ADR 0030 as written (owner NOT
+  auto-permitted). **(3) Ratify the round-2 posture change `[pending-ratify]`:**
+  card-level visibility was simplified — cards no longer inherit/materialize hub
+  visibility; the trusted skill stamps a flat `audience[]` on the ephemeral cards
+  it emits, so "a card can't out-expose its hub" is **author-trusted at MVP, not
+  server-enforced** (re-adding server enforcement is the documented Revisit Trigger
+  when multi-author/in-app authoring lands). Correct for a single-operator dogfood;
+  flagged because it's a real posture move. **Both adversarial review rounds are
+  done** (round-1 correctness fixed two P0 sync-revocation holes + author-identity;
+  round-2 cut the card machinery, `resource_type` polymorphism, card `created_by`,
+  and downgraded the purge tool to operator-SQL-deferred). Remaining build:
+  content-API + CLI-verbs slice lands hub render + ADR 0029 scopes + ADR 0030 hub
+  visibility + the touch-trigger + visibility-aware `/sync` together.
+
 - **INB-20 · ANSWERED 2026-06-22 → SIGNED OFF + scope accepted + spike OK'd.**
   Operator: (1) adaptive visuals approved; (2) added scope accepted — CL-NAV +
   the CL-1/5/6/8/10 deltas + the `hubRef`/parent-membership field on the content
