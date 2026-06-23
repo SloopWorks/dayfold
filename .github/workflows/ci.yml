@@ -58,6 +58,16 @@ jobs:
       - working-directory: apps
         run: ./gradlew --no-daemon :client:desktopTest
 
+  debugdrawer:
+    name: Debug Drawer (Compose-MP lib, headless)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - working-directory: apps
+        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest
+
   naming-guard:
     name: No legacy com.familyai package (ADR 0026)
     runs-on: ubuntu-latest

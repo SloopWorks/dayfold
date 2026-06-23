@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  /* palette contexts — only color tokens vary; shapes/density fixed */
+  [data-pal]{--mono:'Geist Mono',ui-monospace,monospace;--sans:'Geist',system-ui,sans-serif;}
+  [data-pal="sw-d"]{--bg:#0A0A0C;--surface:#101013;--s2:#17171B;--s3:#1E1E23;--border:#232329;--bstrong:#33333B;--text:#F3F3F5;--muted:#9B9CA6;--faint:#67686F;--accent:#86A1FF;--onacc:#0A0A0C;--accsoft:#15182C;--ok:#46C97E;--warn:#E0A33A;--err:#F2685E;--lv:#9B9CA6;--ld:#86A1FF;--li:#46C97E;--lw:#E0A33A;--le:#F2685E;--scrim:rgba(0,0,0,.6);}
+  [data-pal="sw-l"]{--bg:#FBFBFC;--surface:#FFFFFF;--s2:#F4F4F6;--s3:#ECECEF;--border:#E8E8EB;--bstrong:#D6D6DB;--text:#121317;--muted:#56575E;--faint:#8A8B93;--accent:#2A53F0;--onacc:#FFFFFF;--accsoft:#EDF0FE;--ok:#1A9E55;--warn:#B5740C;--err:#C5392B;--lv:#8A8B93;--ld:#2A53F0;--li:#1A9E55;--lw:#B5740C;--le:#C5392B;--scrim:rgba(18,19,23,.32);}
+  [data-pal="df-d"]{--bg:#161310;--surface:#1E1A16;--s2:#262019;--s3:#2F2820;--border:#322A21;--bstrong:#42382C;--text:#F4EEE6;--muted:#ABA192;--faint:#6E665B;--accent:#E89070;--onacc:#1A140F;--accsoft:#2A1E16;--ok:#5FB98A;--warn:#E0A33A;--err:#EE7A6A;--lv:#ABA192;--ld:#E89070;--li:#5FB98A;--lw:#E0A33A;--le:#EE7A6A;--scrim:rgba(0,0,0,.6);}
+  [data-pal="df-l"]{--bg:#FBF7F1;--surface:#FFFFFF;--s2:#F3ECE2;--s3:#EBE2D4;--border:#E7DDCE;--bstrong:#D8CBB6;--text:#2A2520;--muted:#6B6258;--faint:#9A9082;--accent:#C75C3C;--onacc:#FFFFFF;--accsoft:#F7E7DF;--ok:#1A9E55;--warn:#B5740C;--err:#C5392B;--lv:#9A9082;--ld:#C75C3C;--li:#1A9E55;--lw:#B5740C;--le:#C5392B;--scrim:rgba(42,37,32,.34);}
+  @keyframes ddspin{to{transform:rotate(360deg);}}
+</style>
+</helmet>
+
+<div style="min-width:100%;width:max-content;min-height:100vh;box-sizing:border-box;padding:56px;background:#e7e5df;">
+
+  <!-- TITLE -->
+  <div style="max-width:1100px;margin-bottom:8px;">
+    <div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;color:#6f6d66;text-transform:uppercase;">SloopWorks · ADR 0008 design gate</div>
+    <h1 style="margin:14px 0 0;font-size:44px;line-height:1.05;letter-spacing:-.03em;font-weight:600;color:#1b1a18;">Debug Drawer — hi-fi mockups</h1>
+    <p style="margin:16px 0 0;max-width:70ch;font-size:16px;line-height:1.6;color:#56544e;">A reusable, debug-only developer instrument for Compose Multiplatform: one floating bubble opens a host drawer of pluggable panels. Every screen and state below is shown in the default <strong>SloopWorks</strong> skin and a consumer-themed <strong>Dayfold</strong> instance, light and dark — proving the theming contract. Architecture is fixed; this gate is for the visuals and interaction. Full written spec in <code style="font-family:'Geist Mono',monospace;background:#fff;border:1px solid #d8d6cf;border-radius:5px;padding:1px 6px;">spec.md</code>.</p>
+  </div>
+
+  <!-- ============ SECTION: BRAND MINI-SYSTEM ============ -->
+  <div data-pal="sw-d" style="margin-top:48px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">A · SloopWorks drawer mini-system</div>
+  <div style="display:flex;gap:24px;align-items:flex-start;margin-top:18px;flex-wrap:wrap;max-width:1100px;">
+
+    <!-- palette + bubble anatomy card -->
+    <div data-pal="sw-d" style="flex:none;width:540px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;color:var(--text);font-family:var(--sans);">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);">COLOR ROLES · DARK-FIRST (Material3 mapping)</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:14px;">
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--bg);border:1px solid var(--border);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">bg</div></div>
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--surface);border:1px solid var(--border);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">surface</div></div>
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--s2);border:1px solid var(--border);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">container</div></div>
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--accent);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">accent</div></div>
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--accsoft);border:1px solid var(--border);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">accentSoft</div></div>
+        <div style="text-align:center;"><div style="height:42px;border-radius:8px;background:var(--text);"></div><div style="font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;">onSurface</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <span style="flex:1;display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);"></span>ok</span>
+        <span style="flex:1;display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--warn);"></span>warn</span>
+        <span style="flex:1;display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--err);"></span>error</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:22px 0;"></div>
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);">TYPE ROLES</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;"><span style="font-size:20px;font-weight:600;letter-spacing:-.01em;">Panel title</span><span style="font-family:var(--mono);font-size:10px;color:var(--faint);">Geist 20 / 600</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;"><span style="font-size:14px;font-weight:500;">Row label · primary</span><span style="font-family:var(--mono);font-size:10px;color:var(--faint);">Geist 14 / 500</span></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;"><span style="font-family:var(--mono);font-size:13px;color:var(--muted);">1.4.2 (build 5120) · a3f9c1</span><span style="font-family:var(--mono);font-size:10px;color:var(--faint);">Mono 13 / value+meta</span></div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:22px 0;"></div>
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);">ICONOGRAPHY · 2dp stroke, 24dp grid</div>
+      <div style="display:flex;gap:18px;margin-top:14px;color:var(--muted);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+      </div>
+    </div>
+
+    <!-- bubble anatomy card -->
+    <div data-pal="sw-d" style="flex:none;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;color:var(--text);font-family:var(--sans);">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);">BUBBLE · 56dp entry point</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:28px;margin:26px 0 18px;">
+        <div style="position:relative;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 8px 22px -6px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--onacc)"/></svg>
+        </div>
+        <div style="position:relative;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 8px 22px -6px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--onacc)"/></svg>
+          <span style="position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--err);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);">7</span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:40px;font-family:var(--mono);font-size:10px;color:var(--faint);">
+        <span>idle</span><span>unread · count</span>
+      </div>
+      <div style="margin-top:20px;font-size:13px;line-height:1.55;color:var(--muted);">Draggable · edge-snapping · never expands on hover · content-described “Open debug drawer”. Glyph is the only themeable bubble surface.</div>
+    </div>
+  </div>
+
+  <!-- sections appended below -->
+
+  <!-- ============ SECTION B: BUBBLE IN CONTEXT ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">B · Bubble — docked over the app (debug build only)</div>
+  <div style="display:flex;gap:36px;align-items:flex-start;margin-top:18px;">
+
+    <!-- B1 idle dark -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">idle · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-family:var(--mono);font-size:12px;color:var(--muted);"><span>9:41</span><span style="letter-spacing:2px;">●●●</span></div>
+        <div style="padding:8px 20px;">
+          <div style="height:24px;width:55%;background:var(--s2);border-radius:6px;"></div>
+          <div style="height:140px;margin-top:16px;background:var(--s2);border-radius:14px;"></div>
+          <div style="height:14px;width:80%;background:var(--s2);border-radius:5px;margin-top:18px;"></div>
+          <div style="height:14px;width:65%;background:var(--s2);border-radius:5px;margin-top:10px;"></div>
+          <div style="height:90px;margin-top:18px;background:var(--s2);border-radius:14px;"></div>
+        </div>
+        <div style="position:absolute;left:14px;bottom:84px;font-family:var(--mono);font-size:10px;color:var(--faint);">consuming app UI →</div>
+        <div style="position:absolute;right:18px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 10px 26px -6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--onacc)"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- B2 unread dark -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">unread badge · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-family:var(--mono);font-size:12px;color:var(--muted);"><span>9:41</span><span style="letter-spacing:2px;">●●●</span></div>
+        <div style="padding:8px 20px;">
+          <div style="height:24px;width:55%;background:var(--s2);border-radius:6px;"></div>
+          <div style="height:140px;margin-top:16px;background:var(--s2);border-radius:14px;"></div>
+          <div style="height:14px;width:80%;background:var(--s2);border-radius:5px;margin-top:18px;"></div>
+          <div style="height:14px;width:65%;background:var(--s2);border-radius:5px;margin-top:10px;"></div>
+          <div style="height:90px;margin-top:18px;background:var(--s2);border-radius:14px;"></div>
+        </div>
+        <div style="position:absolute;right:18px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 10px 26px -6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--onacc)"/></svg>
+          <span style="position:absolute;top:-5px;right:-5px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--err);color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);">12</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- B3 idle light -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">idle · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-family:var(--mono);font-size:12px;color:var(--muted);"><span>9:41</span><span style="letter-spacing:2px;">●●●</span></div>
+        <div style="padding:8px 20px;">
+          <div style="height:24px;width:55%;background:var(--s2);border-radius:6px;"></div>
+          <div style="height:140px;margin-top:16px;background:var(--s2);border-radius:14px;"></div>
+          <div style="height:14px;width:80%;background:var(--s2);border-radius:5px;margin-top:18px;"></div>
+          <div style="height:14px;width:65%;background:var(--s2);border-radius:5px;margin-top:10px;"></div>
+          <div style="height:90px;margin-top:18px;background:var(--s2);border-radius:14px;"></div>
+        </div>
+        <div style="position:absolute;right:18px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--accent);box-shadow:0 10px 26px -8px rgba(42,83,240,.5);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--onacc)"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:330px;align-self:center;">
+      <div data-pal="sw-d" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;color:var(--text);font-family:var(--sans);">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);">INTERACTION</div>
+        <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--muted);">Tap the bubble → scrim fades in (120ms) and the sheet springs from the dock edge (180ms, ease-out). The bubble is the app's <em>entire</em> debug footprint and is absent from release builds — its absence is the signal. <span style="color:var(--text);">≥48dp target;</span> draggable to any corner; snaps to the nearest edge on release.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION C: DRAWER HOME (panel list) ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">C · Drawer host — panel list (home)</div>
+  <div style="display:flex;gap:36px;align-items:flex-start;margin-top:18px;">
+
+    <!-- C1 home dark -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">panel list · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--accent)"/></svg>
+              <span style="font-weight:600;font-size:15px;letter-spacing:-.01em;">SloopWorks</span>
+              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--warn);border:1px solid var(--border);border-radius:5px;padding:2px 6px;">DEBUG</span>
+            </div>
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+          </div>
+          <div style="flex:1;overflow:hidden;">
+            <!-- row -->
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">App Info &amp; Build</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">1.4.2 · build 5120</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Environment</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">backend switch</div></div>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accsoft);border-radius:6px;padding:3px 8px;">staging</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Logs</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">live tail</div></div>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--le);display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--le);"></span>3 E</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Redux DevTools</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">adapter · 248 actions</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+          <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);">
+            <span>4 panels registered</span>
+            <span style="display:flex;align-items:center;gap:6px;">theme<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;"><span style="padding:2px 7px;background:var(--accent);color:var(--onacc);">D</span><span style="padding:2px 7px;color:var(--muted);">L</span></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C2 home light -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">panel list · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--accent)"/></svg>
+              <span style="font-weight:600;font-size:15px;letter-spacing:-.01em;">SloopWorks</span>
+              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--warn);border:1px solid var(--border);border-radius:5px;padding:2px 6px;">DEBUG</span>
+            </div>
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+          </div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">App Info &amp; Build</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">1.4.2 · build 5120</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Environment</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">backend switch</div></div>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accsoft);border-radius:6px;padding:3px 8px;">staging</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Logs</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">live tail</div></div>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--le);display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--le);"></span>3 E</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Redux DevTools</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">adapter · 248 actions</div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+          <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);">
+            <span>4 panels registered</span>
+            <span style="display:flex;align-items:center;gap:6px;">theme<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;"><span style="padding:2px 7px;color:var(--muted);">D</span><span style="padding:2px 7px;background:var(--accent);color:var(--onacc);">L</span></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:330px;align-self:center;">
+      <div data-pal="sw-d" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;color:var(--text);font-family:var(--sans);">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);">PANEL NAV · LIST → DETAIL</div>
+        <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--muted);">The host opens to this list. Every row is a registered panel: leading icon, title, a live trailing value or status, chevron. Rows are ≥64dp tall (≥48dp target + padding). Tapping pushes a detail view; the header swaps to a back affordance. Status colours (the red <span style="color:var(--le);">3 E</span>) are <strong style="color:var(--text);">fixed across every app</strong> for cross-app legibility.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION D: APP INFO PANEL ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">D · Panel 1 — App Info &amp; Build (read-only, tap-to-copy)</div>
+  <div style="display:flex;gap:36px;align-items:flex-start;margin-top:18px;">
+
+    <!-- D1 app info dark -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">detail · copy toast · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">App Info &amp; Build</span>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:6px 0;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:12px 18px 6px;">VERSION</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Version</span><span style="font-family:var(--mono);font-size:13px;">1.4.2</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Build</span><span style="font-family:var(--mono);font-size:13px;">5120</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Build type</span><span style="font-family:var(--mono);font-size:12px;color:var(--warn);border:1px solid var(--border);border-radius:5px;padding:2px 7px;">debug</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);background:var(--accsoft);"><span style="font-size:13px;color:var(--muted);">Commit</span><span style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;color:var(--accent);">a3f9c1d<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Flavor</span><span style="font-family:var(--mono);font-size:13px;">internal</span></div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:16px 18px 6px;">DEVICE</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Device</span><span style="font-family:var(--mono);font-size:13px;">Pixel 8</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">OS</span><span style="font-family:var(--mono);font-size:13px;">Android 15</span></div>
+          </div>
+          <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:22px;display:flex;align-items:center;gap:9px;background:var(--text);color:var(--bg);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Copied a3f9c1d</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- D2 app info light -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">detail · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">App Info &amp; Build</span>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:6px 0;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:12px 18px 6px;">VERSION</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Version</span><span style="font-family:var(--mono);font-size:13px;">1.4.2</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Build</span><span style="font-family:var(--mono);font-size:13px;">5120</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Build type</span><span style="font-family:var(--mono);font-size:12px;color:var(--warn);border:1px solid var(--border);border-radius:5px;padding:2px 7px;">debug</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Commit</span><span style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;color:var(--accent);">a3f9c1d<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Flavor</span><span style="font-family:var(--mono);font-size:13px;">internal</span></div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:16px 18px 6px;">DEVICE</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">Device</span><span style="font-family:var(--mono);font-size:13px;">Pixel 8</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);">OS</span><span style="font-family:var(--mono);font-size:13px;">Android 15</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:330px;align-self:center;">
+      <div data-pal="sw-d" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;color:var(--text);font-family:var(--sans);">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);">READ-ONLY · COPY</div>
+        <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--muted);">Key/value rows grouped under mono section labels. Any value is tap-to-copy with a confirming toast (3s, then auto-dismiss). The commit row is highlighted because it's the most-copied field. Nothing here is editable — it's reference data the developer reads at a glance.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION E: ENVIRONMENT — HERO FLOW ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">E · Panel 2 — Environment switch &amp; <span style="color:#1b1a18;">Apply &amp; Restart</span> (the hero interaction)</div>
+  <div style="display:flex;gap:24px;align-items:flex-start;margin-top:18px;">
+
+    <!-- E1: pick + staged -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">1 · staged selection</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Environment</span>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:10px 14px;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:4px 4px 10px;">BACKEND</div>
+            <!-- production active -->
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Production</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">api.dayfold.app</div></div>
+            </div>
+            <!-- staging staged (pending) -->
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--accent);border-radius:11px;margin-bottom:9px;background:var(--accsoft);">
+              <span style="width:18px;height:18px;border-radius:50%;border:5px solid var(--accent);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:600;">Staging</div><div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:1px;">staging.dayfold.app</div></div>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;">PENDING</span>
+            </div>
+            <!-- current active marker -->
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Local</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">10.0.2.2:8080</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Fake / offline</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">in-memory fixtures</div></div>
+            </div>
+          </div>
+          <div style="padding:12px 16px 18px;border-top:1px solid var(--border);background:var(--surface);">
+            <div style="display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:11px;margin-bottom:10px;"><span style="color:var(--faint);">active</span><span style="color:var(--text);">Local <span style="color:var(--faint);">→</span> <span style="color:var(--accent);">Staging</span></span></div>
+            <button style="width:100%;height:48px;border:none;border-radius:11px;background:var(--accent);color:var(--onacc);font-family:var(--sans);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>Apply &amp; Restart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- E2: confirm sheet -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">2 · confirm guard</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--bg);"></div>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.55);"></div>
+        <div style="position:absolute;left:14px;right:14px;bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px 20px;box-shadow:0 -10px 40px -10px rgba(0,0,0,.6);">
+          <div style="width:42px;height:42px;border-radius:11px;background:var(--accsoft);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:14px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/></svg></div>
+          <div style="font-size:18px;font-weight:600;letter-spacing:-.01em;">Switch to Staging?</div>
+          <p style="margin:10px 0 0;font-size:13.5px;line-height:1.6;color:var(--muted);">The app will <strong style="color:var(--text);">restart</strong> and connect to <span style="font-family:var(--mono);color:var(--accent);">staging.dayfold.app</span>. Your current session and in-memory state will be cleared.</p>
+          <div style="display:flex;gap:10px;margin-top:20px;">
+            <button style="flex:1;height:48px;border:1px solid var(--bstrong);border-radius:11px;background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600;font-size:14px;cursor:pointer;">Cancel</button>
+            <button style="flex:1.4;height:48px;border:none;border-radius:11px;background:var(--accent);color:var(--onacc);font-family:var(--sans);font-weight:600;font-size:14px;cursor:pointer;">Restart now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- E3: restarting overlay -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">3 · restarting (blocking)</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
+        <div style="width:46px;height:46px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:ddspin .8s linear infinite;"></div>
+        <div style="text-align:center;">
+          <div style="font-size:16px;font-weight:600;">Switching environment…</div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:8px;">Restarting against <span style="color:var(--accent);">staging</span></div>
+        </div>
+        <div style="position:absolute;bottom:26px;font-family:var(--mono);font-size:10px;color:var(--faint);">tearing down store · re-initializing</div>
+      </div>
+    </div>
+
+    <!-- E4: success -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">4 · reopened · new active</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div>
+            <span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Environment</span>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:10px 14px;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:4px 4px 10px;">BACKEND</div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Production</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">api.dayfold.app</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--ok);border-radius:11px;margin-bottom:9px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:5px solid var(--ok);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:600;">Staging</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">staging.dayfold.app</div></div>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--ok);border:1px solid var(--ok);border-radius:5px;padding:2px 6px;">ACTIVE</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Local</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">10.0.2.2:8080</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:500;">Fake / offline</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">in-memory fixtures</div></div>
+            </div>
+          </div>
+          <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:22px;display:flex;align-items:center;gap:9px;background:var(--ok);color:#06210f;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Now on Staging</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION F: LOGS ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">F · Panel 3 — Logs (level filter · detail · share · empty · high-volume)</div>
+  <div style="display:flex;gap:24px;align-items:flex-start;margin-top:18px;">
+
+    <!-- F1: list + filter -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">list · filter W+ · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Logs</span></div>
+            <div style="display:flex;gap:8px;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+          </div>
+          <!-- filter segmented -->
+          <div style="display:flex;gap:5px;padding:10px 12px;border-bottom:1px solid var(--border);">
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">V</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">D</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">I</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--onacc);background:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:7px 0;">W</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">E</span>
+          </div>
+          <div style="flex:1;overflow:hidden;font-family:var(--mono);font-size:11.5px;">
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--le);font-weight:700;flex:none;">E</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">SocketTimeout: api call failed</div><div style="color:var(--faint);margin-top:2px;">12:04:51.220 · NetworkClient</div></div></div>
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--lw);font-weight:700;flex:none;">W</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Retrying request (2/3)</div><div style="color:var(--faint);margin-top:2px;">12:04:49.880 · NetworkClient</div></div></div>
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--lw);font-weight:700;flex:none;">W</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cache miss for key user_prefs</div><div style="color:var(--faint);margin-top:2px;">12:04:48.012 · PrefsStore</div></div></div>
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--le);font-weight:700;flex:none;">E</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">NPE in SyncWorker.onRun()</div><div style="color:var(--faint);margin-top:2px;">12:04:40.551 · SyncWorker</div></div></div>
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--lw);font-weight:700;flex:none;">W</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Deprecated API used: getThing()</div><div style="color:var(--faint);margin-top:2px;">12:04:38.300 · LegacyBridge</div></div></div>
+            <div style="display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border);align-items:flex-start;"><span style="color:var(--le);font-weight:700;flex:none;">E</span><div style="flex:1;min-width:0;"><div style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">401 Unauthorized on /me refresh</div><div style="color:var(--faint);margin-top:2px;">12:04:31.119 · AuthInterceptor</div></div></div>
+          </div>
+          <div style="padding:9px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--faint);"><span>showing 6 of 1,284 · W+ only</span><span style="display:flex;align-items:center;gap:5px;color:var(--ok);"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok);"></span>tailing</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F2: detail + share -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">entry detail · share</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:15px;letter-spacing:-.01em;">Log entry</span></div>
+            <button style="display:flex;align-items:center;gap:6px;background:var(--accent);color:var(--onacc);border:none;border-radius:8px;padding:7px 12px;font-family:var(--sans);font-weight:600;font-size:12px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>Share</button>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:16px 16px;">
+            <div style="display:flex;align-items:center;gap:9px;"><span style="font-family:var(--mono);font-size:12px;font-weight:700;color:#fff;background:var(--le);border-radius:6px;padding:3px 9px;">E · ERROR</span><span style="font-family:var(--mono);font-size:12px;color:var(--faint);">12:04:51.220</span></div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:14px;">NetworkClient · main</div>
+            <div style="margin-top:6px;font-family:var(--mono);font-size:13px;line-height:1.5;color:var(--text);">SocketTimeoutException: timeout after 30000ms calling GET /v3/feed</div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);margin-top:18px;">STACK</div>
+            <div style="margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:var(--mono);font-size:10.5px;line-height:1.65;color:var(--muted);">at okhttp3.RealCall.execute(RealCall.kt:154)<br>at c.d.net.NetworkClient.get(NetworkClient.kt:88)<br>at c.d.feed.FeedRepo.load(FeedRepo.kt:42)<br>at c.d.feed.FeedVm$load$1.invoke(FeedVm.kt:31)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F3: empty -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">empty (filter E) · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Logs</span></div>
+          <div style="display:flex;gap:5px;padding:10px 12px;border-bottom:1px solid var(--border);">
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">V</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">D</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">I</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 0;">W</span>
+            <span style="flex:1;text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--onacc);background:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:7px 0;">E</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 30px;text-align:center;">
+            <div style="width:52px;height:52px;border-radius:14px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--faint);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+            <div><div style="font-size:15px;font-weight:600;">No errors logged</div><div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5;">Nothing matches the <span style="font-family:var(--mono);">E</span> filter in this session. That's a good thing.</div></div>
+            <button style="background:transparent;border:1px solid var(--bstrong);border-radius:9px;padding:9px 16px;font-family:var(--sans);font-weight:600;font-size:13px;color:var(--text);cursor:pointer;">Clear filter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F4: high volume -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">high-volume · jump-to-latest</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Logs</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--s2);border-radius:5px;padding:2px 7px;margin-left:auto;">V · all</span></div>
+          <div style="flex:1;overflow:hidden;font-family:var(--mono);font-size:11px;position:relative;">
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--lv);flex:none;">V</span><span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">measure pass 3 · 0.4ms</span><span style="color:var(--faint);">.341</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--ld);flex:none;">D</span><span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">dispatch FEED/SCROLL idx=42</span><span style="color:var(--faint);">.339</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--li);flex:none;">I</span><span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">prefetch images [12]</span><span style="color:var(--faint);">.338</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--lv);flex:none;">V</span><span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">recompose FeedRow x6</span><span style="color:var(--faint);">.337</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--ld);flex:none;">D</span><span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">dispatch FEED/SCROLL idx=41</span><span style="color:var(--faint);">.336</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--lv);flex:none;">V</span><span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">gc minor 2.1mb</span><span style="color:var(--faint);">.334</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);"><span style="color:var(--li);flex:none;">I</span><span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">analytics flush 8 events</span><span style="color:var(--faint);">.331</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);opacity:.7;"><span style="color:var(--ld);flex:none;">D</span><span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">dispatch FEED/SCROLL idx=40</span><span style="color:var(--faint);">.329</span></div>
+            <div style="display:flex;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);opacity:.45;"><span style="color:var(--lv);flex:none;">V</span><span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">measure pass 2</span><span style="color:var(--faint);">.327</span></div>
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:14px;display:flex;align-items:center;gap:7px;background:var(--accent);color:var(--onacc);border-radius:20px;padding:8px 14px;font-family:var(--sans);font-size:12px;font-weight:600;box-shadow:0 8px 22px -6px rgba(0,0,0,.6);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>Jump to latest · 38 new</div>
+          </div>
+          <div style="padding:9px 12px;border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--faint);">1,284 entries · virtualized · paused (scrolled up)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION G: REDUX DEVTOOLS + STATES ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">G · Panel 4 — Redux DevTools (adapter) · loading &amp; error states</div>
+  <div style="display:flex;gap:24px;align-items:flex-start;margin-top:18px;">
+
+    <!-- G1 redux adapter -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">adapter · time-travel · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:15px;letter-spacing:-.01em;">Redux DevTools</span></div>
+            <span style="font-family:var(--mono);font-size:9px;letter-spacing:.05em;color:var(--faint);border:1px solid var(--border);border-radius:5px;padding:2px 6px;">ADAPTER</span>
+          </div>
+          <!-- action list -->
+          <div style="flex:1;overflow:hidden;font-family:var(--mono);font-size:11.5px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">@@INIT</span><span style="color:var(--faint);">+0ms</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);"><span style="color:var(--text);">auth/loginSuccess</span><span style="color:var(--faint);">+820</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);"><span style="color:var(--text);">feed/requested</span><span style="color:var(--faint);">+910</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--accsoft);"><span style="color:var(--accent);">feed/received</span><span style="color:var(--accent);">+1.2s</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);opacity:.55;"><span style="color:var(--text);">ui/tabChanged</span><span style="color:var(--faint);">+2.0s</span></div>
+          </div>
+          <!-- state tree -->
+          <div style="height:150px;overflow:hidden;padding:12px 14px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--muted);">
+            <div><span style="color:var(--accent);">▾ feed</span></div>
+            <div style="padding-left:14px;">status: <span style="color:var(--li);">"ready"</span></div>
+            <div style="padding-left:14px;">items: <span style="color:var(--text);">Array(24)</span></div>
+            <div style="padding-left:14px;">cursor: <span style="color:var(--li);">"c_88f2"</span></div>
+            <div><span style="color:var(--accent);">▸ auth</span> <span style="color:var(--faint);">{ user, token }</span></div>
+          </div>
+          <!-- time travel bar -->
+          <div style="padding:11px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:11px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19l-7-7 7-7M19 19l-7-7 7-7"/></svg>
+            <div style="flex:1;height:5px;border-radius:3px;background:var(--s2);position:relative;"><div style="position:absolute;left:0;top:0;bottom:0;width:72%;background:var(--accent);border-radius:3px;"></div><div style="position:absolute;left:72%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);"></div></div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- G2 loading -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">panel loading · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Redux DevTools</span></div>
+          <div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:11px;">
+            <div style="height:38px;border-radius:9px;background:var(--s2);"></div>
+            <div style="height:38px;border-radius:9px;background:var(--s2);opacity:.8;"></div>
+            <div style="height:38px;border-radius:9px;background:var(--s2);opacity:.6;"></div>
+            <div style="height:38px;border-radius:9px;background:var(--s2);opacity:.4;"></div>
+            <div style="margin-top:auto;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);padding:18px;"><div style="width:18px;height:18px;border-radius:50%;border:2.5px solid var(--border);border-top-color:var(--accent);animation:ddspin .8s linear infinite;"></div><span style="font-family:var(--mono);font-size:12px;">connecting to store…</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- G3 error -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">error state · light</div>
+      <div data-pal="sw-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Redux DevTools</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:0 30px;text-align:center;">
+            <div style="width:52px;height:52px;border-radius:14px;background:color-mix(in srgb,var(--err) 12%,transparent);display:flex;align-items:center;justify-content:center;color:var(--err);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01"/><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg></div>
+            <div><div style="font-size:15px;font-weight:600;">Store not reachable</div><div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5;">The Redux middleware didn't register. Confirm the dev adapter is installed in this build.</div></div>
+            <button style="display:flex;align-items:center;gap:8px;background:var(--accent);color:var(--onacc);border:none;border-radius:9px;padding:10px 18px;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>Retry</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:330px;align-self:center;">
+      <div data-pal="sw-d" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;color:var(--text);font-family:var(--sans);">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);">ADAPTER COMPROMISE (flagged)</div>
+        <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--muted);">The Redux inspector is a rich third-party surface forced into the host's list→detail chrome. We give it a full-height pane and let it own its internal scroll &amp; time-travel slider, but its language won't be 100% native. This is the architecture's one real UX trade — noted in the spec, not redesigned.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION H: ADAPTIVE ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">H · Adaptive — desktop / wide: non-modal right side sheet (list rail + detail pane)</div>
+  <div style="display:flex;gap:36px;align-items:flex-start;margin-top:18px;">
+    <div style="flex:none;width:860px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">desktop window · 420dp side sheet · dark</div>
+      <div data-pal="sw-d" style="position:relative;width:860px;height:560px;border-radius:14px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 18px 50px -16px rgba(0,0,0,.5);font-family:var(--sans);color:var(--text);display:flex;">
+        <!-- app area -->
+        <div style="flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);">
+          <div style="height:38px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--border);"><span style="width:11px;height:11px;border-radius:50%;background:#FF5F57;"></span><span style="width:11px;height:11px;border-radius:50%;background:#FEBC2E;"></span><span style="width:11px;height:11px;border-radius:50%;background:#28C840;"></span><span style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:10px;">Dayfold — desktop (debug)</span></div>
+          <div style="flex:1;padding:28px;">
+            <div style="height:30px;width:40%;background:var(--s2);border-radius:7px;"></div>
+            <div style="display:flex;gap:16px;margin-top:22px;"><div style="flex:1;height:120px;background:var(--s2);border-radius:12px;"></div><div style="flex:1;height:120px;background:var(--s2);border-radius:12px;"></div></div>
+            <div style="height:14px;width:70%;background:var(--s2);border-radius:5px;margin-top:24px;"></div>
+            <div style="height:14px;width:55%;background:var(--s2);border-radius:5px;margin-top:10px;"></div>
+            <div style="position:absolute;left:24px;bottom:18px;font-family:var(--mono);font-size:10px;color:var(--faint);">bubble docks to a window corner · keyboard-focusable · Esc closes sheet</div>
+          </div>
+        </div>
+        <!-- side sheet -->
+        <div style="width:420px;flex:none;display:flex;background:var(--surface);">
+          <!-- list rail -->
+          <div style="width:172px;flex:none;border-right:1px solid var(--border);display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 14px;border-bottom:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 48 48"><path d="M18 8 L18 38 L40 38 Z" fill="var(--accent)"/></svg><span style="font-weight:600;font-size:13px;">SloopWorks</span></div>
+            <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12.5px;color:var(--muted);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>App Info</div>
+            <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12.5px;font-weight:600;color:var(--text);background:var(--accsoft);border-left:2px solid var(--accent);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Environment</div>
+            <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12.5px;color:var(--muted);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Logs</div>
+            <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12.5px;color:var(--muted);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Redux</div>
+          </div>
+          <!-- detail pane -->
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--border);"><span style="font-weight:600;font-size:14px;">Environment</span><div style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+            <div style="flex:1;padding:12px;">
+              <div style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;"><span style="width:16px;height:16px;border-radius:50%;border:5px solid var(--ok);"></span><div style="flex:1;"><div style="font-size:13px;font-weight:600;">Staging</div><div style="font-family:var(--mono);font-size:10px;color:var(--faint);">staging.dayfold.app</div></div><span style="font-family:var(--mono);font-size:9px;color:var(--ok);border:1px solid var(--ok);border-radius:4px;padding:1px 5px;">ACTIVE</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;"><span style="width:16px;height:16px;border-radius:50%;border:2px solid var(--bstrong);"></span><div style="flex:1;"><div style="font-size:13px;font-weight:500;">Production</div><div style="font-family:var(--mono);font-size:10px;color:var(--faint);">api.dayfold.app</div></div></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:10px;"><span style="width:16px;height:16px;border-radius:50%;border:2px solid var(--bstrong);"></span><div style="flex:1;"><div style="font-size:13px;font-weight:500;">Local</div><div style="font-family:var(--mono);font-size:10px;color:var(--faint);">10.0.2.2:8080</div></div></div>
+            </div>
+            <div style="padding:12px;border-top:1px solid var(--border);"><button style="width:100%;height:44px;border:none;border-radius:10px;background:var(--accent);color:var(--onacc);font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;">Apply &amp; Restart</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:300px;align-self:center;">
+      <div data-pal="sw-d" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;color:var(--text);font-family:var(--sans);">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);">ONE BUILD · MANY CONTAINERS</div>
+        <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:var(--muted);">Phone shows a modal bottom sheet; wide screens get a non-modal right side sheet that can show the list rail and detail pane together. Content, density and shapes are <strong style="color:var(--text);">identical</strong> across form factors — only the container changes. Tablet sits between: a width-capped, centered sheet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION I: DAYFOLD CUSTOMIZED ============ -->
+  <div style="margin-top:54px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#6f6d66;text-transform:uppercase;">I · Theming contract proof — same build, Dayfold consumer skin (brandName + accent + glyph only)</div>
+  <div style="display:flex;gap:36px;align-items:flex-start;margin-top:18px;">
+
+    <!-- Dayfold dark home -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">Dayfold · home · dark</div>
+      <div data-pal="df-d" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.45);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px 14px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path d="M24 8 L40 24 L24 40 L8 24 Z" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linejoin="round"/><path d="M8 24 L40 24" stroke="var(--accent)" stroke-width="3.5"/></svg>
+              <span style="font-weight:600;font-size:15px;letter-spacing:-.01em;">Dayfold</span>
+              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--warn);border:1px solid var(--border);border-radius:5px;padding:2px 6px;">DEBUG</span>
+            </div>
+            <div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+          </div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);"><div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:500;">App Info &amp; Build</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">3.1.0 · build 880</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);"><div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Environment</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">backend switch</div></div><span style="font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accsoft);border-radius:6px;padding:3px 8px;">prod</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);"><div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Logs</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">live tail</div></div><span style="font-family:var(--mono);font-size:11px;color:var(--le);display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--le);"></span>1 E</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;border-bottom:1px solid var(--border);"><div style="width:34px;height:34px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></div><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Redux DevTools</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px;">adapter · 96 actions</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+          </div>
+          <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);"><span>themed · Dayfold</span><span style="display:flex;align-items:center;gap:6px;">theme<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;"><span style="padding:2px 7px;background:var(--accent);color:var(--onacc);">D</span><span style="padding:2px 7px;color:var(--muted);">L</span></span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dayfold light environment -->
+    <div style="flex:none;width:300px;">
+      <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#6f6d66;margin-bottom:10px;">Dayfold · environment · light</div>
+      <div data-pal="df-l" style="position:relative;width:300px;height:600px;border-radius:30px;background:var(--bg);border:1px solid var(--bstrong);overflow:hidden;box-shadow:0 14px 44px -14px rgba(0,0,0,.18);font-family:var(--sans);color:var(--text);">
+        <div style="position:absolute;inset:0;background:var(--scrim);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:var(--surface);border-top-left-radius:22px;border-top-right-radius:22px;border-top:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:center;padding-top:8px;"><div style="width:34px;height:4px;border-radius:2px;background:var(--bstrong);"></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--border);"><div style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></div><span style="font-weight:600;font-size:16px;letter-spacing:-.01em;">Environment</span></div>
+          <div style="flex:1;overflow:hidden;padding:10px 14px;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);padding:4px 4px 10px;">BACKEND</div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--ok);border-radius:11px;margin-bottom:9px;"><span style="width:18px;height:18px;border-radius:50%;border:5px solid var(--ok);"></span><div style="flex:1;"><div style="font-size:14px;font-weight:600;">Production</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">api.dayfold.app</div></div><span style="font-family:var(--mono);font-size:10px;color:var(--ok);border:1px solid var(--ok);border-radius:5px;padding:2px 6px;">ACTIVE</span></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;"><span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Staging</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">staging.dayfold.app</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;margin-bottom:9px;"><span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Local</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">10.0.2.2:8080</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:11px;"><span style="width:18px;height:18px;border-radius:50%;border:2px solid var(--bstrong);"></span><div style="flex:1;"><div style="font-size:14px;font-weight:500;">Fake / offline</div><div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;">in-memory fixtures</div></div></div>
+          </div>
+          <div style="padding:12px 16px 18px;border-top:1px solid var(--border);"><button style="width:100%;height:48px;border:1px solid var(--bstrong);border-radius:11px;background:var(--surface);color:var(--faint);font-family:var(--sans);font-weight:600;font-size:14px;cursor:default;">Apply &amp; Restart</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- contract card -->
+    <div style="flex:none;width:380px;">
+      <div data-pal="df-l" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;color:var(--text);font-family:var(--sans);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><svg width="20" height="20" viewBox="0 0 48 48"><path d="M24 8 L40 24 L24 40 L8 24 Z" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linejoin="round"/><path d="M8 24 L40 24" stroke="var(--accent)" stroke-width="3.5"/></svg><span style="font-weight:600;font-size:15px;">Dayfold theme tokens</span></div>
+        <p style="margin:6px 0 16px;font-size:13.5px;line-height:1.6;color:var(--muted);">Everything below is the entire override. Same layout, density, shapes, nav — only identity changes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;font-family:var(--mono);font-size:12px;">
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:7px;"><span style="color:var(--faint);">brandName</span><span>"Dayfold"</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:7px;"><span style="color:var(--faint);">accent</span><span style="display:flex;align-items:center;gap:7px;"><span style="width:13px;height:13px;border-radius:4px;background:#C75C3C;"></span>#C75C3C / #E89070</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:7px;"><span style="color:var(--faint);">brandMark</span><span>fold glyph</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:7px;"><span style="color:var(--faint);">colorScheme</span><span>system</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--faint);">bubblePosition</span><span>bottom-end</span></div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;line-height:1.6;color:var(--faint);"><strong style="color:var(--text);">Fixed (not themeable):</strong> layout · density · row heights · shapes &amp; radii · spacing scale · log-level colors · iconography.</div>
+      </div>
+    </div>
+  </div>
+
+  <!--ANCHOR-->
+
+</div>
+</x-dc>
+</body>
+</html>

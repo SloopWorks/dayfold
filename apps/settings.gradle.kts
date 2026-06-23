@@ -18,4 +18,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "dayfold-apps"
-include(":client", ":androidApp")
+include(":client", ":androidApp", ":debugdrawer", ":debugdrawer-noop")
