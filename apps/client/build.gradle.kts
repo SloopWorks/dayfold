@@ -31,10 +31,10 @@ kotlin {
       dependencies {
         // redux-kotlin KMP coordinates (unsuffixed → per-target variant resolved
         // by Gradle). api() for the types the platform shells touch (Store etc.).
-        api("org.reduxkotlin:redux-kotlin-threadsafe:1.0.0-alpha01")
-        implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha02")
-        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha02")
-        api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha01")
+        api("org.reduxkotlin:redux-kotlin-threadsafe:1.0.0-alpha03")
+        implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha03")
+        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha03")
+        api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha03")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         implementation("app.cash.sqldelight:runtime:2.3.2")

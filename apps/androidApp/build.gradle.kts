@@ -66,8 +66,8 @@ dependencies {
 
   // In-app redux devtools (debug build = real drawer; release = no-op facade).
   // Real drawer needs Compose-MP 1.11.1, which the matrix now provides.
-  debugImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha01")
-  releaseImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp-noop:1.0.0-alpha01")
+  debugImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha03")
+  releaseImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp-noop:1.0.0-alpha03")
 
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)

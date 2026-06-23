@@ -66,7 +66,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - working-directory: apps
-        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest
+        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest
 
   naming-guard:
     name: No legacy com.familyai package (ADR 0026)
