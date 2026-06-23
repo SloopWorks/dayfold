@@ -150,7 +150,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -211,6 +211,9 @@ data class AppState(
   // the owner was signed in. Stashed here, then consumed + looked up once sign-in
   // resolves memberships (cold-install resume). Null = nothing pending.
   val pendingDeviceLink: String? = null,
+  // True between consuming a stashed deep-link and the lookup resolving — the
+  // Loading route then shows the "Finishing…" beat instead of the plain splash.
+  val deviceResuming: Boolean = false,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -283,3 +286,7 @@ data object CloseDeviceFlow : Action                          // exit → routeF
 // consume it once memberships resolve (engine then looks it up → AuthorizeDevice).
 data class DeviceLinkStashed(val code: String) : Action
 data object DeviceLinkConsumed : Action
+// Scan flow (Phase 2): the camera path into the same lookup → approve loop.
+data object OpenScan : Action                                 // EnterCode Scan tab → ScanPrimer
+data object ScanPermissionGranted : Action                    // primer Allow (granted) → ScanDevice
+data object ScanPermissionDenied : Action                     // permission refused → ScanDenied

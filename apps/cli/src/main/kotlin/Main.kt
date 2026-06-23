@@ -70,12 +70,15 @@ private fun signout(c: Creds) {
 
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
-    "login" -> deviceLogin(api = System.getenv("DAYFOLD_API") ?: "https://family-ai-dashboard.vercel.app")
+    "login" -> deviceLogin(
+      api = System.getenv("DAYFOLD_API") ?: "https://family-ai-dashboard.vercel.app",
+      allowEnvKey = hasFlag(args, "--allow-env-key"),
+    )
 
     "logout" -> {
       val s = Credentials()
       s.load()?.let { runCatching { signout(it) } }
-      s.delete()
+      deleteCreds(s, resolveKeychain())     // clear the file + the keychain refresh token
       println("logged out")
     }
 
@@ -101,18 +104,19 @@ fun main(args: Array<String>) {
         }
       }
       val store = Credentials()
-      val creds = store.load()
+      val keychain = resolveKeychain()
+      val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
       if (creds != null) {
         var access = creds.accessToken
         var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
         if (code == 401) {
           access = store.withRefreshLock {
-            val cur = store.load() ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
+            val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
             val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
             if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
             val o = J.parseToJsonElement(rt).jsonObject
             val newAccess = o["access"]!!.jsonPrimitive.content
-            store.save(cur.copy(accessToken = newAccess, refreshToken = o["refresh"]!!.jsonPrimitive.content))
+            saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = o["refresh"]!!.jsonPrimitive.content))
             newAccess
           }
           val retry = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
@@ -152,7 +156,33 @@ private fun flagValue(args: Array<String>, flag: String): String? {
   return if (i >= 0 && i + 1 < args.size) args[i + 1] else null
 }
 
-private fun deviceLogin(api: String) {
+/** Whether a bare `--flag` token is present. */
+private fun hasFlag(args: Array<String>, flag: String): Boolean = args.contains(flag)
+
+/**
+ * The keychain to store a fresh login's refresh token in. Keychain when one
+ * exists; otherwise the plaintext-file fallback is allowed only behind
+ * `--allow-env-key` (+ a loud warning). With neither, refuse — don't silently
+ * write a 45-day secret to disk.
+ */
+private fun keychainForLogin(allowEnvKey: Boolean): SecretStore? {
+  resolveKeychain()?.let { return it }
+  if (allowEnvKey) {
+    System.err.println("warning: no OS keychain found — storing the 45-day refresh token in plaintext ~/.config/dayfold/credentials.json (0600).")
+    return null
+  }
+  System.err.println(
+    "error: no OS keychain found to store the refresh token securely.\n" +
+      "  Re-run with --allow-env-key to keep it in a 0600 file (headless/CI),\n" +
+      "  or sign in on a machine with macOS Keychain / libsecret.",
+  )
+  exitProcess(2)
+}
+
+private fun deviceLogin(api: String, allowEnvKey: Boolean) {
+  // Resolve the secret store up front so we fail BEFORE the device dance if a
+  // headless host can't store the token and --allow-env-key wasn't passed.
+  val keychain = keychainForLogin(allowEnvKey)
   val auth = J.parseToJsonElement(post("$api/device/authorize", "{}", null)).jsonObject
   val deviceCode = auth["device_code"]!!.jsonPrimitive.content
   var interval = auth["interval"]!!.jsonPrimitive.int
@@ -180,7 +210,7 @@ private fun deviceLogin(api: String) {
         System.err.println("login succeeded but could not resolve family — is the approving owner's family set up? run: dayfold login")
         exitProcess(1)
       }
-      Credentials().save(Creds(api = api, accessToken = accessToken, refreshToken = refreshToken, familyId = familyId, obtainedAt = java.time.Instant.now().toString()))
+      saveCreds(Credentials(), keychain, Creds(api = api, accessToken = accessToken, refreshToken = refreshToken, familyId = familyId, obtainedAt = java.time.Instant.now().toString()))
       println("logged in")
       return
     }
@@ -196,7 +226,9 @@ private fun deviceLogin(api: String) {
 private fun usage(): Nothing {
   System.err.println(
     "usage: dayfold <command>\n" +
-      "  login | logout | whoami\n" +
+      "  login [--allow-env-key] | logout | whoami\n" +
+      "        (refresh token is stored in the OS keychain; --allow-env-key permits\n" +
+      "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
       "  push <cardId> <file.json> [--type file|link|invite|contact|geo|email]\n" +
       "        (--type runs local typed validation before the server)\n" +
       "  template <type>            print a valid starter card for the type",

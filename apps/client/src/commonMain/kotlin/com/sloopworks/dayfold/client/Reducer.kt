@@ -107,14 +107,17 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is OpenEnterCode -> state.copy(
     route = Route.EnterCode, pendingDevice = null, deviceBusy = false, deviceError = null, deviceOutcome = null,
   )
+  is OpenScan -> state.copy(route = Route.ScanPrimer, deviceError = null)
+  is ScanPermissionGranted -> state.copy(route = Route.ScanDevice)
+  is ScanPermissionDenied -> state.copy(route = Route.ScanDenied)
   is DeviceLookupRequested -> state.copy(deviceBusy = true, deviceError = null)
   is DevicePendingLoaded -> state.copy(
-    deviceBusy = false, pendingDevice = action.device, route = Route.AuthorizeDevice, deviceOutcome = null,
+    deviceBusy = false, pendingDevice = action.device, route = Route.AuthorizeDevice, deviceOutcome = null, deviceResuming = false,
   )
   is DeviceLookupNotFound -> state.copy(
-    deviceBusy = false, pendingDevice = null, route = Route.AuthorizeDevice, deviceOutcome = "expired",
+    deviceBusy = false, pendingDevice = null, route = Route.AuthorizeDevice, deviceOutcome = "expired", deviceResuming = false,
   )
-  is DeviceLookupFailed -> state.copy(deviceBusy = false, deviceError = action.message)  // stays on EnterCode
+  is DeviceLookupFailed -> state.copy(deviceBusy = false, deviceError = action.message, deviceResuming = false)  // stays put
   is ApproveDeviceRequested -> state.copy(deviceBusy = true, deviceError = null)
   is DenyDeviceRequested -> state.copy(deviceBusy = true, deviceError = null)
   is DeviceApproved -> state.copy(deviceBusy = false, deviceOutcome = "approved")
@@ -123,10 +126,10 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DeviceOpFailed -> state.copy(deviceBusy = false, deviceError = action.message)
   is CloseDeviceFlow -> state.copy(
     route = routeFor(state.session, state.families),
-    pendingDevice = null, deviceBusy = false, deviceError = null, deviceOutcome = null,
+    pendingDevice = null, deviceBusy = false, deviceError = null, deviceOutcome = null, deviceResuming = false,
   )
   is DeviceLinkStashed -> state.copy(pendingDeviceLink = action.code)   // await sign-in
-  is DeviceLinkConsumed -> state.copy(pendingDeviceLink = null)         // engine looks it up
+  is DeviceLinkConsumed -> state.copy(pendingDeviceLink = null, deviceResuming = true)  // engine looks it up → Finishing
 
   else -> state
 }

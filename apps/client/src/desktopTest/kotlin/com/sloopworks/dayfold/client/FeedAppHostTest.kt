@@ -61,6 +61,19 @@ class FeedAppHostTest {
   @Test fun hostRendersExpired() = hostShot("host-device-expired", authedAt(Route.AuthorizeDevice, "expired"))
   @Test fun hostRendersApproved() = hostShot("host-device-approved", authedAt(Route.AuthorizeDevice, "approved"))
 
+  // Phase 2 scan + deep-link host arms (render without crashing).
+  @Test fun hostRendersScanPrimer() = hostShot("host-scan-primer", authedAt(Route.ScanPrimer).copy(pendingDevice = null))
+  @Test fun hostRendersScanDevice() = hostShot("host-scan-device", authedAt(Route.ScanDevice).copy(pendingDevice = null))
+  @Test fun hostRendersScanDenied() = hostShot("host-scan-denied", authedAt(Route.ScanDenied).copy(pendingDevice = null))
+  @Test fun hostRendersDeviceResume() = hostShot(
+    "host-deviceresume",
+    AppState(route = Route.SignIn, pendingDeviceLink = "WDJF-7K2P"),
+  )
+  @Test fun hostRendersFinishing() = hostShot(
+    "host-devicefinishing",
+    AppState(route = Route.Feed, deviceResuming = true),
+  )
+
   @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() {
     val store = createAppStore(debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))

@@ -103,4 +103,16 @@ class AuthScreensSnapshotTest {
   @Test fun deviceExpired() = snap("device-expired") { DeviceExpiredScreen() }
   @Test fun deviceExpiredDark() = snap("device-expired-dark", dark = true) { DeviceExpiredScreen() }
   @Test fun deviceApproved() = snap("device-approved") { DeviceApprovedConfirm() }
+
+  // ── Phase 2 scan + deep-link (A8b scanprimer/scandevice/scandenied/deviceresume) ──
+  @Test fun enterCodeWithScanToggle() = snap("device-entercode-scan") { EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {}) }
+  @Test fun enterCodeWithScanToggleDark() = snap("device-entercode-scan-dark", dark = true) { EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {}) }
+  @Test fun scanPrimer() = snap("scan-primer") { ScanPrimerScreen() }
+  @Test fun scanPrimerDark() = snap("scan-primer-dark", dark = true) { ScanPrimerScreen() }
+  @Test fun scanDevice() = snap("scan-device") { ScanDeviceScreen() }
+  @Test fun scanDenied() = snap("scan-denied") { ScanDeniedScreen() }
+  @Test fun scanDeniedDark() = snap("scan-denied-dark", dark = true) { ScanDeniedScreen() }
+  @Test fun deviceResume() = snap("scan-deviceresume") { DeviceResumeScreen() }
+  @Test fun deviceResumeDark() = snap("scan-deviceresume-dark", dark = true) { DeviceResumeScreen() }
+  @Test fun deviceFinishing() = snap("scan-devicefinishing") { DeviceFinishingScreen() }
 }

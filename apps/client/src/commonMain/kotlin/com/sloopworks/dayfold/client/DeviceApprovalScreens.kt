@@ -62,7 +62,7 @@ internal fun formatUserCode(code: String): String =
 // ── small shared chrome ──
 
 @Composable
-private fun PillButton(
+internal fun PillButton(
   text: String,
   container: Color,
   content: Color,
@@ -82,6 +82,23 @@ private fun PillButton(
     contentAlignment = Alignment.Center,
   ) {
     Text(text, style = MaterialTheme.typography.titleSmall, color = if (enabled) content else cs.onSurfaceVariant)
+  }
+}
+
+// Scan/Type segmented toggle (A8b entercode). On this screen Type is active; the
+// Scan segment routes to the camera flow. Hidden when scanning isn't supported.
+@Composable
+private fun ScanTypeToggle(onScan: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(cs.surfaceContainer).padding(4.dp)) {
+    Box(
+      Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(50)).clickable(onClick = onScan).testTag("toggle-scan"),
+      contentAlignment = Alignment.Center,
+    ) { Text("Scan QR", style = MaterialTheme.typography.titleSmall, color = cs.onSurfaceVariant) }
+    Box(
+      Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(50)).background(cs.primary),
+      contentAlignment = Alignment.Center,
+    ) { Text("Type code", style = MaterialTheme.typography.titleSmall, color = cs.onPrimary) }
   }
 }
 
@@ -127,8 +144,9 @@ private fun CodeCells(code: String, editable: Boolean) {
 }
 
 // ── Enter device code (manual user_code entry) ──
-// onScan is null in Phase 1 (the scan affordance + camera arrive in Phase 2); the
-// button only renders when onScan != null.
+// onScan != null (a camera platform, qrScanSupported) renders the Scan/Type
+// segmented toggle so both entry paths are discoverable; null hides it (desktop /
+// Phase 1). The 8-cell entry is unchanged.
 @Composable
 fun EnterCodeScreen(
   state: AppState,
@@ -144,7 +162,11 @@ fun EnterCodeScreen(
 
   Column(Modifier.fillMaxSize().background(cs.surface).padding(start = 28.dp, end = 28.dp, top = 16.dp, bottom = 30.dp)) {
     BackChevron(onBack)
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(16.dp))
+    if (onScan != null) {
+      ScanTypeToggle(onScan = onScan)   // Type is the active segment on this screen
+      Spacer(Modifier.height(18.dp))
+    }
     Text("Enter device code", style = MaterialTheme.typography.displaySmall, color = cs.onSurface)
     Spacer(Modifier.height(8.dp))
     Text(
@@ -174,11 +196,6 @@ fun EnterCodeScreen(
       Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
     Spacer(Modifier.weight(1f))
-    if (onScan != null) {
-      PillButton("Scan QR code", container = cs.surface, content = cs.onSurface, border = cs.outlineVariant,
-        modifier = Modifier.fillMaxWidth(), onClick = onScan)
-      Spacer(Modifier.height(11.dp))
-    }
     PillButton(
       if (state.deviceBusy) "Checking…" else "Continue",
       container = cs.primary, content = cs.onPrimary, enabled = ready,

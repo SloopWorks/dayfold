@@ -85,7 +85,7 @@ fun DayfoldMark(modifier: Modifier = Modifier, size: Int = 74) {
 // A full-width auth button. `filled` uses the primary brand fill; otherwise a
 // theme-derived provider surface (auto-correct in dark).
 @Composable
-private fun AuthButton(
+internal fun AuthButton(
   text: String,
   container: Color,
   content: Color,
@@ -119,7 +119,7 @@ private fun AuthButton(
 
 // Google 4-colour ring (sweep gradient) — no logo asset needed.
 @Composable
-private fun GoogleGlyph() {
+internal fun GoogleGlyph() {
   Box(
     Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(
       Brush.sweepGradient(
@@ -135,7 +135,7 @@ private fun GoogleGlyph() {
 }
 
 @Composable
-private fun AppleGlyph(tint: Color) {
+internal fun AppleGlyph(tint: Color) {
   // A simple filled disc stands in for the Apple mark (no glyph font at M0).
   Box(Modifier.size(20.dp).clip(RoundedCornerShape(50)).background(tint))
 }

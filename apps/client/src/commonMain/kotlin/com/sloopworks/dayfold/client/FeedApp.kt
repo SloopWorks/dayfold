@@ -59,6 +59,7 @@ fun FeedApp(
   onLookupDevice: (String) -> Unit = {},
   onApproveDevice: (String) -> Unit = {},
   onDenyDevice: (String) -> Unit = {},
+  onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
 ) {
   val state by store.selectorState { it }
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
@@ -68,9 +69,16 @@ fun FeedApp(
     fun(action: CardAction) = routeCardAction(store, onPlatformAction, action)
   }
   DayfoldTheme {
+    // Deep-link resume beat: after sign-in, MembershipsLoaded has already set the
+    // gate route, so show "Finishing…" over it while the stashed code is looked up.
+    if (state.deviceResuming) { DeviceFinishingScreen(); return@DayfoldTheme }
     when (state.route) {
       Route.Loading -> SplashScreen()
-      Route.SignIn -> SignInScreen(busy = state.authBusy, error = state.authError, onProvider = onSignIn)
+      // A deep-link tapped before sign-in shows the branded resume screen instead
+      // of the plain sign-in (same providers; resumes onto AuthorizeDevice after).
+      Route.SignIn ->
+        if (state.pendingDeviceLink != null) DeviceResumeScreen(onProvider = onSignIn)
+        else SignInScreen(busy = state.authBusy, error = state.authError, onProvider = onSignIn)
       Route.AuthError -> AuthErrorScreen(message = state.authError, onRetry = onRetry, onSignOut = onSignOut)
       Route.CreateFamily -> CreateFamilyScreen(
         busy = state.authBusy, error = state.authError,
@@ -80,8 +88,25 @@ fun FeedApp(
       Route.Feed -> ContentHost(store, state, handle, onConnectDevice = { store.dispatch(OpenEnterCode) })
       Route.EnterCode -> EnterCodeScreen(
         state, onLookup = onLookupDevice, onBack = { store.dispatch(CloseDeviceFlow) },
-        // Scanner + deep-link are Phase 2 — leave onScan null (button hidden).
-        onScan = null,
+        // Scan toggle only where a camera exists (qrScanSupported) — null hides it
+        // on desktop / until the camera actuals land (Tier 2).
+        onScan = if (qrScanSupported) ({ store.dispatch(OpenScan) }) else null,
+      )
+      Route.ScanPrimer -> ScanPrimerScreen(
+        // Tier 2 inserts the real OS camera-permission request here (→ granted/denied).
+        onAllow = { store.dispatch(ScanPermissionGranted) },
+        onEnterCode = { store.dispatch(OpenEnterCode) },
+        onClose = { store.dispatch(CloseDeviceFlow) },
+      )
+      Route.ScanDevice -> ScanDeviceScreen(
+        onCode = onLookupDevice,                       // scanned code → lookup → AuthorizeDevice
+        onEnterManually = { store.dispatch(OpenEnterCode) },
+        onClose = { store.dispatch(CloseDeviceFlow) },
+      )
+      Route.ScanDenied -> ScanDeniedScreen(
+        onOpenSettings = onOpenAppSettings,            // Tier 2 platform deep-link to app settings
+        onEnterCode = { store.dispatch(OpenEnterCode) },
+        onClose = { store.dispatch(CloseDeviceFlow) },
       )
       Route.AuthorizeDevice -> when (state.deviceOutcome) {
         "denied" -> DeviceDeniedScreen(onDone = { store.dispatch(CloseDeviceFlow) })

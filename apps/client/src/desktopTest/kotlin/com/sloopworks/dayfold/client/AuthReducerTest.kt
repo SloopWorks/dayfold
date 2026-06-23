@@ -220,6 +220,21 @@ class AuthReducerTest {
     assertNull(signedOut.pendingDeviceLink)
   }
 
+  @Test fun `scan flow routes — primer, granted to device, denied`() {
+    assertEquals(Route.ScanPrimer, rootReducer(AppState(route = Route.EnterCode), OpenScan).route)
+    assertEquals(Route.ScanDevice, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionGranted).route)
+    assertEquals(Route.ScanDenied, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionDenied).route)
+  }
+
+  @Test fun `deep-link resume sets the finishing flag, cleared when the lookup resolves`() {
+    var s = rootReducer(AppState(pendingDeviceLink = "WDJF-7K2P"), DeviceLinkConsumed)
+    assertNull(s.pendingDeviceLink); assertTrue(s.deviceResuming)              // → Finishing beat
+    s = rootReducer(s, DevicePendingLoaded(dev))
+    assertFalse(s.deviceResuming); assertEquals(Route.AuthorizeDevice, s.route)
+    // a resume lookup that 404s also clears the flag (no wedge on Finishing)
+    assertFalse(rootReducer(rootReducer(AppState(), DeviceLinkConsumed), DeviceLookupNotFound).deviceResuming)
+  }
+
   @Test fun `sign-out clears session and feed back to SignIn`() {
     val signedIn = AppState(
       cards = listOf(Card("c", title = "T")), session = sess,
