@@ -2,6 +2,7 @@ package com.sloopworks.debugdrawer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.sloopworks.debugdrawer.log.DebugLog
 import com.sloopworks.debugdrawer.log.LogLevel
 import com.sloopworks.debugdrawer.persistence.DebugKeys
 import com.sloopworks.debugdrawer.theme.DebugDrawerTheme
@@ -35,6 +36,7 @@ private fun sampleHost() {
     includeBuiltins = true,
   )
   DebugDrawer.install(cfg, context = null)
+  DebugLog.i("smoke", "app started")
   DebugDrawerHost { /* app content */ }
 }
 

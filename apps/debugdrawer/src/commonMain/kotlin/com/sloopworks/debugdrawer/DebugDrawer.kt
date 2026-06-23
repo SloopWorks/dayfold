@@ -1,5 +1,6 @@
 package com.sloopworks.debugdrawer
 
+import com.sloopworks.debugdrawer.log.LogBuffer
 import com.sloopworks.debugdrawer.persistence.DebugKeys
 import com.sloopworks.debugdrawer.persistence.DebugStore
 import com.sloopworks.debugdrawer.persistence.createDebugStore
@@ -8,11 +9,13 @@ import kotlin.concurrent.Volatile
 /** Platform init hook (R3) — Android stashes the Context for [DebugStore]. */
 internal expect fun initPlatform(context: Any?)
 
-/** Bound config + store + the cached backend override (R1/R2). */
+/** Bound config + store + cached override + the process-wide log ring (R1/R2/R4). */
 internal class Installed(val config: DebugDrawerConfig, val store: DebugStore) {
   // Cached so the client hot path never hits disk; @Volatile = safe cross-thread
   // publication to the (possibly background) thread that builds HTTP clients.
   @Volatile var override: String? = null
+  // Created at install (not in composition) so DebugLog can feed it from anywhere.
+  val logs = LogBuffer()
 }
 
 /**

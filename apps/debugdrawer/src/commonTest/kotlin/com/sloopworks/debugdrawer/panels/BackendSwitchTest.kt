@@ -14,9 +14,9 @@ class BackendSwitchTest {
     val withBackends = builtinPlugins(
       DebugDrawerConfig(BuildInfo("1", "1"), backends = listOf(Backend("prod", "Prod", "https://p")))
     )
-    assertEquals(listOf("appinfo", "backend"), withBackends.map { it.id })
+    assertEquals(listOf("appinfo", "backend", "logs"), withBackends.map { it.id })
 
     val noBackends = builtinPlugins(DebugDrawerConfig(BuildInfo("1", "1")))
-    assertEquals(listOf("appinfo"), noBackends.map { it.id })
+    assertEquals(listOf("appinfo", "logs"), noBackends.map { it.id })
   }
 }

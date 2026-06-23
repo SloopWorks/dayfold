@@ -4,6 +4,7 @@ import com.sloopworks.debugdrawer.DebugDrawerConfig
 import com.sloopworks.debugdrawer.DebugPlugin
 import com.sloopworks.debugdrawer.panels.AppInfoPlugin
 import com.sloopworks.debugdrawer.panels.BackendSwitchPlugin
+import com.sloopworks.debugdrawer.panels.LogsPlugin
 
 /**
  * Built-in panels prepended before the consumer's plugins when
@@ -15,4 +16,5 @@ internal fun builtinPlugins(config: DebugDrawerConfig): List<DebugPlugin> =
   else buildList {
     add(AppInfoPlugin(config.buildInfo))
     if (config.backends.isNotEmpty()) add(BackendSwitchPlugin())
+    add(LogsPlugin())
   }

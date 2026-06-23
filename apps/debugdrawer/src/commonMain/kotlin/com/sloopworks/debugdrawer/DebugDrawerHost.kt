@@ -31,7 +31,6 @@ import com.sloopworks.debugdrawer.host.drawerWidthFor
 import com.sloopworks.debugdrawer.internal.DebugScopeImpl
 import com.sloopworks.debugdrawer.internal.PluginRegistry
 import com.sloopworks.debugdrawer.internal.builtinPlugins
-import com.sloopworks.debugdrawer.log.LogBuffer
 import com.sloopworks.debugdrawer.theme.DebugSkins
 import com.sloopworks.debugdrawer.theme.DrawerColorScheme
 import com.sloopworks.debugdrawer.theme.LocalDebugDrawerColors
@@ -58,7 +57,7 @@ fun DebugDrawerHost(content: @Composable () -> Unit) {
   }
   val colors = remember(config.theme, dark) { DebugSkins.colors(config.theme, dark) }
   val registry = remember(config) { PluginRegistry(builtinPlugins(config) + config.plugins) }
-  val logs = remember { LogBuffer() }
+  val logs = inst.logs
   val nav = remember { PanelNavState() }
   var open by remember { mutableStateOf(false) }
   val clipboard = LocalClipboardManager.current

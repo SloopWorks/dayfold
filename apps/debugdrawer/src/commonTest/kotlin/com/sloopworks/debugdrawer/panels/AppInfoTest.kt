@@ -37,9 +37,9 @@ class AppInfoTest {
   }
 
   @Test
-  fun builtins_include_appinfo_when_enabled_and_empty_when_not() {
+  fun builtins_include_appinfo_and_logs_when_enabled_and_empty_when_not() {
     assertEquals(
-      listOf("appinfo"),
+      listOf("appinfo", "logs"),
       builtinPlugins(DebugDrawerConfig(BuildInfo("1", "1"), includeBuiltins = true)).map { it.id },
     )
     assertTrue(builtinPlugins(DebugDrawerConfig(BuildInfo("1", "1"), includeBuiltins = false)).isEmpty())
