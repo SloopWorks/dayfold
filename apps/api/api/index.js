@@ -508,6 +508,124 @@ var init_device = __esm({
   }
 });
 
+// src/auth/origin.ts
+var origin_exports = {};
+__export(origin_exports, {
+  classifyOrigin: () => classifyOrigin
+});
+function ipv4ToInt(ip) {
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return null;
+  const o = m.slice(1, 5).map(Number);
+  if (o.some((n) => n > 255)) return null;
+  return (o[0] << 24 | o[1] << 16 | o[2] << 8 | o[3]) >>> 0;
+}
+function isPrivateOrReserved(n) {
+  const inR = (cidr) => {
+    const [addr, b] = cidr.split("/");
+    const bits = Number(b);
+    const mask = bits === 0 ? 0 : 4294967295 << 32 - bits >>> 0;
+    return (n & mask) >>> 0 === (ipv4ToInt(addr) & mask) >>> 0;
+  };
+  return [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "100.64.0.0/10",
+    "0.0.0.0/8",
+    "192.0.2.0/24",
+    "198.51.100.0/24",
+    "203.0.113.0/24",
+    "240.0.0.0/4"
+  ].some(inR);
+}
+function classifyOrigin(ip) {
+  if (!ip || ip === "unknown") return "unknown";
+  if (ip.includes(":")) return "unknown";
+  const n = ipv4ToInt(ip);
+  if (n === null) return "unknown";
+  if (isPrivateOrReserved(n)) return "unknown";
+  for (const [base, mask] of RANGES) if ((n & mask) >>> 0 === base) return "datacenter";
+  return "residential";
+}
+var DATACENTER_CIDRS, RANGES;
+var init_origin = __esm({
+  "src/auth/origin.ts"() {
+    "use strict";
+    DATACENTER_CIDRS = [
+      // AWS
+      "3.0.0.0/9",
+      "13.32.0.0/12",
+      "15.177.0.0/16",
+      "18.32.0.0/11",
+      "35.152.0.0/13",
+      "52.0.0.0/11",
+      "54.144.0.0/12",
+      "99.78.0.0/18",
+      // Google Cloud
+      "34.0.0.0/9",
+      "35.184.0.0/13",
+      "104.196.0.0/14",
+      "130.211.0.0/16",
+      "146.148.0.0/17",
+      // Microsoft Azure
+      "20.0.0.0/8",
+      "40.64.0.0/10",
+      "13.64.0.0/11",
+      "104.40.0.0/13",
+      "52.224.0.0/11",
+      // DigitalOcean
+      "159.65.0.0/16",
+      "165.227.0.0/16",
+      "167.71.0.0/16",
+      "134.209.0.0/16",
+      "138.197.0.0/16",
+      "157.230.0.0/16",
+      "64.225.0.0/16",
+      "146.190.0.0/16",
+      // Linode / Akamai
+      "45.33.0.0/16",
+      "45.56.0.0/16",
+      "139.162.0.0/16",
+      "172.104.0.0/15",
+      "173.255.192.0/18",
+      // Hetzner
+      "5.9.0.0/16",
+      "88.99.0.0/16",
+      "116.202.0.0/16",
+      "95.216.0.0/15",
+      "78.46.0.0/15",
+      // OVH
+      "51.38.0.0/16",
+      "51.68.0.0/16",
+      "137.74.0.0/16",
+      "145.239.0.0/16",
+      "51.83.0.0/16",
+      // Oracle Cloud
+      "129.146.0.0/16",
+      "132.145.0.0/16",
+      "140.238.0.0/16",
+      // Cloudflare
+      "104.16.0.0/13",
+      "172.64.0.0/13",
+      "162.158.0.0/15",
+      // Vultr
+      "45.32.0.0/16",
+      "45.63.0.0/16",
+      "108.61.0.0/16",
+      "149.28.0.0/16"
+    ];
+    RANGES = DATACENTER_CIDRS.map((cidr) => {
+      const [addr, bitsStr] = cidr.split("/");
+      const bits = Number(bitsStr);
+      const mask = bits === 0 ? 0 : 4294967295 << 32 - bits >>> 0;
+      return [(ipv4ToInt(addr) & mask) >>> 0, mask];
+    });
+  }
+});
+
 // src/auth/invites.ts
 var invites_exports = {};
 __export(invites_exports, {
@@ -873,6 +991,9 @@ function bearer2(c) {
   const h = c.req.header("authorization") || "";
   return h.startsWith("Bearer ") ? h.slice(7) : void 0;
 }
+function hasScope(a, scope) {
+  return a.scopes.includes(scope);
+}
 function devAuthAllowed(_c) {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
   const env = process.env.VERCEL_ENV;
@@ -1136,7 +1257,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   let body = stripServerManaged(raw);
@@ -1151,6 +1272,7 @@ app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
+  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
   return c.json(await listCards(fid));
 });
 app.get("/families/:fid/members", async (c) => {
@@ -1170,7 +1292,7 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, await softDeleteCard(fid, id3) ? 204 : 404);
 });
 app.post("/device/authorize", async (c) => {
@@ -1203,6 +1325,49 @@ app.post("/device/token", async (c) => {
     return c.json(out.tokens, 200);
   }
   return c.json({ error: out.error }, 400);
+});
+app.get("/device/pending", async (c) => {
+  const t = bearer2(c);
+  if (!t) return c.body(null, 401);
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return c.body(null, 401);
+  }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const { isLocked: isLocked2, recordFailure: recordFailure2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
+  const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
+  const lockKey = `account:approve:${sub}`;
+  if (await isLocked2(lockKey)) {
+    await audit2("device.lockout", { actorUserId: sub });
+    return c.body(null, 429);
+  }
+  const userCode = c.req.query("user_code");
+  if (!userCode) return c.json({ type: "bad-request" }, 400);
+  const r = await q(
+    `SELECT user_code, client, origin_ip, origin_ua, created_at, expires_at
+       FROM device_authorizations WHERE user_code=$1 AND status='pending' AND expires_at > now()`,
+    [userCode]
+  );
+  if (r.rowCount !== 1) {
+    await recordFailure2(lockKey, 900, 5, 900);
+    return c.json({ type: "not-found" }, 404);
+  }
+  const row = r.rows[0];
+  const { classifyOrigin: classifyOrigin2 } = await Promise.resolve().then(() => (init_origin(), origin_exports));
+  await audit2("device.lookup", { actorUserId: sub, detail: { user_code: userCode } });
+  return c.json({
+    user_code: row.user_code,
+    client: row.client,
+    origin_ip: row.origin_ip,
+    origin_ua: row.origin_ua,
+    origin_kind: classifyOrigin2(row.origin_ip),
+    created_at: row.created_at,
+    expires_at: row.expires_at
+  });
 });
 async function ownerGate(c, fid) {
   const a = await authorizeTenant(c, fid);
@@ -1402,6 +1567,7 @@ app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
+  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
   const cursor = c.req.query("since");
   let su = null, si = null;
   if (cursor) {

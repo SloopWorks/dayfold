@@ -157,7 +157,13 @@ private fun deviceLogin(api: String) {
   val deviceCode = auth["device_code"]!!.jsonPrimitive.content
   var interval = auth["interval"]!!.jsonPrimitive.int
   val expiresIn = auth["expires_in"]!!.jsonPrimitive.int
-  println("To authorize this CLI, an owner must approve code:\n\n    ${auth["user_code"]!!.jsonPrimitive.content}\n\nat ${auth["verification_uri"]!!.jsonPrimitive.content}")
+  val userCode = auth["user_code"]!!.jsonPrimitive.content
+  val verifyUri = auth["verification_uri"]!!.jsonPrimitive.content
+  val verifyComplete = auth["verification_uri_complete"]?.jsonPrimitive?.content ?: "$verifyUri?user_code=$userCode"
+  // [S3] Scannable QR when interactive; the text below is always printed so
+  // SSH/CI/non-UTF-8 terminals (System.console()==null) still work.
+  if (System.console() != null) runCatching { print("\n" + Qr.render(verifyComplete) + "\n") }
+  println("To authorize this CLI, an owner must approve code:\n\n    $userCode\n\nScan the QR above, or go to $verifyUri")
   val deadline = System.currentTimeMillis() + (expiresIn + 30) * 1000L
   while (System.currentTimeMillis() < deadline) {
     Thread.sleep(interval * 1000L)

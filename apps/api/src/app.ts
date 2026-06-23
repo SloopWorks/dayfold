@@ -30,6 +30,14 @@ function bearer(c: any): string | undefined {
   return h.startsWith("Bearer ") ? h.slice(7) : undefined;
 }
 
+// Central content scope gate (ADR 0029). A credential's authority covers an action
+// if it holds the global scope (`content:read`/`content:write`) OR a resource-
+// qualified grant (`hub:<id>:<action>` — selection lands with the content slice).
+// Resolved per request from `a.scopes`; never trusted from the token (ADR 0011 §8).
+function hasScope(a: { scopes: string[] }, scope: string): boolean {
+  return a.scopes.includes(scope);
+}
+
 function devAuthAllowed(_c: any): boolean {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
   const env = process.env.VERCEL_ENV;
@@ -283,7 +291,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   let body: any = stripServerManaged(raw);          // mass-assignment: drop server fields
@@ -300,6 +308,7 @@ app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
+  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
   return c.json(await repo.listCards(fid));
 });
 
@@ -323,7 +332,7 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!a.scopes.includes("content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, (await repo.softDeleteCard(fid, id)) ? 204 : 404);
 });
 
@@ -358,6 +367,41 @@ app.post("/device/token", async (c) => {
     return c.json(out.tokens, 200);
   }
   return c.json({ error: out.error }, 400);
+});
+
+// Consent preview for the approval screen (RFC 8628 §5.4): the owner's app looks
+// up a pending user_code BEFORE approving, so it can render what it's authorizing.
+// Session-auth (not family-scoped — the family isn't chosen yet). Shares the
+// `account:approve:<sub>` lockout with approve (lookup+approve = one abuse surface),
+// uniform 404 on miss/expired, never leaks device_code/user_id/credential.
+app.get("/device/pending", async (c) => {
+  const t = bearer(c); if (!t) return c.body(null, 401);
+  let sub: string, cid: string;
+  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
+  catch { return c.body(null, 401); }
+  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const { isLocked, recordFailure } = await import("./auth/ratelimit.ts");
+  const { audit } = await import("./auth/audit.ts");
+  const lockKey = `account:approve:${sub}`;
+  if (await isLocked(lockKey)) { await audit("device.lockout", { actorUserId: sub }); return c.body(null, 429); }
+  const userCode = c.req.query("user_code");
+  if (!userCode) return c.json({ type: "bad-request" }, 400);
+  const r = await q(
+    `SELECT user_code, client, origin_ip, origin_ua, created_at, expires_at
+       FROM device_authorizations WHERE user_code=$1 AND status='pending' AND expires_at > now()`,
+    [userCode],
+  );
+  if (r.rowCount !== 1) { await recordFailure(lockKey, 900, 5, 900); return c.json({ type: "not-found" }, 404); } // uniform
+  const row = r.rows[0];
+  const { classifyOrigin } = await import("./auth/origin.ts");
+  await audit("device.lookup", { actorUserId: sub, detail: { user_code: userCode } });
+  return c.json({
+    user_code: row.user_code, client: row.client,
+    origin_ip: row.origin_ip, origin_ua: row.origin_ua,
+    origin_kind: classifyOrigin(row.origin_ip),
+    created_at: row.created_at, expires_at: row.expires_at,
+  });
 });
 
 async function ownerGate(c: any, fid: string) {
@@ -543,6 +587,7 @@ app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
+  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
   const cursor = c.req.query("since");
   let su: string | null = null, si: string | null = null;
   if (cursor) {

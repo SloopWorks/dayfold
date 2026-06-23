@@ -246,6 +246,43 @@ blocked** behind a queued Claude-Design expanded-detail pass.
 
 ## AUTH (ADR 0021 — S1→S3→S2→S4→S5/S6)
 
+### TASK-AUTH-S6-D — CLI device-approval UI + scan/deep-link (building)
+**Status:** Phase-1 backend + CLI QR ✅ built/tested/pushed 2026-06-23 (branch
+`claude/cli-login-flow-review-aq9lp0`): step 1 `GET /device/pending` + datacenter
+classifier (`1ff5f5e`), step 1b central `requireScope` read-gate (api 153 green),
+step 7 CLI login QR (`76c42c8`, 13 CLI tests). **Steps 2–6 (Compose approval UI),
+7b (keychain), 8 (E2E) deferred to a full-mobile-toolchain session** (no Android
+SDK in the remote env). **NEXT = client AuthClient→reducer→AuthEngine→screens
+against the shipped `/device/pending` + reused approve/deny.** ADR 0029 Accepted. Closes the **CLI login loop** — S3 shipped
+the API grant + a text CLI, but the **mobile approval UI never existed**
+(`DevicesScreen` only lists/revokes). Spec:
+`docs/superpowers/specs/2026-06-23-auth-s6d-device-approval-design.md`;
+plan: `docs/superpowers/plans/2026-06-23-auth-s6d.md`.
+- **Phase 1** (platform-agnostic, closes loop on desktop): `GET /device/pending`
+  lookup (+ **no-vendor datacenter-origin classifier**, ADR 0011 §7 intent),
+  central `requireScope` gate (fixes read-enforcement gap), the 4 approval screens,
+  CLI terminal QR, **CLI refresh-token → OS keychain** (closes the plaintext
+  long-lived-secret gap).
+- **Phase 2** (scanner + deep-link): in-app QR scanner (`expect/actual`) + App/
+  Universal Links on the existing API origin. **Gated on** the scan/viewfinder
+  mockups (`designs/DESIGN-BRIEF-device-scan.md`, ADR 0008) + operator sign-off.
+- **Review findings folded (2026-06-23):** scope is display-only today (→ ADR 0029);
+  geo/ASN was deferred but ADR 0011 §7 mandates it (→ datacenter heuristic now);
+  plaintext refresh token (→ keychain); read scope unenforced (→ `requireScope`).
+
+### TASK-AUTH-CONTENT — content-API + CLI content verbs + per-hub scoping (next)
+**Status:** queued after S6-D closes the login loop (operator-chosen 2026-06-23).
+The CLI today can only `PUT` one card — **no hub endpoints, no `pull`/`status`/
+`diff`, no content read**. This slice makes the CLI a real content read+write
+client and lands **per-hub/resource scope selection** (ADR 0029, Proposed).
+- API: hub/section/block read+write endpoints, each behind `requireScope`.
+- CLI: `pull` / `hub get|archive|rm` / `status` / `push --dry-run|--diff`; `whoami`
+  shows family + scope + label (07-cli.md).
+- Approval: `credential_grants` table + per-hub read/write picker on
+  `AuthorizeDevice` (replaces the interim informational scope row).
+- **Gate:** ADR 0029 acceptance (operator). Own spec → plan → build cycle.
+
+
 **AUTH-S4 (owner-approved invites + family-agnostic cred fix) — ✅ DONE (branch
 `auth-s4`, pending merge) 2026-06-19.** `invites` table; app creds family-agnostic
 (`family_scope=NULL`, membership-gated) — **clears the S1 two-family limit** (that

@@ -8,6 +8,7 @@ repositories { mavenCentral() }
 
 dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+  implementation("com.google.zxing:core:3.5.3") // [S3] QR encode for `dayfold login`
   testImplementation(kotlin("test"))
 }
 
