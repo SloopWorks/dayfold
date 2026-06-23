@@ -9,7 +9,16 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
-- **INB-21 · 2026-06-23 · med · open — Accept ADR 0030 (per-member visibility) +
+- **INB-21 · ANSWERED 2026-06-23 → ADR 0030 ACCEPTED.** (1) Accepted; (2)
+  owner-visibility default = **A (owner NOT auto-permitted)**; (3) card-vs-hub
+  posture = **A (author-trusted at MVP)**. Both match the ADR as written → accepted
+  unchanged; status flipped to Accepted, index + open-questions reconciled,
+  `[pending-ratify]` cleared. Build (content-API + CLI-verbs slice) carries:
+  hub `visibility`/`created_by` + hubs-only `resource_visibility` + the
+  `→hubs.updated_at` touch-trigger + `briefing_cards.visibility`/`audience[]` +
+  the read-path filter + visibility-aware `/sync` (two revocation paths) + client
+  cache-wipe on tenancy 401/404. Original below.
+  **Accept ADR 0030 (per-member visibility) +
   pick the owner-visibility default.** Schema/scope review produced: **ADR 0030**
   (`adr/0030-per-member-hub-and-card-visibility.md`, Proposed), the consolidated
   **scope & access spec** (`specs/domain-model/scope-and-access-model.md`), and

@@ -78,11 +78,6 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   resolving authorship through child-block `provenance` fails closed on credential
   deletion / zero-block hubs. **Decided: add it.** Kept here only as a build-task
   pointer. → content-slice build.
-- **OQ-owner-visibility-default** *(NEW 2026-06-23, values-shaped — operator call)*:
-  In ADR 0030, is a family **owner auto-permitted** to read every `restricted`
-  hub/card (transparent-household model), or **not** (proposed: owner gains read
-  only by authoring or being allow-listed — protects co-parent/eldercare privacy)?
-  One-line filter difference. **Gates ADR 0030 → Accepted.** → INB-21.
 - **OQ-doc-storage:** When do we add real document upload + its privacy tier
   (vs links + small refs at MVP)? → ADR 0006 revisit, C4.
 - **OQ-minor-age-gate:** Is a self-attested age gate sufficient for 14+
@@ -128,6 +123,16 @@ New prototype-level open items:
 
 ## Resolved
 
+- **OQ-owner-visibility-default** *(2026-06-23, INB-21)*: Does `role=owner`
+  auto-read `restricted` hubs? **Resolved: A — owner NOT auto-permitted** (reads
+  only as author or via allow-list; protects co-parent/eldercare privacy).
+  Recorded in ADR 0030 (Accepted). Flip to owner-sees-all / audited break-glass =
+  a superseding ADR.
+- **OQ-card-vs-hub-posture** *(2026-06-23, INB-21)*: Is "a card can't out-expose
+  its hub" server-enforced or author-trusted at MVP? **Resolved: A —
+  author-trusted** (skill stamps card audience; no server intersection).
+  Server enforcement re-enters when multi-author/in-app authoring lands (ADR 0030
+  Revisit Trigger).
 - **review-gap G3 — per-Hub / per-member visibility** *(2026-06-23, schema
   review)*: Moved from "Deferred by design" **into MVP**. Operator chose per-hub
   visibility at MVP; resolved by **ADR 0030** (`family`|`restricted` + allow-list,
