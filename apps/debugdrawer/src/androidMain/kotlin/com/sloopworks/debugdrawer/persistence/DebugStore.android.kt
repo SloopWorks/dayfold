@@ -15,6 +15,9 @@ fun initAndroidDebugStore(context: Context) {
   appContext = context.applicationContext
 }
 
+/** App context for in-module platform actions (e.g. restart). Null until installed. */
+internal fun debugAppContext(): Context? = appContext
+
 internal class SharedPrefsDebugStore(context: Context) : DebugStore {
   private val sp = context.getSharedPreferences("com.sloopworks.debugdrawer", Context.MODE_PRIVATE)
   override fun get(key: String): String? = sp.getString(key, null)
