@@ -29,6 +29,9 @@ kotlin {
         implementation(compose.material3)
         implementation(compose.ui)
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+        // atomicfu's locks (SynchronizedObject) give a multiplatform lock for the
+        // thread-safe LogBuffer ring (R4). Runtime-only use; no gradle plugin needed.
+        implementation("org.jetbrains.kotlinx:atomicfu:0.27.0")
       }
     }
     val commonTest by getting {
