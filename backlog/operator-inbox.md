@@ -9,7 +9,13 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
-- **INB-20 · 2026-06-19 · med · open — Sign off the adaptive two-pane design +
+- **INB-20 · ANSWERED 2026-06-22 → SIGNED OFF + scope accepted + spike OK'd.**
+  Operator: (1) adaptive visuals approved; (2) added scope accepted — CL-NAV +
+  the CL-1/5/6/8/10 deltas + the `hubRef`/parent-membership field on the content
+  item; (3) `material3-adaptive` / `adaptive-navigation-suite` 1.9.3-availability
+  spike authorized (runs before CL-NAV commits; fallback if not published for
+  Compose-MP 1.9.3). ADR 0008 adaptive gate CLEARED. Original:
+  **Sign off the adaptive two-pane design +
   confirm its added scope.** The CL-10 design pass is **delivered + imported**
   (`designs/content/adaptive/` — Breakpoints, Detail-Pane(+View), States,
   Nav-Continuity). It resolves the ADR 0008 adaptive gate (pending your sign-off)
@@ -26,7 +32,19 @@ Each item: question, context link, **proposed default**, urgency.
   scope (CL-NAV + the CL-1/5/6/8/10 deltas in the epic). Visual taste = operator;
   the schema/dep deltas are agent-buildable once accepted.
 
-- **INB-19 · 2026-06-19 · low · open — Ratify `rk` as the client dev+CI snapshot/
+- **INB-19 · ANSWERED 2026-06-22 → PARTIAL: (1) rk RATIFIED + (2) PINNED
+  alpha02 (operator). (3) publish `redux-kotlin-snapshot` + Homebrew-tap
+  symlink fix STILL PENDING — both operator-only (external action on the
+  operator's own packages; agents draft-not-send).** Recorded as
+  **ADR-0019-realized** (no new ADR; tooling/maintenance class). Urgency
+  reframed low→**med**: the "before CL-5/6/7 commit" gate is overtaken —
+  those merged *without* the golden harness (current = hand-rolled
+  `FeedSnapshotTest`, no diff). Real next consumer = **CL-NAV/CL-10
+  adaptive** (resize/hinge/pane reflow = visual-regression-sensitive) →
+  **hold CL-NAV/CL-10 build until the harness lands.** Agent-buildable once
+  (3) ships: `:client:snapshotUi` scene registry + CI golden job (stub
+  prepared). Original below.
+  **Ratify `rk` as the client dev+CI snapshot/
   devtools toolchain + pin.** The redux-kotlin CLI is now published (Homebrew
   `reduxkotlin/tap/rk` **1.0.0-alpha02**, unified devtools+snapshot). Incorporated
   into `processes/agent-dev-loop.md` + epic task **CL-SNAP** (rk snapshot golden-

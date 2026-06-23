@@ -16,7 +16,7 @@ Tracking convention = `TASK-<slug>` (promote to `backlog/now.md` when active).
 | Gate | What | Status |
 |---|---|---|
 | **G-ADR** | Accept ADR 0022; **D2 storage fork** | ✅ Accepted; **D2 = extend `briefing_cards` in place** (unify→M1) |
-| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | ✅ Phone surfaces signed off (CL-0…7 unblocked). **Adaptive pass DELIVERED + imported** (`designs/content/adaptive/`, 2026-06-19) → CL-NAV/CL-10 design-satisfied, **pending operator sign-off (INB-16)** |
+| **G-DESIGN** | Sign off imported `designs/content/*` mockups (ADR 0008) | ✅ Phone surfaces signed off (CL-0…7 unblocked). **Adaptive pass DELIVERED + imported** (`designs/content/adaptive/`, 2026-06-19) → CL-NAV/CL-10 design-satisfied, **✅ operator SIGNED OFF 2026-06-22 (INB-20); added scope accepted (CL-NAV + CL-1/5/6/8/10 deltas + `hubRef`); 1.9.3 adaptive-dep spike OK'd** |
 | **G-NAME** | "Dayfold" product name | ✅ **Confirmed** (repo slug unchanged) |
 | **G-SCOPE** | Guardrail 3 (email-body storage) | ✅ Binding constraint: email authored via CLI/Claude over operator's OWN data, **no server-side Gmail restricted-scope read** (ADR 0022; CL-1/CL-3) |
 | **Slice** | How many types in M0 | ✅ **All 6** (operator widened the 2-type rec) |

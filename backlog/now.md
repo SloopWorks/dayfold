@@ -11,8 +11,21 @@ CLI · KMP/Compose client · feed — on Vercel + Neon, rendering on the Pixel 1
 Validation verdict still stands: **CONDITIONAL — learning-lab GO, business
 NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemini)
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
-later milestone; interim authoring = operator + Claude Code via the CLI. Next
-build = **TASK-SYNC** (offline-first persistence).
+later milestone; interim authoring = operator + Claude Code via the CLI.
+
+**Status update (2026-06-23):** TASK-KMP + TASK-SYNC done+merged. The **AUTH epic**
+(ADR 0021; S1·S3·S4·S5·S6) and the **CL/Dayfold content epic** (CL-0…CL-9) all
+merged to `main` (PRs #2–#21). **AUTH-S2 *real Google path* ✅ DONE + MERGED**
+(PR #25, `main` 8c0ccec) — Firebase ID-token verify (JWKS, ADR 0027),
+`/auth/firebase`, client `firebaseToken` seam, CI Firebase emulator job, S2 design
+spec + operator runbook; brought the branch up to Gradle 9.4.1 + the debugdrawer
+modules (PR #26). **Entire AUTH epic S1–S6 now shipped.** **Open inbox:** INB-3,
+INB-13. **INB-19 PARTIAL (2026-06-22):**
+rk ratified + pinned alpha02 (ADR-0019-realized); publishing `redux-kotlin-snapshot`
++ Homebrew-tap symlink fix still pending (operator-only) — **golden harness not yet
+wired**, so hold CL-NAV/CL-10 build until it lands.
+**ADR 0020 (TASK-SYNC) still *Proposed*** though built — operator may flip to
+*Accepted*.
 
 ## Design-first gate (ADR 0008) — status
 
@@ -28,6 +41,10 @@ initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
 - [ ] **INB-13** hand the trigger-design v2 fix-list (`designs/DESIGN-BRIEF-
   triggers.md §6b`) back to Claude Design before the M1 trigger surface.
 - [ ] Counsel confirm for ADR 0005 (14+) — only if/when pursuing teen accounts.
+- [ ] **INB-19 remainder** (operator-only): publish `redux-kotlin-snapshot` to
+  Maven Central + fix `reduxkotlin/homebrew-tap` symlink (keg `bin/` empty →
+  binary at `libexec/Contents/MacOS/rk`). Unblocks the `:client:snapshotUi`
+  golden harness → prereq for CL-NAV/CL-10.
 
 ## State (2026-06-18 — post 6-agent review)
 
@@ -106,6 +123,9 @@ security review passed; legacy household token still works (cutover at S3). Deta
 **AUTH-S3 ✅ DONE + MERGED** (PR #2, `main` 1fc1918): RFC 8628 CLI device grant
 (`/device/*` + owner approve + lazy-mint) + refresh ~20s grace + Kotlin CLI
 `login`/`push`. Twice multi-agent-reviewed; CI green. Legacy household token still
-works (removal gated). **NEXT = AUTH-S2** (Firebase identity) or **S4** (invites). S5/S6 (client auth UI) stay ADR 0008
-design-gated (A8b auth mockups, incl. authorize-device screen, design via Claude
-Design). Prod deploy of the auth surface = operator-gated (set `AUTH_*` env in Vercel).
+works (removal gated). **UPDATE 2026-06-23:** S4 (owner-approved invites), S5
+(sign-in/out + account flow), S6 (member roster, connected-devices, profile,
+data-export, account soft-delete) all **DONE + MERGED** (PRs #4–#20); A8b auth
+mockups imported (design gate cleared). **AUTH-S2 real Google path ✅ DONE +
+MERGED** (PR #25). Full S1–S6 epic shipped. Prod deploy of the auth surface =
+operator-gated (set `AUTH_*` env in Vercel).
