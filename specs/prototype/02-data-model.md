@@ -243,6 +243,34 @@ CREATE INDEX ON credential_grants (credential_id);
 -- Backfill (0008) mirrors each live credential's actual scopes[]; a tx-guard aborts
 -- if any live credential ends with zero grants. Every credential-mint path
 -- (dev-token, device redeem, firebase) writes grant rows alongside the credential.
+
+-- [ADR 0030 — migration 0009] per-member visibility. Hubs/cards carry a visibility
+-- state; a hubs-only allow-list names additional permitted members; cards carry an
+-- author-stamped audience[] (no inheritance). Reads filter by these; the legacy/M0
+-- household token is EXEMPT (decided in middleware by the `legacy` flag, never by
+-- user_id IS NULL — so no non-legacy NULL-user credential reaches god-mode).
+ALTER TABLE hubs           ADD COLUMN visibility text NOT NULL DEFAULT 'family'
+  CHECK (visibility IN ('family','restricted'));
+ALTER TABLE hubs           ADD COLUMN created_by text REFERENCES users(id);  -- NULL = legacy author
+ALTER TABLE briefing_cards ADD COLUMN visibility text NOT NULL DEFAULT 'family'
+  CHECK (visibility IN ('family','restricted'));
+ALTER TABLE briefing_cards ADD COLUMN audience   text[];   -- permitted user ids when restricted
+CREATE TABLE resource_visibility (              -- hubs-only allow-list; rows immutable
+  family_id text NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  hub_id    text NOT NULL,
+  user_id   text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (family_id, hub_id, user_id),
+  FOREIGN KEY (family_id, hub_id) REFERENCES hubs(family_id, id) ON DELETE CASCADE
+);
+CREATE INDEX ON resource_visibility (family_id, user_id);
+-- LOAD-BEARING: allow-list mutation touches hubs.updated_at (separate-table change
+-- wouldn't advance the keyset cursor → a dropped member would never get a tombstone).
+CREATE TRIGGER trg_resvis_touch_hub AFTER INSERT OR DELETE ON resource_visibility
+  FOR EACH ROW EXECUTE FUNCTION touch_hub_from_visibility();
+-- Card /sync applies visibility to the PAYLOAD but computes the cursor from the RAW
+-- keyset window (no stall, no existence-by-count leak); a now-invisible card is
+-- emitted as a tombstone. Section/block visibility (by parent hub) lands in PR3.
 ```
 
 > **M0 note:** the household token is a `credentials` row (`kind='cli'`,

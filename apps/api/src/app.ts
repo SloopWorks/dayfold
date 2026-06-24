@@ -11,6 +11,7 @@ import * as repo from "./repo.ts";
 // load app.ts without triggering the module-level env-guard throws in tokens.ts.
 import { authorizeTenant } from "./auth/middleware.ts";
 import { requireScope, grantScopes } from "./auth/scope.ts";
+import { cardVisible } from "./content/visibility.ts";
 
 export const app = new Hono();
 
@@ -336,14 +337,26 @@ app.put("/families/:fid/cards/:id", async (c) => {
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
-  let body: any = stripServerManaged(raw);          // mass-assignment: drop server fields
+  // ADR 0030: visibility + author-stamped audience are authoring fields OUTSIDE the
+  // typed-card schema — extract + validate them, then strip before the strict parse.
+  if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
+    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
+  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  let audience: string[] | undefined;
+  if (visibility === "restricted") {
+    if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
+      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
+    audience = Array.isArray(raw.audience) ? raw.audience : [];
+  }
+  const { visibility: _v, audience: _a, ...rest } = raw;          // strip before strict schema parse
+  let body: any = stripServerManaged(rest);          // mass-assignment: drop server fields
   body = stampProvenance(body, a.cred.id);           // un-forgeable provenance
   const parsed = BriefingCardSchema.safeParse({ ...body, id }); // path id wins
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   // CL-2: type↔payload cross-check (zod validates the two independently).
   const cross = crossValidateCard(parsed.data as any);
   if (cross.length) return c.json({ type: "validation", issues: cross }, 422);
-  return c.json(await repo.upsertCard(fid, id, parsed.data), 200);
+  return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience }), 200);
 });
 
 app.get("/families/:fid/cards", async (c) => {
@@ -351,7 +364,7 @@ app.get("/families/:fid/cards", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
-  return c.json(await repo.listCards(fid));
+  return c.json(await repo.listCards(fid, { userId: a.userId, legacy: a.legacy }));
 });
 
 // Active member roster (member-gated — every member can see who's in the family).
@@ -639,8 +652,16 @@ app.get("/families/:fid/sync", async (c) => {
     su = parts[0]; si = parts[1];
   }
   const rows = await repo.syncCards(fid, su, si);
-  const live = rows.filter((r: any) => !r.deleted_at);
-  const tombstones = rows.filter((r: any) => r.deleted_at).map((r: any) => ({ type: "card", id: r.id }));
+  // ADR 0030 (round-1 P0-1): visibility is applied to the PAYLOAD, but the cursor +
+  // has_more are computed from the RAW fetched keyset window — so a page that is
+  // entirely restricted-invisible still advances the cursor (no stall) and never
+  // discloses existence by count. A row not visible to the caller is emitted as a
+  // TOMBSTONE (so a card that flipped to restricted is dropped from the cache).
+  const caller = { userId: a.userId, legacy: a.legacy };
+  const live = rows.filter((r: any) => !r.deleted_at && cardVisible(r, caller));
+  const tombstones = rows
+    .filter((r: any) => r.deleted_at || !cardVisible(r, caller))
+    .map((r: any) => ({ type: "card", id: r.id }));
   const last = rows[rows.length - 1];
   // [F3] cursor carries the EXACT Postgres timestamptz string (db.ts type parser
   // returns it raw) — no JS Date ms-truncation, no skipped rows.

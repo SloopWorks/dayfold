@@ -53,7 +53,7 @@ describe.skipIf(!HOST)("POST /auth/firebase — real Firebase Auth Emulator", ()
   beforeAll(async () => {
     await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
     for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0003_device_grant.sql",
-      "0004_refresh_grace.sql", "0005_invites.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql"])
+      "0004_refresh_grace.sql", "0005_invites.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql","0009_visibility.sql"])
       await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
   });
 

@@ -1,17 +1,22 @@
 // Briefing-card data access (M0 feed surface). Idempotent upsert (server bumps
 // version), keyset sync incl. tombstones, soft-delete.
 import { q } from "./db.ts";
+import { cardVisibilityClause } from "./content/visibility.ts";
 
 const J = (v: unknown) => (v == null ? null : JSON.stringify(v));
 export const SYNC_LIMIT = 200; // single source for the sync page size (F2)
 
 export async function upsertCard(familyId: string, id: string, b: any) {
+  // ADR 0030: visibility + author-stamped audience (default family). Validated by
+  // the route; stored here. No inheritance/materialization (round-2 R2-1).
+  const visibility = b.visibility === "restricted" ? "restricted" : "family";
+  const audience = visibility === "restricted" && Array.isArray(b.audience) ? b.audience : null;
   const r = await q(
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
-        type, payload, privacy, hub_ref, related, related_kicker, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,1)
+        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -20,20 +25,23 @@ export async function upsertCard(familyId: string, id: string, b: any) {
        not_before=EXCLUDED.not_before, expires_at=EXCLUDED.expires_at,
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
+       visibility=EXCLUDED.visibility, audience=EXCLUDED.audience,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
     [id, familyId, b.kind ?? "info", b.title, b.body_md ?? null,
      b.target?.hubId ?? null, b.target?.sectionId ?? null, b.target?.blockId ?? null,
      J(b.provenance), J(b.triggers), J(b.actions), b.not_before ?? null, b.expires_at ?? null,
-     b.type ?? null, J(b.payload), J(b.privacy), b.hubRef ?? null, J(b.related), b.relatedKicker ?? null],
+     b.type ?? null, J(b.payload), J(b.privacy), b.hubRef ?? null, J(b.related), b.relatedKicker ?? null,
+     visibility, audience],
   );
   return r.rows[0];
 }
 
-export async function listCards(familyId: string) {
+export async function listCards(familyId: string, caller: { userId: string | null; legacy: boolean }) {
+  const vis = cardVisibilityClause(caller, 2);
   const r = await q(
-    `SELECT * FROM briefing_cards WHERE family_id=$1 AND deleted_at IS NULL
-     ORDER BY not_before NULLS LAST, id`, [familyId]);
+    `SELECT * FROM briefing_cards WHERE family_id=$1 AND deleted_at IS NULL${vis.sql}
+     ORDER BY not_before NULLS LAST, id`, [familyId, ...vis.params]);
   return r.rows;
 }
 

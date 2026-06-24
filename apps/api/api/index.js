@@ -900,15 +900,34 @@ function crossValidateCard(card) {
 
 // src/repo.ts
 init_db();
+
+// src/content/visibility.ts
+function cardVisible(row, caller) {
+  if (caller.legacy) return true;
+  if (!row.visibility || row.visibility === "family") return true;
+  return !!caller.userId && Array.isArray(row.audience) && row.audience.includes(caller.userId);
+}
+function cardVisibilityClause(caller, nextParamIndex) {
+  if (caller.legacy) return { sql: "", params: [] };
+  return {
+    sql: ` AND (visibility = 'family' OR ($${nextParamIndex} = ANY(audience)))`,
+    params: [caller.userId ?? "\0"]
+    // non-null sentinel; a real user id never equals it
+  };
+}
+
+// src/repo.ts
 var J = (v) => v == null ? null : JSON.stringify(v);
 var SYNC_LIMIT = 200;
 async function upsertCard(familyId, id3, b) {
+  const visibility = b.visibility === "restricted" ? "restricted" : "family";
+  const audience = visibility === "restricted" && Array.isArray(b.audience) ? b.audience : null;
   const r = await q(
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
-        type, payload, privacy, hub_ref, related, related_kicker, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,1)
+        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -917,6 +936,7 @@ async function upsertCard(familyId, id3, b) {
        not_before=EXCLUDED.not_before, expires_at=EXCLUDED.expires_at,
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
+       visibility=EXCLUDED.visibility, audience=EXCLUDED.audience,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
     [
@@ -938,16 +958,19 @@ async function upsertCard(familyId, id3, b) {
       J(b.privacy),
       b.hubRef ?? null,
       J(b.related),
-      b.relatedKicker ?? null
+      b.relatedKicker ?? null,
+      visibility,
+      audience
     ]
   );
   return r.rows[0];
 }
-async function listCards(familyId) {
+async function listCards(familyId, caller) {
+  const vis = cardVisibilityClause(caller, 2);
   const r = await q(
-    `SELECT * FROM briefing_cards WHERE family_id=$1 AND deleted_at IS NULL
+    `SELECT * FROM briefing_cards WHERE family_id=$1 AND deleted_at IS NULL${vis.sql}
      ORDER BY not_before NULLS LAST, id`,
-    [familyId]
+    [familyId, ...vis.params]
   );
   return r.rows;
 }
@@ -1325,20 +1348,30 @@ app.put("/families/:fid/cards/:id", async (c) => {
   if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
-  let body = stripServerManaged(raw);
+  if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
+    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
+  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  let audience;
+  if (visibility === "restricted") {
+    if (raw.audience !== void 0 && (!Array.isArray(raw.audience) || raw.audience.some((x) => typeof x !== "string")))
+      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
+    audience = Array.isArray(raw.audience) ? raw.audience : [];
+  }
+  const { visibility: _v, audience: _a, ...rest } = raw;
+  let body = stripServerManaged(rest);
   body = stampProvenance(body, a.cred.id);
   const parsed = BriefingCardSchema.safeParse({ ...body, id: id3 });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   const cross = crossValidateCard(parsed.data);
   if (cross.length) return c.json({ type: "validation", issues: cross }, 422);
-  return c.json(await upsertCard(fid, id3, parsed.data), 200);
+  return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience }), 200);
 });
 app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
-  return c.json(await listCards(fid));
+  return c.json(await listCards(fid, { userId: a.userId, legacy: a.legacy }));
 });
 app.get("/families/:fid/members", async (c) => {
   const fid = c.req.param("fid");
@@ -1642,8 +1675,9 @@ app.get("/families/:fid/sync", async (c) => {
     si = parts[1];
   }
   const rows = await syncCards(fid, su, si);
-  const live = rows.filter((r) => !r.deleted_at);
-  const tombstones = rows.filter((r) => r.deleted_at).map((r) => ({ type: "card", id: r.id }));
+  const caller = { userId: a.userId, legacy: a.legacy };
+  const live = rows.filter((r) => !r.deleted_at && cardVisible(r, caller));
+  const tombstones = rows.filter((r) => r.deleted_at || !cardVisible(r, caller)).map((r) => ({ type: "card", id: r.id }));
   const last = rows[rows.length - 1];
   const next = last ? Buffer.from(`${last.updated_at}|${last.id}`).toString("base64") : cursor;
   return c.json({ changes: { cards: live }, tombstones, next_cursor: next, has_more: rows.length >= SYNC_LIMIT });
