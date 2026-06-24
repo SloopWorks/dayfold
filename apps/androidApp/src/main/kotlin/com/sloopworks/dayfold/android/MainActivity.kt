@@ -18,11 +18,13 @@ import com.sloopworks.dayfold.client.HubEngine
 import com.sloopworks.dayfold.client.SyncClient
 import com.sloopworks.dayfold.client.SyncEngine
 import com.sloopworks.dayfold.client.createAppStore
+import com.sloopworks.debugdrawer.Backend
+import com.sloopworks.debugdrawer.BuildInfo
+import com.sloopworks.debugdrawer.DebugDrawer
+import com.sloopworks.debugdrawer.DebugDrawerConfig
+import com.sloopworks.debugdrawer.DebugDrawerHost
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
-import org.reduxkotlin.devtools.inapp.DevToolsTrigger
-import org.reduxkotlin.devtools.inapp.InAppConfig
-import org.reduxkotlin.devtools.inapp.ReduxDevToolsHost
 
 // Android shell — owns the store + AuthEngine + SyncEngine. AUTH-S5: the route
 // gate drives sign-in/onboarding/feed; repeatOnLifecycle(STARTED) maps the
@@ -46,6 +48,26 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    // SloopWorks debug drawer (debug builds only; a no-op facade in release). Install
+    // BEFORE any HTTP client is built so backendUrl() can reflect a chosen override.
+    DebugDrawer.install(
+      DebugDrawerConfig(
+        buildInfo = BuildInfo(
+          version = BuildConfig.VERSION_NAME ?: "dev",
+          build = BuildConfig.VERSION_CODE.toString(),
+          buildType = if (BuildConfig.DEBUG) "debug" else "release",
+        ),
+        backends = listOf(
+          Backend("prod", "Production", "https://family-ai-dashboard.vercel.app"),
+          Backend("emulator", "Local API (10.0.2.2)", "http://10.0.2.2:8799"),
+        ),
+        plugins = debugDrawerPlugins(),   // redux DevTools panel in debug; none in release
+      ),
+      applicationContext,
+    )
+    // API base routes through the drawer's backend override (falls back to the
+    // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
+    val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)
     val store = createAppStore()
     val cs = ContentStore(DriverFactory(applicationContext).createDriver())  // shared DB
     // Debug-only: seed the DB with sample cards so the content UI (cards/detail/
@@ -58,7 +80,7 @@ class MainActivity : ComponentActivity() {
     }
     val tokenStore = AndroidTokenStore(applicationContext)
     authEngine = AuthEngine(
-      store, AuthClient(BuildConfig.DAYFOLD_API), tokenStore,
+      store, AuthClient(apiBase), tokenStore,
       devSecret = BuildConfig.DEV_AUTH_SECRET.ifEmpty { null },
       // S2 (ADR 0023/0027): real Google sign-in via Credential Manager + Firebase.
       // Activity context (this) is required for the account-picker UI. webClientId
@@ -70,7 +92,7 @@ class MainActivity : ComponentActivity() {
     val syncEngine = SyncEngine(
       store, cs,
       SyncClient(
-        BuildConfig.DAYFOLD_API,
+        apiBase,
         familyId = { store.state.activeFamilyId ?: legacyFam.ifEmpty { null } },
         token = { store.state.session?.access ?: legacySecret.ifEmpty { null } },
       ),
@@ -86,14 +108,14 @@ class MainActivity : ComponentActivity() {
       }
     }
     val hubEngine = HubEngine(   // ADR 0006 render — PR2: DB-fed
-      store, HubClient(BuildConfig.DAYFOLD_API),
-      AuthClient(BuildConfig.DAYFOLD_API), tokenStore, cs, syncEngine,
+      store, HubClient(apiBase),
+      AuthClient(apiBase), tokenStore, cs, syncEngine,
     )
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
     setContent {
-      // Debug in-app redux devtools drawer (restored: the matrix is now Compose-MP
-      // 1.11.1, which the alpha01 host requires — the earlier 1.9.3 skew is gone).
-      ReduxDevToolsHost(InAppConfig(triggers = setOf(DevToolsTrigger.BUBBLE))) {
+      // SloopWorks debug drawer: a floating bubble (debug) opens AppInfo / Backend-
+      // switch / Logs / Redux DevTools panels. Pure passthrough in release (no-op).
+      DebugDrawerHost {
         FeedApp(
           store,
           onPlatformAction = actions::perform,

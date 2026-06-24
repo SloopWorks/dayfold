@@ -64,10 +64,13 @@ dependencies {
   implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
-  // In-app redux devtools (debug build = real drawer; release = no-op facade).
-  // Real drawer needs Compose-MP 1.11.1, which the matrix now provides.
-  debugImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha03")
-  releaseImplementation("org.reduxkotlin:redux-kotlin-devtools-inapp-noop:1.0.0-alpha03")
+  // SloopWorks in-app debug drawer (in-repo, not yet published). Debug build = the
+  // real drawer (AppInfo + Backend-switch + Logs built-ins) + the redux DevTools
+  // panel; release = the no-op facade (same API, zero overhead, no bubble). The
+  // redux panel pulls redux-kotlin-devtools-inapp transitively (debug-only).
+  debugImplementation(project(":debugdrawer"))
+  debugImplementation(project(":debugdrawer-redux"))
+  releaseImplementation(project(":debugdrawer-noop"))
 
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)
