@@ -105,6 +105,9 @@ sqldelight {
     create("ContentDb") {
       packageName.set("com.sloopworks.dayfold.client.db")
       dialect("app.cash.sqldelight:sqlite-3-38-dialect:2.3.2") // UPSERT
+      // Schema version is derived from migrations: 1.sqm → version 2.
+      // verifyMigrations checks 1.sqm matches the v1→v2 schema diff.
+      verifyMigrations.set(true)
     }
   }
 }
