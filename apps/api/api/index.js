@@ -1031,14 +1031,31 @@ async function softDeleteCard(familyId, id3) {
 }
 async function syncContent(familyId, su, st, si, limit = SYNC_LIMIT) {
   const r = await q(
-    `SELECT updated_at, type, id, family_id, deleted_at, payload FROM (
+    `SELECT updated_at, type, id, family_id, deleted_at, payload,
+            hub_id, hub_visibility, hub_created_by FROM (
        SELECT updated_at, 'card' AS type, id, family_id, deleted_at,
-              to_jsonb(briefing_cards.*) AS payload
+              to_jsonb(briefing_cards.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
          FROM briefing_cards WHERE family_id=$1
        UNION ALL
        SELECT updated_at, 'hub' AS type, id, family_id, deleted_at,
-              to_jsonb(hubs.*) AS payload
+              to_jsonb(hubs.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
          FROM hubs WHERE family_id=$1
+       UNION ALL
+       SELECT s.updated_at, 'section' AS type, s.id, s.family_id, s.deleted_at,
+              to_jsonb(s.*) AS payload,
+              h.id AS hub_id, h.visibility AS hub_visibility, h.created_by AS hub_created_by
+         FROM sections s JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
+        WHERE s.family_id=$1
+       UNION ALL
+       SELECT b.updated_at, 'block' AS type, b.id, b.family_id, b.deleted_at,
+              to_jsonb(b.*) AS payload,
+              h.id AS hub_id, h.visibility AS hub_visibility, h.created_by AS hub_created_by
+         FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+         JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
+        WHERE b.family_id=$1
      ) merged
      WHERE (updated_at, type, id) > ($2::timestamptz, $3, $4)
      ORDER BY updated_at, type, id LIMIT $5`,
@@ -2055,7 +2072,7 @@ app.get("/families/:fid/sync", async (c) => {
     } else if (parts.length === 3) {
       const validTs = !Number.isNaN(Date.parse(parts[0]));
       if (!validTs) return problem(c, 400, "bad-cursor");
-      if (["card", "hub"].includes(parts[1])) {
+      if (["card", "hub", "section", "block"].includes(parts[1])) {
         [su, st, si] = parts;
       }
     } else {
@@ -2063,7 +2080,10 @@ app.get("/families/:fid/sync", async (c) => {
     }
   }
   const rows = await syncContent(fid, su, st, si);
-  const restrictedHubIds = rows.filter((r) => r.type === "hub" && r.payload?.visibility === "restricted" && !r.deleted_at).map((r) => r.id);
+  const restrictedHubIds = Array.from(new Set([
+    ...rows.filter((r) => r.type === "hub" && r.payload?.visibility === "restricted" && !r.deleted_at).map((r) => r.id),
+    ...rows.filter((r) => (r.type === "section" || r.type === "block") && r.hub_visibility === "restricted").map((r) => r.hub_id)
+  ].filter(Boolean)));
   const allowSets = /* @__PURE__ */ new Map();
   if (restrictedHubIds.length > 0) {
     const { q: dbq } = await Promise.resolve().then(() => (init_db(), db_exports));
@@ -2076,13 +2096,25 @@ app.get("/families/:fid/sync", async (c) => {
       allowSets.get(row.hub_id).add(row.user_id);
     }
   }
-  const changes = { cards: [], hubs: [] };
+  const changes = { cards: [], hubs: [], sections: [], blocks: [] };
   const tombstones = [];
   for (const r of rows) {
-    const visible = r.deleted_at ? false : r.type === "card" ? cardVisible(r.payload, caller) : hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    let visible;
+    if (r.deleted_at) {
+      visible = false;
+    } else if (r.type === "card") {
+      visible = cardVisible(r.payload, caller);
+    } else if (r.type === "hub") {
+      visible = hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    } else {
+      const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
+      visible = hubVisible(parentHub, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    }
     if (visible) {
       if (r.type === "card") changes.cards.push(r.payload);
-      else changes.hubs.push(r.payload);
+      else if (r.type === "hub") changes.hubs.push(r.payload);
+      else if (r.type === "section") changes.sections.push(r.payload);
+      else changes.blocks.push(r.payload);
     } else {
       tombstones.push({ type: r.type, id: r.id });
     }

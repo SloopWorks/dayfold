@@ -62,10 +62,11 @@ export async function syncCards(familyId: string, su: string | null, si: string 
   return r.rows;
 }
 
-// Merged keyset over (updated_at, type, id) spanning cards + hubs. Row-wise
-// comparison so the tuple is globally unique. INCLUDES tombstones (deleted_at
+// Merged keyset over (updated_at, type, id) spanning cards + hubs + sections + blocks.
+// Row-wise comparison so the tuple is globally unique. INCLUDES tombstones (deleted_at
 // not null) — soft-delete bumps updated_at so they surface past any cursor.
-// PR2 adds section/block UNION arms; today: card + hub only.
+// Section/block rows carry parent hub fields (hub_id, hub_visibility, hub_created_by)
+// so the route can evaluate hubVisible without an extra round-trip.
 export async function syncContent(
   familyId: string,
   su: string,   // start updated_at ("" → "-infinity")
@@ -74,18 +75,45 @@ export async function syncContent(
   limit = SYNC_LIMIT,
 ) {
   const r = await q(
-    `SELECT updated_at, type, id, family_id, deleted_at, payload FROM (
+    `SELECT updated_at, type, id, family_id, deleted_at, payload,
+            hub_id, hub_visibility, hub_created_by FROM (
        SELECT updated_at, 'card' AS type, id, family_id, deleted_at,
-              to_jsonb(briefing_cards.*) AS payload
+              to_jsonb(briefing_cards.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
          FROM briefing_cards WHERE family_id=$1
        UNION ALL
        SELECT updated_at, 'hub' AS type, id, family_id, deleted_at,
-              to_jsonb(hubs.*) AS payload
+              to_jsonb(hubs.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
          FROM hubs WHERE family_id=$1
+       UNION ALL
+       SELECT s.updated_at, 'section' AS type, s.id, s.family_id, s.deleted_at,
+              to_jsonb(s.*) AS payload,
+              h.id AS hub_id, h.visibility AS hub_visibility, h.created_by AS hub_created_by
+         FROM sections s JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
+        WHERE s.family_id=$1
+       UNION ALL
+       SELECT b.updated_at, 'block' AS type, b.id, b.family_id, b.deleted_at,
+              to_jsonb(b.*) AS payload,
+              h.id AS hub_id, h.visibility AS hub_visibility, h.created_by AS hub_created_by
+         FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+         JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
+        WHERE b.family_id=$1
      ) merged
      WHERE (updated_at, type, id) > ($2::timestamptz, $3, $4)
      ORDER BY updated_at, type, id LIMIT $5`,
     [familyId, su === "" ? "-infinity" : su, st, si, limit],
   );
-  return r.rows as { updated_at: string; type: string; id: string; family_id: string; deleted_at: string | null; payload: any }[];
+  return r.rows as {
+    updated_at: string;
+    type: string;
+    id: string;
+    family_id: string;
+    deleted_at: string | null;
+    payload: any;
+    hub_id: string | null;
+    hub_visibility: string | null;
+    hub_created_by: string | null;
+  }[];
 }

@@ -824,12 +824,12 @@ app.get("/families/:fid/sync", async (c) => {
       // Accept "-infinity" (Postgres timestamptz literal) as a valid start marker.
       const validTs = parts[0] === "-infinity" || !Number.isNaN(Date.parse(parts[0]));
       if (!validTs) return problem(c, 400, "bad-cursor");
-      // su/st/si stay "" → merged keyset scans from beginning, returns cards + hubs.
+      // su/st/si stay "" → merged keyset scans from beginning, returns cards + hubs + sections + blocks.
     } else if (parts.length === 3) {
       // 3-part merged cursor: validate ts + type. Unknown type → full resync (not an error).
       const validTs = !Number.isNaN(Date.parse(parts[0]));
       if (!validTs) return problem(c, 400, "bad-cursor");
-      if (["card", "hub"].includes(parts[1])) {
+      if (["card", "hub", "section", "block"].includes(parts[1])) {
         [su, st, si] = parts;
       }
       // else: unknown type → su/st/si stay "" → full resync
@@ -848,9 +848,17 @@ app.get("/families/:fid/sync", async (c) => {
   // TOMBSTONE (so a card/hub that flipped to restricted is dropped from the cache).
 
   // Prefetch allow-lists for restricted hubs on this page in a single query.
-  const restrictedHubIds = rows
-    .filter((r: any) => r.type === "hub" && r.payload?.visibility === "restricted" && !r.deleted_at)
-    .map((r: any) => r.id);
+  // This covers:
+  //   - hub rows with visibility=restricted
+  //   - parent hubs of section/block rows with hub_visibility=restricted
+  const restrictedHubIds = Array.from(new Set([
+    ...rows
+      .filter((r: any) => r.type === "hub" && r.payload?.visibility === "restricted" && !r.deleted_at)
+      .map((r: any) => r.id),
+    ...rows
+      .filter((r: any) => (r.type === "section" || r.type === "block") && r.hub_visibility === "restricted")
+      .map((r: any) => r.hub_id as string),
+  ].filter(Boolean)));
   const allowSets = new Map<string, Set<string>>();
   if (restrictedHubIds.length > 0) {
     const { q: dbq } = await import("./db.ts");
@@ -864,16 +872,26 @@ app.get("/families/:fid/sync", async (c) => {
     }
   }
 
-  const changes = { cards: [] as any[], hubs: [] as any[] };
+  const changes = { cards: [] as any[], hubs: [] as any[], sections: [] as any[], blocks: [] as any[] };
   const tombstones: { type: string; id: string }[] = [];
   for (const r of rows) {
-    const visible = r.deleted_at ? false
-      : r.type === "card"
-        ? cardVisible(r.payload, caller)
-        : hubs.hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    let visible: boolean;
+    if (r.deleted_at) {
+      visible = false;
+    } else if (r.type === "card") {
+      visible = cardVisible(r.payload, caller);
+    } else if (r.type === "hub") {
+      visible = hubs.hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    } else {
+      // section or block: visibility = parent hub's visibility
+      const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
+      visible = hubs.hubVisible(parentHub, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    }
     if (visible) {
       if (r.type === "card") changes.cards.push(r.payload);
-      else changes.hubs.push(r.payload);
+      else if (r.type === "hub") changes.hubs.push(r.payload);
+      else if (r.type === "section") changes.sections.push(r.payload);
+      else changes.blocks.push(r.payload);
     } else {
       tombstones.push({ type: r.type, id: r.id });
     }
