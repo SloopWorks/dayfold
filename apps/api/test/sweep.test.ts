@@ -66,3 +66,27 @@ describe("retention sweep", () => {
     expect((await q(`SELECT 1 FROM invites WHERE id=$1`, [mk.invite_id])).rowCount).toBe(1);        // referenced kept (FK-safe)
   });
 });
+
+describe("GET /cron/sweep (Vercel Cron, CRON_SECRET-gated)", () => {
+  const path = "/cron/sweep";
+  it("unconfigured (no CRON_SECRET) → 404 (invisible)", async () => {
+    delete process.env.CRON_SECRET;
+    expect((await app.request(path)).status).toBe(404);
+  });
+  it("configured but missing/wrong bearer → 401", async () => {
+    process.env.CRON_SECRET = "cron-top-secret";
+    expect((await app.request(path)).status).toBe(401);                                   // no header
+    expect((await app.request(path, { headers: { authorization: "Bearer wrong" } })).status).toBe(401);
+    delete process.env.CRON_SECRET;
+  });
+  it("correct bearer → 200 + sweep counts", async () => {
+    process.env.CRON_SECRET = "cron-top-secret";
+    const r = await app.request(path, { headers: { authorization: "Bearer cron-top-secret" } });
+    expect(r.status).toBe(200);
+    const b = await r.json();
+    expect(b).toHaveProperty("rate_limits");
+    expect(b).toHaveProperty("device_authorizations");
+    expect(b).toHaveProperty("invites");
+    delete process.env.CRON_SECRET;
+  });
+});

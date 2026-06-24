@@ -62,6 +62,10 @@ created + authed the accounts, I can drive the Vercel MCP for the deploy).
    vercel env add DATABASE_URL production            # the POOLED Neon URL
    vercel env add HOUSEHOLD_SECRET production         # from provision
    vercel env add HOUSEHOLD_CREDENTIAL_ID production  # from provision
+   vercel env add CRON_SECRET production              # gates GET /cron/sweep; Vercel
+                                                      # auto-sends it as Bearer on cron
+                                                      # runs (vercel.json `crons`). Unset
+                                                      # ⇒ /cron/sweep 404s (sweep won't run)
    ```
 4. **[AGENT]** Preview deploy + smoke test (ADR 0012 preview-before-promote):
    ```
