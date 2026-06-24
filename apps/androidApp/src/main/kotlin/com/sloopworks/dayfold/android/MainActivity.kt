@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
     // feed until Route.Feed (signed-in + active family) — sign in via the dev path
     // to reach the seeded feed.
     if (BuildConfig.DEBUG && BuildConfig.FAMILY_ID.isEmpty()) {
-      cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), null, "2026-06-20T10:00:00Z")
+      cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), emptyList(), null, "2026-06-20T10:00:00Z")
     }
     val tokenStore = AndroidTokenStore(applicationContext)
     authEngine = AuthEngine(

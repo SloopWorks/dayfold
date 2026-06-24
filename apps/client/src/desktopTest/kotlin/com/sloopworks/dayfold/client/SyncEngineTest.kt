@@ -28,7 +28,7 @@ class SyncEngineTest {
 
   @Test fun `cold start renders cached DB with zero network`() {
     val cs = freshStore()
-    cs.applyDelta(listOf(Card("cached", title = "Cached")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    cs.applyDelta(listOf(Card("cached", title = "Cached")), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     var hit = false
     val sc = syncClient(MockEngine { hit = true; respond("", HttpStatusCode.OK) })
     val store = createAppStore(debug = false)
@@ -61,7 +61,7 @@ class SyncEngineTest {
 
   @Test fun `tombstone removes from DB and store`() = runBlocking {
     val cs = freshStore()
-    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val sc = syncClient(MockEngine {
       respond("""{"changes":{"cards":[]},"tombstones":[{"type":"card","id":"a"}],"next_cursor":"c1","has_more":false}""",
         HttpStatusCode.OK)
@@ -77,7 +77,7 @@ class SyncEngineTest {
     val f = File.createTempFile("fad-sync", ".db").apply { delete(); deleteOnExit() }
     val url = "jdbc:sqlite:${f.absolutePath}"
     val d1 = JdbcSqliteDriver(url); val s1 = ContentStore.create(d1)
-    s1.applyDelta(listOf(Card("a", title = "A")), emptyList(), "cur42", "2026-06-18T10:00:00Z")
+    s1.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), "cur42", "2026-06-18T10:00:00Z")
     d1.close()
     val d2 = JdbcSqliteDriver(url); val s2 = ContentStore(d2)   // reopen, no Schema.create
     assertEquals("cur42", s2.cursor())
@@ -99,7 +99,7 @@ class SyncEngineTest {
   // family content — the cache is wiped and the session signs out.
   @Test fun `tenancy revocation (403) wipes the local cache and signs out`() = runBlocking {
     val cs = freshStore()
-    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache populated
     val sc = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
     val store = createAppStore(debug = false)
@@ -112,7 +112,7 @@ class SyncEngineTest {
 
   @Test fun `non-member (404) also wipes the cache`() = runBlocking {
     val cs = freshStore()
-    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val sc = syncClient(MockEngine { respond("nope", HttpStatusCode.NotFound) })
     val store = createAppStore(debug = false)
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
@@ -121,7 +121,7 @@ class SyncEngineTest {
 
   @Test fun `a 401 does NOT wipe the cache (token problem, left to refresh)`() = runBlocking {
     val cs = freshStore()
-    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val sc = syncClient(MockEngine { respond("unauthorized", HttpStatusCode.Unauthorized) })
     val store = createAppStore(debug = false)
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()

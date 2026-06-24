@@ -24,9 +24,15 @@ class ContentStore(driver: SqlDriver) {
   private val json = Json { ignoreUnknownKeys = true }
 
   /** Apply one /sync page atomically: upsert changes, tombstone deletes, advance cursor. */
-  fun applyDelta(changed: List<Card>, tombstoneIds: List<String>, nextCursor: String?, nowIso: String) {
+  fun applyDelta(
+    changedCards: List<Card>,
+    changedHubs: List<Hub>,
+    tombstones: List<Tombstone>,
+    nextCursor: String?,
+    nowIso: String,
+  ) {
     q.transaction {
-      changed.forEach { c ->
+      changedCards.forEach { c ->
         q.upsertCard(
           c.id, c.kind, c.title, c.bodyMd, c.provenance?.source, c.notBefore, c.expiresAt,
           c.type,
@@ -38,7 +44,15 @@ class ContentStore(driver: SqlDriver) {
           nowIso,
         )
       }
-      tombstoneIds.forEach { q.markDeleted(nowIso, it) }
+      changedHubs.forEach { h ->
+        q.upsertHub(h.id, h.type, h.title, h.status, h.startAt, h.endAt, h.countdownTo, h.visibility, h.createdBy, nowIso)
+      }
+      tombstones.forEach { t ->
+        when (t.type) {
+          "card" -> q.markDeleted(nowIso, t.id)
+          "hub"  -> q.markHubDeleted(nowIso, t.id)
+        }
+      }
       if (nextCursor != null) q.setCursor(nextCursor, nowIso)
     }
   }
@@ -59,11 +73,21 @@ class ContentStore(driver: SqlDriver) {
     text?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
 
   /** ADR 0030 (round-1 P0-2): hard-wipe the local cache on tenancy revocation — a
-   *  removed/non-member must not retain family content. Drops cards + cursor so a
+   *  removed/non-member must not retain family content. Drops cards + hubs + cursor so a
    *  later sign-in re-syncs clean. The activeCardsFlow re-emits [] → the feed empties. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeCursor() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeCursor() }
   }
+
+  /** Reactive hub projection — emits current active hubs and re-emits on any hub-table write. */
+  fun activeHubsFlow(): Flow<List<Hub>> =
+    q.activeHubs().asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map(::rowToHub) }
+
+  private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(
+    id = r.id, type = r.type, title = r.title, status = r.status ?: "active",
+    startAt = r.start_at, endAt = r.end_at, countdownTo = r.countdown_to,
+    visibility = r.visibility ?: "family", createdBy = r.created_by,
+  )
 
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)

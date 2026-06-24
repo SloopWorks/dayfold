@@ -65,8 +65,9 @@ class SyncEngine(
       while (hasMore) {
         val resp = syncClient.fetchPage(contentStore.cursor())
         contentStore.applyDelta(
-          changed = resp.changes.cards,
-          tombstoneIds = resp.tombstones.filter { it.type == "card" }.map { it.id },
+          changedCards = resp.changes.cards,
+          changedHubs = resp.changes.hubs,
+          tombstones = resp.tombstones,
           nextCursor = resp.nextCursor,
           nowIso = nowProvider(),
         )

@@ -6,6 +6,8 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * TDD: hub table + v1→v2 SQLDelight migration.
@@ -96,6 +98,14 @@ class HubCacheTest {
         assertEquals(0, q.activeHubs().executeAsList().size)
 
         d2.close()
+    }
+
+    @Test fun `applyDelta upserts a hub then tombstones it, flow reflects both`() = runBlocking {
+        val store = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
+        store.applyDelta(emptyList(), listOf(Hub("h1", "event", "Party", status = "active")), emptyList(), "cur1", "t1")
+        assertEquals("h1", store.activeHubsFlow().first().single().id)
+        store.applyDelta(emptyList(), emptyList(), listOf(Tombstone("hub", "h1")), "cur2", "t2")
+        assertTrue(store.activeHubsFlow().first().isEmpty())
     }
 
     @Test
