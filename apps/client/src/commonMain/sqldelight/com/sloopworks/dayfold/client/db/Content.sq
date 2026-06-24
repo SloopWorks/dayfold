@@ -98,3 +98,65 @@ FROM hub WHERE deleted=0 ORDER BY COALESCE(start_at, countdown_to), id;
 
 wipeHubs:
 DELETE FROM hub;
+
+-- Hub sections (ADR 0006 render v3). FK hub_id; ord for ordering. JSON payload
+-- stored as TEXT; decoded at projection.
+CREATE TABLE hub_section (
+  id         TEXT NOT NULL PRIMARY KEY,
+  hub_id     TEXT NOT NULL,
+  title      TEXT,
+  ord        INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  deleted    INTEGER NOT NULL DEFAULT 0
+);
+
+upsertSection:
+INSERT INTO hub_section(id, hub_id, title, ord, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, 0)
+ON CONFLICT(id) DO UPDATE SET
+  hub_id=excluded.hub_id, title=excluded.title, ord=excluded.ord,
+  updated_at=excluded.updated_at, deleted=0;
+
+markSectionDeleted:
+UPDATE hub_section SET deleted=1, updated_at=? WHERE id=?;
+
+wipeSections:
+DELETE FROM hub_section;
+
+-- Hub blocks (ADR 0006 render v3). FK section_id; type + body_md + payload (JSON TEXT).
+CREATE TABLE hub_block (
+  id         TEXT NOT NULL PRIMARY KEY,
+  section_id TEXT NOT NULL,
+  type       TEXT NOT NULL,
+  body_md    TEXT,
+  payload    TEXT,
+  provenance TEXT,
+  ord        INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  deleted    INTEGER NOT NULL DEFAULT 0
+);
+
+upsertBlock:
+INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+ON CONFLICT(id) DO UPDATE SET
+  section_id=excluded.section_id, type=excluded.type, body_md=excluded.body_md,
+  payload=excluded.payload, provenance=excluded.provenance, ord=excluded.ord,
+  updated_at=excluded.updated_at, deleted=0;
+
+markBlockDeleted:
+UPDATE hub_block SET deleted=1, updated_at=? WHERE id=?;
+
+wipeBlocks:
+DELETE FROM hub_block;
+
+-- Tree query: sections for a hub + blocks for those sections (ordered by ord, id).
+sectionsForHub:
+SELECT id, hub_id, title, ord FROM hub_section
+WHERE hub_id = ? AND deleted=0
+ORDER BY ord, id;
+
+blocksForSections:
+SELECT id, section_id, type, body_md, payload, provenance, ord FROM hub_block
+WHERE section_id IN ? AND deleted=0
+ORDER BY ord, id;

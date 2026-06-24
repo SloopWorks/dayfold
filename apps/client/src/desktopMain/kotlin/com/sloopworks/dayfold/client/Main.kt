@@ -20,8 +20,8 @@ fun main() = application {
   val authEngine = remember {
     AuthEngine(store, AuthClient(api), tokenStore, devSecret = System.getenv("DEV_AUTH_SECRET"))
   }
+  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB across engines
   val syncEngine = remember {
-    val cs = ContentStore(DriverFactory().createDriver())   // factory applies the schema
     val legacyFam = System.getenv("FAMILY_ID"); val legacySecret = System.getenv("HOUSEHOLD_SECRET")
     val client = SyncClient(
       api,
@@ -30,7 +30,9 @@ fun main() = application {
     )
     SyncEngine(store, cs, client)
   }
-  val hubEngine = remember { HubEngine(store, HubClient(api), AuthClient(api), tokenStore) }  // ADR 0006 render
+  val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed via contentStore + syncEngine
+    HubEngine(store, HubClient(api), AuthClient(api), tokenStore, cs, syncEngine)
+  }
   val scope = rememberCoroutineScope()
 
   LaunchedEffect(Unit) {
@@ -59,6 +61,7 @@ fun main() = application {
       onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
       onOpenHub = { id -> scope.launch { hubEngine.openHub(id) } },
+      onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
       onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
     )
   }

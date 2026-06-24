@@ -13,6 +13,8 @@ import com.sloopworks.dayfold.client.AuthEngine
 import com.sloopworks.dayfold.client.ContentStore
 import com.sloopworks.dayfold.client.DriverFactory
 import com.sloopworks.dayfold.client.FeedApp
+import com.sloopworks.dayfold.client.HubClient
+import com.sloopworks.dayfold.client.HubEngine
 import com.sloopworks.dayfold.client.SyncClient
 import com.sloopworks.dayfold.client.SyncEngine
 import com.sloopworks.dayfold.client.createAppStore
@@ -45,14 +47,14 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val store = createAppStore()
-    val cs = ContentStore(DriverFactory(applicationContext).createDriver())
+    val cs = ContentStore(DriverFactory(applicationContext).createDriver())  // shared DB
     // Debug-only: seed the DB with sample cards so the content UI (cards/detail/
     // transition) is exercisable on-device without a live API. Sync only adds/
     // tombstones, never wipes these. NOTE (post AUTH-S5): the route gate hides the
     // feed until Route.Feed (signed-in + active family) — sign in via the dev path
     // to reach the seeded feed.
     if (BuildConfig.DEBUG && BuildConfig.FAMILY_ID.isEmpty()) {
-      cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), emptyList(), null, "2026-06-20T10:00:00Z")
+      cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), emptyList(), emptyList(), emptyList(), null, "2026-06-20T10:00:00Z")
     }
     val tokenStore = AndroidTokenStore(applicationContext)
     authEngine = AuthEngine(
@@ -83,9 +85,9 @@ class MainActivity : ComponentActivity() {
         try { awaitCancellation() } finally { syncEngine.pause() }
       }
     }
-    val hubEngine = com.sloopworks.dayfold.client.HubEngine(   // ADR 0006 render
-      store, com.sloopworks.dayfold.client.HubClient(BuildConfig.DAYFOLD_API),
-      AuthClient(BuildConfig.DAYFOLD_API), tokenStore,
+    val hubEngine = HubEngine(   // ADR 0006 render — PR2: DB-fed
+      store, HubClient(BuildConfig.DAYFOLD_API),
+      AuthClient(BuildConfig.DAYFOLD_API), tokenStore, cs, syncEngine,
     )
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
     setContent {
@@ -112,6 +114,7 @@ class MainActivity : ComponentActivity() {
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onLoadHubs = { lifecycleScope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
           onOpenHub = { id -> lifecycleScope.launch { hubEngine.openHub(id) } },
+          onCloseHub = { lifecycleScope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
           onLoadAudience = { id -> lifecycleScope.launch { hubEngine.loadAudience(id) } },
         )
       }

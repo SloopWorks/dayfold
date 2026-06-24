@@ -20,13 +20,16 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   val store = remember { createAppStore() }
   val tokenStore = remember { IosTokenStore() }
   val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null) }
+  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB
   val syncEngine = remember {
     SyncEngine(
-      store, ContentStore(DriverFactory().createDriver()),
+      store, cs,
       SyncClient("", familyId = { store.state.activeFamilyId }, token = { store.state.session?.access }),
     )
   }
-  val hubEngine = remember { HubEngine(store, HubClient(""), AuthClient(""), tokenStore) }  // ADR 0006 render
+  val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed
+    HubEngine(store, HubClient(""), AuthClient(""), tokenStore, cs, syncEngine)
+  }
   val actions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
   val scope = rememberCoroutineScope()
   LaunchedEffect(Unit) {
@@ -75,6 +78,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
     onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
     onOpenHub = { id -> scope.launch { hubEngine.openHub(id) } },
+    onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
     onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
   )
 }

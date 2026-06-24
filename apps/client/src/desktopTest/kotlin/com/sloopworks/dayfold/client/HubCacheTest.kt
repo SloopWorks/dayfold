@@ -5,6 +5,8 @@ import com.sloopworks.dayfold.client.db.ContentDb
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -102,10 +104,64 @@ class HubCacheTest {
 
     @Test fun `applyDelta upserts a hub then tombstones it, flow reflects both`() = runBlocking {
         val store = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
-        store.applyDelta(emptyList(), listOf(Hub("h1", "event", "Party", status = "active")), emptyList(), "cur1", "t1")
+        store.applyDelta(emptyList(), listOf(Hub("h1", "event", "Party", status = "active")), emptyList(), emptyList(), emptyList(), "cur1", "t1")
         assertEquals("h1", store.activeHubsFlow().first().single().id)
-        store.applyDelta(emptyList(), emptyList(), listOf(Tombstone("hub", "h1")), "cur2", "t2")
+        store.applyDelta(emptyList(), emptyList(), emptyList(), emptyList(), listOf(Tombstone("hub", "h1")), "cur2", "t2")
         assertTrue(store.activeHubsFlow().first().isEmpty())
+    }
+
+    @Test fun `applyDelta upserts sections+blocks then tombstones them, flow reflects`() = runBlocking<Unit> {
+        val store = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
+        store.applyDelta(
+            changedCards = emptyList(),
+            changedHubs = listOf(Hub("h1", title = "Party")),
+            changedSections = listOf(HubSection("s1", hubId = "h1", title = "Info")),
+            changedBlocks = listOf(HubBlock("b1", sectionId = "s1", type = "text", bodyMd = "hello")),
+            tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-24T00:00:00Z",
+        )
+        val tree = store.hubTreeFlow("h1").first()
+        assertNotNull(tree)
+        assertEquals("s1", tree!!.sections.single().id)
+        assertEquals("b1", tree.blocks.single().id)
+        // tombstone section + block
+        store.applyDelta(
+            changedCards = emptyList(), changedHubs = emptyList(),
+            changedSections = emptyList(), changedBlocks = emptyList(),
+            tombstones = listOf(Tombstone("section", "s1"), Tombstone("block", "b1")),
+            nextCursor = "c2", nowIso = "2026-06-24T01:00:00Z",
+        )
+        val tree2 = store.hubTreeFlow("h1").first()
+        assertNotNull(tree2)
+        assertTrue(tree2!!.sections.isEmpty())
+        assertTrue(tree2.blocks.isEmpty())
+    }
+
+    @Test fun `hubTreeFlow assembles hub+sections+blocks, orphan block (hub absent) not shown`() = runBlocking<Unit> {
+        val store = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
+        // Insert hub h1 with section s1, block b1
+        store.applyDelta(
+            changedCards = emptyList(),
+            changedHubs = listOf(Hub("h1", title = "Trip")),
+            changedSections = listOf(HubSection("s1", hubId = "h1", title = "Plan")),
+            changedBlocks = listOf(HubBlock("b1", sectionId = "s1", type = "text")),
+            tombstones = emptyList(), nextCursor = "c1", nowIso = "t1",
+        )
+        // hubTreeFlow for absent hub h2 → null
+        assertNull(store.hubTreeFlow("h2").first())
+        // hubTreeFlow for h1 → full tree
+        val tree = store.hubTreeFlow("h1").first()
+        assertNotNull(tree)
+        assertEquals("h1", tree!!.hub.id)
+        assertEquals(listOf("s1"), tree.sections.map { it.id })
+        assertEquals(listOf("b1"), tree.blocks.map { it.id })
+        // Tombstone h1 → hubTreeFlow("h1") emits null (hub absent)
+        store.applyDelta(
+            changedCards = emptyList(), changedHubs = emptyList(),
+            changedSections = emptyList(), changedBlocks = emptyList(),
+            tombstones = listOf(Tombstone("hub", "h1")),
+            nextCursor = "c2", nowIso = "t2",
+        )
+        assertNull(store.hubTreeFlow("h1").first())
     }
 
     @Test

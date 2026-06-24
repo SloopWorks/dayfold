@@ -118,7 +118,7 @@ data class Attachment(val name: String? = null, val mime: String? = null, val si
 @Serializable
 data class CardPrivacy(val storage: String? = null)
 
-@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList())
+@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList(), val sections: List<HubSection> = emptyList(), val blocks: List<HubBlock> = emptyList())
 @Serializable data class Tombstone(val type: String, val id: String)
 
 @Serializable

@@ -73,6 +73,8 @@ class SyncEngine(
         contentStore.applyDelta(
           changedCards = resp.changes.cards,
           changedHubs = resp.changes.hubs,
+          changedSections = resp.changes.sections,
+          changedBlocks = resp.changes.blocks,
           tombstones = resp.tombstones,
           nextCursor = resp.nextCursor,
           nowIso = nowProvider(),

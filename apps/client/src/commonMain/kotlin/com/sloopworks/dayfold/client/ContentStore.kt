@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.sloopworks.dayfold.client
 
 import app.cash.sqldelight.coroutines.asFlow
@@ -6,6 +8,8 @@ import app.cash.sqldelight.db.SqlDriver
 import com.sloopworks.dayfold.client.db.ContentDb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -27,6 +31,8 @@ class ContentStore(driver: SqlDriver) {
   fun applyDelta(
     changedCards: List<Card>,
     changedHubs: List<Hub>,
+    changedSections: List<HubSection> = emptyList(),
+    changedBlocks: List<HubBlock> = emptyList(),
     tombstones: List<Tombstone>,
     nextCursor: String?,
     nowIso: String,
@@ -47,10 +53,23 @@ class ContentStore(driver: SqlDriver) {
       changedHubs.forEach { h ->
         q.upsertHub(h.id, h.type, h.title, h.status, h.startAt, h.endAt, h.countdownTo, h.visibility, h.createdBy, nowIso)
       }
+      changedSections.forEach { s ->
+        q.upsertSection(s.id, s.hubId ?: "", s.title, s.ord, nowIso)
+      }
+      changedBlocks.forEach { b ->
+        q.upsertBlock(
+          b.id, b.sectionId ?: "", b.type, b.bodyMd,
+          b.payload?.let { json.encodeToString(BlockPayload.serializer(), it) },
+          b.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
+          b.ord, nowIso,
+        )
+      }
       tombstones.forEach { t ->
         when (t.type) {
-          "card" -> q.markDeleted(nowIso, t.id)
-          "hub"  -> q.markHubDeleted(nowIso, t.id)
+          "card"    -> q.markDeleted(nowIso, t.id)
+          "hub"     -> q.markHubDeleted(nowIso, t.id)
+          "section" -> q.markSectionDeleted(nowIso, t.id)
+          "block"   -> q.markBlockDeleted(nowIso, t.id)
         }
       }
       if (nextCursor != null) q.setCursor(nextCursor, nowIso)
@@ -67,27 +86,60 @@ class ContentStore(driver: SqlDriver) {
     related = decode(row.related, RELATED_SER), relatedKicker = row.related_kicker,
   )
 
+  private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(
+    id = r.id, type = r.type, title = r.title, status = r.status ?: "active",
+    startAt = r.start_at, endAt = r.end_at, countdownTo = r.countdown_to,
+    visibility = r.visibility ?: "family", createdBy = r.created_by,
+  )
+
+  private fun rowToSection(r: com.sloopworks.dayfold.client.db.SectionsForHub): HubSection =
+    HubSection(id = r.id, hubId = r.hub_id, title = r.title, ord = r.ord)
+
+  private fun rowToBlock(r: com.sloopworks.dayfold.client.db.BlocksForSections): HubBlock =
+    HubBlock(
+      id = r.id, sectionId = r.section_id, type = r.type, bodyMd = r.body_md,
+      payload = decode(r.payload, BlockPayload.serializer()),
+      provenance = decode(r.provenance, Provenance.serializer()),
+      ord = r.ord,
+    )
+
   // Guarded decode: corrupt cached JSON must not crash the feed — skip → null,
   // the card still renders title/kind (ADR 0020 the DB cache is disposable).
   private fun <T> decode(text: String?, serializer: kotlinx.serialization.KSerializer<T>): T? =
     text?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
 
   /** ADR 0030 (round-1 P0-2): hard-wipe the local cache on tenancy revocation — a
-   *  removed/non-member must not retain family content. Drops cards + hubs + cursor so a
-   *  later sign-in re-syncs clean. The activeCardsFlow re-emits [] → the feed empties. */
+   *  removed/non-member must not retain family content. Drops cards + hubs + sections +
+   *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeCursor() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor() }
   }
 
   /** Reactive hub projection — emits current active hubs and re-emits on any hub-table write. */
   fun activeHubsFlow(): Flow<List<Hub>> =
     q.activeHubs().asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map(::rowToHub) }
 
-  private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(
-    id = r.id, type = r.type, title = r.title, status = r.status ?: "active",
-    startAt = r.start_at, endAt = r.end_at, countdownTo = r.countdown_to,
-    visibility = r.visibility ?: "family", createdBy = r.created_by,
-  )
+  /**
+   * Reactive hub tree flow — emits the full HubTree for [hubId] and re-emits on any
+   * change to hub, section, or block tables. Emits null if the hub is absent/tombstoned.
+   * Uses flatMapLatest so changing sections re-subscribes the block query correctly.
+   */
+  fun hubTreeFlow(hubId: String): Flow<HubTree?> =
+    q.activeHubs().asFlow().mapToList(Dispatchers.Default).flatMapLatest { hubRows ->
+      val hub = hubRows.firstOrNull { it.id == hubId }?.let(::rowToHub)
+        ?: return@flatMapLatest flowOf(null)
+      q.sectionsForHub(hubId).asFlow().mapToList(Dispatchers.Default).flatMapLatest { sectionRows ->
+        val sections = sectionRows.map(::rowToSection)
+        if (sections.isEmpty()) {
+          flowOf(HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+        } else {
+          val sectionIds = sections.map { it.id }
+          q.blocksForSections(sectionIds).asFlow().mapToList(Dispatchers.Default).map { blockRows ->
+            HubTree(hub = hub, sections = sections, blocks = blockRows.map(::rowToBlock))
+          }
+        }
+      }
+    }
 
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)

@@ -25,7 +25,7 @@ class ContentStoreTest {
         card("z", "No time"),                                  // null not_before → last
         card("a", "Leave by 3:30", nb = "2026-06-18T15:30:00Z"),
       ),
-      changedHubs = emptyList(), tombstones = emptyList(), nextCursor = "cur1", nowIso = "2026-06-18T10:00:00Z",
+      changedHubs = emptyList(), changedSections = emptyList(), changedBlocks = emptyList(), tombstones = emptyList(), nextCursor = "cur1", nowIso = "2026-06-18T10:00:00Z",
     )
     assertEquals(listOf("a", "b", "z"), s.activeCards().map { it.id })
     assertEquals("cur1", s.cursor())
@@ -34,11 +34,11 @@ class ContentStoreTest {
 
   @Test fun `upsert updates in place and tombstone removes`() {
     val s = store()
-    s.applyDelta(listOf(card("a", "v1")), emptyList(), emptyList(), "c1", "2026-06-18T10:00:00Z")
-    s.applyDelta(listOf(card("a", "v2"), card("b", "B")), emptyList(), emptyList(), "c2", "2026-06-18T10:01:00Z")
+    s.applyDelta(listOf(card("a", "v1")), emptyList(), emptyList(), emptyList(), emptyList(), "c1", "2026-06-18T10:00:00Z")
+    s.applyDelta(listOf(card("a", "v2"), card("b", "B")), emptyList(), emptyList(), emptyList(), emptyList(), "c2", "2026-06-18T10:01:00Z")
     assertEquals("v2", s.activeCards().first { it.id == "a" }.title)
     assertEquals(2, s.activeCards().size)
-    s.applyDelta(emptyList(), emptyList(), tombstones = listOf(Tombstone("card", "a")), nextCursor = "c3", nowIso = "2026-06-18T10:02:00Z")
+    s.applyDelta(emptyList(), emptyList(), emptyList(), emptyList(), tombstones = listOf(Tombstone("card", "a")), nextCursor = "c3", nowIso = "2026-06-18T10:02:00Z")
     assertEquals(listOf("b"), s.activeCards().map { it.id })
     assertEquals("c3", s.cursor())
   }
@@ -51,7 +51,7 @@ class ContentStoreTest {
     val s = store()
     s.activeCardsFlow().test {
       assertEquals(emptyList(), awaitItem().map { it.id })           // initial: empty DB
-      s.applyDelta(listOf(card("a", "A")), emptyList(), emptyList(), "c1", "2026-06-18T10:00:00Z")
+      s.applyDelta(listOf(card("a", "A")), emptyList(), emptyList(), emptyList(), emptyList(), "c1", "2026-06-18T10:00:00Z")
       assertEquals(listOf("a"), awaitItem().map { it.id })           // re-emits after write
       cancelAndIgnoreRemainingEvents()
     }
@@ -73,7 +73,7 @@ class ContentStoreTest {
           type = "geo",
           payload = Payload(geo = GeoPayload(label = "Field", lat = 37.42, lng = -122.08, etaMin = 14))),
       ),
-      changedHubs = emptyList(), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-20T10:00:00Z",
+      changedHubs = emptyList(), changedSections = emptyList(), changedBlocks = emptyList(), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-20T10:00:00Z",
     )
     val byId = s.activeCards().associateBy { it.id }
 
@@ -97,7 +97,7 @@ class ContentStoreTest {
 
   @Test fun `kind-only card round-trips with null type and payload (back-compat)`() {
     val s = store()
-    s.applyDelta(listOf(card("p", "plain")), emptyList(), emptyList(), "c1", "2026-06-20T10:00:00Z")
+    s.applyDelta(listOf(card("p", "plain")), emptyList(), emptyList(), emptyList(), emptyList(), "c1", "2026-06-20T10:00:00Z")
     val p = assertNotNull(s.activeCards().firstOrNull { it.id == "p" })
     assertNull(p.type); assertNull(p.payload); assertNull(p.privacy); assertNull(p.hubRef)
   }
@@ -114,7 +114,7 @@ class ContentStoreTest {
             RelatedRef(relation = "same-hub", targetId = "i1", targetType = "invite", title = "Maya's party"),
           )),
       ),
-      changedHubs = emptyList(), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-20T10:00:00Z",
+      changedHubs = emptyList(), changedSections = emptyList(), changedBlocks = emptyList(), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-20T10:00:00Z",
     )
     val e = assertNotNull(s.activeCards().firstOrNull { it.id == "e" })
     assertEquals("FROM THE SAME EMAIL", e.relatedKicker)
