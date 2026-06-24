@@ -94,28 +94,35 @@ fun HubListScreen(
 
 @Composable
 private fun HubRow(hub: Hub, onClick: () -> Unit) {
+  val count = countdownLabel(hub.countdownTo ?: hub.startAt, kotlin.time.Clock.System.now().toString())
   Card(
     onClick = onClick,
     modifier = Modifier.fillMaxWidth(),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     shape = RoundedCornerShape(24.dp),
   ) {
-    Column(Modifier.padding(18.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(hub.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        if (hub.visibility == "restricted") {
-          // calm restricted marker — warm-neutral, never error-red
-          Text("🔒", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+      Column(Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(hub.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+          if (hub.visibility == "restricted") {
+            // calm restricted marker — warm-neutral, never error-red
+            Text("🔒", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 7.dp))
+          }
+        }
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+          StatusChip(hub.status)
+          Text(
+            if (hub.visibility == "restricted") "Private" else (hub.type ?: ""),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+          )
         }
       }
-      Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        StatusChip(hub.status)
-        Text(
-          if (hub.visibility == "restricted") "Private" else (hub.type ?: ""),
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.padding(start = 8.dp),
-        )
+      // right-aligned countdown (the "when" — core to event hubs)
+      if (count != null && hub.status != "archived") {
+        Text(count, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 10.dp))
       }
     }
   }
@@ -174,6 +181,11 @@ fun HubDetailScreen(
                 }
               }
             }
+          }
+        }
+        countdownLabel(tree.hub.countdownTo ?: tree.hub.startAt, kotlin.time.Clock.System.now().toString())?.let { c ->
+          if (tree.hub.status != "archived") item {
+            Text("📅  $c", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
           }
         }
         if (tree.hub.visibility == "restricted") {
