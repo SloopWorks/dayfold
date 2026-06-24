@@ -61,6 +61,26 @@ AGP 8.7.2 — NOT 9.5.1; AGP 8.7 predates stable Gradle 9). Run from `apps/`:
 no longer works (no per-module wrapper/settings). ktor: cio desktop · okhttp
 android · darwin iOS (when added). SyncClient is now `suspend` (no Dispatchers.IO).
 
+## On-device demo (real Compose UI + seeded data, one command)
+```
+apps/scripts/ondevice-demo.sh          # seed DB + start API + build/install/launch on the phone
+apps/scripts/ondevice-demo.sh --down   # teardown
+```
+Distilled from the first hub-render on-device run. The five gotchas it handles so
+you don't re-discover them:
+1. **Port 8799 is squatted** by other dev servers (workerd/wrangler) → the script
+   auto-picks a free API port; the device still talks to `:8799` via `adb reverse`.
+2. **LAN IP is unreachable** (wifi client-isolation / mac firewall) → use
+   **`adb reverse` over USB**, never the laptop's LAN IP.
+3. **A stale session wedges** on "Couldn't reach Dayfold" → `pm clear` before install.
+4. **Sign in with "Continue with Apple"** (not Google): the Android Firebase seam
+   returns null for non-google → the app falls back to `/auth/dev-token`. Google
+   needs real Firebase config; Apple→dev is the reliable local path.
+5. **Node 24 runs the `.ts` API directly** (type stripping), no build step.
+The seed (`ondevice-seed.sql`) creates a `dev`/`dev-user` identity matching the
+app's dev sign-in, so it lands on a family that already has hubs (one family-
+visible, one restricted with the 🔒 lock — exercises the ADR 0030 treatment).
+
 ## Client core + desktop (`:client` — KMP core + Compose desktop)
 ```
 cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest
