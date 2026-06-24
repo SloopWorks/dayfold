@@ -73,6 +73,17 @@ class SyncEngine(
         hasMore = resp.hasMore
       }
       store.dispatch(SyncSucceeded)
+    } catch (e: SyncHttpException) {
+      // ADR 0030 (round-1 P0-2): 403 (removed) / 404 (non-member) = tenancy
+      // revocation → the cache is forbidden content. Wipe it + sign out (the
+      // keyset stream can't deliver a tombstone to a member who can't call).
+      // 401 = token problem → leave to refresh; surface as a normal failure.
+      if (e.status == 403 || e.status == 404) {
+        contentStore.wipe()
+        store.dispatch(SignedOut)
+      } else {
+        store.dispatch(SyncFailed("HTTP ${e.status}"))   // preserve the prior message
+      }
     } catch (e: Exception) {
       store.dispatch(SyncFailed(e.message ?: "sync error"))
     }

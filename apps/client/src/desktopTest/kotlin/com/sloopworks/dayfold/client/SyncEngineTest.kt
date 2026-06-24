@@ -94,4 +94,38 @@ class SyncEngineTest {
     assertFalse(store.state.syncing)
     assertEquals("HTTP 500", store.state.error)
   }
+
+  // ADR 0030 round-1 P0-2: a removed member (403) / non-member (404) must not retain
+  // family content — the cache is wiped and the session signs out.
+  @Test fun `tenancy revocation (403) wipes the local cache and signs out`() = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache populated
+    val sc = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
+    val store = createAppStore(debug = false)
+    val e = SyncEngine(store, cs, sc, nowProvider = { "t" })
+    e.start(); e.syncNow()
+    assertTrue(cs.activeCards().isEmpty())                       // cache wiped
+    assertEquals(null, cs.cursor())                             // cursor cleared → re-sync clean
+    await(store) { it.route == Route.SignIn && it.cards.isEmpty() }  // signed out
+  }
+
+  @Test fun `non-member (404) also wipes the cache`() = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    val sc = syncClient(MockEngine { respond("nope", HttpStatusCode.NotFound) })
+    val store = createAppStore(debug = false)
+    SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
+    assertTrue(cs.activeCards().isEmpty())
+  }
+
+  @Test fun `a 401 does NOT wipe the cache (token problem, left to refresh)`() = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    val sc = syncClient(MockEngine { respond("unauthorized", HttpStatusCode.Unauthorized) })
+    val store = createAppStore(debug = false)
+    SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
+    assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache intact
+    assertEquals("HTTP 401", store.state.error)
+  }
 }

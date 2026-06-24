@@ -58,6 +58,13 @@ class ContentStore(driver: SqlDriver) {
   private fun <T> decode(text: String?, serializer: kotlinx.serialization.KSerializer<T>): T? =
     text?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
 
+  /** ADR 0030 (round-1 P0-2): hard-wipe the local cache on tenancy revocation — a
+   *  removed/non-member must not retain family content. Drops cards + cursor so a
+   *  later sign-in re-syncs clean. The activeCardsFlow re-emits [] → the feed empties. */
+  fun wipe() {
+    q.transaction { q.wipeCards(); q.wipeCursor() }
+  }
+
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)
 

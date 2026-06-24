@@ -47,6 +47,15 @@ SELECT id, kind, title, body_md, source, not_before, expires_at, type, payload, 
 FROM card WHERE deleted=0
 ORDER BY (not_before IS NULL), not_before, id;
 
+-- ADR 0030 (round-1 P0-2): on tenancy revocation (removed/non-member) the local
+-- cache is now forbidden content — drop every card + the cursor so a later sign-in
+-- re-syncs from scratch.
+wipeCards:
+DELETE FROM card;
+
+wipeCursor:
+DELETE FROM sync_meta;
+
 getCursor:
 SELECT cursor FROM sync_meta WHERE id=0;
 

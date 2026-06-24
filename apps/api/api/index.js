@@ -1341,7 +1341,8 @@ app.get("/auth/whoami", async (c) => {
      WHERE m.user_id=$1 AND m.status IN ('active','pending') ORDER BY m.created_at`,
     [sub]
   );
-  return c.json({ family_id, families: r.rows });
+  const grants = await resolveGrants(cid);
+  return c.json({ family_id, families: r.rows, grants });
 });
 app.get("/auth/me", async (c) => {
   const t = bearer2(c);

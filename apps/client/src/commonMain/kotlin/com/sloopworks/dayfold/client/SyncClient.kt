@@ -32,7 +32,12 @@ class SyncClient(
       if (since != null) parameter("since", since)
       header("authorization", "Bearer $tok")
     }
-    if (resp.status.value != 200) throw IllegalStateException("HTTP ${resp.status.value}")
+    if (resp.status.value != 200) throw SyncHttpException(resp.status.value)
     return json.decodeFromString(SyncResponse.serializer(), resp.bodyAsText())
   }
 }
+
+/** Non-200 from /sync, carrying the status so the engine can distinguish a tenancy
+ *  revocation (403 removed / 404 non-member → wipe the cache) from a transient
+ *  error or a token problem (401 → handled by refresh). */
+class SyncHttpException(val status: Int) : Exception("HTTP $status")

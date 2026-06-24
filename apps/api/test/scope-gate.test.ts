@@ -16,7 +16,7 @@ const { mintAccess } = await import("../src/auth/tokens.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -80,6 +80,13 @@ describe("content scope gate (ADR 0029)", () => {
       body: JSON.stringify({ kind: "info", title: "x", provenance: { source: "cli", at: "2026-06-18T10:00:00Z" } }),
     });
     expect(put.status).toBe(200);
+  });
+
+  it("GET /auth/whoami exposes the credential's resolved grants (for `dayfold whoami`)", async () => {
+    const o = await ownerOf("wamigrid");
+    const ro = await tokenWithScopes(o.userId, o.familyId, ["content:read"]);
+    const who = await (await get(`/auth/whoami`, ro)).json();
+    expect(who.grants).toEqual(["content:read"]);
   });
 
   it("authority is credential_grants, not scopes[] — scopes set but no grant rows → 403 (dual-read guard)", async () => {
