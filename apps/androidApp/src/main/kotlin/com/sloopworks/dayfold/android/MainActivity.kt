@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,6 +26,22 @@ import org.reduxkotlin.devtools.inapp.ReduxDevToolsHost
 // gate drives sign-in/onboarding/feed; repeatOnLifecycle(STARTED) maps the
 // Activity foreground/background to engine.resume()/pause().
 class MainActivity : ComponentActivity() {
+  private lateinit var authEngine: AuthEngine
+
+  // S6-D Tier 2: a verified App Link (https://<api-origin>/device?user_code=…) hands
+  // the raw URL to the engine, which parses the code and either looks it up (signed
+  // in) or stashes it to resume after sign-in. singleTask → warm taps arrive here.
+  private fun handleDeepLink(intent: Intent?) {
+    val data = intent?.data?.toString() ?: return
+    lifecycleScope.launch { authEngine.openDeviceLink(data) }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleDeepLink(intent)
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val store = createAppStore()
@@ -38,7 +55,7 @@ class MainActivity : ComponentActivity() {
       cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), null, "2026-06-20T10:00:00Z")
     }
     val tokenStore = AndroidTokenStore(applicationContext)
-    val authEngine = AuthEngine(
+    authEngine = AuthEngine(
       store, AuthClient(BuildConfig.DAYFOLD_API), tokenStore,
       devSecret = BuildConfig.DEV_AUTH_SECRET.ifEmpty { null },
       // S2 (ADR 0023/0027): real Google sign-in via Credential Manager + Firebase.
@@ -59,6 +76,7 @@ class MainActivity : ComponentActivity() {
 
     syncEngine.start()
     lifecycleScope.launch { authEngine.restore() }
+    handleDeepLink(intent)   // cold-start: did a /device App Link launch us? (stash/resume tolerates restore ordering)
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         syncEngine.resume()

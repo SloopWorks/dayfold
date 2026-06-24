@@ -287,6 +287,51 @@ app.get("/.well-known/jwks.json", async (c) => {
   return c.json(await jwks());
 });
 
+// ── AUTH-S6-D Phase 2 deep-link association files (App Links / Universal Links) ──
+// Served on the API origin (no new domain — ADR 0011 §6). The phone verifies these
+// to open `/device?user_code=…` straight into the app. Cert/app identifiers come
+// from env so the operator can add the RELEASE Android fingerprint + the real Apple
+// app id without a code change; the Android debug fingerprint is the dogfood default.
+const ANDROID_DEBUG_SHA256 =
+  "15:A0:66:E7:BF:25:07:CB:0E:4D:5C:24:DE:FC:C9:75:06:EE:FF:19:B1:06:CB:7F:76:DF:C0:E9:23:00:87:6B";
+
+app.get("/.well-known/assetlinks.json", (c) => {
+  // ANDROID_CERT_SHA256 = comma-separated fingerprints (release[,debug]); falls
+  // back to the debug cert for local/dogfood builds.
+  const fps = (process.env.ANDROID_CERT_SHA256 || ANDROID_DEBUG_SHA256)
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  c.header("cache-control", "public, max-age=300");
+  return c.json([{
+    relation: ["delegate_permission/common.handle_all_urls"],
+    target: { namespace: "android_app", package_name: "com.sloopworks.dayfold", sha256_cert_fingerprints: fps },
+  }]);
+});
+
+app.get("/.well-known/apple-app-site-association", (c) => {
+  // APPLE_APP_ID = "<TeamID>.<bundleId>" — placeholder until the iOS host ships.
+  const appID = process.env.APPLE_APP_ID || "TEAMID.com.sloopworks.dayfold";
+  c.header("content-type", "application/json");   // AASA must be application/json, no extension
+  c.header("cache-control", "public, max-age=300");
+  return c.json({ applinks: { apps: [], details: [{ appID, paths: ["/device", "/device?*"] }] } });
+});
+
+// Browser landing for the verification URI (no app / unverified link / desktop):
+// tells the human to open Dayfold or type the code. The QR/link carries user_code.
+app.get("/device", (c) => {
+  const code = (c.req.query("user_code") || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, 9);
+  c.header("content-type", "text/html; charset=utf-8");
+  return c.html(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Approve a device · Dayfold</title>
+<div style="font-family:system-ui,sans-serif;max-width:30rem;margin:14vh auto;padding:0 1.5rem;color:#271814">
+  <div style="font-weight:700;letter-spacing:.04em;color:#8C726B;font-size:.8rem">DAYFOLD</div>
+  <h1 style="font-size:1.6rem;margin:.4rem 0 .8rem">Approve this device</h1>
+  <p style="line-height:1.5;color:#5A423C">Open the Dayfold app on your phone to review and approve this sign-in.
+  If it doesn't open automatically, go to <b>Connect a device</b> and enter this code:</p>
+  ${code ? `<div style="font-family:ui-monospace,monospace;font-size:1.8rem;font-weight:700;letter-spacing:.12em;background:#FCEBE6;border-radius:.8rem;padding:1rem;text-align:center;margin:1rem 0">${code}</div>` : ""}
+  <p style="color:#8C726B;font-size:.9rem">Only approve a device you started signing in on yourself.</p>
+</div>`);
+});
+
 app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);

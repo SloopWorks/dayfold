@@ -55,6 +55,15 @@ kotlin {
         implementation("app.cash.sqldelight:android-driver:2.3.2")
         implementation("io.ktor:ktor-client-okhttp:3.5.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+        // S6-D Tier 2 — in-app QR scanner (CameraX preview/analysis + ML Kit
+        // on-device barcode; runtime CAMERA permission via activity-compose).
+        implementation("androidx.camera:camera-core:1.4.1")
+        implementation("androidx.camera:camera-camera2:1.4.1")
+        implementation("androidx.camera:camera-lifecycle:1.4.1")
+        implementation("androidx.camera:camera-view:1.4.1")
+        implementation("com.google.mlkit:barcode-scanning:17.3.0")
+        implementation("androidx.activity:activity-compose:1.9.3")
+        implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
       }
     }
     val desktopMain by getting {

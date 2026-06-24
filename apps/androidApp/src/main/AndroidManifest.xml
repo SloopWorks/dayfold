@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- S6-D Tier 2: in-app QR scanner (requested at runtime; camera is optional so
+         the app still installs on camera-less devices → enter-code fallback). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
         android:label="Dayfold"
@@ -9,10 +13,22 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- S6-D Tier 2: verified App Link for the device-approval deep link.
+                 Opens https://<api-origin>/device?user_code=… straight into the app
+                 (verified against /.well-known/assetlinks.json on that origin). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                    android:host="family-ai-dashboard.vercel.app"
+                    android:path="/device" />
             </intent-filter>
         </activity>
     </application>

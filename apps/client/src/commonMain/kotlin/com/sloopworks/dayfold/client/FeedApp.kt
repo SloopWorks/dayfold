@@ -92,12 +92,17 @@ fun FeedApp(
         // on desktop / until the camera actuals land (Tier 2).
         onScan = if (qrScanSupported) ({ store.dispatch(OpenScan) }) else null,
       )
-      Route.ScanPrimer -> ScanPrimerScreen(
-        // Tier 2 inserts the real OS camera-permission request here (→ granted/denied).
-        onAllow = { store.dispatch(ScanPermissionGranted) },
-        onEnterCode = { store.dispatch(OpenEnterCode) },
-        onClose = { store.dispatch(CloseDeviceFlow) },
-      )
+      Route.ScanPrimer -> {
+        // Allow → request the OS camera permission; route by the outcome.
+        val requestCamera = rememberCameraPermissionRequester { granted ->
+          store.dispatch(if (granted) ScanPermissionGranted else ScanPermissionDenied)
+        }
+        ScanPrimerScreen(
+          onAllow = requestCamera,
+          onEnterCode = { store.dispatch(OpenEnterCode) },
+          onClose = { store.dispatch(CloseDeviceFlow) },
+        )
+      }
       Route.ScanDevice -> ScanDeviceScreen(
         onCode = onLookupDevice,                       // scanned code → lookup → AuthorizeDevice
         onEnterManually = { store.dispatch(OpenEnterCode) },

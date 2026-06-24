@@ -17,5 +17,13 @@ expect val qrScanSupported: Boolean
 // (the verification_uri_complete URL, or a bare code). The caller parses it with
 // parseDeviceCode and drives lookupDevice. [onCancel] = the user backed out (or the
 // platform couldn't start the camera). Hosted behind the ScanDevice overlay chrome.
+// Reached only after the camera permission is granted (ScanPrimer → granted → here).
 @Composable
 expect fun QrScanner(onCode: (String) -> Unit, onCancel: () -> Unit, modifier: Modifier)
+
+// Returns a launch function for the ScanPrimer "Allow camera" tap: it requests the
+// OS camera permission (or reports an already-granted state) and reports the
+// outcome to [onResult]. Platform-owned (Android runtime permission / iOS
+// AVCaptureDevice authorization); desktop reports false (no camera).
+@Composable
+expect fun rememberCameraPermissionRequester(onResult: (Boolean) -> Unit): () -> Unit

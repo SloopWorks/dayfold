@@ -16,3 +16,6 @@ actual fun QrScanner(onCode: (String) -> Unit, onCancel: () -> Unit, modifier: M
   // if a snapshot renders ScanDeviceScreen in isolation.
   Box(modifier.fillMaxSize().background(Color(0xFF171210)))
 }
+
+@Composable
+actual fun rememberCameraPermissionRequester(onResult: (Boolean) -> Unit): () -> Unit = { onResult(false) }
