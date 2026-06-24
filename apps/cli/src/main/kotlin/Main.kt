@@ -22,16 +22,6 @@ private fun client() = HttpClient.newHttpClient()
 
 private val J = Json { ignoreUnknownKeys = true }
 
-/** POST with optional bearer token; returns response body string. */
-private fun post(url: String, body: String, token: String?): String {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .header("content-type", "application/json")
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .POST(HttpRequest.BodyPublishers.ofString(body))
-    .build()
-  return client().send(b, HttpResponse.BodyHandlers.ofString()).body()
-}
-
 /** POST; returns Pair<statusCode, body>. */
 private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> {
   val b = HttpRequest.newBuilder(URI.create(url))
@@ -174,9 +164,11 @@ fun main(args: Array<String>) {
             val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
             val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
             if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
-            val o = J.parseToJsonElement(rt).jsonObject
-            val newAccess = o["access"]!!.jsonPrimitive.content
-            saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = o["refresh"]!!.jsonPrimitive.content))
+            val o = runCatching { J.parseToJsonElement(rt).jsonObject }.getOrNull()
+            val newAccess = o?.get("access")?.jsonPrimitive?.contentOrNull
+            val newRefresh = o?.get("refresh")?.jsonPrimitive?.contentOrNull
+            if (newAccess == null || newRefresh == null) { System.err.println("session refresh failed — run: dayfold login"); exitProcess(1) }
+            saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = newRefresh))
             newAccess
           }
           val retry = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
@@ -243,13 +235,24 @@ private fun deviceLogin(api: String, allowEnvKey: Boolean) {
   // Resolve the secret store up front so we fail BEFORE the device dance if a
   // headless host can't store the token and --allow-env-key wasn't passed.
   val keychain = keychainForLogin(allowEnvKey)
-  val auth = J.parseToJsonElement(post("$api/device/authorize", "{}", null)).jsonObject
-  val deviceCode = auth["device_code"]!!.jsonPrimitive.content
-  var interval = auth["interval"]!!.jsonPrimitive.int
-  val expiresIn = auth["expires_in"]!!.jsonPrimitive.int
-  val userCode = auth["user_code"]!!.jsonPrimitive.content
-  val verifyUri = auth["verification_uri"]!!.jsonPrimitive.content
-  val verifyComplete = auth["verification_uri_complete"]?.jsonPrimitive?.content ?: "$verifyUri?user_code=$userCode"
+  // Start the grant. A non-200 (e.g. a 500 because the server's AUTH_* env is
+  // unset) returns plain text, not JSON — surface it instead of crashing on a parse.
+  val (ac, atxt) = postStatus("$api/device/authorize", "{}", null)
+  if (ac != 200) {
+    System.err.println("login failed: the server couldn't start a device login (HTTP $ac).")
+    System.err.println("  " + atxt.trim().take(300).ifEmpty { "(no response body)" })
+    exitProcess(1)
+  }
+  val auth = runCatching { J.parseToJsonElement(atxt).jsonObject }.getOrNull()
+  val deviceCode = auth?.get("device_code")?.jsonPrimitive?.contentOrNull
+  val userCode = auth?.get("user_code")?.jsonPrimitive?.contentOrNull
+  val verifyUri = auth?.get("verification_uri")?.jsonPrimitive?.contentOrNull
+  if (deviceCode == null || userCode == null || verifyUri == null) {
+    System.err.println("login failed: unexpected response from /device/authorize."); exitProcess(1)
+  }
+  var interval = auth["interval"]?.jsonPrimitive?.intOrNull ?: 5
+  val expiresIn = auth["expires_in"]?.jsonPrimitive?.intOrNull ?: 600
+  val verifyComplete = auth["verification_uri_complete"]?.jsonPrimitive?.contentOrNull ?: "$verifyUri?user_code=$userCode"
   // [S3] Scannable QR when interactive; the text below is always printed so
   // SSH/CI/non-UTF-8 terminals (System.console()==null) still work.
   if (System.console() != null) runCatching { print("\n" + Qr.render(verifyComplete) + "\n") }
@@ -259,28 +262,41 @@ private fun deviceLogin(api: String, allowEnvKey: Boolean) {
     Thread.sleep(interval * 1000L)
     val body = """{"grant_type":"urn:ietf:params:oauth:grant-type:device_code","device_code":"$deviceCode"}"""
     val (code, txt) = postStatus("$api/device/token", body, null)
-    val obj = J.parseToJsonElement(txt).jsonObject
-    if (code == 200) {
-      val accessToken = obj["access_token"]!!.jsonPrimitive.content
-      val refreshToken = obj["refresh_token"]!!.jsonPrimitive.content
-      // Fetch familyId from /auth/whoami so push needs no env
+    val obj = runCatching { J.parseToJsonElement(txt).jsonObject }.getOrNull()
+
+    if (code == 200 && obj != null) {
+      val accessToken = obj["access_token"]?.jsonPrimitive?.contentOrNull
+      val refreshToken = obj["refresh_token"]?.jsonPrimitive?.contentOrNull
+      if (accessToken == null || refreshToken == null) {
+        System.err.println("login failed: unexpected response from /device/token."); exitProcess(1)
+      }
+      // Fetch familyId from /auth/whoami so push needs no env.
       val (wc, wt) = getStatus("$api/auth/whoami", accessToken)
-      val familyId = if (wc == 200) runCatching { J.parseToJsonElement(wt).jsonObject["family_id"]?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() } }.getOrNull() else null
+      val familyId = if (wc == 200) runCatching { J.parseToJsonElement(wt).jsonObject["family_id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() } }.getOrNull() else null
       if (familyId.isNullOrEmpty()) {
-        System.err.println("login succeeded but could not resolve family — is the approving owner's family set up? run: dayfold login")
+        System.err.println("login succeeded but could not resolve a family — the approving owner needs a family set up first.")
         exitProcess(1)
       }
       saveCreds(Credentials(), keychain, Creds(api = api, accessToken = accessToken, refreshToken = refreshToken, familyId = familyId, obtainedAt = java.time.Instant.now().toString()))
       println("logged in")
       return
     }
-    when (obj["error"]?.jsonPrimitive?.content) {
-      "authorization_pending" -> {}
+
+    // RFC 8628 polling. A non-JSON body / transient 5xx is treated as a hiccup —
+    // keep polling until the deadline rather than aborting the whole login.
+    if (obj == null) {
+      if (code in 500..599) continue
+      System.err.println("login failed: unexpected response from /device/token (HTTP $code)."); exitProcess(1)
+    }
+    when (obj["error"]?.jsonPrimitive?.contentOrNull) {
+      "authorization_pending" -> {}                       // owner hasn't approved yet
       "slow_down" -> interval += 5
-      else -> { System.err.println("login failed: ${obj["error"]?.jsonPrimitive?.content}"); exitProcess(1) }
+      "access_denied" -> { System.err.println("login denied: the owner declined this device."); exitProcess(1) }
+      "expired_token" -> { System.err.println("login expired: the code timed out — run `dayfold login` again."); exitProcess(1) }
+      else -> { System.err.println("login failed: ${obj["error"]?.jsonPrimitive?.contentOrNull ?: "server error (HTTP $code)"}"); exitProcess(1) }
     }
   }
-  System.err.println("login timed out"); exitProcess(1)
+  System.err.println("login timed out — run `dayfold login` to try again."); exitProcess(1)
 }
 
 private fun usage(): Nothing {
