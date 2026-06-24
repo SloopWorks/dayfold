@@ -146,6 +146,7 @@ fun HubDetailScreen(
   state: AppState,
   onBack: () -> Unit = {},
   onNow: () -> Unit = {},
+  onOpenAudience: () -> Unit = {},
 ) {
   val tree = state.currentHubTree
   Scaffold(
@@ -171,13 +172,15 @@ fun HubDetailScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             StatusChip(tree.hub.status)
             if (tree.hub.visibility == "restricted") {
+              // tappable → "Who can see this hub" sheet
               Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(999.dp),
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier.padding(start = 8.dp).clickable(onClick = onOpenAudience),
               ) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                   Text("🔒", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                   Text("Private", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 6.dp))
+                  Text("⌄", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 5.dp))
                 }
               }
             }
@@ -212,6 +215,65 @@ fun HubDetailScreen(
         }
       }
     }
+  }
+}
+
+// "Who can see this hub" (ADR 0030, the signed-off Hubs-Visibility sheet). Display
+// only at MVP — in-app editing of the allow-list is push/CLI (OQ-hub-collab). A
+// scrim + bottom panel; the roster shows permitted (filled check) vs hidden (ring).
+@Composable
+fun WhoCanSeeSheet(state: AppState, onClose: () -> Unit = {}) {
+  val aud = state.currentHubAudience
+  Box(Modifier.fillMaxSize()) {
+    // scrim
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)).clickable(onClick = onClose))
+    Surface(
+      color = MaterialTheme.colorScheme.surface,
+      shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+      modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+    ) {
+      Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Who can see this hub", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+          "Private hubs are visible only to the people you pick. The family owner isn't added automatically.",
+          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (aud == null) {
+          Text("Loading…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+          aud.members.forEach { m -> AudienceRow(m, isYou = m.uid == state.session?.userId) }
+        }
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(14.dp)) {
+          Text(
+            "Removing someone hides this hub from their devices on the next sync.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(13.dp),
+          )
+        }
+        androidx.compose.material3.Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+      }
+    }
+  }
+}
+
+@Composable
+private fun AudienceRow(m: HubAudienceMember, isYou: Boolean) {
+  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    val initials = (m.displayName ?: "?").split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("")
+    Box(Modifier.size(42.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+      Text(initials, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+    Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
+      Text((m.displayName ?: "Member") + if (isYou) " · You" else "", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+      Text(m.role.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    // permitted = filled coral check; hidden = empty ring
+    Box(
+      Modifier.size(30.dp).clip(RoundedCornerShape(50))
+        .background(if (m.permitted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+        .then(if (m.permitted) Modifier else Modifier.border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))),
+      contentAlignment = Alignment.Center,
+    ) { if (m.permitted) Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium) }
   }
 }
 

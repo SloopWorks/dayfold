@@ -56,6 +56,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
   is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.")
   is CloseHub -> state.copy(currentHubId = null, currentHubTree = null)
+  is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null)
+  is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience)
+  is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null)
 
   // ── auth / session (S5) ──
   is AuthRestoring -> state.copy(route = Route.Loading)

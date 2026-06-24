@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onLoadHubs = { lifecycleScope.launch { hubEngine.loadHubs() } },
           onOpenHub = { id -> lifecycleScope.launch { hubEngine.openHub(id) } },
+          onLoadAudience = { id -> lifecycleScope.launch { hubEngine.loadAudience(id) } },
         )
       }
     }

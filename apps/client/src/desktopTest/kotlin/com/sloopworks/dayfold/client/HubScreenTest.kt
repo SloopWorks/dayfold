@@ -61,6 +61,21 @@ class HubScreenTest {
     onNodeWithText("${'$'}52 left").assertIsDisplayed()         // budget bar (300-248)
   }
 
+  @Test fun whoCanSeeSheetRendersRosterWithPermittedFlags() = runComposeUiTest {
+    val state = AppState(
+      audienceSheetOpen = true,
+      currentHubAudience = HubAudience(visibility = "restricted", members = listOf(
+        HubAudienceMember(uid = "u1", displayName = "Pat", role = "owner", permitted = true),
+        HubAudienceMember(uid = "u2", displayName = "Jordan", role = "adult", permitted = false),
+      )),
+    )
+    setContent { MaterialTheme { WhoCanSeeSheet(state) } }
+    onNodeWithText("Who can see this hub").assertIsDisplayed()
+    onNodeWithText("Pat").assertIsDisplayed()
+    onNodeWithText("Jordan").assertIsDisplayed()
+    onNodeWithText("The family owner isn't added automatically.", substring = true).assertIsDisplayed()
+  }
+
   @Test fun detailShowsNotFoundNoteOnRestrictedMiss() = runComposeUiTest {
     val state = AppState(currentHubId = "hX", currentHubTree = null, hubError = "That hub is no longer available.")
     setContent { MaterialTheme { HubDetailScreen(state) } }

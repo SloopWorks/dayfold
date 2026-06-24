@@ -189,6 +189,22 @@ data class HubTree(
   val blocks: List<HubBlock> = emptyList(),
 )
 
+// GET /hubs/:id/audience — "who can see this hub" (ADR 0030). The full active
+// roster; `permitted` = family-visible OR author OR allow-listed.
+@Serializable
+data class HubAudienceMember(
+  val uid: String,
+  @SerialName("display_name") val displayName: String? = null,
+  val role: String = "adult",
+  val permitted: Boolean = false,
+)
+
+@Serializable
+data class HubAudience(
+  val visibility: String = "family",
+  val members: List<HubAudienceMember> = emptyList(),
+)
+
 // ── AUTH-S5: client identity + session (ADR 0011/0021/0023) ──────────────────
 // A backend-minted session (ADR 0011: we mint our own tokens, NOT Firebase's).
 // access = short EdDSA JWT (5m); refresh = opaque rotating (45d). userId is the
@@ -281,6 +297,10 @@ data class AppState(
   val hubError: String? = null,
   val currentHubId: String? = null,
   val currentHubTree: HubTree? = null,
+  // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
+  // currentHubAudience null while loading.
+  val audienceSheetOpen: Boolean = false,
+  val currentHubAudience: HubAudience? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -306,6 +326,9 @@ data class OpenHub(val hubId: String) : Action                // list → detail
 data class HubTreeLoaded(val tree: HubTree) : Action
 data object HubNotFound : Action                              // 404 (restricted/absent) — back to list with a note
 data object CloseHub : Action                                 // detail → list
+data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
+data class HubAudienceLoaded(val audience: HubAudience) : Action
+data object CloseAudienceSheet : Action
 
 // Auth actions (S5). All I/O lives in AuthEngine (suspend, mutex-guarded like
 // SyncEngine); the reducer is pure and derives `route`/`activeFamilyId` from

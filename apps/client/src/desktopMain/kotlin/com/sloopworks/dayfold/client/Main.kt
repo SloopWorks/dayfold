@@ -59,6 +59,7 @@ fun main() = application {
       onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onLoadHubs = { scope.launch { hubEngine.loadHubs() } },
       onOpenHub = { id -> scope.launch { hubEngine.openHub(id) } },
+      onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
     )
   }
 }
