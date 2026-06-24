@@ -137,5 +137,7 @@ export async function mintCredentialFor(userId: string): Promise<{ credentialId:
     `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
     [credentialId, userId],
   );
+  const { grantScopes } = await import("./scope.ts");            // ADR 0029 grant rows
+  await grantScopes(credentialId, ["content:read", "content:write"]);
   return { credentialId };
 }

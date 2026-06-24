@@ -23,10 +23,11 @@ async function put(fid: string, id: string, body: any, headers = AUTH) {
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0006_typed_content.sql", "0007_related.sql"]) // typed-card + related cols
+  for (const m of ["0001_m0_init.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql"]) // typed-card + related cols
     await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
   await q(`INSERT INTO families(id,name) VALUES ('fam1','Test')`);
   await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','fam1','{content:read,content:write}')`);
+  await q(`INSERT INTO credential_grants(credential_id,scope) VALUES ('hcred','content:read'),('hcred','content:write')`);
 });
 afterAll(async () => { await pool.end(); });
 

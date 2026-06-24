@@ -67,6 +67,8 @@ export async function redeem(device_code: string, mintAccess: (a:{sub:string;cid
        VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'dayfold-cli '||left(coalesce($4,''),64))`,
       [cid, user_id, family_id, origin_ua],
     );
+    const { grantScopes } = await import("./scope.ts");          // ADR 0029 grant rows (interim default)
+    await grantScopes(cid, ["content:read", "content:write"], client);
     const refresh = await issueRefresh(cid, client);
     await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
     await client.query("COMMIT");

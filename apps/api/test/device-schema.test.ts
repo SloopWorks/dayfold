@@ -8,7 +8,7 @@ const { pool, q } = await import("../src/db.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0003_device_grant.sql"])
+  for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0003_device_grant.sql","0008_credential_grants.sql"])
     await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });

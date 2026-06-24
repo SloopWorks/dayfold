@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql","0008_credential_grants.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -453,6 +453,7 @@ describe("DELETE /families/:fid/members/:uid [C3] — member removal + ≥1-owne
     // Create a cli-kind credential for the member (simulating a device token)
     const credId = "cred_cli_" + Math.random().toString(16).slice(2);
     await q(`INSERT INTO credentials(id,user_id,kind,scopes,family_scope) VALUES ($1,$2,'cli','{content:read}',$3)`,[credId,memberId,o.familyId]);
+    await q(`INSERT INTO credential_grants(credential_id,scope) VALUES ($1,'content:read')`,[credId]); // ADR 0029 grant
     // Mint an access token for this cli credential
     const { mintAccess } = await import("../src/auth/tokens.ts");
     const cliToken = await mintAccess({ sub: memberId, cid: credId });

@@ -81,6 +81,39 @@ var init_tokens = __esm({
   }
 });
 
+// src/auth/scope.ts
+var scope_exports = {};
+__export(scope_exports, {
+  grantScopes: () => grantScopes,
+  requireScope: () => requireScope,
+  resolveGrants: () => resolveGrants,
+  scopeAllows: () => scopeAllows
+});
+async function resolveGrants(credId2) {
+  const r = await q(`SELECT scope FROM credential_grants WHERE credential_id=$1`, [credId2]);
+  return r.rows.map((x) => x.scope);
+}
+function scopeAllows(grants, resource, action) {
+  if (grants.includes(`content:${action}`)) return true;
+  if (resource !== "content" && grants.includes(`${resource}:${action}`)) return true;
+  return false;
+}
+async function requireScope(credId2, resource, action) {
+  return scopeAllows(await resolveGrants(credId2), resource, action);
+}
+async function grantScopes(credId2, scopes, client) {
+  const exec = client ? (t, p) => client.query(t, p) : (t, p) => q(t, p);
+  for (const s of scopes) {
+    await exec(`INSERT INTO credential_grants(credential_id, scope) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [credId2, s]);
+  }
+}
+var init_scope = __esm({
+  "src/auth/scope.ts"() {
+    "use strict";
+    init_db();
+  }
+});
+
 // src/auth/identity.ts
 var identity_exports = {};
 __export(identity_exports, {
@@ -142,6 +175,8 @@ async function mintCredentialFor(userId) {
     `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
     [credentialId, userId]
   );
+  const { grantScopes: grantScopes2 } = await Promise.resolve().then(() => (init_scope(), scope_exports));
+  await grantScopes2(credentialId, ["content:read", "content:write"]);
   return { credentialId };
 }
 var StubVerifier, FIREBASE_JWKS_URL, FirebaseVerifier, id;
@@ -483,6 +518,8 @@ async function redeem(device_code, mintAccess2, issueRefresh2) {
        VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'dayfold-cli '||left(coalesce($4,''),64))`,
       [cid, user_id, family_id, origin_ua]
     );
+    const { grantScopes: grantScopes2 } = await Promise.resolve().then(() => (init_scope(), scope_exports));
+    await grantScopes2(cid, ["content:read", "content:write"], client);
     const refresh = await issueRefresh2(cid, client);
     await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
     await client.query("COMMIT");
@@ -977,6 +1014,7 @@ async function authorizeTenant(c, fid) {
 }
 
 // src/app.ts
+init_scope();
 var app = new Hono();
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
 function problem(c, status, type, detail) {
@@ -990,9 +1028,6 @@ app.use("*", bodyLimit({ maxSize: 1024 * 1024, onError: (c) => problem(c, 413, "
 function bearer2(c) {
   const h = c.req.header("authorization") || "";
   return h.startsWith("Bearer ") ? h.slice(7) : void 0;
-}
-function hasScope(a, scope) {
-  return a.scopes.includes(scope);
 }
 function devAuthAllowed(_c) {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
@@ -1014,6 +1049,7 @@ app.post("/auth/dev-token", async (c) => {
     `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
     [credentialId, userId]
   );
+  await grantScopes(credentialId, ["content:read", "content:write"]);
   const { mintAccess: mintAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
   const { issueRefresh: issueRefresh2 } = await Promise.resolve().then(() => (init_refresh(), refresh_exports));
   const access = await mintAccess2({ sub: userId, cid: credentialId });
@@ -1286,7 +1322,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   let body = stripServerManaged(raw);
@@ -1301,7 +1337,7 @@ app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
+  if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
   return c.json(await listCards(fid));
 });
 app.get("/families/:fid/members", async (c) => {
@@ -1321,7 +1357,7 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
   return c.body(null, await softDeleteCard(fid, id3) ? 204 : 404);
 });
 app.post("/device/authorize", async (c) => {
@@ -1596,7 +1632,7 @@ app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
+  if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
   const cursor = c.req.query("since");
   let su = null, si = null;
   if (cursor) {

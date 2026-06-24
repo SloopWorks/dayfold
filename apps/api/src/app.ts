@@ -10,6 +10,7 @@ import * as repo from "./repo.ts";
 // Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
 // load app.ts without triggering the module-level env-guard throws in tokens.ts.
 import { authorizeTenant } from "./auth/middleware.ts";
+import { requireScope, grantScopes } from "./auth/scope.ts";
 
 export const app = new Hono();
 
@@ -30,13 +31,8 @@ function bearer(c: any): string | undefined {
   return h.startsWith("Bearer ") ? h.slice(7) : undefined;
 }
 
-// Central content scope gate (ADR 0029). A credential's authority covers an action
-// if it holds the global scope (`content:read`/`content:write`) OR a resource-
-// qualified grant (`hub:<id>:<action>` — selection lands with the content slice).
-// Resolved per request from `a.scopes`; never trusted from the token (ADR 0011 §8).
-function hasScope(a: { scopes: string[] }, scope: string): boolean {
-  return a.scopes.includes(scope);
-}
+// Content scope is gated by `requireScope` (ADR 0029, src/auth/scope.ts): resolved
+// per request from `credential_grants`, never from the token or `a.scopes`.
 
 function devAuthAllowed(_c: any): boolean {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
@@ -61,6 +57,7 @@ app.post("/auth/dev-token", async (c) => {
     `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
     [credentialId, userId],
   );
+  await grantScopes(credentialId, ["content:read", "content:write"]);   // ADR 0029 grant rows
   const { mintAccess } = await import("./auth/tokens.ts");
   const { issueRefresh } = await import("./auth/refresh.ts");
   const access = await mintAccess({ sub: userId, cid: credentialId });
@@ -336,7 +333,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   let body: any = stripServerManaged(raw);          // mass-assignment: drop server fields
@@ -353,7 +350,7 @@ app.get("/families/:fid/cards", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
+  if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
   return c.json(await repo.listCards(fid));
 });
 
@@ -377,7 +374,7 @@ app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:write")) return c.json({ type: "forbidden" }, 403);
+  if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
   return c.body(null, (await repo.softDeleteCard(fid, id)) ? 204 : 404);
 });
 
@@ -632,7 +629,7 @@ app.get("/families/:fid/sync", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  if (!hasScope(a, "content:read")) return c.json({ type: "forbidden" }, 403);
+  if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
   const cursor = c.req.query("since");
   let su: string | null = null, si: string | null = null;
   if (cursor) {

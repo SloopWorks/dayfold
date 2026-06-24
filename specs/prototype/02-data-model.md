@@ -228,6 +228,21 @@ CREATE TABLE refresh_tokens (              -- [F6] rotation lineage; revoke-line
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ON refresh_tokens (credential_id);   -- revoke-lineage + reuse-detection lookup
+
+-- [ADR 0029 — migration 0008] resource-scoped credential grants. A credential's
+-- authority is resolved PER REQUEST from these rows (never from the token, never
+-- from the now-vestigial credentials.scopes[]). Scope strings: global
+-- 'content:read'/'content:write', or resource-qualified 'hub:<id>:read'/':write'.
+CREATE TABLE credential_grants (
+  credential_id text NOT NULL REFERENCES credentials(id) ON DELETE CASCADE,
+  scope         text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (credential_id, scope)
+);
+CREATE INDEX ON credential_grants (credential_id);
+-- Backfill (0008) mirrors each live credential's actual scopes[]; a tx-guard aborts
+-- if any live credential ends with zero grants. Every credential-mint path
+-- (dev-token, device redeem, firebase) writes grant rows alongside the credential.
 ```
 
 > **M0 note:** the household token is a `credentials` row (`kind='cli'`,
