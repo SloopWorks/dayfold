@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { q, pool } from "./db.ts";
-import { stripServerManaged, stampProvenance } from "./security.ts";
+import { stripServerManaged, stampProvenance, constantTimeEqual } from "./security.ts";
 import { BriefingCardSchema } from "./generated/content.ts";
 import { crossValidateCard } from "./content-validation.ts";
 import * as repo from "./repo.ts";
@@ -19,6 +19,18 @@ export const app = new Hono();
 
 // Liveness — no auth, no DB (isolates routing/cold-start from the DB path).
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
+
+// Retention sweep, run by Vercel Cron (vercel.json `crons`). Vercel attaches
+// `Authorization: Bearer $CRON_SECRET` to cron requests — verify it constant-time so
+// the endpoint can't be triggered by anyone (abuse/DoS floor). Unconfigured ⇒ 404
+// (invisible). Idempotent; only deletes safely-dead auth ephemera (sweep.ts).
+app.get("/cron/sweep", async (c) => {
+  const secret = process.env.CRON_SECRET || "";
+  if (!secret) return c.body(null, 404);
+  if (!constantTimeEqual(bearer(c) ?? "", secret)) return c.body(null, 401);
+  const { sweep } = await import("./auth/sweep.ts");
+  return c.json(await sweep());
+});
 
 // [F9] RFC 9457 problem+json error helper.
 function problem(c: any, status: number, type: string, detail?: string) {

@@ -120,6 +120,37 @@ var init_scope = __esm({
   }
 });
 
+// src/auth/sweep.ts
+var sweep_exports = {};
+__export(sweep_exports, {
+  sweep: () => sweep
+});
+async function sweep(graceMs = 24 * 3600 * 1e3) {
+  const grace = new Date(Date.now() - graceMs).toISOString();
+  const rate = (await q(
+    `DELETE FROM rate_limits WHERE window_start < $1 AND (locked_until IS NULL OR locked_until < now())`,
+    [grace]
+  )).rowCount ?? 0;
+  const devices = (await q(
+    `DELETE FROM device_authorizations
+       WHERE created_at < $1 AND (expires_at < now() OR status IN ('denied','expired','consumed'))`,
+    [grace]
+  )).rowCount ?? 0;
+  const invites = (await q(
+    `DELETE FROM invites i
+       WHERE i.used_count = 0 AND i.status <> 'active' AND i.expires_at < $1
+         AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.invite_id = i.id)`,
+    [grace]
+  )).rowCount ?? 0;
+  return { rate_limits: rate, device_authorizations: devices, invites };
+}
+var init_sweep = __esm({
+  "src/auth/sweep.ts"() {
+    "use strict";
+    init_db();
+  }
+});
+
 // src/auth/identity.ts
 var identity_exports = {};
 __export(identity_exports, {
@@ -1220,6 +1251,13 @@ async function upsertBlock(familyId, id3, sectionId, b) {
 // src/app.ts
 var app = new Hono();
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
+app.get("/cron/sweep", async (c) => {
+  const secret = process.env.CRON_SECRET || "";
+  if (!secret) return c.body(null, 404);
+  if (!constantTimeEqual(bearer2(c) ?? "", secret)) return c.body(null, 401);
+  const { sweep: sweep2 } = await Promise.resolve().then(() => (init_sweep(), sweep_exports));
+  return c.json(await sweep2());
+});
 function problem(c, status, type, detail) {
   return c.body(
     JSON.stringify({ type, title: type, status, ...detail ? { detail } : {} }),
