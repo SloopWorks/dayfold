@@ -60,6 +60,8 @@ fun FeedApp(
   onApproveDevice: (String) -> Unit = {},
   onDenyDevice: (String) -> Unit = {},
   onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
+  onLoadHubs: () -> Unit = {},          // Hubs (ADR 0006): list fetch (HubEngine.loadHubs)
+  onOpenHub: (String) -> Unit = {},     // tap a hub → load its tree (HubEngine.openHub)
 ) {
   val state by store.selectorState { it }
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
@@ -85,7 +87,12 @@ fun FeedApp(
         onCreate = onCreateFamily, onJoinInvite = { store.dispatch(OpenJoinInvite) },
       )
       Route.JoinInvite -> JoinInviteScreen(state, onJoin = onRedeemInvite, onDismiss = { store.dispatch(JoinDismissed) })
-      Route.Feed -> ContentHost(store, state, handle, onConnectDevice = { store.dispatch(OpenEnterCode) })
+      Route.Feed -> ContentHost(
+        store, state, handle,
+        onConnectDevice = { store.dispatch(OpenEnterCode) },
+        onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+      )
+      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub)
       Route.EnterCode -> EnterCodeScreen(
         state, onLookup = onLookupDevice, onBack = { store.dispatch(CloseDeviceFlow) },
         // Scan toggle only where a camera exists (qrScanSupported) — null hides it
@@ -143,7 +150,7 @@ fun FeedApp(
 // cross-fade; the shared element drives the bounds morph. Asymmetric timing.
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}) {
+private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}) {
   val detail = currentDetailCard(state)
   SharedTransitionLayout {
     AnimatedContent(
@@ -161,8 +168,20 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
       ) {
         val card = id?.let { cid -> state.cards.find { it.id == cid } }
         if (card != null) DetailScreen(card, onBack = { store.dispatch(NavBack) }, onAction = handle)
-        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice)
+        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs)
       }
     }
+  }
+}
+
+// Hubs surface host (ADR 0006): list ↔ detail substate driven by currentHubId.
+// A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
+@Composable
+private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String) -> Unit) {
+  androidx.compose.runtime.LaunchedEffect(Unit) { if (state.hubs.isEmpty()) onLoadHubs() }
+  if (state.currentHubId != null) {
+    HubDetailScreen(state, onBack = { store.dispatch(CloseHub) }, onNow = { store.dispatch(OpenFeed) })
+  } else {
+    HubListScreen(state, onOpenHub = onOpenHub, onNow = { store.dispatch(OpenFeed) })
   }
 }

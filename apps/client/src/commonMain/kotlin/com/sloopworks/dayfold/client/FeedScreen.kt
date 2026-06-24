@@ -31,8 +31,9 @@ import com.sloopworks.dayfold.client.cards.TypedCardItem
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}) {
-  Scaffold(topBar = {
+fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}) {
+  Scaffold(
+    topBar = {
     TopAppBar(
       title = { Text("Today") },
       actions = {
@@ -49,7 +50,9 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         }
       },
     )
-  }) { pad ->
+  },
+    bottomBar = { DayfoldBottomNav(hubsActive = false, onNow = {}, onHubs = onNavHubs) },
+  ) { pad ->
     if (state.cards.isEmpty()) {
       // S5: an empty family shows the family-null onboarding (invite/connect),
       // not a bare "nothing yet". Sync/error keep their terse status.

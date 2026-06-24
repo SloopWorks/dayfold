@@ -129,6 +129,66 @@ data class SyncResponse(
   @SerialName("has_more") val hasMore: Boolean = false,
 )
 
+// ── Hubs (ADR 0006 render · ADR 0030 visibility) ─────────────────────────────
+// Wire DTOs for the hub content API. GET /families/:fid/hubs returns a BARE ARRAY
+// of hub rows; GET /families/:fid/hubs/:id/tree returns {hub, sections, blocks}.
+// Field names are the DB-shaped snake_case the server serves (like the /sync rows).
+@Serializable
+data class Hub(
+  val id: String,
+  val type: String? = null,                                 // template key: vacation|party-event|medical|…
+  val title: String,
+  val status: String = "active",                            // planning | active | archived
+  @SerialName("start_at") val startAt: String? = null,
+  @SerialName("end_at") val endAt: String? = null,
+  @SerialName("countdown_to") val countdownTo: String? = null,
+  val visibility: String = "family",                        // family | restricted (ADR 0030)
+  @SerialName("created_by") val createdBy: String? = null,  // resolved author user id (null = legacy token)
+)
+
+@Serializable
+data class HubSection(
+  val id: String,
+  @SerialName("hub_id") val hubId: String? = null,
+  val title: String? = null,
+  val ord: Long = 0,
+)
+
+@Serializable
+data class HubBlock(
+  val id: String,
+  @SerialName("section_id") val sectionId: String? = null,
+  val type: String,                                          // text|markdown|link|checklist|document|milestone|contact|location|budget
+  @SerialName("body_md") val bodyMd: String? = null,        // text/markdown content
+  val payload: BlockPayload? = null,                         // typed fields for the structured block kinds
+  val provenance: Provenance? = null,
+  val ord: Long = 0,
+)
+
+// Flat, lenient block payload — the server stores each block type's fields directly
+// in `payload` (not externally tagged). All nullable; the renderer reads what the
+// block.type needs and degrades gracefully (ignoreUnknownKeys keeps it forward-safe).
+@Serializable
+data class BlockPayload(
+  val items: List<ChecklistItem>? = null,                   // checklist / budget rows
+  val url: String? = null, val label: String? = null, val domain: String? = null, val docRef: String? = null,  // link / document
+  val name: String? = null, val role: String? = null, val phone: String? = null, val email: String? = null,    // contact
+  val address: String? = null, val lat: Double? = null, val lng: Double? = null,                                // location
+  val date: String? = null,                                 // milestone
+  val total: Double? = null, val spent: Double? = null,     // budget summary
+)
+
+@Serializable
+data class ChecklistItem(val text: String? = null, val done: Boolean = false, val due: String? = null, val assignee: String? = null)
+
+// GET /hubs/:id/tree envelope. Blocks carry section_id; the renderer groups them.
+@Serializable
+data class HubTree(
+  val hub: Hub,
+  val sections: List<HubSection> = emptyList(),
+  val blocks: List<HubBlock> = emptyList(),
+)
+
 // ── AUTH-S5: client identity + session (ADR 0011/0021/0023) ──────────────────
 // A backend-minted session (ADR 0011: we mint our own tokens, NOT Firebase's).
 // access = short EdDSA JWT (5m); refresh = opaque rotating (45d). userId is the
@@ -150,7 +210,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -214,6 +274,13 @@ data class AppState(
   // True between consuming a stashed deep-link and the lookup resolving — the
   // Loading route then shows the "Finishing…" beat instead of the plain splash.
   val deviceResuming: Boolean = false,
+  // Hubs surface (ADR 0006 render). The list + the open hub's tree. currentHubId
+  // null = list, set = detail (a Hubs substate, like detailStack is for Feed).
+  val hubs: List<Hub> = emptyList(),
+  val hubsBusy: Boolean = false,
+  val hubError: String? = null,
+  val currentHubId: String? = null,
+  val currentHubTree: HubTree? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -226,6 +293,19 @@ data class CardsLoaded(val cards: List<Card>) : Action
 // CL-6 nav (push if not already top / pop one level).
 data class NavToDetail(val cardId: String) : Action
 data object NavBack : Action
+
+// Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer
+// is pure. OpenHubs/OpenFeed flip the bottom-nav surface; OpenHub/CloseHub drive the
+// list↔detail substate (currentHubId).
+data object OpenHubs : Action                                 // bottom nav → Hubs (list)
+data object OpenFeed : Action                                 // bottom nav → Feed
+data object HubsBusyStarted : Action
+data class HubsLoaded(val hubs: List<Hub>) : Action
+data class HubsFailed(val message: String) : Action
+data class OpenHub(val hubId: String) : Action                // list → detail (loads the tree)
+data class HubTreeLoaded(val tree: HubTree) : Action
+data object HubNotFound : Action                              // 404 (restricted/absent) — back to list with a note
+data object CloseHub : Action                                 // detail → list
 
 // Auth actions (S5). All I/O lives in AuthEngine (suspend, mutex-guarded like
 // SyncEngine); the reducer is pure and derives `route`/`activeFamilyId` from

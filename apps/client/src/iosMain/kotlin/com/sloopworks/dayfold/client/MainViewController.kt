@@ -21,6 +21,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
       SyncClient("", familyId = { store.state.activeFamilyId }, token = { store.state.session?.access }),
     )
   }
+  val hubEngine = remember { HubEngine(store, HubClient(""), AuthClient(""), tokenStore) }  // ADR 0006 render
   val actions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
   val scope = rememberCoroutineScope()
   LaunchedEffect(Unit) {
@@ -45,5 +46,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
     onApproveDevice = { fid -> scope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
     onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
+    onLoadHubs = { scope.launch { hubEngine.loadHubs() } },
+    onOpenHub = { id -> scope.launch { hubEngine.openHub(id) } },
   )
 }

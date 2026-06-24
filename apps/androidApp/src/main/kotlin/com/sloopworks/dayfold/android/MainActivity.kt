@@ -83,6 +83,10 @@ class MainActivity : ComponentActivity() {
         try { awaitCancellation() } finally { syncEngine.pause() }
       }
     }
+    val hubEngine = com.sloopworks.dayfold.client.HubEngine(   // ADR 0006 render
+      store, com.sloopworks.dayfold.client.HubClient(BuildConfig.DAYFOLD_API),
+      AuthClient(BuildConfig.DAYFOLD_API), tokenStore,
+    )
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
     setContent {
       // Debug in-app redux devtools drawer (restored: the matrix is now Compose-MP
@@ -106,6 +110,8 @@ class MainActivity : ComponentActivity() {
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },
           onApproveDevice = { fid -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
+          onLoadHubs = { lifecycleScope.launch { hubEngine.loadHubs() } },
+          onOpenHub = { id -> lifecycleScope.launch { hubEngine.openHub(id) } },
         )
       }
     }

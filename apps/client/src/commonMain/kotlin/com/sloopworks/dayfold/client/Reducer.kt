@@ -46,6 +46,17 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     else state.copy(detailStack = state.detailStack + action.cardId)
   is NavBack -> state.copy(detailStack = state.detailStack.dropLast(1))
 
+  // ── Hubs (ADR 0006 render · ADR 0030 visibility) ──
+  is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null)
+  is OpenFeed -> state.copy(route = Route.Feed)
+  is HubsBusyStarted -> state.copy(hubsBusy = true, hubError = null)
+  is HubsLoaded -> state.copy(hubsBusy = false, hubs = action.hubs, hubError = null)
+  is HubsFailed -> state.copy(hubsBusy = false, hubError = action.message)
+  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null)
+  is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
+  is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.")
+  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null)
+
   // ── auth / session (S5) ──
   is AuthRestoring -> state.copy(route = Route.Loading)
   is SessionRestored -> state.copy(
