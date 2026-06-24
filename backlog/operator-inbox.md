@@ -9,6 +9,19 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-22 · ANSWERED 2026-06-24 → SIGNED OFF (ADR 0008 hub-visibility delta).**
+  Operator signed off the per-member visibility treatment on the Hubs surface
+  (`designs/Family AI dashboard design brief/designs/Hubs-Visibility.dc.html`):
+  restricted-hub list marker + audience, the detail visibility chip + honesty chip,
+  and the "Who can see this hub" sheet (author always permitted, **owner NOT
+  auto-permitted** per ADR 0030 option A; "removing someone hides it on next sync").
+  Reuses the signed-off Dayfold M3 tokens verbatim; light + dark. **This closes the
+  last hub-render design gap** — the Hubs phone surface (INB-15/16) + content
+  adaptive two-pane (INB-20) + this visibility delta are now all signed off, so the
+  ADR 0008 gate for hub render is **cleared**. Enforcement already built (ADR
+  0029/0030, PRs #34/#35). Original: author the ADR-0030 visibility delta the
+  2026-06-19 hub mockups predated.
+
 - **INB-21 · ANSWERED 2026-06-23 → ADR 0030 ACCEPTED.** (1) Accepted; (2)
   owner-visibility default = **A (owner NOT auto-permitted)**; (3) card-vs-hub
   posture = **A (author-trusted at MVP)**. Both match the ADR as written → accepted

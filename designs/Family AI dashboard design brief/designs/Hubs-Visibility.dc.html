@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Hubs-Visibility — the ADR 0030 per-member visibility delta on the (signed-off)
+  Hubs surface. Postdates Hubs-Phone.dc.html (INB-15/16); reuses its exact Dayfold
+  M3 Expressive tokens + components. Adds ONLY the restricted-hub treatments:
+    · list   — a calm "Private · you, Sam" lock pill on a restricted hub card
+    · detail — a tappable visibility chip in the header
+    · sheet  — "Who can see this" member picker (author + allow-list; owner NOT
+               auto-permitted, per ADR 0030 option A)
+  Calm, not alarming: lock uses the warm-neutral/tertiary ramp, never error-red.
+  Honesty chip follows the ADR 0022 privacy-chip pattern (truthful, enforced claim).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .hv-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes hv-sheet-in { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes hv-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.headerBg }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ LIST (a restricted hub among family ones) ============ -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div class="hv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:8px 22px 14px;">
+        <div style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:6px;">PROJECTS</div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0;">Hubs</h1>
+      </div>
+      <div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:13px;">
+        <sc-for list="{{ hubs }}" as="h" hint-placeholder-count="4">
+          <div style="background:{{ c.surfaceContainer }};border-radius:24px;padding:17px 18px;display:flex;align-items:center;gap:15px;">
+            <div style="width:48px;height:48px;flex:0 0 48px;border-radius:16px;background:{{ h.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:25px;color:{{ h.iconFg }};">{{ h.icon }}</span></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:16.5px;color:{{ c.onSurface }};line-height:1.2;margin-bottom:5px;display:flex;align-items:center;gap:7px;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ h.title }}</span>
+                <!-- restricted marker: small, calm, inline with the title -->
+                <sc-if value="{{ h.restricted }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:15px;color:{{ c.lockFg }};flex:0 0 auto;">lock</span></sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ h.statusFg }};background:{{ h.statusBg }};padding:3px 8px;border-radius:7px;">{{ h.status }}</span>
+                <!-- audience replaces the generic meta line for restricted hubs -->
+                <span style="font-family:'Figtree';font-size:12.5px;color:{{ h.metaFg }};">{{ h.meta }}</span>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Outfit';font-weight:700;font-size:20px;color:{{ c.onSurface }};line-height:1;">{{ h.count }}</div>
+              <div style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">{{ h.countUnit }}</div>
+            </div>
+          </div>
+        </sc-for>
+        <!-- quiet footnote: non-permitted members simply don't see a restricted hub -->
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px 0;">
+          <span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">lock</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">Private hubs only appear for the people you choose.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ DETAIL header with a visibility chip ============ -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="background:{{ c.headerBg }};padding:4px 18px 18px;flex:0 0 auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">arrow_back</span>
+          <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">more_vert</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;">
+          <div style="width:46px;height:46px;border-radius:15px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:25px;color:{{ c.onPrimary }};">medical_services</span></div>
+          <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">ACTIVE</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 9px;line-height:1.1;">Dad's knee surgery</h1>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:7px;font-family:'Figtree';font-size:14px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:17px;">schedule</span>Recovery · day 3</div>
+          <!-- the visibility chip: tappable → "who can see this". Calm tonal pill. -->
+          <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.lockChipFg }};background:{{ c.lockChipBg }};border-radius:999px;padding:6px 12px 6px 10px;">
+            <span class="msr fill" style="font-size:15px;">lock</span>Private · You, Sam<span class="msr" style="font-size:15px;opacity:0.7;">expand_more</span>
+          </span>
+        </div>
+      </div>
+      <!-- honesty chip (ADR 0022 pattern): truthful, enforced claim -->
+      <div style="padding:14px 16px 2px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:9px;padding:6px 11px;">
+          <span class="msr" style="font-size:15px;">visibility_off</span>Only people you choose can open this hub
+        </span>
+      </div>
+      <div class="hv-scroll" style="flex:1;overflow-y:auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:13px;">
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 8px;">OVERVIEW</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px 18px;">
+            <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurface }};margin:0 0 12px;">Discharge Thursday. PT three times a week for six weeks. Ice 20 min after each session.</p>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:5px 9px;"><span class="msr" style="font-size:14px;">auto_awesome</span>Added by Claude · 1d ago</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 8px;">MEDS</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:8px 6px;">
+            <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;"><span style="width:23px;height:23px;border-radius:8px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ c.onPrimary }};">check</span></span><div style="flex:1;"><div style="font-family:'Figtree';font-weight:500;font-size:14.5px;color:{{ c.onSurfaceVar }};text-decoration:line-through;">Ibuprofen 8am</div></div></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:11px 13px;"><span style="width:23px;height:23px;border-radius:8px;border:2px solid {{ c.outline }};"></span><div style="flex:1;"><div style="font-family:'Figtree';font-weight:500;font-size:14.5px;color:{{ c.onSurface }};">Ibuprofen 8pm</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">with food</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ "WHO CAN SEE THIS" sheet (author/owner) ============ -->
+  <sc-if value="{{ isSheet }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;position:relative;overflow:hidden;">
+      <!-- dimmed detail behind -->
+      <div style="position:absolute;inset:0;background:{{ c.headerBg }};opacity:0.55;"></div>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.32);animation:hv-scrim-in 200ms ease;"></div>
+      <!-- the sheet -->
+      <div style="position:absolute;left:0;right:0;bottom:0;background:{{ c.surface }};border-radius:28px 28px 0 0;padding:10px 20px 26px;box-shadow:0 -8px 30px rgba(39,24,20,0.25);animation:hv-sheet-in 280ms cubic-bezier(0.05,0.7,0.1,1);">
+        <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:6px auto 16px;"></div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:21px;color:{{ c.onSurface }};margin:0 0 4px;">Who can see this hub</h2>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Private hubs are visible only to the people you pick. The family owner isn't added automatically.</p>
+
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <sc-for list="{{ members }}" as="m" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:13px;padding:10px 6px;">
+              <div style="width:42px;height:42px;flex:0 0 42px;border-radius:999px;background:{{ m.avBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.avFg }};">{{ m.initials }}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">{{ m.name }}</div>
+                <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ m.role }}</div>
+              </div>
+              <!-- toggle: permitted = filled coral check; hidden = empty ring -->
+              <span style="width:30px;height:30px;border-radius:999px;background:{{ m.tgBg }};border:{{ m.tgBorder }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:18px;color:{{ m.tgFg }};">{{ m.tgIcon }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:9px;margin:14px 2px 18px;padding:11px 13px;border-radius:14px;background:{{ c.bannerBg }};border:1px solid {{ c.bannerBorder }};">
+          <span class="msr" style="font-size:17px;color:{{ c.bannerIcon }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.bannerFg }};">Removing someone hides this hub from their devices on the next sync.</span>
+        </div>
+
+        <button style="width:100%;height:52px;border:none;border-radius:999px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Outfit';font-weight:600;font-size:16px;letter-spacing:-0.01em;">Done</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- bottom nav (hidden under the sheet) -->
+  <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:0 0 84px;background:{{ c.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:12px 30px 0;z-index:5;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+        <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;"><span class="msr" style="font-size:23px;color:{{ c.navInactive }};">today</span></span>
+        <span style="font-family:'Figtree';font-weight:500;font-size:12px;color:{{ c.navInactive }};">Now</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+        <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ c.navActivePill }};"><span class="msr fill" style="font-size:23px;color:{{ c.navActiveIcon }};">dashboard</span></span>
+        <span style="font-family:'Figtree';font-weight:600;font-size:12px;color:{{ c.navActiveLabel }};">Hubs</span>
+      </div>
+    </div>
+  </sc-if>
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;detail&quot;,&quot;sheet&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list' | 'detail' | 'sheet'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'list';
+    // Dayfold M3 tokens — verbatim from Hubs-Phone.dc.html (the signed-off surface)
+    // + visibility-specific tokens (lock*, lockChip*) drawn from the same ramp.
+    const light = {
+      surface:'#FFF8F6', headerBg:'#FCEBE6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#D8C2BB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      bannerBg:'#FFF1ED', bannerBorder:'#F0C9BD', bannerIcon:'#C0381E', bannerFg:'#5A2113',
+      navBg:'#F6E5E0', navActivePill:'#9DF2E4', navActiveIcon:'#00201C', navActiveLabel:'#271814', navInactive:'#5A423C',
+      // visibility (calm — warm neutral, never error-red)
+      lockFg:'#8C6A60', lockChipBg:'#F2E0DA', lockChipFg:'#5A423C',
+    };
+    const dark = {
+      surface:'#1A110E', headerBg:'#271D1A', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      bannerBg:'#2A1A14', bannerBorder:'#5A2C1E', bannerIcon:'#FFB4A3', bannerFg:'#FFD3C6',
+      navBg:'#271D1A', navActivePill:'#005048', navActiveIcon:'#A8F4E7', navActiveLabel:'#F0DFDA', navInactive:'#A08D87',
+      lockFg:'#B59C94', lockChipBg:'#322824', lockChipFg:'#D8C2BB',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const permit = (initials,name,role,avBg,avFg) => ({ initials,name,role,avBg,avFg, tgBg:c.primary, tgBorder:'none', tgFg:c.onPrimary, tgIcon:'check' });
+    const hidden = (initials,name,role,avBg,avFg) => ({ initials,name,role,avBg,avFg, tgBg:'transparent', tgBorder:'2px solid '+c.outline, tgFg:'transparent', tgIcon:'' });
+    return {
+      c,
+      isList: view === 'list',
+      isDetail: view === 'detail',
+      isSheet: view === 'sheet',
+      showNav: view !== 'sheet',
+      hubs: [
+        { icon:'celebration', iconBg:(mode==='dark'?'#9A2A12':'#FFDAD2'), iconFg:c.onPrimaryContainer, title:"Maya's birthday party", restricted:false, status:'ACTIVE', statusFg:c.onSecondaryContainer, statusBg:c.secondaryContainer, meta:'12 guests', metaFg:c.onSurfaceVar, count:'Today', countUnit:'' },
+        // the restricted hub — lock by the title, audience in the meta slot
+        { icon:'medical_services', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer, title:"Dad's knee surgery", restricted:true, status:'ACTIVE', statusFg:c.onSecondaryContainer, statusBg:c.secondaryContainer, meta:'Private · you, Sam', metaFg:c.lockFg, count:'3', countUnit:'days' },
+        { icon:'flight_takeoff', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer, title:'Summer trip — Lisbon', restricted:false, status:'PLANNING', statusFg:c.onSecondaryContainer, statusBg:c.secondaryContainer, meta:'5 travelers', metaFg:c.onSurfaceVar, count:'48', countUnit:'days' },
+      ],
+      members: [
+        permit('PA','Pat','You · author', c.primaryContainer, c.onPrimaryContainer),
+        permit('SA','Sam','Adult', c.secondaryContainer, c.onSecondaryContainer),
+        hidden('JO','Jordan','Adult · co-parent', c.tertiaryContainer, c.onTertiaryContainer),
+        hidden('AL','Alex','Owner', c.surfaceContainerHigh, c.onSurfaceVar),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

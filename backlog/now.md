@@ -31,8 +31,11 @@ wired**, so hold CL-NAV/CL-10 build until it lands.
 
 The **feed-only** M0 slice was built **build-first** (operator-directed) from the
 initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
-**Event Hubs render** and the **M1 trigger surface** need their hi-fi mockups
-(A8 full Now+Hubs; trigger v2 = INB-13) **before** they're built.
+the **M1 trigger surface** needs its hi-fi mockups (trigger v2 = INB-13) **before**
+it's built. **Event Hubs render: design gate CLEARED (INB-22, 2026-06-24)** — the
+Hubs phone surface (INB-15/16) + content adaptive two-pane (INB-20) + the ADR-0030
+visibility delta (`Hubs-Visibility.dc.html`, signed off) are all in; the content-
+API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
