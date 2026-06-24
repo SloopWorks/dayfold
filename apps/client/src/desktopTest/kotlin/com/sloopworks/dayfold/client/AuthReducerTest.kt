@@ -226,6 +226,41 @@ class AuthReducerTest {
     assertEquals(Route.ScanDenied, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionDenied).route)
   }
 
+  // ── Task 5: HubsLoaded (DB-fed) prunes currentHubId + currentHubTree ──────────
+
+  // (d) Reducer: HubsLoaded prunes currentHubId when the open hub is gone
+  @Test fun `HubsLoaded prunes currentHubId when the open hub is gone`() {
+    val h1 = Hub("h1", title = "Party")
+    val h2 = Hub("h2", title = "Vacation")
+    val tree = HubTree(h1, emptyList(), emptyList())
+    val withOpenHub = AppState(hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree)
+    // Bridge delivers [h2] only — h1 was tombstoned
+    val pruned = rootReducer(withOpenHub, HubsLoaded(listOf(h2)))
+    assertNull(pruned.currentHubId)
+    assertNull(pruned.currentHubTree)
+    assertEquals(listOf("h2"), pruned.hubs.map { it.id })
+    assertFalse(pruned.hubsBusy)
+  }
+
+  @Test fun `HubsLoaded keeps currentHubId when the open hub still exists`() {
+    val h1 = Hub("h1", title = "Party")
+    val h2 = Hub("h2", title = "Vacation")
+    val tree = HubTree(h1, emptyList(), emptyList())
+    val withOpenHub = AppState(hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree)
+    // Bridge delivers both hubs — h1 still present
+    val s = rootReducer(withOpenHub, HubsLoaded(listOf(h1, h2)))
+    assertEquals("h1", s.currentHubId)
+    assertEquals(tree, s.currentHubTree)
+  }
+
+  @Test fun `HubsLoaded with null currentHubId leaves tree null (no-hub-open case)`() {
+    val h1 = Hub("h1", title = "Party")
+    val s = rootReducer(AppState(hubs = emptyList(), currentHubId = null, currentHubTree = null), HubsLoaded(listOf(h1)))
+    assertEquals(listOf("h1"), s.hubs.map { it.id })
+    assertNull(s.currentHubId)
+    assertNull(s.currentHubTree)
+  }
+
   @Test fun `deep-link resume sets the finishing flag, cleared when the lookup resolves`() {
     var s = rootReducer(AppState(pendingDeviceLink = "WDJF-7K2P"), DeviceLinkConsumed)
     assertNull(s.pendingDeviceLink); assertTrue(s.deviceResuming)              // → Finishing beat

@@ -27,16 +27,22 @@ class SyncEngine(
 ) {
   private val syncMutex = Mutex()
   private var bridgeJob: Job? = null
+  private var hubBridgeJob: Job? = null
   private var pollJob: Job? = null
 
   /**
    * Cold-start hydration: project the DB into the store. First emission = cached rows, zero network.
    * Not thread-safe — must be called from the main thread ([bridgeJob] guard is non-atomic).
+   * The second bridge (hubBridgeJob) keeps state.hubs in sync with the DB — it is the ONLY
+   * writer of state.hubs (one-writer-per-slice: no other path dispatches HubsLoaded).
    */
   fun start() {
     if (bridgeJob != null) return
     bridgeJob = scope.launch {
       contentStore.activeCardsFlow().collect { store.dispatch(CardsLoaded(it)) }
+    }
+    hubBridgeJob = scope.launch {
+      contentStore.activeHubsFlow().collect { store.dispatch(HubsLoaded(it)) }
     }
   }
 
@@ -90,5 +96,10 @@ class SyncEngine(
     }
   }
 
-  fun stop() { scope.cancel() }
+  fun stop() {
+    bridgeJob?.cancel(); bridgeJob = null
+    hubBridgeJob?.cancel(); hubBridgeJob = null
+    pollJob?.cancel(); pollJob = null
+    scope.cancel()
+  }
 }

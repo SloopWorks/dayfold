@@ -19,17 +19,11 @@ class HubEngine(
   private fun fid(): String? = store.state.activeFamilyId
   private fun session(): Session? = store.state.session
 
-  suspend fun loadHubs() = mutex.withLock {
-    val fid = fid(); val s = session()
-    if (fid == null || s == null) return@withLock                 // idle until onboarded
-    store.dispatch(HubsBusyStarted)
-    try {
-      val hubs = callWithRefresh(s) { hubClient.familyHubs(it.access, fid) }
-      store.dispatch(HubsLoaded(hubs))
-    } catch (e: Exception) {
-      store.dispatch(HubsFailed(e.message ?: "Couldn't load hubs"))
-    }
-  }
+  // PR1: the hub LIST is now DB-fed via the SyncEngine hub bridge — this method is a
+  // no-op. The bridge (SyncEngine.hubBridgeJob) is the sole writer of state.hubs via
+  // HubsLoaded. Callers (shells' onLoadHubs) should trigger syncEngine.syncNow() instead.
+  // openHub (the detail tree path) remains network-fed (PR2 will also move it to the DB).
+  suspend fun loadHubs() = Unit
 
   suspend fun openHub(hubId: String) = mutex.withLock {
     val fid = fid(); val s = session()

@@ -50,7 +50,14 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null)
   is OpenFeed -> state.copy(route = Route.Feed)
   is HubsBusyStarted -> state.copy(hubsBusy = true, hubError = null)
-  is HubsLoaded -> state.copy(hubsBusy = false, hubs = action.hubs, hubError = null)
+  // DB-fed via the SyncEngine hub bridge (one-writer-per-slice). Prunes currentHubId
+  // + currentHubTree when the open hub is no longer in the DB (e.g. revocation tombstone).
+  is HubsLoaded -> state.copy(
+    hubs = action.hubs,
+    hubsBusy = false,
+    currentHubId = state.currentHubId?.takeIf { id -> action.hubs.any { it.id == id } },
+    currentHubTree = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.currentHubTree,
+  )
   is HubsFailed -> state.copy(hubsBusy = false, hubError = action.message)
   is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null)
   is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)

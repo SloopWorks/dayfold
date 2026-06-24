@@ -26,12 +26,15 @@ class HubEngineTest {
   private fun engine(store: org.reduxkotlin.Store<AppState>, handler: MockEngine, ts: MemTokenStore = MemTokenStore(Session("ax", "rx"))) =
     HubEngine(store, HubClient("https://api.test", HttpClient(handler)), AuthClient("https://api.test", HttpClient(handler)), ts)
 
-  @Test fun `loadHubs dispatches HubsLoaded`() = runBlocking {
+  // PR1: loadHubs is a no-op — the hub list is now DB-fed via the SyncEngine hub bridge.
+  // The bridge (HubsLoaded from activeHubsFlow) is the sole writer of state.hubs.
+  @Test fun `loadHubs is a no-op (hub list is DB-fed via the bridge)`() = runBlocking {
     val store = readyStore()
-    val e = engine(store, MockEngine { respond("""[{"id":"h1","title":"Party","visibility":"family"}]""", HttpStatusCode.OK, jsonCt) })
+    var hit = false
+    val e = engine(store, MockEngine { hit = true; respond("[]", HttpStatusCode.OK, jsonCt) })
     e.loadHubs()
-    assertEquals(listOf("h1"), store.state.hubs.map { it.id })
-    assertEquals(false, store.state.hubsBusy)
+    assertEquals(false, hit)               // no network call — bridge owns the list
+    assertTrue(store.state.hubs.isEmpty()) // unchanged; bridge not started in this test
   }
 
   @Test fun `openHub loads the tree`() = runBlocking {

@@ -5,6 +5,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import kotlin.test.Test
@@ -127,5 +131,75 @@ class SyncEngineTest {
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache intact
     assertEquals("HTTP 401", store.state.error)
+  }
+
+  // ── Task 5 TDD: hub list is DB-fed via the SyncEngine bridge ──────────────────
+
+  // (a) syncNow writes hubs to the DB and the bridge surfaces HubsLoaded
+  @Test fun `syncNow writes hubs to the DB and the bridge surfaces HubsLoaded`(): Unit = runBlocking {
+    val cs = freshStore()
+    val appStore = createAppStore(debug = false)
+    val sc = syncClient(MockEngine {
+      respond(
+        """{"changes":{"cards":[],"hubs":[{"id":"h1","title":"Party","visibility":"family"}]},"tombstones":[],"next_cursor":"p1","has_more":false}""",
+        HttpStatusCode.OK
+      )
+    })
+    val e = SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
+    e.start()
+    e.syncNow()
+    // Bridge surfaces HubsLoaded into the store (h1 in hubs list)
+    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
+    assertFalse(appStore.state.hubsBusy)
+  }
+
+  // (b) hub tombstone removes from the store + prunes currentHubId
+  @Test fun `hub tombstone removes from store and prunes currentHubId`(): Unit = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(emptyList(), listOf(Hub("h1", title = "Party")), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    val appStore = createAppStore(debug = false)
+    val sc = syncClient(MockEngine {
+      respond(
+        """{"changes":{"cards":[],"hubs":[]},"tombstones":[{"type":"hub","id":"h1"}],"next_cursor":"c1","has_more":false}""",
+        HttpStatusCode.OK
+      )
+    })
+    val e = SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
+    e.start()
+    // Let the bridge populate hubs first
+    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
+    // Simulate the user having opened hub h1
+    appStore.dispatch(OpenHub("h1"))
+    assertEquals("h1", appStore.state.currentHubId)
+    // Sync delivers the tombstone
+    e.syncNow()
+    // Bridge emits [] → reducer prunes currentHubId
+    await(appStore) { it.hubs.isEmpty() && it.currentHubId == null }
+  }
+
+  // (c) 403 wipes hubs too — bridge surfaces empty HubsLoaded + signs out
+  @Test fun `403 wipes hubs and the bridge surfaces empty HubsLoaded then signs out`(): Unit = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(
+      listOf(Card("a", title = "A")),
+      listOf(Hub("h1", title = "Party")),
+      emptyList(), "c0", "2026-06-18T09:00:00Z"
+    )
+    val appStore = createAppStore(debug = false)
+    val sc = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
+    val e = SyncEngine(appStore, cs, sc, nowProvider = { "t" })
+    e.start()
+    // Let the bridge emit the initial h1
+    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
+    // 403 → wipe() → bridge re-emits [] → SignedOut
+    e.syncNow()
+    await(appStore) { it.route == Route.SignIn && it.hubs.isEmpty() }
+    // DB hub table must be empty (the flow is now empty)
+    var dbHubs: List<Hub> = emptyList()
+    val job = GlobalScope.launch {
+      cs.activeHubsFlow().collect { dbHubs = it; throw CancellationException() }
+    }
+    delay(200); job.cancel()
+    assertTrue(dbHubs.isEmpty())
   }
 }

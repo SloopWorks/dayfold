@@ -57,7 +57,7 @@ fun main() = application {
       onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
       onApproveDevice = { fid -> scope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
-      onLoadHubs = { scope.launch { hubEngine.loadHubs() } },
+      onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
       onOpenHub = { id -> scope.launch { hubEngine.openHub(id) } },
     )
   }
