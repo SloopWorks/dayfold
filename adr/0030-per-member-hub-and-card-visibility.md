@@ -2,8 +2,11 @@
 
 ## Status
 
-**Proposed** 2026-06-23 (operator-directed in the schema/scope review; operator
-chose "per-hub visibility at MVP" over all-members-see-all). Extends — does not
+**Accepted** 2026-06-23 (operator-directed in the schema/scope review; operator
+chose "per-hub visibility at MVP" over all-members-see-all, and in the INB-21
+close-out ratified **owner NOT auto-permitted** (option A) + the **author-trusted**
+card-vs-hub posture (option A); both adversarial review rounds applied).
+Immutable — supersede, do not edit. Extends — does not
 supersede — **ADR 0011** (Auth & Family-Tenancy, Hardened) and **ADR 0006**
 (Event Hubs). Composes with **ADR 0029** (CLI/token resource-scoped grants) and
 **ADR 0022** (typed content / `briefing_cards`). Resolves review-gap **G3**
@@ -79,9 +82,9 @@ before real multi-member data exists, expensive to retrofit onto a flat store.
    audience. The card schema is `visibility 'family'|'restricted'` + an
    `audience text[]` (the permitted user ids when restricted). **At MVP the "a card
    must not out-expose its hub" invariant is the trusted author's (skill's)
-   responsibility, enforced at author time, not a server-side intersection.** This
-   is a deliberate posture choice for a single-operator dogfood (`[pending-ratify]`,
-   INB-21); server-enforced intersection re-enters via the Revisit Trigger when
+   responsibility, enforced at author time, not a server-side intersection.**
+   Ratified posture (INB-21, 2026-06-23): author-trusted for the single-operator
+   dogfood; server-enforced intersection re-enters via the Revisit Trigger when
    in-app/multi-author authoring lands.
 
 4. **Enforcement = one read-path filter, default-deny, resolved per request.**
@@ -192,10 +195,10 @@ Negative:
   matrices.
 - Requires a resolved `hubs.created_by` user id — a small schema add, the correct
   fix for author-identity surviving credential rotation.
-- **Posture choice (round-2):** the "a card can't out-expose its hub" guarantee is
-  author-trusted at MVP, not server-enforced. Correct for a single-operator
-  dogfood; re-adding server enforcement when multi-author authoring lands is the
-  documented Revisit Trigger (`[pending-ratify]`, INB-21).
+- **Posture choice (round-2, ratified INB-21):** the "a card can't out-expose its
+  hub" guarantee is author-trusted at MVP, not server-enforced. Correct for a
+  single-operator dogfood; re-adding server enforcement when multi-author authoring
+  lands is the documented Revisit Trigger.
 - Authoring complexity: the content API and Claude skill must carry
   `visibility`/`audience`. Default `family` keeps the common path unchanged.
 - `audience` references `user_id`s, which the author (operator via CLI) must know
@@ -209,10 +212,10 @@ Neutral:
 
 ## Revisit Trigger
 
-- **Operator confirms the owner-visibility default** (owner-NOT-auto-permitted vs
-  owner-sees-all transparent-household model) — this ADR proposes the former;
-  flipping is a one-line filter change and does not require superseding if caught
-  before Accepted.
+- **Owner-visibility default — RATIFIED option A (owner NOT auto-permitted),
+  2026-06-23.** If dogfooding shows A is too restrictive (e.g. recovery/audit pain
+  from orphaned restricted hubs), the flip to B (owner-sees-all) or C (audited
+  break-glass reveal) is a new superseding ADR, not an edit.
 - Dogfooding shows two states are insufficient (need groups, or per-section
   visibility within a hub) → a new ADR adds granularity.
 - In-app visibility management ships → the "who may set restriction" rule (item 6)
