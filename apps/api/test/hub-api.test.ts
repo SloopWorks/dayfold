@@ -74,6 +74,31 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect((await getJson(o.familyId, "hubs/sec/tree", b.token)).status).toBe(404);
   });
 
+  it("audience: roster + permitted flags; non-permitted member gets 404 (ADR 0030 'who can see')", async () => {
+    const o = await ownerOf("aud-owner");
+    const bob = await memberOf("aud-bob", o.familyId);
+    const eve = await memberOf("aud-eve", o.familyId);
+    // restricted hub authored by the owner, allow-listing bob (NOT eve)
+    await put(o.familyId, "hubs/r", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [bob.userId] });
+
+    // author can read the audience: owner(author)+bob permitted, eve not
+    const aud = await getJson(o.familyId, "hubs/r/audience", o.token);
+    expect(aud.status).toBe(200);
+    expect(aud.body.visibility).toBe("restricted");
+    const by = (uid: string) => aud.body.members.find((m: any) => m.uid === uid)?.permitted;
+    expect(by(o.userId)).toBe(true);    // author
+    expect(by(bob.userId)).toBe(true);  // allow-listed
+    expect(by(eve.userId)).toBe(false); // not permitted (and owner-not-auto-permitted holds for non-owner authors too)
+    // eve (not permitted) cannot even enumerate the audience → uniform 404
+    expect((await getJson(o.familyId, "hubs/r/audience", eve.token)).status).toBe(404);
+
+    // a family-visible hub: everyone permitted
+    await put(o.familyId, "hubs/f", o.token, { type: "party-event", title: "Party", visibility: "family" });
+    const audF = await getJson(o.familyId, "hubs/f/audience", eve.token);
+    expect(audF.status).toBe(200);
+    expect(audF.body.members.every((m: any) => m.permitted)).toBe(true);
+  });
+
   it("parent-must-exist: section under a missing hub → 409; block under a missing section → 409", async () => {
     const o = await ownerOf("hub-o3");
     expect((await put(o.familyId, "sections/orphan", o.token, { hubId: "nope" })).status).toBe(409);
