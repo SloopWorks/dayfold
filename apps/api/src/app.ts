@@ -448,6 +448,22 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   return c.json(await hubs.getHubTree(fid, id));   // sections/blocks inherit hub visibility (gated above)
 });
 
+// "Who can see this hub" (ADR 0030) — the roster + permitted flag for the sheet.
+// Same gate as /tree: caller must be able to SEE the hub (else uniform 404), so a
+// non-permitted member can't enumerate a restricted hub's audience.
+app.get("/families/:fid/hubs/:id/audience", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
+  const hub = await hubs.getHub(fid, id);
+  const caller = { userId: a.userId, legacy: a.legacy };
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id) });
+});
+
 app.put("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   if (!HUB_ID.test(id)) return c.json({ type: "validation", issues: [{ path: ["id"], message: "hub id must be [A-Za-z0-9_-]{1,128}" }] }, 422);

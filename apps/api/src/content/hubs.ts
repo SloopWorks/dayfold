@@ -123,6 +123,26 @@ export async function getHubTree(familyId: string, hubId: string) {
   return { hub, sections, blocks };
 }
 
+// "Who can see this hub" (ADR 0030): the full active roster, each flagged
+// `permitted` = the hub is family-visible, OR the member is its author
+// (created_by), OR the member is on the allow-list. Owner is NOT auto-permitted
+// (option A) — they show permitted=false unless author/allow-listed.
+export async function hubAudience(familyId: string, hubId: string) {
+  const r = await q(
+    `SELECT m.user_id AS uid, u.display_name, m.role,
+            (h.visibility = 'family'
+             OR m.user_id = h.created_by
+             OR EXISTS (SELECT 1 FROM resource_visibility rv
+                         WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=m.user_id)) AS permitted
+       FROM memberships m
+       JOIN users u ON u.id = m.user_id
+       JOIN hubs h ON h.family_id=$1 AND h.id=$2
+      WHERE m.family_id=$1 AND m.status='active'
+      ORDER BY (m.role='owner') DESC, u.display_name, m.user_id`,
+    [familyId, hubId]);
+  return r.rows;
+}
+
 // Returns the parent hub id for a section if it exists and is live, else null.
 export async function liveHubOfSection(familyId: string, sectionId: string): Promise<string | null> {
   const r = await q(

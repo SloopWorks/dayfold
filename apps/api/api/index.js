@@ -1202,6 +1202,22 @@ async function getHubTree(familyId, hubId) {
   )).rows;
   return { hub, sections, blocks };
 }
+async function hubAudience(familyId, hubId) {
+  const r = await q(
+    `SELECT m.user_id AS uid, u.display_name, m.role,
+            (h.visibility = 'family'
+             OR m.user_id = h.created_by
+             OR EXISTS (SELECT 1 FROM resource_visibility rv
+                         WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=m.user_id)) AS permitted
+       FROM memberships m
+       JOIN users u ON u.id = m.user_id
+       JOIN hubs h ON h.family_id=$1 AND h.id=$2
+      WHERE m.family_id=$1 AND m.status='active'
+      ORDER BY (m.role='owner') DESC, u.display_name, m.user_id`,
+    [familyId, hubId]
+  );
+  return r.rows;
+}
 async function liveHubOfSection(familyId, sectionId) {
   const r = await q(
     `SELECT s.hub_id FROM sections s JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
@@ -1650,6 +1666,18 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   const allow = await allowListFor(fid, id3);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
   return c.json(await getHubTree(fid, id3));
+});
+app.get("/families/:fid/hubs/:id/audience", async (c) => {
+  const fid = c.req.param("fid"), id3 = c.req.param("id");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
+  const hub = await getHub(fid, id3);
+  const caller = { userId: a.userId, legacy: a.legacy };
+  if (!hub) return c.body(null, 404);
+  const allow = await allowListFor(fid, id3);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  return c.json({ visibility: hub.visibility, members: await hubAudience(fid, id3) });
 });
 app.put("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
