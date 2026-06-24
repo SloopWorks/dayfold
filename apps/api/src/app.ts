@@ -150,7 +150,8 @@ app.get("/auth/whoami", async (c) => {
   const r = await q(
     `SELECT m.family_id, f.name, m.role, m.status FROM memberships m JOIN families f ON f.id=m.family_id
      WHERE m.user_id=$1 AND m.status IN ('active','pending') ORDER BY m.created_at`, [sub]);
-  return c.json({ family_id, families: r.rows });
+  const grants = await resolveGrants(cid);   // ADR 0029: the calling credential's resolved scope (not from the token)
+  return c.json({ family_id, families: r.rows, grants });
 });
 
 // Profile — the caller's own display name. (Memberships live in /auth/whoami.)

@@ -68,6 +68,31 @@ private fun signout(c: Creds) {
   postStatus("${c.api}/auth/signout", "{}", c.accessToken)
 }
 
+/**
+ * Authed GET with one transparent refresh on 401 (device creds only; the legacy
+ * env path has no refresh). Returns Pair<statusCode, body>.
+ */
+private fun authedGet(
+  store: Credentials?, keychain: SecretStore?,
+  api: String, token: String, refreshable: Creds?, path: String,
+): Pair<Int, String> {
+  var (code, body) = getStatus("$api$path", token)
+  if (code == 401 && store != null && refreshable != null) {
+    val st = store
+    val newAccess = st.withRefreshLock {
+      val cur = loadCreds(st, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
+      val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
+      if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
+      val o = J.parseToJsonElement(rt).jsonObject
+      val na = o["access"]!!.jsonPrimitive.content
+      saveCreds(st, keychain, cur.copy(accessToken = na, refreshToken = o["refresh"]!!.jsonPrimitive.content))
+      na
+    }
+    val retry = getStatus("$api$path", newAccess); code = retry.first; body = retry.second
+  }
+  return Pair(code, body)
+}
+
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
     "login" -> deviceLogin(
@@ -83,9 +108,44 @@ fun main(args: Array<String>) {
     }
 
     "whoami" -> {
-      val c = Credentials().load()
-      if (c != null) println("family=${c.familyId} api=${c.api} (device)")
-      else println("family=${System.getenv("FAMILY_ID")} api=${System.getenv("DAYFOLD_API")} (legacy)")
+      val store = Credentials(); val keychain = resolveKeychain()
+      val creds = loadCreds(store, keychain)
+      val dev = creds != null
+      val api = creds?.api ?: System.getenv("DAYFOLD_API") ?: ""
+      val fam = creds?.familyId ?: System.getenv("FAMILY_ID") ?: ""
+      val tok = creds?.accessToken ?: System.getenv("HOUSEHOLD_SECRET") ?: ""
+      println("family=$fam api=$api (${if (dev) "device" else "legacy"})")
+      // ADR 0029: show the credential's RESOLVED scope (server-side grant rows).
+      if (api.isNotEmpty() && tok.isNotEmpty()) {
+        val (code, body) = authedGet(store.takeIf { dev }, keychain, api, tok, creds, "/auth/whoami")
+        if (code == 200) {
+          val grants = runCatching { J.parseToJsonElement(body).jsonObject["grants"]?.jsonArray?.map { it.jsonPrimitive.content } }.getOrNull()
+          if (grants != null) println("scope=${if (grants.isEmpty()) "(none)" else grants.joinToString(",")}")
+        }
+      }
+    }
+
+    // dayfold pull [--hub <id>]  — read content back (proves the author→read loop).
+    // No --hub: prints {"cards":[...],"hubs":[...]}. --hub: prints that hub's tree.
+    "pull" -> {
+      val store = Credentials(); val keychain = resolveKeychain()
+      val creds = loadCreds(store, keychain)
+      val (api, fam, tok) =
+        if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
+        else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
+      val s = store.takeIf { creds != null }
+      val hub = flagValue(args, "--hub")
+      if (hub != null) {
+        val (code, body) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs/$hub/tree")
+        if (code != 200) { System.err.println("pull failed ($code): $body"); exitProcess(1) }
+        println(body)
+      } else {
+        val (cc, cards) = authedGet(s, keychain, api, tok, creds, "/families/$fam/cards")
+        if (cc != 200) { System.err.println("pull cards failed ($cc): $cards"); exitProcess(1) }
+        val (hc, hubs) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs")
+        if (hc != 200) { System.err.println("pull hubs failed ($hc): $hubs"); exitProcess(1) }
+        println("""{"cards":$cards,"hubs":$hubs}""")
+      }
     }
 
     // dayfold push <cardId> <file.json>  — PUT a briefing card (M0 feed).
@@ -231,6 +291,7 @@ private fun usage(): Nothing {
       "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
       "  push <cardId> <file.json> [--type file|link|invite|contact|geo|email]\n" +
       "        (--type runs local typed validation before the server)\n" +
+      "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
       "  template <type>            print a valid starter card for the type",
   )
   exitProcess(2)
