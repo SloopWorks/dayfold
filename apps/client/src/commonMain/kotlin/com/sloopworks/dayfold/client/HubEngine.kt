@@ -45,6 +45,15 @@ class HubEngine(
     }
   }
 
+  suspend fun loadAudience(hubId: String) = mutex.withLock {
+    val fid = fid(); val s = session()
+    if (fid == null || s == null) return@withLock
+    try {
+      val aud = callWithRefresh(s) { hubClient.audience(it.access, fid, hubId) }
+      store.dispatch(HubAudienceLoaded(aud))
+    } catch (_: Exception) { /* sheet shows a quiet loading/empty; non-fatal */ }
+  }
+
   // Refresh-and-retry on 401 (mirrors AuthEngine.callWithRefresh): the access token
   // is 5m, so a single rotate + persist + dispatch + retry recovers transparently.
   private suspend fun <T> callWithRefresh(session: Session, block: suspend (Session) -> T): T =

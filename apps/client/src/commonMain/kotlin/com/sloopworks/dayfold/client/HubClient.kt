@@ -24,6 +24,12 @@ class HubClient(
     return json.decodeFromString(ListSerializer(Hub.serializer()), resp.bodyAsText())
   }
 
+  suspend fun audience(access: String, fid: String, hubId: String): HubAudience {
+    val resp = http.get("$api/families/$fid/hubs/$hubId/audience") { header("authorization", "Bearer $access") }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-audience")
+    return json.decodeFromString(HubAudience.serializer(), resp.bodyAsText())
+  }
+
   suspend fun hubTree(access: String, fid: String, hubId: String): HubTreeResult {
     val resp = http.get("$api/families/$fid/hubs/$hubId/tree") { header("authorization", "Bearer $access") }
     return when (resp.status.value) {

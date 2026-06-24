@@ -45,6 +45,18 @@ class HubClientTest {
     assertEquals("Buy cake", res.tree.blocks[0].bodyMd)
   }
 
+  @Test fun `audience parses roster + permitted flags`() = runBlocking {
+    val engine = MockEngine {
+      respond("""{"visibility":"restricted","members":[
+        {"uid":"u1","display_name":"Pat","role":"owner","permitted":true},
+        {"uid":"u2","display_name":"Jordan","role":"adult","permitted":false}]}""", HttpStatusCode.OK, jsonCt)
+    }
+    val aud = client(engine).audience("ax", "fam1", "h1")
+    assertEquals("restricted", aud.visibility)
+    assertEquals(true, aud.members.first { it.uid == "u1" }.permitted)
+    assertEquals(false, aud.members.first { it.uid == "u2" }.permitted)
+  }
+
   @Test fun `hubTree 404 → NotFound (restricted or deleted, omit-don't-403)`() = runBlocking {
     val engine = MockEngine { respond("", HttpStatusCode.NotFound) }
     assertEquals(HubTreeResult.NotFound, client(engine).hubTree("ax", "fam1", "hX"))

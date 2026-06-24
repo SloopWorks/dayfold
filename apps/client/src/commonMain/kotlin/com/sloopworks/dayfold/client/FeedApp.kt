@@ -62,6 +62,7 @@ fun FeedApp(
   onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
   onLoadHubs: () -> Unit = {},          // Hubs (ADR 0006): list fetch (HubEngine.loadHubs)
   onOpenHub: (String) -> Unit = {},     // tap a hub → load its tree (HubEngine.openHub)
+  onLoadAudience: (String) -> Unit = {},// "who can see" sheet → load the audience (HubEngine.loadAudience)
 ) {
   val state by store.selectorState { it }
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
@@ -92,7 +93,7 @@ fun FeedApp(
         onConnectDevice = { store.dispatch(OpenEnterCode) },
         onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
       )
-      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub)
+      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onLoadAudience = onLoadAudience)
       Route.EnterCode -> EnterCodeScreen(
         state, onLookup = onLookupDevice, onBack = { store.dispatch(CloseDeviceFlow) },
         // Scan toggle only where a camera exists (qrScanSupported) — null hides it
@@ -177,11 +178,17 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
 // Hubs surface host (ADR 0006): list ↔ detail substate driven by currentHubId.
 // A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
 @Composable
-private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String) -> Unit) {
+private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String) -> Unit, onLoadAudience: (String) -> Unit) {
   androidx.compose.runtime.LaunchedEffect(Unit) { if (state.hubs.isEmpty()) onLoadHubs() }
-  if (state.currentHubId != null) {
-    HubDetailScreen(state, onBack = { store.dispatch(CloseHub) }, onNow = { store.dispatch(OpenFeed) })
-  } else {
-    HubListScreen(state, onOpenHub = onOpenHub, onNow = { store.dispatch(OpenFeed) })
+  androidx.compose.foundation.layout.Box {
+    if (state.currentHubId != null) {
+      HubDetailScreen(
+        state, onBack = { store.dispatch(CloseHub) }, onNow = { store.dispatch(OpenFeed) },
+        onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
+      )
+    } else {
+      HubListScreen(state, onOpenHub = onOpenHub, onNow = { store.dispatch(OpenFeed) })
+    }
+    if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) })  // overlay
   }
 }
