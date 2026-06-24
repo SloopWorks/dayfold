@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0010_hub_sync_fanout.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -110,6 +110,49 @@ describe("hub-sync: merged keyset /sync (cards + hubs)", () => {
     expect(Date.parse(parts[0])).not.toBeNaN();
     expect(parts[1]).toMatch(/^(card|hub)$/);
     expect(parts[2]).toBeTruthy();
+  });
+
+  it("revoking allow-list membership bumps updated_at on hub AND its sections AND blocks (0010 subtree fanout)", async () => {
+    const o = await ownerOf("hs-fanout-owner");
+    const m = await memberOf("hs-fanout-member", o.familyId);
+    const fid = o.familyId;
+
+    // seed a restricted hub with a section and a block
+    await putHub(fid, "hubFanout", o.token, { type: "medical", title: "Fanout Hub", visibility: "restricted", audience: [o.userId, m.userId] });
+    await q(`INSERT INTO sections(id, family_id, hub_id, title) VALUES ('sec1', $1, 'hubFanout', 'Section 1')`, [fid]);
+    await q(`INSERT INTO blocks(id, family_id, section_id, type, provenance) VALUES ('blk1', $1, 'sec1', 'text', '{"source":"test"}')`, [fid]);
+
+    // capture current updated_at for hub, section, block
+    const before = await q(
+      `SELECT h.updated_at AS hub_ts, s.updated_at AS sec_ts, b.updated_at AS blk_ts
+       FROM hubs h
+       JOIN sections s ON s.family_id = h.family_id AND s.hub_id = h.id
+       JOIN blocks b   ON b.family_id = s.family_id AND b.section_id = s.id
+       WHERE h.family_id = $1 AND h.id = 'hubFanout'`,
+      [fid]
+    );
+    const { hub_ts: hubBefore, sec_ts: secBefore, blk_ts: blkBefore } = before.rows[0];
+
+    // small delay so now() advances past the captured timestamps
+    await new Promise(r => setTimeout(r, 20));
+
+    // revoke member from allow list — trigger fires
+    await q(`DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id='hubFanout' AND user_id=$2`, [fid, m.userId]);
+
+    // assert all three updated_at values advanced
+    const after = await q(
+      `SELECT h.updated_at AS hub_ts, s.updated_at AS sec_ts, b.updated_at AS blk_ts
+       FROM hubs h
+       JOIN sections s ON s.family_id = h.family_id AND s.hub_id = h.id
+       JOIN blocks b   ON b.family_id = s.family_id AND b.section_id = s.id
+       WHERE h.family_id = $1 AND h.id = 'hubFanout'`,
+      [fid]
+    );
+    const { hub_ts: hubAfter, sec_ts: secAfter, blk_ts: blkAfter } = after.rows[0];
+
+    expect(new Date(hubAfter).getTime()).toBeGreaterThan(new Date(hubBefore).getTime());
+    expect(new Date(secAfter).getTime()).toBeGreaterThan(new Date(secBefore).getTime());
+    expect(new Date(blkAfter).getTime()).toBeGreaterThan(new Date(blkBefore).getTime());
   });
 
   it("pages across card/hub type boundary at equal updated_at without skip/repeat", async () => {

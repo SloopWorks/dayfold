@@ -532,6 +532,10 @@ poll interval; background sync keeps the next open fresh; `network→DB→store�
 holds. **Push (FCM/APNs/SSE) out of scope** (later milestone; same dataflow).
 **Milestone:** next build slice after the M0 render.
 
+## DEFERRED (from hub-sync PR2 / migration 0010)
+
+- **hub-visibility-flip child fan-out trigger** — add with the visibility-toggle authoring slice (no M0 actor flips hub visibility; authoring is ADR-0016/0029-deferred).
+
 ## TASK-E2E — Investigate end-to-end encryption (privacy differentiator)
 
 **Why now:** the server is a **dumb store that never processes content** (ADR
