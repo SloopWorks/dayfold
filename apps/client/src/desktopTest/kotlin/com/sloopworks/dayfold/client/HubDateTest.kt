@@ -33,6 +33,16 @@ class HubDateTest {
     assertNull(countdownLabel("not-a-date", now, utc))   // junk → no crash, no badge
   }
 
+  @Test fun hubWhenLabelHandlesSpansAndOverrides() {
+    // now = 2026-06-24
+    assertEquals("Now", hubWhenLabel(null, "2026-06-22T00:00:00Z", "2026-06-28T00:00:00Z", now, utc))        // in progress
+    assertEquals("in 3 days", hubWhenLabel(null, "2026-06-27T00:00:00Z", "2026-06-30T00:00:00Z", now, utc))  // upcoming → to start
+    assertEquals("4 days ago", hubWhenLabel(null, "2026-06-18T00:00:00Z", "2026-06-20T00:00:00Z", now, utc)) // ended → from end
+    assertEquals("Tomorrow", hubWhenLabel("2026-06-25T09:00:00Z", "2026-06-22T00:00:00Z", "2026-06-28T00:00:00Z", now, utc)) // countdown_to wins
+    assertEquals("Tomorrow", hubWhenLabel(null, "2026-06-25T09:00:00Z", null, now, utc))                     // start only
+    assertNull(hubWhenLabel(null, null, null, now, utc))                                                     // no dates
+  }
+
   @Test fun countdownUsesCalendarDaysNotElapsedHours() {
     // 8pm; an event at 6am the NEXT calendar day is 10h away — calendar-correct is
     // "Tomorrow" (elapsed-hours math wrongly said "Today").

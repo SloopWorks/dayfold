@@ -32,6 +32,28 @@ internal fun normalizeTs(s: String?): String? {
 }
 
 private fun parseOrNull(s: String?): Instant? = normalizeTs(s)?.let { runCatching { Instant.parse(it) }.getOrNull() }
+private fun parseDate(s: String?, tz: TimeZone): LocalDate? = parseOrNull(s)?.toLocalDateTime(tz)?.date
+
+// The "when" badge for an event hub. An explicit countdown_to wins; otherwise, for
+// a start/end span, show "Now" while it's in progress (so an active vacation reads
+// "Now", not "Yesterday"), count down before it, and count up after it. Calendar-day
+// based via [countdownLabel]. Returns null when there's no date at all.
+fun hubWhenLabel(
+  countdownTo: String?, startAt: String?, endAt: String?, nowIso: String,
+  tz: TimeZone = TimeZone.currentSystemDefault(),
+): String? {
+  if (countdownTo != null) return countdownLabel(countdownTo, nowIso, tz)
+  if (startAt == null) return null
+  val start = parseDate(startAt, tz); val end = parseDate(endAt, tz); val now = parseDate(nowIso, tz)
+  if (start != null && end != null && now != null) {
+    return when {
+      now < start -> countdownLabel(startAt, nowIso, tz)   // upcoming
+      now <= end -> "Now"                                   // in progress
+      else -> countdownLabel(endAt, nowIso, tz)             // ended → "N days ago"
+    }
+  }
+  return countdownLabel(startAt, nowIso, tz)
+}
 
 // "Today" | "Tomorrow" | "in N days" | "Yesterday" | "N days ago" | null.
 // targetIso = the hub's countdown_to ?: start_at; nowIso = an ISO/DB now. Compared

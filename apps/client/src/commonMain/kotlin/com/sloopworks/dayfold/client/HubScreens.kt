@@ -133,7 +133,7 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun HubRow(hub: Hub, onClick: () -> Unit) {
-  val count = countdownLabel(hub.countdownTo ?: hub.startAt, kotlin.time.Clock.System.now().toString())
+  val count = hubWhenLabel(hub.countdownTo, hub.startAt, hub.endAt, kotlin.time.Clock.System.now().toString())
   Card(
     onClick = onClick,
     modifier = Modifier.fillMaxWidth(),
@@ -213,7 +213,7 @@ fun HubDetailScreen(
       val listState = rememberLazyListState()
       // deep-link arrival: scroll the focused block into view. hasCountdown/restricted
       // must mirror the header items emitted below (the helper counts them).
-      val hasCountdown = countdownLabel(tree.hub.countdownTo ?: tree.hub.startAt, kotlin.time.Clock.System.now().toString()) != null && tree.hub.status != "archived"
+      val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString()) != null && tree.hub.status != "archived"
       LaunchedEffect(state.hubFocusBlockId, tree) {
         focusedBlockItemIndex(tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted")
           ?.let { listState.animateScrollToItem(it) }
@@ -243,7 +243,7 @@ fun HubDetailScreen(
             }
           }
         }
-        countdownLabel(tree.hub.countdownTo ?: tree.hub.startAt, kotlin.time.Clock.System.now().toString())?.let { c ->
+        hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString())?.let { c ->
           if (tree.hub.status != "archived") item {
             Text("📅  $c", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
           }
