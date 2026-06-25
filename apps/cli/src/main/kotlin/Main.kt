@@ -190,11 +190,11 @@ fun main(args: Array<String>) {
       }
     }
 
-    // dayfold template <type>  — print a valid starter card for the type.
+    // dayfold template <type>  — print a starter card OR hub-tree body (hub/section/block).
     "template" -> {
       val t = args.getOrNull(1) ?: usage()
-      if (t !in CONTENT_TYPES) {
-        System.err.println("unknown type: $t (one of: ${CONTENT_TYPES.joinToString()})"); exitProcess(2)
+      if (t !in TEMPLATE_KINDS) {
+        System.err.println("unknown type: $t (one of: ${TEMPLATE_KINDS.joinToString()})"); exitProcess(2)
       }
       val tpl = {}.javaClass.getResourceAsStream("/templates/$t.json")
         ?: run { System.err.println("template missing for $t"); exitProcess(1) }
@@ -206,6 +206,8 @@ fun main(args: Array<String>) {
 }
 
 private val CONTENT_TYPES = listOf("file", "link", "invite", "contact", "geo", "email")
+// card payload types + the hub-tree bodies (push with --hub/--section/--block).
+val TEMPLATE_KINDS = CONTENT_TYPES + listOf("hub", "section", "block")
 
 /** The content resource `push` targets — PUT /families/:fid/<resource>/:id.
  *  --hub | --section | --block author a hub tree; default is a briefing card.
@@ -324,7 +326,7 @@ private fun usage(): Nothing {
       "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
       "         --type runs local typed card validation before the server)\n" +
       "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
-      "  template <type>            print a valid starter card for the type",
+      "  template <type>            starter body: a card type, or hub|section|block",
   )
   exitProcess(2)
 }
