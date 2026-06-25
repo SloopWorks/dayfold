@@ -10,8 +10,9 @@ device-screencap-every-iteration → faster, fewer tokens.
 - **JDK 17** for all Gradle builds: `JAVA_HOME=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home`
   (Gradle's own daemon may be JDK 26; Kotlin needs 17). Each Kotlin module has a
   wrapper (`./gradlew`).
-- **Kotlin 2.3.20** · Compose-MP 1.9.3 (desktop) · AGP 8.7.2 (android, wrapper
-  Gradle 8.11.1) · apps Gradle 9.5.1 · Node 24 + local Postgres (`psql`) running.
+- **Kotlin 2.3.20** · Compose-MP 1.9.3 (desktop) · **AGP 9.2.1** · **Gradle 9.4.1**
+  (the single `apps/` wrapper; PR #26 upgraded from the old 8.7.2/8.11.1) · compileSdk
+  37 (Android 16) · Node 24 + local Postgres (`psql`) running.
 - **redux-kotlin `1.0.0-alpha01`** gotchas: `selectorState`/`fieldState` are
   **extensions** → `store.selectorState{}` (not `selectorState(store)`); the
   compose module needs `redux-kotlin-granular` added **explicitly** (not pulled
@@ -55,8 +56,8 @@ set the `AUTH_*` env in Vercel first):
 `apps/client` is now a **true KMP module** (`commonMain` = all shared logic+UI+
 SQLDelight+ktor sync; `androidMain`/`desktopMain` = driver actual + entrypoint;
 iOS target = pending). `apps/androidApp` is a **thin app** depending on `:client`
-(no srcDir borrow, no excludes). **One Gradle root at `apps/`** (Gradle 8.11.1 +
-AGP 8.7.2 — NOT 9.5.1; AGP 8.7 predates stable Gradle 9). Run from `apps/`:
+(no srcDir borrow, no excludes). **One Gradle root at `apps/`** (Gradle 9.4.1 +
+AGP 9.2.1 since PR #26). Run from `apps/`:
 `./gradlew :client:<task>` / `:androidApp:<task>`. Module-level `cd apps/client`
 no longer works (no per-module wrapper/settings). ktor: cio desktop · okhttp
 android · darwin iOS (when added). SyncClient is now `suspend` (no Dispatchers.IO).

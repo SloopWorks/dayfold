@@ -583,3 +583,30 @@ research report (A–D answered + recommendation) + a Proposed ADR (per-componen
 + closed surface + monetization model) that closes ADR 0031's gate and `OQ-license`.
 **Final license is legal/business → operator-gated + `[pending-counsel]`; research
 informs, operator decides.**
+
+## MOBILE RELEASE PIPELINE (ADR 0034 — Proposed 2026-06-25)
+
+**✅ PIPELINE BUILT + locally-verified** (signed `bundleRelease`, versionCode/Name from
+env, unsigned-without-secrets all confirmed on a local SDK). `release-android.yml`
+(merge→`internal`, `android-beta-v*`→`beta`, `android-v*`→`production` draft) +
+`:androidApp` signing/versioning + a PR `assembleDebug` smoke job in `ci.yml`. Inert
+until the operator gates (**INB-23** / ADR 0034 G1–G5). Follow-on tasks:
+
+- **TASK-mobile-promote-artifact** (ADR 0034 G6) — switch beta/prod from rebuild-from-tag
+  to **promote the exact alpha-tested artifact** (Play track-to-track promotion via
+  fastlane `supply --track-promote` or the edits API), so "what was tested is what
+  ships." Needs Play set up (G3) to design/verify. Medium.
+- **TASK-mobile-r8** (ADR 0034 G7) — enable R8 minify + resource-shrink for the release
+  variant with **vetted keep-rules** (redux-kotlin, Firebase, Compose, kotlinx-
+  serialization, ktor). Currently `isMinifyEnabled=false`. Verify a signed AAB still runs
+  on-device + the fake-backend/debug paths are unaffected. Medium.
+- **TASK-mobile-sdk-firstrun** (ADR 0034 G9) — validate the GitHub-runner Android-SDK
+  setup on the first real CI run (the `platforms;android-37` vs `android-37.0` package
+  name + build-tools), tighten the install step once observed. Small; do at first run.
+- **TASK-ios-pipeline** (ADR 0034 G8) — **BLOCKED on building the Xcode/Swift host app**
+  first (only the KMP framework compiles today). Then: TestFlight-internal as the iOS
+  "alpha" (no merge-time auto-publish — Apple processing/review), fastlane `match`
+  (signing) + `pilot`/`deliver` via an **App Store Connect API key** on a **macOS runner**
+  (~10× minute cost), driven by the same `android-*`-parallel tags. Needs the operator's
+  Mac + an Apple Developer account ($99/yr — **spend**). Large; sequenced after the iOS
+  host shell (contends with the iOS-shell task in TASK-KMP).
