@@ -144,6 +144,16 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect((await put(o.familyId, "sections/ok-1", o.token, { hubId: "ok-1", title: "x" })).status).toBe(200);
   });
 
+  it("DELETE routes guard the id charset too — 422, not a misleading 404", async () => {
+    const o = await ownerOf("hub-o6c");
+    const evil = encodeURIComponent("a:b");                       // ':' could ambiguate `hub:<id>` scope
+    const del = (path: string) => app.request(`/families/${o.familyId}/${path}`, { method: "DELETE", headers: authH(o.token) });
+    expect((await del("cards/" + evil)).status).toBe(422);
+    expect((await del("hubs/" + evil)).status).toBe(422);
+    // a well-formed id that simply doesn't exist still 404s (guard is about charset, not existence)
+    expect((await del("cards/ok-2")).status).toBe(404);
+  });
+
   it("§6: only the author or an already-permitted member may rewrite a hub's visibility", async () => {
     const o = await ownerOf("s6-owner");
     const bob = await memberOf("s6-bob", o.familyId);

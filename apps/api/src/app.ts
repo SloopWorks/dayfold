@@ -401,6 +401,7 @@ app.get("/families/:fid/members", async (c) => {
 
 app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
+  { const e = idError(id); if (e) return c.json(e, 422); }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
@@ -512,6 +513,9 @@ app.post("/families/:fid/hubs/:id/archive", async (c) => {
 
 app.delete("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
+  // validate BEFORE building the `hub:${id}` scope string — a ':' in the id could
+  // otherwise ambiguate the grant check (same reason the hub PUT guards the id).
+  { const e = idError(id); if (e) return c.json(e, 422); }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
