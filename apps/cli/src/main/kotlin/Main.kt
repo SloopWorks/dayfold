@@ -95,6 +95,14 @@ internal fun whoamiStatus(signedInDevice: Boolean, hasToken: Boolean, family: St
     "not signed in — run: dayfold login (or set DAYFOLD_API + FAMILY_ID + HOUSEHOLD_SECRET)"
   else "family=$family api=$api (${if (signedInDevice) "device" else "legacy"})"
 
+/** A human-readable message for a failed payload-file read — pure, so it's tested.
+ *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
+internal fun fileReadError(file: String, e: Exception): String = when (e) {
+  is java.nio.file.NoSuchFileException -> "file not found: $file"
+  is java.io.IOException -> "could not read $file: ${e.message ?: "I/O error"}"
+  else -> "could not read $file"
+}
+
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
     "--version", "-v", "version" -> println("dayfold ${cliVersion()}")
@@ -157,7 +165,8 @@ fun main(args: Array<String>) {
     "push" -> {
       val id = args.getOrNull(1) ?: usage()
       val file = args.getOrNull(2) ?: usage()
-      val payload = Files.readString(Path.of(file))
+      val payload = try { Files.readString(Path.of(file)) }
+        catch (e: Exception) { System.err.println(fileReadError(file, e)); exitProcess(2) }
       // --hub/--section/--block target the hub tree (PUT /hubs|sections|blocks/:id)
       // instead of a briefing card. The server is the authority for hub-tree shape
       // (no generated schema in the CLI yet), so the card --type validation below
