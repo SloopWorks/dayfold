@@ -566,3 +566,18 @@ would make it architectural, not policy. Investigation kicked off
 
 DoD: a feasibility report the operator can decide go/no-go + milestone from;
 if go, a Proposed ADR.
+
+## TASK-license-strategy — Licensing & open-source strategy (research) · ADR-class
+
+Deep research + brainstorming on **how to license & publish Dayfold (apps + CLI)**:
+can it be open source **safely** (security + business-strategy), which license, can it
+still be **monetized** if OSS, and the business-strategy tradeoffs. Ideal = OSS (for
+showcase / resume / free tooling) **and** a monetization path. Triggered by ADR 0031's
+deferred license gate. **Brief:** `research/licensing-open-source-strategy-brief-2026-06.md`
+(scope, the 5 questions, method, the AGPL-server + Apache-client + closed-brains
+hypothesis). Method: deep research (cited) + the `solo-business-strategist` agent +
+a security open/closed-split analysis + two adversarial-review rounds. **DoD:** a
+research report (A–D answered + recommendation) + a Proposed ADR (per-component license
++ closed surface + monetization model) that closes ADR 0031's gate and `OQ-license`.
+**Final license is legal/business → operator-gated + `[pending-counsel]`; research
+informs, operator decides.**
