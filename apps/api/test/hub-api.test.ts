@@ -132,4 +132,23 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     const o = await ownerOf("hub-o6");
     expect((await put(o.familyId, "hubs/" + encodeURIComponent("a:b"), o.token, { type: "move", title: "x" })).status).toBe(422);
   });
+
+  it("§6: only the author or an already-permitted member may rewrite a hub's visibility", async () => {
+    const o = await ownerOf("s6-owner");
+    const bob = await memberOf("s6-bob", o.familyId);
+    const fid = o.familyId;
+    // owner authors a restricted hub; bob is NOT in the allow-list
+    await put(fid, "hubs/s6", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId] });
+    // give bob content:write so he clears requireScope and actually reaches the §6 gate
+    await q(`INSERT INTO credential_grants(credential_id, scope)
+             SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [bob.userId]);
+
+    // non-author, non-permitted → 403 (can't widen a hub he can't even see)
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Private", visibility: "family" })).status).toBe(403);
+    expect((await getJson(fid, "hubs/s6", bob.token)).status).toBe(404);   // unchanged: still restricted, still hidden from bob
+
+    // once the author adds bob to the allow-list, bob MAY rewrite it
+    await put(fid, "hubs/s6", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Open", visibility: "family" })).status).toBe(200);
+  });
 });
