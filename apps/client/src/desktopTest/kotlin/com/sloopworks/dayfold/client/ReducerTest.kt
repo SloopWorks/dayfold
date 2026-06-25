@@ -84,4 +84,38 @@ class ReducerTest {
     assertEquals("b", currentDetailCard(AppState(cards = cards, detailStack = listOf("a", "b")))?.id)
     assertNull(currentDetailCard(AppState(cards = cards, detailStack = listOf("gone"))))
   }
+
+  // ── Hubs reducer (ADR 0006/0030) ──
+  private fun hub(id: String) = Hub(id = id, title = id, status = "active", visibility = "family")
+
+  @Test fun `HubsLoaded closes the open hub when it is revoked (no longer in the DB list)`() {
+    // viewing hub "h1" with its tree loaded; a sync drops it (revocation tombstone)
+    val open = AppState(currentHubId = "h1", currentHubTree = HubTree(hub = hub("h1")), hubsBusy = true)
+    val s = rootReducer(open, HubsLoaded(listOf(hub("h2"))))   // h1 gone
+    assertNull(s.currentHubId)        // kicked back to the list — can't keep viewing revoked content
+    assertNull(s.currentHubTree)
+    assertFalse(s.hubsBusy)
+  }
+
+  @Test fun `HubsLoaded keeps the open hub + tree when it is still present`() {
+    val tree = HubTree(hub = hub("h1"))
+    val open = AppState(currentHubId = "h1", currentHubTree = tree)
+    val s = rootReducer(open, HubsLoaded(listOf(hub("h1"), hub("h2"))))
+    assertEquals("h1", s.currentHubId)
+    assertEquals(tree, s.currentHubTree)
+  }
+
+  @Test fun `OpenHub enters a hub busy and clears any stale arrival focus`() {
+    val s = rootReducer(AppState(hubFocusBlockId = "old-blk"), OpenHub("h9"))
+    assertEquals("h9", s.currentHubId)
+    assertTrue(s.hubsBusy)
+    assertNull(s.hubFocusBlockId)      // a fresh manual open must not carry a prior deep-link's focus
+  }
+
+  @Test fun `SetHubFocus sets the arrival block, CloseHub clears the whole hub substate`() {
+    val focused = rootReducer(AppState(currentHubId = "h1"), SetHubFocus("blk-7"))
+    assertEquals("blk-7", focused.hubFocusBlockId)
+    val closed = rootReducer(focused.copy(currentHubTree = HubTree(hub = hub("h1"))), CloseHub)
+    assertNull(closed.currentHubId); assertNull(closed.currentHubTree); assertNull(closed.hubFocusBlockId)
+  }
 }
