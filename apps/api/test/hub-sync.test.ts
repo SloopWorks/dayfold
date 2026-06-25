@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0010_hub_sync_fanout.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0010_hub_sync_fanout.sql","0011_hub_visibility_fanout.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -231,6 +231,35 @@ describe("hub-sync: merged keyset /sync (cards + hubs)", () => {
     expect(tombIds).toContain("hubRevoke");
     expect(tombIds).toContain("secRevoke");
     expect(tombIds).toContain("blkRevoke");
+  });
+
+  it("flipping a family hub to restricted (empty allow-list) tombstones the SUBTREE, not just the hub (0011)", async () => {
+    const o = await ownerOf("hs-flip-owner");
+    const m = await memberOf("hs-flip-member", o.familyId);
+    const fid = o.familyId;
+
+    // family-visible hub the member can see, with a section + a sensitive block
+    await putHub(fid, "hubFlip", o.token, { type: "medical", title: "Flip Hub", visibility: "family" });
+    await q(`INSERT INTO sections(id, family_id, hub_id, title) VALUES ('secFlip', $1, 'hubFlip', 'Flip Section')`, [fid]);
+    await q(`INSERT INTO blocks(id, family_id, section_id, type, provenance) VALUES ('blkFlip', $1, 'secFlip', 'text', '{"source":"test"}')`, [fid]);
+
+    // first sync: member sees the subtree
+    const r1 = await app.request(`/families/${fid}/sync`, { headers: { authorization: `Bearer ${m.token}` } });
+    const b1 = await r1.json();
+    expect(b1.changes.blocks ?? []).toContainEqual(expect.objectContaining({ id: "blkFlip" }));
+    const cursor = b1.next_cursor;
+
+    // flip family→restricted with an EMPTY allow-list (no resource_visibility row
+    // change → the 0009/0010 trigger does NOT fire; only 0011 saves the subtree)
+    await putHub(fid, "hubFlip", o.token, { type: "medical", title: "Flip Hub", visibility: "restricted", audience: [] });
+
+    // second sync from cursor: hub AND section AND block must all tombstone
+    const r2 = await app.request(`/families/${fid}/sync?since=${cursor}`, { headers: { authorization: `Bearer ${m.token}` } });
+    const b2 = await r2.json();
+    const tombIds = (b2.tombstones ?? []).map((t: any) => t.id);
+    expect(tombIds).toContain("hubFlip");
+    expect(tombIds).toContain("secFlip");   // the leak: stale without 0011
+    expect(tombIds).toContain("blkFlip");   // the leak: stale without 0011
   });
 
   it("visible→invisible→visible flap re-emits section+block as live", async () => {
