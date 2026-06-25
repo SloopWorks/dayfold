@@ -81,6 +81,33 @@ The seed (`ondevice-seed.sql`) creates a `dev`/`dev-user` identity matching the
 app's dev sign-in, so it lands on a family that already has hubs (one family-
 visible, one restricted with the 🔒 lock — exercises the ADR 0030 treatment).
 
+## ⭐ Fake backend (debug-only — render any UI state with NO server/DB/network)
+A selectable **in-process MockEngine backend** that serves canned scenarios so the
+real UI (auth gate → feed → detail → hubs → members/devices) can be exercised in
+debug builds with zero live API. It injects a `HttpClient(MockEngine)` into the
+existing transport seams (`SyncClient`/`HubClient`/`AuthClient` all accept an
+`http:` param), so the WHOLE dataflow runs — reducers, the DB→store bridge, the
+route gate — not just a DB seed. Scenarios serialize the real `@Serializable` wire
+models (so field names are correct by construction).
+
+- **Where:** scenarios + the pure router live in `:client` commonMain
+  (`client/.../fake/FakeBackend.kt` + `FakeScenarios.kt`, no ktor → release-safe,
+  unit-tested in `FakeBackendTest`). The thin MockEngine adapter is debug/desktop-
+  only (`androidApp/src/debug/.../FakeBackend.kt` mirrored by an inert `src/release`
+  copy, same pattern as `DebugDrawerPlugins.kt`; `ktor-client-mock` is
+  `debugImplementation` on Android + `desktopMain` on desktop — never release).
+- **Select (Android):** debug drawer → **Backend** panel → pick a `Fake · …` entry →
+  Apply & Restart. Then tap any provider on the sign-in screen (fake mode forces the
+  `/auth/dev-token` path) → lands on the scenario.
+- **Select (desktop):** `DAYFOLD_API=fake://<scenario-id>` (e.g. `fake://busy-family`).
+- **Scenarios:** `busy-family` (6 typed cards + 3 hubs incl. a restricted one +
+  members + devices), `empty-new` (empty states), `needs-family` (→ CreateFamily),
+  `owner-approvals` (pending members + a CLI device grant), `sync-error` (feed
+  error). Add one by appending to `FakeScenarios.all`.
+- **Gotchas baked in:** `/sync` returns `has_more:false` (else the drain loop spins);
+  hub DETAIL content rides in the `/sync` delta (sections+blocks), NOT `/tree` (the
+  app is DB-fed); the DB is wiped on entry so prior real/seed rows don't bleed in.
+
 ## Client core + desktop (`:client` — KMP core + Compose desktop)
 ```
 cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest

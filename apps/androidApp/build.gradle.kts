@@ -72,6 +72,16 @@ dependencies {
   debugImplementation(project(":debugdrawer-redux"))
   releaseImplementation(project(":debugdrawer-noop"))
 
+  // The shell now wires the HTTP client explicitly (to inject the fake backend), so
+  // ktor-client-core's types must be on the compile classpath in BOTH variants.
+  // :client depends on it as `implementation` (not exposed transitively); the runtime
+  // artifact already ships via :client, so this only surfaces the compile-time type.
+  implementation("io.ktor:ktor-client-core:3.5.0")
+  // Dev-only fake backend (debug UI testing): MockEngine serves canned scenarios.
+  // debug-only → never on the release classpath (release uses the inert src/release
+  // FakeBackend.kt mirror, which returns null/empty and imports no ktor-mock).
+  debugImplementation("io.ktor:ktor-client-mock:3.5.0")
+
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)
   implementation("androidx.compose.material3:material3")
