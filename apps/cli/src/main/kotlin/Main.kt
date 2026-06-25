@@ -83,8 +83,15 @@ private fun authedGet(
   return Pair(code, body)
 }
 
+/** The build version embedded by Gradle (generateVersionResource) — what a
+ *  brew-installed user reports in a bug. Falls back to "unknown" if absent. */
+internal fun cliVersion(): String =
+  {}.javaClass.getResourceAsStream("/dayfold-version.txt")?.readBytes()?.decodeToString()?.trim() ?: "unknown"
+
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
+    "--version", "-v", "version" -> println("dayfold ${cliVersion()}")
+
     "login" -> deviceLogin(
       api = System.getenv("DAYFOLD_API") ?: "https://family-ai-dashboard.vercel.app",
       allowEnvKey = hasFlag(args, "--allow-env-key"),
@@ -326,7 +333,8 @@ private fun usage(): Nothing {
       "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
       "         --type runs local typed card validation before the server)\n" +
       "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
-      "  template <type>            starter body: a card type, or hub|section|block",
+      "  template <type>            starter body: a card type, or hub|section|block\n" +
+      "  version | --version       print the CLI version",
   )
   exitProcess(2)
 }

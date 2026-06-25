@@ -29,4 +29,17 @@ application {
   applicationName = "dayfold"
 }
 
+// Embed the build version as a resource so `dayfold --version` reports it at runtime
+// (the same version the release tag sets). Wired into main resources → jar + test cp.
+val generateVersionResource by tasks.registering {
+  val outDir = layout.buildDirectory.dir("generated/version")
+  val v = version.toString()
+  inputs.property("version", v)
+  outputs.dir(outDir)
+  doLast {
+    outDir.get().file("dayfold-version.txt").asFile.apply { parentFile.mkdirs(); writeText(v) }
+  }
+}
+sourceSets["main"].resources.srcDir(generateVersionResource)
+
 tasks.test { useJUnitPlatform() }
