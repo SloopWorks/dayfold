@@ -148,15 +148,15 @@ fun main(args: Array<String>) {
       // (no generated schema in the CLI yet), so the card --type validation below
       // applies to cards only.
       val resource = pushResource(args)
-      // CL-3: opt-in local typed validation (`--type <t>`) — fail fast with field
-      // errors before the server, against the generated schema types. Server stays
-      // the authority. Flags come AFTER the positional <id> <file>.
-      if (resource == "cards") flagValue(args, "--type")?.let { t ->
-        val errs = validateCard(t, withId(payload, id))
-        if (errs.isNotEmpty()) {
-          System.err.println("validation failed:\n  " + errs.joinToString("\n  "))
-          exitProcess(1)
-        }
+      // Fail fast with field errors before the server (which stays the authority).
+      // Cards: opt-in typed validation via `--type` (against the generated schema).
+      // Hub tree: always-on structural pre-check (cheap, no flag).
+      val preErrors: List<String> =
+        if (resource == "cards") flagValue(args, "--type")?.let { validateCard(it, withId(payload, id)) } ?: emptyList()
+        else validateHubTree(resource, payload)
+      if (preErrors.isNotEmpty()) {
+        System.err.println("validation failed:\n  " + preErrors.joinToString("\n  "))
+        exitProcess(1)
       }
       val store = Credentials()
       val keychain = resolveKeychain()

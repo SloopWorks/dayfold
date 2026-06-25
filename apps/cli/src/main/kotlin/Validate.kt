@@ -57,6 +57,47 @@ fun validateCard(assertType: String?, json: String): List<String> {
   return errors
 }
 
+private val HUB_CATALOG = setOf("vacation", "starting-college", "move", "party-event", "new-baby", "medical", "school-year")
+private val HUB_STATUS = setOf("planning", "active", "archived")
+private val BLOCK_TYPES = setOf("text", "markdown", "link", "checklist", "document", "milestone", "contact", "location", "budget")
+
+/**
+ * Fast pre-check for a hub-tree PUT body (push --hub/--section/--block). Like
+ * [validateCard] it is NOT a full server replica — it catches the common authoring
+ * mistakes (missing routing fields, an off-catalog hub type, a bad status / block
+ * type) lenient-structurally, so it stays robust to the server's strip-then-parse
+ * details. The server (CL-2) remains the authority. [resource] = the pushResource
+ * value ("hubs" | "sections" | "blocks").
+ */
+fun validateHubTree(resource: String, json: String): List<String> {
+  val obj = try {
+    LENIENT.parseToJsonElement(json).jsonObject
+  } catch (ex: Exception) {
+    return listOf("invalid $resource JSON: ${firstLine(ex.message)}")
+  }
+  fun str(k: String): String? = (obj[k] as? JsonPrimitive)?.takeIf { it.isString }?.content
+  val e = mutableListOf<String>()
+  when (resource) {
+    "hubs" -> {
+      if (str("title").isNullOrBlank()) e += "hub: `title` is required"
+      when (val t = str("type")) {
+        null -> e += "hub: `type` is required"
+        !in HUB_CATALOG -> e += "hub: type \"$t\" is not a catalog key (${HUB_CATALOG.joinToString("|")})"
+      }
+      str("status")?.let { if (it !in HUB_STATUS) e += "hub: status \"$it\" must be ${HUB_STATUS.joinToString("|")}" }
+    }
+    "sections" -> if (str("hubId").isNullOrBlank()) e += "section: `hubId` is required"
+    "blocks" -> {
+      if (str("sectionId").isNullOrBlank()) e += "block: `sectionId` is required"
+      when (val t = str("type")) {
+        null -> e += "block: `type` is required"
+        !in BLOCK_TYPES -> e += "block: type \"$t\" must be one of ${BLOCK_TYPES.joinToString("|")}"
+      }
+    }
+  }
+  return e
+}
+
 private fun variantKey(p: BriefingCardPayload): String? = when {
   p.file != null -> "file"
   p.link != null -> "link"
