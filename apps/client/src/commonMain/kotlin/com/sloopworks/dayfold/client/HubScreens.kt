@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -196,8 +198,18 @@ fun HubDetailScreen(
       tree == null -> Box(Modifier.fillMaxSize().padding(pad), Alignment.Center) {
         Text(state.hubError ?: "Hub unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(40.dp))
       }
-      else -> LazyColumn(
+      else -> {
+      val listState = rememberLazyListState()
+      // deep-link arrival: scroll the focused block into view. hasCountdown/restricted
+      // must mirror the header items emitted below (the helper counts them).
+      val hasCountdown = countdownLabel(tree.hub.countdownTo ?: tree.hub.startAt, kotlin.time.Clock.System.now().toString()) != null && tree.hub.status != "archived"
+      LaunchedEffect(state.hubFocusBlockId, tree) {
+        focusedBlockItemIndex(tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted")
+          ?.let { listState.animateScrollToItem(it) }
+      }
+      LazyColumn(
         Modifier.fillMaxSize().padding(pad),
+        state = listState,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
       ) {
@@ -247,8 +259,28 @@ fun HubDetailScreen(
           items(blocks, key = { "blk-${it.id}" }) { block -> HubBlockCard(block, focused = block.id == state.hubFocusBlockId) }
         }
       }
+      }
     }
   }
+}
+
+// Pure: the LazyColumn item index of the focused block (or null = not present / no
+// focus), so the arrival can scroll it into view. Mirrors HubDetailScreen's emission
+// order: [status header] + [countdown?] + [honesty?] + per section [header] + [blocks].
+// Unit-tested so it can't silently drift from the render.
+fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Boolean, restricted: Boolean): Int? {
+  if (focusBlockId == null) return null
+  var idx = 1                                       // status header (always)
+  if (hasCountdown) idx += 1
+  if (restricted) idx += 1
+  for (section in tree.sections.sortedBy { it.ord }) {
+    idx += 1                                         // section header
+    val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
+    val pos = blocks.indexOfFirst { it.id == focusBlockId }
+    if (pos >= 0) return idx + pos
+    idx += blocks.size
+  }
+  return null
 }
 
 // "Who can see this hub" (ADR 0030, the signed-off Hubs-Visibility sheet). Display
