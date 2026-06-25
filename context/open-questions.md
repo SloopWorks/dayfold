@@ -127,6 +127,22 @@ New prototype-level open items:
   for the prototype. Minimal, not a login system. → A3.
 - **OQ-ios-deploy:** Apple account for on-device iOS — free 7-day re-sign vs
   $99/yr stable. Decide before A3 device testing.
+- **OQ-account-resurrection** *(2026-06-25, data-rights audit)*: After
+  `DELETE /auth/me` soft-deletes a user (`users.deleted_at` set, memberships
+  → `removed`, credentials revoked), a re-sign-in with the SAME identity mints a
+  fresh, valid session — `findOrCreateUser` (`apps/api/src/auth/identity.ts:91-95`)
+  matches the surviving `user_identities` row and returns the soft-deleted
+  `user_id` with **no `deleted_at` check**, so `/auth/firebase` + `/auth/dev-token`
+  issue tokens. But `/auth/me` (`app.ts:177`) and `/auth/me/export` (`:208`) filter
+  `deleted_at IS NULL` and 401, so the session is a broken half-state (authed by
+  token, invisible to whoami). No data leak today — it just can't reach `/auth/me`.
+  **Decision needed** (guardrail #4 — honor delete, no dark-pattern retention): on
+  re-sign-in to a soft-deleted account, (a) **resurrect** — clear `deleted_at`
+  (easiest UX, but re-activates a deleted account — arguably anti-delete); (b)
+  **reject** until the purge job runs (respects delete; the identity can't
+  re-register in the window); or (c) **fresh account** — reassign the identity to a
+  new `user_id` (must handle the `UNIQUE(provider, provider_uid)` constraint).
+  ADR-class (customer-data handling) → resolve before any account-deletion UX ships.
 
 ## Resolved
 
