@@ -104,9 +104,10 @@ private fun MemberRow(m: FamilyMember, isOwner: Boolean, onRemove: (String) -> U
     } else {
       Box(
         Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainerHigh)
-          .testTag("remove-${m.uid}").clickable { onRemove(m.uid) },
+          .testTag("remove-${m.uid}").clickable { onRemove(m.uid) }
+          .semantics { contentDescription = "Remove ${m.displayName ?: "member"}" },
         contentAlignment = Alignment.Center,
-      ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge) }
+      ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {}) }
     }
   }
 }
@@ -124,18 +125,20 @@ private fun PendingRow(p: PendingMember, onApprove: (String) -> Unit, onDecline:
       Text(p.displayName ?: "Someone", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
       Text("Invited as ${p.role}", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
     }
-    // decline
+    // decline — glyph-only; label it (✕ vs ✓ are dangerously ambiguous to a reader)
     Box(
       Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainerHigh)
-        .testTag("decline-${p.uid}").clickable { onDecline(p.uid) },
+        .testTag("decline-${p.uid}").clickable { onDecline(p.uid) }
+        .semantics { contentDescription = "Decline ${p.displayName ?: "request"}" },
       contentAlignment = Alignment.Center,
-    ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge) }
+    ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {}) }
     // approve
     Box(
       Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(cs.primary)
-        .testTag("approve-${p.uid}").clickable { onApprove(p.uid) },
+        .testTag("approve-${p.uid}").clickable { onApprove(p.uid) }
+        .semantics { contentDescription = "Approve ${p.displayName ?: "request"}" },
       contentAlignment = Alignment.Center,
-    ) { Text("✓", color = cs.onPrimary, style = MaterialTheme.typography.labelLarge) }
+    ) { Text("✓", color = cs.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {}) }
   }
 }
 
