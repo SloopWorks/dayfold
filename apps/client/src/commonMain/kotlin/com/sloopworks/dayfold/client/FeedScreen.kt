@@ -79,7 +79,7 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         // CL-5: typed cards dispatch by type; kind-only/legacy cards keep the
         // generic CardItem (back-compat — unknown types render via the typed
         // dispatcher's safe generic fallback, never crash).
-        items(feedCards(state), key = { it.id }) { card ->
+        items(feedCards(state, kotlin.time.Clock.System.now().toString()), key = { it.id }) { card ->
           if (card.type != null) TypedCardItem(card, onAction) else CardItem(card)
         }
       }
