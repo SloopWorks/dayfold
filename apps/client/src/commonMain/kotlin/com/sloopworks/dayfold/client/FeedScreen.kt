@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +18,9 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,7 +34,7 @@ import com.sloopworks.dayfold.client.cards.TypedCardItem
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}) {
+fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}) {
   Scaffold(
     topBar = {
     TopAppBar(
@@ -69,6 +72,9 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
+        // A sync failure with cached cards was silent before — surface a calm,
+        // non-alarming banner with a retry instead of showing stale cards as if fresh.
+        if (state.error != null) item(key = "sync-error") { RefreshErrorBanner(onRefresh) }
         // CL-5: typed cards dispatch by type; kind-only/legacy cards keep the
         // generic CardItem (back-compat — unknown types render via the typed
         // dispatcher's safe generic fallback, never crash).
@@ -76,6 +82,21 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
           if (card.type != null) TypedCardItem(card, onAction) else CardItem(card)
         }
       }
+    }
+  }
+}
+
+// Calm refresh-failed banner — warm secondaryContainer (never alarming error-red),
+// with a retry. Shown above a populated feed so a failed sync isn't silent.
+@Composable
+private fun RefreshErrorBanner(onRefresh: () -> Unit) {
+  Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+    Row(
+      Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text("Couldn't refresh — showing saved cards", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
+      TextButton(onClick = onRefresh) { Text("Retry") }
     }
   }
 }

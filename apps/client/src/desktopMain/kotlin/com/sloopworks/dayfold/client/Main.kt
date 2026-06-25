@@ -59,6 +59,7 @@ fun main() = application {
       onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
       onApproveDevice = { fid -> scope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
+      onRefresh = { scope.launch { syncEngine.syncNow() } },
       onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
       onOpenHub = { id, block -> scope.launch { hubEngine.openHub(id, block) } },
       onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription

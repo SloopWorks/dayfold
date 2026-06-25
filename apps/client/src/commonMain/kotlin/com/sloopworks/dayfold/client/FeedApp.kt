@@ -66,6 +66,7 @@ fun FeedApp(
   onApproveDevice: (String) -> Unit = {},
   onDenyDevice: (String) -> Unit = {},
   onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
+  onRefresh: () -> Unit = {},           // feed pull/retry → syncEngine.syncNow()
   onLoadHubs: () -> Unit = {},          // Hubs (ADR 0006): list fetch (HubEngine.loadHubs)
   onOpenHub: (String, String?) -> Unit = { _, _ -> },  // tap/deep-link a hub → load tree (+ focus block)
   onCloseHub: () -> Unit = {},          // detail → list: cancel the DB tree subscription (HubEngine.closeHub)
@@ -99,6 +100,7 @@ fun FeedApp(
         store, state, handle,
         onConnectDevice = { store.dispatch(OpenEnterCode) },
         onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+        onRefresh = onRefresh,
       )
       Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience)
       Route.EnterCode -> EnterCodeScreen(
@@ -158,7 +160,7 @@ fun FeedApp(
 // cross-fade; the shared element drives the bounds morph. Asymmetric timing.
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}) {
+private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}) {
   val detail = currentDetailCard(state)
   SharedTransitionLayout {
     AnimatedContent(
@@ -176,7 +178,7 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
       ) {
         val card = id?.let { cid -> state.cards.find { it.id == cid } }
         if (card != null) DetailScreen(card, onBack = { store.dispatch(NavBack) }, onAction = handle)
-        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs)
+        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh)
       }
     }
   }

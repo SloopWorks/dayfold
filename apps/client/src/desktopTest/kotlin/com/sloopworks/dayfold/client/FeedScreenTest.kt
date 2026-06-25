@@ -4,8 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 // Headless render proof — Compose Desktop renders the feed off-screen (Skiko
 // software), no device needed. Verifies the redux state → Compose feed binding.
@@ -36,5 +38,18 @@ class FeedScreenTest {
   fun showsSyncingStatus() = runComposeUiTest {
     setContent { MaterialTheme { FeedScreen(AppState(syncing = true)) } }
     onNodeWithText("Syncing…").assertIsDisplayed()
+  }
+
+  @Test
+  fun populatedFeedSurfacesSyncFailureWithRetry() = runComposeUiTest {
+    // a sync error with cached cards was silent before — now a calm banner + retry,
+    // and the saved cards still render (offline-first: stale beats blank).
+    var retried = false
+    val state = AppState(cards = listOf(Card("c1", title = "Soccer 4pm")), error = "Network unavailable")
+    setContent { MaterialTheme { FeedScreen(state, onRefresh = { retried = true }) } }
+    onNodeWithText("Couldn't refresh", substring = true).assertIsDisplayed()
+    onNodeWithText("Soccer 4pm").assertIsDisplayed()           // cached card still shown
+    onNodeWithText("Retry").performClick()
+    assertTrue(retried)                                        // retry triggers a re-sync
   }
 }

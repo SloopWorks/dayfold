@@ -134,6 +134,7 @@ class MainActivity : ComponentActivity() {
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },
           onApproveDevice = { fid -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
+          onRefresh = { lifecycleScope.launch { syncEngine.syncNow() } },
           onLoadHubs = { lifecycleScope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
           onOpenHub = { id, block -> lifecycleScope.launch { hubEngine.openHub(id, block) } },
           onCloseHub = { lifecycleScope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
