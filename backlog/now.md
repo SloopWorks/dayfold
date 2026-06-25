@@ -48,6 +48,14 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
   prod schema is current through 0011 (0006–0010 already applied — hub features
   are live). Agent could apply under ADR 0012 rails but it's prod DDL on
   customer data → left operator-gated.
+- [ ] **ADR 0031 (CLI Homebrew distribution) — review + accept/reject + setup.**
+  Spike (`research/2026-06-25-spike-cli-homebrew-distribution.md`) + Proposed ADR
+  recommend a one-line `brew install` via a first-party tap. Operator-gated steps:
+  (1) **license / public-vs-private distribution decision** (repo is unlicensed; a
+  public tap distributes the CLI publicly); (2) create `SloopWorks/homebrew-tap`;
+  (3) add a `HOMEBREW_TAP_TOKEN` secret; (4) accept the ADR → then the inert
+  `release-cli.yml` + formula land and `cli-v0.1.0` is cut. The packaging-ready
+  build change already merged (#76).
 - [ ] **INB-3** kill-checks (~2 hrs): Gemini Daily Brief + Maple+ hands-on;
   note the niche gap → feeds A1. *(Only matters if pursuing the business path.)*
 - [ ] **INB-13** hand the trigger-design v2 fix-list (`designs/DESIGN-BRIEF-
