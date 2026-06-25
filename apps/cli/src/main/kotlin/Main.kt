@@ -138,15 +138,19 @@ fun main(args: Array<String>) {
       }
     }
 
-    // dayfold push <cardId> <file.json>  — PUT a briefing card (M0 feed).
+    // dayfold push <id> <file.json> [--hub]  — PUT a briefing card (default) or a Hub.
     "push" -> {
       val id = args.getOrNull(1) ?: usage()
       val file = args.getOrNull(2) ?: usage()
       val payload = Files.readString(Path.of(file))
+      // --hub targets a Hub (PUT /hubs/:id) instead of a briefing card. The server
+      // is the authority for hub shape (no generated hub schema in the CLI yet), so
+      // the card --type validation below applies to cards only.
+      val resource = pushResource(args)
       // CL-3: opt-in local typed validation (`--type <t>`) — fail fast with field
       // errors before the server, against the generated schema types. Server stays
-      // the authority. Flags come AFTER the positional <cardId> <file>.
-      flagValue(args, "--type")?.let { t ->
+      // the authority. Flags come AFTER the positional <id> <file>.
+      if (resource == "cards") flagValue(args, "--type")?.let { t ->
         val errs = validateCard(t, withId(payload, id))
         if (errs.isNotEmpty()) {
           System.err.println("validation failed:\n  " + errs.joinToString("\n  "))
@@ -158,7 +162,7 @@ fun main(args: Array<String>) {
       val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
       if (creds != null) {
         var access = creds.accessToken
-        var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
+        var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", payload, access)
         if (code == 401) {
           access = store.withRefreshLock {
             val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
@@ -171,16 +175,16 @@ fun main(args: Array<String>) {
             saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = newRefresh))
             newAccess
           }
-          val retry = putStatus("${creds.api}/families/${creds.familyId}/cards/$id", payload, access)
+          val retry = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", payload, access)
           code = retry.first; body = retry.second
         }
-        println("push $id -> $code")
+        println("push $resource/$id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       } else {
         // legacy env path (unchanged)
         val api = env("DAYFOLD_API"); val fam = env("FAMILY_ID"); val secret = env("HOUSEHOLD_SECRET")
-        val (code, body) = putStatus("$api/families/$fam/cards/$id", payload, secret)
-        println("push $id -> $code")
+        val (code, body) = putStatus("$api/families/$fam/$resource/$id", payload, secret)
+        println("push $resource/$id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       }
     }
@@ -201,6 +205,10 @@ fun main(args: Array<String>) {
 }
 
 private val CONTENT_TYPES = listOf("file", "link", "invite", "contact", "geo", "email")
+
+/** The content resource `push` targets: a Hub with `--hub`, else a briefing card.
+ *  PUT path is /families/:fid/<resource>/:id. */
+fun pushResource(args: Array<String>): String = if (hasFlag(args, "--hub")) "hubs" else "cards"
 
 /** Value following a `--flag` token (position-agnostic), or null. */
 private fun flagValue(args: Array<String>, flag: String): String? {
@@ -305,8 +313,9 @@ private fun usage(): Nothing {
       "  login [--allow-env-key] | logout | whoami\n" +
       "        (refresh token is stored in the OS keychain; --allow-env-key permits\n" +
       "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
-      "  push <cardId> <file.json> [--type file|link|invite|contact|geo|email]\n" +
-      "        (--type runs local typed validation before the server)\n" +
+      "  push <id> <file.json> [--hub] [--type file|link|invite|contact|geo|email]\n" +
+      "        (default: a briefing card; --hub PUTs a Hub. --type runs local\n" +
+      "         typed card validation before the server)\n" +
       "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
       "  template <type>            print a valid starter card for the type",
   )
