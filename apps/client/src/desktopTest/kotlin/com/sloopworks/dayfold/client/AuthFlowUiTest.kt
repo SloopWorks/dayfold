@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
@@ -52,7 +53,7 @@ class AuthFlowUiTest {
 
     // 3) Feed (empty → null state); open the account overlay via the monogram
     waitUntil(timeoutMillis = 5_000L) { seen("Your family space is ready") }
-    onNodeWithText("Y").performClick()
+    onNodeWithContentDescription("Account").performClick()
 
     // 4) Account → sign out → confirm dialog → confirm
     waitUntil(timeoutMillis = 5_000L) { seen("Sign out") }
@@ -129,7 +130,7 @@ class AuthFlowUiTest {
     onNodeWithText("Continue with Google").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Today") }
     // Feed → account → members
-    onNodeWithText("Y").performClick()
+    onNodeWithContentDescription("Account").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Members & approvals") }
     onNodeWithText("Members & approvals").performClick()
     // pending queue + active roster both load
@@ -166,7 +167,7 @@ class AuthFlowUiTest {
 
     onNodeWithText("Continue with Google").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Today") }
-    onNodeWithText("Y").performClick()
+    onNodeWithContentDescription("Account").performClick()
     waitUntil(timeoutMillis = 5_000L) { seen("Connected devices") }
     onNodeWithText("Connected devices").performClick()
     // list loads; the CLI grant is revocable, the current device is not

@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
@@ -24,6 +25,13 @@ class FeedScreenTest {
     setContent { MaterialTheme { FeedScreen(state) } }
     onNodeWithText("Soccer 4pm").assertIsDisplayed()
     onNodeWithText("Leave by 3:30").assertIsDisplayed()
+  }
+
+  @Test
+  fun accountAvatarExposesAnAccessibleLabel() = runComposeUiTest {
+    // the monogram avatar is icon-only → screen readers must hear "Account", not "Y"
+    setContent { MaterialTheme { FeedScreen(AppState(cards = listOf(Card("c1", title = "X")))) } }
+    onNodeWithContentDescription("Account").assertIsDisplayed()
   }
 
   @Test

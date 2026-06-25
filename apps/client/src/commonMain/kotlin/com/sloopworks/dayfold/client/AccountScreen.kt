@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -77,9 +80,10 @@ fun AccountScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       Box(
-        Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClose),
+        Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClose)
+          .semantics { contentDescription = "Close" },
         contentAlignment = Alignment.Center,
-      ) { Text("‹", style = MaterialTheme.typography.headlineSmall, color = cs.onSurface) }
+      ) { Text("‹", style = MaterialTheme.typography.headlineSmall, color = cs.onSurface, modifier = Modifier.clearAndSetSemantics {}) }
       Text("Account", style = MaterialTheme.typography.titleLarge, color = cs.onSurface)
     }
 

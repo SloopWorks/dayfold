@@ -27,6 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.toLocalDateTime
 import com.sloopworks.dayfold.client.cards.CardAction
@@ -50,15 +53,18 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         }
       },
       actions = {
-        // account entry — monogram avatar → AccountScreen (sign-out lives there)
+        // account entry — monogram avatar → AccountScreen (sign-out lives there).
+        // Icon-only → label it "Account"; the "Y" monogram is decorative.
         Box(
           Modifier.padding(end = 12.dp).size(34.dp).clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onOpenAccount),
+            .background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onOpenAccount)
+            .semantics { contentDescription = "Account" },
           contentAlignment = Alignment.Center,
         ) {
           Text(
             "Y", style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.clearAndSetSemantics {},
           )
         }
       },
