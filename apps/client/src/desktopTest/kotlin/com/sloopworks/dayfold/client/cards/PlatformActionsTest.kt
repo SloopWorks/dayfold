@@ -34,6 +34,15 @@ class PlatformActionsTest {
     assertNull(cardActionUri(CardAction.Email("https://x.org")))                // wrong scheme
   }
 
+  // The plain \r\n CRLF case is covered above; these lock the OTHER injection
+  // guards vetMailto enforces — percent-encoded CRLF/header smuggling (the literal
+  // '%' reject, which survives a whitespace-only check) and angle-addr <> framing.
+  @Test fun `mailto rejects percent-encoded and angle-addr injection vectors`() {
+    assertNull(cardActionUri(CardAction.Email("mailto:a@x.com%0D%0Acc:v@e.com"))) // %-encoded CRLF
+    assertNull(cardActionUri(CardAction.Email("mailto:a@x.com%20")))              // %-encoded space
+    assertNull(cardActionUri(CardAction.Email("mailto:<a@x.com>")))               // angle-addr framing
+  }
+
   @Test fun `navigate is a percent-encoded geo query, never coordinates`() {
     assertEquals("geo:0,0?q=Riverside%20Park", cardActionUri(CardAction.Navigate("Riverside Park")))
     // multibyte UTF-8 percent-encoded (café), space → %20 not +
