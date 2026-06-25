@@ -22,13 +22,22 @@ class HubDateTest {
   }
 
   private val now = "2026-06-24T12:00:00Z"
+  private val utc = kotlinx.datetime.TimeZone.UTC   // pin tz so the test is deterministic
   @Test fun countdownReadsAcrossTheRange() {
-    assertEquals("in 12 days", countdownLabel("2026-07-06 12:00:00Z", now))
-    assertEquals("Tomorrow", countdownLabel("2026-06-25 13:00:00Z", now))
-    assertEquals("Today", countdownLabel("2026-06-24 18:00:00Z", now))
-    assertEquals("Yesterday", countdownLabel("2026-06-23 06:00:00Z", now))
-    assertEquals("3 days ago", countdownLabel("2026-06-21 06:00:00Z", now))
-    assertNull(countdownLabel(null, now))           // no date → no badge
-    assertNull(countdownLabel("not-a-date", now))   // junk → no crash, no badge
+    assertEquals("in 12 days", countdownLabel("2026-07-06 12:00:00Z", now, utc))
+    assertEquals("Tomorrow", countdownLabel("2026-06-25 13:00:00Z", now, utc))
+    assertEquals("Today", countdownLabel("2026-06-24 18:00:00Z", now, utc))
+    assertEquals("Yesterday", countdownLabel("2026-06-23 06:00:00Z", now, utc))
+    assertEquals("3 days ago", countdownLabel("2026-06-21 06:00:00Z", now, utc))
+    assertNull(countdownLabel(null, now, utc))           // no date → no badge
+    assertNull(countdownLabel("not-a-date", now, utc))   // junk → no crash, no badge
+  }
+
+  @Test fun countdownUsesCalendarDaysNotElapsedHours() {
+    // 8pm; an event at 6am the NEXT calendar day is 10h away — calendar-correct is
+    // "Tomorrow" (elapsed-hours math wrongly said "Today").
+    assertEquals("Tomorrow", countdownLabel("2026-06-25T06:00:00Z", "2026-06-24T20:00:00Z", utc))
+    // 22h apart but the SAME calendar day → still "Today"
+    assertEquals("Today", countdownLabel("2026-06-24T23:00:00Z", "2026-06-24T01:00:00Z", utc))
   }
 }
