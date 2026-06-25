@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +63,7 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
       Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
         when {
           state.syncing -> Text("Syncing…")
-          state.error != null -> Text(state.error)
+          state.error != null -> EmptyFeedError(state.error, onRefresh)   // dead-end before: no recovery
           else -> FamilyNullState(onConnectDevice = onConnectDevice)
         }
       }
@@ -83,6 +84,21 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         }
       }
     }
+  }
+}
+
+// Empty feed + sync failure (e.g. first launch offline) was a dead-end — just the
+// raw error text, no way forward. Give a calm headline, the reason, and a retry.
+@Composable
+private fun EmptyFeedError(error: String, onRefresh: () -> Unit) {
+  Column(
+    Modifier.padding(40.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    Text("Couldn't load your day", style = MaterialTheme.typography.titleMedium)
+    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Button(onClick = onRefresh) { Text("Try again") }
   }
 }
 

@@ -41,6 +41,17 @@ class FeedScreenTest {
   }
 
   @Test
+  fun emptyFeedErrorOffersRetryInsteadOfDeadEnd() = runComposeUiTest {
+    // first-launch-offline: empty + error must offer a way forward, not just text
+    var retried = false
+    setContent { MaterialTheme { FeedScreen(AppState(error = "Network unavailable"), onRefresh = { retried = true }) } }
+    onNodeWithText("Couldn't load your day").assertIsDisplayed()
+    onNodeWithText("Network unavailable").assertIsDisplayed()   // the actual reason
+    onNodeWithText("Try again").performClick()
+    assertTrue(retried)
+  }
+
+  @Test
   fun populatedFeedSurfacesSyncFailureWithRetry() = runComposeUiTest {
     // a sync error with cached cards was silent before — now a calm banner + retry,
     // and the saved cards still render (offline-first: stale beats blank).
