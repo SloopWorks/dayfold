@@ -13,12 +13,22 @@ android {
   namespace = "com.sloopworks.dayfold.android"
   compileSdk = 37  // Compose-MP 1.11.1 requires compiling against API 37+
 
+  // Release signing is env/Gradle-property driven (CI sets these — ADR 0034,
+  // processes/mobile-release.md). Absent locally → the `release` config is NOT
+  // created and the release variant stays unsigned, exactly as before — so the
+  // debug dev loop AND a local `bundleRelease` keep working with no secrets.
+  val releaseStoreFile = (findProperty("DAYFOLD_KEYSTORE_FILE") as String?) ?: System.getenv("DAYFOLD_KEYSTORE_FILE")
+  val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exists()
+
   defaultConfig {
     applicationId = "com.sloopworks.dayfold"
     minSdk = 34 // matches :client
     targetSdk = 37
-    versionCode = 1
-    versionName = "0.0.0-M0"
+    // versionCode/Name are CI-overridable (ADR 0034): CI sets a monotonic
+    // versionCode (GitHub run number + offset) and a versionName from the release
+    // tag; local dev keeps the M0 defaults.
+    versionCode = System.getenv("DAYFOLD_VERSION_CODE")?.toIntOrNull() ?: 1
+    versionName = System.getenv("DAYFOLD_VERSION_NAME") ?: "0.0.0-M0"
     // dev config baked at build time (emulator → host = 10.0.2.2)
     buildConfigField("String", "DAYFOLD_API", "\"${System.getenv("DAYFOLD_API") ?: "http://10.0.2.2:8799"}\"")
     buildConfigField("String", "FAMILY_ID", "\"${System.getenv("FAMILY_ID") ?: ""}\"")
@@ -26,6 +36,29 @@ android {
     // S5 dev sign-in (local only; the server hard-refuses dev-token in prod/preview).
     buildConfigField("String", "DEV_AUTH_SECRET", "\"${System.getenv("DEV_AUTH_SECRET") ?: ""}\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  signingConfigs {
+    if (hasReleaseSigning) {
+      create("release") {
+        storeFile = file(releaseStoreFile!!)
+        storePassword = (findProperty("DAYFOLD_KEYSTORE_PASSWORD") as String?) ?: System.getenv("DAYFOLD_KEYSTORE_PASSWORD")
+        keyAlias = (findProperty("DAYFOLD_KEY_ALIAS") as String?) ?: System.getenv("DAYFOLD_KEY_ALIAS")
+        keyPassword = (findProperty("DAYFOLD_KEY_PASSWORD") as String?) ?: System.getenv("DAYFOLD_KEY_PASSWORD")
+      }
+    }
+  }
+
+  buildTypes {
+    getByName("release") {
+      // Sign only when the keystore env is present (CI); unsigned otherwise so local
+      // `bundleRelease` still works. Play App Signing holds the real app key; this is
+      // the *upload* key (ADR 0034).
+      if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+      // R8/minify stays OFF (current behavior) — enabling it needs vetted keep-rules
+      // for redux/Firebase/Compose and is a separate task (ADR 0034 gap).
+      isMinifyEnabled = false
+    }
   }
 
   buildFeatures { compose = true; buildConfig = true }
@@ -71,6 +104,16 @@ dependencies {
   debugImplementation(project(":debugdrawer"))
   debugImplementation(project(":debugdrawer-redux"))
   releaseImplementation(project(":debugdrawer-noop"))
+
+  // The shell now wires the HTTP client explicitly (to inject the fake backend), so
+  // ktor-client-core's types must be on the compile classpath in BOTH variants.
+  // :client depends on it as `implementation` (not exposed transitively); the runtime
+  // artifact already ships via :client, so this only surfaces the compile-time type.
+  implementation("io.ktor:ktor-client-core:3.5.0")
+  // Dev-only fake backend (debug UI testing): MockEngine serves canned scenarios.
+  // debug-only → never on the release classpath (release uses the inert src/release
+  // FakeBackend.kt mirror, which returns null/empty and imports no ktor-mock).
+  debugImplementation("io.ktor:ktor-client-mock:3.5.0")
 
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)

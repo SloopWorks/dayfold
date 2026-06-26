@@ -68,6 +68,43 @@ jobs:
       - working-directory: apps
         run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest
 
+  android:
+    name: Android app (assembleDebug — compile smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      # google-services.json is gitignored + per-env (the real config is a release
+      # secret). For a compile-only smoke a stub is enough — it satisfies the gms
+      # plugin without shipping real Firebase config (same stub release-android.yml
+      # falls back to). Google sign-in is non-functional here — irrelevant to a build.
+      - name: Stub google-services.json (compile-only)
+        run: |
+          cat > apps/androidApp/google-services.json <<'JSON'
+          {
+            "project_info": { "project_number": "000000000000", "project_id": "dayfold-stub", "storage_bucket": "dayfold-stub.appspot.com" },
+            "client": [ {
+              "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000000", "android_client_info": { "package_name": "com.sloopworks.dayfold" } },
+              "oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ],
+              "api_key": [ { "current_key": "AIzaSyStubStubStubStubStubStubStubStub00" } ],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ] } }
+            } ],
+            "configuration_version": "1"
+          }
+          JSON
+      - name: Ensure the Android platform is installed (compileSdk 37 / Android 16)
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes 2>/dev/null | "$SDK" --licenses >/dev/null 2>&1 || true
+          "$SDK" "platforms;android-37" "build-tools;36.0.0" >/dev/null 2>&1 \
+            || "$SDK" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null 2>&1 || true
+      # Builds the real Compose app (debug variant): :client + debug drawer + fake backend.
+      - name: assembleDebug
+        working-directory: apps
+        run: ./gradlew --no-daemon :androidApp:assembleDebug
+
   naming-guard:
     name: No legacy com.familyai package (ADR 0026)
     runs-on: ubuntu-latest

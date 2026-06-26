@@ -71,6 +71,9 @@ kotlin {
         implementation(compose.desktop.currentOs)
         implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
         implementation("io.ktor:ktor-client-cio:3.5.0")
+        // Dev-only fake backend (debug UI testing). Desktop has no release variant,
+        // so the MockEngine dep is acceptable here; on Android it's debug-only.
+        implementation("io.ktor:ktor-client-mock:3.5.0")
       }
     }
     iosMain.dependencies {

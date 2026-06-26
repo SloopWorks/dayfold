@@ -9,6 +9,33 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-23 · ANSWERED 2026-06-26 → ADR 0034 ACCEPTED.** Operator "inb 23 approved" →
+  ADR 0034 flipped Proposed→Accepted; **G5 posture ratified** (all tracks→prod Vercel
+  API, real sign-in AUTH-S3, never bake `HOUSEHOLD_SECRET`/`DEV_AUTH_SECRET`). The
+  remaining **G1–G4 are one-time operator setup actions** to switch the (merged, inert)
+  pipeline live — recommended order G1+G3 first (keystore + Play account) so merges
+  auto-ship to `internal`, then G2 (real Firebase) before relying on Google sign-in, G4
+  before a real beta. Runbook: `processes/mobile-release.md`. Original below.
+
+  **Mobile release pipeline: one-time store gates
+  (ADR 0034).** The 3-track Android pipeline is built + merged
+  (`release-android.yml` + signing/versioning + a CI compile smoke) and **inert until**
+  these operator-only gates are done (secrets / accounts / spend / store listing).
+  Runbook: `processes/mobile-release.md`. **Proposed default: do G1+G3 first** (keystore +
+  Play account) so merges auto-ship to the `internal` track; defer G4 until closer to a
+  real beta.
+  - **G1** generate the upload keystore (+ opt into Play App Signing) → 4 secrets.
+  - **G2** real Firebase `google-services.json` → `GOOGLE_SERVICES_JSON_BASE64` (else
+    Google sign-in is dead in store builds).
+  - **G3** Play Console + service account ($25 one-time — **spend**); first AAB uploaded
+    by hand → `PLAY_SERVICE_ACCOUNT_JSON`.
+  - **G4** store listing + **data-safety form** (intersects children's-data / restricted-
+    scope guardrails — review carefully).
+  - **G5** confirm: all tracks → prod Vercel API (no staging), real sign-in (AUTH-S3),
+    **never bake `HOUSEHOLD_SECRET`/`DEV_AUTH_SECRET`** into a store build.
+  - Also **accept/flip ADR 0034** (Proposed → Accepted) — platform/vendor + external
+    publishing + spend, so it's operator-gated.
+
 - **INB-22 · ANSWERED 2026-06-24 → SIGNED OFF (ADR 0008 hub-visibility delta).**
   Operator signed off the per-member visibility treatment on the Hubs surface
   (`designs/Family AI dashboard design brief/designs/Hubs-Visibility.dc.html`):

@@ -1,0 +1,173 @@
+# Mobile (Android) release pipeline — alpha / beta / prod (ADR 0034).
+#
+# Trigger map:
+#   • push to `main` (= PR merge)        → build + publish to the Play **internal**
+#                                          track ("alpha": instant, ≤100 testers, no review)
+#   • tag `android-beta-v<semver>`       → Play **beta** (closed/open testing)
+#   • tag `android-v<semver>`            → Play **production** as a **draft** (the
+#                                          operator clicks "roll out" in the Console —
+#                                          keeps go-live an operator action, CLAUDE.md
+#                                          guardrail #4/§External-actions)
+#
+# Safe to land before any store setup (mirrors release-cli.yml): every external step
+# is gated on its secret being present. With no secrets it builds an (unsigned) AAB
+# and skips the Play upload — so the workflow is green and inert until the operator
+# finishes the one-time gates (keystore, google-services, Play service account —
+# processes/mobile-release.md). versionCode is a monotonic GitHub run number; the
+# SAME signed bytes Play re-signs via Play App Signing.
+#
+# Security posture (same as release-cli.yml): the tag is UNTRUSTED → strictly
+# validated as ^[0-9]+\.[0-9]+\.[0-9]+$ before use, and every external value is passed
+# via `env:` then referenced as a quoted "$VAR" — never `${{ }}`-interpolated into a
+# run block. Only official, SHA-pinned actions (checkout, setup-java); the SDK / build
+# / publish are plain `run:` steps (fastlane `supply` CLI — no third-party action).
+name: Release Android
+
+on:
+  push:
+    branches: [main]
+    tags: ["android-v*", "android-beta-v*"]
+
+permissions:
+  contents: read           # Play upload needs no repo write (unlike the CLI GitHub Release)
+
+concurrency:
+  group: release-android   # serialize: never let two uploads race the same versionCode
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5    # v4 (SHA-pinned)
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9  # v4 (SHA-pinned)
+        with: { distribution: temurin, java-version: "17" }
+
+      - name: Derive track + version (from the ref; tag strictly validated)
+        id: derive
+        run: |
+          set -euo pipefail
+          ref="$GITHUB_REF_NAME"
+          case "$GITHUB_REF" in
+            refs/tags/android-beta-v*) version="${ref#android-beta-v}"; track="beta";       status="completed" ;;
+            refs/tags/android-v*)      version="${ref#android-v}";      track="production";  status="draft"     ;;
+            refs/heads/main)           version="";                      track="internal";    status="completed" ;;
+            *) echo "::error::unsupported ref '$GITHUB_REF' (expect main, android-v*, or android-beta-v*)"; exit 1 ;;
+          esac
+          if [ "$track" = "internal" ]; then
+            version_name="0.0.0-alpha.${GITHUB_RUN_NUMBER}"
+          else
+            # Anchored full-match — rejects metacharacters / suffixes / pre-release.
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::tag '$ref' is not android[-beta]-v<MAJOR.MINOR.PATCH>"; exit 1
+            fi
+            version_name="$version"
+          fi
+          # Monotonic across all tracks; +1000 keeps it above any prior manual upload.
+          version_code=$(( GITHUB_RUN_NUMBER + 1000 ))
+          {
+            echo "track=$track"
+            echo "status=$status"
+            echo "version_name=$version_name"
+            echo "version_code=$version_code"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::track=$track status=$status versionName=$version_name versionCode=$version_code"
+
+      - name: Materialize google-services.json (real from secret, else a stub)
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GS_B64:-}" ]; then
+            echo "$GS_B64" | base64 -d > apps/androidApp/google-services.json
+            echo "::notice::using real google-services.json from GOOGLE_SERVICES_JSON_BASE64"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON_BASE64 not set — writing a STUB; real Google sign-in will NOT work in this build (operator gate G2)"
+            cat > apps/androidApp/google-services.json <<'JSON'
+          {
+            "project_info": { "project_number": "000000000000", "project_id": "dayfold-stub", "storage_bucket": "dayfold-stub.appspot.com" },
+            "client": [ {
+              "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000000", "android_client_info": { "package_name": "com.sloopworks.dayfold" } },
+              "oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ],
+              "api_key": [ { "current_key": "AIzaSyStubStubStubStubStubStubStubStub00" } ],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ] } }
+            } ],
+            "configuration_version": "1"
+          }
+          JSON
+          fi
+
+      - name: Decode the upload keystore (if configured)
+        id: keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KS_B64:-}" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "DAYFOLD_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set — building an UNSIGNED AAB (cannot publish to Play; operator gate G1)"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure the Android platform is installed
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes 2>/dev/null | "$SDK" --licenses >/dev/null 2>&1 || true
+          # compileSdk=37 (Android 16). The preview platform package is android-37.0;
+          # try the stable name first, fall back to the preview name. Non-fatal — if
+          # the runner already has it, the build proceeds.
+          "$SDK" "platforms;android-37" "build-tools;36.0.0" >/dev/null 2>&1 \
+            || "$SDK" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null 2>&1 || true
+
+      - name: Build the release AAB
+        working-directory: apps
+        env:
+          DAYFOLD_VERSION_CODE: ${{ steps.derive.outputs.version_code }}
+          DAYFOLD_VERSION_NAME: ${{ steps.derive.outputs.version_name }}
+          DAYFOLD_KEYSTORE_PASSWORD: ${{ secrets.DAYFOLD_KEYSTORE_PASSWORD }}
+          DAYFOLD_KEY_ALIAS: ${{ secrets.DAYFOLD_KEY_ALIAS }}
+          DAYFOLD_KEY_PASSWORD: ${{ secrets.DAYFOLD_KEY_PASSWORD }}
+          # Store builds target the prod API. FAMILY_ID / HOUSEHOLD_SECRET / DEV_AUTH_SECRET
+          # are intentionally LEFT UNSET (empty) — never bake a household credential or the
+          # dev-token secret into a distributed build (ADR 0034 §security; gap G5).
+          DAYFOLD_API: https://family-ai-dashboard.vercel.app
+        run: ./gradlew --no-daemon :androidApp:bundleRelease
+
+      - name: Is Play configured?
+        id: play
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "${PLAY_JSON:-}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::PLAY_SERVICE_ACCOUNT_JSON not set — skipping Play upload (AAB built; operator gate G3)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Publish only when BOTH the AAB is signed AND Play is configured. fastlane
+      # `supply` (CLI, no third-party action) uploads the bundle to the derived track;
+      # production goes up as a DRAFT so the operator performs the externally-visible
+      # roll-out in the Play Console.
+      - name: Publish to Google Play
+        if: steps.keystore.outputs.signed == 'true' && steps.play.outputs.ready == 'true'
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ steps.derive.outputs.track }}
+          STATUS: ${{ steps.derive.outputs.status }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
+          gem install --no-document fastlane >/dev/null
+          fastlane supply \
+            --package_name com.sloopworks.dayfold \
+            --aab apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab \
+            --track "$TRACK" \
+            --release_status "$STATUS" \
+            --json_key "$RUNNER_TEMP/play.json" \
+            --skip_upload_metadata --skip_upload_images --skip_upload_screenshots --skip_upload_changelogs
+          echo "::notice::uploaded versionCode ${{ steps.derive.outputs.version_code }} to '$TRACK' ($STATUS)"
