@@ -247,4 +247,22 @@ class AuthFlowUiTest {
     onNodeWithTag("device-approve").performClick()
     assertEquals("fam2", approvedFid)                           // grant routes to the chosen family, not the default
   }
+
+  // Manual code entry (the path the scan escapes lead to). device-code-field +
+  // device-continue were orphaned, and normalizeDeviceCode/formatUserCode had no test.
+  @Test fun enterCodeNormalizesThenSubmitsTheFormattedCode() = runComposeUiTest {
+    var looked: String? = null
+    setContent { DayfoldTheme { EnterCodeScreen(AppState(route = Route.EnterCode), onLookup = { looked = it }) } }
+    onNodeWithTag("device-code-field").performTextInput("wdjf-7k2p")   // lowercase + dash, as a human types it
+    onNodeWithTag("device-continue").performClick()
+    assertEquals("WDJF-7K2P", looked)                            // uppercased, dash dropped then re-formatted XXXX-XXXX
+  }
+
+  @Test fun continueDoesNotSubmitAnIncompleteCode() = runComposeUiTest {
+    var looked: String? = null
+    setContent { DayfoldTheme { EnterCodeScreen(AppState(route = Route.EnterCode), onLookup = { looked = it }) } }
+    onNodeWithTag("device-code-field").performTextInput("wd2")   // 3 chars — short
+    onNodeWithTag("device-continue").performClick()
+    assertEquals(null, looked)                                   // submit() guards on 8 chars; button is disabled too
+  }
 }
