@@ -62,12 +62,17 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   (M:N model is built; UI is single-family at MVP). → ADR 0011.
 - **OQ-invite-roles:** can a non-owner adult invite members? Default
   owner-only at MVP. → `specs/auth-and-family-design.md`.
-- **OQ-markdown-render** *(largely resolved 2026-06-18)*: renderer =
-  `mikepenz/multiplatform-markdown-renderer` (+`-coil3`), lazy render,
-  XSS-safe-by-structure; images **off at MVP**; app must allowlist link
-  schemes + gate image hosts. Residual: confirm task-list/autolink rendering
-  in-app + decide when to enable images. → `specs/event-hubs-design.md`
-  §Markdown.
+- **OQ-markdown-render** *(M0 shipped 2026-06-26; full-fidelity deferred)*: the
+  2026-06-18 plan was `mikepenz/multiplatform-markdown-renderer` (+`-coil3`).
+  **What actually shipped (M0) is a hand-rolled `renderBlockMarkdown`**
+  (`CardRender.kt`, no dependency) → `AnnotatedString` covering **bold/italic,
+  bullet + checkbox + ordered lists, tables, ATX headings (`#`/`##`), and the
+  scheme-allowlisted `[label](url)` links** — used by both hub blocks (PR #114/
+  #115/#120) and feed cards (#119). XSS-safe via the shared `ALLOWED_SCHEMES`
+  allowlist (same seam as cards). Surfaced + driven by the first real CLI-authored
+  hub. **Images still off** (need async, host-gated loading). Adopt `mikepenz` only
+  if/when full CommonMark fidelity (nested lists, autolink, raw HTML, images) is
+  worth the dep. → `specs/event-hubs-design.md` §Markdown.
 - **OQ-hub-collab:** At MVP, is Hub authoring push/Claude-only, or can family
   members edit Hubs in-app? (Lean: push-only at MVP, in-app edit post-MVP.)
   → feeds `specs/event-hubs-design.md`, C1b.

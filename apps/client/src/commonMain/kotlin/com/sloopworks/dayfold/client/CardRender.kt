@@ -65,12 +65,12 @@ fun renderCardBody(md: String): AnnotatedString = buildAnnotatedString {
 fun hasActionLinks(md: String): Boolean =
   LINK.findAll(md).any { schemeOf(it.groupValues[2]) in ALLOWED_SCHEMES }
 
-// ── block markdown (OQ-markdown-render, first cut) ───────────────────────────
-// Hub-block bodies are authored as real markdown (bold headers, bullet/checkbox
-// lists, inline links). They used to render as RAW Text — `**Jul 1**` showed the
-// asterisks. Render a useful subset to an AnnotatedString: **bold**, _italic_,
-// `- ` / `- [ ]` / `- [x]` lists, and the same vetted [label](url) links as cards.
-// Tables/headings/images are still passthrough (a later upgrade).
+// ── block markdown (OQ-markdown-render) ──────────────────────────────────────
+// Hub-block + card bodies are authored as real markdown. They used to render as
+// RAW Text — `**Jul 1**` showed the asterisks. Render to an AnnotatedString:
+// **bold**, _italic_, `- `/`- [ ]`/`- [x]` + ordered (`1.`) lists, | tables |,
+// ATX `#`/`##` headings, and the same vetted [label](url) links as cards.
+// ONLY images remain passthrough (need async, host-gated loading — see OQ).
 private val INLINE = Regex("""\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_""")
 private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
 private val BULLET = Regex("""^(\s*)[-*]\s+(.*)$""")
