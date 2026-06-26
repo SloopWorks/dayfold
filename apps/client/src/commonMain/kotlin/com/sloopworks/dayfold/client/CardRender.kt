@@ -71,7 +71,9 @@ fun hasActionLinks(md: String): Boolean =
 // **bold**, _italic_, `- `/`- [ ]`/`- [x]` + ordered (`1.`) lists, | tables |,
 // ATX `#`/`##` headings, and the same vetted [label](url) links as cards.
 // ONLY images remain passthrough (need async, host-gated loading — see OQ).
-private val INLINE = Regex("""\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_""")
+// inline tokens: **bold** | [label](url) | _italic_ | bare autolink (https://…).
+// The [..](..) alt precedes the bare-URL alt so a markdown link's URL isn't re-matched.
+private val INLINE = Regex("""\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_|(https?://[^\s)]+)""")
 private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
 private val BULLET = Regex("""^(\s*)[-*]\s+(.*)$""")
 private val TABLE_ROW = Regex("""^\s*\|.*\|\s*$""")
@@ -100,6 +102,16 @@ private fun AnnotatedString.Builder.appendInline(text: String) {
       }
       m.groupValues[4].isNotEmpty() ->
         withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(m.groupValues[4]) }
+      m.groupValues[5].isNotEmpty() -> {                      // bare autolink https://…
+        var url = m.groupValues[5]
+        // don't swallow trailing sentence punctuation into the URL ("…edu." / "…edu)")
+        var end = url.length
+        while (end > 0 && url[end - 1] in ".,;:!?") end--
+        val trail = url.substring(end); url = url.substring(0, end)
+        if (schemeOf(url) in ALLOWED_SCHEMES) withLink(LinkAnnotation.Url(url, LINK_STYLE)) { append(url) }
+        else append(url)                                      // non-allowlisted scheme → plain text
+        append(trail)
+      }
     }
     i = m.range.last + 1
   }

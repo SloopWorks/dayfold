@@ -83,4 +83,26 @@ class BlockMarkdownTest {
     assertEquals("1. Do it", renderBlockMarkdown("1. **Do** it").text)   // inline bold inside an ordered item
     assertEquals(1, boldSpans(renderBlockMarkdown("1. **Do** it")))
   }
+
+  @Test fun `bare https URLs autolink, with trailing punctuation kept as text`() {
+    val a = renderBlockMarkdown("Apply at https://butler.edu today")
+    assertEquals("Apply at https://butler.edu today", a.text)            // text unchanged
+    assertEquals(1, a.getLinkAnnotations(0, a.length).size)
+    val b = renderBlockMarkdown("See https://butler.edu.")
+    assertEquals("See https://butler.edu.", b.text)                      // the "." survives as text
+    val ann = b.getLinkAnnotations(0, b.length).single()
+    assertEquals("https://butler.edu", (ann.item as androidx.compose.ui.text.LinkAnnotation.Url).url) // link excludes the "."
+  }
+
+  @Test fun `a bare http URL is not linkified (https-only policy)`() {
+    val out = renderBlockMarkdown("old http://x.org link")
+    assertEquals("old http://x.org link", out.text)
+    assertTrue(out.getLinkAnnotations(0, out.length).isEmpty())
+  }
+
+  @Test fun `a markdown link is not double-matched by the autolinker`() {
+    val out = renderBlockMarkdown("Tap [here](https://butler.edu) now")
+    assertEquals("Tap here now", out.text)                               // the label, not the url
+    assertEquals(1, out.getLinkAnnotations(0, out.length).size)
+  }
 }
