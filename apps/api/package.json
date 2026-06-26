@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "build:fn": "esbuild src/vercel-entry.ts --bundle --platform=node --format=esm --outfile=api/index.js --packages=external"
+    "build:fn": "esbuild src/vercel-entry.ts --bundle --platform=node --format=esm --outfile=api/index.js --packages=external",
+    "db:check": "node scripts/schema-drift.mjs",
+    "env:check": "node scripts/env-check.mjs",
+    "preflight": "node scripts/env-check.mjs && node scripts/schema-drift.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
