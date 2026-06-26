@@ -179,3 +179,18 @@ New prototype-level open items:
 - **OQ-llm-cost** *(2026-06-18)*: Is LLM cost a viability threat? **No** —
   ~$0.02-0.54/family/mo; 78-91% contribution margin. Acquisition/retention
   is the real constraint, not cost.
+- **OQ-block-payload-schema** *(2026-06-26, authoring-doc review)*: The hub-**block**
+  `payload` shape **diverges** between the client render model
+  (`apps/client/.../Model.kt` `BlockPayload`) and the generated content schema
+  (`packages/schema/kotlin-gen/Content.kt`, from `content.schema.json`). The server
+  stores `payload` as JSONB **verbatim** (passthrough — `content/hubs.ts`), so the
+  *render* contract is the client model: `items[{text,done,due,assignee}]`,
+  `url`/`label`/`domain`/`docRef`, `name`/`role`/`phone`/`email`, `address`/`lat`/`lng`,
+  `date`, `total`/`spent`. The schema instead names `ref`/`source`/`kind`/`mapUrl`
+  and a richer `Item` (`amount`/`label`/`paid`). **Impact:** a structured block authored
+  per the *schema* (e.g. `document.ref`, `location.mapUrl`, `budget` via item `amount`)
+  silently won't render; `body_md` markdown is unaffected. **Not yet hit** (live content
+  is `body_md`-only). **Action:** reconcile the two to one source of truth (likely
+  regenerate/realign `content.schema.json` ↔ client model) before structured-payload
+  authoring is relied on; until then authors use the client-model field names (now in
+  `apps/cli/templates/README.md`) or `body_md`.

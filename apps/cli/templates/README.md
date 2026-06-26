@@ -83,6 +83,24 @@ typed block with only `body_md` and no payload still renders its markdown, so
 prose-style authoring is fine. `text` / `markdown` blocks are always `body_md`.
 `ord` orders sections within a hub, and blocks within a section (ascending).
 
+> **Payload shape — use the render contract, not the generated schema.** The server
+> stores `payload` as JSON **verbatim**, so what renders is the client model. It
+> currently **diverges** from `content.schema.json` (see `OQ-block-payload-schema`),
+> so author with these field names (or just use `body_md`, which always renders):
+>
+> | block       | `payload` fields (client render contract)                          |
+> |-------------|--------------------------------------------------------------------|
+> | `checklist` | `items: [{ text, done, due?, assignee? }]`                          |
+> | `link`      | `url`, `label?`, `domain?`                                          |
+> | `document`  | `url?`, `label?`, `docRef?`                                         |
+> | `contact`   | `name?`, `role?`, `phone?`, `email?`                               |
+> | `location`  | `address?`, `lat?`, `lng?`                                          |
+> | `budget`    | `total?`, `spent?`, `items: [{ text, done }]`                       |
+> | `milestone` | (use `body_md`; `date?` optional)                                  |
+>
+> Do **not** use the schema's `ref` / `mapUrl` / `source` / item `amount`/`paid` —
+> the renderer doesn't read them yet. Reconciliation is tracked in the OQ.
+
 ### Markdown that renders in `body_md`
 
 The app renders this subset (anything else shows as plain text; a network image is
