@@ -13,6 +13,15 @@ NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemin
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
 later milestone; interim authoring = operator + Claude Code via the CLI.
 
+**Status update (2026-06-26): first real on-device sign-in is LIVE on prod.** Real
+Google sign-in + foreground sync now work end-to-end on the Pixel against
+`family-ai-dashboard.vercel.app`, after fixing a two-part prod-config gap (DB schema
+behind the entire AUTH epic + missing token-signing env) and two in-app bugs
+(sync token-refresh-on-401 #104, debug-drawer Logs bridge #106). See the DONE entry
+under *Operator actions* for the full account + the `npm run preflight` recurrence
+guard. Next real validation: operator drives sign-in → create-family → `dayfold
+login` (device grant now works on prod) → CLI authoring → on-device render.
+
 **Status update (2026-06-23):** TASK-KMP + TASK-SYNC done+merged. The **AUTH epic**
 (ADR 0021; S1·S3·S4·S5·S6) and the **CL/Dayfold content epic** (CL-0…CL-9) all
 merged to `main` (PRs #2–#21). **AUTH-S2 *real Google path* ✅ DONE + MERGED**
@@ -39,15 +48,21 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
-- [ ] **🔒 Apply migration `0011_hub_visibility_fanout.sql` to the Neon prod DB**
-  (migrations are applied manually — INB-12). PR #57 fixed an **ADR 0030 subtree-
-  revocation leak in code** (flipping a hub family→restricted with an empty
-  allow-list left its sections/blocks un-tombstoned on already-synced members'
-  devices), but **prod stays exposed until 0011 runs**. Idempotent (`CREATE OR
-  REPLACE` + `DROP TRIGGER IF EXISTS`) — safe to re-run. While there, verify the
-  prod schema is current through 0011 (0006–0010 already applied — hub features
-  are live). Agent could apply under ADR 0012 rails but it's prod DDL on
-  customer data → left operator-gated.
+- [x] **DONE 2026-06-26 — prod DB schema synced + auth env configured (agent, under
+  ADR 0012 rails, operator-supplied the Neon string).** Diagnosing the first real
+  on-device Google sign-in (`firebase HTTP 500`) revealed prod had only ever run the
+  **legacy `HOUSEHOLD_SECRET` content path** — the prior "0006–0010 applied" note was
+  inaccurate; the entire **AUTH epic (0002/0003/0008) + 0004/0005 + 0009 + the
+  0010/0011 fanout** were never applied (incl. the subtree-revocation 0011 this item
+  tracked). Applied all missing migrations → `npm run db:check` = in sync (17/17).
+  Also: prod had **no `AUTH_SIGNING_KEY`/`AUTH_ISS`/`AUTH_AUD`** (token minting threw
+  → `/auth/firebase` 500) — generated an Ed25519 key, set the three vars, redeployed;
+  all auth endpoints non-500. **Sign-in + foreground sync now work on the Pixel.**
+  In-app fixes shipped same day: sync token-refresh-on-401 (#104, the "Couldn't
+  refresh" wedge) + debug-drawer Logs bridge (#106). Recurrence guards: `npm run
+  preflight` (`env:check` #103 + `db:check` #93) + the migration drift-guard (#91).
+  Durable fix for the manual-apply process = **ADR 0033 (Proposed)** — accept to
+  build the tracked runner.
 - [ ] **ADR 0031 (CLI Homebrew distribution) — review + accept/reject + setup.**
   Spike (`research/2026-06-25-spike-cli-homebrew-distribution.md`) + Proposed ADR
   recommend a one-line `brew install` via a first-party tap. Operator-gated steps:
