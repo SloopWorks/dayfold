@@ -67,4 +67,12 @@ class HubClientTest {
     val ex = assertFailsWith<AuthHttpException> { client(engine).familyHubs("ax", "fam1") }
     assertEquals(401, ex.status)
   }
+
+  // audience feeds the visibility sheet; a 401 must THROW so HubEngine.loadAudience's
+  // callWithRefresh rotates the token + retries (covered in HubEngineTest).
+  @Test fun `audience throws AuthHttpException on a non-200 (engine refresh trigger)`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("unauth", HttpStatusCode.Unauthorized) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).audience("ax", "fam1", "h1") }
+    assertEquals(401, ex.status)
+  }
 }
