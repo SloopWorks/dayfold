@@ -154,7 +154,7 @@ private fun HubRow(hub: Hub, onClick: () -> Unit) {
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
           StatusChip(hub.status)
           Text(
-            if (hub.visibility == "restricted") "Private" else (hub.type ?: ""),
+            if (hub.visibility == "restricted") "Private" else hubTypeLabel(hub.type),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 8.dp),
@@ -365,6 +365,16 @@ private fun AudienceRow(m: HubAudienceMember, isYou: Boolean) {
     ) { if (m.permitted) Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium) }
   }
 }
+
+/** Human label for a hub's catalog `type` slug (ADR 0004/0006: vacation,
+ *  starting-college, party-event, …). Title-cases the slug generically so a new
+ *  catalog key needs no map change — "starting-college" → "Starting College".
+ *  Pure; blank/null → "". */
+internal fun hubTypeLabel(type: String?): String =
+  type?.takeIf { it.isNotBlank() }
+    ?.split('-')
+    ?.joinToString(" ") { w -> w.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } }
+    ?: ""
 
 /** True when a payload-driven block has no usable typed payload but DOES carry
  *  `body_md` — authors routinely put a contact/checklist/document's content in
