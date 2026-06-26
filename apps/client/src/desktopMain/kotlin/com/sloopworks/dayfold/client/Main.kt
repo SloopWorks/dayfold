@@ -27,13 +27,15 @@ fun main() = application {
   val tokenStore = remember {
     FileTokenStore(File(System.getProperty("user.home"), ".dayfold/session.json"))
   }
+  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB across engines
   val authEngine = remember {
     // Fake mode forces the dev-token path (devSecret non-null; no Firebase on desktop
     // anyway) → any provider tap lands on the scenario's session.
     AuthEngine(store, AuthClient(clientApi, http), tokenStore,
-      devSecret = if (isFake) "fake" else System.getenv("DEV_AUTH_SECRET"))
+      devSecret = if (isFake) "fake" else System.getenv("DEV_AUTH_SECRET"),
+      // Data-boundary: wipe the local cache on logout / dead session (see AuthEngine.clearCache).
+      clearCache = { cs.wipe() })
   }
-  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB across engines
   val syncEngine = remember {
     val legacyFam = System.getenv("FAMILY_ID"); val legacySecret = System.getenv("HOUSEHOLD_SECRET")
     val client = SyncClient(

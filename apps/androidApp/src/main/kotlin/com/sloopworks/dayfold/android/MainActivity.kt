@@ -120,6 +120,10 @@ class MainActivity : ComponentActivity() {
       // comes from google-services.json (default_web_client_id). When the seam
       // yields a token, AuthEngine uses /auth/firebase; else it falls back to dev-token.
       firebaseSignIn = if (isFake) null else AndroidFirebaseSignIn(this, getString(R.string.default_web_client_id)),
+      // Data-boundary: wipe the shared content DB on logout / dead session so one
+      // identity's cards+hubs never bleed into the next (the DB→store bridge would
+      // otherwise re-project them). Same wipe the fake-mode switch + ADR 0030 use.
+      clearCache = { cs.wipe() },
     )
     val legacyFam = BuildConfig.FAMILY_ID; val legacySecret = BuildConfig.HOUSEHOLD_SECRET
     val syncEngine = SyncEngine(

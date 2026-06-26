@@ -161,6 +161,22 @@ class AuthEngineTest {
     assertEquals("owner", store.state.families.single().role)
   }
 
+  @Test fun `sign-out wipes the local content cache — data boundary`() = runBlocking {
+    // Regression: logging out left the family's cards/hubs in the local DB (the
+    // DB→store bridge is the sole writer of state.hubs), so a switch/next session
+    // re-projected stale tenant data (e.g. a "butler" hub). Sign-out must drop the
+    // cache, mirroring the ADR 0030 403/404 revocation path in SyncEngine.
+    val ts = MemTokenStore(Session("a1", "r1"))
+    val store = createAppStore(
+      AppState(session = Session("a1", "r1"), route = Route.Feed), debug = false,
+    )
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
+    var wiped = false
+    AuthEngine(store, client, ts, clearCache = { wiped = true }).signOut()
+    assertTrue(wiped)                            // local content cache cleared on logout
+    assertEquals(Route.SignIn, store.state.route)
+  }
+
   @Test fun `sign-out clears tokens and returns to SignIn`() = runBlocking {
     val ts = MemTokenStore(Session("a1", "r1"))
     val store = createAppStore(

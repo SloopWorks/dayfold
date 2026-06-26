@@ -33,6 +33,12 @@ class AuthEngine(
   private val devProvider: String = "dev",
   private val devProviderUid: String = "dev-user",
   private val firebaseSignIn: FirebaseSignIn? = null,
+  // Data-boundary: drop the local content cache (ContentStore.wipe) when the session
+  // ends, so a family's cards/hubs never outlive the logout. The DB→store bridge is
+  // the sole writer of state.hubs, so resetting redux alone is not enough — the DB
+  // must be cleared too or the bridge re-projects stale tenant data. Default no-op
+  // for tests / entrypoints that don't own a cache. Mirrors SyncEngine's 403/404 path.
+  private val clearCache: () -> Unit = {},
 ) {
   private val mutex = Mutex()
 
@@ -104,6 +110,7 @@ class AuthEngine(
       try { authClient.signout(s.access) } catch (_: Exception) {}   // best-effort; local clear is what matters
     }
     tokenStore.clear()
+    clearCache()                 // drop the local family cache — data must not outlive logout
     store.dispatch(SignedOut)
   }
 
@@ -279,6 +286,7 @@ class AuthEngine(
       // the spinner never wedges. Other statuses = a reachable-but-erroring server.
       if (e.status == 401) {
         tokenStore.clear()
+        clearCache()             // dead session = same data boundary as logout — drop the cache
         store.dispatch(SessionExpired)
       } else {
         store.dispatch(RestoreFailed("Dayfold had a problem (HTTP ${e.status}). Tap retry."))
