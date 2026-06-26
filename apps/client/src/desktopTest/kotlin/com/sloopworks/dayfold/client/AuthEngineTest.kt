@@ -197,6 +197,23 @@ class AuthEngineTest {
     assertEquals(Session("fresh", "r2"), ts.session)            // and persisted
   }
 
+  // ── debug-only fake sign-in (no network) ──
+  @Test fun `devSignIn lands on Feed purely local — no network, not persisted`() = runBlocking {
+    val ts = MemTokenStore(null)
+    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    // Any HTTP call fails the test: devSignIn must mint the session locally, so it
+    // works against an unreachable/real backend without touching it.
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { error("devSignIn must not hit the network") }))
+    AuthEngine(store, client, ts, devSecret = null).devSignIn()
+    assertEquals(Route.Feed, store.state.route)
+    assertEquals("dev-family", store.state.activeFamilyId)
+    assertEquals("dev-user", store.state.session?.userId)
+    assertFalse(store.state.authBusy)
+    // Not persisted: a saved dev session would make the next cold-start restore()
+    // call whoami on the (unreachable) backend → "Couldn't reach" again.
+    assertNull(ts.session)
+  }
+
   // ── invitee-join (slice-2 foundation) ──
   private suspend fun redeemOutcome(status: HttpStatusCode, body: String): Pair<String?, String?> {
     val store = createAppStore(AppState(session = Session("a", "r")), debug = false)

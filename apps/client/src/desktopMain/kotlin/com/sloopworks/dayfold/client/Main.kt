@@ -63,6 +63,8 @@ fun main() = application {
       store,
       onPlatformAction = actions::perform,
       onSignIn = { provider -> scope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
+      // Desktop has no release variant (dev tool) → always offer the fake sign-in.
+      onDevSignIn = { scope.launch { authEngine.devSignIn(); syncEngine.syncNow() } },
       onCreateFamily = { name -> scope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
       onSignOut = { scope.launch { authEngine.signOut() } },
       onRedeemInvite = { token -> scope.launch { authEngine.redeemInvite(token) } },

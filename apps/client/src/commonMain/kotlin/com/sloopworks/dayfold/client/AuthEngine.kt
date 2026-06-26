@@ -13,6 +13,9 @@ import org.reduxkotlin.Store
  */
 fun interface FirebaseSignIn { suspend fun idToken(provider: String): String? }
 
+/** Sentinel access/refresh token for the debug-only fake sign-in (AuthEngine.devSignIn). */
+const val DEV_TOKEN: String = "dev.local"
+
 // AUTH-S5 T4 — orchestrates the session lifecycle (mirrors SyncEngine): sequences
 // AuthClient I/O + TokenStore persistence and dispatches the auth actions. Pure
 // state transitions live in the reducer (T1); all effects live here.
@@ -61,6 +64,24 @@ class AuthEngine(
     } catch (e: Exception) {
       store.dispatch(SignInFailed(e.message ?: "Sign-in failed"))
     }
+  }
+
+  /**
+   * Debug-only fake sign-in: mint a local session + a synthetic active membership
+   * with NO network or Firebase, so a debug build can enter the app against ANY
+   * backend (including an unreachable/real one). Gated at the call site
+   * (BuildConfig.DEBUG on Android, omitted on iOS) — never wired in release. The
+   * `dev.local` tokens are deliberately fake; a real backend rejects them (401 →
+   * SessionExpired), so this grants no data access. Not persisted to the TokenStore:
+   * a saved dev session would make the next cold-start restore() hit the backend.
+   */
+  suspend fun devSignIn() = mutex.withLock {
+    store.dispatch(SignInRequested("dev"))
+    val session = Session(access = DEV_TOKEN, refresh = DEV_TOKEN, userId = "dev-user")
+    store.dispatch(SignInSucceeded(session))
+    store.dispatch(MembershipsLoaded(listOf(
+      FamilyMembership(familyId = "dev-family", name = "Dev Family", role = "owner", status = "active"),
+    )))
   }
 
   /** Create the caller's first family (owner) and route into it. */

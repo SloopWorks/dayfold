@@ -186,6 +186,9 @@ fun SignInScreen(
   busy: Boolean = false,
   error: String? = null,
   onProvider: (String) -> Unit = {},
+  // Debug-only fake sign-in: non-null only when the platform shell wires it
+  // (BuildConfig.DEBUG on Android, always on desktop, omitted on iOS/release).
+  onDevSignIn: (() -> Unit)? = null,
 ) {
   val cs = MaterialTheme.colorScheme
   Column(
@@ -222,6 +225,12 @@ fun SignInScreen(
         "Continue with Apple", container = cs.onSurface, content = cs.surface,
         enabled = !busy, leading = { AppleGlyph(cs.surface) }, onClick = { onProvider("apple") },
       )
+      onDevSignIn?.let { dev ->
+        AuthButton(
+          "Dev sign-in (fake)", container = cs.surfaceContainerLowest, content = cs.onSurfaceVariant,
+          border = cs.outlineVariant, enabled = !busy, onClick = dev,
+        )
+      }
       Spacer(Modifier.height(2.dp))
       Text(
         "By continuing you agree to the Terms and Privacy Policy. Adults only.",

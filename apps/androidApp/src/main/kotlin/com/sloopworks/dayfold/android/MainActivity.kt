@@ -140,6 +140,10 @@ class MainActivity : ComponentActivity() {
           store,
           onPlatformAction = actions::perform,
           onSignIn = { provider -> lifecycleScope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
+          // Debug-only fake sign-in: mints a local session (no network/Firebase) so
+          // the app is enterable against any/unreachable backend. Null in release →
+          // the button is absent.
+          onDevSignIn = if (BuildConfig.DEBUG) ({ lifecycleScope.launch { authEngine.devSignIn(); syncEngine.syncNow() } }) else null,
           onCreateFamily = { name -> lifecycleScope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
           onSignOut = { lifecycleScope.launch { authEngine.signOut() } },
           onRetry = { lifecycleScope.launch { authEngine.restore() } },
