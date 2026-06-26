@@ -34,6 +34,9 @@ Per-type payload keys (the common ones):
 - `type` ∈ `vacation | starting-college | move | party-event | new-baby | medical | school-year`.
 - `status` ∈ `planning | active | archived` (default `active`).
 - `start_at` / `end_at` / `countdown_to` (ISO-8601). `sections[]`.
+- `dayfold template hub` also emits `visibility` (e.g. `"family"`). Hub-tree
+  shape is server-authoritative (no CLI generated schema) — start from the
+  template rather than a hand-written stub.
 
 **Section** — required `id`. `title`, `ord`, `blocks[]`. Body carries `hubId`.
 
