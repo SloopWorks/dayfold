@@ -220,6 +220,33 @@ class AuthReducerTest {
     assertNull(signedOut.pendingDeviceLink)
   }
 
+  @Test fun `sign-out wipes ALL sensitive state, not just the session`() {
+    // a fully-populated signed-in state: session + family roster + cards + hub content
+    // + a pending device grant. Sign-out must leave NONE of it (privacy guardrail) —
+    // a refactor to state.copy(session=null) would leak family data and this catches it.
+    val populated = AppState(
+      session = sess,
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+      cards = listOf(Card("c1", title = "Soccer 4pm")),
+      pendingApprovals = listOf(PendingMember("u9", "Sam")),
+      pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
+      pendingDeviceLink = "X",
+      hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
+      currentHubId = "h1",
+      currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
+      hubFocusBlockId = "b1",
+    )
+    val out = rootReducer(populated, SignedOut)
+    assertEquals(Route.SignIn, out.route)
+    assertNull(out.session)
+    assertTrue(out.families.isEmpty()); assertNull(out.activeFamilyId)
+    assertTrue(out.cards.isEmpty())
+    assertTrue(out.pendingApprovals.isEmpty())
+    assertNull(out.pendingDevice); assertNull(out.pendingDeviceLink)
+    assertTrue(out.hubs.isEmpty()); assertNull(out.currentHubId); assertNull(out.currentHubTree); assertNull(out.hubFocusBlockId)
+  }
+
   @Test fun `scan flow routes — primer, granted to device, denied`() {
     assertEquals(Route.ScanPrimer, rootReducer(AppState(route = Route.EnterCode), OpenScan).route)
     assertEquals(Route.ScanDevice, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionGranted).route)
