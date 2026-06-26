@@ -21,12 +21,12 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `provenance` — `{ "source": "claude", "at": <ISO-8601> }`.
 
 Per-type payload keys (the common ones):
-- `link`: `{ url, label?, source? }`
-- `invite`: `{ eventName, host?, startAt, place?, rsvpBy?, rsvpState?, guestCount?, notes? }`
-- `contact`: `{ name, role?, phone?, email? }`
-- `geo`: `{ label, address?, mapUrl?, lat?, lng? }`
-- `email`: `{ subject?, from?, bodyExcerpt?, threadUrl? }` (own mail only)
-- `file`: `{ ref, label?, kind? }` (url | fileRef)
+- `file`: `{ filename, mime, size, pages, source, modified, docRef }`
+- `link`: `{ url, domain, title, ogDesc, kind, fieldCount, closesAt, savedAt }`
+- `invite`: `{ eventName, host, startAt, place, rsvpBy, rsvpState, guestCount, confirmedCount, notes }`
+- `contact`: `{ name, company, role, phone, email, address, deliveryWindow, linkedEventId }`
+- `geo`: `{ label, address, lat, lng, etaMin, distance, travelMode, parking, leaveBy }`
+- `email`: `{ from, fromAddr, subject, date, threadLen, bodyExcerpt, attachments, labels }` (own mail only)
 
 ## Hub → Section → Block — project/event containers
 
