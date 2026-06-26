@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 // AUTH-S5 Slice B — full-flow UI e2e via runComposeUiTest (JVM/desktop, headless,
 // no Espresso/InputManager). Drives the REAL route gate + Dayfold screens through
@@ -174,5 +176,28 @@ class AuthFlowUiTest {
     waitUntil(timeoutMillis = 5_000L) { seen("claude-code") }
     onNodeWithTag("revoke-c2").performClick()
     waitUntil(timeoutMillis = 5_000L) { onAllNodesWithText("claude-code").fetchSemanticsNodes().isEmpty() }
+  }
+
+  // ── ADR 0011 §7: the datacenter anti-phishing warning is a security invariant.
+  // Snapshot tests (AuthScreensSnapshotTest) compare pixels; these pin the BEHAVIOR
+  // semantically via the device-datacenter-warning testTag, so a benign restyle
+  // won't mask a regression that drops the banner (or shows it for home networks).
+  private fun authorizeState(originKind: String) = AppState(
+    session = Session("a", "r"),
+    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+    activeFamilyId = "fam1",
+    route = Route.AuthorizeDevice,
+    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = originKind),
+  )
+
+  @Test fun datacenterOriginShowsTheAntiPhishingWarning() = runComposeUiTest {
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("datacenter")) } }
+    onNodeWithTag("device-datacenter-warning").assertIsDisplayed()
+  }
+
+  @Test fun residentialOriginHidesTheDatacenterWarning() = runComposeUiTest {
+    // a home network is the normal case — no scary banner, so the warning stays meaningful
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential")) } }
+    assertTrue(onAllNodesWithTag("device-datacenter-warning").fetchSemanticsNodes().isEmpty())
   }
 }
