@@ -80,6 +80,32 @@ class SyncEngineTest {
     await(store) { it.cards.isEmpty() }
   }
 
+  // Data-boundary regression (the reported "butler hub" leak): the DB→store bridge
+  // is the sole writer of state.hubs, so signing out must WIPE the local DB — not just
+  // reset redux — or the next session re-projects the previous tenant's hubs. End-to-end:
+  // seed a cached hub → bridge projects it → signOut(clearCache = cs.wipe) → DB is empty.
+  @Test fun `sign-out wipes the local DB cache so no stale tenant hub leaks`() = runBlocking {
+    val cs = freshStore()
+    cs.applyDelta(emptyList(), listOf(Hub("butler", title = "Butler")), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
+    val store = createAppStore(AppState(session = Session("a1", "r1")), debug = false)
+    SyncEngine(store, cs, syncClient(MockEngine { respond("", HttpStatusCode.OK) })).start()
+    await(store) { it.hubs.map { h -> h.id } == listOf("butler") }   // bridge projected the cached hub
+
+    val noopTokens = object : TokenStore {
+      override fun load(): Session? = null
+      override fun save(session: Session) {}
+      override fun clear() {}
+    }
+    AuthEngine(
+      store, AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) })),
+      tokenStore = noopTokens, clearCache = { cs.wipe() },
+    ).signOut()
+
+    // The DB itself is cleared — without the fix the cached "butler" hub persists here
+    // (redux is reset by SignedOut regardless, so the DB is the assertion that matters).
+    assertTrue(cs.activeHubsFlow().first().isEmpty())
+  }
+
   @Test fun `cursor survives a restart (file DB reopen)`() {
     val f = File.createTempFile("fad-sync", ".db").apply { delete(); deleteOnExit() }
     val url = "jdbc:sqlite:${f.absolutePath}"

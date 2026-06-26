@@ -19,8 +19,9 @@ import platform.UIKit.UIViewController
 fun MainViewController(): UIViewController = ComposeUIViewController {
   val store = remember { createAppStore() }
   val tokenStore = remember { IosTokenStore() }
-  val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null) }
   val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB
+  // Data-boundary: drop the local cache on logout / dead session (see AuthEngine.clearCache).
+  val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null, clearCache = { cs.wipe() }) }
   val syncEngine = remember {
     SyncEngine(
       store, cs,
