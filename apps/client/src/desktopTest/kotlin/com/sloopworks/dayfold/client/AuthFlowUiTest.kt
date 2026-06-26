@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 // AUTH-S5 Slice B — full-flow UI e2e via runComposeUiTest (JVM/desktop, headless,
@@ -199,5 +200,29 @@ class AuthFlowUiTest {
     // a home network is the normal case — no scary banner, so the warning stays meaningful
     setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential")) } }
     assertTrue(onAllNodesWithTag("device-datacenter-warning").fetchSemanticsNodes().isEmpty())
+  }
+
+  // The approve/deny/cancel wiring is the device-grant security action — a regression
+  // that swapped the callbacks, granted to the wrong family, or dropped the handler
+  // would be serious. These tags (device-approve/deny/cancel) had no behavioral test.
+  @Test fun approveGrantsToTheSelectedOwnerFamily() = runComposeUiTest {
+    var approvedFid: String? = null
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential"), onApprove = { approvedFid = it }) } }
+    onNodeWithTag("device-approve").performClick()
+    assertEquals("fam1", approvedFid)   // grants to the selected owner family, not e.g. the user_code
+  }
+
+  @Test fun denyInvokesOnDenyForTheSelectedFamily() = runComposeUiTest {
+    var deniedFid: String? = null
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential"), onDeny = { deniedFid = it }) } }
+    onNodeWithTag("device-deny").performClick()
+    assertEquals("fam1", deniedFid)
+  }
+
+  @Test fun cancelInvokesOnCancel() = runComposeUiTest {
+    var cancelled = false
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential"), onCancel = { cancelled = true }) } }
+    onNodeWithTag("device-cancel").performClick()
+    assertTrue(cancelled)
   }
 }
