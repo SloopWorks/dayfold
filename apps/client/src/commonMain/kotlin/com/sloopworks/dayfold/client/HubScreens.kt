@@ -271,6 +271,8 @@ fun HubDetailScreen(
         }
         // sections (ordered) each followed by their blocks (grouped by section_id).
         tree.sections.sortedBy { it.ord }.forEach { section ->
+          val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
+          if (blocks.isEmpty()) return@forEach          // skip a section with no content — no bare header
           item(key = "sec-${section.id}") {
             Text(
               (section.title ?: "").uppercase(),
@@ -279,7 +281,6 @@ fun HubDetailScreen(
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
           items(blocks, key = { "blk-${it.id}" }) { block -> HubBlockCard(block, focused = block.id == state.hubFocusBlockId) }
         }
       }
@@ -298,8 +299,9 @@ fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Bo
   if (hasCountdown) idx += 1
   if (restricted) idx += 1
   for (section in tree.sections.sortedBy { it.ord }) {
-    idx += 1                                         // section header
     val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
+    if (blocks.isEmpty()) continue                   // empty sections render nothing → don't count a header
+    idx += 1                                          // section header
     val pos = blocks.indexOfFirst { it.id == focusBlockId }
     if (pos >= 0) return idx + pos
     idx += blocks.size

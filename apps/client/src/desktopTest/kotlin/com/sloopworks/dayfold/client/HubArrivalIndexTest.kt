@@ -36,4 +36,19 @@ class HubArrivalIndexTest {
     assertNull(focusedBlockItemIndex(tree, null, hasCountdown = false, restricted = false))
     assertNull(focusedBlockItemIndex(tree, "nope", hasCountdown = false, restricted = false))
   }
+
+  @Test fun emptySectionRendersNothingAndDoesNotShiftTheIndex() {
+    // an empty section (created via CLI, blocks not pushed yet) renders no header,
+    // so it must not occupy an item slot before a later focused block.
+    val withEmpty = HubTree(
+      hub = Hub(id = "h1", title = "Party", status = "active", visibility = "family"),
+      sections = listOf(
+        HubSection(id = "empty", hubId = "h1", title = "Coming soon", ord = 0),   // no blocks
+        HubSection(id = "s1", hubId = "h1", title = "Shopping", ord = 1),
+      ),
+      blocks = listOf(HubBlock(id = "b1", sectionId = "s1", type = "text", ord = 0)),
+    )
+    // status(0), [empty skipped], s1hdr(1), b1(2)
+    assertEquals(2, focusedBlockItemIndex(withEmpty, "b1", hasCountdown = false, restricted = false))
+  }
 }
