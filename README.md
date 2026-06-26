@@ -44,3 +44,18 @@ Built from the **venture-loop template** (extracted from the KeepQR /
 RevenueCatch projects). Process inspiration also drawn from the sibling
 `ambient-ai` spec repo ("render, don't reason"; ADR + open-questions
 discipline; persona-driven key moments).
+
+## Curator skill (Claude Code)
+
+`.claude/skills/dayfold-curator/` is the authoring wedge — a Claude Code skill
+that analyzes your context, runs an onboarding questionnaire, and authors dayfold
+Hubs + BriefingCards through the `dayfold` CLI (propose-confirm before every push).
+
+Install globally (all projects on this machine):
+
+```
+sh .claude/skills/dayfold-curator/install.sh
+```
+
+Or per-project: copy `.claude/skills/dayfold-curator/` into another repo's
+`.claude/skills/`. Requires `dayfold` on PATH and `dayfold login` done first.
