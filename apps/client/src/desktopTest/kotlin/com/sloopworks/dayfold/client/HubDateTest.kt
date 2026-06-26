@@ -43,6 +43,17 @@ class HubDateTest {
     assertNull(hubWhenLabel(null, null, null, now, utc))                                                     // no dates
   }
 
+  @Test fun handlesProdPostgresCountdownFormat() {
+    // the EXACT shape prod (Neon timestamptz) returns for hub.countdown_to: space
+    // separator + a bare "+00" offset + (sometimes) microseconds. Regression-locks
+    // the live countdown — a normalizeTs tweak that broke "+00" would silently drop it.
+    assertEquals("2026-08-01T00:00:00+00:00", normalizeTs("2026-08-01 00:00:00+00"))
+    assertEquals("2026-06-26T03:13:30.158911+00:00", normalizeTs("2026-06-26 03:13:30.158911+00"))
+    // end-to-end through countdownLabel / hubWhenLabel on the real format
+    assertEquals("in 2 days", countdownLabel("2026-06-26 12:00:00+00", now, utc))
+    assertEquals("in 38 days", hubWhenLabel("2026-08-01 00:00:00+00", null, null, now, utc)) // "Lillian → Butler"
+  }
+
   @Test fun countdownUsesCalendarDaysNotElapsedHours() {
     // 8pm; an event at 6am the NEXT calendar day is 10h away — calendar-correct is
     // "Tomorrow" (elapsed-hours math wrongly said "Today").
