@@ -385,13 +385,26 @@ internal fun hubTypeLabel(type: String?): String =
 internal fun blockFallsBackToBodyMd(block: HubBlock): Boolean =
   !block.bodyMd.isNullOrBlank() && !hasTypedPayload(block)
 
+// ADR 0035 Option C: tolerant of BOTH the client render names and the canonical
+// schema names (document `docRef`|`ref`; location `lat`/`lng`|`mapUrl`) so a block
+// authored per the frozen schema is recognized as typed and renders (not blank).
 private fun hasTypedPayload(block: HubBlock): Boolean = when (block.type) {
   "checklist" -> !block.payload?.items.isNullOrEmpty()
-  "link", "document" -> block.payload?.run { url != null || label != null || docRef != null } ?: false
+  "link", "document" -> block.payload?.run { url != null || label != null || docRef != null || ref != null } ?: false
   "contact" -> block.payload?.run { name != null || phone != null || email != null || role != null } ?: false
-  "location" -> block.payload?.run { address != null || lat != null || label != null } ?: false
+  "location" -> block.payload?.run { address != null || lat != null || label != null || mapUrl != null } ?: false
   "budget" -> block.payload?.run { total != null || !items.isNullOrEmpty() } ?: false
   else -> true   // text/markdown/milestone/unknown render body_md in their own branch
+}
+
+// Budget spent/total: the client `total`/`spent` summary if present, else derived
+// from a canonical itemized budget (schema `items[{amount, paid}]`) — ADR 0035.
+internal fun budgetTotals(p: BlockPayload?): Pair<Double, Double> {
+  if (p?.total != null) return p.total to (p.spent ?: 0.0)
+  val items = p?.items.orEmpty()
+  val total = items.sumOf { it.amount ?: 0.0 }
+  val spent = items.filter { it.paid == true }.sumOf { it.amount ?: 0.0 }
+  return total to spent
 }
 
 @Composable
@@ -458,8 +471,10 @@ private fun LinkRow(block: HubBlock) {
   Row(verticalAlignment = Alignment.CenterVertically) {
     IconTile(if (block.type == "document") "📄" else "🔗", MaterialTheme.colorScheme.tertiaryContainer)
     Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
-      Text(p?.label ?: p?.url ?: block.type, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
-      (p?.domain ?: p?.url)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+      // document ref is the canonical schema name; docRef is the client alias (ADR 0035)
+      val refStr = p?.docRef ?: p?.ref
+      Text(p?.label ?: p?.url ?: refStr ?: block.type, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+      (p?.domain ?: p?.url ?: refStr)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
     }
     Text("↗", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)  // opens externally (calm)
   }
@@ -512,8 +527,7 @@ private fun MilestoneRow(p: BlockPayload?, bodyMd: String?) {
 
 @Composable
 private fun BudgetBar(p: BlockPayload?) {
-  val total = p?.total ?: 0.0
-  val spent = p?.spent ?: 0.0
+  val (total, spent) = budgetTotals(p)
   val frac = if (total > 0) (spent / total).coerceIn(0.0, 1.0).toFloat() else 0f
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(verticalAlignment = Alignment.Bottom) {

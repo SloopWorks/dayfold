@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -30,5 +31,21 @@ class HubBlockRenderLogicTest {
     assertFalse(blockFallsBackToBodyMd(blk("markdown", bodyMd = "hi")))   // its own branch renders body_md
     assertFalse(blockFallsBackToBodyMd(blk("contact", bodyMd = null)))    // nothing to fall back to → keep typed placeholder
     assertFalse(blockFallsBackToBodyMd(blk("contact", bodyMd = "   ")))   // blank
+  }
+
+  @Test fun `a block authored with canonical schema names renders typed, not the markdown fallback (ADR 0035)`() {
+    // document via the schema `ref` (not the client `docRef`) is recognized as a typed payload
+    assertFalse(blockFallsBackToBodyMd(blk("document", bodyMd = "x", payload = BlockPayload(ref = "url://imm"))))
+    // location via the schema `mapUrl`
+    assertFalse(blockFallsBackToBodyMd(blk("location", bodyMd = "x", payload = BlockPayload(mapUrl = "https://maps/x"))))
+  }
+
+  @Test fun `budgetTotals uses the summary, else derives from an itemized (schema) budget`() {
+    assertEquals(1000.0 to 250.0, budgetTotals(BlockPayload(total = 1000.0, spent = 250.0)))   // client summary
+    val itemized = BlockPayload(items = listOf(
+      ChecklistItem(label = "Tuition", amount = 800.0, paid = true),
+      ChecklistItem(label = "Books", amount = 200.0, paid = false),
+    ))
+    assertEquals(1000.0 to 800.0, budgetTotals(itemized))   // total = Σamount; spent = Σ(amount where paid)
   }
 }
