@@ -202,3 +202,15 @@ New prototype-level open items:
   (#146), authoring doc marks the schema canonical. **Residual (M1):** collapse to ONE
   representation (rename client → schema, decide location `lat/lng` vs `mapUrl` + budget
   itemized vs summary, build Kotlin codegen) — until then both names are accepted.
+- **OQ-feed-empty-state** *(2026-06-26, dogfood review)*: An **established** family with
+  **no briefing cards** sees the feed render `FamilyNullState` ("Your family space is
+  ready · Invite a member · connect a device") — the **onboarding** state — because
+  `FeedScreen` shows it for *any* empty `state.cards` (not syncing/error). For a family
+  that already has hubs/members and is simply caught up, this misframes "no briefing
+  right now" as "nothing set up yet." Surfaced dogfooding the operator's own account
+  (a hub authored, zero cards). **Design-gated (ADR 0008):** the fix is a calm
+  "you're all caught up / nothing needs you right now" empty state (optionally linking
+  to hubs), distinct from first-run onboarding — needs a hi-fi mockup + operator
+  sign-off before build. Distinguisher is also non-trivial on the feed (hubs/members
+  aren't loaded there yet), so the design should decide the signal too. Low urgency
+  (cosmetic; no data risk).
