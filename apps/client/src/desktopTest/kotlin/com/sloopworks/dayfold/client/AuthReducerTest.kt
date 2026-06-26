@@ -220,31 +220,45 @@ class AuthReducerTest {
     assertNull(signedOut.pendingDeviceLink)
   }
 
-  @Test fun `sign-out wipes ALL sensitive state, not just the session`() {
-    // a fully-populated signed-in state: session + family roster + cards + hub content
-    // + a pending device grant. Sign-out must leave NONE of it (privacy guardrail) —
-    // a refactor to state.copy(session=null) would leak family data and this catches it.
-    val populated = AppState(
-      session = sess,
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1",
-      cards = listOf(Card("c1", title = "Soccer 4pm")),
-      pendingApprovals = listOf(PendingMember("u9", "Sam")),
-      pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
-      pendingDeviceLink = "X",
-      hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
-      currentHubId = "h1",
-      currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
-      hubFocusBlockId = "b1",
-    )
-    val out = rootReducer(populated, SignedOut)
-    assertEquals(Route.SignIn, out.route)
+  // a fully-populated signed-in state: session + family roster + cards + hub content
+  // + a pending device grant — the data that must NEVER survive a session invalidation.
+  private fun populatedSignedIn() = AppState(
+    session = sess,
+    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+    activeFamilyId = "fam1",
+    cards = listOf(Card("c1", title = "Soccer 4pm")),
+    pendingApprovals = listOf(PendingMember("u9", "Sam")),
+    pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
+    pendingDeviceLink = "X",
+    hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
+    currentHubId = "h1",
+    currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
+    hubFocusBlockId = "b1",
+  )
+
+  private fun assertNoSensitiveStateSurvives(out: AppState) {
     assertNull(out.session)
     assertTrue(out.families.isEmpty()); assertNull(out.activeFamilyId)
     assertTrue(out.cards.isEmpty())
     assertTrue(out.pendingApprovals.isEmpty())
     assertNull(out.pendingDevice); assertNull(out.pendingDeviceLink)
     assertTrue(out.hubs.isEmpty()); assertNull(out.currentHubId); assertNull(out.currentHubTree); assertNull(out.hubFocusBlockId)
+  }
+
+  @Test fun `sign-out wipes ALL sensitive state, not just the session`() {
+    // explicit logout — a refactor to state.copy(session=null) would leak family data.
+    val out = rootReducer(populatedSignedIn(), SignedOut)
+    assertEquals(Route.SignIn, out.route)
+    assertNoSensitiveStateSurvives(out)
+  }
+
+  @Test fun `session-expiry (auto-logout on token failure) wipes the same sensitive state`() {
+    // SessionExpired is the involuntary path (refresh failed / token expired mid-session);
+    // it must wipe family data just like an explicit sign-out, and surface the reason.
+    val out = rootReducer(populatedSignedIn(), SessionExpired)
+    assertEquals(Route.SignIn, out.route)
+    assertNoSensitiveStateSurvives(out)
+    assertEquals("Your session expired — please sign in again.", out.authError)
   }
 
   @Test fun `scan flow routes — primer, granted to device, denied`() {
