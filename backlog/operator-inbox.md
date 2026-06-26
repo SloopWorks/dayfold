@@ -9,6 +9,21 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-24 · 2026-06-26 · low · open — Reusable auth foundation
+  (ADR 0036, Tether).** Accept/flip ADR 0036 (Proposed → Accepted). Operator-gated
+  (platform/vendor + maintenance-burden posture). Closes the foundation question from the
+  auth-reuse exploration. **Proposed default: ACCEPT as written (Hybrid).** Survey of ~14
+  auth products found the backend is commoditized (and Dayfold's own server auth is hardened
+  + live), while the unique, nobody-ships-it value is the *client* side — the Kotlin CLI
+  device-login, the KMP client SDK, and the in-app owner-approves-device-with-scopes UX —
+  all backend-agnostic. Decision: (1) don't touch Dayfold's live auth; (2) new projects →
+  Better Auth backend (recommendation only, no Dayfold change); (3) bank the reusable value
+  in `packages/tether-cli` (JVM) + `packages/tether-client` (KMP) — both built, compile +
+  test green; (4) keep them **inert spikes** (no publish/maintenance) until a 2nd real
+  consumer; (5) explicitly **not** a product/scope commitment (productizing needs its own
+  scope ADR). Widens no guardrail. ADR: `adr/0036-reusable-auth-foundation-tether.md`.
+  Nothing to do beyond accept unless you disagree with the Hybrid call.
+
 - **INB-23 · ANSWERED 2026-06-26 → ADR 0034 ACCEPTED.** Operator "inb 23 approved" →
   ADR 0034 flipped Proposed→Accepted; **G5 posture ratified** (all tracks→prod Vercel
   API, real sign-in AUTH-S3, never bake `HOUSEHOLD_SECRET`/`DEV_AUTH_SECRET`). The
