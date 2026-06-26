@@ -281,4 +281,52 @@ class SyncEngineTest {
     // After wipe, tree is null
     assertNull(cs.hubTreeFlow("h1").first())
   }
+
+  // Root cause of "Couldn't refresh — showing saved cards": the 5-min access token
+  // expires → /sync 401 → previously SyncFailed forever (no refresh). Now syncNow
+  // refreshes + retries once, mirroring AuthEngine/HubEngine.
+  @Test fun `syncNow refreshes the access token on 401 and retries`() = runBlocking<Unit> {
+    val cs = freshStore()
+    val store = createAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val ts = object : TokenStore { var s: Session? = null; override fun load() = s; override fun save(session: Session) { s = session }; override fun clear() { s = null } }
+    var syncCalls = 0
+    val mock = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/families/fam1/sync" -> {
+          syncCalls++
+          if (syncCalls == 1) respond("unauth", HttpStatusCode.Unauthorized)
+          else respond("""{"changes":{"cards":[{"id":"a","title":"A"}]},"tombstones":[],"next_cursor":"p1","has_more":false}""", HttpStatusCode.OK)
+        }
+        "/auth/refresh" -> respond("""{"access":"fresh","refresh":"r2"}""", HttpStatusCode.OK)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    }
+    val sc = SyncClient("https://api.test", { "fam1" }, { store.state.session?.access }, HttpClient(mock))
+    val e = SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock)), tokenStore = ts)
+    e.syncNow()
+    assertEquals(2, syncCalls)                                  // retried after refresh
+    assertEquals(Session("fresh", "r2"), store.state.session)   // rotated into state
+    assertEquals(Session("fresh", "r2"), ts.s)                  // and persisted
+    assertEquals(listOf("a"), cs.activeCards().map { it.id })   // the retry page landed
+    assertNull(store.state.error)
+    assertFalse(store.state.syncing)
+  }
+
+  @Test fun `syncNow 401 with a failed refresh surfaces SyncFailed and keeps the cache`() = runBlocking<Unit> {
+    val cs = freshStore()
+    cs.applyDelta(listOf(Card("old", title = "Old")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "t0")
+    val store = createAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val mock = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/families/fam1/sync" -> respond("unauth", HttpStatusCode.Unauthorized)
+        "/auth/refresh" -> respond("nope", HttpStatusCode.Unauthorized)   // refresh also fails
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    }
+    val sc = SyncClient("https://api.test", { "fam1" }, { store.state.session?.access }, HttpClient(mock))
+    SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock))).syncNow()
+    assertEquals("HTTP 401", store.state.error)                 // surfaced (non-destructive)
+    assertEquals(listOf("old"), cs.activeCards().map { it.id }) // cache intact — NOT wiped
+    assertEquals(Session("stale", "r1"), store.state.session)   // unchanged
+  }
 }

@@ -24,6 +24,10 @@ class SyncEngine(
   private val pollIntervalMs: Long = 45_000L,
   private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   private val nowProvider: () -> String = { Clock.System.now().toString() },
+  // Refresh-on-401 (mirrors AuthEngine/HubEngine.callWithRefresh). Null = no refresh
+  // (tests / not-yet-wired entrypoints), in which case a 401 surfaces as SyncFailed.
+  private val authClient: AuthClient? = null,
+  private val tokenStore: TokenStore? = null,
 ) {
   private val syncMutex = Mutex()
   private var bridgeJob: Job? = null
@@ -67,34 +71,76 @@ class SyncEngine(
   suspend fun syncNow() = syncMutex.withLock {
     store.dispatch(SyncStarted)
     try {
-      var hasMore = true
-      while (hasMore) {
-        val resp = syncClient.fetchPage(contentStore.cursor())
-        contentStore.applyDelta(
-          changedCards = resp.changes.cards,
-          changedHubs = resp.changes.hubs,
-          changedSections = resp.changes.sections,
-          changedBlocks = resp.changes.blocks,
-          tombstones = resp.tombstones,
-          nextCursor = resp.nextCursor,
-          nowIso = nowProvider(),
-        )
-        hasMore = resp.hasMore
-      }
+      drain()
       store.dispatch(SyncSucceeded)
     } catch (e: SyncHttpException) {
-      // ADR 0030 (round-1 P0-2): 403 (removed) / 404 (non-member) = tenancy
-      // revocation → the cache is forbidden content. Wipe it + sign out (the
-      // keyset stream can't deliver a tombstone to a member who can't call).
-      // 401 = token problem → leave to refresh; surface as a normal failure.
-      if (e.status == 403 || e.status == 404) {
-        contentStore.wipe()
-        store.dispatch(SignedOut)
+      // 401 = the 5-min access token expired (or is stale). Refresh it and retry
+      // ONCE (mirrors AuthEngine/HubEngine) — without this the foreground sync +
+      // 45s poll 401 forever and the feed wedges on "Couldn't refresh".
+      if (e.status == 401 && refreshSession()) {
+        try {
+          drain()
+          store.dispatch(SyncSucceeded)
+        } catch (e2: SyncHttpException) {
+          onSyncHttpError(e2)
+        } catch (e2: Exception) {
+          store.dispatch(SyncFailed(e2.message ?: "sync error"))
+        }
       } else {
-        store.dispatch(SyncFailed("HTTP ${e.status}"))   // preserve the prior message
+        onSyncHttpError(e)
       }
     } catch (e: Exception) {
       store.dispatch(SyncFailed(e.message ?: "sync error"))
+    }
+  }
+
+  /** Drain all /sync pages into the DB in order (each page is its own atomic applyDelta). */
+  private suspend fun drain() {
+    var hasMore = true
+    while (hasMore) {
+      val resp = syncClient.fetchPage(contentStore.cursor())
+      contentStore.applyDelta(
+        changedCards = resp.changes.cards,
+        changedHubs = resp.changes.hubs,
+        changedSections = resp.changes.sections,
+        changedBlocks = resp.changes.blocks,
+        tombstones = resp.tombstones,
+        nextCursor = resp.nextCursor,
+        nowIso = nowProvider(),
+      )
+      hasMore = resp.hasMore
+    }
+  }
+
+  /** Refresh the access token after a sync 401; rotate it into the store + keychain so
+   *  the retry (and the SyncClient token provider) use the fresh token. Returns true
+   *  iff rotated. No-op (false) when refresh isn't wired or there's no session. */
+  private suspend fun refreshSession(): Boolean {
+    val ac = authClient ?: return false
+    val session = store.state.session ?: return false
+    println("[sync] 401 — refreshing access token")
+    val rotated = try {
+      ac.refresh(session.refresh)
+    } catch (e: Exception) {
+      println("[sync] token refresh failed: ${e.message ?: "error"}")
+      return false
+    }
+    tokenStore?.save(rotated)
+    store.dispatch(SessionRotated(rotated))
+    println("[sync] token refreshed — retrying sync")
+    return true
+  }
+
+  // ADR 0030 (round-1 P0-2): 403 (removed) / 404 (non-member) = tenancy revocation →
+  // the cache is forbidden content; wipe it + sign out. Anything else (incl. a 401 the
+  // refresh couldn't recover) surfaces as a normal, non-destructive failure.
+  private fun onSyncHttpError(e: SyncHttpException) {
+    if (e.status == 403 || e.status == 404) {
+      contentStore.wipe()
+      store.dispatch(SignedOut)
+    } else {
+      println("[sync] failed: HTTP ${e.status}")
+      store.dispatch(SyncFailed("HTTP ${e.status}"))
     }
   }
 

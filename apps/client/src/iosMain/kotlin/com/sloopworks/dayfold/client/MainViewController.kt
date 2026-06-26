@@ -25,6 +25,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     SyncEngine(
       store, cs,
       SyncClient("", familyId = { store.state.activeFamilyId }, token = { store.state.session?.access }),
+      authClient = AuthClient(""), tokenStore = tokenStore,
     )
   }
   val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed

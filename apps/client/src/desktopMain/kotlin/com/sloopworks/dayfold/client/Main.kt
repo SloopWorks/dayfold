@@ -42,7 +42,7 @@ fun main() = application {
       token = { store.state.session?.access ?: legacySecret },
       http = http,
     )
-    SyncEngine(store, cs, client)
+    SyncEngine(store, cs, client, authClient = AuthClient(clientApi, http), tokenStore = tokenStore)
   }
   val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed via contentStore + syncEngine
     HubEngine(store, HubClient(clientApi, http), AuthClient(clientApi, http), tokenStore, cs, syncEngine)

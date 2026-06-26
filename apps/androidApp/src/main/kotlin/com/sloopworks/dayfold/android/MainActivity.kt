@@ -116,6 +116,8 @@ class MainActivity : ComponentActivity() {
         token = { store.state.session?.access ?: legacySecret.ifEmpty { null } },
         http = http,
       ),
+      authClient = AuthClient(clientApi, http),   // refresh-on-401 so the foreground sync survives the 5-min access token
+      tokenStore = tokenStore,
     )
 
     syncEngine.start()
