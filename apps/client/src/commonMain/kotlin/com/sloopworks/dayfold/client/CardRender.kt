@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 
 // Card presentation helpers (spec: 12-briefing-card-spec.md). Pure (no Composer)
 // so they're unit-testable; the Composable applies theme colors.
@@ -74,6 +76,14 @@ private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
 private val BULLET = Regex("""^(\s*)[-*]\s+(.*)$""")
 private val TABLE_ROW = Regex("""^\s*\|.*\|\s*$""")
 private val TABLE_SEP = Regex("""^\s*\|[\s:|-]*-[\s:|-]*\|\s*$""")   // a |---|---| separator row
+private val HEADING = Regex("""^(#{1,6})\s+(.*)$""")                  // # / ## / … atx heading
+
+// Heading run style: bold always, with a size bump for h1/h2 (h3+ = bold body size).
+private fun headingSize(level: Int): TextUnit = when (level) {
+  1 -> 20.sp
+  2 -> 17.sp
+  else -> TextUnit.Unspecified
+}
 
 private fun AnnotatedString.Builder.appendInline(text: String) {
   var i = 0
@@ -103,10 +113,12 @@ fun renderBlockMarkdown(md: String): AnnotatedString = buildAnnotatedString {
     if (TABLE_SEP.matches(line)) return@forEachIndexed          // drop |---| separator rows
     if (!first) append("\n")                                    // prepend so dropped rows leave no blank line
     first = false
-    val cb = CHECKBOX.find(line)
-    val b = if (cb == null) BULLET.find(line) else null
-    val isTable = cb == null && b == null && TABLE_ROW.matches(line)
+    val h = HEADING.find(line)
+    val cb = if (h == null) CHECKBOX.find(line) else null
+    val b = if (h == null && cb == null) BULLET.find(line) else null
+    val isTable = h == null && cb == null && b == null && TABLE_ROW.matches(line)
     when {
+      h != null -> withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = headingSize(h.groupValues[1].length))) { appendInline(h.groupValues[2]) }
       cb != null -> { append(if (cb.groupValues[2].trim().lowercase() == "x") "☑ " else "☐ "); appendInline(cb.groupValues[3]) }
       b != null -> { append("• "); appendInline(b.groupValues[2]) }
       isTable -> {                                              // | a | b | → "a  ·  b"; header (row above a separator) bold

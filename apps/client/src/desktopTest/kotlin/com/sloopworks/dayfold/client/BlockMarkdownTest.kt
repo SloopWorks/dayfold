@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client
 
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -63,5 +64,23 @@ class BlockMarkdownTest {
     // a bullet with a dash, and a plain line, must survive (no over-greedy separator match)
     assertEquals("• item", renderBlockMarkdown("- item").text)
     assertEquals("a | b", renderBlockMarkdown("a | b").text)   // not a table row (no leading/trailing pipe)
+  }
+
+  @Test fun `headings strip the hashes, bold the line, and size h1 h2`() {
+    val h1 = renderBlockMarkdown("# Health & Forms")
+    assertEquals("Health & Forms", h1.text)
+    assertTrue(h1.spanStyles.any { it.item.fontWeight == FontWeight.Bold && it.item.fontSize == 20.sp })
+    val h2 = renderBlockMarkdown("## Immunizations")
+    assertEquals("Immunizations", h2.text)
+    assertTrue(h2.spanStyles.any { it.item.fontSize == 17.sp })
+    val h3 = renderBlockMarkdown("### Notes")
+    assertEquals("Notes", h3.text)                 // bold, default size
+    assertEquals(1, boldSpans(h3))
+  }
+
+  @Test fun `ordered lists keep their numbers and still format inline`() {
+    assertEquals("1. First\n2. Second", renderBlockMarkdown("1. First\n2. Second").text)
+    assertEquals("1. Do it", renderBlockMarkdown("1. **Do** it").text)   // inline bold inside an ordered item
+    assertEquals(1, boldSpans(renderBlockMarkdown("1. **Do** it")))
   }
 }
