@@ -5,8 +5,11 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 
 // Card presentation helpers (spec: 12-briefing-card-spec.md). Pure (no Composer)
 // so they're unit-testable; the Composable applies theme colors.
@@ -59,3 +62,48 @@ fun renderCardBody(md: String): AnnotatedString = buildAnnotatedString {
 // Are there any allowlisted, tappable links in this body? (test/UX helper)
 fun hasActionLinks(md: String): Boolean =
   LINK.findAll(md).any { schemeOf(it.groupValues[2]) in ALLOWED_SCHEMES }
+
+// ── block markdown (OQ-markdown-render, first cut) ───────────────────────────
+// Hub-block bodies are authored as real markdown (bold headers, bullet/checkbox
+// lists, inline links). They used to render as RAW Text — `**Jul 1**` showed the
+// asterisks. Render a useful subset to an AnnotatedString: **bold**, _italic_,
+// `- ` / `- [ ]` / `- [x]` lists, and the same vetted [label](url) links as cards.
+// Tables/headings/images are still passthrough (a later upgrade).
+private val INLINE = Regex("""\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_""")
+private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
+private val BULLET = Regex("""^(\s*)[-*]\s+(.*)$""")
+
+private fun AnnotatedString.Builder.appendInline(text: String) {
+  var i = 0
+  for (m in INLINE.findAll(text)) {
+    if (m.range.first < i) continue
+    append(text.substring(i, m.range.first))
+    when {
+      m.groupValues[1].isNotEmpty() ->
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1]) }
+      m.groupValues[3].isNotEmpty() -> {                      // [label](url)
+        val label = m.groupValues[2]; val url = m.groupValues[3]
+        if (schemeOf(url) in ALLOWED_SCHEMES) withLink(LinkAnnotation.Url(url, LINK_STYLE)) { append(label) }
+        else append(label)
+      }
+      m.groupValues[4].isNotEmpty() ->
+        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(m.groupValues[4]) }
+    }
+    i = m.range.last + 1
+  }
+  append(text.substring(i))
+}
+
+fun renderBlockMarkdown(md: String): AnnotatedString = buildAnnotatedString {
+  val lines = md.split("\n")
+  lines.forEachIndexed { idx, line ->
+    val cb = CHECKBOX.find(line)
+    val b = if (cb == null) BULLET.find(line) else null
+    when {
+      cb != null -> { append(if (cb.groupValues[2].trim().lowercase() == "x") "☑ " else "☐ "); appendInline(cb.groupValues[3]) }
+      b != null -> { append("• "); appendInline(b.groupValues[2]) }
+      else -> appendInline(line)
+    }
+    if (idx < lines.size - 1) append("\n")
+  }
+}
