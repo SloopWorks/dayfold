@@ -25,4 +25,12 @@ class WhoamiTest {
       whoamiStatus(signedInDevice = false, hasToken = true, family = "fam1", api = "https://api"),
     )
   }
+
+  // pull/push guard: only guide to login when there's NEITHER a device login NOR the
+  // legacy DAYFOLD_API env — otherwise let the normal path (or env() ) proceed.
+  @Test fun `guide to login only when neither device login nor legacy env is present`() {
+    assertTrue(shouldGuideToLogin(signedInDevice = false, hasLegacyApiEnv = false))   // fresh user → guide
+    assertEquals(false, shouldGuideToLogin(signedInDevice = true, hasLegacyApiEnv = false))   // logged in → no
+    assertEquals(false, shouldGuideToLogin(signedInDevice = false, hasLegacyApiEnv = true))   // legacy env path → no (env() validates the rest)
+  }
 }

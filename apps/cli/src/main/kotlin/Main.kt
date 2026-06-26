@@ -88,12 +88,27 @@ private fun authedGet(
 internal fun cliVersion(): String =
   {}.javaClass.getResourceAsStream("/dayfold-version.txt")?.readBytes()?.decodeToString()?.trim() ?: "unknown"
 
+/** Shared "you're not set up" guidance — used by whoami's status line AND the pull/
+ *  push commands (so a fresh user gets login guidance, not a cryptic `missing env`). */
+internal const val NOT_SIGNED_IN_HINT =
+  "not signed in — run: dayfold login (or set DAYFOLD_API + FAMILY_ID + HOUSEHOLD_SECRET)"
+
 /** The `whoami` status line — pure, so it's testable. With neither a device login
  *  nor a legacy token, print actionable guidance instead of blank `family= api=`. */
 internal fun whoamiStatus(signedInDevice: Boolean, hasToken: Boolean, family: String, api: String): String =
-  if (!signedInDevice && !hasToken)
-    "not signed in — run: dayfold login (or set DAYFOLD_API + FAMILY_ID + HOUSEHOLD_SECRET)"
+  if (!signedInDevice && !hasToken) NOT_SIGNED_IN_HINT
   else "family=$family api=$api (${if (signedInDevice) "device" else "legacy"})"
+
+/** Pure: with neither a device login nor a legacy DAYFOLD_API env, the user hasn't
+ *  set up auth at all → guide to login instead of a cryptic `missing env`. */
+internal fun shouldGuideToLogin(signedInDevice: Boolean, hasLegacyApiEnv: Boolean): Boolean =
+  !signedInDevice && !hasLegacyApiEnv
+
+private fun requireAuthSetup(signedInDevice: Boolean) {
+  if (shouldGuideToLogin(signedInDevice, System.getenv("DAYFOLD_API") != null)) {
+    System.err.println(NOT_SIGNED_IN_HINT); exitProcess(2)
+  }
+}
 
 /** A human-readable message for a failed payload-file read — pure, so it's tested.
  *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
@@ -143,6 +158,7 @@ fun main(args: Array<String>) {
     "pull" -> {
       val store = Credentials(); val keychain = resolveKeychain()
       val creds = loadCreds(store, keychain)
+      requireAuthSetup(creds != null)
       val (api, fam, tok) =
         if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
         else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
@@ -185,6 +201,7 @@ fun main(args: Array<String>) {
       val store = Credentials()
       val keychain = resolveKeychain()
       val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
+      requireAuthSetup(creds != null)
       if (creds != null) {
         var access = creds.accessToken
         var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", payload, access)
