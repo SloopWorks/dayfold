@@ -172,14 +172,19 @@ data class HubBlock(
 data class BlockPayload(
   val items: List<ChecklistItem>? = null,                   // checklist / budget rows
   val url: String? = null, val label: String? = null, val domain: String? = null, val docRef: String? = null,  // link / document
+  val ref: String? = null,                                  // document — canonical schema name (ADR 0035; alias of docRef)
   val name: String? = null, val role: String? = null, val phone: String? = null, val email: String? = null,    // contact
-  val address: String? = null, val lat: Double? = null, val lng: Double? = null,                                // location
+  val address: String? = null, val lat: Double? = null, val lng: Double? = null, val mapUrl: String? = null,    // location (mapUrl = schema name)
   val date: String? = null,                                 // milestone
-  val total: Double? = null, val spent: Double? = null,     // budget summary
+  val total: Double? = null, val spent: Double? = null,     // budget summary (client) — or derived from `items` (schema)
 )
 
 @Serializable
-data class ChecklistItem(val text: String? = null, val done: Boolean = false, val due: String? = null, val assignee: String? = null)
+data class ChecklistItem(
+  val text: String? = null, val done: Boolean = false, val due: String? = null, val assignee: String? = null,
+  // budget rows (canonical schema shape): an itemized budget uses these (ADR 0035).
+  val label: String? = null, val amount: Double? = null, val paid: Boolean? = null,
+)
 
 // GET /hubs/:id/tree envelope. Blocks carry section_id; the renderer groups them.
 @Serializable
