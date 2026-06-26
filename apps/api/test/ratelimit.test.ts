@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 const { pool, q } = await import("../src/db.ts");
-const { hit, isLocked, recordFailure, resetFailures } = await import("../src/auth/ratelimit.ts");
+const { hit, isLocked, recordFailure, resetFailures, clientIp } = await import("../src/auth/ratelimit.ts");
 const { audit } = await import("../src/auth/audit.ts");
 
 beforeAll(async () => {
@@ -40,5 +40,23 @@ describe("ratelimit + audit", () => {
     const r = await q(`SELECT event, actor_user_id, detail FROM audit_log WHERE event='device.approve'`);
     expect(r.rows[0].actor_user_id).toBe("u1");
     expect(r.rows[0].detail.x).toBe(1);
+  });
+});
+
+// Pure — the anti-spoof IP extraction that keys every per-IP rate limit. If this
+// trusted the client-settable left-most x-forwarded-for hop, per-IP limits would be
+// trivially bypassable; lock the trusted-source precedence + last-hop selection.
+describe("clientIp (anti-spoof source)", () => {
+  const ctx = (h: Record<string, string | undefined>) => ({ req: { header: (k: string) => h[k] } });
+
+  it("prefers the Vercel-trusted header over client-settable x-forwarded-for", () => {
+    expect(clientIp(ctx({ "x-vercel-forwarded-for": "5.5.5.5", "x-forwarded-for": "1.1.1.1" }))).toBe("5.5.5.5");
+  });
+  it("takes the LAST x-forwarded-for hop (proxy's view), never the spoofable left-most", () => {
+    expect(clientIp(ctx({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 3.3.3.3" }))).toBe("3.3.3.3");
+    expect(clientIp(ctx({ "x-forwarded-for": "9.9.9.9" }))).toBe("9.9.9.9");
+  });
+  it("falls back to \"unknown\" when no trusted source is present", () => {
+    expect(clientIp(ctx({}))).toBe("unknown");
   });
 });
