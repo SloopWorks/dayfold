@@ -213,4 +213,6 @@ New prototype-level open items:
   to hubs), distinct from first-run onboarding — needs a hi-fi mockup + operator
   sign-off before build. Distinguisher is also non-trivial on the feed (hubs/members
   aren't loaded there yet), so the design should decide the signal too. Low urgency
-  (cosmetic; no data risk).
+  (cosmetic; no data risk). → **Design brief authored**:
+  `designs/DESIGN-BRIEF-feed-empty-states.md` (4 posture states + the
+  new-vs-established signal); next is the hi-fi comp + operator sign-off (ADR 0008).
