@@ -427,6 +427,7 @@ internal val USAGE =
     "         --type runs local typed card validation before the server)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
     "  template <type>            starter body: a card type, or hub|section|block\n" +
+    "  delete <id> [--card] | rm  remove a hub (cascades sections+blocks) or a card\n" +
     "  update                     update to the latest dayfold (brew upgrade)\n" +
     "  version | --version       print the CLI version\n" +
     "  help | -h | --help         print this usage\n" +
