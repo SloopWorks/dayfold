@@ -1,6 +1,7 @@
 import com.sloopworks.dayfold.cli.linkifyPayload
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LinkifyPayloadTest {
@@ -23,5 +24,21 @@ class LinkifyPayloadTest {
   @Test fun reports_longest_linkified_body_for_per_field_cap() {
     val r = linkifyPayload("""{"body_md":"call 555-123-4567"}""")
     assertEquals("call [555-123-4567](tel:+15551234567)".length, r.maxBodyLen)
+  }
+
+  // End-to-end (Task 4): a realistic card body with a phone, an email, and a URL
+  // whose path contains phone-like digits. Phone+email link; the in-URL digits don't.
+  @Test fun e2e_realistic_card_links_phone_email_skips_url_and_is_idempotent() {
+    val card = """{"id":"01J0000000000000000000TEST","kind":"info","title":"t",""" +
+      """"body_md":"Call 555-123-4567 or email coach@school.edu. Field: https://maps.x/o/5551234567",""" +
+      """"provenance":{"source":"user","at":"2026-06-27T00:00:00Z"}}"""
+    val r = linkifyPayload(card)
+    assertTrue(r.json.contains("[555-123-4567](tel:+15551234567)"), "phone linked")
+    assertTrue(r.json.contains("[coach@school.edu](mailto:coach@school.edu)"), "email linked")
+    assertTrue(r.json.contains("https://maps.x/o/5551234567"), "url preserved")
+    assertFalse(r.json.contains("o/[5551234567]"), "phone-in-url NOT linked")
+    assertEquals(1, r.diffs.size) // one body_md field changed → one before/after pair
+    // idempotent at the payload level: re-linkify the output → byte-identical
+    assertEquals(r.json, linkifyPayload(r.json).json)
   }
 }
