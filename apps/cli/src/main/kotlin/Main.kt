@@ -233,8 +233,22 @@ fun main(args: Array<String>) {
       val pos = pushPositionals(args)
       val id = pos.getOrNull(0) ?: usage()
       val file = pos.getOrNull(1) ?: usage()
-      val payload = try { Files.readString(Path.of(file)) }
+      val rawPayload = try { Files.readString(Path.of(file)) }
         catch (e: Exception) { System.err.println(fileReadError(file, e)); exitProcess(2) }
+      // Author-side linkify (CL-LINK): wrap bare phone/email entities in every body_md
+      // into explicit allowlisted links before storing (the server is content-blind,
+      // ADR 0015). --no-linkify opts out; the result is the canonical stored body.
+      val payload = if ("--no-linkify" in args) rawPayload else {
+        val r = linkifyPayload(rawPayload)
+        if (r.diffs.isNotEmpty()) {
+          System.err.println("linkified ${r.diffs.size} body_md field(s):")
+          r.diffs.forEach { (b, a) -> System.err.println("  - $b\n  + $a") }
+        }
+        if (r.maxBodyLen > BODY_MD_CAP) {
+          System.err.println("a linkified body_md exceeds $BODY_MD_CAP chars — shorten"); exitProcess(1)
+        }
+        r.json
+      }
       // --hub/--section/--block target the hub tree (PUT /hubs|sections|blocks/:id)
       // instead of a briefing card. The server is the authority for hub-tree shape
       // (no generated schema in the CLI yet), so the card --type validation below
@@ -441,7 +455,7 @@ internal val USAGE =
     "  login [--allow-env-key] | logout | whoami\n" +
     "        (refresh token is stored in the OS keychain; --allow-env-key permits\n" +
     "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
-    "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...]\n" +
+    "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
     "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
     "         --type runs local typed card validation before the server)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
