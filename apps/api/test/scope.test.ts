@@ -41,4 +41,11 @@ describe("grantedHubIds (the per-hub LIST filter)", () => {
   it("parses ids structurally so a hub id may contain ':' (no split)", () => {
     expect(grantedHubIds(["hub:a:b:read"], "read")).toEqual(["a:b"]);     // id = "a:b"
   });
+
+  it("rejects a malformed empty-hub-id grant — no zero-length id leaks into the filter", () => {
+    // `hub::read` has prefix+suffix but a ZERO-length id; the length guard must drop it,
+    // else grantedHubIds returns [""] and the WHERE-IN would match an empty-id hub.
+    expect(grantedHubIds(["hub::read"], "read")).toEqual([]);
+    expect(grantedHubIds(["hub::read", "hub:h1:read"], "read")).toEqual(["h1"]); // valid one survives
+  });
 });
