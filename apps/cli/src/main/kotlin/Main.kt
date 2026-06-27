@@ -457,7 +457,8 @@ internal val USAGE =
     "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
     "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
     "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
-    "         --type runs local typed card validation before the server)\n" +
+    "         --type runs local typed card validation before the server.\n" +
+    "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
     "  template <type>            starter body: a card type, or hub|section|block\n" +
     "  delete <id> [--card] | rm  remove a hub (cascades sections+blocks) or a card\n" +

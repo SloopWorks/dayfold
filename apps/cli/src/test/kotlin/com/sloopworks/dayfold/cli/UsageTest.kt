@@ -13,4 +13,11 @@ class UsageTest {
       .forEach { assertTrue(USAGE.contains(it), "USAGE missing \"$it\"") }
     assertTrue(USAGE.startsWith("usage: dayfold"))
   }
+
+  @Test fun `USAGE explains content-modifying push behavior (--no-linkify)`() {
+    // push auto-rewrites body_md phone/email into links (#196) — content-modifying, so the
+    // help must explain it + the opt-out, not just list the flag in the syntax line.
+    assertTrue(USAGE.contains("--no-linkify"), "USAGE missing the --no-linkify opt-out")
+    assertTrue(USAGE.contains("auto-linked"), "USAGE doesn't explain the auto-link default")
+  }
 }
