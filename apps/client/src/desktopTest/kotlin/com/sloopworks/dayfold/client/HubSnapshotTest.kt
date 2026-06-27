@@ -69,4 +69,19 @@ class HubSnapshotTest {
 
   @Test fun canonicalHubLight() = snapshot("hub-canonical-light", false)
   @Test fun canonicalHubDark() = snapshot("hub-canonical-dark", true)
+
+  // ADR 0036 enrichment render kit (#177): a hub with media renders the EnrichedHeroBanner.
+  // No hero image loads in headless, so this exercises the FALLBACK ladder — accent tile +
+  // curated icon + title scrim — and accentRolesFor's color math at the render level (the
+  // unit tests cover the math; nothing rendered it). Also writes a PNG to eyeball.
+  @Test fun enrichedHubRendersHeroBannerFallback() = runComposeUiTest {
+    val base = canonicalHub()
+    val enriched = base.copy(hub = base.hub.copy(media = HubMedia(icon = "school", accentColor = "#3B5BDB")))
+    val state = AppState(currentHubId = "sample", currentHubTree = enriched)
+    setContent { DayfoldTheme { HubDetailScreen(state) } }
+    val img = onRoot().captureToImage()
+    assertTrue(img.width > 0 && img.height > 0, "enriched snapshot has no pixels")
+    ImageIO.write(img.toAwtImage(), "png", File(File("build/snapshots").apply { mkdirs() }, "hub-enriched-light.png"))
+    onNodeWithText("Financial Aid Office").assertIsDisplayed()   // hub content still renders below the banner
+  }
 }
