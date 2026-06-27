@@ -20,4 +20,14 @@ class TemplateTest {
     val block = Json.parseToJsonElement(load("block")).jsonObject
     assertTrue("sectionId" in block && "type" in block)                               // block route requires sectionId
   }
+
+  @Test fun `hub-tree templates pass validateHubTree — the 'template X | push --X' round-trip`() {
+    // ValidateTest pins the CARD templates against validateCard; this is the hub-tree
+    // parallel. A template drifting from validateHubTree (the check push --hub/--section/
+    // --block applies) would silently break the first thing a new author tries.
+    for ((name, resource) in listOf("hub" to "hubs", "section" to "sections", "block" to "blocks")) {
+      val errs = validateHubTree(resource, load(name))
+      assertTrue(errs.isEmpty(), "template $name should pass validateHubTree(\"$resource\"), got: $errs")
+    }
+  }
 }
