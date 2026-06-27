@@ -105,6 +105,18 @@ class ReducerTest {
     assertEquals(tree, s.currentHubTree)
   }
 
+  @Test fun `HubsFailed stops the spinner + sets the error, but keeps the open hub`() {
+    // Unlike HubsLoaded's revocation path, a FAILED list refresh is non-destructive: it must
+    // not evict the hub you're reading (transient network blip) — just clear busy + say why.
+    val tree = HubTree(hub = hub("h1"))
+    val open = AppState(currentHubId = "h1", currentHubTree = tree, hubsBusy = true)
+    val s = rootReducer(open, HubsFailed("network down"))
+    assertFalse(s.hubsBusy)                  // no stuck spinner on the error path
+    assertEquals("network down", s.hubError)
+    assertEquals("h1", s.currentHubId)        // still reading h1
+    assertEquals(tree, s.currentHubTree)      // open hub preserved through the failure
+  }
+
   @Test fun `OpenHub enters a hub busy and clears any stale arrival focus`() {
     val s = rootReducer(AppState(hubFocusBlockId = "old-blk"), OpenHub("h9"))
     assertEquals("h9", s.currentHubId)
