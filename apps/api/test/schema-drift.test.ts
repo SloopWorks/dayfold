@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { expectedTables, missingTables } from "../scripts/schema-drift.mjs";
+import { expectedTables, missingTables, expectedAddedColumns, missingColumns } from "../scripts/schema-drift.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migDir = resolve(here, "../migrations");
@@ -33,5 +33,33 @@ describe("schema-drift detector", () => {
     expect(missing).toContain("rate_limits");      // the device 500
     expect(missing).toContain("credential_grants");
     expect(missing).not.toContain("families");     // present → not flagged
+  });
+});
+
+// The #180 outage was COLUMN drift, not table drift: briefing_cards existed (table check
+// said "in sync") but lacked the ALTER-added columns, so every INSERT 500'd. These cover
+// the column-aware extension.
+describe("column-aware drift (table present, ALTER-added columns missing)", () => {
+  const cols = expectedAddedColumns(migDir);
+
+  it("parses ALTER … ADD COLUMN across migrations — incl. multi-add + a ';' inside a comment", () => {
+    const bc = cols.get("briefing_cards");
+    // 0006 adds type,payload,privacy,hub_ref in ONE statement whose `type` comment holds
+    // "D1); NULL" — the ';' must NOT truncate the parse (comment-stripping guards this).
+    for (const c of ["type", "payload", "privacy", "hub_ref"]) expect(bc?.has(c), c).toBe(true);
+    for (const c of ["related", "related_kicker", "visibility", "audience", "media"]) expect(bc?.has(c), c).toBe(true);
+  });
+
+  it("flags exactly the migration-added columns a stale table lacks (the #180 shape)", () => {
+    const actual = new Map([["briefing_cards", new Set(["id", "family_id", "kind", "title"])]]);
+    const drift = missingColumns(cols, actual).find((d) => d.table === "briefing_cards");
+    expect(drift?.columns).toContain("type");     // the INSERT-500 column
+    expect(drift?.columns).toContain("media");     // ADR 0036
+    expect(drift?.columns).not.toContain("kind");  // a base col that's present → not flagged
+  });
+
+  it("reports no column drift when every migration-added column is present", () => {
+    const actual = new Map([...cols].map(([t, s]) => [t, new Set(s)]));
+    expect(missingColumns(cols, actual)).toEqual([]);
   });
 });
