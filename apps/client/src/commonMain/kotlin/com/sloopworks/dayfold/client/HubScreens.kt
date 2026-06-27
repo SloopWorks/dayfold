@@ -196,9 +196,9 @@ fun HubDetailScreen(
       TopAppBar(
         title = { Text(tree?.hub?.title ?: "Hub", fontWeight = FontWeight.SemiBold) },
         navigationIcon = {
-          // glyph-only control → give the screen reader a real label, not "←"
+          // glyph-only control → give the screen reader a real label, not the icon
           IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back to hubs" }) {
-            Text("←", style = MaterialTheme.typography.titleLarge, modifier = Modifier.clearAndSetSemantics {})
+            androidx.compose.material3.Icon(DayfoldIcons.ArrowBack, contentDescription = null, modifier = Modifier.clearAndSetSemantics {})
           }
         },
       )
@@ -238,7 +238,7 @@ fun HubDetailScreen(
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                   androidx.compose.material3.Icon(DayfoldIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).clearAndSetSemantics {})
                   Text("Private", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 6.dp))
-                  Text("⌄", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 5.dp).clearAndSetSemantics {})
+                  androidx.compose.material3.Icon(DayfoldIcons.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 3.dp).size(18.dp).clearAndSetSemantics {})
                 }
               }
             }
@@ -423,8 +423,10 @@ private fun HubBlockCard(block: HubBlock, focused: Boolean = false) {
       // deep-link arrival badge (the design's "FROM YOUR BRIEFING" pulse)
       if (focused) {
         Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(7.dp)) {
-          Text("↗ FROM YOUR BRIEFING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+          Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(end = 3.dp).size(13.dp))
+            Text("FROM YOUR BRIEFING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+          }
         }
       }
       when {
@@ -480,7 +482,7 @@ private fun LinkRow(block: HubBlock) {
       Text(p?.label ?: p?.url ?: refStr ?: block.type, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
       (p?.domain ?: p?.url ?: refStr)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
     }
-    Text("↗", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)  // opens externally (calm)
+    androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))  // opens externally (calm)
   }
 }
 
@@ -513,7 +515,10 @@ private fun LocationBlock(p: BlockPayload?) {
         Text(p?.label ?: "Location", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         p?.address?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
       }
-      Text("Directions ↗", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Directions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 3.dp).size(16.dp))
+      }
     }
   }
 }
