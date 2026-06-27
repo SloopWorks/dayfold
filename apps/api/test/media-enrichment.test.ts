@@ -29,7 +29,7 @@ beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
   for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0006_typed_content.sql", "0007_related.sql",
     "0008_credential_grants.sql", "0009_visibility.sql", "0010_hub_sync_fanout.sql",
-    "0011_hub_visibility_fanout.sql", "0012_visual_enrichment.sql"])
+    "0011_hub_visibility_fanout.sql", "0013_visual_enrichment.sql"])
     await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
   await q(`INSERT INTO families(id,name) VALUES ('famA','A')`);
   await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','famA','{content:read,content:write}')`);

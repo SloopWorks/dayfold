@@ -1,4 +1,4 @@
--- 0012_visual_enrichment.sql — Hub & card visual enrichment (ADR 0036)
+-- 0013_visual_enrichment.sql — Hub & card visual enrichment (ADR 0036)
 -- Additive, expand-only, backward-compatible: NULL media = today's unenriched look.
 -- Wire shape = the `media` sub-object (Hub.media / BriefingCard.media); stored as
 -- jsonb here. Block enrichment (thumbnailUrl/avatarUrl) rides existing `payload jsonb`

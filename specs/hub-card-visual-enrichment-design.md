@@ -67,7 +67,7 @@ Block.payload (contact).avatarUrl? , .accentColor?
   `endsWith`); length-cap. Reject `image/svg+xml` at render (SVG = XSS).
 - Errors: existing RFC 9457; per-field issue path (e.g. `["media","heroUrl"]`).
 
-## Migration `0012_visual_enrichment.sql`
+## Migration `0013_visual_enrichment.sql`
 ```sql
 ALTER TABLE hubs           ADD COLUMN media jsonb;
 ALTER TABLE briefing_cards ADD COLUMN media jsonb;
