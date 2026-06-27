@@ -76,6 +76,19 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 - **OQ-hub-collab:** At MVP, is Hub authoring push/Claude-only, or can family
   members edit Hubs in-app? (Lean: push-only at MVP, in-app edit post-MVP.)
   → feeds `specs/event-hubs-design.md`, C1b.
+- **OQ-public-hubs** *(NEW 2026-06-27, operator-seeded research spike)*: Could
+  Hubs extend beyond the single family tenant? Four framings recorded, all
+  ADR-class scope changes (none decided): **(A) Shareable event hubs** — a family
+  publishes one hub (e.g. a birthday party) to a public/unlisted link so
+  non-member invitees can view it (acquisition/virality wedge; pushes tenant
+  content public → tests Guardrail 3/4). **(B) Public template/starter gallery** —
+  curated *non-personal* hub templates families clone in (no tenant data leaves).
+  **(C) Subscribable community feeds** — public/community-authored hubs (school
+  calendars, league schedules, local events) families subscribe to (sourcing +
+  trust + republishing-legality questions). **(D) Define-the-concept** — enumerate
+  + compare, then recommend. **Operator (2026-06-27): record all four; first spike
+  targets (C) subscribable community feeds.** → `research/2026-06-27-spike-public-
+  hubs-community-feeds.md`. Any adoption is ADR-gated.
 - **OQ-hub-archival:** Retention + export policy for archived Hubs. **Narrowed
   2026-06-23:** delete-on-request (Guardrail 4) is now covered by the MVP **manual
   hard-purge tool** (operator-chosen, schema review); what remains here is the
