@@ -215,4 +215,9 @@ New prototype-level open items:
   aren't loaded there yet), so the design should decide the signal too. Low urgency
   (cosmetic; no data risk). → **Design brief authored**:
   `designs/DESIGN-BRIEF-feed-empty-states.md` (4 posture states + the
-  new-vs-established signal); next is the hi-fi comp + operator sign-off (ADR 0008).
+  new-vs-established signal). → **Hi-fi comp authored + rendered (light+dark)**:
+  `designs/Family AI dashboard design brief/designs/States-Feed.dc.html` (caught-up,
+  first-run, syncing, offline; recommends `established = hubs.isNotEmpty() ||
+  members.size > 1`, with the `familyHasContent`-on-sync variant; includes the
+  M3→FeedScreen mapping). **Next: operator sign-off → then build re-routes
+  FeedScreen's single empty branch into the four states (ADR 0008).**
