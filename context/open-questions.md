@@ -88,7 +88,26 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   trust + republishing-legality questions). **(D) Define-the-concept** — enumerate
   + compare, then recommend. **Operator (2026-06-27): record all four; first spike
   targets (C) subscribable community feeds.** → `research/2026-06-27-spike-public-
-  hubs-community-feeds.md`. Any adoption is ADR-gated.
+  hubs-community-feeds.md` (5 domain-blind agents + adversarial pass).
+  **Spike verdict (2026-06-27) on (C):** a three-rung ladder — **Run** (full
+  aggregation / community-authored feeds) = **NO-GO** (commoditized below/beside/above
+  — native ICS free, Caldzy, Burbio's consumer→B2B retreat; freshness+moderation is a
+  non-delegable human ops burden; high-value granular feeds are auth-gated → can't be
+  aggregated; off-thesis); **Walk** (curated regional feed packs) = **DEFER** with a
+  trigger (the one genuine white space, but adds curation/redistribution burden);
+  **Crawl** (thin "bring-your-own-feed" — family subscribes its own public ICS, we
+  render into its Event Hub) = **spec-only candidate experiment, not built ahead of
+  core**, ADR-gated, with a legal pre-gate (per-source ToS + multi-state minors'-
+  privacy `[needs-counsel]` + minors'-data minimization). Any adoption is ADR-gated.
+- **OQ-byo-feed-acquisition** *(NEW 2026-06-27, from the public-hubs spike)*: Does
+  "subscribe your kid's school + soccer team and the whole family sees it" convert a
+  *non-operator* family to sign-up? The acquisition hypothesis the thin BYO-feed slice
+  would test — but **untestable until core ships** (nothing to convert strangers into),
+  and it needs a **pre-registered success bar** (stranger-conversion rate / sample /
+  cost ceiling) before it justifies build. Note: native subscribe is free and Caldzy
+  already monetizes this exact slice, so it does not move OQ-wtp on its own. → feeds
+  OQ-wtp / OQ-niche / Gate G1b; `research/2026-06-27-spike-public-hubs-community-
+  feeds.md`.
 - **OQ-hub-archival:** Retention + export policy for archived Hubs. **Narrowed
   2026-06-23:** delete-on-request (Guardrail 4) is now covered by the MVP **manual
   hard-purge tool** (operator-chosen, schema review); what remains here is the

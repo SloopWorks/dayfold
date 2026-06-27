@@ -17,5 +17,10 @@ nothing adopted; recorded so they aren't lost.
 - **C · Subscribable community feeds** *(first spike — see
   `research/2026-06-27-spike-public-hubs-community-feeds.md`)*: families subscribe
   to public/community-authored hubs (school calendars, league schedules, local
-  events). Sourcing, trust/quality, and republishing legality are the cruxes.
+  events). **Verdict:** three-rung ladder — *full aggregation/community-authoring* =
+  **NO-GO** (commoditized; non-delegable ops/moderation burden; high-value feeds are
+  auth-gated → can't be aggregated; off-thesis); *curated regional packs* = **DEFER**
+  (the one white space, but adds curation/redistribution burden); *thin
+  "bring-your-own-feed"* = **spec-only candidate experiment, not built ahead of
+  core**, ADR-gated + legal pre-gate (ToS + minors'-privacy `[needs-counsel]`).
 - **D · Define the concept:** enumerate + compare the above, recommend one.
