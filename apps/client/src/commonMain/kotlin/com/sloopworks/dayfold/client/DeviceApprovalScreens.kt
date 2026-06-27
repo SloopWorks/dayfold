@@ -264,7 +264,7 @@ fun AuthorizeDeviceScreen(
           Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cs.errorContainer).padding(12.dp).testTag("device-datacenter-warning"),
           horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-          Text("⚠", style = MaterialTheme.typography.titleMedium, color = cs.onErrorContainer)
+          androidx.compose.material3.Icon(DayfoldIcons.Warning, contentDescription = null, tint = cs.onErrorContainer, modifier = Modifier.size(22.dp))
           Text(
             "This request comes from a data center, not a home network. Only approve if you started it yourself.",
             style = MaterialTheme.typography.bodyMedium, color = cs.onErrorContainer,

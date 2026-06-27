@@ -147,8 +147,8 @@ private fun HubRow(hub: Hub, onClick: () -> Unit) {
           if (hub.visibility == "restricted") {
             // calm restricted marker — warm-neutral, never error-red. Icon-only →
             // give the screen reader "Private" instead of announcing the lock glyph.
-            Text("🔒", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.padding(start = 7.dp).semantics { contentDescription = "Private" })
+            androidx.compose.material3.Icon(DayfoldIcons.Lock, contentDescription = "Private", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(start = 7.dp).size(15.dp))
           }
         }
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -235,7 +235,7 @@ fun HubDetailScreen(
                 modifier = Modifier.padding(start = 8.dp).clickable(onClick = onOpenAudience, onClickLabel = "See who can see this hub"),
               ) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                  Text("🔒", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics {})
+                  androidx.compose.material3.Icon(DayfoldIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).clearAndSetSemantics {})
                   Text("Private", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 6.dp))
                   Text("⌄", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 5.dp).clearAndSetSemantics {})
                 }
@@ -245,7 +245,10 @@ fun HubDetailScreen(
         }
         hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString())?.let { c ->
           if (tree.hub.status != "archived") item {
-            Text("📅  $c", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+              androidx.compose.material3.Icon(DayfoldIcons.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+              Text(c, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            }
           }
         }
         if (tree.hub.visibility == "restricted") {
