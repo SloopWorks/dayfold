@@ -21,6 +21,19 @@ class LinkifyPayloadTest {
     assertTrue(r.diffs.isEmpty())
   }
 
+  @Test fun only_body_md_is_linkified_never_title_or_structured_fields() {
+    // A phone in a title, or a contact's STRUCTURED payload.phone, must stay PLAIN —
+    // linkify targets body_md ONLY. Linkifying a structured field would corrupt it (the
+    // renderer formats payload.phone itself; a markdown link in that slot is wrong).
+    val card = """{"id":"x","kind":"info","title":"Call 555-123-4567 today",""" +
+      """"payload":{"phone":"888-555-0100","email":"a@b.com"},"body_md":"reach us"}"""
+    val r = linkifyPayload(card)
+    assertTrue(r.diffs.isEmpty())                       // body_md ("reach us") has no entities → no change
+    assertFalse(r.json.contains("tel:"), "a phone outside body_md was linkified")
+    assertFalse(r.json.contains("mailto:"), "an email outside body_md was linkified")
+    assertFalse(r.json.contains("]("), "a markdown link was created outside body_md")
+  }
+
   @Test fun reports_longest_linkified_body_for_per_field_cap() {
     val r = linkifyPayload("""{"body_md":"call 555-123-4567"}""")
     assertEquals("call [555-123-4567](tel:+15551234567)".length, r.maxBodyLen)
