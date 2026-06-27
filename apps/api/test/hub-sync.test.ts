@@ -317,3 +317,41 @@ describe("hub-sync: merged keyset /sync (cards + hubs)", () => {
     expect(allHubs.filter((id: string) => id === "pageHub")).toHaveLength(1);
   });
 });
+
+// The `since` cursor is client-controlled input (base64) that drives the keyset
+// query. Validation + injection-safety had no coverage — only the happy paths did.
+describe("hub-sync: cursor robustness (malformed + adversarial input)", () => {
+  const b64 = (s: string) => Buffer.from(s).toString("base64");
+
+  it("a malformed `since` cursor is a clean 400 bad-cursor (never a 500 / silent rescan)", async () => {
+    const o = await ownerOf("cur-owner");
+    const sync = (since: string) =>
+      app.request(`/families/${o.familyId}/sync?since=${encodeURIComponent(since)}`, { headers: { authorization: `Bearer ${o.token}` } });
+    expect((await sync(b64("only-one-part"))).status).toBe(400);          // 1 part (no pipe)
+    expect((await sync(b64("a|b|c|d"))).status).toBe(400);                // 4 parts
+    expect((await sync(b64("not-a-date|id"))).status).toBe(400);          // 2-part, bad ts
+    expect((await sync(b64("|id"))).status).toBe(400);                    // 2-part, empty ts
+    expect((await sync(b64("not-a-date|card|id"))).status).toBe(400);     // 3-part, bad ts
+  });
+
+  it("a 3-part cursor with an unknown type → full resync (200), not an error", async () => {
+    const o = await ownerOf("cur-owner2");
+    await putCard(o.familyId, "c1", o.token, baseCard());
+    const cur = b64("2026-06-24T00:00:00Z|bogusType|x");
+    const r = await app.request(`/families/${o.familyId}/sync?since=${encodeURIComponent(cur)}`, { headers: { authorization: `Bearer ${o.token}` } });
+    expect(r.status).toBe(200);
+    expect((await r.json()).changes.cards.map((c: any) => c.id)).toContain("c1");   // resynced from -∞
+  });
+
+  it("a SQL-injection-shaped id in a valid cursor is bound as a param — harmless (no 500, table intact)", async () => {
+    const o = await ownerOf("cur-owner3");
+    await putCard(o.familyId, "c1", o.token, baseCard());
+    const cur = b64(`2026-06-24T00:00:00Z|card|'; DROP TABLE briefing_cards;--`);
+    const r = await app.request(`/families/${o.familyId}/sync?since=${encodeURIComponent(cur)}`, { headers: { authorization: `Bearer ${o.token}` } });
+    expect(r.status).toBe(200);   // parameterized → not a 500, and nothing executed
+    // prove the table still exists: a fresh write + read round-trips
+    await putCard(o.familyId, "c2", o.token, baseCard());
+    const r2 = await app.request(`/families/${o.familyId}/sync`, { headers: { authorization: `Bearer ${o.token}` } });
+    expect((await r2.json()).changes.cards.map((c: any) => c.id)).toContain("c2");
+  });
+});
