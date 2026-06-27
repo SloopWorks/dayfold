@@ -1,80 +1,123 @@
 # Dayfold
 
-A calm, AI-powered household dashboard. One account per family, members log
-in (adults at MVP). It reads the family's existing signals — calendar,
-email, lists/tasks, weather, location — and renders a single sleek daily
-**briefing** plus a short list of **smart recommended actions** with deep
-links ("party Saturday — ordered groceries? [list]"; "school email needs an
-RSVP Thursday [reply]"; "rain at soccer 4pm — pack jackets").
+A calm, AI-powered household dashboard. One account per family, adults log in. It reads
+the family's existing signals — calendar, email, lists, weather, location — and renders
+a daily **briefing** plus smart **recommended actions** with deep links ("party Saturday
+— ordered groceries? [list]"; "school email needs an RSVP Thursday [reply]").
 
-Built mobile-first on **Compose Multiplatform** (Android/iOS/Web). The MVP
-is a **content API + CLI + Claude skill**: external AI loops and scheduled
-tasks author/update the cards — the dashboard *renders* intelligence
-produced elsewhere; it is not an open-ended chatbot. Dogfooded on the
-operator's own household first. Primary purpose: a **learning lab**; durable
-side income is a co-goal.
+Built mobile-first on **Compose Multiplatform** (Android/iOS/Web). The MVP wedge is a
+**content API + CLI + Claude skill**: external AI loops author/update cards and hubs —
+the dashboard *renders* intelligence produced elsewhere. It is not a chatbot.
 
-> **Status:** the planning loop is running (Phase A — validation follow-through)
-> **and the M0 prototype is built + live.** The content API runs on Vercel + Neon,
-> the `dayfold` CLI authors content, and the Android app renders it on-device —
-> the full wedge works end-to-end (Google sign-in → CLI device-login → author a
-> hub → it renders on the phone). Validation round 1 verdict: **CONDITIONAL —
-> learning-lab GO, standalone-business NO-GO** (the generic "AI family briefing" is
-> commoditized by Gemini Daily Brief / Alexa+ and funded verticals; the defensible
-> surface is a **multi-member family-tenant briefing**). See
-> `research/validation-round1-2026-06.md`, `adr/0004`, and
-> `specs/prototype/00-build-spec-plan.md`.
+> **Status (2026-06-26):** M0 prototype **built + live.** Google sign-in, CLI device
+> login, hub + card authoring, and the Android feed all work end-to-end. Validation
+> round 1 verdict: **CONDITIONAL — learning-lab GO, standalone-business NO-GO**
+> (commoditized by Gemini Daily Brief / Alexa+; the defensible wedge is multi-member
+> family-tenant briefing, which no native OS ships). See
+> `research/validation-round1-2026-06.md`.
 
-## Orientation
+## Architecture
 
-- [CLAUDE.md](CLAUDE.md) — session protocol, governance, directory map
-- [context/values-and-direction.md](context/values-and-direction.md) — operator-owned north star
-- [context/business-constitution.md](context/business-constitution.md) — identity + scope firewall (what it is NOT)
-- [adr/0004-product-framing.md](adr/0004-product-framing.md) — what this is, what it isn't, MVP scope
-- [research/validation-round1-2026-06.md](research/validation-round1-2026-06.md) — validation verdict + evidence
-- [planning/workstreams.md](planning/workstreams.md) — the live waterfall board
-- [backlog/operator-inbox.md](backlog/operator-inbox.md) — items awaiting the operator
-- [backlog/now.md](backlog/now.md) — current immediates
+```
+  Claude Code skill / AI agents / scheduled tasks
+            │
+            ▼
+  ┌─────────────────────┐        ┌───────────────────────────────┐
+  │  dayfold CLI        │        │  Content API                  │
+  │  (Kotlin / JVM)     │ ──PUT─►│  (TypeScript · Hono · Vercel) │
+  │                     │◄─GET── │  Postgres (Neon)              │
+  │  login  push  pull  │        │  Firebase Auth                │
+  │  whoami template    │        └───────────┬───────────────────┘
+  └─────────────────────┘                    │ /sync
+                                             ▼
+                                  ┌──────────────────────┐
+                                  │  Client app           │
+                                  │  (Compose Multiplatform│
+                                  │   Android · iOS · Web)│
+                                  │                       │
+                                  │  Now feed  ·  Hubs    │
+                                  │  Offline SQLDelight   │
+                                  │  Google Sign-In / QR  │
+                                  └──────────────────────┘
+```
 
-## Repository
+## Quick start
+
+**Author content (AI agent or terminal):**
+
+```bash
+# Install
+brew install sloopworks/tap/dayfold
+
+# Sign in (owner approves on their phone via QR or code)
+dayfold login
+
+# Author a hub
+dayfold template hub > hub.json
+# edit hub.json, then:
+dayfold push my-college-hub hub.json --hub
+
+# Author a briefing card (with local validation)
+dayfold template invite > card.json
+dayfold push 01J... card.json --type invite
+
+# Read back what's on the server
+dayfold pull
+dayfold pull --hub my-college-hub
+
+# Or push ready-made examples
+cd apps/cli/examples && bash push-all.sh
+```
+
+**Claude Code authoring skill:**
+
+```bash
+# Install the dayfold-curator skill globally
+sh .claude/skills/dayfold-curator/install.sh
+# Then in any Claude Code session: /dayfold-curator
+```
+
+## Repository map
 
 | Path | What |
 |---|---|
-| `apps/api` | Content API — TypeScript / Hono / Postgres (Neon), on Vercel. Auth (token mint, device-grant RFC 8628, Firebase verify), hubs + cards, scope + per-hub visibility. |
-| `apps/client` | Compose Multiplatform UI (Android/iOS/desktop) — the feed + hub renderer; redux-kotlin store; SQLDelight offline cache. |
+| `apps/api` | Content API — TypeScript · Hono · Postgres (Neon) · Vercel. Auth, cards, hubs, sync. |
+| `apps/client` | Compose Multiplatform UI — Now feed, Hubs, offline SQLDelight, redux-kotlin. |
 | `apps/androidApp` | Android host — the dogfood target. |
-| `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `validate` · `whoami`; authors content into the API. |
-| `packages/schema` | Generated content schema (`content.schema.json` → Kotlin/TS) — the card/hub contract. |
-
-- **Build & run the apps:** `processes/agent-dev-loop.md` (fixed toolchain + the cheap
-  feedback loop) and `specs/prototype/00-build-spec-plan.md` (the live M0).
-- **Author content (CLI + Claude):** `apps/cli/templates/README.md` — the typed-authoring
-  doc for both cards and hub trees, plus the markdown the app renders.
+| `apps/cli` | The `dayfold` CLI — `login · logout · whoami · push · pull · template`. |
+| `apps/cli/examples` | Ready-to-push sample hub + feed cards. `bash push-all.sh` populates a test account. |
+| `apps/cli/templates` | Authoring reference — all card types, hub tree, markdown rendering, block payloads. |
+| `packages/schema` | `content.schema.json` → generated Kotlin/TS types (source of truth for payloads). |
+| `.claude/skills/dayfold-curator` | Claude Code skill — context → hubs + cards, propose-confirm before every push. |
+| `designs/` | Hi-fi mockups for all surfaces (signed off before build). |
+| `specs/` | PRD, auth design, event-hubs design, account/settings design. |
+| `processes/` | Planning loop, agent routing, dev loop, build automation, CI/CD runbooks. |
+| `adr/` | 35 Architecture Decision Records. `decisions-index.md` is the index. |
+| `context/` | Values + direction (operator-owned), constitution, goals, kill switches. |
+| `backlog/` | `now.md` · `next.md` · `later.md` · `operator-inbox.md` |
 
 ## Running the planning loop
 
-- One-shot: open a session here and say **"run a loop iteration"** (follows
-  `processes/planning-loop.md`).
-- Sweep `backlog/operator-inbox.md` weekly.
+One-shot: open a session here and say **"run a loop iteration"** (follows
+`processes/planning-loop.md`). Sweep `backlog/operator-inbox.md` weekly.
+
+## Building the apps
+
+Read `processes/agent-dev-loop.md` first — fixed toolchain (JDK17, Kotlin 2.3.20,
+redux-kotlin alpha01 gotchas) + the cheap feedback loop (action log, snapshot PNGs,
+devtools, cloud URL). Build spec: `specs/prototype/00-build-spec-plan.md`.
+
+## Governance orientation
+
+- [CLAUDE.md](CLAUDE.md) — session protocol, governance, directory map
+- [context/values-and-direction.md](context/values-and-direction.md) — operator-owned north star
+- [context/business-constitution.md](context/business-constitution.md) — what it IS and IS NOT
+- [adr/0004-product-framing.md](adr/0004-product-framing.md) — MVP scope
+- [planning/workstreams.md](planning/workstreams.md) — live waterfall board
+- [backlog/operator-inbox.md](backlog/operator-inbox.md) — items awaiting the operator
 
 ## Lineage
 
-Built from the **venture-loop template** (extracted from the KeepQR /
-RevenueCatch projects). Process inspiration also drawn from the sibling
-`ambient-ai` spec repo ("render, don't reason"; ADR + open-questions
-discipline; persona-driven key moments).
-
-## Curator skill (Claude Code)
-
-`.claude/skills/dayfold-curator/` is the authoring wedge — a Claude Code skill
-that analyzes your context, runs an onboarding questionnaire, and authors dayfold
-Hubs + BriefingCards through the `dayfold` CLI (propose-confirm before every push).
-
-Install globally (all projects on this machine):
-
-```
-sh .claude/skills/dayfold-curator/install.sh
-```
-
-Or per-project: copy `.claude/skills/dayfold-curator/` into another repo's
-`.claude/skills/`. Requires `dayfold` on PATH and `dayfold login` done first.
+Built from the **venture-loop template** (extracted from the KeepQR / RevenueCatch
+projects). Process inspiration from the sibling `ambient-ai` spec repo ("render, don't
+reason"; ADR + open-questions discipline; persona-driven key moments).

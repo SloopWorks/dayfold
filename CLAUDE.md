@@ -18,6 +18,19 @@ app; a calendar/email/list *replacement*; an open-ended AI chatbot; a
 venture-scale startup. See `context/business-constitution.md` — scope
 changes require an ADR.
 
+## Quick task routing (read this before loading more context)
+
+| I need to… | Load these files (in order) | Skip |
+|---|---|---|
+| **Run a planning-loop iteration** | Full start-of-session routine below | — |
+| **Build / edit app code** | `CLAUDE.md` → `backlog/now.md` → `processes/agent-dev-loop.md` → relevant spec | context/, planning/ |
+| **Author CLI content (push/pull)** | `CLAUDE.md` → `.claude/skills/dayfold-curator/SKILL.md` + `references/` | planning/, research/ |
+| **Write an ADR** | `CLAUDE.md` → `adr/decisions-index.md` → relevant context docs | backlog/, research/ |
+| **Research / competitive analysis** | `CLAUDE.md` → `processes/research-workflow.md` + `processes/fleet-patterns.md` | app code |
+| **Deploy / infra** | `CLAUDE.md` → `processes/agent-build-automation.md` → relevant process doc | planning/ |
+
+Load **only** the files your task needs. Every extra file read is context budget spent.
+
 ## Current stage
 
 **Bootstrapped 2026-06-18; entering planning loop, Phase A (validation
@@ -43,18 +56,35 @@ first — the fixed toolchain (JDK17, Kotlin 2.3.20, redux-kotlin alpha01 gotcha
 The M0 prototype is **built + live** (Vercel+Neon; Android renders on-device) —
 see `specs/prototype/00-build-spec-plan.md`.
 
+**App toolchain quick-reference (build tasks only — do NOT load full context):**
+- Kotlin/Gradle: `cd apps && ./gradlew --no-daemon :client:desktopTest` (tests)
+- Android: `cd apps && ./gradlew --no-daemon :androidApp:assembleDebug` (smoke build)
+- CLI: `cd apps/cli && ./gradlew --no-daemon build`
+- API: `cd apps/api && npx vitest run`; Node ≥20; `DATABASE_URL` env required for DB tests
+- Codegen: `npm run codegen` (root) — regenerates `apps/api/src/generated/` + Kotlin types
+- JDK: temurin-17; `ANDROID_HOME` must include `platforms;android-37` + `build-tools;36.0.0`
+
 ## Directory map
 
 | Path | Holds | Authority |
 |---|---|---|
 | `CLAUDE.md` | This file — session protocol, governance | Source of truth |
+| `apps/api` | Content API — TypeScript/Hono/Neon/Vercel; auth, cards, hubs, sync | Source of truth |
+| `apps/client` | Compose Multiplatform UI — feed, hubs, SQLDelight, redux-kotlin | Source of truth |
+| `apps/androidApp` | Android host (thin wrapper on `:client`) | Source of truth |
+| `apps/cli` | The `dayfold` CLI — Kotlin; `login/logout/whoami/push/pull/template` | Source of truth |
+| `apps/cli/examples` | Ready-to-push sample content (CI-validated) | Source of truth |
+| `apps/cli/templates` | Authoring reference doc + JSON template starters | Source of truth |
+| `packages/schema` | `content.schema.json` → generated Kotlin/TS types | Source of truth |
+| `.claude/skills/` | `dayfold-curator` — Claude Code skill for content authoring | Source of truth |
 | `adr/` | Decision records + `decisions-index.md` | Source of truth (immutable once Accepted) |
 | `context/` | Values & direction (operator-owned), constitution, goals/constraints, kill switches, open questions, operating lessons | Source of truth |
+| `designs/` | Hi-fi UI/UX mockups (operator sign-off before build, ADR 0008) | Source of truth |
 | `planning/` | Waterfall workstream board the loop executes | Live working state |
 | `research/` | Research reports with citations; validation reviews | Evidence (dated snapshots, never silently edited) |
 | `roadmap/` | Execution plan, milestone definitions (post-spec) | Source of truth for execution |
 | `specs/` | PRD, architecture, pricing model (post-validation) | Source of truth |
-| `processes/` | Planning loop, agent routing, research workflow, fleet patterns, loop journal | Source of truth for process |
+| `processes/` | Planning loop, agent routing, dev loop, research workflow, fleet patterns, build automation, CI/CD runbooks | Source of truth for process |
 | `backlog/` | `now.md` / `next.md` / `later.md` / `operator-inbox.md` | Working state |
 
 ## Required start-of-session routine
