@@ -29,8 +29,10 @@ android {
     // tag; local dev keeps the M0 defaults.
     versionCode = System.getenv("DAYFOLD_VERSION_CODE")?.toIntOrNull() ?: 1
     versionName = System.getenv("DAYFOLD_VERSION_NAME") ?: "0.0.0-M0"
-    // dev config baked at build time (emulator → host = 10.0.2.2)
-    buildConfigField("String", "DAYFOLD_API", "\"${System.getenv("DAYFOLD_API") ?: "http://10.0.2.2:8799"}\"")
+    // API base baked at build time. Default = PROD so a plain `assembleDebug` targets the
+    // live backend (physical-device dogfooding, the primary path). For the emulator/local
+    // dev server, pass DAYFOLD_API=http://10.0.2.2:8799 (emulator alias for host) at build.
+    buildConfigField("String", "DAYFOLD_API", "\"${System.getenv("DAYFOLD_API") ?: "https://family-ai-dashboard.vercel.app"}\"")
     buildConfigField("String", "FAMILY_ID", "\"${System.getenv("FAMILY_ID") ?: ""}\"")
     buildConfigField("String", "HOUSEHOLD_SECRET", "\"${System.getenv("HOUSEHOLD_SECRET") ?: ""}\"")
     // S5 dev sign-in (local only; the server hard-refuses dev-token in prod/preview).
