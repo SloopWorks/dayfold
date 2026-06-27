@@ -49,7 +49,7 @@ class FakeBackendTest {
   @Test fun `busy-family serves members, hubs list, and a restricted audience`() = runBlocking<Unit> {
     val h = http("busy-family")
     assertEquals(2, AuthClient(api, h).familyMembers("t", "fam_fake").size)
-    assertEquals(3, HubClient(api, h).familyHubs("t", "fam_fake").size)
+    assertEquals(4, HubClient(api, h).familyHubs("t", "fam_fake").size)   // college + party + vacation + medical
     val aud = HubClient(api, h).audience("t", "fam_fake", "h_medical")
     assertEquals("restricted", aud.visibility)
     assertTrue(aud.members.any { !it.permitted })   // partner is NOT permitted on the restricted hub

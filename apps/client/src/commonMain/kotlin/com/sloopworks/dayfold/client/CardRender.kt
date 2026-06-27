@@ -71,11 +71,13 @@ fun hasActionLinks(md: String): Boolean =
 // **bold**, _italic_, `- `/`- [ ]`/`- [x]` + ordered (`1.`) lists, | tables |,
 // ATX `#`/`##` headings, and the same vetted [label](url) links as cards.
 // inline tokens, in match order: ![alt](url) image | **bold** | [label](url) |
-// _italic_ | bare autolink (https://…). The image alt is FIRST so `![a](u)` is taken
-// as an image (consuming the `!`), not a link with a stray leading `!`. Images are
-// still never inline-loaded (OQ: host-gated async) — they degrade to a 🖼 + alt label
-// that links out (vetted) so the syntax never shows raw.
-private val INLINE = Regex("""!\[([^\]]+)]\(([^)]+)\)|\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_|(https?://[^\s)]+)""")
+// _italic_ | bare autolink (https://…) | bare email (→ mailto:). The image alt is
+// FIRST so `![a](u)` is taken as an image (consuming the `!`), not a link with a stray
+// leading `!`. Bare email is LAST so an email inside a [label](mailto:…) link or a URL
+// is consumed by those first. Images are still never inline-loaded (OQ: host-gated
+// async) — they degrade to a 🖼 + alt label that links out (vetted) so the syntax
+// never shows raw.
+private val INLINE = Regex("""!\[([^\]]+)]\(([^)]+)\)|\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_|(https?://[^\s)]+)|([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z0-9.-]+)""")
 private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
 private val BULLET = Regex("""^(\s*)[-*]\s+(.*)$""")
 private val TABLE_ROW = Regex("""^\s*\|.*\|\s*$""")
@@ -117,6 +119,14 @@ private fun AnnotatedString.Builder.appendInline(text: String) {
         val trail = url.substring(end); url = url.substring(0, end)
         if (schemeOf(url) in ALLOWED_SCHEMES) withLink(LinkAnnotation.Url(url, LINK_STYLE)) { append(url) }
         else append(url)                                      // non-allowlisted scheme → plain text
+        append(trail)
+      }
+      m.groupValues[8].isNotEmpty() -> {                      // bare email → mailto: link
+        var addr = m.groupValues[8]
+        var end = addr.length
+        while (end > 0 && addr[end - 1] in ".,;:!?") end--    // don't swallow trailing punctuation
+        val trail = addr.substring(end); addr = addr.substring(0, end)
+        withLink(LinkAnnotation.Url("mailto:$addr", LINK_STYLE)) { append(addr) }
         append(trail)
       }
     }

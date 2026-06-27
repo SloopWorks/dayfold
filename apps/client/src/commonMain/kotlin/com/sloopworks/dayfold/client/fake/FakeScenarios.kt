@@ -11,6 +11,7 @@ import com.sloopworks.dayfold.client.Hub
 import com.sloopworks.dayfold.client.HubAudience
 import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubBlock
+import com.sloopworks.dayfold.client.HubMedia
 import com.sloopworks.dayfold.client.HubSection
 import com.sloopworks.dayfold.client.PendingDevice
 import com.sloopworks.dayfold.client.PendingMember
@@ -149,9 +150,41 @@ object FakeScenarios {
       provenance = Provenance("email"), ord = 2),
   )
 
-  private val busyHubs = listOf(partyHub, vacationHub, medicalHub)
-  private val busySections = partySections + vacationSections + medicalSections
-  private val busyBlocks = partyBlocks + vacationBlocks + medicalBlocks
+  // ── College hub — exercises ADR 0036 enrichment end-to-end (mascot hero, doc
+  //    thumbnail, contact avatar/email, bare-email + bare-URL autolinking). Mirrors
+  //    the real "Lillian → Butler" hub so the emulator confirms the render path. ──
+  private val mascotHero =
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Blue-40_%2849450467212%29.jpg/960px-Blue-40_%2849450467212%29.jpg"
+  private val butlerWordmark =
+    "https://upload.wikimedia.org/wikipedia/commons/9/9a/Butler_Bulldogs_script_Logo.png"
+  private val collegeHub = Hub(id = "h_college", type = "starting-college",
+    title = "Lillian → Butler · Fall 2026", status = "active",
+    countdownTo = "2026-08-01T00:00:00Z", visibility = "family", createdBy = "u_owner",
+    media = HubMedia(heroUrl = mascotHero, heroFit = "cover", icon = "school",
+      accentColor = "#13294b", imageAlt = "Butler Blue, the Butler University bulldog mascot"))
+  private val collegeSections = listOf(
+    HubSection(id = "s_college_health", hubId = "h_college", title = "Health & Forms", ord = 0),
+    HubSection(id = "s_college_contacts", hubId = "h_college", title = "Contacts", ord = 1),
+  )
+  private val collegeBlocks = listOf(
+    HubBlock(id = "b_college_doc", sectionId = "s_college_health", type = "document",
+      payload = BlockPayload(ref = "https://cdn.butler.edu/immunization-2026-27.pdf",
+        label = "2026-27 Immunization Requirements (PDF)",
+        thumbnailUrl = butlerWordmark, thumbnailAlt = "Butler University"),
+      provenance = Provenance("claude"), ord = 0),
+    HubBlock(id = "b_college_note", sectionId = "s_college_health", type = "markdown",
+      bodyMd = "Email the waiver to healthinsurance@butler.edu and see https://www.butler.edu/health for details.",
+      provenance = Provenance("claude"), ord = 1),
+    HubBlock(id = "b_college_contact", sectionId = "s_college_contacts", type = "contact",
+      payload = BlockPayload(name = "Butler Financial Aid", role = "Outside scholarships",
+        email = "finaid@butler.edu", phone = "888-940-8100",
+        avatarUrl = butlerWordmark, accentColor = "#13294b"),
+      provenance = Provenance("claude"), ord = 0),
+  )
+
+  private val busyHubs = listOf(collegeHub, partyHub, vacationHub, medicalHub)
+  private val busySections = collegeSections + partySections + vacationSections + medicalSections
+  private val busyBlocks = collegeBlocks + partyBlocks + vacationBlocks + medicalBlocks
 
   private val busyAudiences = mapOf(
     "h_party" to HubAudience("family", listOf(
