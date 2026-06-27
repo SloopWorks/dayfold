@@ -29,6 +29,14 @@ class LinkifyTest {
     assertEquals("see https://a@b.com/p", linkify("see https://a@b.com/p")) // userinfo in URL → not an email
   }
 
+  // ── email false positives → untouched (parallels phone_false_positives) ──
+  // EMAIL requires local@domain.dottedTLD, so @handles and tld-less hosts must NOT link.
+  @Test fun email_false_positives_untouched() {
+    for (s in listOf("ask @maya about it", "ping a@b for help", "user@localhost reboot", "rate is 5@ each")) {
+      assertEquals(s, linkify(s), "should not link: $s")
+    }
+  }
+
   // ── protected spans → untouched + idempotent ──
   @Test fun protected_spans() {
     val cases = listOf(
