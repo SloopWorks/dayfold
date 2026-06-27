@@ -25,8 +25,22 @@ class EnrichmentValidationTest {
       "https://upload.wikimedia.org.evil.com/x.png", "https://commons.wikimedia.org/x.png",
       "https://upload.wikimedia.org:8443/x.png", "https://upload.wikіmedia.org/x.png",
       "https://upload.wikimedia.org/logo.svg", "https://upload.wikimedia.org/a b.png",
+      // vectors the hand-rolled commonMain parser is uniquely exposed to (vs WHATWG/java.net):
+      "https://notupload.wikimedia.org/x.png",             // prefix evasion
+      "https://upload.wikimedia.org/LOGO.SVG",             // SVG, uppercase
+      "https://upload.wikimedia.org/a\tb.png",             // tab (control) in path
+      "https://upload.wikimedia.org/" + "a".repeat(2100),  // over-long
+      "blob:https://upload.wikimedia.org/abc",             // scheme test must see "blob:https", not "https"
+      "https://[::1]/x.png", "https://[fd00::1]/x.png",    // ip-literal hosts
+      "https://upload.wikimedia.org\\@evil.com/x.png",     // backslash smuggling
+      "https:///x.png",                                    // empty authority
+      "https://up\tload.wikimedia.org/x.png",              // control char inside host
+      "https://upload.wikimedia.org%2eevil.com/x.png",     // percent-encoded dot in host
+      "",                                                  // empty
     )
     for (u in bad) { assertNotNull(MediaValidation.imageUrlError(u), "reject: $u"); assertNull(MediaValidation.safeImageUrl(u), u) }
+    assertNotNull(MediaValidation.imageUrlError(null))     // null → error
+    assertNull(MediaValidation.safeImageUrl(null))
   }
 
   @Test fun curatedIconSetMatchesAcrossLayers() {
