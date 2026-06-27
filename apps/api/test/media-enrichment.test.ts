@@ -107,12 +107,12 @@ describe("ADR 0036 media enrichment (vs live Postgres)", () => {
   });
 
   // NOTE: block-payload media (link/document thumbnailUrl, contact avatarUrl+accent)
-  // is enforced by the block route's validateBlockPayloadMedia, but structured block
-  // PUTs can't round-trip through the API until ADR 0035 fixes the generated
-  // Block.payload oneOf (today it's [z.any()×7] → any structured payload fails
-  // BlockSchema; live content is body_md-only). Block media is exercised at the unit
-  // level (media-validation.test.ts) + the CLI (Validate) + the client render, where
-  // it is meaningful now. Re-enable an API block round-trip once 0035 lands.
+  // is enforced by the block route's validateBlockPayloadMedia. ADR 0035 / #180 made the
+  // generated Block.payload z.any() (the server validates structured blocks via
+  // blockPayloadIssues, not zod — see content-schema.test.ts), so structured block PUTs
+  // now round-trip. The block-media rule itself is exercised at the unit level
+  // (validateBlockPayloadMedia in media-validation.test.ts) + the CLI (Validate) + the
+  // client render, where it is meaningful.
 
   it("media must be an object (jsonb CHECK + schema) — array rejected", async () => {
     const r = await putHub("hub_arr", { type: "vacation", title: "x", media: [1, 2] });
