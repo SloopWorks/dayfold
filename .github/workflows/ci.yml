@@ -32,6 +32,15 @@ jobs:
           npm run codegen
           git diff --exit-code apps/api/src/generated || \
             { echo "::error::generated types are stale — run npm run codegen"; exit 1; }
+      - name: api bundle is up to date
+        # The committed esbuild artifact (apps/api/api/index.js) IS the Vercel function.
+        # It drifted from src for ~130 PRs (#180) → prod served stale code. esbuild is
+        # deterministic and `npm ci` pins the version, so a rebuild must match byte-for-byte.
+        working-directory: apps/api
+        run: |
+          npm run build:fn
+          git diff --exit-code api/index.js || \
+            { echo "::error::committed Vercel bundle (apps/api/api/index.js) is stale — run 'npm run build:fn' in apps/api and commit it"; exit 1; }
       - name: api tests
         working-directory: apps/api
         run: npx vitest run
