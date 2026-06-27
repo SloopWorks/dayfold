@@ -76,4 +76,33 @@ describe("card per-member visibility (ADR 0030)", () => {
     // author/owner (not in audience) also does not see it — owner is NOT auto-permitted (ADR 0030 option A)
     expect((await getJson(`/families/${o.familyId}/cards`, o.token)).map((c: any) => c.id)).not.toContain("forBob");
   });
+
+  // "Restricted to nobody" must FAIL CLOSED: a restricted card whose audience is empty
+  // OR omitted (the route normalizes both → []) is visible to NO ONE — not the author,
+  // not any member. Guards the data boundary so a mis-authored restricted card can never
+  // leak by defaulting to visible. The author-not-auto-permitted rule (ADR 0030 option A)
+  // means even the owner who wrote it sees only a tombstone.
+  it("restricted card with EMPTY or MISSING audience is invisible to everyone incl. the author (fail-closed)", async () => {
+    const o = await ownerOf("vis-owner4");
+    const b = await memberOf("vis-frank", o.familyId);
+    expect((await put(o.familyId, "empty", o.token, baseCard({ visibility: "restricted", audience: [] }))).status).toBe(200);
+    expect((await put(o.familyId, "noaud", o.token, baseCard({ visibility: "restricted" }))).status).toBe(200);   // audience omitted
+    await put(o.familyId, "shared4", o.token, baseCard({ title: "shared" }));   // a family card → proves filtering, not emptiness
+
+    // /cards — neither restricted-to-nobody card reaches the author or the member
+    expect((await getJson(`/families/${o.familyId}/cards`, o.token)).map((c: any) => c.id).sort()).toEqual(["shared4"]);
+    expect((await getJson(`/families/${o.familyId}/cards`, b.token)).map((c: any) => c.id).sort()).toEqual(["shared4"]);
+
+    // /sync — both are tombstones (not leaked, not stale) for the author AND the member
+    for (const who of [o, b]) {
+      const sync = await getJson(`/families/${o.familyId}/sync`, who.token);
+      const visible = sync.changes.cards.map((c: any) => c.id);
+      expect(visible).toContain("shared4");
+      expect(visible).not.toContain("empty");
+      expect(visible).not.toContain("noaud");
+      const tombs = sync.tombstones.map((t: any) => t.id);
+      expect(tombs).toContain("empty");
+      expect(tombs).toContain("noaud");
+    }
+  });
 });
