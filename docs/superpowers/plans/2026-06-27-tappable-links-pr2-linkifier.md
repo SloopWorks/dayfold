@@ -109,9 +109,9 @@ In `PlatformActions.kt`, delete the `vetMailto` (was `private fun`), `sanitizePh
 
 `apps/client/build.gradle.kts` — inside `commonMain by getting { … }` (after the `dependencies { }` block, still inside `commonMain`), add:
 ```kotlin
-      kotlin.srcDir("../../../packages/linkrules")
+      kotlin.srcDir("../../packages/linkrules")
 ```
-(Path is relative to `apps/client/`. `apps/client` → repo root is `../../..`; `packages/linkrules` lives at repo root. VERIFY the depth by checking `packages/schema/kotlin-gen` is referenced from CLI as `../../packages/schema/kotlin-gen` where CLI is at `apps/cli` — so from `apps/client` the root is also `../../`. Use `../../packages/linkrules` and confirm in Step 6.)
+(Path is relative to `apps/client/`. Both `apps/cli` and `apps/client` sit 2 levels below the worktree root where `packages/` lives — review confirmed `../../packages/linkrules` resolves correctly for BOTH. Do NOT use `../../../` — that escapes the worktree.)
 
 `apps/cli/build.gradle.kts` — after the existing schema srcDir line, add:
 ```kotlin
@@ -231,11 +231,13 @@ enum class PhoneRegion { US }
 private val PROTECTED = Regex(
   "```[\\s\\S]*?```" +              // fenced code block
     "|`[^`]*`" +                    // inline code
+    "|^\\[[^\\]]+]:\\s*\\S+" +      // reference-style link def `[ref]: url` (MULTILINE)
     "|!\\[[^\\]]*]\\([^)]*\\)" +    // image ![alt](url)
     "|\\[[^\\]]*]\\([^)]*\\)" +     // link [label](url)
     "|<[^>\\s]+>" +                 // angle autolink <…>
     "|https?://[^\\s)]+" +          // bare URL (phone/email-like substrings inside left alone)
     "|\\\\.",                       // backslash-escaped char
+  setOf(RegexOption.MULTILINE),     // `^` matches each line start (for the ref-def alt)
 )
 
 // Strict NANP: optional +1/1, 3-3-4 with separators from [ .-], NOT preceded by a
@@ -339,7 +341,7 @@ Run `linkify` over every `body_md` in the payload JSON before PUT.
 
 **Interfaces:**
 - Consumes: `com.sloopworks.dayfold.client.cards.linkify`; `kotlinx.serialization.json.*` (already a CLI dep).
-- Produces: `fun linkifyPayload(json: String): Pair<String, List<Pair<String, String>>>` — returns (rewritten JSON, list of (before, after) for each changed `body_md`); `const val BODY_MD_CAP = 1_048_576`.
+- Produces: `fun linkifyPayload(json: String): LinkifyResult` where `data class LinkifyResult(val json: String, val diffs: List<Pair<String,String>>, val maxBodyLen: Int)` — rewritten JSON, (before,after) per changed `body_md`, and the longest linkified `body_md` field length (for the per-field F8 cap check, matching the server's per-field rule); `const val BODY_MD_CAP = 1_048_576`.
 
 - [ ] **Step 1: Write the failing test** (`LinkifyPayloadTest.kt`)
 
@@ -382,17 +384,23 @@ import kotlinx.serialization.json.*
 
 const val BODY_MD_CAP = 1_048_576
 
+data class LinkifyResult(val json: String, val diffs: List<Pair<String, String>>, val maxBodyLen: Int)
+
 private val J = Json { prettyPrint = false }
 
 /** Recursively rewrite every "body_md" string in the payload via linkify().
- *  Returns the new JSON text + a (before, after) pair for each changed body. */
-fun linkifyPayload(json: String): Pair<String, List<Pair<String, String>>> {
+ *  Returns the new JSON, a (before, after) pair per changed body, and the longest
+ *  linkified body_md length (for the per-field F8 cap check — the server caps each
+ *  body_md field, not the whole payload). */
+fun linkifyPayload(json: String): LinkifyResult {
   val diffs = mutableListOf<Pair<String, String>>()
+  var maxBodyLen = 0
   fun walk(e: JsonElement): JsonElement = when (e) {
     is JsonObject -> JsonObject(e.mapValues { (k, v) ->
       if (k == "body_md" && v is JsonPrimitive && v.isString) {
         val before = v.content; val after = linkify(before)
         if (after != before) diffs += before to after
+        if (after.length > maxBodyLen) maxBodyLen = after.length
         JsonPrimitive(after)
       } else walk(v)
     })
@@ -400,7 +408,7 @@ fun linkifyPayload(json: String): Pair<String, List<Pair<String, String>>> {
     else -> e
   }
   val out = J.encodeToString(JsonElement.serializer(), walk(J.parseToJsonElement(json)))
-  return out to diffs
+  return LinkifyResult(out, diffs, maxBodyLen)
 }
 ```
 
@@ -417,16 +425,16 @@ After `val payload = …` (line ~184-185) and before the `pushResource`/validati
       // Author-side linkify (CL-LINK): wrap bare phone/email entities in body_md
       // into explicit allowlisted links before storing (server is content-blind).
       // --no-linkify opts out; the result is the canonical stored body.
-      val payload = if ("--no-linkify" in args) payload else {
-        val (linked, diffs) = linkifyPayload(payload)
-        if (diffs.isNotEmpty()) {
-          System.err.println("linkified ${diffs.size} body_md field(s):")
-          diffs.forEach { (b, a) -> System.err.println("  - $b\n  + $a") }
+      val payload = if ("--no-linkify" in args) rawPayload else {
+        val r = linkifyPayload(rawPayload)
+        if (r.diffs.isNotEmpty()) {
+          System.err.println("linkified ${r.diffs.size} body_md field(s):")
+          r.diffs.forEach { (b, a) -> System.err.println("  - $b\n  + $a") }
         }
-        if (linked.length > BODY_MD_CAP) {
-          System.err.println("linkified body exceeds ${BODY_MD_CAP} chars — shorten"); exitProcess(1)
+        if (r.maxBodyLen > BODY_MD_CAP) {
+          System.err.println("a linkified body_md exceeds ${BODY_MD_CAP} chars — shorten"); exitProcess(1)
         }
-        linked
+        r.json
       }
 ```
 
