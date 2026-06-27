@@ -215,8 +215,8 @@ fun main(args: Array<String>) {
     // or a card. There is no section/block delete route (MVP); to drop a stray block,
     // delete its hub and re-push the tree.
     "delete", "rm" -> {
-      val id = args.getOrNull(1) ?: usage()
-      val resource = if (hasFlag(args, "--card")) "cards" else "hubs"
+      val id = deleteId(args) ?: usage()
+      val resource = deleteResource(args)
       val store = Credentials(); val keychain = resolveKeychain()
       val creds = loadCreds(store, keychain)
       requireAuthSetup(creds != null)
@@ -311,6 +311,14 @@ fun pushResource(args: Array<String>): String = when {
   hasFlag(args, "--block") -> "blocks"
   else -> "cards"
 }
+
+/** `dayfold delete <id> [--card]` — a hub (default; cascades sections+blocks) or a card. */
+internal fun deleteResource(args: Array<String>): String = if (hasFlag(args, "--card")) "cards" else "hubs"
+
+/** The delete target id = the first NON-FLAG positional after the subcommand, so `--card`
+ *  can come before OR after the id (a flag is never mistaken for the id — `delete --card x`
+ *  deletes x, not "--card"). null when no id was given → usage. */
+internal fun deleteId(args: Array<String>): String? = args.drop(1).firstOrNull { !it.startsWith("--") }
 
 /** Value following a `--flag` token (position-agnostic), or null. */
 private fun flagValue(args: Array<String>, flag: String): String? {
