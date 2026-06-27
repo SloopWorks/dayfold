@@ -52,13 +52,14 @@ fun DayfoldBottomNav(hubsActive: Boolean, onNow: () -> Unit, onHubs: () -> Unit)
   NavigationBar {
     NavigationBarItem(
       selected = !hubsActive, onClick = onNow,
-      // glyph is decorative; the "Now" label + selected state carry a11y meaning
-      icon = { Text("◴", Modifier.clearAndSetSemantics {}) },  // text glyph (no material-icons dep)
+      // designs/*.dc.html: Now=today (filled when active). Icon decorative — the "Now"
+      // label + selected state carry a11y meaning; NavigationBarItem tints by selection.
+      icon = { androidx.compose.material3.Icon(if (!hubsActive) DayfoldIcons.TodayFilled else DayfoldIcons.Today, contentDescription = null, modifier = Modifier.clearAndSetSemantics {}) },
       label = { Text("Now") },
     )
     NavigationBarItem(
       selected = hubsActive, onClick = onHubs,
-      icon = { Text("▦", Modifier.clearAndSetSemantics {}) },
+      icon = { androidx.compose.material3.Icon(if (hubsActive) DayfoldIcons.DashboardFilled else DayfoldIcons.Dashboard, contentDescription = null, modifier = Modifier.clearAndSetSemantics {}) },
       label = { Text("Hubs") },
     )
   }
