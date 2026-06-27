@@ -42,4 +42,27 @@ class BackendSeamTest {
     DebugDrawer.setOverride("gone")
     assertEquals("https://prod", DebugDrawer.backendUrl("https://prod"))
   }
+
+  @Test
+  fun override_survives_a_reinstall_the_app_restart_path() {
+    // pick a backend, then simulate an app restart: a fresh install() with the same
+    // persistent store must RE-SEED the override (this is the "applies on restart"
+    // contract — a regression here silently reverts to the build default).
+    DebugDrawer.install(DebugDrawerConfig(BuildInfo("1", "1"), backends = backends))
+    DebugDrawer.setOverride("local")
+    DebugDrawer.install(DebugDrawerConfig(BuildInfo("1", "1"), backends = backends))   // restart
+    assertEquals("local", DebugDrawer.selectedBackendId())
+    assertEquals("http://localhost", DebugDrawer.backendUrl("https://prod"))
+  }
+
+  @Test
+  fun a_persisted_override_for_a_since_removed_backend_is_dropped_on_install() {
+    // persist an override, then "ship a build" whose backend list no longer has it →
+    // install() must drop the stale id and fall to the default, not pin a dead backend.
+    DebugDrawer.install(DebugDrawerConfig(BuildInfo("1", "1"), backends = backends))
+    DebugDrawer.setOverride("local")
+    DebugDrawer.install(DebugDrawerConfig(BuildInfo("1", "1"), backends = listOf(Backend("prod", "Prod", "https://prod"))))
+    assertNull(DebugDrawer.selectedBackendId())
+    assertEquals("https://prod", DebugDrawer.backendUrl("https://prod"))
+  }
 }
