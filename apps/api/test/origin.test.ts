@@ -21,4 +21,29 @@ describe("classifyOrigin (no-vendor datacenter heuristic)", () => {
     expect(classifyOrigin("2001:db8::1")).toBe("unknown");
     expect(classifyOrigin("not-an-ip")).toBe("unknown");
   });
+
+  // The bit-math is the easy-to-break part: a non-octet-aligned mask off by one
+  // would silently mis-classify a whole adjacent block (false warnings, or a missed
+  // datacenter origin). Pin the exact CIDR edges.
+  it("respects non-octet-aligned CIDR boundaries (mask off-by-one guard)", () => {
+    // AWS 3.0.0.0/9 spans 3.0.0.0–3.127.255.255 (the split is inside the 3.x octet)
+    expect(classifyOrigin("3.127.255.255")).toBe("datacenter");  // last address in /9
+    expect(classifyOrigin("3.128.0.0")).toBe("residential");     // first address OUTSIDE /9
+    // Azure 20.0.0.0/8 — the octet just above it is not bundled
+    expect(classifyOrigin("20.255.255.255")).toBe("datacenter");
+    expect(classifyOrigin("21.0.0.0")).toBe("residential");
+  });
+
+  it("handles high-octet ranges (>128 → the unsigned >>> 0 coercion)", () => {
+    // 172.* has the top bit set — without unsigned coercion the mask compare breaks.
+    expect(classifyOrigin("172.64.5.5")).toBe("datacenter");      // Cloudflare 172.64.0.0/13
+    expect(classifyOrigin("172.71.255.255")).toBe("datacenter");  // last address in /13
+    expect(classifyOrigin("172.72.0.0")).toBe("residential");     // first address OUTSIDE /13
+  });
+
+  it("rejects malformed dotted-quads as unknown (no partial parse)", () => {
+    expect(classifyOrigin("999.1.2.3")).toBe("unknown");    // octet > 255
+    expect(classifyOrigin("52.1.2")).toBe("unknown");       // too few octets
+    expect(classifyOrigin("52.1.2.3.4")).toBe("unknown");   // too many octets
+  });
 });
