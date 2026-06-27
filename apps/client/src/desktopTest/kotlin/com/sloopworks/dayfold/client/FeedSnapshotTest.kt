@@ -82,6 +82,18 @@ class FeedSnapshotTest {
   @Test fun typedCardsSnapshot() = snapshot("cards-typed", typedFeed)
   @Test fun typedCardsDarkSnapshot() = snapshot("cards-typed-dark", typedFeed, dark = true)
 
+  // ── ADR 0036 (#177): a CARD with media — the parallel of the hub-hero coverage. ──
+  // The leading EnrichedThumbnail renders only when thumbnailUrl != null (no image loads
+  // in headless → icon+accent tile fallback), and the kind chip goes accent-tinted. The
+  // thumbnail composable + accent math had unit/hub coverage; the card render path did not.
+  private val enrichedFeed = AppState(cards = listOf(
+    Card("enr", kind = "action", title = "Maya's party Saturday — order the groceries?",
+      provenance = Provenance("claude"),
+      media = CardMedia(icon = "party", accentColor = "#C0381E",
+        thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.jpg")),
+  ))
+  @Test fun enrichedCardSnapshot() = snapshot("card-enriched", enrichedFeed)
+
   // invite RSVP display-only: each authored state renders the right highlighted chip
   private fun inviteWith(state: String) = AppState(cards = listOf(
     Card("inv", kind = "action", title = "Maya's party", provenance = Provenance("email"),
