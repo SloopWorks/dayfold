@@ -469,7 +469,7 @@ private fun ChecklistRow(item: ChecklistItem) {
 private fun LinkRow(block: HubBlock) {
   val p = block.payload
   Row(verticalAlignment = Alignment.CenterVertically) {
-    IconTile(if (block.type == "document") "📄" else "🔗", MaterialTheme.colorScheme.tertiaryContainer)
+    IconTile(if (block.type == "document") DayfoldIcons.Document else DayfoldIcons.Link, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
     Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
       // document ref is the canonical schema name; docRef is the client alias (ADR 0035)
       val refStr = p?.docRef ?: p?.ref
@@ -492,7 +492,7 @@ private fun ContactRow(p: BlockPayload?) {
       p?.role?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     // round Call / Text affordances (OS handoff when wired — display here)
-    if (p?.phone != null) { RoundAffordance("📞"); Box(Modifier.width(8.dp)); RoundAffordance("💬") }
+    if (p?.phone != null) { RoundAffordance(DayfoldIcons.Call, "Call"); Box(Modifier.width(8.dp)); RoundAffordance(DayfoldIcons.Message, "Message") }
   }
 }
 
@@ -503,7 +503,7 @@ private fun LocationBlock(p: BlockPayload?) {
     Box(
       Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
       contentAlignment = Alignment.Center,
-    ) { Text("📍", style = MaterialTheme.typography.headlineMedium) }
+    ) { androidx.compose.material3.Icon(DayfoldIcons.Location, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f)) {
         Text(p?.label ?: "Location", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -542,12 +542,17 @@ private fun BudgetBar(p: BlockPayload?) {
 }
 
 @Composable
-private fun IconTile(glyph: String, bg: androidx.compose.ui.graphics.Color) =
-  Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(bg), contentAlignment = Alignment.Center) { Text(glyph) }
+private fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, bg: androidx.compose.ui.graphics.Color, tint: androidx.compose.ui.graphics.Color) =
+  Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(bg), contentAlignment = Alignment.Center) {
+    androidx.compose.material3.Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+  }
 
+// `label` is the screen-reader name for the action affordance (was a bare emoji before).
 @Composable
-private fun RoundAffordance(glyph: String) =
-  Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) { Text(glyph) }
+private fun RoundAffordance(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) =
+  Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+    androidx.compose.material3.Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+  }
 
 @Composable
 private fun ProvenanceChip(src: String) {
