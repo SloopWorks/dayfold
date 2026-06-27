@@ -42,6 +42,13 @@ class HubTreeValidateTest {
     ok(validateHubTree("blocks", """{"sectionId":"s1","type":"contact","payload":{"name":"Admissions"}}"""))
     bad(validateHubTree("blocks", """{"sectionId":"s1","type":"contact","payload":{"phone":"888"}}"""), "contact")
     bad(validateHubTree("blocks", """{"sectionId":"s1","type":"link","payload":{"label":"portal"}}"""), "link")
+    // location needs a label; milestone needs a date OR label
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"location","payload":{"label":"Butler University"}}"""))
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"location","payload":{"address":"4600 Sunset Ave"}}"""), "location")
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"milestone","payload":{"date":"2026-08-01"}}"""))
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"milestone","payload":{"note":"x"}}"""), "milestone")
+    // milestone fallback: a payload missing date/label is fine when body_md carries the content
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"milestone","payload":{"note":"x"},"body_md":"**E-Bill** due Aug 1"}"""))
   }
 
   @Test fun `validation is tolerant of BOTH schema and client field names (no side picked yet)`() {
