@@ -12,7 +12,17 @@ expect class PlatformActions {
   /** Perform an [CardAction] as an OS handoff. No-op for OpenDetail (in-app nav,
    *  CL-6) and for any action that yields no vetted URI (fail-safe). */
   fun perform(action: CardAction)
+
+  /** Open an already-built, vetted URI — the inline body-link tap path (a custom
+   *  [androidx.compose.ui.platform.UriHandler] routes here). Re-vets the scheme
+   *  allowlist as defense-in-depth; no-op if it doesn't vet. */
+  fun openUri(uri: String)
 }
+
+/** The URI to open for a direct inline-link tap, or null if its scheme isn't
+ *  allowlisted. Same one-seam vetting as [cardActionUri], for already-built URIs. */
+fun vettedOpenUri(uri: String): String? =
+  uri.trim().takeIf { schemeOf(it) in ALLOWED_SCHEMES }
 
 /**
  * Pure: the VETTED URI a [CardAction] opens, or null if it isn't URI-openable or

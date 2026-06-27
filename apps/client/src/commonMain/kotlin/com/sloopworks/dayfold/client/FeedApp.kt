@@ -16,7 +16,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import com.sloopworks.dayfold.client.cards.CardAction
+import com.sloopworks.dayfold.client.cards.PlatformUriHandler
 import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
 import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
@@ -54,6 +56,8 @@ internal fun routeCardAction(
 fun FeedApp(
   store: Store<AppState>,
   onPlatformAction: (CardAction) -> Unit = {},
+  onOpenUri: (String) -> Unit = {},     // inline body-link tap → shell PlatformActions.openUri
+
   onSignIn: (String) -> Unit = {},
   onDevSignIn: (() -> Unit)? = null,    // debug-only fake sign-in (null → hidden, e.g. release/iOS)
   onCreateFamily: (String) -> Unit = {},
@@ -88,6 +92,12 @@ fun FeedApp(
   val handle = remember(store, onPlatformAction, onOpenHub) {
     fun(action: CardAction) = routeCardAction(store, onPlatformAction, action, onOpenHub)
   }
+  // Inline body-link taps (LinkAnnotation.Url, no listener) open via LocalUriHandler
+  // — route them through the shell's vetted PlatformActions.openUri instead of the
+  // default system handler. Provided OUTSIDE DayfoldTheme so its return@DayfoldTheme
+  // labels stay valid; covers feed, detail, AND hubs (one composition subtree).
+  val uriHandler = remember(onOpenUri) { PlatformUriHandler(onOpenUri) }
+  CompositionLocalProvider(LocalUriHandler provides uriHandler) {
   DayfoldTheme {
     // Deep-link resume beat: after sign-in, MembershipsLoaded has already set the
     // gate route, so show "Finishing…" over it while the stashed code is looked up.
@@ -169,6 +179,7 @@ fun FeedApp(
       )
       } }
     }
+  }
   }
 }
 

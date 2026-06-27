@@ -19,6 +19,8 @@ actual class PlatformActions(private val context: Context) {
     }
   }
 
+  actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
+
   private fun open(uri: String) {
     runCatching {
       context.startActivity(

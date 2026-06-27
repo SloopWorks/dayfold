@@ -64,6 +64,7 @@ fun main() = application {
     FeedApp(
       store,
       onPlatformAction = actions::perform,
+      onOpenUri = actions::openUri,
       onSignIn = { provider -> scope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
       // Desktop has no release variant (dev tool) → always offer the fake sign-in.
       onDevSignIn = { scope.launch { authEngine.devSignIn(); syncEngine.syncNow() } },

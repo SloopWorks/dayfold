@@ -69,6 +69,19 @@ class PlatformActionsTest {
     assertEquals("%E6%97%A5", percentEncode("日"))
   }
 
+  @Test fun `vettedOpenUri allows only allowlisted schemes`() {
+    // allowlisted → returned (trimmed)
+    assertEquals("tel:+15551234567", vettedOpenUri("tel:+15551234567"))
+    assertEquals("mailto:a@b.com", vettedOpenUri("mailto:a@b.com"))
+    assertEquals("https://x.com", vettedOpenUri("https://x.com"))
+    assertEquals("geo:0,0?q=x", vettedOpenUri("geo:0,0?q=x"))
+    assertEquals("sms:+15551234567", vettedOpenUri("sms:+15551234567"))
+    // disallowed → null (defense-in-depth; never opened)
+    assertNull(vettedOpenUri("javascript:alert(1)"))
+    assertNull(vettedOpenUri("data:text/html,x"))
+    assertNull(vettedOpenUri("http://x.com")) // http never allowed (https only)
+  }
+
   @Test fun `desktop perform does not throw on any action`() {
     val pa = PlatformActions()
     // smoke: none of these should throw even with no browser/handler (runCatching)

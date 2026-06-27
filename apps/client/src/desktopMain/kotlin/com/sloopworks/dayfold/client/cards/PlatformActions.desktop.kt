@@ -17,6 +17,8 @@ actual class PlatformActions {
     }
   }
 
+  actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
+
   private fun open(uri: String) {
     runCatching {
       if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))

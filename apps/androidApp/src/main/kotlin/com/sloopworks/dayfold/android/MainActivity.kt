@@ -159,6 +159,7 @@ class MainActivity : ComponentActivity() {
         FeedApp(
           store,
           onPlatformAction = actions::perform,
+          onOpenUri = actions::openUri,
           onSignIn = { provider -> lifecycleScope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
           // Debug-only fake sign-in: mints a local session (no network/Firebase) so
           // the app is enterable against any/unreachable backend. Null in release →

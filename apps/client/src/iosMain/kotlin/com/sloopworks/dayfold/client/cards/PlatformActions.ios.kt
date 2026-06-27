@@ -17,8 +17,18 @@ actual class PlatformActions {
     }
   }
 
+  actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
+
   private fun open(uri: String) {
-    val url = NSURL.URLWithString(uri) ?: return
+    // iOS has no geo: handler — geo:0,0?q=<enc> → https://maps.apple.com/?q=<enc>
+    // (benefits both the Navigate button and inline geo: links). Falls back to the
+    // raw uri when there's no q= so we never produce an empty maps query.
+    val target = if (uri.startsWith("geo:")) {
+      uri.substringAfter("q=", "").takeIf { it.isNotEmpty() }?.let { "https://maps.apple.com/?q=$it" } ?: uri
+    } else {
+      uri
+    }
+    val url = NSURL.URLWithString(target) ?: return
     UIApplication.sharedApplication.openURL(url)
   }
 }

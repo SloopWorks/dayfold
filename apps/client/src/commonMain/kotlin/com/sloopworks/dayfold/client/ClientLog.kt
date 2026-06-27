@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+import kotlin.concurrent.Volatile // multiplatform @Volatile (bare resolves to kotlin.jvm → fails on K/Native)
+
 /**
  * Tiny logging seam for the client. The redux action log + engine logs go through
  * here so they reach BOTH stdout/logcat (`println`, the existing cheap text loop)
