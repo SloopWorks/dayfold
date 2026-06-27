@@ -118,4 +118,23 @@ class ReducerTest {
     val closed = rootReducer(focused.copy(currentHubTree = HubTree(hub = hub("h1"))), CloseHub)
     assertNull(closed.currentHubId); assertNull(closed.currentHubTree); assertNull(closed.hubFocusBlockId)
   }
+
+  // ADR 0030 audience sheet (who-can-see-this-hub). The non-obvious property: open AND
+  // close both CLEAR currentHubAudience, so a previously-loaded audience can't flash while
+  // a different hub's sheet loads. (No test referenced these transitions before.)
+  @Test fun `audience sheet lifecycle — open clears stale, load populates, close clears`() {
+    val stale = HubAudience(visibility = "just_me", members = listOf(HubAudienceMember(uid = "u1")))
+    // open from a state carrying a stale audience → sheet open, audience cleared (no flash)
+    val opened = rootReducer(AppState(currentHubAudience = stale), OpenAudienceSheet)
+    assertTrue(opened.audienceSheetOpen); assertNull(opened.currentHubAudience)
+    // load populates the audience; the sheet stays open
+    val loaded = rootReducer(opened, HubAudienceLoaded(HubAudience(visibility = "family",
+      members = listOf(HubAudienceMember(uid = "u1", permitted = true), HubAudienceMember(uid = "u2")))))
+    assertTrue(loaded.audienceSheetOpen)
+    assertEquals("family", loaded.currentHubAudience?.visibility)
+    assertEquals(2, loaded.currentHubAudience?.members?.size)
+    // close clears both the open flag and the audience
+    val closed = rootReducer(loaded, CloseAudienceSheet)
+    assertFalse(closed.audienceSheetOpen); assertNull(closed.currentHubAudience)
+  }
 }
