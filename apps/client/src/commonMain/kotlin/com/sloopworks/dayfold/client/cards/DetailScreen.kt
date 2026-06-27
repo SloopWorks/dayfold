@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.sloopworks.dayfold.client.DayfoldIcons
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -94,12 +97,12 @@ private fun HubLink(onOpen: () -> Unit) {
     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
   ) {
     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-      Text("▦", modifier = Modifier.padding(end = 12.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+      androidx.compose.material3.Icon(DayfoldIcons.Dashboard, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(end = 12.dp).size(22.dp))
       androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
         Text("PART OF THIS HUB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
         Text("Open the hub", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
       }
-      Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+      androidx.compose.material3.Icon(DayfoldIcons.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
     }
   }
 }
@@ -125,7 +128,7 @@ private fun RelatedSection(kicker: String?, related: List<RelatedRef>, onAction:
               Text(r.title ?: r.relation, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
               r.sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
           }
           if (i < related.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -146,7 +149,8 @@ private fun HeroHeader(
   Column(Modifier.fillMaxWidth().background(heroBg).statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 18.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       TextButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back to feed" }) {
-        Text("← Back", color = heroFg)
+        androidx.compose.material3.Icon(DayfoldIcons.ArrowBack, contentDescription = null, tint = heroFg, modifier = Modifier.size(18.dp).clearAndSetSemantics {})
+        Text("Back", color = heroFg, modifier = Modifier.padding(start = 4.dp))
       }
       Spacer(Modifier.weight(1f))
       TextButton(onClick = { onAction(CardAction.Share(card.title)) }) { Text("Share", color = heroFg) }

@@ -123,7 +123,7 @@ fun AccountScreen(
             Text("${state.pendingApprovals.size}", style = MaterialTheme.typography.labelLarge, color = cs.onPrimary)
           }
         }
-        Text("›", style = MaterialTheme.typography.titleLarge, color = cs.onSurfaceVariant)
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
       Spacer(Modifier.height(11.dp))
@@ -133,7 +133,7 @@ fun AccountScreen(
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         Text("Connected devices", style = MaterialTheme.typography.titleMedium, color = cs.onSurface, modifier = Modifier.weight(1f))
-        Text("›", style = MaterialTheme.typography.titleLarge, color = cs.onSurfaceVariant)
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
       Spacer(Modifier.height(22.dp))
