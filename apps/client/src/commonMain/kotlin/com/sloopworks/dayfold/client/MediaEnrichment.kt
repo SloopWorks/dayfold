@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -160,9 +161,14 @@ fun accentRolesFor(hex: String?, dark: Boolean): AccentRoles? {
 @Composable
 private fun isDarkTheme(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
-/** Theme-aware accent roles for the current accentColor (null hex → null). */
+/** Theme-aware accent roles for the current accentColor (null hex → null). Memoized: the
+ *  HSL harmonization (parseHex + rgbToHsl + 7× hslColor + lumOf) recomputes only when the
+ *  hex or theme actually changes, not on every recomposition of an enriched card/hub. */
 @Composable
-fun rememberAccentRoles(hex: String?): AccentRoles? = accentRolesFor(hex, isDarkTheme())
+fun rememberAccentRoles(hex: String?): AccentRoles? {
+  val dark = isDarkTheme()
+  return remember(hex, dark) { accentRolesFor(hex, dark) }
+}
 
 /** True when this hub/card carries any enrichment worth showing a slot for. */
 fun HubMedia?.isEnriched(): Boolean =
@@ -220,7 +226,7 @@ fun EnrichedThumbnail(
   corner: Dp,
   modifier: Modifier = Modifier,
 ) {
-  val roles = accentRolesFor(accentHex, isDarkTheme())
+  val roles = rememberAccentRoles(accentHex)
   val url = MediaValidation.safeImageUrl(imageUrl)
   val contain = fit == "contain"
   val tileBg = roles?.let { if (contain) it.containBg else it.tile } ?: MaterialTheme.colorScheme.surfaceContainerHighest
@@ -252,7 +258,7 @@ fun EnrichedThumbnail(
  */
 @Composable
 fun EnrichedHeroBanner(media: HubMedia?, title: String, meta: String?, modifier: Modifier = Modifier) {
-  val roles = accentRolesFor(media?.accentColor, isDarkTheme())
+  val roles = rememberAccentRoles(media?.accentColor)
   val url = MediaValidation.safeImageUrl(media?.heroUrl ?: media?.thumbnailUrl)
   val contain = media?.heroFit == "contain"
   val bg = roles?.let { if (contain) it.containBg else it.tile } ?: MaterialTheme.colorScheme.surfaceContainerHigh
