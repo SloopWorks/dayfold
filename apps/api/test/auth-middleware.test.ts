@@ -91,4 +91,32 @@ describe("authorizeTenant", () => {
     spy.mockRestore();
     expect(result).toEqual({ status: 401 });
   });
+
+  // --- god-mode boundary (round-1 security P0-2: legacy=true is read-everything) ---
+
+  it("P0-2: the JWT path is NEVER legacy god-mode — a real user is membership-scoped", async () => {
+    const t = await mintAccess({ sub: "uA", cid: "cA" });
+    const r = await authorizeTenant(ctx(t), "famA") as any;
+    expect(r.status).toBeUndefined();
+    expect(r.legacy).toBe(false);   // only the household-token branch may set legacy=true
+  });
+
+  it("revoking the household credential locks out the legacy token → 401", async () => {
+    await q(`UPDATE credentials SET revoked_at=now() WHERE id='hcred'`);
+    try {
+      expect(await authorizeTenant(ctx("legacy-secret"), "famA")).toEqual({ status: 401 });
+    } finally {
+      await q(`UPDATE credentials SET revoked_at=NULL WHERE id='hcred'`);
+    }
+  });
+
+  it("an unset HOUSEHOLD_SECRET disables the legacy branch (a forgotten secret can't grant god-mode)", async () => {
+    const saved = process.env.HOUSEHOLD_SECRET;
+    process.env.HOUSEHOLD_SECRET = "";   // `legacySecret && …` short-circuits → never reaches the compare
+    try {
+      expect(await authorizeTenant(ctx("any-bearer-token"), "famA")).toEqual({ status: 401 });
+    } finally {
+      process.env.HOUSEHOLD_SECRET = saved;
+    }
+  });
 });
