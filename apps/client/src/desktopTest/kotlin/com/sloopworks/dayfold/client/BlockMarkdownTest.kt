@@ -39,6 +39,20 @@ class BlockMarkdownTest {
     assertFalse(bad.getLinkAnnotations(0, bad.length).isNotEmpty())             // disallowed scheme → plain text
   }
 
+  @Test fun `bare email autolinks to mailto, trailing punctuation excluded`() {
+    val out = renderBlockMarkdown("email finaid@butler.edu.")
+    assertEquals("email finaid@butler.edu.", out.text)                          // text unchanged (incl. the period)
+    val links = out.getLinkAnnotations(0, out.length)
+    assertEquals(1, links.size)
+    assertEquals("mailto:finaid@butler.edu", (links[0].item as androidx.compose.ui.text.LinkAnnotation.Url).url)
+  }
+
+  @Test fun `an email inside an explicit mailto link is not double-linked`() {
+    val out = renderBlockMarkdown("[write us](mailto:finaid@butler.edu)")
+    assertEquals("write us", out.text)
+    assertEquals(1, out.getLinkAnnotations(0, out.length).size)                  // the [label](url), not a second bare-email link
+  }
+
   @Test fun `italic strips underscores and styles the run`() {
     val out = renderBlockMarkdown("_529 drawdown notes_")
     assertEquals("529 drawdown notes", out.text)
