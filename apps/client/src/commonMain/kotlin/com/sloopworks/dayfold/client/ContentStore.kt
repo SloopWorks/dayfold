@@ -27,7 +27,16 @@ class ContentStore(driver: SqlDriver) {
   // (≤200 rows; the store holds the decoded objects, the feed never sees JSON).
   private val json = Json { ignoreUnknownKeys = true }
 
-  /** Apply one /sync page atomically: upsert changes, tombstone deletes, advance cursor. */
+  /**
+   * Apply one /sync page atomically: upsert changes, tombstone deletes, advance cursor.
+   *
+   * INVARIANT — writes must stay serialized. The store wraps a single SQLite connection,
+   * which cannot run two transactions at once: concurrent `applyDelta`/`wipe` calls from
+   * different threads throw `SQLITE_ERROR: cannot start a transaction within a transaction`
+   * (verified by a concurrency probe — see specs/web-async-db-migration-plan.md). `SyncEngine`
+   * upholds this today by draining /sync pages one `applyDelta` at a time; do NOT parallelize
+   * the write path without first giving the store a single-writer dispatcher.
+   */
   fun applyDelta(
     changedCards: List<Card>,
     changedHubs: List<Hub>,
