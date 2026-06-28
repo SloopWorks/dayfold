@@ -49,6 +49,16 @@ class AuthFlowUiTest {
     onNodeWithText("Creating…").assertIsNotEnabled()
   }
 
+  @Test fun joinDisabledWhileBusy() = runComposeUiTest {
+    // The onboarding twin of create-family: double-tapping "Join" would dispatch two joins → a
+    // duplicate membership request. While the join is in flight (joinBusy) the button disables —
+    // type a code so the guard under test is `busy`, not the blank-token check
+    // (enabled = !busy && token.isNotBlank()). Only the snapshots + reducer covered joinBusy.
+    setContent { DayfoldTheme { JoinInviteScreen(AppState(route = Route.JoinInvite, joinBusy = true)) } }
+    onNode(hasSetTextAction()).performTextInput("FAMILY-INVITE-7K2P")
+    onNodeWithText("Join").assertIsNotEnabled()
+  }
+
   @Test fun signIn_createFamily_feed_account_signOut() = runComposeUiTest {
     val store = createAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
