@@ -69,6 +69,16 @@ class PlatformActionsTest {
     assertEquals("%E6%97%A5", percentEncode("日"))
   }
 
+  @Test fun `percentEncode encodes URI-injection chars (no geo query smuggling)`() {
+    // a Navigate label is authored content dropped into geo:0,0?q=<label>; &, =, #, and
+    // CR/LF must encode so a label can't smuggle a second query param, a fragment, or a line.
+    assertEquals("a%26q%3Devil", percentEncode("a&q=evil"))   // & and = → no extra param
+    assertEquals("x%23frag", percentEncode("x#frag"))          // # → no fragment
+    assertEquals("a%0D%0Ab", percentEncode("a\r\nb"))          // CRLF → no line smuggling
+    // and end-to-end through the geo action
+    assertEquals("geo:0,0?q=Park%20%26%20Rec", cardActionUri(CardAction.Navigate("Park & Rec")))
+  }
+
   @Test fun `vettedOpenUri allows only allowlisted schemes`() {
     // allowlisted → returned (trimmed)
     assertEquals("tel:+15551234567", vettedOpenUri("tel:+15551234567"))
