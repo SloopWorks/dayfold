@@ -64,9 +64,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null)
   is SetHubFocus -> state.copy(hubFocusBlockId = action.blockId)
   is SetHubFilter -> state.copy(hubFilter = action.filter)
-  is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null)
-  is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience)
-  is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null)
+  is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null, audienceError = null)
+  is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience, audienceError = null)
+  is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null, audienceError = null)
 
   // ── auth / session (S5) ──
   is AuthRestoring -> state.copy(route = Route.Loading)
@@ -74,12 +74,12 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     session = action.session,
     route = if (action.session == null) Route.SignIn else Route.Loading, // whoami next
   )
-  is SignInRequested -> state.copy(authBusy = true, authError = null)
+  is SignInRequested -> state.copy(authBusy = true, authError = null, pendingProvider = action.provider)
   is SignInSucceeded -> state.copy(
-    session = action.session, authBusy = false, authError = null,
-    route = Route.Loading,                              // await MembershipsLoaded
+    session = action.session, authBusy = false, authError = null, pendingProvider = null,
+    route = Route.Loading,
   )
-  is SignInFailed -> state.copy(authBusy = false, authError = action.message)
+  is SignInFailed -> state.copy(authBusy = false, authError = action.message, pendingProvider = null)
   is SessionRotated -> state.copy(session = action.session)   // refresh-and-retry; route unchanged
   is MembershipsLoaded -> state.copy(
     families = action.families,
@@ -101,7 +101,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is OpenAccount -> state.copy(route = Route.Account)    // overlay on the signed-in Feed
   is CloseAccount -> state.copy(route = routeFor(state.session, state.families))  // back to the gate
   is SignedOut -> AppState(route = Route.SignIn)        // clear session + feed
-  // SignOutRequested is an effect trigger (AuthEngine); no state change until SignedOut.
+  is SignOutRequested -> state.copy(signOutBusy = true)
 
   // ── invitee-join (S5 slice-2) ──
   is OpenJoinInvite -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = null, joinFamilyName = null)
@@ -115,15 +115,22 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
 
   // ── owner-side approvals (S6) ──
   is OpenMembers -> state.copy(route = Route.Members)
-  is RosterLoaded -> state.copy(members = action.members)
-  is MemberRemoved -> state.copy(members = state.members.filterNot { it.uid == action.uid })
+  is RosterLoaded -> state.copy(members = action.members, rosterBusy = false, rosterError = null, memberOpId = null)
+  is MemberRemoved -> state.copy(members = state.members.filterNot { it.uid == action.uid }, memberOpId = null)
   is OpenDevices -> state.copy(route = Route.Devices)
-  is DevicesLoaded -> state.copy(devices = action.devices)
-  is DeviceRevoked -> state.copy(devices = state.devices.filterNot { it.id == action.id })
+  is DevicesLoaded -> state.copy(devices = action.devices, deviceListBusy = false, deviceListError = null, deviceOpId = null)
+  is DeviceRevoked -> state.copy(devices = state.devices.filterNot { it.id == action.id }, deviceOpId = null)
   is ApprovalsRequested -> state.copy(approvalsBusy = true)
   is ApprovalsLoaded -> state.copy(approvalsBusy = false, pendingApprovals = action.pending)
-  is MemberResolved -> state.copy(pendingApprovals = state.pendingApprovals.filterNot { it.uid == action.uid })
-  is ApprovalsFailed -> state.copy(approvalsBusy = false)
+  is MemberResolved -> state.copy(pendingApprovals = state.pendingApprovals.filterNot { it.uid == action.uid }, memberOpId = null)
+  is ApprovalsFailed -> state.copy(approvalsBusy = false, memberOpId = null)
+  is MemberOpRequested -> state.copy(memberOpId = action.uid)
+  is RosterRequested -> state.copy(rosterBusy = true, rosterError = null)
+  is RosterFailed -> state.copy(rosterBusy = false, rosterError = action.message, memberOpId = null)
+  is DeviceOpRequested -> state.copy(deviceOpId = action.id)
+  is DevicesRequested -> state.copy(deviceListBusy = true, deviceListError = null)
+  is DevicesFailed -> state.copy(deviceListBusy = false, deviceListError = action.message, deviceOpId = null)
+  is AudienceFailed -> state.copy(audienceError = action.message)
 
   // ── CLI/device approval (S6-D) ──
   is OpenEnterCode -> state.copy(

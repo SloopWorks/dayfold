@@ -67,7 +67,7 @@ class HubEngine(
     try {
       val aud = callWithRefresh(s) { hubClient.audience(it.access, fid, hubId) }
       store.dispatch(HubAudienceLoaded(aud))
-    } catch (_: Exception) { /* sheet shows a quiet loading/empty; non-fatal */ }
+    } catch (e: Exception) { store.dispatch(AudienceFailed("Couldn't load who can see this. Try again.")) }
   }
 
   // Refresh-and-retry on 401 (mirrors AuthEngine.callWithRefresh): the access token

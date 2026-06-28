@@ -336,6 +336,16 @@ data class AppState(
   // currentHubAudience null while loading.
   val audienceSheetOpen: Boolean = false,
   val currentHubAudience: HubAudience? = null,
+  // loading-state additions (2026-06-28)
+  val pendingProvider: String? = null,   // which sign-in provider button spins
+  val signOutBusy: Boolean = false,
+  val rosterBusy: Boolean = false,
+  val rosterError: String? = null,
+  val memberOpId: String? = null,        // member row currently approving/declining/removing
+  val deviceListBusy: Boolean = false,
+  val deviceListError: String? = null,
+  val deviceOpId: String? = null,        // device row currently revoking
+  val audienceError: String? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -407,6 +417,13 @@ data object ApprovalsRequested : Action
 data class ApprovalsLoaded(val pending: List<PendingMember>) : Action
 data class MemberResolved(val uid: String) : Action           // approved or declined → drop from the queue
 data object ApprovalsFailed : Action
+data class MemberOpRequested(val uid: String) : Action   // approve/decline/remove start
+data object RosterRequested : Action
+data class RosterFailed(val message: String) : Action
+data class DeviceOpRequested(val id: String) : Action    // revoke start
+data object DevicesRequested : Action
+data class DevicesFailed(val message: String) : Action
+data class AudienceFailed(val message: String) : Action
 // CLI/device approval (S6-D). The engine drives the *Requested/*Loaded/*Failed
 // effect-trigger pattern (like approvals/join); the reducer stays pure.
 data object OpenEnterCode : Action                             // → EnterCode (clears the device fields)

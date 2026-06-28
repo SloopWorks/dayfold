@@ -150,25 +150,28 @@ class AuthEngine(
 
   private suspend fun resolveMember(fid: String, uid: String, approve: Boolean) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    store.dispatch(MemberOpRequested(uid))
     try {
       callWithRefresh(session) { if (approve) authClient.approveMember(it.access, fid, uid) else authClient.declineMember(it.access, fid, uid) }
       store.dispatch(MemberResolved(uid))
     } catch (e: Exception) {
-      store.dispatch(ApprovalsFailed)   // already-handled / transient → the next load reconciles
+      store.dispatch(ApprovalsFailed)
     }
   }
 
   /** Load the active member roster for a family. */
   suspend fun loadMembers(fid: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    store.dispatch(RosterRequested)
     try {
       store.dispatch(RosterLoaded(callWithRefresh(session) { authClient.familyMembers(it.access, fid) }))
-    } catch (e: Exception) { /* keep the last roster; a retry/load reconciles */ }
+    } catch (e: Exception) { store.dispatch(RosterFailed("Couldn't load members. Try again.")) }
   }
 
   /** Owner removes a member → drop from the roster on success (409 last-owner → reload). */
   suspend fun removeMember(fid: String, uid: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    store.dispatch(MemberOpRequested(uid))
     try {
       callWithRefresh(session) { authClient.removeMember(it.access, fid, uid) }
       store.dispatch(MemberRemoved(uid))
@@ -180,13 +183,15 @@ class AuthEngine(
   /** Load the caller's connected devices/apps. */
   suspend fun loadDevices() = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    store.dispatch(DevicesRequested)
     try { store.dispatch(DevicesLoaded(callWithRefresh(session) { authClient.credentials(it.access) })) }
-    catch (e: Exception) { /* keep the last list; a reload reconciles */ }
+    catch (e: Exception) { store.dispatch(DevicesFailed("Couldn't load devices. Try again.")) }
   }
 
   /** Revoke one of the caller's credentials → drop on success (reload on a guarded failure). */
   suspend fun revokeDevice(id: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    store.dispatch(DeviceOpRequested(id))
     try {
       callWithRefresh(session) { authClient.revokeCredential(it.access, id) }
       store.dispatch(DeviceRevoked(id))
