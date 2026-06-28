@@ -38,6 +38,9 @@ dayfold push <blockId> block.json --block         # block (body carries sectionI
   Without `--type`, a card is sent unchanged (no local validation).
 - Hub/section/block pushes (via `--hub`, `--section`, `--block`) run an always-on
   structural pre-check with no flag — the server is the authority for hub-tree shape.
+- By default `push` auto-links bare phone/email in every `body_md` to tappable
+  `tel:`/`mailto:` links and prints a diff of what changed — so author plain text, not
+  hand-rolled markdown links. `--no-linkify` stores the body verbatim.
 - The path `<id>` overwrites the body `id` server-side — the body `id` can stay
   `REPLACE_WITH_CARD_ID`.
 - Output: `push <resource>/<id> -> <httpStatus>`. Non-200 prints the server body

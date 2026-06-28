@@ -10,7 +10,10 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `kind` ∈ `action | info | weather | countdown` (default `info`).
 - `type` ∈ `file | link | invite | contact | geo | email` — drives the card
   layout. Payload is `payload.<type>` (single variant key == `type`).
-- `body_md` — limited inline markdown (snippet/embed).
+- `body_md` — limited inline markdown (snippet/embed). On `push`, bare phone numbers and
+  emails in ANY body_md are auto-linked to tappable `tel:`/`mailto:` links — write them as
+  plain text, NOT hand-rolled markdown links (`dayfold push … --no-linkify` opts out).
+- `media` — optional visual enrichment (icon / accent / hero image; see Visual enrichment).
 - `target` — deep link `{hubId, sectionId?, blockId?}` into a hub.
 - `hubRef` — parent hub id (the "PART OF THIS HUB" pane).
 - `triggers[]` — relevance: `{ "when": { "at": <ts>, "alert_offset": "-PT1H" } }`
@@ -34,6 +37,7 @@ Per-type payload keys (the common ones):
 - `type` ∈ `vacation | starting-college | move | party-event | new-baby | medical | school-year`.
 - `status` ∈ `planning | active | archived` (default `active`).
 - `start_at` / `end_at` / `countdown_to` (ISO-8601). `sections[]`.
+- `media` — optional visual enrichment (hero banner icon/accent; see Visual enrichment).
 - `dayfold template hub` also emits `visibility` (e.g. `"family"`). Hub-tree
   shape is server-authoritative (no CLI generated schema) — start from the
   template rather than a hand-written stub.
@@ -50,6 +54,24 @@ Per-type payload keys (the common ones):
   - `contact`: `{ name, role?, phone?, email? }`
   - `location`: `{ label, address?, mapUrl? }`
   - `budget`: `{ items: [{ label, amount, paid? }] }`
+
+## Visual enrichment — `media` (ADR 0036)
+
+Optional, decorative, fail-safe (a card/hub renders fine without it). On a **card** or
+**hub**: `media: { heroUrl?, thumbnailUrl?, heroFit?, imageAlt?, icon?, accentColor? }`.
+Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `avatarUrl`.
+
+- **Image URLs** (`heroUrl` / `thumbnailUrl` / `avatarUrl`) MUST be `https` on an allowlisted
+  host — currently **`upload.wikimedia.org`** only. Anything else is rejected at author AND
+  render time (no parser-differential bypass). Always surface the chosen image to the operator
+  before pushing.
+- `icon` ∈ `school | luggage | medical | move | party | baby | calendar | location | link |
+  document | contact | budget | travel | car | food | pet | sport | list` — a curated glyph,
+  shown as the fallback tile when no image loads.
+- `accentColor` — `#RRGGBB`, decorative only (harmonized to the light/dark theme at render).
+- `heroFit` ∈ `cover | contain`; `imageAlt` — accessibility text for the image.
+- Lowest-risk enrichment: `icon` + `accentColor` (no URL → nothing to allowlist). See the
+  worked example in `apps/cli/examples/hub-college/hub.json`.
 
 ## Choosing card vs hub content
 
