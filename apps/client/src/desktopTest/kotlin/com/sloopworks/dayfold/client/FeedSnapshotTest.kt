@@ -64,6 +64,10 @@ class FeedSnapshotTest {
   @Test fun caughtUpSnapshot() = snapshot("feed-caught-up", caughtUp)
   @Test fun caughtUpDarkSnapshot() = snapshot("feed-caught-up-dark", caughtUp, dark = true)
   @Test fun syncingSnapshot() = snapshot("feed-syncing", AppState(syncing = true))
+  // offline / sync error (4th posture state): recoverable — reason + Try again, never a dead-end
+  private val offline = AppState(error = "No internet connection")
+  @Test fun offlineSnapshot() = snapshot("feed-offline", offline)
+  @Test fun offlineDarkSnapshot() = snapshot("feed-offline-dark", offline, dark = true)
 
   // The misframing fix, asserted on the branch logic (not just pixels): an established
   // family's empty feed reads "all caught up" with a path to Hubs; a first-run family's does NOT.
