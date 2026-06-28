@@ -110,7 +110,7 @@ fun FeedApp(
       // of the plain sign-in (same providers; resumes onto AuthorizeDevice after).
       Route.SignIn ->
         if (state.pendingDeviceLink != null) DeviceResumeScreen(onProvider = onSignIn)
-        else SignInScreen(busy = state.authBusy, error = state.authError, onProvider = onSignIn, onDevSignIn = onDevSignIn)
+        else SignInScreen(pendingProvider = state.pendingProvider, error = state.authError, onProvider = onSignIn, onDevSignIn = onDevSignIn)
       Route.AuthError -> AuthErrorScreen(message = state.authError, onRetry = onRetry, onSignOut = onSignOut)
       Route.CreateFamily -> CreateFamilyScreen(
         busy = state.authBusy, error = state.authError,

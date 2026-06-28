@@ -27,7 +27,7 @@ class AuthScreensSnapshotTest {
 
   @Test fun signIn() = snap("auth-signin") { SignInScreen() }
   @Test fun signInDark() = snap("auth-signin-dark", dark = true) { SignInScreen() }
-  @Test fun signInBusy() = snap("auth-signin-busy") { SignInScreen(busy = true) }
+  @Test fun signInBusy() = snap("auth-signin-busy") { SignInScreen(pendingProvider = "google") }
   @Test fun signInError() = snap("auth-signin-error") { SignInScreen(error = "Couldn't reach Dayfold. Try again.") }
   @Test fun createFamily() = snap("auth-createfamily") { CreateFamilyScreen(initialName = "The Jacksons") }
   @Test fun createFamilyDark() = snap("auth-createfamily-dark", dark = true) { CreateFamilyScreen(initialName = "The Jacksons") }
