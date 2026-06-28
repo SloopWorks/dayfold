@@ -63,6 +63,17 @@ class FeedScreenTest {
   }
 
   @Test
+  fun fastSyncDoesNotFlashSkeleton() = runComposeUiTest {
+    // rememberStableLoading's WHOLE POINT (the anti-flash inverse): a sync that resolves
+    // inside the ~200ms debounce must NEVER flash the skeleton. Hold the clock and advance
+    // less than the debounce → the skeleton must not be shown.
+    mainClock.autoAdvance = false
+    setContent { MaterialTheme { FeedScreen(AppState(syncing = true)) } }
+    mainClock.advanceTimeBy(100)   // before the 200ms debounce
+    onNodeWithContentDescription("Catching up on your day").assertDoesNotExist()
+  }
+
+  @Test
   fun emptyFeedErrorOffersRetryInsteadOfDeadEnd() = runComposeUiTest {
     // first-launch-offline: empty + error must offer a way forward, not just text
     var retried = false
