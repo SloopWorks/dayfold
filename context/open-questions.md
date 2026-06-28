@@ -28,6 +28,31 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-web-target** *(NEW 2026-06-28, operator interest)*: Add a **Compose-for-Web
+  (`wasmJs`) client**? CLAUDE.md lists Android/iOS/**Web**, but only `androidTarget()`,
+  `jvm("desktop")`, and iOS (arm64 + sim) are wired in `apps/client/build.gradle.kts` — no
+  `wasmJs` target, web source set, web module, or `index.html` entry exists. **Feasibility
+  (investigated 2026-06-28):**
+  1. **Primary blocker — operator-owned:** redux-kotlin `1.0.0-alpha03`
+     (`-threadsafe`/`-compose`/`-granular`/`-devtools-core`) must publish a **wasmJs**
+     artifact per module. The build's own comments show these per-target publications are
+     incomplete (iosX64 was dropped for lack of one; "operator owns reduxkotlin — add iosX64
+     granular to restore it"), so wasmJs almost certainly isn't published yet and the
+     operator must add it first — same shape as the iosX64 gap.
+  2. **6 `expect`/`actual` seams need wasmJs actuals:** `DriverFactory` (SQLDelight — the
+     heavy one, needs the web-worker/sql.js driver), `PlatformActions` (`window.open` /
+     `tel:` / `mailto:`), and `QrScanner` / `rememberCameraPermissionRequester` /
+     `qrScanSupported` (stub as unsupported on web). Plus a ktor wasmJs engine (Coil image
+     loading), a web entry (`index.html` + `main()`), and a build/deploy path.
+  3. **Design:** the **Expanded** adaptive breakpoint (`designs/content/adaptive/
+     Breakpoints.dc.html` + the two-pane content/detail comps + `Settings-Adaptive`) is the
+     layout reference. Web-chrome-specific affordances are deliberately unbuilt
+     (`DESIGN-BRIEF-content-adaptive.md`: "web is not a build target yet — design desktop as
+     the 'expanded' reference; don't design web-chrome-specific affordances"). A web build
+     would need fresh design + sign-off (ADR 0008) for anything web-platform-specific
+     (browser chrome, URL/deep-link routing, web auth-redirect flow).
+  **Decision (operator):** prioritize web vs. iOS / other M1 work, and — gating everything —
+  publish redux-kotlin `wasmJs` first. Until that lands, the web target can't compile.
 - **OQ-geocode-claim-wording** *(ADR 0028)*: the exact, legally-defensible
   marketing/UX wording for the location-privacy tiers — especially any
   first-party opt-in geocoding service (T5) "not sold / not shared / not linked
