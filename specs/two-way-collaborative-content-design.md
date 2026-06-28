@@ -9,6 +9,14 @@ before operator ratification, and the client surfaces are gated on an ADR 0008
 hi-fi mockup + sign-off.
 **Surfaces:** content schema, API + Postgres, CLI/curator skill, Compose
 Multiplatform client + sync engine.
+> **Generalized (2026-06-28):** a 6-specialist panel extended this primitive into
+> the full two-way engine (member media-update, authoring, "add context"/intents,
+> delete, hide) — see `specs/two-way-engine-and-content-management-design.md` +
+> **INB-26**. Two carry-backs into *this* slice: (1) **build the outbox general from
+> the first commit** — typed `op_type`/`target_kind`/`depends_on`, not a toggle-only
+> table to retrofit; the toggle is op `type:"toggle"` on that shared spine. (2) Surface
+> pending/failed via a `local_state` column on content tables so the outbox stays
+> egress-only (preserves ADR 0020's one-UI-reader thesis).
 **Authoritative refs:** `adr/0016` (two-way pull-loop / intents), `adr/0020`
 (offline-first DB-as-SoT + reserved outbox), `adr/0015`/`adr/0017` (E2EE),
 `adr/0022` (typed content + fold gesture), `adr/0029` (scoped grants),

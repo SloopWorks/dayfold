@@ -70,6 +70,31 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   **todo-only first** and mirror the id/stamp fields onto `BudgetPayload` when
   budget actually goes two-way (a cheap additive copy, no re-model)? Lean: todo-
   only first (avoid premature abstraction before the 2nd real caller). → §11.
+- **OQ-twoway-engine-fwdcompat** *(P0; W1–W5 panel)*: forward-compat is **already
+  broken** — every generated schema is `.strict()` / Kotlin `ignoreUnknownKeys=false`,
+  so *any* added field breaks unupgraded clients. Fix = **split strict-authoring from
+  lenient-decode** + unknown-`type` graceful-skip + migrate `block_type`/`card_kind`
+  PG-ENUM→`text+CHECK` + mandatory `x-e2e` classification per new field + a CI Kotlin
+  codegen-drift guard. Must land before *any* W1–W5 (or even ADR 0038) field ships. →
+  `specs/two-way-engine-and-content-management-design.md` §5.
+- **OQ-w3-freetext-constitution** *(blocks free-form W3)*: open free-form "add
+  context" is the **free-text-prompt surface ADR 0016 §4 reserved behind a
+  constitution amendment**. Ship W3 structured/template-bounded until amended? →
+  engine design §4-W3 / INB-26 #1. Constitution-gated.
+- **OQ-w3-loop-placement** *(E2EE posture)*: the async-AI loop must be a **key-holder**
+  to decrypt W3 context (operator machine → controlled host). A **hosted** Claude
+  routine breaks E2EE + triggers guardrail-#3 disclosure — reserved/ADR-gated, never
+  default. → §4-W3 / INB-26 #2.
+- **OQ-objectstore-vendor** *(vendor + spend)*: member media = the first binary
+  Dayfold stores → object store needed. **Cloudflare R2 (zero egress)** vs all-Vercel
+  (Blob, egress-billed). → §4-W1 / INB-26 #3. ADR 0036 Phase-2.
+- **OQ-hide-grain** *(privacy)*: per-member hide is self-scoped UI state (never the
+  shared payload, never the ADR 0030 ACL). Local-only first; on promotion,
+  **resource-grain = cleartext per-member table** (= `resource_visibility` leak class),
+  **item-grain = in-ciphertext**. Confirm. → §4-W5 / §11.
+- **OQ-decrypted-blob-cache** *(privacy)*: caching decrypted image thumbnails to disk
+  for fast render weakens E2EE-at-rest; memory-only hurts scroll perf. Decide the
+  cache policy. → engine design §7/§9.3.
 - **OQ-e2e-encryption:** Adopt end-to-end encryption (CLI encrypts → server
   stores blind → device decrypts)? Feasible because the server never processes
   content. Crux = family-content-key distribution across the multi-member +

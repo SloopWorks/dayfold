@@ -9,6 +9,48 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-26 · 2026-06-28 · med · open — Two-way ENGINE generalization (W1–W5): six
+  operator decisions.** A **6-specialist panel** (system design · data modeling ·
+  privacy/E2EE · security/ACL · mobile/KMP · performance) pressure-tested
+  generalizing the to-do primitive (INB-25/ADR 0038) into a full two-way engine for
+  five future features: **W1** member updates media (hero images), **W2** members
+  author content (notes/todos/links), **W3** free-form "add context" → async AI
+  integration, **W4** delete, **W5** hide. Design + audit trail:
+  `specs/two-way-engine-and-content-management-design.md`. The engine generalizes
+  cleanly (one typed-op outbox → `/mutations`; two channels — direct content-deltas
+  vs a key-holder **intents** path for W3; delete=tombstone, hide=per-member). It
+  also surfaced a **P0: forward-compat is already broken** (every schema is
+  `.strict()`/`ignoreUnknownKeys=false` → any added field breaks old clients — fix
+  before *any* W1–W5 field lands) and several authz must-fixes. **Six things need
+  you** (proposed defaults in **bold**; nothing builds before you ratify, and client
+  surfaces still need ADR 0008 mockups):
+  1. **W3 free-text vs structured (scope + CONSTITUTION).** Open free-form context
+     trips ADR 0016 §4's reserved free-text line → needs a constitution amendment.
+     **Default: ship W3 structured/template-bounded ("add this to hub X") until you
+     choose to amend.**
+  2. **W3 AI-loop placement (E2EE posture / guardrail #3).** A *hosted* Claude routine
+     can't decrypt without breaking E2EE + triggers third-party-LLM disclosure.
+     **Default: key-holder-only (operator machine → controlled host); hosted path
+     reserved + ADR-gated.**
+  3. **Object storage vendor (vendor + spend).** Member photos = the first binary
+     Dayfold stores → needs an object store. **Default: Cloudflare R2 (zero egress;
+     ~$0 at family scale) over Vercel Blob (egress-billed).**
+  4. **W2 authoring scope (scope + ACL).** **Default: members author into existing
+     visible hubs only (defer member-created hubs); accept the
+     loop-never-edits-member-blocks invariant + server-enforced audience-intersection
+     (un-defers ADR 0030's deferred posture).**
+  5. **W5 hide model (values/privacy).** **Default: per-member, self-scoped,
+     local-only first; promote to a per-member server channel later with
+     grain-dependent storage (resource-grain cleartext table, item-grain
+     in-ciphertext).**
+  6. **W3 cost constants (spend/pricing-class).** **Default: Sonnet by default,
+     batch pending intents per-family per-cadence, per-family daily submission cap.**
+  - These spawn an **ADR set** (generalized-engine ADR; member-authoring authz;
+    member-media ADR 0036 Phase-2; ADR 0016 intents activation + constitution gate;
+    ADR 0015/0025/0020 amendments; the schema-evolution ruleset). Recorded as
+    **operator-gated** (#1/#2/#3/#6 are constitution/E2EE/spend; #4/#5 scope/values)
+    — drafted, awaiting your direction before any ADR flips Proposed→Accepted.
+
 - **INB-25 · 2026-06-27 · med · open — Two-way collaborative content (interactive
   to-do): accept ADR 0038 + pick the member write-scope.** A 4-agent brainstorm +
   2 adversarial rounds designed Dayfold's **first two-way data-flow** primitive
