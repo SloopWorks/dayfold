@@ -42,6 +42,34 @@ changes above, then make `ContentStore.create()` `suspend` + `.await()`, then co
 tests to `runBlocking` in one sweep, and run `:client:desktopTest` **several times** to confirm
 the flake is gone before the Pixel smoke. Verified end-to-end, it's a half-day, not a loop tick.
 
+### Flake root-cause investigation (2026-06-28, follow-up, no code change)
+
+Narrowed the "no such table" flake cheaply (without re-running the migration):
+- **Ruled OUT parallel test execution.** There is no `maxParallelForks` / `forkEvery` /
+  `junit.jupiter…parallel` / `org.gradle.parallel` config anywhere — Gradle's `Test` default is
+  serial (one fork). So the flake is **not** a cross-test in-memory-DB collision; disabling
+  parallelism is a non-fix.
+- **Leading hypothesis: intra-test concurrent connection access.** Under `generateAsync` the
+  reactive flows still collect on `mapToList(Dispatchers.Default)` (a background thread) while
+  the suspend writes (`applyDelta`/`upsertHub`) run on the `runBlocking` thread. A single
+  JDBC SQLite connection is **not** safe for concurrent use from two threads; the old
+  *synchronous* path serialized every call so they never overlapped, but the async path lets a
+  flow query and a write touch the connection at the same instant → intermittent
+  `SQLITE_ERROR` (surfacing as "no such table" / a different test each run).
+- **Why this matters beyond tests:** the same shape exists in **production** — `SyncEngine`
+  writes on a coroutine while the UI collects `activeCardsFlow`/`activeHubsFlow` on
+  `Dispatchers.Default`. The sync drivers may tolerate it (their own locking) where JDBC does
+  not, but this must be confirmed, not assumed.
+- **First step for the dedicated session** (do this BEFORE the test sweep): confine all DB
+  access to a single dispatcher (e.g. a dedicated single-thread `CoroutineContext` the store
+  uses for every query/write, flows included) and re-run `:client:desktopTest` ~10× to confirm
+  the flake is gone. If confinement fixes it, that confinement is also the production-safety
+  story; if not, instrument the thread id + connection in `create()` vs the failing write to
+  find the true cause. Only then proceed to the main-code + test-conversion sweep above.
+
+This is why the migration is a deliberate session, not a loop tick: it touches the data layer's
+concurrency model, and that must be understood + verified, not patched hopefully.
+
 ## Why
 
 The only web SQLDelight driver is `app.cash.sqldelight:web-worker-driver` (2.3.2,
