@@ -45,6 +45,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     if (state.detailStack.lastOrNull() == action.cardId || state.cards.none { it.id == action.cardId }) state
     else state.copy(detailStack = state.detailStack + action.cardId)
   is NavBack -> state.copy(detailStack = state.detailStack.dropLast(1))
+  is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
 
   // ── Hubs (ADR 0006 render · ADR 0030 visibility) ──
   is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null)

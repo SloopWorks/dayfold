@@ -358,6 +358,7 @@ data class CardsLoaded(val cards: List<Card>) : Action
 // CL-6 nav (push if not already top / pop one level).
 data class NavToDetail(val cardId: String) : Action
 data object NavBack : Action
+data object Back : Action                                     // system back → up one level (resolved by backAction)
 
 // Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer
 // is pure. OpenHubs/OpenFeed flip the bottom-nav surface; OpenHub/CloseHub drive the
