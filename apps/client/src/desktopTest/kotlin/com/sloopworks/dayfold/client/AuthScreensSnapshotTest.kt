@@ -42,6 +42,7 @@ class AuthScreensSnapshotTest {
   )
   @Test fun account() = snap("auth-account") { AccountScreen(acctState) }
   @Test fun accountDark() = snap("auth-account-dark", dark = true) { AccountScreen(acctState) }
+  @Test fun accountSignOutBusy() = snap("auth-account-signout-busy") { AccountScreen(acctState, signOutBusy = true) }
 
   // invitee-join (slice-2b)
   @Test fun joinEntry() = snap("auth-join-entry") { JoinInviteScreen(AppState(route = Route.JoinInvite)) }

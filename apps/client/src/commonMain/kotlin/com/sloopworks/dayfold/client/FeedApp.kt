@@ -154,7 +154,7 @@ fun FeedApp(
         else -> AuthorizeDeviceScreen(state, onApprove = onApproveDevice, onDeny = onDenyDevice, onCancel = { store.dispatch(CloseDeviceFlow) })
       }
       Route.Account -> AccountScreen(
-        state, onSignOut = onSignOut, onClose = { store.dispatch(CloseAccount) },
+        state, signOutBusy = state.signOutBusy, onSignOut = onSignOut, onClose = { store.dispatch(CloseAccount) },
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
       )

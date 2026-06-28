@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AccountScreen(
   state: AppState,
+  signOutBusy: Boolean = false,
   onSignOut: () -> Unit = {},
   onClose: () -> Unit = {},
   onOpenMembers: () -> Unit = {},
@@ -150,9 +152,17 @@ fun AccountScreen(
       // sign out — confirm first (guards an accidental session clear)
       Box(
         Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp))
-          .border(1.5.dp, cs.outline, RoundedCornerShape(16.dp)).clickable { confirmSignOut = true },
+          .border(1.5.dp, cs.outline, RoundedCornerShape(16.dp))
+          .clickable(enabled = !signOutBusy) { confirmSignOut = true }
+          .semantics { if (signOutBusy) stateDescription = "Busy" },
         contentAlignment = Alignment.Center,
-      ) { Text("Sign out", style = MaterialTheme.typography.labelLarge, color = cs.onSurface) }
+      ) {
+        if (signOutBusy) {
+          androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = cs.onSurface, modifier = Modifier.size(20.dp))
+        } else {
+          Text("Sign out", style = MaterialTheme.typography.labelLarge, color = cs.onSurface)
+        }
+      }
 
       Spacer(Modifier.height(12.dp))
       // delete (designed: deleteconfirm/transferowner — wired in a later slice)
