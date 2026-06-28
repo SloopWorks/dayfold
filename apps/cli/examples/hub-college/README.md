@@ -2,9 +2,10 @@
 
 A complete, ready-to-push hub tree exercising the main block types — **milestone,
 checklist, contact, document, budget, markdown** — with the **canonical schema
-payloads** (ADR 0035). Use it to see the full hub renderer end-to-end without
-hand-authoring, or as a filled reference that complements the empty
-`dayfold template <type>` skeletons.
+payloads** (ADR 0035), plus **hub visual enrichment** (ADR 0036 — a curated `icon`
++ `accentColor` on `hub.json`, rendered as the hero banner's tile). Use it to see
+the full hub renderer end-to-end without hand-authoring, or as a filled reference
+that complements the empty `dayfold template <type>` skeletons.
 
 ## Push it
 1. `dayfold login` (device-grant — approve on your phone)

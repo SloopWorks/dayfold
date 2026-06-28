@@ -1,1 +1,1 @@
-{ "type": "starting-college", "title": "Sample → Starting College", "status": "active", "countdown_to": "2026-08-01T00:00:00Z", "visibility": "family" }
+{ "type": "starting-college", "title": "Sample → Starting College", "status": "active", "countdown_to": "2026-08-01T00:00:00Z", "visibility": "family", "media": { "icon": "school", "accentColor": "#2C3E73" } }
