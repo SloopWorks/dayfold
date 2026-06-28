@@ -1,9 +1,46 @@
 # Plan — SQLDelight sync → async DB migration (the web-client DB prerequisite)
 
-**Status: PLANNED, not started.** Prerequisite for a *functional* Compose-for-Web
-(`wasmJs`) client (see `context/open-questions.md` → `OQ-web-target`). Do this
-**only when web is greenlit** — it changes the shipping DB layer (Android/desktop/iOS)
-for a target not yet committed, so it's premature to run speculatively.
+**Status: ATTEMPTED 2026-06-28, reverted — BIGGER than "bounded". Not started in main.**
+Prerequisite for a *functional* Compose-for-Web (`wasmJs`) client (see
+`context/open-questions.md` → `OQ-web-target`). Do this **only when web is greenlit**, and
+budget it as a **dedicated session** (NOT an autonomous-loop iteration) — see the attempt log
+below: the main-code change is clean, but the **test suite needs a wide refactor** and there's
+an **async schema-create ordering flake** to resolve first.
+
+## Attempt log (2026-06-28) — what actually happened
+
+A full attempt got the **main code compiling on every platform** (desktop, android
+`assembleDebug`, iOS `compileKotlinIosSimulatorArm64` all green) but surfaced two things the
+"bounded / behaviour-preserving" framing missed. Reverted rather than ship half-done.
+
+**The concrete main-code changes that worked (re-use these next time):**
+- `build.gradle.kts`: `generateAsync.set(true)` **+ add dep `app.cash.sqldelight:async-extensions:2.3.2`** (this is where `awaitAs*` and `synchronous()` live — not in coroutines-extensions).
+- `ContentStore`: `applyDelta`/`wipe`/`activeCards`/`cursor` → `suspend`; `executeAsList`/`executeAsOneOrNull` → `awaitAsList`/`awaitAsOneOrNull`. Flows unchanged.
+- `AuthEngine`: `clearCache: () -> Unit` → `suspend () -> Unit` (both call sites already suspend ✓).
+- `SyncEngine`: `onSyncHttpError` → `suspend` (both callers in `suspend syncNow` ✓).
+- **All 3 drivers** (`DriverFactory.{desktop,android,ios}`): `ContentDb.Schema` → `ContentDb.Schema.synchronous()` (async schema → sync driver).
+- `MainActivity` (android shell): the debug seed `wipe()`/`applyDelta()` → wrap in `lifecycleScope.launch { }`.
+
+**Blocker 1 — the test suite is a wide refactor, not "already runBlocking".** ~25 DB tests
+across `ContentStoreTest`, `HubCacheTest`, `SyncEngineTest`, `HubEngineTest` call the
+now-suspend methods outside a coroutine. Wrapping each `@Test` in `runBlocking` is mechanical
+but extensive, and the shared helpers (`freshStore()`/`store()`/`freshContentStore()`) calling
+`ContentStore.create()` force the cascade wider.
+
+**Blocker 2 — async schema-create flake (the real gotcha).** `ContentStore.create()` does
+`ContentDb.Schema.create(driver)`; under `generateAsync` that returns an async `QueryResult`.
+`.synchronous().create(driver)` compiles and fixed *most* in-memory tests, but the suite stayed
+**flaky**: a *different* in-memory test fails each run with `SQLITE_ERROR: no such table: hub` —
+the write races the schema-create. The robust fix is to make `ContentStore.create()` **suspend**
+and `.await()` the create — but that makes every `create()` caller (the test helpers above)
+suspend, cascading to ~all DB tests. (Production is likely unaffected: the shells build the
+driver via the *constructor* with `schema = …synchronous()`, so the schema is applied before any
+query — only the test `create()` factory has the ordering race.)
+
+**Recommendation:** when web is greenlit, do this as one focused sitting: apply the main-code
+changes above, then make `ContentStore.create()` `suspend` + `.await()`, then convert the DB
+tests to `runBlocking` in one sweep, and run `:client:desktopTest` **several times** to confirm
+the flake is gone before the Pixel smoke. Verified end-to-end, it's a half-day, not a loop tick.
 
 ## Why
 
