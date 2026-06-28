@@ -22,8 +22,9 @@ fun fakeBackends(): List<Backend> =
 /** Build a fake-backend HttpClient for a scenario id, or null if the id is unknown. */
 fun fakeBackendClient(scenarioId: String): HttpClient? =
   FakeScenarios.byId(scenarioId)?.let { scenario ->
-    val backend = FakeBackend(scenario.data)
+    val backend = FakeBackend(scenario.data.copy(latencyMs = 1200))
     HttpClient(MockEngine { request ->
+      if (backend.data.latencyMs > 0) kotlinx.coroutines.delay(backend.data.latencyMs)
       val res = backend.handle(request.method.value, request.url.encodedPath, request.url.parameters["user_code"])
       respond(res.json, HttpStatusCode.fromValue(res.status), headersOf(HttpHeaders.ContentType, "application/json"))
     })

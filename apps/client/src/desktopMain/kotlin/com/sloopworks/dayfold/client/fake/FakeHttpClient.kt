@@ -22,6 +22,8 @@ fun fakeClientForApi(api: String): HttpClient? =
   api.removePrefix("fake://").takeIf { api.startsWith("fake://") }?.let { fakeBackendClient(it) }
 
 fun fakeHttpClient(backend: FakeBackend): HttpClient = HttpClient(MockEngine { request ->
+  val latency = System.getenv("DAYFOLD_FAKE_LATENCY")?.toLongOrNull() ?: backend.data.latencyMs
+  if (latency > 0) kotlinx.coroutines.delay(latency)
   val res = backend.handle(request.method.value, request.url.encodedPath, request.url.parameters["user_code"])
   respond(res.json, HttpStatusCode.fromValue(res.status), headersOf(HttpHeaders.ContentType, "application/json"))
 })

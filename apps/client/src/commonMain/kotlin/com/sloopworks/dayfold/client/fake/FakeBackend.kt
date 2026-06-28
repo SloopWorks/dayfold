@@ -58,6 +58,8 @@ data class FakeBackendData(
   val newFamilyId: String = "fam_fake_new",
   /** Override the /sync status to model an error path (e.g. 500). 200 = serve `sync`. */
   val syncStatus: Int = 200,
+  /** Artificial per-request delay (debug-only) so loading states are observable. */
+  val latencyMs: Long = 0,
 )
 
 // Local envelope DTOs mirroring the server shapes the client decodes (the client's
@@ -69,7 +71,7 @@ data class FakeBackendData(
 @Serializable private data class CredsOut(val credentials: List<DeviceCredential>)
 
 class FakeBackend(
-  private val data: FakeBackendData,
+  val data: FakeBackendData,
   private val json: Json = Json { encodeDefaults = false; explicitNulls = false },
 ) {
   /**
