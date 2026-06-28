@@ -48,3 +48,14 @@ suppress or paper over a server rejection.
 dayfold is a calm briefing surface, not a chatbot, chore app, or system of record.
 Author briefing intelligence (links, snippets, times, dates, contacts) — not
 open-ended conversation or data the family relies on as their only copy.
+
+## 8. Enrichment images: allowlist + surface-to-operator (ADR 0036)
+
+`media` image URLs (`heroUrl` / `thumbnailUrl` / `avatarUrl`) MUST be `https` on the
+allowlisted host (`upload.wikimedia.org`) — anything else is rejected at author AND render
+time; do not try to work around it. An external image is fetched by the CLIENT at render,
+so it leaks the family's viewing context (their IP + that they're viewing this content) to
+the image host. Therefore, beyond the JSON (Guardrail 1), ALWAYS surface the *specific
+chosen image* (the URL, ideally a preview) to the operator before `push` — they approve
+that image, not just "an image". When unsure, prefer `icon` + `accentColor` (no URL, nothing
+fetched).
