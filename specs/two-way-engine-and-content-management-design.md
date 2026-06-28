@@ -586,8 +586,10 @@ cadence-agnostic and per-device cadence is independent. The two things that turn
 "supports all cadences" from *implicit* into *contracted* are **G1** (tombstone-
 retention + stale-cursor full-resync — required for daily clients to be safe) and
 **G2/G3/G4** (push as a contentless debounced signal, with held-connection realtime
-as a later vendor-add). Both land in **ADR 0020** (freshness owner), composing this
-engine.
+as a later vendor-add). **Contracted in `adr/0040-freshness-spectrum-and-tombstone-
+retention.md` (Proposed)** — extends ADR 0020's R2/R3; M0 ships poll+background + the
+stale-cursor-full-resync/retention-floor rule, with watermark-GC, push, and realtime
+as deferred drop-ins.
 
 ## 11. Resolved cross-agent conflicts
 

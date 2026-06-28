@@ -103,8 +103,12 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   **contentless E2EE-safe signal** (not a transport) → needs a write-time change-signal
   + per-family **debounce** + **jitter**; held-connection sub-second realtime doesn't
   fit Vercel serverless → a managed pub/sub vendor later (the cursor sync underneath is
-  unchanged). → `specs/two-way-engine-and-content-management-design.md` §10.5; ADR 0020
-  must move R2/R3 from "push deferred" to this spectrum contract.
+  unchanged). → `specs/two-way-engine-and-content-management-design.md` §10.5.
+  **Contracted in Proposed `adr/0040-freshness-spectrum-and-tombstone-retention.md`**
+  (extends ADR 0020 R2/R3; M0 = poll+background + the stale-cursor-full-resync +
+  retention-floor rule; watermark-GC/push/realtime deferred). Residual operator-gated
+  picks: the retention-floor constant, push credentials (FCM/APNs — ADR 0034/0023), the
+  sub-second realtime vendor (spend).
 - **OQ-decrypted-blob-cache** *(privacy)*: caching decrypted image thumbnails to disk
   for fast render weakens E2EE-at-rest; memory-only hurts scroll perf. Decide the
   cache policy. → engine design §7/§9.3.
