@@ -62,6 +62,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
+      # Cheap guard: every commonMain `expect` has an `actual` per platform (android/
+      # desktop/ios). CI doesn't compile iOS, so a missing iosMain actual would merge
+      # undetected (see #225). Pure grep — fails fast before the gradle build.
+      - name: expect/actual parity (incl. iOS)
+        run: bash scripts/check-expect-actual.sh
       # TASK-KMP consolidated :client into the single apps/ Gradle build —
       # apps/client no longer has its own wrapper. Run the module task from apps/.
       - working-directory: apps
