@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -29,6 +30,16 @@ import kotlin.test.assertTrue
 // wait for each screen's marker to appear after a route-changing dispatch.
 @OptIn(ExperimentalTestApi::class)
 class AuthFlowUiTest {
+  @Test fun busyProviderButtonsBlockDoubleSubmit() = runComposeUiTest {
+    // #223 loading states: while one provider sign-in is in flight (pendingProvider set), ALL
+    // provider buttons disable (AuthButton effectiveEnabled = enabled && !busy) so a stray
+    // second tap can't fire a concurrent auth flow. The signInBusy snapshot only proves the
+    // visual (spinner); this pins the double-submit GUARD behaviorally.
+    setContent { DayfoldTheme { SignInScreen(pendingProvider = "google") } }
+    onNodeWithText("Continue with Google").assertIsNotEnabled()   // the in-flight provider — not re-tappable
+    onNodeWithText("Continue with Apple").assertIsNotEnabled()    // a different provider — also blocked
+  }
+
   @Test fun signIn_createFamily_feed_account_signOut() = runComposeUiTest {
     val store = createAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
