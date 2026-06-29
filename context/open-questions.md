@@ -43,6 +43,14 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   now) or deferred (→ keep sort-only + soften the spec wording)? Likely moot today if the
   curator/CLI only authors `not_before ≈ now`, but the spec currently over-claims a filter that
   isn't implemented client-side. **Confidence: MEDIUM (product/scope) → operator.**
+  - **Decisive evidence the deviation is DELIBERATE, not an oversight** (found 2026-06-29 re-read):
+    `Selectors.kt:14` carries an explicit comment — *"not_before stays ordering-only (documented as
+    a sort key, not a visibility gate)."* So a contributor consciously chose ordering-only against
+    the spec. This makes it a true **spec↔code conflict to RESOLVE**, not a bug to fix: either (a)
+    implement the gate + update that comment, the test, and align the spec, or (b) ratify the
+    deliberate choice and **soften the three spec lines** (they currently assert a filter that does
+    not exist). An agent should NOT pick a side here — both the spec (source-of-truth) and the code
+    (deliberate, documented) have standing. **→ operator.**
 - **OQ-web-target** *(NEW 2026-06-28, operator interest)*: Add a **Compose-for-Web
   (`wasmJs`) client**? CLAUDE.md lists Android/iOS/**Web**, but only `androidTarget()`,
   `jvm("desktop")`, and iOS (arm64 + sim) are wired in `apps/client/build.gradle.kts` — no
