@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes tw-over { 0% { transform: scale(0.3); opacity:0; } 55% { transform: scale(1.3); opacity:1; } 100% { transform: scale(1); opacity:1; } }
+  @keyframes tw-wipe { from { width:0; } to { width:100%; } }
+  @keyframes tw-ring { 0% { box-shadow:0 0 0 0 rgba(255,84,54,0.45); } 100% { box-shadow:0 0 0 12px rgba(255,84,54,0); } }
+  @keyframes tw-spin { to { transform: rotate(360deg); } }
+  @keyframes tw-bylinein { from { opacity:0; transform: translateY(-3px); } to { opacity:1; transform:none; } }
+  .tw-row { transition: max-height .26s cubic-bezier(.2,0,0,1), opacity .2s, margin .26s, padding .26s; overflow:hidden; }
+  @media (prefers-reduced-motion: reduce) { .tw-over,.tw-strike,.tw-ringel { animation: none !important; } .tw-strike { width:100% !important; } }
+</style>
+</helmet>
+<div style="min-height:100vh;background:{{ c.pageBg }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};padding:44px 40px 96px;transition:background .3s;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <!-- header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.crumbFg }};background:{{ c.crumbBg }};border:1px solid {{ c.crumbBorder }};border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Two-way index</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ c.onSecondary }};background:{{ c.secondary }};border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>SPEC · ADR-0008 sign-off</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">P2 / P3 · the signature interaction</span>
+      <div style="margin-left:auto;display:inline-flex;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:4px;gap:2px;">
+        <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+        <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:42px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.04;max-width:22ch;">The to-do tap, and the fold-away</h1>
+    <p style="font-family:'Figtree';font-size:16px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 36px;max-width:82ch;">Tap a row → it fills with a check overshoot + a left-to-right strike wipe (≤200ms) + one haptic tick. Then a <b>single burst-end debounce</b> (~2s after your last tap) folds <b>every</b> freshly-checked row together — one calm motion into the collapsed <i>“▸ N done”</i> line, never a stagger of separate animations. The done line <b>sorts newest-first by completion time</b> and, past ~20, <b>collapses to a count only</b>. A remote change uses the <b>same</b> ≤200ms transition with a quiet byline, and the layout shift is deferred until your touch ends — never a glitch, never a modal.</p>
+
+    <!-- ============ LIVE PROTOTYPE ============ -->
+    <section style="margin-bottom:56px;">
+      <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;">
+        <!-- phone -->
+        <div style="flex:none;">
+          <div style="width:398px;border-radius:42px;background:{{ c.bezel }};padding:10px;box-shadow:0 26px 60px rgba(39,24,20,0.32);">
+            <div style="border-radius:33px;overflow:hidden;background:{{ c.surface }};">
+              <!-- status bar -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 22px 5px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};"><span>9:41</span><span style="display:flex;gap:5px;"><span class="msr" style="font-size:15px;">signal_cellular_alt</span><span class="msr" style="font-size:15px;">wifi</span><span class="msr" style="font-size:15px;">battery_full</span></span></div>
+              <!-- hub header -->
+              <div style="padding:8px 20px 14px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onSurface }};letter-spacing:-0.01em;">Beach trip</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Shared with your family</div></div><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">more_vert</span></div>
+                <!-- the hub block -->
+                <div style="background:{{ c.surfaceContainer }};border-radius:24px;padding:16px 16px 8px;">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;"><span class="msr fill" style="font-size:19px;color:{{ c.secondary }};">checklist</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Packing list</span><span style="margin-left:auto;font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ progressLabel }}</span></div>
+                  <!-- progress bar -->
+                  <div style="height:5px;border-radius:3px;background:{{ c.outlineVar }};overflow:hidden;margin-bottom:10px;"><div style="height:5px;border-radius:3px;background:{{ c.secondary }};width:{{ progressPct }};transition:width .4s cubic-bezier(.2,0,0,1);"></div></div>
+
+                  <!-- active rows -->
+                  <sc-for list="{{ activeRows }}" as="r" hint-placeholder-count="5">
+                    <div class="tw-row" style="max-height:{{ r.maxH }};opacity:{{ r.op }};">
+                      <div onClick="{{ r.toggle }}" style="display:flex;align-items:flex-start;gap:13px;padding:11px 4px;min-height:48px;cursor:pointer;">
+                        <span style="width:24px;height:24px;margin-top:1px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ r.boxBg }};border:{{ r.boxBorder }};{{ r.ring }}"><sc-if value="{{ r.done }}" hint-placeholder-val="{{ false }}"><span class="msr tw-over" style="font-size:18px;color:{{ c.onPrimary }};">check</span></sc-if></span>
+                        <div style="flex:1;min-width:0;">
+                          <div style="position:relative;display:inline-block;font-family:'Figtree';font-weight:500;font-size:15px;color:{{ r.textColor }};line-height:1.25;">{{ r.text }}<sc-if value="{{ r.done }}" hint-placeholder-val="{{ false }}"><span class="tw-strike" style="position:absolute;left:0;top:52%;height:1.6px;background:{{ c.onSurfaceVar }};animation:tw-wipe .2s cubic-bezier(.2,0,0,1) forwards;"></span></sc-if></div>
+                          <sc-if value="{{ r.byline }}" hint-placeholder-val=""><div style="font-family:'Figtree';font-size:11.5px;color:{{ r.bylineColor }};margin-top:2px;animation:tw-bylinein .2s ease;display:flex;align-items:center;gap:4px;"><span class="msr" style="font-size:12px;">{{ r.bylineIcon }}</span>{{ r.byline }}</div></sc-if>
+                          <sc-if value="{{ r.sub }}" hint-placeholder-val=""><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};margin-top:2px;">{{ r.sub }}</div></sc-if>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-for>
+
+                  <!-- done fold line -->
+                  <sc-if value="{{ hasDone }}" hint-placeholder-val="{{ true }}">
+                    <div style="border-top:1px solid {{ c.outlineVar }};margin-top:2px;">
+                      <div onClick="{{ toggleDoneOpen }}" style="display:flex;align-items:center;gap:9px;padding:12px 4px;min-height:48px;cursor:pointer;">
+                        <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};transform:rotate({{ doneCaret }});transition:transform .24s;">chevron_right</span>
+                        <span style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurfaceVar }};">{{ doneCount }} done</span>
+                        <span style="margin-left:auto;display:inline-flex;gap:-6px;">{{ doneFacepile }}</span>
+                      </div>
+                      <sc-if value="{{ doneOpen }}" hint-placeholder-val="{{ false }}">
+                        <div style="padding-bottom:6px;">
+                          <sc-for list="{{ doneRows }}" as="r" hint-placeholder-count="3">
+                            <div onClick="{{ r.toggle }}" style="display:flex;align-items:center;gap:13px;padding:9px 4px;min-height:44px;cursor:pointer;opacity:0.72;">
+                              <span style="width:24px;height:24px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ c.primary }};"><span class="msr" style="font-size:18px;color:{{ c.onPrimary }};">check</span></span>
+                              <div style="flex:1;position:relative;display:inline-block;font-family:'Figtree';font-weight:500;font-size:14px;color:{{ c.onSurfaceVar }};text-decoration:line-through;text-decoration-color:{{ c.outline }};">{{ r.text }}</div>
+                              <sc-if value="{{ r.who }}" hint-placeholder-val=""><span style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">{{ r.who }}</span></sc-if>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- controls + caption -->
+        <div style="flex:1;min-width:280px;max-width:420px;">
+          <div style="font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onSurface }};margin-bottom:6px;">Try it</div>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Tap any row — the whole 48dp row is the target. Watch the check overshoot and the strike wipe land instantly, then the row fold away after the debounce. Tap <b>“{{ doneCount }} done”</b> to expand and un-check.</p>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;">
+            <span onClick="{{ simRemote }}" style="display:flex;align-items:center;gap:11px;font-family:'Figtree';font-size:13.5px;font-weight:600;padding:12px 15px;border-radius:13px;cursor:pointer;background:{{ c.surface }};border:1px solid {{ c.outline }};color:{{ c.onSurface }};"><span class="msr" style="font-size:19px;color:{{ c.tertiary }};">groups</span>Mom checks a row, 30s out — watch the byline<span class="msr" style="margin-left:auto;font-size:18px;color:{{ c.onSurfaceVar }};">play_arrow</span></span>
+            <span onClick="{{ reset }}" style="display:flex;align-items:center;gap:11px;font-family:'Figtree';font-size:13.5px;font-weight:600;padding:12px 15px;border-radius:13px;cursor:pointer;background:{{ c.surfaceContainer }};border:1px solid {{ c.outlineVar }};color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:19px;">restart_alt</span>Reset the list</span>
+          </div>
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:16px;padding:15px 16px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};margin-bottom:11px;">The tap, frame by frame</div>
+            <sc-for list="{{ frames }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;gap:11px;align-items:flex-start;margin-bottom:11px;"><span style="flex:none;width:22px;height:22px;border-radius:7px;background:{{ c.secondaryContainer }};color:{{ c.onSecondaryContainer }};font-family:'Figtree';font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ f.n }}</span><div><span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">{{ f.t }}</span> <span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ f.d }}</span></div></div>
+            </sc-for>
+          </div>
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:16px;padding:15px 16px;margin-top:14px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};margin-bottom:11px;">The done-section rules</div>
+            <div style="display:flex;flex-direction:column;gap:11px;">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">layers</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};"><b style="color:{{ c.onSurface }};">One fold, not a stagger.</b> Every row checked in a burst folds together when one shared ~2s debounce ends \u2014 try checking both rows fast.</span></div>
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">schedule</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};"><b style="color:{{ c.onSurface }};">Newest first.</b> The \u201cN done\u201d list sorts by completion time \u2014 the most recently checked sits at the top.</span></div>
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">unfold_less</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};"><b style="color:{{ c.onSurface }};">Count-only past ~20.</b> Beyond ~20 done the line stops expanding \u2014 it stays a single calm count:</span></div>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:9px;background:{{ c.surfaceContainer }};border-radius:13px;padding:11px 13px;">
+              <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">task_alt</span>
+              <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurfaceVar }};">24 done</span>
+              <span style="margin-left:auto;font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">no expand \u00b7 stays calm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ THREE RENDERINGS (ADR 0022) ============ -->
+    <section style="margin-bottom:56px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.secondary }};">unfold_more</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">One list, three renderings</h2><span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">ADR 0022 — the fold gesture</span></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:80ch;">The same packing list folds down to a Now-card summary, opens to the interactive Hub block, and expands to the full Detail — the checkbox behaves identically at every scale.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;">
+        <!-- A: Now-card summary -->
+        <div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:9px;">A · NOW CARD — FOLDED SUMMARY</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:10.5px;background:{{ c.secondaryContainer }};color:{{ c.onSecondaryContainer }};padding:4px 9px;border-radius:7px;"><span class="msr" style="font-size:13px;">checklist</span>PACKING</span><span class="msr" style="margin-left:auto;font-size:18px;color:{{ c.onSurfaceVar }};">chevron_right</span></div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-bottom:11px;">3 of 5 packed</div>
+            <div style="height:6px;border-radius:3px;background:{{ c.outlineVar }};overflow:hidden;margin-bottom:10px;"><div style="height:6px;border-radius:3px;background:{{ c.secondary }};width:60%;"></div></div>
+            <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">2 left · Mom &amp; Sam packing</div>
+          </div>
+        </div>
+        <!-- B: hub block -->
+        <div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:9px;">B · HUB BLOCK — INTERACTIVE</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span class="msr fill" style="font-size:17px;color:{{ c.secondary }};">checklist</span><span style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Packing list</span></div>
+            <sc-for list="{{ staticBlock }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:11px;padding:7px 0;"><span style="width:21px;height:21px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ r.bg }};border:{{ r.border }};"><sc-if value="{{ r.done }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:15px;color:{{ c.onPrimary }};">check</span></sc-if></span><span style="flex:1;font-family:'Figtree';font-size:13px;color:{{ r.fg }};text-decoration:{{ r.strike }};text-decoration-color:{{ c.outline }};">{{ r.text }}</span></div>
+            </sc-for>
+            <div style="display:flex;align-items:center;gap:7px;padding:8px 0 2px;border-top:1px solid {{ c.outlineVar }};margin-top:4px;"><span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">chevron_right</span><span style="font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurfaceVar }};">3 done</span></div>
+          </div>
+        </div>
+        <!-- C: detail -->
+        <div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:9px;">C · DETAIL — FULL ANATOMY</div>
+          <div style="background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};border-radius:22px;overflow:hidden;">
+            <div style="height:78px;background:repeating-linear-gradient(135deg,{{ c.surfaceContainerHigh }},{{ c.surfaceContainerHigh }} 8px,{{ c.surfaceContainer }} 8px,{{ c.surfaceContainer }} 16px);display:flex;align-items:flex-end;padding:10px 14px;"><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Packing list</span></div>
+            <div style="padding:13px 14px;">
+              <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};margin-bottom:9px;">5 items · 3 done · updated by Sam</div>
+              <sc-for list="{{ staticDetail }}" as="r" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;"><span style="width:20px;height:20px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ r.bg }};border:{{ r.border }};"><sc-if value="{{ r.done }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:14px;color:{{ c.onPrimary }};">check</span></sc-if></span><span style="flex:1;font-family:'Figtree';font-size:12.5px;color:{{ r.fg }};text-decoration:{{ r.strike }};text-decoration-color:{{ c.outline }};">{{ r.text }}</span></div>
+              </sc-for>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:5px 9px;"><span class="msr" style="font-size:13px;">groups</span>Shared with your family</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STORYBOARD: REMOTE & CONFLICT (P3) ============ -->
+    <section style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.tertiary }};">groups</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">When two people touch the same row</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;">Never move a row out from under a finger: apply the remote <b>state</b> immediately, but <b>defer the layout shift / fold</b> until the touch ends. The race-loser reconciles with a byline — never a “your change was discarded” dialog.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+        <sc-for list="{{ story }}" as="p" hint-placeholder-count="4">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:20px;padding:16px;display:flex;flex-direction:column;min-height:280px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="width:26px;height:26px;border-radius:8px;background:{{ c.tertiaryContainer }};color:{{ c.onTertiaryContainer }};font-family:'Figtree';font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;">{{ p.n }}</span><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">{{ p.tag }}</span></div>
+            <!-- mini row -->
+            <div style="background:{{ c.surfaceContainer }};border-radius:14px;padding:11px 12px;margin-bottom:12px;{{ p.rowShadow }}">
+              <div style="display:flex;align-items:center;gap:11px;">
+                <span style="width:22px;height:22px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ p.boxBg }};border:{{ p.boxBorder }};"><sc-if value="{{ p.done }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:16px;color:{{ c.onPrimary }};">check</span></sc-if></span>
+                <div style="flex:1;"><div style="font-family:'Figtree';font-weight:500;font-size:13px;color:{{ p.textColor }};text-decoration:{{ p.strike }};text-decoration-color:{{ c.outline }};">{{ p.rowText }}</div><sc-if value="{{ p.byline }}" hint-placeholder-val=""><div style="font-family:'Figtree';font-size:10.5px;color:{{ c.tertiary }};margin-top:2px;display:flex;align-items:center;gap:3px;"><span class="msr" style="font-size:11px;">person</span>{{ p.byline }}</div></sc-if></div>
+                <sc-if value="{{ p.finger }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:20px;color:{{ c.primary }};">touch_app</span></sc-if>
+              </div>
+            </div>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin-top:auto;">{{ p.caption }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ============ COMPOSE + A11Y ============ -->
+    <section>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.tertiary }};">code</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Compose mapping</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ compose }}" as="m" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:baseline;"><span style="flex:0 0 142px;font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.k }}</span><code style="font-family:monospace;font-size:12px;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};padding:2px 7px;border-radius:6px;">{{ m.v }}</code></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">accessibility_new</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Accessibility &amp; calm</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ a11y }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">check_circle</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ a }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:920},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: props.mode === 'dark' ? 'dark' : 'light', doneOpen: false, items: this.seed() };
+    this._t = {};
+    this._seq = 10;
+  }
+  seed() {
+    return [
+      { id:1, text:'Sunscreen', sub:'SPF 50 · in the bathroom', stage:'folded', done:true, who:'Mom', doneAt:3 },
+      { id:2, text:'Beach towels', sub:'', stage:'folded', done:true, who:'Sam', doneAt:2 },
+      { id:3, text:'Phone chargers', sub:'', stage:'folded', done:true, who:'Mom', doneAt:1 },
+      { id:4, text:'Cooler + ice', sub:'Fill at the gas station', stage:'active', done:false, who:'', doneAt:0 },
+      { id:5, text:'Beach umbrella', sub:'', stage:'active', done:false, who:'', doneAt:0 },
+    ];
+  }
+  componentWillUnmount() { Object.values(this._t).forEach(clearTimeout); }
+  setItem(id, patch) { this.setState(s => ({ items: s.items.map(i => i.id===id ? { ...i, ...patch } : i) })); }
+  // A SINGLE shared burst timer: all rows checked within the burst fold together in one motion.
+  armBurst() {
+    clearTimeout(this._t['burst']);
+    this._t['burst'] = setTimeout(() => this.foldBurst(), 2000);
+  }
+  foldBurst() {
+    if (!this.state.items.some(i => i.stage==='checking')) return;
+    this.setState(s => ({ items: s.items.map(i => i.stage==='checking' ? { ...i, stage:'folding' } : i) }));
+    this._t['rm'] = setTimeout(() => {
+      this.setState(s => ({ items: s.items.map(i => i.stage==='folding' ? { ...i, stage:'folded', doneAt: ++this._seq } : i) }));
+    }, 300);
+  }
+  toggle(id) {
+    const it = this.state.items.find(i => i.id===id);
+    if (!it) return;
+    if (it.stage==='folded') { // un-check from done group
+      this.setItem(id, { stage:'active', done:false, byline:'', doneAt:0 });
+      return;
+    }
+    if (it.stage==='checking' || it.stage==='folding') { // tap again before the burst folds → cancel just this row
+      this.setItem(id, { stage:'active', done:false, byline:'' });
+      this.armBurst();
+      return;
+    }
+    // active → checking (value commits instantly); the shared burst timer folds the whole batch
+    this.setItem(id, { stage:'checking', done:true });
+    this.armBurst();
+  }
+  simRemote() {
+    // Mom remotely checks the first active row; it joins the same burst fold, with a byline
+    const target = this.state.items.find(i => i.stage==='active');
+    if (!target) return;
+    this._t['rem'] = setTimeout(() => {
+      this.setItem(target.id, { stage:'checking', done:true, byline:'Mom · just now', bylineIcon:'person' });
+      this.armBurst();
+    }, 700);
+  }
+  reset() { Object.values(this._t).forEach(clearTimeout); this._t={}; this._seq=10; this.setState({ items: this.seed(), doneOpen:false }); }
+
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', surfaceContainerHighest:'#F0DFDA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', onTertiary:'#FFFFFF', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#0B5048', provBg:'#E2F4EF', provBorder:'#BFE3DC',
+      pageBg:'#E9DDD7', bezel:'#2A1B16', crumbFg:'#7A2615', crumbBg:'#FCEBE6', crumbBorder:'#EBD3CB',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', onTertiary:'#3A0080', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#A8F4E7', provBg:'#14322D', provBorder:'#1E5048',
+      pageBg:'#161210', bezel:'#000000', crumbFg:'#FFB4A3', crumbBg:'#271D1A', crumbBorder:'#3D322E',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const items = this.state.items;
+    const inActive = i => i.stage==='active' || i.stage==='checking' || i.stage==='folding';
+    const activeItems = items.filter(inActive);
+    const doneItems = items.filter(i => i.stage==='folded').slice().sort((a,b) => (b.doneAt||0) - (a.doneAt||0));
+    const doneCount = doneItems.length;
+    const doneCollapsedOnly = doneCount > 20; // past ~20 done, the line is a count only — no expand, to stay calm
+    const totalDone = items.filter(i => i.done).length;
+
+    const activeRows = activeItems.map(i => ({
+      toggle: () => this.toggle(i.id),
+      done: i.done,
+      maxH: i.stage==='folding' ? '0px' : '120px',
+      op: i.stage==='folding' ? 0 : 1,
+      boxBg: i.done ? c.primary : 'transparent',
+      boxBorder: i.done ? '0' : '2px solid '+c.outline,
+      ring: '',
+      textColor: i.done ? c.onSurfaceVar : c.onSurface,
+      text: i.text, sub: i.done ? '' : i.sub,
+      byline: i.byline || '', bylineIcon: i.bylineIcon || 'person', bylineColor: c.tertiary,
+    }));
+    const doneRows = doneItems.map(i => ({ toggle: () => this.toggle(i.id), text: i.text, who: i.who }));
+
+    // facepile for done line
+    const initials = [...new Set(doneItems.map(i => i.who).filter(Boolean))].slice(0,3);
+    const faceColors = [c.primaryContainer, c.secondaryContainer, c.tertiaryContainer];
+    const faceFg = [c.onPrimaryContainer, c.onSecondaryContainer, c.onTertiaryContainer];
+    const doneFacepile = React.createElement('span', { style:{ display:'inline-flex' } },
+      initials.map((w,idx) => React.createElement('span', { key:idx, style:{
+        width:'22px', height:'22px', borderRadius:'999px', background:faceColors[idx%3], color:faceFg[idx%3],
+        fontFamily:"'Figtree'", fontWeight:700, fontSize:'10px', display:'flex', alignItems:'center', justifyContent:'center',
+        marginLeft: idx===0?'0':'-6px', border:'2px solid '+c.surfaceContainer,
+      } }, w[0])));
+
+    const pct = Math.round((totalDone / items.length) * 100);
+
+    const bx = (done) => ({ bg: done?c.primary:'transparent', border: done?'0':'2px solid '+c.outline, done, fg: done?c.onSurfaceVar:c.onSurface, strike: done?'line-through':'none' });
+    const staticBlock = [
+      { text:'Cooler + ice', ...bx(false) },
+      { text:'Beach umbrella', ...bx(false) },
+      { text:'Sunscreen', ...bx(true) },
+    ];
+    const staticDetail = [
+      { text:'Cooler + ice', ...bx(false) },
+      { text:'Beach umbrella', ...bx(false) },
+      { text:'Sunscreen', ...bx(true) },
+    ];
+
+    // storyboard
+    const story = [
+      { n:1, tag:'You, mid-tap', rowText:'Cooler + ice', done:false, finger:true,
+        boxBg:'transparent', boxBorder:'2px solid '+c.outline, textColor:c.onSurface, strike:'none', byline:'',
+        rowShadow:'box-shadow:0 0 0 2px '+c.primary+';',
+        caption:'Your finger is on “Cooler + ice.” You haven\u2019t lifted yet.' },
+      { n:2, tag:'Mom, 30s out', rowText:'Beach umbrella', done:true, finger:false,
+        boxBg:c.primary, boxBorder:'0', textColor:c.onSurfaceVar, strike:'line-through', byline:'Mom · just now',
+        rowShadow:'',
+        caption:'Mom checks a different row remotely. Its state flips with the same ≤200ms transition + a byline — but no fold yet: the layout is frozen while you touch.' },
+      { n:3, tag:'You lift', rowText:'Both rows', done:true, finger:false,
+        boxBg:c.primary, boxBorder:'0', textColor:c.onSurfaceVar, strike:'line-through', byline:'',
+        rowShadow:'',
+        caption:'You lift your finger. Only now do the completed rows fold away together — calm, never yanked from under you.' },
+      { n:4, tag:'Race-loser', rowText:'Book the kennel', done:true, finger:false,
+        boxBg:c.primary, boxBorder:'0', textColor:c.onSurfaceVar, strike:'line-through', byline:'Mom · just now',
+        rowShadow:'',
+        caption:'You un-checked it the instant Mom re-checked it. It reconciles to checked with her byline — no “your change was discarded” dialog, ever.' },
+    ];
+
+    return {
+      c,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode==='light' ? c.secondaryContainer : 'transparent',
+      lightPillFg: mode==='light' ? c.onSecondaryContainer : c.onSurfaceVar,
+      darkPillBg: mode==='dark' ? c.surfaceContainerHighest : 'transparent',
+      darkPillFg: mode==='dark' ? c.onSurface : c.onSurfaceVar,
+
+      activeRows, doneRows, doneCount,
+      hasDone: doneCount > 0,
+      doneCollapsedOnly,
+      doneOpen: this.state.doneOpen && !doneCollapsedOnly,
+      toggleDoneOpen: () => { if (!doneCollapsedOnly) this.setState(s => ({ doneOpen: !s.doneOpen })); },
+      doneCaret: this.state.doneOpen ? '90deg' : '0deg',
+      doneFacepile,
+      progressLabel: totalDone + ' of ' + items.length,
+      progressPct: pct + '%',
+      simRemote: () => this.simRemote(),
+      reset: () => this.reset(),
+
+      staticBlock, staticDetail, story,
+      frames: [
+        { n:1, t:'0ms —', d:'check fills + scale-overshoot; one haptic tick.' },
+        { n:2, t:'≤200ms —', d:'strike wipes left→right, emphasized-decelerate.' },
+        { n:3, t:'burst —', d:'each tap re-arms one shared ~2s timer; rows sit checked, in place.' },
+        { n:4, t:'+300ms —', d:'the whole batch container-transforms into “N done” together.' },
+      ],
+      compose: [
+        { k:'Row', v:'ListItem(48dp) + Checkbox' },
+        { k:'Check overshoot', v:'animateFloatAsState · spring' },
+        { k:'Strike wipe', v:'drawWithContent + animateFloat' },
+        { k:'Fold-away', v:'AnimatedVisibility · expandV' },
+        { k:'Done section', v:'expandable Surface · Role.Button' },
+        { k:'Remote diff', v:'collectAsState + animateItem' },
+      ],
+      a11y: [
+        'Each row exposes Role.Checkbox + state: \u201cPack the cooler, checkbox, not checked, double-tap to toggle.\u201d State carried by strike-through + text, never color alone.',
+        'The \u201cN done\u201d line is a Role.Button announcing expanded/collapsed; the whole 48dp row is the hit target, not just the box.',
+        'A remote change puts the actor in the accessible label: \u201cBeach umbrella, checked by Mom, just now.\u201d No notification fires.',
+        'Reduced-motion drops the overshoot + wipe for a cross-fade; one haptic tick max, honoring the OS haptics setting. No streaks, no completion-rate, no per-person score.',
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

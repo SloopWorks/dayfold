@@ -117,6 +117,68 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   it before the action surface matters for WTP. → `specs/prototype/12-briefing-
   card-spec.md`.
 
+- **OQ-twoway-member-scope** *(ADR 0038 / INB-25 #2)*: do member app credentials
+  get **global `content:write`** (visibility filter = the human boundary;
+  recommended) or **per-hub member scoping** to allow a **read-only member** role
+  (e.g. an eldercare hub a member may see but not edit)? Values/scope; gates ADR
+  0038. → `specs/two-way-collaborative-content-design.md` §6.5/§11.
+- **OQ-twoway-clock** *(ADR 0038)*: M0 ships **wall-clock + per-install `actorId`
+  LWW** for `done` (converges deterministically; **not** causally correct under
+  large offline clock skew → a rare stale state, one-tap-recoverable). **HLC is the
+  reserved drop-in** (forward-compatible field shape). Revisit trigger: dogfooding
+  surfaces a real skew anomaly. → design §5.2.
+- **OQ-twoway-transport** *(ADR 0038)*: M0 transport = **whole-block PUT** per
+  toggle (re-sends the full payload). An append-only **op-log / granular
+  `{item,field,value,stamp}`** transport is **reserved** (merge function identical;
+  no re-model). Revisit trigger: whole-block re-send bandwidth on long lists, or
+  concurrent-edit contention the client LWW-on-retry can't resolve calmly. → §6.1.
+- **OQ-twoway-generalize** *(ADR 0038)*: build the generalized **addressable-
+  togglable-item** primitive (checklist `done` + budget `paid` + RSVP) now, or
+  **todo-only first** and mirror the id/stamp fields onto `BudgetPayload` when
+  budget actually goes two-way (a cheap additive copy, no re-model)? Lean: todo-
+  only first (avoid premature abstraction before the 2nd real caller). → §11.
+- **OQ-twoway-engine-fwdcompat** *(P0; W1–W5 panel)*: forward-compat is **already
+  broken** — every generated schema is `.strict()` / Kotlin `ignoreUnknownKeys=false`,
+  so *any* added field breaks unupgraded clients. Fix = **split strict-authoring from
+  lenient-decode** + unknown-`type` graceful-skip + migrate `block_type`/`card_kind`
+  PG-ENUM→`text+CHECK` + mandatory `x-e2e` classification per new field + a CI Kotlin
+  codegen-drift guard. Must land before *any* W1–W5 (or even ADR 0038) field ships. →
+  `specs/two-way-engine-and-content-management-design.md` §5.
+- **OQ-w3-freetext-constitution** *(blocks free-form W3)*: open free-form "add
+  context" is the **free-text-prompt surface ADR 0016 §4 reserved behind a
+  constitution amendment**. Ship W3 structured/template-bounded until amended? →
+  engine design §4-W3 / INB-26 #1. Constitution-gated.
+- **OQ-w3-loop-placement** *(E2EE posture)*: the async-AI loop must be a **key-holder**
+  to decrypt W3 context (operator machine → controlled host). A **hosted** Claude
+  routine breaks E2EE + triggers guardrail-#3 disclosure — reserved/ADR-gated, never
+  default. → §4-W3 / INB-26 #2.
+- **OQ-objectstore-vendor** *(vendor + spend)*: member media = the first binary
+  Dayfold stores → object store needed. **Cloudflare R2 (zero egress)** vs all-Vercel
+  (Blob, egress-billed). → §4-W1 / INB-26 #3. ADR 0036 Phase-2.
+- **OQ-hide-grain** *(privacy)*: per-member hide is self-scoped UI state (never the
+  shared payload, never the ADR 0030 ACL). Local-only first; on promotion,
+  **resource-grain = cleartext per-member table** (= `resource_visibility` leak class),
+  **item-grain = in-ciphertext**. Confirm. → §4-W5 / §11.
+- **OQ-freshness-spectrum** *(ADR 0020 — freshness owner; gates "support all client
+  cadences")*: the system must serve **daily-poll → foreground-poll → push → realtime**
+  clients simultaneously (a family may mix them). The keyset cursor already makes
+  cadence a stateless client-side policy, but two things must move from open-question
+  to contract: **(G1, load-bearing)** tombstone retention vs slow clients — track a
+  per-credential sync watermark, GC only tombstones older than the *oldest active*
+  watermark, and **force a full resync when a client cursor predates the GC horizon**
+  (else daily/long-offline clients show ghost-deleted content); **(G2–G4)** push is a
+  **contentless E2EE-safe signal** (not a transport) → needs a write-time change-signal
+  + per-family **debounce** + **jitter**; held-connection sub-second realtime doesn't
+  fit Vercel serverless → a managed pub/sub vendor later (the cursor sync underneath is
+  unchanged). → `specs/two-way-engine-and-content-management-design.md` §10.5.
+  **Contracted in Proposed `adr/0040-freshness-spectrum-and-tombstone-retention.md`**
+  (extends ADR 0020 R2/R3; M0 = poll+background + the stale-cursor-full-resync +
+  retention-floor rule; watermark-GC/push/realtime deferred). Residual operator-gated
+  picks: the retention-floor constant, push credentials (FCM/APNs — ADR 0034/0023), the
+  sub-second realtime vendor (spend).
+- **OQ-decrypted-blob-cache** *(privacy)*: caching decrypted image thumbnails to disk
+  for fast render weakens E2EE-at-rest; memory-only hurts scroll perf. Decide the
+  cache policy. → engine design §7/§9.3.
 - **OQ-e2e-encryption:** Adopt end-to-end encryption (CLI encrypts → server
   stores blind → device decrypts)? Feasible because the server never processes
   content. Crux = family-content-key distribution across the multi-member +

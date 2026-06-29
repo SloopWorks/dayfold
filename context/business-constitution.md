@@ -32,11 +32,18 @@ business this could profitably-but-wrongly drift into.
   systems and links back into them. It never becomes the system of record
   the family must migrate into; that raises switching cost, lock-in
   expectations, and data-custody burden we explicitly reject.
-- **Not an open-ended AI chatbot or general assistant.** Recommendations
-  come from a bounded, reviewable template catalog ("render, don't reason"
-  — reasoning may run in external loops, but the product's surface is
-  curated cards, not a free-text oracle). This caps cost, hallucination,
-  and privacy exposure.
+- **Not an open-ended AI chatbot or general assistant.** The product's
+  surface is curated cards with visible provenance, never a conversational
+  oracle. Members may issue **bounded, asynchronous, no-reply commands** to
+  a key-holding AI loop that authors a result card later (e.g. "research and
+  make a card about X") — but there is **no chat, no reply thread, no
+  real-time assistant**, a command acts **only within the submitter's own
+  visibility and never destructively**, and reasoning runs **only in a
+  key-holder** (never a hosted server-side LLM). This keeps cost,
+  hallucination, and privacy exposure capped while allowing member-authored
+  intelligence. A *conversational* surface (replies, threads, real-time)
+  remains out of scope and would need its own superseding ADR.
+  (Amended per ADR 0041, 2026-06-29.)
 - **Not a venture-scale startup.** Operator-scale economics — high margin,
   near-zero steady-state ops, optionally sellable. No funding-dependent
   growth motion.

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes tw-prog { from { width:0; } to { width:100%; } }
+  @keyframes tw-sheetin { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes tw-in { from { opacity:0; transform: scale(.97); } to { opacity:1; transform:none; } }
+  @keyframes tw-pulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+  .tw-pulse { animation: tw-pulse 1.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; } }
+</style>
+</helmet>
+<div style="min-height:100vh;background:{{ c.pageBg }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};padding:44px 40px 96px;transition:background .3s;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <!-- header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.crumbFg }};background:{{ c.crumbBg }};border:1px solid {{ c.crumbBorder }};border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Two-way index</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ c.onSecondary }};background:{{ c.secondary }};border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>SPEC · ADR-0008 sign-off</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">P7 · update media (W1)</span>
+      <div style="margin-left:auto;display:inline-flex;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:4px;gap:2px;">
+        <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+        <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:42px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.04;max-width:22ch;">Set a hero, keep the truth visible</h1>
+    <p style="font-family:'Figtree';font-size:16px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 36px;max-width:84ch;">One tap sets a hub's hero photo. The heavy machinery — stripping EXIF &amp; location on-device, encrypting, then uploading to <b>Cloudflare R2</b> — stays invisible, but the <b>honest affordance is not</b>: the member sees that location is removed before the photo leaves the phone, and that only the family can see it. Pending states reuse the P1 ladder. This full flow is the <b>Android &amp; iOS</b> design; on <b>Web</b>, where no capture pipeline exists yet, the hero shows a calm “add a photo from the app” absence — never a broken or disabled control.</p>
+
+    <!-- ============ LIVE ARC ============ -->
+    <section style="margin-bottom:56px;">
+      <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:none;">
+          <div style="width:398px;border-radius:42px;background:{{ c.bezel }};padding:10px;box-shadow:0 26px 60px rgba(39,24,20,0.32);">
+            <div style="position:relative;border-radius:33px;overflow:hidden;background:{{ c.surface }};height:680px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 22px 5px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};"><span>9:41</span><span style="display:flex;gap:5px;"><span class="msr" style="font-size:15px;">signal_cellular_alt</span><span class="msr" style="font-size:15px;">wifi</span><span class="msr" style="font-size:15px;">battery_full</span></span></div>
+
+              <!-- HERO -->
+              <div style="position:relative;height:230px;overflow:hidden;">
+                <!-- empty / placeholder hero -->
+                <sc-if value="{{ heroEmpty }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,{{ c.surfaceContainerHigh }},{{ c.surfaceContainerHigh }} 10px,{{ c.surfaceContainer }} 10px,{{ c.surfaceContainer }} 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+                    <span class="msr" style="font-size:40px;color:{{ c.outline }};">add_photo_alternate</span>
+                    <span onClick="{{ setHero }}" style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:13.5px;background:{{ c.surface }};border:1px solid {{ c.outline }};color:{{ c.onSurface }};padding:9px 16px;border-radius:999px;cursor:pointer;"><span class="msr" style="font-size:17px;">add_a_photo</span>Set hero photo</span>
+                  </div>
+                </sc-if>
+                <!-- processing hero (encrypt / upload) -->
+                <sc-if value="{{ heroProcessing }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;inset:0;background:linear-gradient(150deg,#FF8A6E,#C0381E);"></div>
+                  <div style="position:absolute;inset:0;background:rgba(20,8,4,0.46);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;">
+                    <span class="msr tw-pulse" style="font-size:32px;color:#fff;">{{ procIcon }}</span>
+                    <div style="font-family:'Figtree';font-weight:600;font-size:14px;color:#fff;">{{ procLabel }}</div>
+                    <div style="width:170px;height:4px;border-radius:2px;background:rgba(255,255,255,0.3);overflow:hidden;"><div style="height:4px;background:#fff;width:{{ procPct }};transition:width .9s linear;"></div></div>
+                    <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,0.28);border-radius:8px;padding:5px 10px;"><span class="msr" style="font-size:13px;">my_location</span>Location &amp; EXIF removed</div>
+                  </div>
+                </sc-if>
+                <!-- done hero -->
+                <sc-if value="{{ heroDone }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;inset:0;background:linear-gradient(150deg,#FFB48E,#C0381E 70%);animation:tw-in .4s ease;"></div>
+                  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(20,8,4,0.55));"></div>
+                  <div style="position:absolute;left:16px;right:16px;bottom:14px;">
+                    <div style="font-family:'Outfit';font-weight:700;font-size:24px;color:#fff;letter-spacing:-0.01em;text-shadow:0 1px 6px rgba(0,0,0,0.3);">Cabin weekend</div>
+                    <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:8px;padding:5px 10px;margin-top:7px;"><span class="msr fill" style="font-size:13px;">lock</span>Only your family can see this</div>
+                  </div>
+                  <span onClick="{{ setHero }}" style="position:absolute;top:50px;right:14px;width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.36);display:flex;align-items:center;justify-content:center;cursor:pointer;"><span class="msr" style="font-size:19px;color:#fff;">edit</span></span>
+                </sc-if>
+                <!-- back btn over hero -->
+                <span style="position:absolute;top:50px;left:14px;width:38px;height:38px;border-radius:999px;background:{{ heroBackBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ heroBackFg }};">arrow_back</span></span>
+              </div>
+
+              <!-- hub body below hero -->
+              <div style="padding:14px 18px;">
+                <sc-if value="{{ heroDone }}" hint-placeholder-val="{{ false }}">
+                  <!-- accent ladder seeded from the hero -->
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;animation:tw-in .4s ease;"><span style="font-family:'Figtree';font-size:10.5px;font-weight:700;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};">ACCENT FROM PHOTO</span><span style="width:18px;height:18px;border-radius:5px;background:#C0381E;"></span><span style="width:18px;height:18px;border-radius:5px;background:#FFDAD2;"></span><span style="width:18px;height:18px;border-radius:5px;background:#5A1100;"></span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.provFg }};"><span class="msr" style="font-size:12px;">cloud_done</span>Synced</span></div>
+                </sc-if>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:13px 14px;margin-bottom:10px;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Packing list</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">3 of 5 done</div></div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:13px 14px;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Route &amp; directions</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">2h 10m · via SR-14</div></div>
+              </div>
+
+              <!-- PICK SHEET -->
+              <sc-if value="{{ showPick }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;background:rgba(20,10,6,0.42);" onClick="{{ closePick }}"></div>
+                <div style="position:absolute;left:0;right:0;bottom:0;background:{{ c.surfaceContainerHigh }};border-radius:28px 28px 0 0;padding:8px 18px 24px;animation:tw-sheetin .3s cubic-bezier(.05,.7,.1,1);">
+                  <div style="width:34px;height:4px;border-radius:2px;background:{{ c.outline }};margin:8px auto 16px;"></div>
+                  <div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onSurface }};margin-bottom:14px;">Hero photo</div>
+                  <div style="display:flex;gap:10px;margin-bottom:14px;">
+                    <span onClick="{{ choose }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;background:{{ c.surface }};border:1px solid {{ c.outline }};border-radius:16px;padding:18px 10px;cursor:pointer;"><span class="msr" style="font-size:26px;color:{{ c.primary }};">photo_camera</span><span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">Take photo</span></span>
+                    <span onClick="{{ choose }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;background:{{ c.surface }};border:1px solid {{ c.outline }};border-radius:16px;padding:18px 10px;cursor:pointer;"><span class="msr" style="font-size:26px;color:{{ c.primary }};">photo_library</span><span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">Choose photo</span></span>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:13px;padding:11px 13px;"><span class="msr fill" style="font-size:17px;color:{{ c.privacyFg }};margin-top:1px;">shield</span><span style="font-family:'Figtree';font-size:11.5px;line-height:1.5;color:{{ c.privacyFg }};">Location &amp; camera data are stripped on your phone <b>before</b> it uploads. Only your family can see it.</span></div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+
+        <!-- controls -->
+        <div style="flex:1;min-width:280px;max-width:420px;">
+          <div style="font-family:'Outfit';font-weight:600;font-size:19px;color:{{ c.onSurface }};margin-bottom:6px;">One tap to set</div>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Tap <b>Set hero photo</b>, pick a source, and watch the calm pending ladder — <i>removing location → encrypting → uploading</i> — resolve into the hero. The accent palette is pulled from the photo (the enrichment ladder) and the privacy chip stays on the finished hero.</p>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;">
+            <span onClick="{{ setHero }}" style="display:flex;align-items:center;gap:11px;font-family:'Figtree';font-size:13.5px;font-weight:600;padding:12px 15px;border-radius:13px;cursor:pointer;background:{{ c.surface }};border:1px solid {{ c.outline }};color:{{ c.onSurface }};"><span class="msr" style="font-size:19px;color:{{ c.tertiary }};">add_a_photo</span>Open the photo picker</span>
+            <span onClick="{{ reset }}" style="display:flex;align-items:center;gap:11px;font-family:'Figtree';font-size:13.5px;font-weight:600;padding:12px 15px;border-radius:13px;cursor:pointer;background:{{ c.surfaceContainer }};border:1px solid {{ c.outlineVar }};color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:19px;">restart_alt</span>Reset to empty</span>
+          </div>
+          <!-- privacy ladder -->
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:16px;padding:16px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};margin-bottom:12px;">The honesty ladder — chip → row → sheet</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ privacyLadder }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;align-items:flex-start;gap:10px;"><span style="width:26px;height:26px;border-radius:8px;flex:none;background:{{ c.privacyBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ c.privacyFg }};">{{ p.icon }}</span></span><div><div style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">{{ p.t }}</div><div style="font-family:'Figtree';font-size:11.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ p.d }}</div></div></div>
+              </sc-for>
+            </div>
+            <div style="margin-top:13px;padding-top:13px;border-top:1px solid {{ c.outlineVar }};display:flex;align-items:flex-start;gap:8px;"><span class="msr" style="font-size:15px;color:{{ c.primary }};margin-top:1px;">priority_high</span><span style="font-family:'Figtree';font-size:11px;line-height:1.45;color:{{ c.onSurfaceVar }};">We say <b>“only your family can see this”</b> (sharing scope — true) and <b>“location removed before upload”</b> (an enforced client boundary). We do <b>not</b> claim “stored only on your device” — the encrypted copy lives in Cloudflare R2 so the family can see it.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COVER vs CONTAIN FIT ============ -->
+    <section style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.secondary }};">aspect_ratio</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Fit &amp; fallback — reused from enrichment</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;">A wide photo covers; a tall or logo-like one is contained on its extracted accent so it never crops badly; no photo falls back to the icon tile. Same ladder as <code style="font-family:monospace;font-size:12px;">hub-card-enrichment</code>.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+        <sc-for list="{{ fits }}" as="f" hint-placeholder-count="3">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:20px;overflow:hidden;">
+            <div style="height:140px;position:relative;background:{{ f.bg }};display:flex;align-items:center;justify-content:center;">{{ f.inner }}<span style="position:absolute;left:10px;top:10px;font-family:'Figtree';font-size:10px;font-weight:700;letter-spacing:0.04em;color:#fff;background:rgba(0,0,0,0.4);border-radius:6px;padding:3px 8px;">{{ f.tag }}</span></div>
+            <div style="padding:13px 15px;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};">{{ f.title }}</div><div style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};margin-top:3px;">{{ f.desc }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ============ PLATFORM — ANDROID/iOS vs WEB ============ -->
+    <section style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.tertiary }};">devices</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Per platform — capture, or a graceful absence</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;">The full pick \u2192 strip \u2192 encrypt \u2192 upload flow above ships on <b>Android &amp; iOS</b>. On <b>Web</b> there is no capture pipeline yet, so the hero must not show a broken or disabled button \u2014 it shows a calm \u201cadd a photo from the app\u201d invitation instead. Same honesty, no dead control.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;">
+        <!-- Android / iOS -->
+        <div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;display:flex;align-items:center;gap:7px;"><span class="msr" style="font-size:16px;color:{{ c.secondary }};">phone_iphone</span>ANDROID / iOS \u00b7 CAPTURE AVAILABLE</div>
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;overflow:hidden;">
+            <div style="height:150px;position:relative;background:repeating-linear-gradient(135deg,{{ c.surfaceContainerHigh }},{{ c.surfaceContainerHigh }} 10px,{{ c.surfaceContainer }} 10px,{{ c.surfaceContainer }} 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+              <span class="msr" style="font-size:34px;color:{{ c.outline }};">add_photo_alternate</span>
+              <span style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:13px;background:{{ c.primary }};color:{{ c.onPrimary }};padding:9px 16px;border-radius:999px;"><span class="msr" style="font-size:17px;">add_a_photo</span>Set hero photo</span>
+            </div>
+            <div style="padding:14px 16px;"><div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};">Tap opens the system picker / camera; the strip + encrypt + R2 upload runs invisibly. The honesty chips ride the finished hero.</div></div>
+          </div>
+        </div>
+        <!-- Web -->
+        <div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;display:flex;align-items:center;gap:7px;"><span class="msr" style="font-size:16px;color:{{ c.tertiary }};">desktop_windows</span>WEB \u00b7 ADD FROM THE APP</div>
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;overflow:hidden;">
+            <div style="height:150px;position:relative;background:{{ c.surfaceContainerLow }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:18px;text-align:center;">
+              <span style="width:46px;height:46px;border-radius:14px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:{{ c.onTertiaryContainer }};">photo_camera</span></span>
+              <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Add a photo from the Dayfold app</div>
+              <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};max-width:30ch;">Open this hub on your phone to set a hero \u2014 photos are captured and stripped there.</div>
+            </div>
+            <div style="padding:14px 16px;"><div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};">No disabled \u201cSet hero\u201d button, no greyed control \u2014 the surface reads complete, with a clear hand-off to the place capture actually works.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMPOSE + A11Y ============ -->
+    <section>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.tertiary }};">code</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Compose mapping</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ compose }}" as="m" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:baseline;"><span style="flex:0 0 132px;font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.k }}</span><code style="font-family:monospace;font-size:12px;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};padding:2px 7px;border-radius:6px;">{{ m.v }}</code></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">accessibility_new</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Accessibility &amp; calm</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ a11y }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">check_circle</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ a }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:960},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: props.mode === 'dark' ? 'dark' : 'light', stage:'empty' };
+    this._t = [];
+  }
+  componentWillUnmount() { this._t.forEach(clearTimeout); }
+  setHero() { this.setState({ stage:'picking' }); }
+  closePick() { this.setState(s => ({ stage: s.stage==='picking' ? 'empty' : s.stage })); }
+  choose() {
+    this._t.forEach(clearTimeout); this._t=[];
+    this.setState({ stage:'encrypting' });
+    this._t.push(setTimeout(() => this.setState({ stage:'uploading' }), 1300));
+    this._t.push(setTimeout(() => this.setState({ stage:'done' }), 2600));
+  }
+  reset() { this._t.forEach(clearTimeout); this._t=[]; this.setState({ stage:'empty' }); }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', surfaceContainerHighest:'#F0DFDA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', onTertiary:'#FFFFFF', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC', provFg:'#0B5048',
+      pageBg:'#E9DDD7', bezel:'#2A1B16', crumbFg:'#7A2615', crumbBg:'#FCEBE6', crumbBorder:'#EBD3CB',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', onTertiary:'#3A0080', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048', provFg:'#A8F4E7',
+      pageBg:'#161210', bezel:'#000000', crumbFg:'#FFB4A3', crumbBg:'#271D1A', crumbBorder:'#3D322E',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const stage = this.state.stage;
+    const processing = stage==='encrypting' || stage==='uploading';
+
+    const fits = [
+      { tag:'COVER', title:'Wide photo', desc:'Fills the hero edge-to-edge, centre-weighted crop.',
+        bg:'linear-gradient(150deg,#FFB48E,#C0381E)', inner:'' },
+      { tag:'CONTAIN', title:'Tall / logo', desc:'Centred on its extracted accent so it never crops badly.',
+        bg:c.surfaceContainerHigh, inner:'' },
+      { tag:'FALLBACK', title:'No photo', desc:'Icon tile on a tonal surface — the calm default.',
+        bg:c.surfaceContainer, inner:'' },
+    ];
+
+    return {
+      c,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode==='light' ? c.secondaryContainer : 'transparent',
+      lightPillFg: mode==='light' ? c.onSecondaryContainer : c.onSurfaceVar,
+      darkPillBg: mode==='dark' ? c.surfaceContainerHighest : 'transparent',
+      darkPillFg: mode==='dark' ? c.onSurface : c.onSurfaceVar,
+
+      heroEmpty: stage==='empty' || stage==='picking',
+      heroProcessing: processing,
+      heroDone: stage==='done',
+      showPick: stage==='picking',
+      procIcon: stage==='encrypting' ? 'lock' : 'cloud_upload',
+      procLabel: stage==='encrypting' ? 'Removing location · encrypting…' : 'Uploading to your family…',
+      procPct: stage==='encrypting' ? '45%' : '100%',
+      heroBackBg: (processing || stage==='done') ? 'rgba(0,0,0,0.36)' : 'transparent',
+      heroBackFg: (processing || stage==='done') ? '#fff' : c.onSurfaceVar,
+      setHero: () => this.setHero(),
+      closePick: () => this.closePick(),
+      choose: () => this.choose(),
+      reset: () => this.reset(),
+
+      privacyLadder: [
+        { icon:'sell', t:'Chip on the hero', d:'\u201cOnly your family can see this\u201d — sharing scope, always true.' },
+        { icon:'my_location', t:'Info row while processing', d:'\u201cLocation & EXIF removed\u201d — shown because the strip really happens client-side.' },
+        { icon:'shield', t:'Sheet on tap', d:'Plain-language detail: what\u2019s stripped, who can see it, when it syncs.' },
+      ],
+      fits,
+      compose: [
+        { k:'Picker', v:'PhotoPicker (system)' },
+        { k:'Strip + crypto', v:'ExifInterface + Tink' },
+        { k:'Upload', v:'encrypted → Cloudflare R2' },
+        { k:'Pending hero', v:'Box + LinearProgressIndicator' },
+        { k:'Accent extract', v:'Palette.from(bitmap)' },
+        { k:'Hero', v:'AsyncImage · ContentScale' },
+        { k:'Web absence', v:'if(!canCapture) PromptFromApp' },
+      ],
+      a11y: [
+        'The \u201cSet hero photo\u201d control is a labelled Button; the system photo picker is fully accessible and used as-is.',
+        'Pending state announces \u201cRemoving location, encrypting, uploading\u201d as polite live-region text — progress is never colour-only.',
+        'The privacy chip is real text in the tree (\u201cOnly your family can see this\u201d); tapping opens a sheet with the full, plain-language claim.',
+        'On Web the \u201cadd a photo from the app\u201d prompt is plain text, not a disabled control \u2014 a screen reader meets an invitation, never a dead button.',
+        'One tap sets it; no nag to add photos, no \u201c3 hubs missing a cover\u201d prompt. Reduced-motion collapses the pending animation to a static bar.',
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

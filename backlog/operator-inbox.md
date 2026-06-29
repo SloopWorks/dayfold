@@ -9,6 +9,98 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-26 · ANSWERED 2026-06-29 → Two-way ENGINE bundle ratified.** Operator
+  (in-session): (1) **W3 free-text + CONSTITUTION** = accept (ADR 0041 amendment
+  applied → 0041/0042 Accepted; W3 EXPERIMENTAL/flagged); (2) **W3 AI-loop placement**
+  = key-holder-only (default); (3) **Object store** = **Cloudflare R2** (confirmed);
+  (4) **W2 authoring scope** = members author into existing visible hubs only
+  (loop-never-edits-member-blocks + server-enforced audience-intersection); (5) **W5
+  hide** = per-member self-scoped, **local-only first**; (6) **W3 cost constants** =
+  Sonnet default, batch-per-family-per-cadence, per-family daily cap. ADRs 0039/0040
+  → Accepted; 0041/0042 → Accepted. Original below.
+- **INB-26 · 2026-06-28 · med · open — Two-way ENGINE generalization (W1–W5): six
+  operator decisions.** A **6-specialist panel** (system design · data modeling ·
+  privacy/E2EE · security/ACL · mobile/KMP · performance) pressure-tested
+  generalizing the to-do primitive (INB-25/ADR 0038) into a full two-way engine for
+  five future features: **W1** member updates media (hero images), **W2** members
+  author content (notes/todos/links), **W3** free-form "add context" → async AI
+  integration, **W4** delete, **W5** hide. Design + audit trail:
+  `specs/two-way-engine-and-content-management-design.md`. The engine generalizes
+  cleanly (one typed-op outbox → `/mutations`; two channels — direct content-deltas
+  vs a key-holder **intents** path for W3; delete=tombstone, hide=per-member). It
+  also surfaced **forward-compat residuals** (the client inbound decoders are
+  already lenient — `ignoreUnknownKeys=true` — so additive fields do *not* break old
+  clients; the narrower work is keeping `.strict()` on the *authoring/validate* path
+  only [never on opaque relay], an unknown-`type` renderer placeholder, and a
+  missing Kotlin codegen drift guard — land before W1–W5 add many fields) and several
+  authz must-fixes. **Six things need
+  you** (proposed defaults in **bold**; nothing builds before you ratify, and client
+  surfaces still need ADR 0008 mockups):
+  1. **W3 free-text vs structured (scope + CONSTITUTION).** Open free-form context
+     trips ADR 0016 §4's reserved free-text line → needs a constitution amendment.
+     **Default: ship W3 structured/template-bounded ("add this to hub X") until you
+     choose to amend.**
+  2. **W3 AI-loop placement (E2EE posture / guardrail #3).** A *hosted* Claude routine
+     can't decrypt without breaking E2EE + triggers third-party-LLM disclosure.
+     **Default: key-holder-only (operator machine → controlled host); hosted path
+     reserved + ADR-gated.**
+  3. **Object storage vendor (vendor + spend).** Member photos = the first binary
+     Dayfold stores → needs an object store. **Default: Cloudflare R2 (zero egress;
+     ~$0 at family scale) over Vercel Blob (egress-billed).**
+  4. **W2 authoring scope (scope + ACL).** **Default: members author into existing
+     visible hubs only (defer member-created hubs); accept the
+     loop-never-edits-member-blocks invariant + server-enforced audience-intersection
+     (un-defers ADR 0030's deferred posture).**
+  5. **W5 hide model (values/privacy).** **Default: per-member, self-scoped,
+     local-only first; promote to a per-member server channel later with
+     grain-dependent storage (resource-grain cleartext table, item-grain
+     in-ciphertext).**
+  6. **W3 cost constants (spend/pricing-class).** **Default: Sonnet by default,
+     batch pending intents per-family per-cadence, per-family daily submission cap.**
+  - These spawn an **ADR set** (generalized-engine ADR; member-authoring authz;
+    member-media ADR 0036 Phase-2; ADR 0016 intents activation + constitution gate;
+    ADR 0015/0025/0020 amendments; the schema-evolution ruleset). Recorded as
+    **operator-gated** (#1/#2/#3/#6 are constitution/E2EE/spend; #4/#5 scope/values)
+    — drafted, awaiting your direction before any ADR flips Proposed→Accepted.
+
+- **INB-25 · ANSWERED 2026-06-29 → ADR 0038 accepted; member scope = global
+  `content:write`.** Operator ratified the primitive: **accept ADR 0038 as written**
+  + member app credentials get **global `content:write`** with the visibility filter
+  as the human boundary (read-only-member revisited only if a real case appears). The
+  agent-leaning calls stand (todo-only first; strict-LWW no done-wins; wall-clock+actor
+  stamp). ADR 0038 → Accepted. Original below.
+- **INB-25 · 2026-06-27 · med · open — Two-way collaborative content (interactive
+  to-do): accept ADR 0038 + pick the member write-scope.** A 4-agent brainstorm +
+  2 adversarial rounds designed Dayfold's **first two-way data-flow** primitive
+  (members tap to-do items done; edits converge across devices). Design + audit
+  trail: `specs/two-way-collaborative-content-design.md`; Proposed **ADR 0038**.
+  Headline calls (all reviewed): a **content-delta** primitive **beside** ADR 0016
+  `intents` (a checkbox needs no AI reasoning); **client-side per-item LWW over a
+  server-opaque relay** — the only design that survives the M1 E2EE flip without a
+  re-model; the **one load-bearing M0 schema reservation = a stable ULID `id` on
+  checklist items** (today id-less, so concurrent toggles clobber); **whole-block
+  PUT + `If-Match`→412 + `op_id` idempotency**; **toggle-only** first slice. The
+  review also surfaced **two latent security defects** to fix the moment members can
+  write (visibility-on-write + block-resurrection-on-write) — built into slice 2.
+  **Two things need you:**
+  1. **Accept/amend ADR 0038** (ADR-class — automation-autonomy + customer-data
+     write path + E2EE posture + scope). **Proposed default: accept as written.**
+  2. **Member write-scope (values/scope):** member app credentials get **global
+     `content:write`** with the visibility filter as the human boundary
+     (**recommended** — simplest, calm; per-hub credential scoping was for
+     least-privilege *automation* tokens) **vs** keep **per-hub member scoping** to
+     allow a future **read-only member** role (e.g. an eldercare hub a member may
+     see but not edit). **Proposed default: global `content:write`; revisit
+     read-only-member if a real case appears.**
+  - Recorded as **agent-leaning, decided-with-record unless you object** (pulled
+    off the hard gate by the simplification round): **todo-only first** (mirror to
+    budget `paid` when budget goes two-way — a cheap additive copy); **strict-LWW,
+    no done-wins**; **wall-clock+actor stamp, HLC reserved**. Say the word to put
+    any on the gate.
+  - Build is **blocked** on (1)+(2) and, for the client UI, on an **ADR 0008 hi-fi
+    mockup + sign-off** (new interactive surface). Urgency med — this is the
+    primitive every later two-way mini-feature inherits, so worth a careful read.
+
 - **INB-24 · ANSWERED 2026-06-26 → Hub/card visual-enrichment BUILD gates CLEARED.**
   Operator (in-session): (1) **ADR 0008 hi-fi signoff = "Approve as-is"** on the
   imported `designs/hub-card-enrichment/` mockup (Enrichment + Hub-Enrichment-Phone +

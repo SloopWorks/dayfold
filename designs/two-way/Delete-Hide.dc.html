@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .tw-card { transition: max-height .28s cubic-bezier(.2,0,0,1), opacity .2s, margin .28s; overflow:hidden; }
+  @keyframes tw-sheetin { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .tw-card,.tw-sheet { animation: none !important; transition: none !important; } }
+</style>
+</helmet>
+<div style="min-height:100vh;background:{{ c.pageBg }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};padding:44px 40px 96px;transition:background .3s;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <!-- header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.crumbFg }};background:{{ c.crumbBg }};border:1px solid {{ c.crumbBorder }};border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Two-way index</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ c.onSecondary }};background:{{ c.secondary }};border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>SPEC · ADR-0008 sign-off</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">P4 · delete (W4) vs hide (W5)</span>
+      <div style="margin-left:auto;display:inline-flex;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:4px;gap:2px;">
+        <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+        <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:42px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.04;max-width:22ch;">Two ways to make something go away</h1>
+    <p style="font-family:'Figtree';font-size:16px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 28px;max-width:84ch;"><b>Delete</b> is the one destructive op where a calm warn is correct — it removes the thing for the whole family, so it asks once (a sheet, not a red alert), and only if you're allowed. <b>Hide</b> is personal and reversible — it tucks something away <i>for you</i> while everyone else still sees it. The two must never feel like the same gesture.</p>
+
+    <!-- contrast strip -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:48px;">
+      <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-left:5px solid {{ c.primary }};border-radius:16px;padding:18px 20px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span class="msr fill" style="font-size:20px;color:{{ c.primary }};">delete</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Delete · W4 · family-wide</span></div>
+        <div style="font-family:'Figtree';font-size:13px;line-height:1.55;color:{{ c.onSurfaceVar }};">Destructive · confirmed once · ACL-gated · “removes it for everyone.” The one place a warn is on-brand.</div>
+      </div>
+      <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-left:5px solid {{ c.tertiary }};border-radius:16px;padding:18px 20px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span class="msr fill" style="font-size:20px;color:{{ c.tertiary }};">visibility_off</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Hide · W5 · personal</span></div>
+        <div style="font-family:'Figtree';font-size:13px;line-height:1.55;color:{{ c.onSurfaceVar }};">Reversible · no confirm · always allowed · “hidden for you.” A fold, never a deletion or a censor.</div>
+      </div>
+    </div>
+
+    <!-- ============ DELETE WARN SHEET — ACL AWARE ============ -->
+    <section style="margin-bottom:56px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:{{ c.primary }};">delete</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">The delete warn-sheet — and who's allowed</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;">A non-alarming bottom sheet that names the consequence in plain words. ACL-aware: when you authored a card you can delete it; when someone else did, the option is simply <b>absent</b> — not a disabled-looking trap — and Hide takes its place.</p>
+      <div style="display:flex;gap:28px;flex-wrap:wrap;">
+
+        <!-- A: you authored — delete available, sheet open -->
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">A · YOU AUTHORED IT — WARN SHEET</div>
+          <div style="width:340px;border-radius:36px;background:{{ c.bezel }};padding:9px;box-shadow:0 22px 50px rgba(39,24,20,0.30);">
+            <div style="position:relative;border-radius:28px;overflow:hidden;background:{{ c.surface }};height:560px;">
+              <!-- dimmed content behind -->
+              <div style="padding:14px 16px;filter:brightness(0.96);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Cabin weekend</span></div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:14px;opacity:0.55;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};margin-bottom:5px;">Grocery run list</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You added this · 6 items</div></div>
+              </div>
+              <!-- scrim -->
+              <div style="position:absolute;inset:0;background:rgba(20,10,6,0.42);"></div>
+              <!-- sheet -->
+              <div class="tw-sheet" style="position:absolute;left:0;right:0;bottom:0;background:{{ c.surfaceContainerHigh }};border-radius:28px 28px 0 0;padding:8px 22px 26px;animation:tw-sheetin .32s cubic-bezier(.05,.7,.1,1);">
+                <div style="width:34px;height:4px;border-radius:2px;background:{{ c.outline }};margin:8px auto 18px;"></div>
+                <div style="width:52px;height:52px;border-radius:17px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr fill" style="font-size:27px;color:{{ c.onPrimaryContainer }};">delete</span></div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:21px;color:{{ c.onSurface }};letter-spacing:-0.01em;margin-bottom:8px;line-height:1.15;">Delete “Grocery run list”?</div>
+                <div style="font-family:'Figtree';font-size:14px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:6px;">This removes it <b style="color:{{ c.onSurface }};">for your whole family</b> — Mom, Sam and Dad will no longer see it. This can't be undone after sync.</div>
+                <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:5px 10px;margin-bottom:22px;"><span class="msr" style="font-size:14px;">groups</span>Shared with your family · Synced when online</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <span style="display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Figtree';font-weight:600;font-size:14.5px;background:{{ c.primary }};color:{{ c.onPrimary }};padding:14px;border-radius:999px;"><span class="msr" style="font-size:19px;">delete</span>Delete for everyone</span>
+                  <span style="display:flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};padding:14px;border-radius:999px;">Keep it</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- B: Sam authored — no delete, hide instead -->
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">B · SAM AUTHORED IT — DELETE IS ABSENT</div>
+          <div style="width:340px;border-radius:36px;background:{{ c.bezel }};padding:9px;box-shadow:0 22px 50px rgba(39,24,20,0.30);">
+            <div style="position:relative;border-radius:28px;overflow:hidden;background:{{ c.surface }};height:560px;">
+              <div style="padding:14px 16px;filter:brightness(0.96);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Cabin weekend</span></div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:14px;opacity:0.55;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};margin-bottom:5px;">Route &amp; directions</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Sam added this · map + notes</div></div>
+              </div>
+              <div style="position:absolute;inset:0;background:rgba(20,10,6,0.42);"></div>
+              <!-- the action sheet (no delete) -->
+              <div class="tw-sheet" style="position:absolute;left:0;right:0;bottom:0;background:{{ c.surfaceContainerHigh }};border-radius:28px 28px 0 0;padding:8px 16px 22px;animation:tw-sheetin .32s cubic-bezier(.05,.7,.1,1);">
+                <div style="width:34px;height:4px;border-radius:2px;background:{{ c.outline }};margin:8px auto 16px;"></div>
+                <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};padding:0 6px 12px;">Route &amp; directions · added by Sam</div>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <div style="display:flex;align-items:center;gap:14px;padding:14px 10px;border-radius:14px;"><span class="msr" style="font-size:21px;color:{{ c.onSurface }};">push_pin</span><span style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurface }};">Pin to top</span></div>
+                  <div style="display:flex;align-items:center;gap:14px;padding:14px 10px;border-radius:14px;background:{{ c.tertiaryContainer }};"><span class="msr fill" style="font-size:21px;color:{{ c.onTertiaryContainer }};">visibility_off</span><div style="flex:1;"><div style="font-family:'Figtree';font-size:14.5px;font-weight:600;color:{{ c.onTertiaryContainer }};">Hide for me</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onTertiaryContainer }};opacity:0.85;">Sam still sees it</div></div></div>
+                  <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 10px;border-radius:14px;opacity:0.45;"><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">delete</span><div style="flex:1;"><div style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};">Delete</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Only Sam can delete what they added</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- notes -->
+        <div style="flex:1;min-width:240px;max-width:330px;">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:18px;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};margin-bottom:12px;">Why a sheet, not an alert</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ deleteNotes }}" as="n" hint-placeholder-count="4">
+                <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.primary }};margin-top:1px;">{{ n.icon }}</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ n.t }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HIDE — INTERACTIVE ============ -->
+    <section style="margin-bottom:56px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:{{ c.tertiary }};">visibility_off</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Hide — personal, reversible, unmistakable</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;"><b>Swipe a card left</b> — it folds into the calm “Hidden for you” section, no confirm. The <span class="msr" style="font-size:14px;vertical-align:-2px;">more_vert</span> overflow menu offers the same Hide as the explicit, keyboard- and TalkBack-reachable fallback. Flip <b>Show hidden</b> to bring them back. The copy never says “deleted” or “removed,” only “hidden for you,” and each hidden item carries a quiet <b>“You hid this”</b> self-reminder — there is deliberately no family-visible signal.</p>
+      <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:none;">
+          <div style="width:398px;border-radius:42px;background:{{ c.bezel }};padding:10px;box-shadow:0 26px 60px rgba(39,24,20,0.32);">
+            <div style="border-radius:33px;overflow:hidden;background:{{ c.surface }};">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 22px 5px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};"><span>9:41</span><span style="display:flex;gap:5px;"><span class="msr" style="font-size:15px;">signal_cellular_alt</span><span class="msr" style="font-size:15px;">wifi</span><span class="msr" style="font-size:15px;">battery_full</span></span></div>
+              <div style="padding:8px 18px 18px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onSurface }};">Family hubs</div></div>
+                  <span onClick="{{ toggleShowHidden }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px;cursor:pointer;background:{{ showHiddenBg }};color:{{ showHiddenFg }};border:1px solid {{ showHiddenBorder }};"><span class="msr" style="font-size:15px;">{{ showHiddenIcon }}</span>{{ showHiddenLabel }}</span>
+                </div>
+                <!-- visible cards -->
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                  <sc-for list="{{ visibleCards }}" as="k" hint-placeholder-count="3">
+                    <div class="tw-card" style="max-height:{{ k.maxH }};opacity:{{ k.op }};position:relative;">
+                      <div style="position:relative;border-radius:20px;overflow:hidden;">
+                        <!-- hide pad revealed behind the card as it swipes left -->
+                        <div style="position:absolute;inset:0;border-radius:20px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:flex-end;padding-right:22px;"><span style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;color:{{ c.onTertiaryContainer }};opacity:{{ k.padOp }};"><span class="msr fill" style="font-size:22px;">visibility_off</span><span style="font-family:'Figtree';font-size:10px;font-weight:700;">Hide</span></span></div>
+                        <!-- the draggable card front -->
+                        <div onPointerDown="{{ k.down }}" onPointerMove="{{ k.move }}" onPointerUp="{{ k.up }}" style="position:relative;background:{{ c.surfaceContainer }};border-radius:20px;padding:14px 15px;display:flex;align-items:center;gap:13px;transform:translateX({{ k.dragX }});transition:{{ k.dragTransition }};touch-action:pan-y;cursor:grab;">
+                          <span style="width:42px;height:42px;border-radius:13px;flex:none;background:{{ k.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:{{ k.iconFg }};">{{ k.icon }}</span></span>
+                          <div style="flex:1;min-width:0;"><div style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};">{{ k.title }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ k.sub }}</div></div>
+                          <span onClick="{{ k.toggleMenu }}" style="width:40px;height:40px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ k.menuBtnBg }};"><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">more_vert</span></span>
+                        </div>
+                      </div>
+                      <!-- overflow menu — the explicit a11y fallback path to the same Hide -->
+                      <sc-if value="{{ k.menuOpen }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;right:8px;top:56px;z-index:6;background:{{ c.surfaceContainerHigh }};border:1px solid {{ c.outlineVar }};border-radius:15px;padding:6px;box-shadow:0 12px 30px rgba(20,10,6,0.22);min-width:192px;">
+                          <div onClick="{{ k.hide }}" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;cursor:pointer;"><span class="msr fill" style="font-size:20px;color:{{ c.tertiary }};">visibility_off</span><div><div style="font-family:'Figtree';font-size:13.5px;font-weight:600;color:{{ c.onSurface }};">Hide for me</div><div style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">Your family still sees it</div></div></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <!-- hidden section -->
+                <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ true }}">
+                  <div style="margin-top:16px;background:{{ c.surfaceContainerLow }};border:1px dashed {{ c.outline }};border-radius:20px;overflow:hidden;">
+                    <div onClick="{{ toggleHiddenOpen }}" style="display:flex;align-items:center;gap:10px;padding:13px 15px;cursor:pointer;min-height:48px;">
+                      <span class="msr" style="font-size:19px;color:{{ c.tertiary }};">visibility_off</span>
+                      <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Hidden for you · {{ hiddenCount }}</div><div style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">Your family still sees these</div></div>
+                      <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};transform:rotate({{ hiddenCaret }});transition:transform .24s;">expand_more</span>
+                    </div>
+                    <sc-if value="{{ hiddenOpen }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:0 13px 12px;display:flex;flex-direction:column;gap:9px;">
+                        <sc-for list="{{ hiddenCards }}" as="k" hint-placeholder-count="2">
+                          <div style="background:{{ c.surface }};border-radius:16px;padding:11px 13px;display:flex;align-items:center;gap:12px;opacity:0.82;">
+                            <span style="width:34px;height:34px;border-radius:11px;flex:none;background:{{ k.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:18px;color:{{ k.iconFg }};">{{ k.icon }}</span></span>
+                            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ k.title }}</div><div style="font-family:'Figtree';font-size:10.5px;color:{{ c.onSurfaceVar }};margin-top:2px;display:flex;align-items:center;gap:4px;"><span class="msr" style="font-size:12px;">visibility_off</span>You hid this</div></div>
+                            <span onClick="{{ k.unhide }}" style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:12px;font-weight:700;color:{{ c.tertiary }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:7px 12px;cursor:pointer;"><span class="msr" style="font-size:15px;">visibility</span>Show</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:260px;max-width:400px;">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:18px;margin-bottom:16px;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};margin-bottom:6px;">Personal vs family, made obvious</div>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.55;color:{{ c.onSurfaceVar }};">Hidden cards live behind a <b>dashed</b> container (the “folded, not gone” cue), tinted <b>tertiary/violet</b> — the personal colour — never the coral that delete owns. Every label reads “for you” and “your family still sees these.”</div>
+          </div>
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:18px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};margin-bottom:12px;">Delete vs Hide, side by side</div>
+            <div style="display:flex;flex-direction:column;gap:11px;">
+              <sc-for list="{{ contrastRows }}" as="r" hint-placeholder-count="4">
+                <div style="display:grid;grid-template-columns:90px 1fr 1fr;gap:8px;align-items:baseline;"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ r.k }}</span><span style="font-family:'Figtree';font-size:12px;color:{{ c.primary }};">{{ r.del }}</span><span style="font-family:'Figtree';font-size:12px;color:{{ c.tertiary }};">{{ r.hide }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ THE HIDE TRIGGER — DECIDED ============ -->
+    <section style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.tertiary }};">swipe_left</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">How Hide is triggered</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:82ch;">One primary gesture, one accessibility fallback — the same action, two reachable doors. Swipe is the on-brand lean because it mirrors the fold; the overflow menu guarantees Hide is keyboard- and screen-reader-reachable. The long-press “Hide + Delete together” idea is <b>dropped</b> — it conflates a personal op with a destructive one.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <!-- primary -->
+        <div style="background:{{ c.surface }};border:1px solid {{ c.tertiary }};border-radius:22px;padding:20px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">PRIMARY</span><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:700;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:3px 9px;"><span class="msr fill" style="font-size:13px;">check</span>Sign-off</span></div>
+          <div style="height:120px;border-radius:16px;background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};margin-bottom:14px;padding:12px;position:relative;overflow:hidden;display:flex;align-items:center;">
+            <div style="position:absolute;left:64px;right:12px;background:{{ c.surface }};border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:9px;box-shadow:0 2px 8px rgba(39,24,20,0.12);"><span style="width:26px;height:26px;border-radius:8px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ c.onTertiaryContainer }};">cabin</span></span><span style="flex:1;height:7px;border-radius:4px;background:{{ c.outlineVar }};"></span></div>
+            <div style="position:absolute;left:12px;width:52px;display:flex;align-items:center;justify-content:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:700;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:11px;height:42px;"><span class="msr" style="font-size:16px;">visibility_off</span></div>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-bottom:6px;">Swipe → collapsed section</div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">Swipe a card left to reveal Hide; it folds into the dashed “Hidden for you” section. The fastest, most on-brand path — it reuses the fold motion exactly. <i>(Live in the phone above.)</i></div>
+        </div>
+        <!-- fallback -->
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:20px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">ACCESSIBILITY FALLBACK</span><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:700;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:3px 9px;"><span class="msr" style="font-size:13px;">accessibility_new</span>Required</span></div>
+          <div style="height:120px;border-radius:16px;background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};margin-bottom:14px;padding:12px;position:relative;overflow:hidden;display:flex;align-items:center;">
+            <div style="position:absolute;left:12px;right:12px;background:{{ c.surface }};border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:9px;box-shadow:0 2px 8px rgba(39,24,20,0.12);"><span style="width:26px;height:26px;border-radius:8px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ c.onTertiaryContainer }};">restaurant</span></span><span style="flex:1;height:7px;border-radius:4px;background:{{ c.outlineVar }};"></span><span class="msr" style="font-size:17px;color:{{ c.tertiary }};">more_vert</span></div>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-bottom:6px;">Overflow → Hide for me</div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">The <span class="msr" style="font-size:14px;vertical-align:-2px;">more_vert</span> menu carries the identical “Hide for me” action — fully keyboard- and TalkBack-reachable, zero accidental hides. Always present, never the only path. <i>(Tap ⋮ in the phone above.)</i></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMPOSE + A11Y ============ -->
+    <section>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.tertiary }};">code</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Compose mapping</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ compose }}" as="m" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:baseline;"><span style="flex:0 0 132px;font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.k }}</span><code style="font-family:monospace;font-size:12px;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};padding:2px 7px;border-radius:6px;">{{ m.v }}</code></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">accessibility_new</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Accessibility &amp; calm</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ a11y }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">check_circle</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ a }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:920},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: props.mode === 'dark' ? 'dark' : 'light', showHidden:false, hiddenOpen:true, cards: this.seed(), drag:{}, menuId:null };
+    this._drag = null;
+  }
+  seed() {
+    return [
+      { id:1, title:'Cabin weekend', sub:'8 cards · Mom, Sam', icon:'cabin', ac:'coral', hidden:false },
+      { id:2, title:'Sam\u2019s soccer', sub:'Schedule · roster', icon:'sports_soccer', ac:'teal', hidden:false },
+      { id:3, title:'Meal planning', sub:'This week\u2019s dinners', icon:'restaurant', ac:'violet', hidden:false },
+      { id:4, title:'Holiday gifts', sub:'Hidden earlier', icon:'redeem', ac:'coral', hidden:true },
+    ];
+  }
+  setCard(id, patch) { this.setState(s => ({ cards: s.cards.map(k => k.id===id ? { ...k, ...patch } : k) })); }
+  hideCard(id) { this.setState(s => ({ menuId:null, drag:{ ...s.drag, [id]:0 } })); this.setCard(id, { hidden:true }); }
+  down(id, e) { this._drag = { id, startX: e.clientX, x: this.state.drag[id] || 0 }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch(_) {} }
+  move(id, e) {
+    if (!this._drag || this._drag.id !== id) return;
+    let dx = (this._drag.x || 0) + (e.clientX - this._drag.startX);
+    dx = Math.max(-96, Math.min(0, dx));
+    this.setState(s => ({ drag: { ...s.drag, [id]: dx } }));
+  }
+  up(id, e) {
+    if (!this._drag || this._drag.id !== id) return;
+    const dx = this.state.drag[id] || 0;
+    this._drag = null;
+    if (dx <= -60) { this.hideCard(id); }
+    else { this.setState(s => ({ drag: { ...s.drag, [id]: 0 } })); }
+  }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', surfaceContainerHighest:'#F0DFDA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', onTertiary:'#FFFFFF', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#0B5048', provBg:'#E2F4EF', provBorder:'#BFE3DC',
+      pageBg:'#E9DDD7', bezel:'#2A1B16', crumbFg:'#7A2615', crumbBg:'#FCEBE6', crumbBorder:'#EBD3CB',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', onTertiary:'#3A0080', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#A8F4E7', provBg:'#14322D', provBorder:'#1E5048',
+      pageBg:'#161210', bezel:'#000000', crumbFg:'#FFB4A3', crumbBg:'#271D1A', crumbBorder:'#3D322E',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const acMap = {
+      coral:{ iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer },
+      teal:{ iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer },
+      violet:{ iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer },
+    };
+    const cards = this.state.cards;
+    const dragging = this._drag;
+    const visibleCards = cards.filter(k => !k.hidden).map(k => {
+      const dx = this.state.drag[k.id] || 0;
+      return {
+        ...k, ...acMap[k.ac], maxH:'90px', op:1,
+        dragX: dx + 'px',
+        dragTransition: (dragging && dragging.id===k.id) ? 'none' : 'transform .26s cubic-bezier(.2,0,0,1)',
+        padOp: Math.min(1, Math.abs(dx) / 60),
+        down: (e) => this.down(k.id, e), move: (e) => this.move(k.id, e), up: (e) => this.up(k.id, e),
+        toggleMenu: () => this.setState(s => ({ menuId: s.menuId===k.id ? null : k.id })),
+        menuOpen: this.state.menuId===k.id,
+        menuBtnBg: this.state.menuId===k.id ? c.tertiaryContainer : c.surface,
+        hide: () => this.hideCard(k.id),
+      };
+    });
+    const hiddenCards = cards.filter(k => k.hidden).map(k => ({
+      ...k, ...acMap[k.ac], unhide: () => this.setCard(k.id, { hidden:false }),
+    }));
+    const hiddenCount = hiddenCards.length;
+
+    return {
+      c,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode==='light' ? c.secondaryContainer : 'transparent',
+      lightPillFg: mode==='light' ? c.onSecondaryContainer : c.onSurfaceVar,
+      darkPillBg: mode==='dark' ? c.surfaceContainerHighest : 'transparent',
+      darkPillFg: mode==='dark' ? c.onSurface : c.onSurfaceVar,
+
+      visibleCards, hiddenCards, hiddenCount,
+      hasHidden: hiddenCount > 0,
+      hiddenOpen: this.state.hiddenOpen,
+      toggleHiddenOpen: () => this.setState(s => ({ hiddenOpen: !s.hiddenOpen })),
+      hiddenCaret: this.state.hiddenOpen ? '180deg' : '0deg',
+      toggleShowHidden: () => this.setState(s => ({ showHidden: !s.showHidden, hiddenOpen: true })),
+      showHiddenLabel: this.state.showHidden ? 'Showing hidden' : 'Show hidden',
+      showHiddenIcon: this.state.showHidden ? 'visibility' : 'visibility_off',
+      showHiddenBg: this.state.showHidden ? c.tertiaryContainer : c.surface,
+      showHiddenFg: this.state.showHidden ? c.onTertiaryContainer : c.onSurfaceVar,
+      showHiddenBorder: this.state.showHidden ? c.tertiary : c.outline,
+
+      deleteNotes: [
+        { icon:'spa', t:'A sheet sits in the page, not over it as a red alarm — calm, dismissable by tapping away.' },
+        { icon:'record_voice_over', t:'Plain consequence in words: \u201cfor your whole family,\u201d the actual member names, \u201ccan\u2019t be undone after sync.\u201d' },
+        { icon:'lock_person', t:'ACL-gated: only the author deletes. When you can\u2019t, the row is calmly explained, not a dead disabled control.' },
+        { icon:'block', t:'No red scary alert, no double-confirm, no shake. The one warn the calm-toggle allows — used exactly once.' },
+      ],
+      contrastRows: [
+        { k:'Scope', del:'Whole family', hide:'Just you' },
+        { k:'Reversible', del:'No (after sync)', hide:'Yes, anytime' },
+        { k:'Confirm', del:'One calm sheet', hide:'None' },
+        { k:'Allowed', del:'Author only', hide:'Always' },
+      ],
+      hideVariants: [
+        { tag:'A', rec:true, title:'Swipe + collapsed section', border:c.secondary,
+          demoIcon:'cabin', demoTrailing:'', cardLeft:'64px', demoReveal:true, revealW:'52px',
+          desc:'Swipe a card left to reveal Hide; it folds into the dashed \u201cHidden for you\u201d section. Mirrors the fold gesture exactly.',
+          trade:'fastest, most on-brand, but swipe is invisible until discovered; needs the overflow fallback for a11y.' },
+        { tag:'B', rec:false, title:'Overflow \u2192 Hide + filter chip', border:c.outlineVar,
+          demoIcon:'restaurant', demoTrailing:'more_vert', cardLeft:'12px', demoReveal:false, revealW:'0px',
+          desc:'Hide lives in the \u22ee menu; a \u201cShow hidden\u201d chip in the toolbar reveals them. Explicit and fully keyboard/TalkBack reachable.',
+          trade:'one extra tap and no gesture delight, but zero accidental hides and the clearest mental model.' },
+        { tag:'C', rec:false, title:'Long-press quick actions', border:c.outlineVar,
+          demoIcon:'sports_soccer', demoTrailing:'touch_app', cardLeft:'12px', demoReveal:false, revealW:'0px',
+          desc:'Long-press opens Hide and Delete together in one radial/menu.',
+          trade:'puts the personal + destructive ops side by side — risks conflating \u201chide for me\u201d with \u201cdelete for all.\u201d Likely a no.' },
+      ],
+      compose: [
+        { k:'Delete warn', v:'ModalBottomSheet' },
+        { k:'Action sheet', v:'ModalBottomSheet + ListItem' },
+        { k:'Swipe to hide', v:'SwipeToDismissBox' },
+        { k:'Overflow path', v:'DropdownMenu + ListItem' },
+        { k:'Hide fold', v:'AnimatedVisibility' },
+        { k:'Hidden section', v:'expandable Surface (dashed)' },
+        { k:'ACL gate', v:'enabled = canDelete' },
+      ],
+      a11y: [
+        'Delete sheet: title states the consequence; the destructive button is labelled \u201cDelete Grocery run list for everyone,\u201d focus lands on \u201cKeep it\u201d (the safe choice).',
+        'When delete is disallowed it is announced as \u201cunavailable, only the author can delete\u201d — never a silently dead control.',
+        'Hide has two reachable doors: swipe (SwipeToDismissBox) and the \u22ee overflow \u201cHide for me\u201d \u2014 the latter fully keyboard- and TalkBack-reachable. The hidden section is expand/collapse; \u201cShow\u201d restores; each hidden item announces \u201cYou hid this.\u201d State is text-led, never colour-only.',
+        'No streak, no badge, no \u201cyou hid 3 things\u201d nag. Hide and delete each fire zero notifications to the rest of the family.',
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
