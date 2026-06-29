@@ -13,7 +13,7 @@ import * as repo from "./repo.ts";
 import { authorizeTenant } from "./auth/middleware.ts";
 import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
-import { isMemberWrite, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
+import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
@@ -668,7 +668,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   if (!(await requireScope(a.cred.id, "content", "delete"))) return c.json({ type: "forbidden" }, 403);
   // Author-gate: a member may delete only what they authored. Loop/CLI authoring (legacy
   // or non-app credential) is exempt — it's the operator/loop, not a family member.
-  if (isMemberWrite(a) && blk.created_by !== caller.userId) return c.json({ type: "forbidden" }, 403);
+  if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
   if (blk.deleted) { if (opId) await recordOp(fid, opId, "block", id, null); return c.body(null, 204); } // already gone = idempotent
   const ok = await hubs.softDeleteBlock(fid, id);
   if (opId) await recordOp(fid, opId, "block", id, null);

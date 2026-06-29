@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isMemberWrite, ifMatchFails } from "../src/content/write-guard.ts";
+import { isMemberWrite, ifMatchFails, memberDeleteForbidden } from "../src/content/write-guard.ts";
 import { isEncryptedEnvelope, blockPayloadIssues } from "../src/content-validation.ts";
 
 describe("isMemberWrite (member vs loop/CLI classification)", () => {
@@ -11,6 +11,27 @@ describe("isMemberWrite (member vs loop/CLI classification)", () => {
   });
   it("a cli-kind credential is NOT a member write (keeps re-create-by-PUT)", () => {
     expect(isMemberWrite({ legacy: false, cred: { kind: "cli" } })).toBe(false);
+  });
+});
+
+describe("memberDeleteForbidden (W4 author-gate)", () => {
+  const member = (userId: string | null) => ({ legacy: false, userId, cred: { kind: "app" } });
+  it("a member may delete a block they authored", () => {
+    expect(memberDeleteForbidden(member("alice"), "alice")).toBe(false);
+  });
+  it("a member may NOT delete another member's block", () => {
+    expect(memberDeleteForbidden(member("alice"), "bob")).toBe(true);
+  });
+  it("a member may NOT delete a loop-authored block (created_by null)", () => {
+    expect(memberDeleteForbidden(member("alice"), null)).toBe(true);
+  });
+  it("a non-legacy NULL-user credential may delete NOTHING — incl. a loop block (P0-2: no null match)", () => {
+    expect(memberDeleteForbidden(member(null), null)).toBe(true);   // the closed hole: null !== null is false, but the userId==null guard forbids
+    expect(memberDeleteForbidden(member(null), "alice")).toBe(true);
+  });
+  it("the loop/CLI authoring path (legacy or cli) may delete anything", () => {
+    expect(memberDeleteForbidden({ legacy: true, userId: null, cred: { kind: "app" } }, null)).toBe(false);
+    expect(memberDeleteForbidden({ legacy: false, userId: "svc", cred: { kind: "cli" } }, "alice")).toBe(false);
   });
 });
 

@@ -18,6 +18,20 @@ export function isMemberWrite(a: { legacy: boolean; cred: { kind?: string } }): 
   return !a.legacy && a.cred?.kind === "app";
 }
 
+// W4 author-gate (ADR 0038 §W4 / 0030 §7): may this caller delete a block authored by
+// `createdBy`? A member may delete ONLY their own authored block; loop/CLI writes (the
+// authoring path) may delete anything. Critically — a non-legacy NULL-user credential
+// authors nothing, so it must NEVER pass: comparing `createdBy !== userId` alone lets a
+// null user match a loop-authored (createdBy = NULL) block (`null !== null` is false), the
+// same round-1 P0-2 "NULL → god-mode" hole the visibility checks guard. Guard it here too.
+export function memberDeleteForbidden(
+  a: { legacy: boolean; userId: string | null; cred: { kind?: string } },
+  createdBy: string | null,
+): boolean {
+  if (!isMemberWrite(a)) return false;                  // loop/CLI may delete any
+  return a.userId == null || createdBy !== a.userId;    // null-user → forbidden; else own-only
+}
+
 // If-Match optimistic concurrency (ADR 0038 §6.2). Returns true (→ caller should 412)
 // iff the header is present AND the caller's base version != the live row version.
 // Absent/empty header → no precondition (back-compat: the loop/CLI never sends it).
