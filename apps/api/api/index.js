@@ -1433,6 +1433,10 @@ init_scope();
 function isMemberWrite(a) {
   return !a.legacy && a.cred?.kind === "app";
 }
+function memberDeleteForbidden(a, createdBy) {
+  if (!isMemberWrite(a)) return false;
+  return a.userId == null || createdBy !== a.userId;
+}
 function ifMatchFails(header, liveVersion) {
   if (header == null || header.trim() === "") return false;
   const want = header.replace(/^W\//, "").replace(/^"|"$/g, "").trim();
@@ -2063,7 +2067,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   const allow = await allowListFor(fid, hubId);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
   if (!await requireScope(a.cred.id, "content", "delete")) return c.json({ type: "forbidden" }, 403);
-  if (isMemberWrite(a) && blk.created_by !== caller.userId) return c.json({ type: "forbidden" }, 403);
+  if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
   if (blk.deleted) {
     if (opId) await recordOp(fid, opId, "block", id3, null);
     return c.body(null, 204);
