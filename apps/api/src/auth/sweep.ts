@@ -7,7 +7,12 @@ import { q } from "../db.ts";
 //
 // `graceMs` keeps very recent rows even if technically terminal/expired (avoids
 // racing an in-flight flow); default 24h.
-export interface SweepResult { rate_limits: number; device_authorizations: number; invites: number; refresh_tokens: number }
+export interface SweepResult { rate_limits: number; device_authorizations: number; invites: number; refresh_tokens: number; op_log: number }
+
+// op_id idempotency rows (ADR 0039 §6.5) only need to outlive any in-flight retry of
+// the same op — an offline outbox draining hours later, at most. A 7-day floor is far
+// beyond that while keeping the table from growing unboundedly.
+const OP_LOG_TTL_MS = 7 * 24 * 3600 * 1000;
 
 export async function sweep(graceMs = 24 * 3600 * 1000): Promise<SweepResult> {
   const grace = new Date(Date.now() - graceMs).toISOString();
@@ -43,5 +48,12 @@ export async function sweep(graceMs = 24 * 3600 * 1000): Promise<SweepResult> {
     `DELETE FROM refresh_tokens WHERE expires_at < $1`, [grace],
   )).rowCount ?? 0;
 
-  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh };
+  // op_log idempotency rows past the TTL floor (ADR 0039 §6.5). Independent of the
+  // auth-grace param — these have their own retention window.
+  const opLogGrace = new Date(Date.now() - OP_LOG_TTL_MS).toISOString();
+  const opLog = (await q(
+    `DELETE FROM op_log WHERE created_at < $1`, [opLogGrace],
+  )).rowCount ?? 0;
+
+  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh, op_log: opLog };
 }

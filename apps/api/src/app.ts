@@ -13,6 +13,8 @@ import * as repo from "./repo.ts";
 import { authorizeTenant } from "./auth/middleware.ts";
 import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
+import { isMemberWrite, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
+import { findOp, recordOp } from "./content/oplog.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
 
@@ -352,6 +354,13 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
+  // Visibility-on-write (ADR 0038/0030): a member cannot overwrite (or probe the
+  // existence of) a restricted card they can't see — invisible existing card → uniform
+  // 404. A new id or a family/own card → visible → proceed.
+  {
+    const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
+    if (cur.rowCount && !cardVisible(cur.rows[0], { userId: a.userId, legacy: a.legacy })) return c.body(null, 404);
+  }
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   // ADR 0030: visibility + author-stamped audience are authoring fields OUTSIDE the
@@ -504,12 +513,17 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (hubMediaIssues.length) return c.json({ type: "validation", issues: hubMediaIssues }, 422);
   { const m = (parsed.data as any).media; if (m?.accentColor) m.accentColor = normalizedAccent(m.accentColor); }
   const caller = { userId: a.userId, legacy: a.legacy };
-  // ADR 0030 §6: only the author / an already-permitted member / legacy may rewrite
-  // an existing hub's visibility. A fresh hub's author is the caller → allowed.
   const existing = await hubs.getHub(fid, id);
-  if (existing && !caller.legacy && existing.created_by && existing.created_by !== caller.userId) {
+  if (existing) {
     const allow = await hubs.allowListFor(fid, id);
-    if (!(caller.userId && allow.has(caller.userId))) return c.json({ type: "forbidden" }, 403);
+    const permitted = () => !!caller.userId && allow.has(caller.userId);
+    // Visibility-on-write (ADR 0038): a restricted hub the caller can't see is a uniform
+    // 404 (no existence oracle) — takes precedence over the 403 author-gate below.
+    if (!hubs.hubVisible(existing, caller, permitted)) return c.body(null, 404);
+    // ADR 0030 §6: only the author / an already-permitted member / legacy may rewrite
+    // an existing hub. A fresh hub's author is the caller → allowed.
+    if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+      return c.json({ type: "forbidden" }, 403);
   }
   return c.json(await hubs.upsertHub(fid, id, parsed.data, caller, visibility, audience), 200);
 });
@@ -542,10 +556,22 @@ app.put("/families/:fid/sections/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
   if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
-  if (!(await requireScope(a.cred.id, `hub:${hubId}`, "write"))) return c.json({ type: "forbidden" }, 403);
+  // Visibility-on-write (ADR 0038): restricted-invisible hub → 404 (no oracle); absent
+  // parent hub → 409 give-up (§6.2, matches the existing parent-must-exist contract);
+  // 403 only visible-but-scope-denied.
+  const gate = await hubWriteGate(fid, hubId, { userId: a.userId, legacy: a.legacy, cred: a.cred });
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
   const { hubId: _h, ...rest } = raw;
   const parsed = SectionSchema.safeParse({ ...rest, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  // If-Match optimistic concurrency: stale base version → 412 (ADR 0038 §6.2).
+  const ifMatch = c.req.header("if-match");
+  if (ifMatch) {
+    const cur = await q(`SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
+    if (ifMatchFails(ifMatch, cur.rowCount ? Number(cur.rows[0].version) : null)) return c.body(null, 412);
+  }
   const row = await hubs.upsertSection(fid, id, hubId, parsed.data);
   return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
 });
@@ -559,15 +585,25 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
-  // scope on the owning hub (resolved via the section); 409 if the section is gone.
+  const caller = { userId: a.userId, legacy: a.legacy, cred: a.cred };
+  // Resolve the owning hub (via the live section); 409 if the parent is gone → the
+  // outbox sender gives up (distinct from 412 stale / 410 tombstone — ADR 0038 §6.2).
   const hubId = await hubs.liveHubOfSection(fid, sectionId);
   if (!hubId) return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
-  if (!(await requireScope(a.cred.id, `hub:${hubId}`, "write"))) return c.json({ type: "forbidden" }, 403);
+  // Visibility-on-write (ADR 0038): a restricted hub the caller can't see → uniform 404
+  // (no existence oracle); 403 only when the hub is VISIBLE but scope denies the write.
+  // (`absent` can't happen here — liveHubOfSection only resolves a live hub — but map it
+  // to the same parent-gone 409 defensively against a delete race.)
+  const gate = await hubWriteGate(fid, hubId, caller);
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
   const { sectionId: _s, ...rest } = raw;
   const body = stampProvenance(rest, a.cred.id);     // un-forgeable provenance
   const parsed = BlockSchema.safeParse({ ...body, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
-  // BlockSchema.payload is z.any() (codegen stub) — validate the payload here (ADR 0035).
+  // BlockSchema.payload is z.any() (codegen stub) — validate the payload here (ADR 0035;
+  // gated to plaintext-M0: a ciphertext payload is opaque, ADR 0038 §6.2).
   const payloadIssues = blockPayloadIssues(parsed.data);
   if (payloadIssues.length) return c.json({ type: "validation", issues: payloadIssues }, 422);
   // ADR 0036: block image enrichment rides the payload (link/document thumbnailUrl,
@@ -575,8 +611,30 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const blockMediaIssues = validateBlockPayloadMedia((parsed.data as any).type, (parsed.data as any).payload);
   if (blockMediaIssues.length) return c.json({ type: "validation", issues: blockMediaIssues }, 422);
   { const p = (parsed.data as any).payload; if (p?.accentColor) p.accentColor = normalizedAccent(p.accentColor); }
-  const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data);
-  return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+  // op_id idempotency (ADR 0039 §6.5): a retried/echoed op short-circuits to the recorded
+  // result before the 410/412 gates (else a member's own retry would 412 on its echo).
+  const opId = c.req.header("idempotency-key");
+  if (opId) {
+    const prior = await findOp(fid, opId);
+    if (prior) {
+      const existing = prior.result_ref ? await hubs.getBlock(fid, prior.result_ref) : null;
+      return existing ? c.json(existing, 200) : c.body(null, 410); // applied then deleted → gone
+    }
+  }
+  const member = isMemberWrite(a);
+  const st = await blockState(fid, id);
+  // 410-on-tombstone: a member write never resurrects a soft-deleted block (ADR 0038 §6.3).
+  if (member && st.deleted) return c.body(null, 410);
+  // If-Match optimistic concurrency: stale base version → 412 re-merge-retry (ADR 0038 §6.2).
+  if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+  const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data, { allowResurrect: !member });
+  if (!row) {
+    // member path + lost the resurrection race → the block was tombstoned → 410; else the
+    // parent section vanished between resolution and write → 409 give-up.
+    return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+  }
+  if (opId) await recordOp(fid, opId, "block", id, Number(row.version));
+  return c.json(row, 200);
 });
 
 app.post("/device/authorize", async (c) => {

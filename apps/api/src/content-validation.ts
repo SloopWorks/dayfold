@@ -60,9 +60,22 @@ export function crossValidateCard(card: { type?: unknown; payload?: unknown }): 
  * the single-representation unification is M1 (`OQ-block-payload-schema`). A block with
  * no payload is fine (renders `body_md` or a placeholder).
  */
+// An AEAD ciphertext envelope (ADR 0015 EncryptedEnvelope: ct/nonce/alg). At M1 the
+// whole block payload arrives as one of these and the server CANNOT introspect it —
+// so the tolerant item-structure check below MUST be skipped (gating it to plaintext-M0
+// only, ADR 0038 §6.2; running `arr("items")` on ciphertext would force a decrypt the
+// zero-knowledge server can't do).
+export function isEncryptedEnvelope(p: unknown): boolean {
+  if (typeof p !== "object" || p === null || Array.isArray(p)) return false;
+  const o = p as Record<string, unknown>;
+  return typeof o.ct === "string" && typeof o.nonce === "string" && typeof o.alg === "string";
+}
+
 export function blockPayloadIssues(block: { type?: unknown; payload?: unknown; body_md?: unknown }): CrossIssue[] {
   const { type, payload, body_md } = block;
   if (payload == null) return [];
+  // Plaintext-M0 gate: a ciphertext payload is opaque — never structurally validated.
+  if (isEncryptedEnvelope(payload)) return [];
   if (typeof payload !== "object" || Array.isArray(payload)) {
     return [{ path: ["payload"], message: "payload must be an object" }];
   }

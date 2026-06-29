@@ -164,8 +164,10 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     await q(`INSERT INTO credential_grants(credential_id, scope)
              SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [bob.userId]);
 
-    // non-author, non-permitted → 403 (can't widen a hub he can't even see)
-    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Private", visibility: "family" })).status).toBe(403);
+    // non-author, non-permitted, CAN'T SEE the restricted hub → uniform 404 (no existence
+    // oracle). ADR 0038 visibility-on-write refines ADR 0030 §6: a write to a hub the
+    // caller can't see is a 404, not a 403 (which would confirm the hub exists).
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Private", visibility: "family" })).status).toBe(404);
     expect((await getJson(fid, "hubs/s6", bob.token)).status).toBe(404);   // unchanged: still restricted, still hidden from bob
 
     // once the author adds bob to the allow-list, bob MAY rewrite it

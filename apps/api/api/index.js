@@ -151,12 +151,19 @@ async function sweep(graceMs = 24 * 3600 * 1e3) {
     `DELETE FROM refresh_tokens WHERE expires_at < $1`,
     [grace]
   )).rowCount ?? 0;
-  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh };
+  const opLogGrace = new Date(Date.now() - OP_LOG_TTL_MS).toISOString();
+  const opLog = (await q(
+    `DELETE FROM op_log WHERE created_at < $1`,
+    [opLogGrace]
+  )).rowCount ?? 0;
+  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh, op_log: opLog };
 }
+var OP_LOG_TTL_MS;
 var init_sweep = __esm({
   "src/auth/sweep.ts"() {
     "use strict";
     init_db();
+    OP_LOG_TTL_MS = 7 * 24 * 3600 * 1e3;
   }
 });
 
@@ -919,9 +926,15 @@ function crossValidateCard(card) {
   }
   return [];
 }
+function isEncryptedEnvelope(p) {
+  if (typeof p !== "object" || p === null || Array.isArray(p)) return false;
+  const o = p;
+  return typeof o.ct === "string" && typeof o.nonce === "string" && typeof o.alg === "string";
+}
 function blockPayloadIssues(block) {
   const { type, payload, body_md } = block;
   if (payload == null) return [];
+  if (isEncryptedEnvelope(payload)) return [];
   if (typeof payload !== "object" || Array.isArray(payload)) {
     return [{ path: ["payload"], message: "payload must be an object" }];
   }
@@ -1205,6 +1218,9 @@ async function authorizeTenant(c, fid) {
 // src/app.ts
 init_scope();
 
+// src/content/write-guard.ts
+init_db();
+
 // src/content/hubs.ts
 init_db();
 var J2 = (v) => v == null ? null : JSON.stringify(v);
@@ -1366,7 +1382,12 @@ async function upsertSection(familyId, id3, hubId, b) {
   );
   return r.rows[0];
 }
-async function upsertBlock(familyId, id3, sectionId, b) {
+async function getBlock(familyId, id3) {
+  const r = await q(`SELECT * FROM blocks WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, id3]);
+  return r.rows[0] ?? null;
+}
+async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
+  const allowResurrect = opts.allowResurrect !== false;
   const live = await q(`SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
   if (live.rowCount === 0) return null;
   const r = await q(
@@ -1377,6 +1398,7 @@ async function upsertBlock(familyId, id3, sectionId, b) {
        body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
        triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
        version=blocks.version + 1, deleted_at=NULL
+       ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
      RETURNING *`,
     [
       id3,
@@ -1392,7 +1414,60 @@ async function upsertBlock(familyId, id3, sectionId, b) {
       b.ord ?? 0
     ]
   );
-  return r.rows[0];
+  return r.rows[0] ?? null;
+}
+
+// src/content/write-guard.ts
+init_scope();
+function isMemberWrite(a) {
+  return !a.legacy && a.cred?.kind === "app";
+}
+function ifMatchFails(header, liveVersion) {
+  if (header == null || header.trim() === "") return false;
+  const want = header.replace(/^W\//, "").replace(/^"|"$/g, "").trim();
+  return String(liveVersion ?? "") !== want;
+}
+async function blockState(familyId, id3) {
+  const r = await q(`SELECT version, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id3]);
+  if (r.rowCount === 0) return { exists: false, deleted: false, version: null };
+  const row = r.rows[0];
+  return { exists: true, deleted: row.deleted_at != null, version: Number(row.version) };
+}
+async function hubWriteGate(familyId, hubId, caller) {
+  const hub = await getHub(familyId, hubId);
+  if (!hub) return "absent";
+  const allow = await allowListFor(familyId, hubId);
+  const visible = hubVisible(
+    hub,
+    { userId: caller.userId, legacy: caller.legacy },
+    () => !!caller.userId && allow.has(caller.userId)
+  );
+  if (!visible) return "invisible";
+  if (!await requireScope(caller.cred.id, `hub:${hubId}`, "write")) return "denied";
+  return "ok";
+}
+
+// src/content/oplog.ts
+init_db();
+async function findOp(familyId, opId) {
+  const r = await q(
+    `SELECT result_kind, result_ref, result_version FROM op_log WHERE family_id=$1 AND op_id=$2`,
+    [familyId, opId]
+  );
+  if (r.rowCount === 0) return null;
+  const row = r.rows[0];
+  return {
+    result_kind: row.result_kind ?? null,
+    result_ref: row.result_ref ?? null,
+    result_version: row.result_version != null ? Number(row.result_version) : null
+  };
+}
+async function recordOp(familyId, opId, kind, ref, version) {
+  await q(
+    `INSERT INTO op_log (family_id, op_id, result_kind, result_ref, result_version)
+     VALUES ($1,$2,$3,$4,$5) ON CONFLICT (family_id, op_id) DO NOTHING`,
+    [familyId, opId, kind, ref, version]
+  );
 }
 
 // src/app.ts
@@ -1716,6 +1791,10 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
+  {
+    const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
+    if (cur.rowCount && !cardVisible(cur.rows[0], { userId: a.userId, legacy: a.legacy })) return c.body(null, 404);
+  }
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
@@ -1849,9 +1928,12 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   }
   const caller = { userId: a.userId, legacy: a.legacy };
   const existing = await getHub(fid, id3);
-  if (existing && !caller.legacy && existing.created_by && existing.created_by !== caller.userId) {
+  if (existing) {
     const allow = await allowListFor(fid, id3);
-    if (!(caller.userId && allow.has(caller.userId))) return c.json({ type: "forbidden" }, 403);
+    const permitted = () => !!caller.userId && allow.has(caller.userId);
+    if (!hubVisible(existing, caller, permitted)) return c.body(null, 404);
+    if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+      return c.json({ type: "forbidden" }, 403);
   }
   return c.json(await upsertHub(fid, id3, parsed.data, caller, visibility, audience), 200);
 });
@@ -1885,10 +1967,18 @@ app.put("/families/:fid/sections/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
   if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
-  if (!await requireScope(a.cred.id, `hub:${hubId}`, "write")) return c.json({ type: "forbidden" }, 403);
+  const gate = await hubWriteGate(fid, hubId, { userId: a.userId, legacy: a.legacy, cred: a.cred });
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
   const { hubId: _h, ...rest } = raw;
   const parsed = SectionSchema.safeParse({ ...rest, id: id3 });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  const ifMatch = c.req.header("if-match");
+  if (ifMatch) {
+    const cur = await q(`SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
+    if (ifMatchFails(ifMatch, cur.rowCount ? Number(cur.rows[0].version) : null)) return c.body(null, 412);
+  }
   const row = await upsertSection(fid, id3, hubId, parsed.data);
   return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
 });
@@ -1904,9 +1994,13 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
+  const caller = { userId: a.userId, legacy: a.legacy, cred: a.cred };
   const hubId = await liveHubOfSection(fid, sectionId);
   if (!hubId) return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
-  if (!await requireScope(a.cred.id, `hub:${hubId}`, "write")) return c.json({ type: "forbidden" }, 403);
+  const gate = await hubWriteGate(fid, hubId, caller);
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
   const { sectionId: _s, ...rest } = raw;
   const body = stampProvenance(rest, a.cred.id);
   const parsed = BlockSchema.safeParse({ ...body, id: id3 });
@@ -1919,8 +2013,24 @@ app.put("/families/:fid/blocks/:id", async (c) => {
     const p = parsed.data.payload;
     if (p?.accentColor) p.accentColor = normalizedAccent(p.accentColor);
   }
-  const row = await upsertBlock(fid, id3, sectionId, parsed.data);
-  return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+  const opId = c.req.header("idempotency-key");
+  if (opId) {
+    const prior = await findOp(fid, opId);
+    if (prior) {
+      const existing = prior.result_ref ? await getBlock(fid, prior.result_ref) : null;
+      return existing ? c.json(existing, 200) : c.body(null, 410);
+    }
+  }
+  const member = isMemberWrite(a);
+  const st = await blockState(fid, id3);
+  if (member && st.deleted) return c.body(null, 410);
+  if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+  const row = await upsertBlock(fid, id3, sectionId, parsed.data, { allowResurrect: !member });
+  if (!row) {
+    return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+  }
+  if (opId) await recordOp(fid, opId, "block", id3, Number(row.version));
+  return c.json(row, 200);
 });
 app.post("/device/authorize", async (c) => {
   const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));

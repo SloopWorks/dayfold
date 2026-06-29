@@ -167,7 +167,23 @@ export async function upsertSection(familyId: string, id: string, hubId: string,
   return r.rows[0];
 }
 
-export async function upsertBlock(familyId: string, id: string, sectionId: string, b: any) {
+// A live block row by id (null when absent or tombstoned). Used to return the recorded
+// result on an idempotent op replay.
+export async function getBlock(familyId: string, id: string) {
+  const r = await q(`SELECT * FROM blocks WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, id]);
+  return r.rows[0] ?? null;
+}
+
+// `allowResurrect` (default true = the loop/CLI authoring path) keeps the
+// re-create-by-PUT behaviour (ON CONFLICT clears deleted_at). The member path passes
+// false (ADR 0038 §6.3): the DO UPDATE then matches only a LIVE row, so a concurrent
+// delete between the route's 410 check and this upsert yields no row → the caller 410s
+// instead of silently resurrecting a tombstoned block.
+export async function upsertBlock(
+  familyId: string, id: string, sectionId: string, b: any,
+  opts: { allowResurrect?: boolean } = {},
+) {
+  const allowResurrect = opts.allowResurrect !== false;
   const live = await q(`SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
   if (live.rowCount === 0) return null;
   const r = await q(
@@ -178,8 +194,9 @@ export async function upsertBlock(familyId: string, id: string, sectionId: strin
        body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
        triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
        version=blocks.version + 1, deleted_at=NULL
+       ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
      RETURNING *`,
     [id, familyId, sectionId, b.type, J(b.payload), b.body_md ?? null, b.body_ref ?? null,
      J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0]);
-  return r.rows[0];
+  return r.rows[0] ?? null;
 }
