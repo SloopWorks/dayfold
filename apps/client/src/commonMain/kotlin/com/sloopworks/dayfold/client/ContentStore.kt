@@ -72,12 +72,28 @@ class ContentStore(driver: SqlDriver) {
         q.upsertSection(s.id, s.hubId ?: "", s.title, s.ord, nowIso)
       }
       changedBlocks.forEach { b ->
+        // Per-block-type dispatch (ADR 0038 §5.4): a checklist block reconciles the
+        // member-mutable done-triple against any pending LOCAL edit (merge); every other
+        // block type is one-way → take remote. merge() is idempotent, so a /sync echo of
+        // our own write can't flicker the value.
+        val payloadToStore: BlockPayload? = if (b.type == "checklist" && b.payload != null) {
+          val localPayload = q.blockById(b.id).executeAsOneOrNull()?.payload
+            ?.let { decode(it, BlockPayload.serializer()) }
+          if (localPayload != null)
+            ChecklistMerge.mergeBlock(HubBlock(id = b.id, type = "checklist", payload = localPayload), b).payload
+          else b.payload
+        } else b.payload
         q.upsertBlock(
           b.id, b.sectionId ?: "", b.type, b.bodyMd,
-          b.payload?.let { json.encodeToString(BlockPayload.serializer(), it) },
+          payloadToStore?.let { json.encodeToString(BlockPayload.serializer(), it) },
           b.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
-          b.ord, nowIso,
+          b.ord, nowIso, b.version,
         )
+        // Echo-suppress + reconcile (§5.5): drop the member's own acked op once the
+        // server delivers its result version, then clear the pending flag if nothing is
+        // still in flight for this block.
+        q.dropAckedAtOrBelow(b.id, b.version)
+        if (q.openOpsForTarget(b.id).executeAsOne() == 0L) q.clearBlockLocalState(b.id)
       }
       tombstones.forEach { t ->
         when (t.type) {
@@ -118,7 +134,7 @@ class ContentStore(driver: SqlDriver) {
       id = r.id, sectionId = r.section_id, type = r.type, bodyMd = r.body_md,
       payload = decode(r.payload, BlockPayload.serializer()),
       provenance = decode(r.provenance, Provenance.serializer()),
-      ord = r.ord,
+      ord = r.ord, version = r.version, localState = r.local_state,
     )
 
   // Guarded decode: corrupt cached JSON must not crash the feed — skip → null,
@@ -130,7 +146,85 @@ class ContentStore(driver: SqlDriver) {
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
    *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox() }
+  }
+
+  // ── Egress lane (ADR 0038/0039) — the outbox is WRITE-ONLY (the UI never reads it). ──
+
+  /**
+   * Optimistic apply for a member toggle (ADR 0038 §5.4 step 1): flip the item's
+   * done-triple in the LOCAL block payload, mark the block pending, and enqueue ONE
+   * coalesced outbox op carrying the whole-block PUT body + the If-Match base version.
+   * One atomic transaction so the UI flip and the queued op can't diverge.
+   */
+  fun enqueueBlockToggle(blockId: String, itemId: String, done: Boolean, doneBy: String?, nowIso: String, opId: String) {
+    q.transaction {
+      val row = q.blockById(blockId).executeAsOneOrNull() ?: return@transaction
+      val payload = row.payload?.let { decode(it, BlockPayload.serializer()) } ?: return@transaction
+      val items = payload.items ?: return@transaction
+      val merged = payload.copy(items = items.map {
+        if (it.id == itemId) it.copy(done = done, doneBy = doneBy, doneAt = nowIso) else it
+      })
+      val payloadJson = json.encodeToString(BlockPayload.serializer(), merged)
+      q.optimisticBlockUpdate(payloadJson, nowIso, "pending", blockId)
+      val body = blockPutBody(row.section_id, row.type, payloadJson, row.provenance, nowIso)
+      q.deletePendingForTarget(blockId, "toggle")               // coalesce N taps → one op
+      q.enqueueOp(opId, "block", blockId, "toggle", body, row.version, null, nowIso)
+    }
+  }
+
+  /** The whole-block PUT body the server expects: { sectionId, type, payload, provenance }. */
+  private fun blockPutBody(sectionId: String, type: String, payloadJson: String, provenanceJson: String?, nowIso: String): String {
+    val payloadElem = runCatching { json.parseToJsonElement(payloadJson) }.getOrNull()
+    val provElem = provenanceJson?.let { runCatching { json.parseToJsonElement(it) }.getOrNull() }
+      ?: json.parseToJsonElement("""{"source":"member","at":"$nowIso"}""")
+    return kotlinx.serialization.json.buildJsonObject {
+      put("sectionId", kotlinx.serialization.json.JsonPrimitive(sectionId))
+      put("type", kotlinx.serialization.json.JsonPrimitive(type))
+      if (payloadElem != null) put("payload", payloadElem)
+      put("provenance", provElem)
+    }.toString()
+  }
+
+  /** The next FIFO pending op, or null if the outbox is drained. */
+  fun nextPendingOp(): OutboxOp? = q.pendingOps().executeAsList().firstOrNull()?.let {
+    OutboxOp(it.op_id, it.target_kind, it.target_id, it.type, it.payload, it.base_version, it.attempts)
+  }
+
+  fun markOpInflight(opId: String) = q.markInflight(opId)
+  fun ackOp(opId: String, resultVersion: Long?) = q.markAcked(resultVersion, opId)
+  fun bumpOpAttempt(opId: String) = q.bumpAttempt(opId)
+
+  /** Give up after the attempt cap: park the op 'failed' + surface a calm 'failed' on the block. */
+  fun failOp(opId: String, targetId: String) { q.transaction { q.markFailed(opId); q.setBlockLocalState("failed", targetId) } }
+
+  /** Drop an op the server said is unrecoverable (410/404/4xx); clear the block flag if idle. */
+  fun dropOp(opId: String, targetId: String) {
+    q.transaction {
+      q.deleteOp(opId)
+      if (q.openOpsForTarget(targetId).executeAsOne() == 0L) q.clearBlockLocalState(targetId)
+    }
+  }
+
+  /** Diagnostic: count of still-pending ops (egress backlog). */
+  fun pendingOpCount(): Int = q.pendingOps().executeAsList().size
+  /** Diagnostic: total outbox rows (pending + inflight + acked + failed). */
+  fun outboxSize(): Long = q.outboxSize().executeAsOne()
+  /** The optimistic-write flag on a block ('pending' | 'failed' | null = synced). */
+  fun blockLocalState(blockId: String): String? = q.blockById(blockId).executeAsOneOrNull()?.local_state
+
+  /**
+   * 412 re-merge (§5.4 step 4): re-base the op from the CURRENT local block — after the
+   * inbound /sync already merged the fresh remote into it, so the payload carries the
+   * member's surviving toggle on top of the loop's latest base + version. Bumps the attempt.
+   */
+  fun rebaseOpFromLocal(opId: String, targetId: String, nowIso: String) {
+    q.transaction {
+      val row = q.blockById(targetId).executeAsOneOrNull() ?: run { q.deleteOp(opId); return@transaction }
+      val payloadJson = row.payload ?: "{}"
+      val body = blockPutBody(row.section_id, row.type, payloadJson, row.provenance, nowIso)
+      q.requeueOp(row.version, body, opId)
+    }
   }
 
   /** Reactive hub projection — emits current active hubs and re-emits on any hub-table write. */

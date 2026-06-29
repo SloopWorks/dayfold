@@ -4,8 +4,13 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 // Transport layer for the /sync endpoint.
 // ktor-client = cross-platform HTTP (cio desktop · okhttp android · darwin iOS),
 // so this stays in commonMain. fetchPage is called by SyncEngine.
@@ -35,7 +40,36 @@ class SyncClient(
     if (resp.status.value != 200) throw SyncHttpException(resp.status.value)
     return json.decodeFromString(SyncResponse.serializer(), resp.bodyAsText())
   }
+
+  /**
+   * Egress (ADR 0038 §6.2): PUT one whole block with If-Match (the optimistic-concurrency
+   * base) + Idempotency-Key (the op_id). Returns the HTTP status + (on 200) the new server
+   * version, so the sender's OutboxSender.classify can decide ack / re-merge / drop / backoff.
+   * Returns status=null when not signed in. Network errors propagate (the sender treats a
+   * thrown call as a transient/network outcome).
+   */
+  suspend fun putBlock(blockId: String, body: String, baseVersion: Long?, opId: String): PutResult {
+    val fam = familyId()
+    val tok = token()
+    if (fam.isNullOrEmpty() || tok.isNullOrEmpty()) return PutResult(null, null)
+    val resp = http.put("$api/families/$fam/blocks/$blockId") {
+      header("authorization", "Bearer $tok")
+      header("content-type", "application/json")
+      if (baseVersion != null) header("if-match", baseVersion.toString())
+      header("idempotency-key", opId)
+      setBody(body)
+    }
+    val status = resp.status.value
+    val version = if (status == 200) runCatching {
+      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() else null
+    return PutResult(status, version)
+  }
 }
+
+/** Result of an egress PUT — the status drives the sender state machine; version (on 200)
+ *  is stored for echo-suppression. */
+data class PutResult(val status: Int?, val version: Long?)
 
 /** Non-200 from /sync, carrying the status so the engine can distinguish a tenancy
  *  revocation (403 removed / 404 non-member → wipe the cache) from a transient

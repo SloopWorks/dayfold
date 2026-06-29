@@ -139,16 +139,40 @@ CREATE TABLE hub_block (
   provenance TEXT,
   ord        INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL,
-  deleted    INTEGER NOT NULL DEFAULT 0
+  deleted    INTEGER NOT NULL DEFAULT 0,
+  -- ADR 0038 — server row version (If-Match base for member writes). Server-owned.
+  version    INTEGER NOT NULL DEFAULT 1,
+  -- ADR 0038 — optimistic-write UI state: 'pending' (queued in the outbox), 'failed'
+  -- (gave up after retries), NULL (synced/server-truth). Written by the optimistic
+  -- apply; cleared when the inbound /sync echo confirms the op. NOT a wire field.
+  local_state TEXT
 );
 
+-- Inbound (from /sync): the server row is the synced truth — take its version, clear local_state.
 upsertBlock:
-INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted, version, local_state)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)
 ON CONFLICT(id) DO UPDATE SET
   section_id=excluded.section_id, type=excluded.type, body_md=excluded.body_md,
   payload=excluded.payload, provenance=excluded.provenance, ord=excluded.ord,
-  updated_at=excluded.updated_at, deleted=0;
+  updated_at=excluded.updated_at, deleted=0, version=excluded.version;
+
+-- Optimistic local write (a member toggle): overlay the merged payload + mark pending.
+-- Leaves the server-owned columns (type/section/ord/provenance/version) untouched —
+-- the server bumps version; the client only learns it back on the echo.
+optimisticBlockUpdate:
+UPDATE hub_block SET payload=?, updated_at=?, local_state=? WHERE id=?;
+
+-- Echo / reconcile: clear the pending flag once the op is confirmed synced.
+clearBlockLocalState:
+UPDATE hub_block SET local_state=NULL WHERE id=?;
+
+setBlockLocalState:
+UPDATE hub_block SET local_state=? WHERE id=?;
+
+blockById:
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state
+FROM hub_block WHERE id=? AND deleted=0;
 
 markBlockDeleted:
 UPDATE hub_block SET deleted=1, updated_at=? WHERE id=?;
@@ -163,6 +187,80 @@ WHERE hub_id = ? AND deleted=0
 ORDER BY ord, id;
 
 blocksForSections:
-SELECT id, section_id, type, body_md, payload, provenance, ord FROM hub_block
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state FROM hub_block
 WHERE section_id IN ? AND deleted=0
 ORDER BY ord, id;
+
+-- ADR 0038/0039 — the egress outbox. EGRESS-ONLY (ADR 0020): the UI never reads this;
+-- it is the write-only lane DB→outbox→network. One typed op per row (the reserved
+-- envelope: type discriminator + target_kind + nullable depends_on). op_id is the
+-- client-minted ULID idempotency + echo key.
+CREATE TABLE outbox (
+  op_id          TEXT NOT NULL PRIMARY KEY,
+  target_kind    TEXT NOT NULL,                 -- block | card | … (the mutated entity kind)
+  target_id      TEXT NOT NULL,
+  type           TEXT NOT NULL,                 -- toggle | upsertBlock | setMedia | delete | hide | submitContext
+  payload        TEXT NOT NULL,                 -- the whole-block JSON body to PUT
+  base_version   INTEGER,                       -- If-Match base (null = create / unconditional)
+  depends_on     TEXT,                          -- nullable op dependency (reserved; DAG)
+  state          TEXT NOT NULL DEFAULT 'pending', -- pending | inflight | acked | failed
+  attempts       INTEGER NOT NULL DEFAULT 0,
+  result_version INTEGER,                        -- server version after a 200 (echo-suppress key)
+  created_at     TEXT NOT NULL
+);
+CREATE INDEX outbox_state_idx ON outbox(state, created_at);
+
+-- Coalesce per target (the §6.1 "collapse N queued toggles on one block into one PUT"):
+-- drop any still-pending op for this target+type before enqueuing the latest.
+deletePendingForTarget:
+DELETE FROM outbox WHERE target_id=? AND type=? AND state='pending';
+
+enqueueOp:
+INSERT INTO outbox(op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?);
+
+-- FIFO drain: the next sendable ops (pending only; inflight is in-flight, acked awaits echo).
+pendingOps:
+SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, result_version, created_at
+FROM outbox WHERE state='pending' ORDER BY created_at, op_id;
+
+markInflight:
+UPDATE outbox SET state='inflight' WHERE op_id=?;
+
+-- 200: record the server version, mark acked (the row is dropped on echo).
+markAcked:
+UPDATE outbox SET state='acked', result_version=? WHERE op_id=?;
+
+-- 412 re-merge: re-enqueue with a fresh base + merged payload, count the attempt.
+requeueOp:
+UPDATE outbox SET state='pending', base_version=?, payload=?, attempts=attempts+1 WHERE op_id=?;
+
+-- 5xx/network backoff: keep pending, count the attempt (the loop delays before retry).
+bumpAttempt:
+UPDATE outbox SET state='pending', attempts=attempts+1 WHERE op_id=?;
+
+markFailed:
+UPDATE outbox SET state='failed' WHERE op_id=?;
+
+deleteOp:
+DELETE FROM outbox WHERE op_id=?;
+
+-- Echo-suppress drop (§5.5): when /sync delivers target at version V, an acked op whose
+-- result_version <= V has been confirmed → remove it.
+dropAckedAtOrBelow:
+DELETE FROM outbox WHERE target_id=? AND state='acked' AND result_version IS NOT NULL AND result_version<=?;
+
+-- Any still-open (pending/inflight/acked) op for a target — to decide whether to keep the
+-- block's local_state='pending' flag after an inbound echo.
+openOpsForTarget:
+SELECT count(*) FROM outbox WHERE target_id=? AND state IN ('pending','inflight','acked');
+
+failedOps:
+SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, result_version, created_at
+FROM outbox WHERE state='failed';
+
+outboxSize:
+SELECT count(*) FROM outbox;
+
+wipeOutbox:
+DELETE FROM outbox;

@@ -18,13 +18,29 @@ ratified the two-way bundle in-session — ADRs **0038/0039/0040/0041/0042 → A
 (0041 = the bounded-member-AI-command **constitution amendment**, applied; W3 ships
 EXPERIMENTAL/flagged; member scope = global `content:write`; R2 confirmed; W2 = visible
 hubs only; W5 hide = local-only first; INB-25/26 closed). Ratification merged via
-**PR #238**. **Slice 1 (schema + reserved shape) — PR #247, awaiting review**: checklist
-item `id`/`doneBy`/`doneAt`/`ord` + codegen + Kotlin CI drift guard; CLI ULID
-stamp-on-push (12 new tests); migration 0015 reserves `op_log` + `created_by`/
-`author_kind`/`writer_user_id` on blocks+cards + `block_type`/`card_kind` ENUM→text +
-`content:delete` scope. 97 CLI + 306 API tests green. **Next: Slice 2** (server
-must-fixes: If-Match→412, visibility-on-write uniform-404, 410-on-tombstone, op_log
-idempotency) off `main` once #247 lands.
+**PR #238**.
+- **Slice 1 (schema + reserved shape) — ✅ MERGED (PR #247)**: checklist item
+  `id`/`doneBy`/`doneAt`/`ord` + codegen + Kotlin CI drift guard; CLI ULID
+  stamp-on-push; migration 0015 reserves `op_log` + `created_by`/`author_kind`/
+  `writer_user_id` on blocks+cards + `block_type`/`card_kind` ENUM→text + `content:delete`.
+- **Slice 2 (server must-fixes / member-write security gate) — ✅ MERGED (PR #248)**:
+  If-Match→412 (block+section), visibility-on-write (restricted→404, no oracle; 403 only
+  visible-but-scope-denied; matrix 200/200/200/404), 410-on-tombstone (no member
+  resurrection), op_log idempotency + 7-day TTL sweep, tolerant validator gated to
+  plaintext-M0. **Refines ADR 0030 §6**: a hub-rewrite the caller can't see is now 404.
+  320 API tests green.
+- **Slice 3 (client sync engine / egress lane) — ✅ COMPLETE (PR open from
+  `two-way-slice3-client-sync`)**: `ChecklistMerge` (per-item done-triple LWW,
+  convergent + idempotent) + `OutboxSender` (412/410/backoff/cap FSM) + the egress
+  wiring — `outbox` SQLDelight table + `version`/`local_state` columns (migration
+  `4.sqm`), `ContentStore.enqueueBlockToggle` (optimistic apply), per-block-type merge
+  dispatch in `applyDelta` + echo-suppress, `SyncClient.putBlock` (If-Match +
+  Idempotency-Key), `SyncEngine.drainOutbox` under the sync mutex. **481 client tests
+  green** incl. 2 headless egress integration tests (happy path + 412 re-merge converge).
+- **Next**: Slice 4 (toggle UI → `designs/two-way/States`+`Todo`, needs the
+  agent-dev-loop on-device verification — `ChecklistRow` calls `enqueueBlockToggle`),
+  Slice 5 (delete+hide), Slice 6 (freshness). Deferred + gated last: W2 authoring,
+  W1 media (R2), W3 add-context (EXPERIMENTAL/flagged).
 
 **Status update (2026-06-26): first real on-device sign-in is LIVE on prod.** Real
 Google sign-in + foreground sync now work end-to-end on the Pixel against

@@ -1,0 +1,22 @@
+-- Migration v4→v5 (ADR 0038/0039): the two-way egress lane.
+--   * hub_block.local_state — optimistic-write UI flag ('pending'/'failed'/NULL).
+--   * outbox — the egress-only typed-op queue (ADR 0020: DB→outbox→network; the UI
+--     never reads it). One op per row; op_id = client-minted ULID idempotency key.
+-- Additive; existing rows get NULL local_state (= synced) and an empty outbox.
+ALTER TABLE hub_block ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE hub_block ADD COLUMN local_state TEXT;
+
+CREATE TABLE outbox (
+  op_id          TEXT NOT NULL PRIMARY KEY,
+  target_kind    TEXT NOT NULL,
+  target_id      TEXT NOT NULL,
+  type           TEXT NOT NULL,
+  payload        TEXT NOT NULL,
+  base_version   INTEGER,
+  depends_on     TEXT,
+  state          TEXT NOT NULL DEFAULT 'pending',
+  attempts       INTEGER NOT NULL DEFAULT 0,
+  result_version INTEGER,
+  created_at     TEXT NOT NULL
+);
+CREATE INDEX outbox_state_idx ON outbox(state, created_at);

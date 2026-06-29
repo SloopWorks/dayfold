@@ -179,6 +179,18 @@ data class HubSection(
   val ord: Long = 0,
 )
 
+// ADR 0038/0039 — one egress-outbox row as the sender loop reads it. Not serialized
+// (a local DB projection, never on the wire).
+data class OutboxOp(
+  val opId: String,
+  val targetKind: String,
+  val targetId: String,
+  val type: String,
+  val payload: String,
+  val baseVersion: Long?,
+  val attempts: Long,
+)
+
 @Serializable
 data class HubBlock(
   val id: String,
@@ -188,6 +200,10 @@ data class HubBlock(
   val payload: BlockPayload? = null,                         // typed fields for the structured block kinds
   val provenance: Provenance? = null,
   val ord: Long = 0,
+  val version: Long = 1,                                     // ADR 0038 — server row version (If-Match base)
+  // ADR 0038 — client-only optimistic-write state ('pending'/'failed'/null=synced). Not on the
+  // wire; @Transient so it never (de)serializes — it's projected from the local hub_block row.
+  @kotlinx.serialization.Transient val localState: String? = null,
 )
 
 // Flat, lenient block payload — the server stores each block type's fields directly
@@ -209,7 +225,12 @@ data class BlockPayload(
 
 @Serializable
 data class ChecklistItem(
-  val text: String? = null, val done: Boolean = false, val due: String? = null, val assignee: String? = null,
+  val id: String? = null,                                    // ADR 0038 — stable per-item id (the LWW merge key)
+  val text: String? = null, val done: Boolean = false,
+  val doneBy: String? = null,                                // ADR 0038 — who toggled (the "✓ Dad" byline + LWW tiebreak)
+  val doneAt: String? = null,                                // ADR 0038 — wall-clock stamp for `done` (the LWW clock)
+  val ord: Long? = null,                                     // ADR 0038 — order; loop-authoritative at M0
+  val due: String? = null, val assignee: String? = null,
   // budget rows (canonical schema shape): an itemized budget uses these (ADR 0035).
   val label: String? = null, val amount: Double? = null, val paid: Boolean? = null,
 )

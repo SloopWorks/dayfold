@@ -72,6 +72,7 @@ class SyncEngine(
     store.dispatch(SyncStarted)
     try {
       drain()
+      drainOutbox()        // ADR 0038 — push local member writes after pulling fresh remote
       store.dispatch(SyncSucceeded)
     } catch (e: SyncHttpException) {
       // 401 = the 5-min access token expired (or is stale). Refresh it and retry
@@ -80,6 +81,7 @@ class SyncEngine(
       if (e.status == 401 && refreshSession()) {
         try {
           drain()
+          drainOutbox()
           store.dispatch(SyncSucceeded)
         } catch (e2: SyncHttpException) {
           onSyncHttpError(e2)
@@ -109,6 +111,36 @@ class SyncEngine(
         nowIso = nowProvider(),
       )
       hasMore = resp.hasMore
+    }
+  }
+
+  /**
+   * Egress (ADR 0038 §6): drain the outbox FIFO, pushing each pending op via the
+   * whole-block PUT. Runs UNDER the sync mutex right after the inbound drain, so a
+   * pending op is always re-based on the freshest remote before it is sent (a benign
+   * 412 then converges). The OutboxSender state machine decides each op's fate:
+   *   Acked   → store the version (the inbound echo later drops the row + clears 'pending')
+   *   ReMerge → re-base from the just-merged local block and retry (bounded by the cap)
+   *   Drop    → 410/404/4xx → remove the op
+   *   Failed  → cap reached → park the block 'failed' (calm surface)
+   *   Backoff → transient (401/5xx/network) → stop this pass; the next poll retries
+   */
+  private suspend fun drainOutbox() {
+    while (true) {
+      val op = contentStore.nextPendingOp() ?: return
+      contentStore.markOpInflight(op.opId)
+      val result = try {
+        syncClient.putBlock(op.targetId, op.payload, op.baseVersion, op.opId)
+      } catch (e: Exception) {
+        PutResult(null, null) // transport/network error → transient
+      }
+      when (OutboxSender.classify(result.status, op.attempts.toInt())) {
+        SendOutcome.Acked -> contentStore.ackOp(op.opId, result.version)
+        SendOutcome.ReMerge -> contentStore.rebaseOpFromLocal(op.opId, op.targetId, nowProvider())
+        SendOutcome.Drop -> contentStore.dropOp(op.opId, op.targetId)
+        SendOutcome.Failed -> contentStore.failOp(op.opId, op.targetId)
+        is SendOutcome.Backoff -> { contentStore.bumpOpAttempt(op.opId); return }
+      }
     }
   }
 
