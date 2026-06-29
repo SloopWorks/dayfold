@@ -19,9 +19,12 @@ Each item: question, context link, **proposed default**, urgency.
   `specs/two-way-engine-and-content-management-design.md`. The engine generalizes
   cleanly (one typed-op outbox → `/mutations`; two channels — direct content-deltas
   vs a key-holder **intents** path for W3; delete=tombstone, hide=per-member). It
-  also surfaced a **P0: forward-compat is already broken** (every schema is
-  `.strict()`/`ignoreUnknownKeys=false` → any added field breaks old clients — fix
-  before *any* W1–W5 field lands) and several authz must-fixes. **Six things need
+  also surfaced **forward-compat residuals** (the client inbound decoders are
+  already lenient — `ignoreUnknownKeys=true` — so additive fields do *not* break old
+  clients; the narrower work is keeping `.strict()` on the *authoring/validate* path
+  only [never on opaque relay], an unknown-`type` renderer placeholder, and a
+  missing Kotlin codegen drift guard — land before W1–W5 add many fields) and several
+  authz must-fixes. **Six things need
   you** (proposed defaults in **bold**; nothing builds before you ratify, and client
   surfaces still need ADR 0008 mockups):
   1. **W3 free-text vs structured (scope + CONSTITUTION).** Open free-form context

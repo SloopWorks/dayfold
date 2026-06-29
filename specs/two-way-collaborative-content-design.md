@@ -81,7 +81,8 @@ All four lenses converged on these two independently.
 
 The root cause of "two members clobber each other" is that the current
 `ChecklistPayload` items are **positional and id-less** (`content.schema.json:46`
-— `{ text, done, due, assignee }`; `BudgetPayload` `:51` is identical). You cannot
+— `{ text, done, due, assignee }`; `BudgetPayload` `:51` is `{ label, amount, paid }`
+— a different shape but **likewise id-less/positional**). You cannot
 merge concurrent toggles keyed on array index (a re-authored list shifts indices)
 or on text (duplicate/edited text breaks it). **Stable per-item identity is the
 one non-negotiable, must-land-at-M0 reservation** — the checklist analogue of ADR
@@ -338,7 +339,7 @@ so even an unsuppressed echo can't flicker the value; (ii) when an outbox row is
   exists. Block-level deletes stay remove-authoritative (§6.3 closes the
   resurrection hole). Item-level add-wins is deferred with the delete slice.
 
-### 5.7 Freshness: keep ~45s poll at M0
+### 5.7 Freshness: keep the M0 foreground poll (~45s, within ADR 0020's ~30–60s)
 
 A checkbox is calm, not chat; ≤45s for a co-present parent is fine and the product
 is explicitly not real-time collaboration. Keep the foreground poll; add
@@ -371,10 +372,12 @@ old-vs-new to "merge"; validate item *structure* at M1 (the tolerant M0
 `arr("items")` check `content-validation.ts:75` must be **gated to plaintext-M0
 only**, else it forces a decrypt the server can't do).
 
-**Optimistic concurrency.** Today `version` is bumped but `If-Match` is **not
-enforced** (verified: no handler reads `If-Match`; `upsertBlock` blind-bumps
+**Optimistic concurrency.** `03-api.md` already documents the contract (writes
+*may* send `If-Match`; mismatch → `412`), but the **server never enforces it**
+today (verified: no handler reads `If-Match`; `upsertBlock` blind-bumps
 `version=blocks.version+1`, `hubs.ts:180`) → silent lost-update (Dad's stale-v5 PUT
-erases Mom's v6 toggle). **Enforce `If-Match`:** mismatch → **412 Precondition
+erases Mom's v6 toggle). So this is **implementing the documented-but-unbuilt
+contract**, not a new API decision. **Enforce `If-Match`:** mismatch → **412 Precondition
 Failed** (decided, not 409 — the repo already uses **409 for parent-missing
 conflicts** at `app.ts:550,564,579`, and the outbox must distinguish "stale version
 → re-merge" (412) from "parent gone → give up" (409/410); overloading 409 would

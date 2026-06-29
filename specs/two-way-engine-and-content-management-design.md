@@ -670,9 +670,11 @@ agent-decided**:
 ## 14. Open questions & P0 risks
 
 **P0 (ship-blockers, in slice order):** (1) Visibility-on-write missing on all
-mutations. (2) No author-identity column on **blocks** (cards already carry
-`created_by` per `02-data-model.md:178`; blocks have neither `created_by` nor
-`author_kind`) — add before member authoring/delete. (3) W2 audience-widening
+mutations. (2) No author-identity column on **blocks _or_ cards** (verified:
+neither `blocks` nor `briefing_cards` carries `created_by`; only `hubs` does —
+`02-data-model.md`. The earlier "cards already carry `created_by`" was wrong, so
+the column lands on **both** tables) — `created_by`/`author_kind`, add before member
+authoring/delete. (3) W2 audience-widening
 (un-defer ADR 0030 server intersection). (4) W3 confused-deputy + key-holder
 placement + constitution gate. (5) Resurrection-via-stale-write (generalize
 410-on-tombstone). (6) Client-side EXIF/GPS strip + **refcount-before-delete**
