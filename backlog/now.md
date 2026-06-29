@@ -53,8 +53,20 @@ hubs only; W5 hide = local-only first; INB-25/26 closed). Ratification merged vi
   three shells (android/desktop/ios — compile-clean). Dev-infra fixes folded in:
   `ondevice-demo.sh` migration glob (`000[1-9]`→all, was skipping 0015 op_log → 500s),
   JAVA17 path (stable brew symlink, 17.0.18→17.0.19 drift), seed + fake checklist ids.
-- **Next**: Slice 5 (delete+hide), Slice 6 (freshness). Deferred + gated last:
-  W2 authoring, W1 media (R2), W3 add-context (EXPERIMENTAL/flagged).
+- **Slice 5a (W4 delete — server) — ✅ PR #253 (CI pending)**: `DELETE /blocks/:id`
+  soft-delete + tombstone, no-oracle authz (absent/can't-see→404, no-scope→403,
+  non-author→403 incl. owner-no-override, idempotent re-delete→204). **Operator
+  decision (2026-06-29): members get a `content:delete` grant, author-gated to their
+  own content** (distinct scope, carved out of `content:write`; granted to member app
+  creds + CLI/loop). `upsertBlock` now stamps `created_by` set-once (INSERT only) =
+  the author-gate substrate (minimal W2 stamp). 326 API tests green. *Implements
+  accepted ADR 0038 §W4; the member `content:delete` grant is a new member-authority
+  fact — fold into an ADR 0038 amendment or a short ADR if the operator wants it recorded.*
+- **Next**: Slice 5b (W4 client delete sheet — author-only, propagate `created_by`
+  over /sync, outbox `delete` op + `SyncClient.deleteBlock`, `OutboxSender` 204→Acked
+  — + **W5 hide** local-only `hidden` table, swipe + overflow, "Show hidden", "You hid
+  this"), Slice 6 (freshness). Deferred + gated last: W2 authoring, W1 media (R2),
+  W3 add-context (EXPERIMENTAL/flagged).
 
 **Status update (2026-06-26): first real on-device sign-in is LIVE on prod.** Real
 Google sign-in + foreground sync now work end-to-end on the Pixel against
