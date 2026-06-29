@@ -225,11 +225,11 @@ async function createFamily(userId, name) {
 async function mintCredentialFor(userId) {
   const credentialId = id("cred");
   await q(
-    `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
+    `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write,content:delete}')`,
     [credentialId, userId]
   );
   const { grantScopes: grantScopes2 } = await Promise.resolve().then(() => (init_scope(), scope_exports));
-  await grantScopes2(credentialId, ["content:read", "content:write"]);
+  await grantScopes2(credentialId, ["content:read", "content:write", "content:delete"]);
   return { credentialId };
 }
 var StubVerifier, FIREBASE_JWKS_URL, FirebaseVerifier, id;
@@ -568,11 +568,11 @@ async function redeem(device_code, mintAccess2, issueRefresh2) {
     const cid = credId();
     await client.query(
       `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
-       VALUES ($1,$2,$3,'cli','{content:read,content:write}', 'dayfold-cli '||left(coalesce($4,''),64))`,
+       VALUES ($1,$2,$3,'cli','{content:read,content:write,content:delete}', 'dayfold-cli '||left(coalesce($4,''),64))`,
       [cid, user_id, family_id, origin_ua]
     );
     const { grantScopes: grantScopes2 } = await Promise.resolve().then(() => (init_scope(), scope_exports));
-    await grantScopes2(cid, ["content:read", "content:write"], client);
+    await grantScopes2(cid, ["content:read", "content:write", "content:delete"], client);
     const refresh = await issueRefresh2(cid, client);
     await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
     await client.query("COMMIT");
@@ -1333,6 +1333,16 @@ async function softDeleteHub(familyId, id3) {
     client.release();
   }
 }
+async function softDeleteBlock(familyId, id3) {
+  const r = await q(`UPDATE blocks SET deleted_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id`, [familyId, id3]);
+  return (r.rowCount ?? 0) > 0;
+}
+async function blockForDelete(familyId, id3) {
+  const r = await q(`SELECT section_id, created_by, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id3]);
+  if (r.rowCount === 0) return null;
+  const row = r.rows[0];
+  return { section_id: row.section_id, created_by: row.created_by ?? null, deleted: row.deleted_at != null };
+}
 async function getHubTree(familyId, hubId) {
   const hub = await getHub(familyId, hubId);
   if (!hub) return null;
@@ -1391,8 +1401,8 @@ async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
   const live = await q(`SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
   if (live.rowCount === 0) return null;
   const r = await q(
-    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1)
+    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
        body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
@@ -1411,7 +1421,8 @@ async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
       J2(b.provenance),
       J2(b.triggers),
       J2(b.actions),
-      b.ord ?? 0
+      b.ord ?? 0,
+      opts.createdBy ?? null
     ]
   );
   return r.rows[0] ?? null;
@@ -1509,10 +1520,10 @@ app.post("/auth/dev-token", async (c) => {
   console.warn(`[dev-auth] minted token for ${idn.provider}:${idn.provider_uid} user=${userId}`);
   const credentialId = "cred_" + Math.random().toString(16).slice(2);
   await q(
-    `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write}')`,
+    `INSERT INTO credentials(id,user_id,kind,scopes) VALUES ($1,$2,'app','{content:read,content:write,content:delete}')`,
     [credentialId, userId]
   );
-  await grantScopes(credentialId, ["content:read", "content:write"]);
+  await grantScopes(credentialId, ["content:read", "content:write", "content:delete"]);
   const { mintAccess: mintAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
   const { issueRefresh: issueRefresh2 } = await Promise.resolve().then(() => (init_refresh(), refresh_exports));
   const access = await mintAccess2({ sub: userId, cid: credentialId });
@@ -2025,12 +2036,41 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const st = await blockState(fid, id3);
   if (member && st.deleted) return c.body(null, 410);
   if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
-  const row = await upsertBlock(fid, id3, sectionId, parsed.data, { allowResurrect: !member });
+  const row = await upsertBlock(fid, id3, sectionId, parsed.data, { allowResurrect: !member, createdBy: a.userId });
   if (!row) {
     return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
   }
   if (opId) await recordOp(fid, opId, "block", id3, Number(row.version));
   return c.json(row, 200);
+});
+app.delete("/families/:fid/blocks/:id", async (c) => {
+  const fid = c.req.param("fid"), id3 = c.req.param("id");
+  {
+    const e = idError(id3);
+    if (e) return c.json(e, 422);
+  }
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const caller = { userId: a.userId, legacy: a.legacy };
+  const opId = c.req.header("idempotency-key");
+  if (opId && await findOp(fid, opId)) return c.body(null, 204);
+  const blk = await blockForDelete(fid, id3);
+  if (!blk) return c.body(null, 404);
+  const hubId = await liveHubOfSection(fid, blk.section_id);
+  if (!hubId) return c.body(null, 404);
+  const hub = await getHub(fid, hubId);
+  if (!hub) return c.body(null, 404);
+  const allow = await allowListFor(fid, hubId);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!await requireScope(a.cred.id, "content", "delete")) return c.json({ type: "forbidden" }, 403);
+  if (isMemberWrite(a) && blk.created_by !== caller.userId) return c.json({ type: "forbidden" }, 403);
+  if (blk.deleted) {
+    if (opId) await recordOp(fid, opId, "block", id3, null);
+    return c.body(null, 204);
+  }
+  const ok = await softDeleteBlock(fid, id3);
+  if (opId) await recordOp(fid, opId, "block", id3, null);
+  return c.body(null, ok ? 204 : 404);
 });
 app.post("/device/authorize", async (c) => {
   const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
