@@ -230,7 +230,7 @@ private fun CardItem(card: Card) {
       // same renderer as hub blocks, so a CLI-authored card body renders formatted,
       // not raw `**`/`-`. Plain text + links are byte-identical to the old link-only path.
       card.bodyMd?.takeIf { it.isNotBlank() }?.let {
-        Text(renderBlockMarkdown(it), style = MaterialTheme.typography.bodyMedium)
+        Text(rememberRenderedMarkdown(it), style = MaterialTheme.typography.bodyMedium)
       }
       // provenance source chip (user = none)
       sourceLabel(card.provenance?.source)?.let { src ->

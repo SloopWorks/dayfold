@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -132,6 +134,14 @@ private fun AnnotatedString.Builder.appendInline(text: String) {
   }
   append(text.substring(i))
 }
+
+// Memoized renderBlockMarkdown for composables: the parse (line split + regex + the
+// AnnotatedString build) depends only on [md], so cache it across recompositions —
+// feed/hub items re-render on scroll-into-view and on every /sync emission, and without
+// this each one re-parses its body every time. Keyed on the string; the underlying
+// function is pure (non-@Composable), so the cache is always correct.
+@Composable
+fun rememberRenderedMarkdown(md: String): AnnotatedString = remember(md) { renderBlockMarkdown(md) }
 
 fun renderBlockMarkdown(md: String): AnnotatedString = buildAnnotatedString {
   val lines = md.split("\n")

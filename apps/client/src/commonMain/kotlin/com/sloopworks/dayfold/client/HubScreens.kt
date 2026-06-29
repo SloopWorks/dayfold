@@ -461,16 +461,16 @@ private fun HubBlockCard(block: HubBlock, focused: Boolean = false) {
       }
       when {
         // typed block whose content is in body_md (no usable payload) → show the markdown
-        blockFallsBackToBodyMd(block) -> Text(renderBlockMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
+        blockFallsBackToBodyMd(block) -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
         else -> when (block.type) {
-          "text", "markdown" -> Text(renderBlockMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
+          "text", "markdown" -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
           "checklist" -> block.payload?.items?.forEach { item -> ChecklistRow(item) }
           "link", "document" -> LinkRow(block)
           "contact" -> ContactRow(block.payload)
           "location" -> LocationBlock(block.payload)
           "milestone" -> MilestoneRow(block.payload, block.bodyMd)
           "budget" -> BudgetBar(block.payload)
-          else -> Text(renderBlockMarkdown(block.bodyMd ?: block.type), style = MaterialTheme.typography.bodyMedium)
+          else -> Text(rememberRenderedMarkdown(block.bodyMd ?: block.type), style = MaterialTheme.typography.bodyMedium)
         }
       }
       block.provenance?.source?.let { src -> ProvenanceChip(src) }
