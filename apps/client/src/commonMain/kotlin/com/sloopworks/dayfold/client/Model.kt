@@ -209,7 +209,12 @@ data class BlockPayload(
 
 @Serializable
 data class ChecklistItem(
-  val text: String? = null, val done: Boolean = false, val due: String? = null, val assignee: String? = null,
+  val id: String? = null,                                    // ADR 0038 — stable per-item id (the LWW merge key)
+  val text: String? = null, val done: Boolean = false,
+  val doneBy: String? = null,                                // ADR 0038 — who toggled (the "✓ Dad" byline + LWW tiebreak)
+  val doneAt: String? = null,                                // ADR 0038 — wall-clock stamp for `done` (the LWW clock)
+  val ord: Long? = null,                                     // ADR 0038 — order; loop-authoritative at M0
+  val due: String? = null, val assignee: String? = null,
   // budget rows (canonical schema shape): an itemized budget uses these (ADR 0035).
   val label: String? = null, val amount: Double? = null, val paid: Boolean? = null,
 )
