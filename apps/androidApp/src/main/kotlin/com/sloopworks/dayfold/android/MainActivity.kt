@@ -186,6 +186,10 @@ class MainActivity : ComponentActivity() {
           onLoadAudience = { id -> lifecycleScope.launch { hubEngine.loadAudience(id) } },
           onToggleItem = { blockId, itemId, done -> lifecycleScope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
           onRetryBlock = { blockId -> lifecycleScope.launch { hubEngine.retryBlock(blockId) } },
+          // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.
+          onDeleteBlock = { blockId -> lifecycleScope.launch { hubEngine.deleteBlock(blockId) } },
+          onHideBlock = { blockId -> lifecycleScope.launch { hubEngine.hideBlock(blockId) } },
+          onUnhideBlock = { blockId -> lifecycleScope.launch { hubEngine.unhideBlock(blockId) } },
         )
       }
     }

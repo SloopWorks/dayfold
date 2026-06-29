@@ -32,6 +32,7 @@ class SyncEngine(
   private val syncMutex = Mutex()
   private var bridgeJob: Job? = null
   private var hubBridgeJob: Job? = null
+  private var hiddenBridgeJob: Job? = null
   private var pollJob: Job? = null
 
   /**
@@ -47,6 +48,11 @@ class SyncEngine(
     }
     hubBridgeJob = scope.launch {
       contentStore.activeHubsFlow().collect { store.dispatch(HubsLoaded(it)) }
+    }
+    // W5 hide (ADR 0038 §W5): the hidden-id set is DB-fed too — the sole writer of
+    // state.hiddenIds. Local-only; nothing here is ever synced.
+    hiddenBridgeJob = scope.launch {
+      contentStore.hiddenIdsFlow().collect { store.dispatch(HiddenLoaded(it)) }
     }
   }
 
@@ -130,7 +136,10 @@ class SyncEngine(
       val op = contentStore.nextPendingOp() ?: return
       contentStore.markOpInflight(op.opId)
       val result = try {
-        syncClient.putBlock(op.targetId, op.payload, op.baseVersion, op.opId)
+        // ADR 0038 §W4 — dispatch by op type: a "delete" op is a DELETE (no body/If-Match);
+        // every other op (toggle, future upsert) is a whole-block PUT.
+        if (op.type == "delete") syncClient.deleteBlock(op.targetId, op.opId)
+        else syncClient.putBlock(op.targetId, op.payload, op.baseVersion, op.opId)
       } catch (e: Exception) {
         PutResult(null, null) // transport/network error → transient
       }
@@ -179,6 +188,7 @@ class SyncEngine(
   fun stop() {
     bridgeJob?.cancel(); bridgeJob = null
     hubBridgeJob?.cancel(); hubBridgeJob = null
+    hiddenBridgeJob?.cancel(); hiddenBridgeJob = null
     pollJob?.cancel(); pollJob = null
     scope.cancel()
   }

@@ -88,6 +88,10 @@ fun main() = application {
       onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
       onToggleItem = { blockId, itemId, done -> scope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
       onRetryBlock = { blockId -> scope.launch { hubEngine.retryBlock(blockId) } },
+      // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.
+      onDeleteBlock = { blockId -> scope.launch { hubEngine.deleteBlock(blockId) } },
+      onHideBlock = { blockId -> scope.launch { hubEngine.hideBlock(blockId) } },
+      onUnhideBlock = { blockId -> scope.launch { hubEngine.unhideBlock(blockId) } },
     )
   }
 }

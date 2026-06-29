@@ -59,12 +59,15 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     currentHubTree = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.currentHubTree,
   )
   is HubsFailed -> state.copy(hubsBusy = false, hubError = action.message)
-  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null)
+  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null, showHidden = false)
   is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
   is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.")
-  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null)
+  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false)
   is SetHubFocus -> state.copy(hubFocusBlockId = action.blockId)
   is SetHubFilter -> state.copy(hubFilter = action.filter)
+  // W5 hide (ADR 0038 §W5) — DB-fed hidden ids + the per-view "Show hidden" toggle.
+  is HiddenLoaded -> state.copy(hiddenIds = action.ids)
+  is SetShowHidden -> state.copy(showHidden = action.show)
   is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null, audienceError = null)
   is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience, audienceError = null)
   is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null, audienceError = null)

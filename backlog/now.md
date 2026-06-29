@@ -62,11 +62,38 @@ hubs only; W5 hide = local-only first; INB-25/26 closed). Ratification merged vi
   the author-gate substrate (minimal W2 stamp). 326 API tests green. *Implements
   accepted ADR 0038 §W4; the member `content:delete` grant is a new member-authority
   fact — fold into an ADR 0038 amendment or a short ADR if the operator wants it recorded.*
-- **Next**: Slice 5b (W4 client delete sheet — author-only, propagate `created_by`
-  over /sync, outbox `delete` op + `SyncClient.deleteBlock`, `OutboxSender` 204→Acked
-  — + **W5 hide** local-only `hidden` table, swipe + overflow, "Show hidden", "You hid
-  this"), Slice 6 (freshness). Deferred + gated last: W2 authoring, W1 media (R2),
-  W3 add-context (EXPERIMENTAL/flagged).
+- **Slice 5b (W4 delete client + W5 hide) — ✅ COMPLETE (branch
+  `two-way-slice5b-delete-hide-client`)**: **W4 delete client** — `created_by` propagated
+  over /sync (`HubBlock.createdBy` + `hub_block.created_by` col + migration `5.sqm` +
+  `upsertBlock`/SELECTs/`rowToBlock`); author-only delete sheet (`ModalBottomSheet`, calm
+  warn — *absent* not disabled for non-authors; option gated on `createdBy == session.userId`);
+  egress `SyncClient.deleteBlock` (DELETE + Idempotency-Key, no body/If-Match),
+  `OutboxSender` 204→Acked, `SyncEngine.drainOutbox` dispatch on `op.type`,
+  `ContentStore.enqueueBlockDelete` + `HubEngine.deleteBlock`. **Optimistic = honest
+  "Removing…"** (mark `pending` + keep the row visible until the /sync tombstone confirms;
+  reuses the five-rung vocab + survives offline) — a deliberate **deviation from the mockup's
+  optimistic-remove + undo** (chosen for reuse + offline-correctness). **W5 hide** — LOCAL-ONLY
+  `hidden` table (never synced, wiped on `wipe()`), `ContentStore.hide/unhide/hiddenIdsFlow`
+  + pure `partitionHidden`, DB→store `hiddenBridge` → `state.hiddenIds`, swipe-to-hide
+  (`SwipeToDismissBox`) + overflow `DropdownMenu` (the a11y path) both reach Hide,
+  collapsed "Hidden for you · N" + "Show hidden" toggle + "You hid this" + Unhide.
+  **Enabling fix**: the client now decodes its own user id from the access-token JWT `sub`
+  (`jwtSub`, decode-only) — `AuthClient` had been minting `Session.userId = null`, which would
+  have left the author-gate permanently closed on the real sign-in path. Threaded
+  `onDeleteBlock`/`onHideBlock`/`onUnhideBlock` through FeedApp→HubsHost→HubDetailScreen + all
+  3 shells; `Show hidden` is pure store state (dispatched in HubsHost, no shell seam).
+  **509 client tests green** (+TDD: 204-ack, `created_by` round-trip, delete egress E2E,
+  hide model/partition, reducer, JWT-sub, 7 delete/hide compose tests). **On-device verified
+  on the Pixel**: author overflow → Delete → warn sheet ("Delete "12 guests…"?") →
+  optimistic pill → DELETE → server `deleted_at` set → /sync tombstone removes the card +
+  empty section; swipe → "Hidden for you" → Show hidden → "You hid this" → Unhide → restored.
+  Dev-infra: seed `ondevice-seed.sql` now stamps `created_by` (blk_ov=u_dev author / blk_link=u_sam
+  non-author) so the author-gate is exercisable on-device. *Pre-existing card/hub-ordinal
+  `verifyMigrations` drift is unrelated + CI-skipped (confirmed identical on main); my
+  `created_by`/`hidden` additions verify clean.*
+- **Next**: Slice 6 (freshness — stale-cursor full-resync directive + tombstone-retention
+  floor + content-tombstone GC on `/cron/sweep`). Deferred + gated last: W2 authoring, W1
+  media (R2 — external/spend gate), W3 add-context (EXPERIMENTAL/flagged — AI-spend gate).
 
 **Status update (2026-06-26): first real on-device sign-in is LIVE on prod.** Real
 Google sign-in + foreground sync now work end-to-end on the Pixel against

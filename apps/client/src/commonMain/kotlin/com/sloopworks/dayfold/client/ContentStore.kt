@@ -87,7 +87,7 @@ class ContentStore(driver: SqlDriver) {
           b.id, b.sectionId ?: "", b.type, b.bodyMd,
           payloadToStore?.let { json.encodeToString(BlockPayload.serializer(), it) },
           b.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
-          b.ord, nowIso, b.version,
+          b.ord, nowIso, b.version, b.createdBy,    // ADR 0038 §W4 — mirror the set-once author id
         )
         // Echo-suppress + reconcile (§5.5): drop the member's own acked op once the
         // server delivers its result version, then clear the pending flag if nothing is
@@ -134,7 +134,7 @@ class ContentStore(driver: SqlDriver) {
       id = r.id, sectionId = r.section_id, type = r.type, bodyMd = r.body_md,
       payload = decode(r.payload, BlockPayload.serializer()),
       provenance = decode(r.provenance, Provenance.serializer()),
-      ord = r.ord, version = r.version, localState = r.local_state,
+      ord = r.ord, version = r.version, localState = r.local_state, createdBy = r.created_by,
     )
 
   // Guarded decode: corrupt cached JSON must not crash the feed — skip → null,
@@ -146,7 +146,7 @@ class ContentStore(driver: SqlDriver) {
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
    *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden() }
   }
 
   // ── Egress lane (ADR 0038/0039) — the outbox is WRITE-ONLY (the UI never reads it). ──
@@ -170,6 +170,23 @@ class ContentStore(driver: SqlDriver) {
       val body = blockPutBody(row.section_id, row.type, payloadJson, row.provenance, nowIso)
       q.deletePendingForTarget(blockId, "toggle")               // coalesce N taps → one op
       q.enqueueOp(opId, "block", blockId, "toggle", body, row.version, null, nowIso)
+    }
+  }
+
+  /**
+   * Optimistic delete (ADR 0038 §W4): mark the block 'pending' ("Removing…") + keep the row
+   * VISIBLE, and enqueue ONE coalesced "delete" outbox op. The row is removed only when the
+   * inbound /sync tombstone confirms — honest + offline-correct (vs. the mockup's optimistic-
+   * remove + undo; this reuses the five-rung vocabulary and survives an offline delete). On a
+   * terminal failure the op parks 'failed' → FailedRetry, same as a toggle. The DELETE itself
+   * carries no body + no If-Match (idempotent; the server is the author-gate, 5a).
+   */
+  fun enqueueBlockDelete(blockId: String, nowIso: String, opId: String) {
+    q.transaction {
+      q.blockById(blockId).executeAsOneOrNull() ?: return@transaction
+      q.setBlockLocalState("pending", blockId)
+      q.deletePendingForTarget(blockId, "delete")               // coalesce repeated delete taps
+      q.enqueueOp(opId, "block", blockId, "delete", "", null, null, nowIso)  // no body, no base version
     }
   }
 
@@ -258,6 +275,20 @@ class ContentStore(driver: SqlDriver) {
         }
       }
     }
+
+  // ── W5 hide (ADR 0038 §W5) — LOCAL-ONLY personal view filter. NEVER synced (not in
+  // applyDelta, not in the outbox); hide ≠ ACL, so hidden content keeps syncing normally.
+
+  /** Hide an entity for this device only (idempotent; updates the stamp on re-hide). */
+  fun hide(entityId: String, nowIso: String) = q.hideEntity(entityId, nowIso)
+
+  /** Un-hide — bring it back into the visible view. */
+  fun unhide(entityId: String) = q.unhideEntity(entityId)
+
+  /** Reactive set of hidden entity ids — re-emits on any hide/unhide. The screen partitions
+   *  the tree against this (the "Hidden for you" section + "Show hidden" toggle). */
+  fun hiddenIdsFlow(): Flow<Set<String>> =
+    q.hiddenIds().asFlow().mapToList(Dispatchers.Default).map { it.toSet() }
 
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)

@@ -283,6 +283,20 @@ class HubEngineTest {
     assertEquals(1, cs.pendingOpCount())                    // exactly one coalesced egress op
   }
 
+  // Slice 5b (ADR 0038 §W4) — deleteBlock runs the optimistic delete (mark 'pending'/Removing
+  // + enqueue a "delete" op) through ContentStore, mirroring toggleItem. A 500 backend keeps the
+  // op pending so the enqueue is observable.
+  @Test fun `deleteBlock optimistically marks the block pending and queues one delete op`() = runBlocking<Unit> {
+    val store = readyStore()
+    val cs = freshContentStore(); seedChecklist(cs)
+    val e = engine(store, MockEngine { respond("err", HttpStatusCode.InternalServerError) }, contentStore = cs)
+    e.deleteBlock("b1")
+    assertEquals("pending", cs.blockLocalState("b1"))        // "Removing…" — row stays visible
+    val op = cs.nextPendingOp()!!
+    assertEquals("delete", op.type)
+    assertEquals("b1", op.targetId)
+  }
+
   @Test fun `retryBlock re-arms a block parked failed back to pending`() = runBlocking<Unit> {
     val store = readyStore()
     val cs = freshContentStore(); seedChecklist(cs)

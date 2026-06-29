@@ -16,6 +16,25 @@ class ReducerTest {
     assertEquals(listOf("a", "b"), s.cards.map { it.id })
   }
 
+  // Slice 5b (ADR 0038 §W5) — hidden ids are DB-fed (bridge) into state; "Show hidden" is a
+  // per-view toggle that OpenHub/CloseHub reset so it never leaks across hubs.
+  @Test fun `HiddenLoaded replaces the hidden id set`() {
+    var s = AppState(hiddenIds = setOf("old"))
+    s = rootReducer(s, HiddenLoaded(setOf("b1", "b2")))
+    assertEquals(setOf("b1", "b2"), s.hiddenIds)
+  }
+
+  @Test fun `SetShowHidden toggles the view flag`() {
+    val on = rootReducer(AppState(), SetShowHidden(true))
+    assertTrue(on.showHidden)
+    assertFalse(rootReducer(on, SetShowHidden(false)).showHidden)
+  }
+
+  @Test fun `opening or closing a hub resets Show hidden`() {
+    assertFalse(rootReducer(AppState(showHidden = true), OpenHub("h1")).showHidden)
+    assertFalse(rootReducer(AppState(showHidden = true), CloseHub).showHidden)
+  }
+
   @Test fun `sync status lifecycle`() {
     val started = rootReducer(AppState(), SyncStarted)
     assertTrue(started.syncing); assertNull(started.error)

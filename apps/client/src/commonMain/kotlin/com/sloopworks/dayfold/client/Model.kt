@@ -200,6 +200,10 @@ data class HubBlock(
   val payload: BlockPayload? = null,                         // typed fields for the structured block kinds
   val provenance: Provenance? = null,
   val ord: Long = 0,
+  // ADR 0038 §W4 — set-once author id (server-stamped, 5a). Drives the author-only delete
+  // gate: the delete option is absent unless createdBy == the signed-in user. null = legacy
+  // (pre-stamp) block / loop-authored with no member author.
+  @SerialName("created_by") val createdBy: String? = null,
   val version: Long = 1,                                     // ADR 0038 — server row version (If-Match base)
   // ADR 0038 — client-only optimistic-write state ('pending'/'failed'/null=synced). Not on the
   // wire; @Transient so it never (de)serializes — it's projected from the local hub_block row.
@@ -353,6 +357,11 @@ data class AppState(
   val currentHubId: String? = null,
   val currentHubTree: HubTree? = null,
   val hubFocusBlockId: String? = null,                        // deep-link arrival: the block to highlight
+  // W5 hide (ADR 0038 §W5) — DB-fed set of locally-hidden entity ids (bridge writes it);
+  // showHidden is the per-view "Show hidden" toggle (reset on open/close hub). Hide is
+  // local-only + personal — never synced, no family-visible signal.
+  val hiddenIds: Set<String> = emptySet(),
+  val showHidden: Boolean = false,
   // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
   // currentHubAudience null while loading.
   val audienceSheetOpen: Boolean = false,
@@ -394,6 +403,10 @@ data object HubNotFound : Action                              // 404 (restricted
 data object CloseHub : Action                                 // detail → list
 data class SetHubFocus(val blockId: String?) : Action         // deep-link arrival: highlight a block
 data class SetHubFilter(val filter: String) : Action          // list filter chips (all|active|planning)
+// W5 hide (ADR 0038 §W5). HiddenLoaded is the DB→store bridge (sole writer of hiddenIds);
+// SetShowHidden flips the per-view "Show hidden" toggle. Hide/unhide effects run in HubEngine.
+data class HiddenLoaded(val ids: Set<String>) : Action
+data class SetShowHidden(val show: Boolean) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceLoaded(val audience: HubAudience) : Action
 data object CloseAudienceSheet : Action

@@ -11,6 +11,12 @@ class OutboxSenderTest {
     assertEquals(SendOutcome.Acked, OutboxSender.classify(200, attempt = 0))
   }
 
+  // Slice 5b (ADR 0038 §W4) — DELETE returns 204 No Content on success (and on an
+  // idempotent re-delete). The sender must ack it exactly like a 200.
+  @Test fun `204 acks (delete success - no content)`() {
+    assertEquals(SendOutcome.Acked, OutboxSender.classify(204, attempt = 0))
+  }
+
   @Test fun `412 re-merges (until the cap, then fails)`() {
     assertEquals(SendOutcome.ReMerge, OutboxSender.classify(412, attempt = 0))
     assertEquals(SendOutcome.ReMerge, OutboxSender.classify(412, attempt = 3, maxAttempts = 5))

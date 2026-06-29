@@ -138,6 +138,26 @@ class ContentStoreTest {
     assertEquals("attachment", e.related?.first()?.relation)
   }
 
+  // Slice 5b (ADR 0038 §W4) — the author-gate substrate: /sync emits created_by on each
+  // block (set-once server-side, 5a). The client must persist it + project it onto
+  // HubBlock.createdBy so the delete sheet can compare it to the signed-in user id.
+  @Test fun `block created_by survives applyDelta and projects onto the tree`() = runBlocking {
+    val s = store()
+    s.applyDelta(
+      changedCards = emptyList(),
+      changedHubs = listOf(Hub(id = "h1", title = "Party", visibility = "family")),
+      changedSections = listOf(HubSection(id = "s1", hubId = "h1", title = "Plan", ord = 0)),
+      changedBlocks = listOf(HubBlock(id = "b1", sectionId = "s1", type = "text",
+        bodyMd = "by mom", createdBy = "usr_mom")),
+      tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-29T10:00:00Z",
+    )
+    s.hubTreeFlow("h1").test {
+      val tree = awaitItem()
+      assertEquals("usr_mom", tree?.blocks?.firstOrNull { it.id == "b1" }?.createdBy)
+      cancelAndIgnoreRemainingEvents()
+    }
+  }
+
   @Test fun `corrupt cached related JSON yields null related, card still renders`() {
     val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
     val s = ContentStore.create(driver)

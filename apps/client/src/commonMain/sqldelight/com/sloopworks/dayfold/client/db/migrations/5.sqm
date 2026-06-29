@@ -1,0 +1,12 @@
+-- Migration v5→v6 (ADR 0038 §W4/§W5, Slice 5b — delete client + local hide):
+--   * hub_block.created_by — set-once author id mirrored from /sync (server-stamped in 5a).
+--     The author-gate substrate: the delete option is absent unless created_by == the user.
+--   * hidden — client-only personal view filter. NEVER synced (not in applyDelta / outbox),
+--     wiped on wipe(). Hide ≠ ACL — hidden content still syncs; "Show hidden" is a view toggle.
+-- Additive; existing rows get NULL created_by and an empty hidden table.
+ALTER TABLE hub_block ADD COLUMN created_by TEXT;
+
+CREATE TABLE hidden (
+  entity_id TEXT NOT NULL PRIMARY KEY,
+  hidden_at TEXT NOT NULL
+);

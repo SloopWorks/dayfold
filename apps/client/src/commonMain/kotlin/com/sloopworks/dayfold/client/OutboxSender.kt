@@ -39,7 +39,7 @@ object OutboxSender {
     val next = attempt + 1
     val capReached = next >= maxAttempts
     return when {
-      httpStatus == 200 -> SendOutcome.Acked
+      httpStatus == 200 || httpStatus == 204 -> SendOutcome.Acked    // 204 = delete OK / idempotent re-delete
       httpStatus == 410 || httpStatus == 404 -> SendOutcome.Drop          // tombstoned / parent gone → give up
       httpStatus == 412 -> if (capReached) SendOutcome.Failed else SendOutcome.ReMerge
       // other client errors (malformed body, 403, 422 …) except 401 → not retryable → give up

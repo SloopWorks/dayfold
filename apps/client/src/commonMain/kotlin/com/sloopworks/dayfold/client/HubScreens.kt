@@ -33,19 +33,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -237,6 +245,12 @@ fun HubDetailScreen(
   onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> },
   onRetryBlock: (String) -> Unit = {},
   onSyncNow: () -> Unit = {},
+  // Slice 5b (ADR 0038 §W4/§W5): delete = author-gated egress; hide/unhide = local-only;
+  // onSetShowHidden flips the "Hidden for you" view toggle. The shell routes these to HubEngine.
+  onDeleteBlock: (String) -> Unit = {},
+  onHideBlock: (String) -> Unit = {},
+  onUnhideBlock: (String) -> Unit = {},
+  onSetShowHidden: (Boolean) -> Unit = {},
 ) {
   val tree = state.currentHubTree
   Scaffold(
@@ -344,10 +358,14 @@ fun HubDetailScreen(
             )
           }
         }
-        // sections (ordered) each followed by their blocks (grouped by section_id).
+        // sections (ordered) each followed by their blocks (grouped by section_id). Hidden
+        // blocks (W5) are filtered out of the live sections and collected into the one
+        // "Hidden for you" section below — hide is a pure VIEW split, never a deletion (D4).
+        val selfId = state.session?.userId
         tree.sections.sortedBy { it.ord }.forEach { section ->
-          val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
-          if (blocks.isEmpty()) return@forEach          // skip a section with no content — no bare header
+          val all = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
+          val blocks = partitionHidden(all, state.hiddenIds).visible
+          if (blocks.isEmpty()) return@forEach          // skip a section with no visible content — no bare header
           item(key = "sec-${section.id}") {
             Text(
               (section.title ?: "").uppercase(),
@@ -357,7 +375,27 @@ fun HubDetailScreen(
             )
           }
           items(blocks, key = { "blk-${it.id}" }) { block ->
-            HubBlockCard(block, focused = block.id == state.hubFocusBlockId, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock)
+            HubBlockCard(
+              block, focused = block.id == state.hubFocusBlockId,
+              // author-gate (W4): delete is offered only to the author (set-once created_by);
+              // a null author (legacy / loop-authored) is never deletable by a member.
+              canDelete = block.createdBy != null && block.createdBy == selfId,
+              onToggleItem = onToggleItem, onRetryBlock = onRetryBlock,
+              onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock,
+            )
+          }
+        }
+        // ── "Hidden for you" (W5) — a collapsed, personal section; never a family-visible
+        // signal. Each hidden item carries the "You hid this" self-reminder + an Unhide path.
+        val hidden = tree.blocks.filter { state.hiddenIds.contains(it.id) }.sortedBy { it.ord }
+        if (hidden.isNotEmpty()) {
+          item(key = "hidden-header") {
+            HiddenForYouHeader(hidden.size, state.showHidden, onToggle = { onSetShowHidden(!state.showHidden) })
+          }
+          if (state.showHidden) {
+            items(hidden, key = { "hidden-${it.id}" }) { block ->
+              HiddenBlockCard(block, onUnhide = { onUnhideBlock(block.id) })
+            }
           }
         }
       }
@@ -486,46 +524,189 @@ internal fun budgetTotals(p: BlockPayload?): Pair<Double, Double> {
   return total to spent
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HubBlockCard(
   block: HubBlock,
   focused: Boolean = false,
+  canDelete: Boolean = false,
   onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> },
   onRetryBlock: (String) -> Unit = {},
+  onDeleteBlock: (String) -> Unit = {},
+  onHideBlock: (String) -> Unit = {},
 ) {
-  Card(
-    Modifier.fillMaxWidth()
-      .then(if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(22.dp)) else Modifier),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-    shape = RoundedCornerShape(22.dp),
+  var menuOpen by remember { mutableStateOf(false) }
+  var confirmDelete by remember { mutableStateOf(false) }
+
+  // W5 hide — swipe (the on-brand path; mirrors the fold). A swipe-end fires hide + resets
+  // the box: the row leaves the visible list the moment the hide flows back through the DB,
+  // so there's nothing to keep "dismissed". Hide is local + reversible — no confirm.
+  val dismissState = rememberSwipeToDismissBoxState(
+    confirmValueChange = { v ->
+      if (v == SwipeToDismissBoxValue.EndToStart || v == SwipeToDismissBoxValue.StartToEnd) {
+        onHideBlock(block.id); false
+      } else false
+    },
+  )
+  SwipeToDismissBox(
+    state = dismissState,
+    backgroundContent = { HideSwipeBackground() },
+    modifier = Modifier.fillMaxWidth(),
   ) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-      // deep-link arrival badge (the design's "FROM YOUR BRIEFING" pulse)
-      if (focused) {
-        Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(7.dp)) {
-          Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(end = 3.dp).size(13.dp))
-            Text("FROM YOUR BRIEFING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+    Card(
+      Modifier.fillMaxWidth()
+        .then(if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(22.dp)) else Modifier),
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+      shape = RoundedCornerShape(22.dp),
+    ) {
+      Box {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          // deep-link arrival badge (the design's "FROM YOUR BRIEFING" pulse)
+          if (focused) {
+            Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(7.dp)) {
+              Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(end = 3.dp).size(13.dp))
+                Text("FROM YOUR BRIEFING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+              }
+            }
+          }
+          when {
+            // typed block whose content is in body_md (no usable payload) → show the markdown
+            blockFallsBackToBodyMd(block) -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
+            else -> when (block.type) {
+              "text", "markdown" -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
+              "checklist" -> ChecklistBlock(block, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock)
+              "link", "document" -> LinkRow(block)
+              "contact" -> ContactRow(block.payload)
+              "location" -> LocationBlock(block.payload)
+              "milestone" -> MilestoneRow(block.payload, block.bodyMd)
+              "budget" -> BudgetBar(block.payload)
+              else -> Text(rememberRenderedMarkdown(block.bodyMd ?: block.type), style = MaterialTheme.typography.bodyMedium)
+            }
+          }
+          block.provenance?.source?.let { src -> ProvenanceChip(src) }
+        }
+        // Overflow (the a11y fallback — keyboard- and screen-reader-reachable): Hide for me
+        // always, Delete only for the author. Both gestures reach the same actions.
+        Box(Modifier.align(Alignment.TopEnd)) {
+          IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "More options" }) {
+            androidx.compose.material3.Icon(DayfoldIcons.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clearAndSetSemantics {})
+          }
+          DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+              text = { Text("Hide for me") },
+              leadingIcon = { androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, modifier = Modifier.size(20.dp)) },
+              onClick = { menuOpen = false; onHideBlock(block.id) },
+            )
+            if (canDelete) {
+              DropdownMenuItem(
+                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = { androidx.compose.material3.Icon(DayfoldIcons.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) },
+                onClick = { menuOpen = false; confirmDelete = true },
+              )
+            }
           }
         }
       }
-      when {
-        // typed block whose content is in body_md (no usable payload) → show the markdown
-        blockFallsBackToBodyMd(block) -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
-        else -> when (block.type) {
-          "text", "markdown" -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
-          "checklist" -> ChecklistBlock(block, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock)
-          "link", "document" -> LinkRow(block)
-          "contact" -> ContactRow(block.payload)
-          "location" -> LocationBlock(block.payload)
-          "milestone" -> MilestoneRow(block.payload, block.bodyMd)
-          "budget" -> BudgetBar(block.payload)
-          else -> Text(rememberRenderedMarkdown(block.bodyMd ?: block.type), style = MaterialTheme.typography.bodyMedium)
-        }
-      }
-      block.provenance?.source?.let { src -> ProvenanceChip(src) }
     }
   }
+
+  // W4 delete — the one calm, ACL-aware warn sheet (not a red alert). Delete is the single
+  // destructive op that removes the thing family-wide, so it asks once. Only reachable here
+  // when canDelete (author) — non-authors never see the option.
+  if (confirmDelete) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = { confirmDelete = false }, sheetState = sheetState) {
+      Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(deleteSheetTitle(block), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+          "Your family will no longer see it. This can't be undone after sync.",
+          style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+          onClick = { confirmDelete = false; onDeleteBlock(block.id) },
+          colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError,
+          ),
+          modifier = Modifier.fillMaxWidth(),
+        ) { Text("Delete for everyone") }
+        TextButton(onClick = { confirmDelete = false }, modifier = Modifier.fillMaxWidth()) { Text("Keep it") }
+      }
+    }
+  }
+}
+
+// The swipe-reveal background behind a block: a calm "Hide for me" affordance (the personal
+// colour, never the coral delete owns).
+@Composable
+private fun HideSwipeBackground() {
+  Box(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+      .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 20.dp),
+  ) {
+    Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+      androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+      Text("Hide", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+  }
+}
+
+// "Hidden for you · N" header — the expandable, dashed personal section. The copy never says
+// "deleted"/"removed", only "hidden for you"; the family still sees these.
+@Composable
+private fun HiddenForYouHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(14.dp),
+    modifier = Modifier.fillMaxWidth().clickable(
+      onClick = onToggle,
+      onClickLabel = if (expanded) "Hide the hidden section" else "Show hidden",
+    ),
+  ) {
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+      androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+      Column(Modifier.weight(1f).padding(start = 10.dp)) {
+        Text("Hidden for you · $count", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        Text("Your family still sees these", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      Text(if (expanded) "Hide" else "Show hidden", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+  }
+}
+
+// A single hidden block, shown when "Show hidden" is on: the content (dimmed) + the quiet
+// "You hid this" self-reminder + an Unhide path to bring it back.
+@Composable
+private fun HiddenBlockCard(block: HubBlock, onUnhide: () -> Unit) {
+  Card(
+    Modifier.fillMaxWidth(),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    shape = RoundedCornerShape(22.dp),
+  ) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Box(Modifier.alpha(0.6f)) {
+        Text(blockPreviewText(block), style = MaterialTheme.typography.bodyMedium)
+      }
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+        Text("You hid this", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f))
+        TextButton(onClick = onUnhide) { Text("Unhide") }
+      }
+    }
+  }
+}
+
+// The delete-sheet title: name the thing when we can ("Delete "Grocery run list"?"), else a
+// calm generic ("Delete this?"). Blocks have no title field — derive a short label.
+internal fun deleteSheetTitle(block: HubBlock): String =
+  blockPreviewText(block).takeIf { it.isNotBlank() }?.let { "Delete “${it.take(40).trim()}”?" } ?: "Delete this?"
+
+// A one-line preview of a block for the hidden card + the delete sheet: the first non-blank
+// line of body_md, else a typed-payload label/name, else the block type.
+internal fun blockPreviewText(block: HubBlock): String {
+  block.bodyMd?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotBlank() }?.let { return it.removePrefix("#").trim() }
+  block.payload?.let { p -> (p.label ?: p.name ?: p.items?.firstOrNull { it.text != null }?.text)?.let { return it } }
+  return block.type
 }
 
 // Slice 4 (ADR 0038 §4) — the interactive checklist. The check IS a fold: a freshly

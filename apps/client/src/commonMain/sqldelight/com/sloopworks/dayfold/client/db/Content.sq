@@ -145,17 +145,21 @@ CREATE TABLE hub_block (
   -- ADR 0038 — optimistic-write UI state: 'pending' (queued in the outbox), 'failed'
   -- (gave up after retries), NULL (synced/server-truth). Written by the optimistic
   -- apply; cleared when the inbound /sync echo confirms the op. NOT a wire field.
-  local_state TEXT
+  local_state TEXT,
+  -- ADR 0038 §W4 (Slice 5b) — set-once author id (server-stamped, 5a). Mirrored from
+  -- /sync; drives the author-only delete gate. NULL = legacy / loop-authored.
+  created_by TEXT
 );
 
--- Inbound (from /sync): the server row is the synced truth — take its version, clear local_state.
+-- Inbound (from /sync): the server row is the synced truth — take its version + author,
+-- clear local_state.
 upsertBlock:
-INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted, version, local_state)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)
+INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted, version, local_state, created_by)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?)
 ON CONFLICT(id) DO UPDATE SET
   section_id=excluded.section_id, type=excluded.type, body_md=excluded.body_md,
   payload=excluded.payload, provenance=excluded.provenance, ord=excluded.ord,
-  updated_at=excluded.updated_at, deleted=0, version=excluded.version;
+  updated_at=excluded.updated_at, deleted=0, version=excluded.version, created_by=excluded.created_by;
 
 -- Optimistic local write (a member toggle): overlay the merged payload + mark pending.
 -- Leaves the server-owned columns (type/section/ord/provenance/version) untouched —
@@ -171,7 +175,7 @@ setBlockLocalState:
 UPDATE hub_block SET local_state=? WHERE id=?;
 
 blockById:
-SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state, created_by
 FROM hub_block WHERE id=? AND deleted=0;
 
 markBlockDeleted:
@@ -187,7 +191,7 @@ WHERE hub_id = ? AND deleted=0
 ORDER BY ord, id;
 
 blocksForSections:
-SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state FROM hub_block
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state, created_by FROM hub_block
 WHERE section_id IN ? AND deleted=0
 ORDER BY ord, id;
 
@@ -270,3 +274,25 @@ SELECT count(*) FROM outbox;
 
 wipeOutbox:
 DELETE FROM outbox;
+
+-- ── W5 hide (Slice 5b) — a LOCAL-ONLY personal view filter. NEVER synced: not in
+-- applyDelta, not in the outbox, no family-visible signal. Hide ≠ ACL — hidden content
+-- still SYNCS normally; "Show hidden" is a pure view toggle. Wiped on wipe() like the
+-- rest of the disposable cache (a tenancy revocation drops it too).
+CREATE TABLE hidden (
+  entity_id TEXT NOT NULL PRIMARY KEY,   -- the hidden entity (a block id at M0)
+  hidden_at TEXT NOT NULL                -- when, for the "You hid this" self-reminder ordering
+);
+
+hideEntity:
+INSERT INTO hidden(entity_id, hidden_at) VALUES (?, ?)
+ON CONFLICT(entity_id) DO UPDATE SET hidden_at=excluded.hidden_at;
+
+unhideEntity:
+DELETE FROM hidden WHERE entity_id=?;
+
+hiddenIds:
+SELECT entity_id FROM hidden;
+
+wipeHidden:
+DELETE FROM hidden;

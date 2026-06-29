@@ -60,7 +60,7 @@ class AuthClient(
     }
     if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "dev-token")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
-    return Session(access = t.access, refresh = t.refresh)
+    return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
 
   /**
@@ -75,7 +75,7 @@ class AuthClient(
     }
     if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "firebase")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
-    return Session(access = t.access, refresh = t.refresh)
+    return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
 
   /** GET /auth/whoami (Bearer access) → the caller's memberships. */
@@ -104,7 +104,7 @@ class AuthClient(
     }
     if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "refresh")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
-    return Session(access = t.access, refresh = t.refresh)
+    return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
 
   /** POST /auth/signout (Bearer access) — revokes the credential + all its refresh tokens. */

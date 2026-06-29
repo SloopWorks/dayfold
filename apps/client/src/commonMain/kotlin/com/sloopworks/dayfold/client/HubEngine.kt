@@ -41,11 +41,26 @@ class HubEngine(
     scope.launch { syncEngine.syncNow() }
   }
 
+  // Slice 5b (ADR 0038 §W4) — an author-gated member delete. The optimistic mark ("Removing…")
+  // + outbox enqueue is one atomic ContentStore call; we then kick a sync so the DELETE drains
+  // promptly. The row is removed only when the inbound /sync tombstone confirms. The author gate
+  // (createdBy == userId) lives in the UI (the option is absent for non-authors); the server
+  // re-checks (403 non-author / no scope → the op drops).
+  suspend fun deleteBlock(blockId: String) {
+    contentStore.enqueueBlockDelete(blockId, nowProvider(), idProvider())
+    scope.launch { syncEngine.syncNow() }
+  }
+
   // Slice 4 — manual Retry of a block parked 'failed': re-arm its op(s) + kick a sync.
   suspend fun retryBlock(blockId: String) {
     contentStore.retryBlock(blockId)
     scope.launch { syncEngine.syncNow() }
   }
+
+  // Slice 5b (ADR 0038 §W5) — hide is LOCAL-ONLY + personal + reversible. No sync, no outbox,
+  // no family-visible signal. The DB write re-emits via the hidden bridge → the view re-partitions.
+  suspend fun hideBlock(blockId: String) = contentStore.hide(blockId, nowProvider())
+  suspend fun unhideBlock(blockId: String) = contentStore.unhide(blockId)
 
   // PR1: the hub LIST is now DB-fed via the SyncEngine hub bridge — this method is a
   // no-op. The bridge (SyncEngine.hubBridgeJob) is the sole writer of state.hubs via

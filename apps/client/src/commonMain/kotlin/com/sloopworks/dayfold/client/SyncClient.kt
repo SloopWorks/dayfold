@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -64,6 +65,23 @@ class SyncClient(
       json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
     }.getOrNull() else null
     return PutResult(status, version)
+  }
+
+  /**
+   * Egress (ADR 0038 §W4): DELETE one block with an Idempotency-Key (the op_id) and no body /
+   * no If-Match — delete is idempotent (a re-delete returns 204) and author-gated server-side.
+   * Returns the HTTP status (204 = OK, 403 = not author / no scope, 404 = absent/can't-see) so
+   * OutboxSender.classify decides ack / drop / backoff. status=null when not signed in.
+   */
+  suspend fun deleteBlock(blockId: String, opId: String): PutResult {
+    val fam = familyId()
+    val tok = token()
+    if (fam.isNullOrEmpty() || tok.isNullOrEmpty()) return PutResult(null, null)
+    val resp = http.delete("$api/families/$fam/blocks/$blockId") {
+      header("authorization", "Bearer $tok")
+      header("idempotency-key", opId)
+    }
+    return PutResult(resp.status.value, null)
   }
 }
 
