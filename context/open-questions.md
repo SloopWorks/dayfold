@@ -28,6 +28,21 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-notbefore-gating** *(NEW 2026-06-29)*: Should the **client feed gate `not_before`**, or is
+  sort-only intended for M0? The spec says `not_before` **gates surfacing** ("don't surface before
+  this time", `specs/prototype/12-briefing-card-spec.md:56`; "gates surfacing",
+  `specs/domain-model/scope-and-access-model.md:161`; "Now feed filters `not_before`/`expires_at`",
+  `specs/prototype/03-api.md:66`). But `feedCards` (`Selectors.kt`) filters only `expires_at` and
+  uses `not_before` **purely for ordering** — and `SelectorsTest` *deliberately* asserts that two
+  cards whose `not_before` is in the **future** (relative to `now`) are still **shown**
+  (`not_before still orders nulls-last then by value`). The client `activeCards` query
+  (`Content.sq`) and the API list (`repo.ts` `ORDER BY not_before`) likewise sort, not gate, so a
+  future-scheduled card reaches the client via /sync and surfaces early. **Not a silent fix** —
+  the sort-only behavior is intentional-as-tested, so changing it (add `not_before <= now` to the
+  feed gate, update the test) is a **scope call**: is advance-scheduled authoring in M0 (→ gate
+  now) or deferred (→ keep sort-only + soften the spec wording)? Likely moot today if the
+  curator/CLI only authors `not_before ≈ now`, but the spec currently over-claims a filter that
+  isn't implemented client-side. **Confidence: MEDIUM (product/scope) → operator.**
 - **OQ-web-target** *(NEW 2026-06-28, operator interest)*: Add a **Compose-for-Web
   (`wasmJs`) client**? CLAUDE.md lists Android/iOS/**Web**, but only `androidTarget()`,
   `jvm("desktop")`, and iOS (arm64 + sim) are wired in `apps/client/build.gradle.kts` — no
