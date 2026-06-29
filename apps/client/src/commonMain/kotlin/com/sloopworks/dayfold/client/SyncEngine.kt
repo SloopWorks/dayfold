@@ -107,6 +107,11 @@ class SyncEngine(
     var hasMore = true
     while (hasMore) {
       val resp = syncClient.fetchPage(contentStore.cursor())
+      // ADR 0040 §3 — stale-cursor directive: the server reset the scan to -∞ because our cursor
+      // was older than the tombstone-retention floor (a needed delete may be GC'd). Wipe the
+      // synced cache (keeping the outbox + hidden) before applying, so this page rebuilds clean.
+      // Only the first rebuild page carries the flag; subsequent pages resume from a fresh cursor.
+      if (resp.fullResync) contentStore.wipeForResync()
       contentStore.applyDelta(
         changedCards = resp.changes.cards,
         changedHubs = resp.changes.hubs,

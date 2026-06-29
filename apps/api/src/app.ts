@@ -15,6 +15,7 @@ import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } 
 import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
+import { CONTENT_TOMBSTONE_RETENTION_DAYS } from "./auth/sweep.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
 
@@ -966,6 +967,21 @@ app.get("/families/:fid/sync", async (c) => {
     }
   }
 
+  // ADR 0040 §3 — stale-cursor full-resync directive. If the caller resumes from a 3-part
+  // cursor older than the tombstone-retention floor, a delete it needed may already be GC'd
+  // (sweep.ts purges content tombstones past the SAME floor) → an incremental resume could
+  // leave a ghost. Reset the scan to -∞ + flag `full_resync` so the client wipes its cache
+  // and rebuilds. `su` is the cursor's updated_at; empty (initial / 2-part legacy) is already
+  // a from-∞ scan and is NOT a directive.
+  let fullResync = false;
+  if (su) {
+    const cursorAgeMs = Date.now() - Date.parse(su);
+    if (cursorAgeMs > CONTENT_TOMBSTONE_RETENTION_DAYS * 24 * 3600 * 1000) {
+      fullResync = true;
+      su = ""; st = ""; si = "";              // rebuild from the beginning; has_more paginates it
+    }
+  }
+
   const rows = await repo.syncContent(fid, su, st, si);
 
   // ADR 0030 (round-1 P0-1): visibility is applied to the PAYLOAD, but the cursor +
@@ -1029,5 +1045,5 @@ app.get("/families/:fid/sync", async (c) => {
   const next_cursor = last
     ? Buffer.from(`${last.updated_at}|${last.type}|${last.id}`).toString("base64")
     : raw;
-  return c.json({ changes, tombstones, next_cursor, has_more: rows.length >= repo.SYNC_LIMIT });
+  return c.json({ changes, tombstones, next_cursor, has_more: rows.length >= repo.SYNC_LIMIT, full_resync: fullResync });
 });

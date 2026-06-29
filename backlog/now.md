@@ -91,9 +91,23 @@ hubs only; W5 hide = local-only first; INB-25/26 closed). Ratification merged vi
   non-author) so the author-gate is exercisable on-device. *Pre-existing card/hub-ordinal
   `verifyMigrations` drift is unrelated + CI-skipped (confirmed identical on main); my
   `created_by`/`hidden` additions verify clean.*
-- **Next**: Slice 6 (freshness — stale-cursor full-resync directive + tombstone-retention
-  floor + content-tombstone GC on `/cron/sweep`). Deferred + gated last: W2 authoring, W1
-  media (R2 — external/spend gate), W3 add-context (EXPERIMENTAL/flagged — AI-spend gate).
+- **Slice 6 (Freshness contract, ADR 0040 §3) — ✅ COMPLETE (branch
+  `two-way-slice6-freshness`)**: **stale-cursor full-resync directive** — `/sync` flags
+  `full_resync:true` + resets the scan to -∞ when the caller's 3-part cursor is older than
+  the tombstone-retention floor; the client `wipeForResync()` (clears synced content + cursor,
+  **preserves the outbox + local hidden set** — a staleness reset, NOT the tenancy-revocation
+  `wipe()`) then rebuilds from the page. **Content-tombstone GC** — a new arm of `/cron/sweep`
+  hard-purges soft-deleted rows (cards/hubs/sections/blocks) older than the floor (kept below
+  it so any client synced within the floor never misses a delete). **One shared constant**
+  `CONTENT_TOMBSTONE_RETENTION_DAYS` (default 90, env-overridable) gates both halves —
+  **operator-gated value, shipped `[pending-ratify]` → INB-27**. Watermark-GC / push / realtime
+  remain deferred drop-ins on the same cursor. TDD: +1 sweep GC test, +3 stale-cursor /sync
+  tests (**API 335 green**), +1 client full-resync test (preserve outbox+hidden). No schema
+  migration (reuses `deleted_at`); no new cron (existing sweep). Bundle `api/index.js` rebuilt.
+- **Next**: deferred + gated last: W2 authoring (Author screen — `created_by`/`author_kind`
+  enforcement, loop-never-edits-member-blocks, audience ⊆ caller, single-writer-per-block),
+  W1 media (R2 — external/spend gate, confirm before provisioning), W3 add-context
+  (EXPERIMENTAL/flagged — recurring AI-spend gate, confirm before first real run).
 
 **Status update (2026-06-26): first real on-device sign-in is LIVE on prod.** Real
 Google sign-in + foreground sync now work end-to-end on the Pixel against

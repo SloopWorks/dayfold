@@ -60,6 +60,24 @@ describe("retention sweep", () => {
     expect((await q(`SELECT 1 FROM refresh_tokens WHERE token_hash='rt_fresh'`)).rowCount).toBe(1);     // kept
   });
 
+  // Slice 6 (ADR 0040 §3) — content-tombstone GC: hard-purge soft-deleted content rows
+  // older than the retention floor, but KEEP recent tombstones (so a client that synced
+  // within the floor never misses a delete) and KEEP live rows.
+  it("hard-purges content tombstones older than the retention floor; keeps recent + live", async () => {
+    const o = await ownerOf("tombowner");
+    const prov = JSON.stringify({ source: "claude" });
+    const old = new Date(Date.now() - 200 * 24 * 3600 * 1000).toISOString();   // well past the ≥90d floor
+    await q(`INSERT INTO briefing_cards(id,family_id,title,provenance,deleted_at,updated_at) VALUES ('c_oldtomb',$1,'x',$2,$3,$3)`, [o.familyId, prov, old]);
+    await q(`INSERT INTO briefing_cards(id,family_id,title,provenance,deleted_at,updated_at) VALUES ('c_recenttomb',$1,'y',$2,now(),now())`, [o.familyId, prov]);
+    await q(`INSERT INTO briefing_cards(id,family_id,title,provenance,updated_at) VALUES ('c_live',$1,'z',$2,now())`, [o.familyId, prov]);
+
+    const r = await sweep();
+    expect(r.content_tombstones).toBeGreaterThanOrEqual(1);
+    expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_oldtomb'`)).rowCount).toBe(0);     // purged (past floor)
+    expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_recenttomb'`)).rowCount).toBe(1);  // kept (within floor — slow clients still get the delete)
+    expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_live'`)).rowCount).toBe(1);         // kept (live)
+  });
+
   it("deletes an orphan expired invite but KEEPS one a membership references", async () => {
     const o = await ownerOf("sweepowner");
     // a redeemed invite → a pending membership references it (used_count=1)

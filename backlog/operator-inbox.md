@@ -9,6 +9,17 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-27 · 2026-06-29 · low · open — [pending-ratify] content-tombstone retention-floor
+  constant.** Slice 6 (ADR 0040 §3, freshness) shipped the stale-cursor full-resync directive
+  + a content-tombstone GC arm on `/cron/sweep`. Both halves are gated by ONE constant —
+  `CONTENT_TOMBSTONE_RETENTION_DAYS` (`apps/api/src/auth/sweep.ts`): a soft-deleted content
+  row is hard-purged only once older than the floor, and a client whose cursor is older than
+  the floor takes the full-resync path (so it never silently misses a delete). ADR 0040 §3
+  lists the **exact value** as operator-gated (values/cost → OQ-freshness-spectrum). **Proposed
+  default: 90 days** (the conservative end of the ADR's 60–90d recommendation — longer = safer
+  for slow/long-offline clients, slightly more tombstone storage; env-overridable via
+  `CONTENT_TOMBSTONE_RETENTION_DAYS`). Shipped at 90 as `[pending-ratify]`; ratify or adjust.
+  Urgency low (only matters once a client is >floor-days stale or tombstone volume grows).
 - **INB-26 · ANSWERED 2026-06-29 → Two-way ENGINE bundle ratified.** Operator
   (in-session): (1) **W3 free-text + CONSTITUTION** = accept (ADR 0041 amendment
   applied → 0041/0042 Accepted; W3 EXPERIMENTAL/flagged); (2) **W3 AI-loop placement**

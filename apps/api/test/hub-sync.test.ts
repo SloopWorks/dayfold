@@ -355,3 +355,35 @@ describe("hub-sync: cursor robustness (malformed + adversarial input)", () => {
     expect((await r2.json()).changes.cards.map((c: any) => c.id)).toContain("c2");
   });
 });
+
+describe("/sync stale-cursor full-resync directive (ADR 0040 §3)", () => {
+  it("a cursor older than the retention floor → full_resync:true + rebuild from the beginning", async () => {
+    const o = await ownerOf("fr-owner");
+    await putCard(o.familyId, "frc1", o.token, baseCard({ title: "rebuild me" }));
+    // a well-formed 3-part cursor whose timestamp is 200 days old (past the ≥90d floor)
+    const staleTs = new Date(Date.now() - 200 * 24 * 3600 * 1000).toISOString();
+    const stale = Buffer.from(`${staleTs}|card|zzzzzzzz`).toString("base64");
+    const r = await app.request(`/families/${o.familyId}/sync?since=${encodeURIComponent(stale)}`, { headers: authH(o.token) });
+    expect(r.status).toBe(200);
+    const b = await r.json();
+    expect(b.full_resync).toBe(true);                                   // directive present
+    expect(b.changes.cards.map((c: any) => c.id)).toContain("frc1");    // rebuild restarts from -∞
+  });
+
+  it("a fresh cursor is NOT flagged full_resync", async () => {
+    const o = await ownerOf("fr-owner2");
+    await putCard(o.familyId, "frc2", o.token, baseCard({ title: "x" }));
+    const fresh = Buffer.from(`${new Date().toISOString()}|card|aaaaaaaa`).toString("base64");
+    const r = await app.request(`/families/${o.familyId}/sync?since=${encodeURIComponent(fresh)}`, { headers: authH(o.token) });
+    const b = await r.json();
+    expect(b.full_resync).toBeFalsy();
+  });
+
+  it("the initial (empty-cursor) sync is not a full_resync — it's just the first page", async () => {
+    const o = await ownerOf("fr-owner3");
+    await putCard(o.familyId, "frc3", o.token, baseCard({ title: "x" }));
+    const r = await app.request(`/families/${o.familyId}/sync`, { headers: authH(o.token) });
+    const b = await r.json();
+    expect(b.full_resync).toBeFalsy();
+  });
+});

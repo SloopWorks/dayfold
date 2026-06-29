@@ -138,6 +138,10 @@ data class SyncResponse(
   val tombstones: List<Tombstone> = emptyList(),
   @SerialName("next_cursor") val nextCursor: String? = null,
   @SerialName("has_more") val hasMore: Boolean = false,
+  // ADR 0040 §3 — stale-cursor directive: the caller's cursor was older than the tombstone-
+  // retention floor, so the server reset the scan to -∞. The client must WIPE its synced cache
+  // (preserving the outbox + local hidden set) before applying, then rebuild from this page.
+  @SerialName("full_resync") val fullResync: Boolean = false,
 )
 
 // ── Hubs (ADR 0006 render · ADR 0030 visibility) ─────────────────────────────

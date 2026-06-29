@@ -128,6 +128,7 @@ var init_scope = __esm({
 // src/auth/sweep.ts
 var sweep_exports = {};
 __export(sweep_exports, {
+  CONTENT_TOMBSTONE_RETENTION_DAYS: () => CONTENT_TOMBSTONE_RETENTION_DAYS,
   sweep: () => sweep
 });
 async function sweep(graceMs = 24 * 3600 * 1e3) {
@@ -156,14 +157,24 @@ async function sweep(graceMs = 24 * 3600 * 1e3) {
     `DELETE FROM op_log WHERE created_at < $1`,
     [opLogGrace]
   )).rowCount ?? 0;
-  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh, op_log: opLog };
+  const tombGrace = new Date(Date.now() - CONTENT_TOMBSTONE_RETENTION_MS).toISOString();
+  let contentTombstones = 0;
+  for (const table of ["blocks", "sections", "briefing_cards", "hubs"]) {
+    contentTombstones += (await q(
+      `DELETE FROM ${table} WHERE deleted_at IS NOT NULL AND deleted_at < $1`,
+      [tombGrace]
+    )).rowCount ?? 0;
+  }
+  return { rate_limits: rate, device_authorizations: devices, invites, refresh_tokens: refresh, op_log: opLog, content_tombstones: contentTombstones };
 }
-var OP_LOG_TTL_MS;
+var OP_LOG_TTL_MS, CONTENT_TOMBSTONE_RETENTION_DAYS, CONTENT_TOMBSTONE_RETENTION_MS;
 var init_sweep = __esm({
   "src/auth/sweep.ts"() {
     "use strict";
     init_db();
     OP_LOG_TTL_MS = 7 * 24 * 3600 * 1e3;
+    CONTENT_TOMBSTONE_RETENTION_DAYS = Number(process.env.CONTENT_TOMBSTONE_RETENTION_DAYS) || 90;
+    CONTENT_TOMBSTONE_RETENTION_MS = CONTENT_TOMBSTONE_RETENTION_DAYS * 24 * 3600 * 1e3;
   }
 });
 
@@ -1486,6 +1497,7 @@ async function recordOp(familyId, opId, kind, ref, version) {
 }
 
 // src/app.ts
+init_sweep();
 var app = new Hono();
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
 app.get("/cron/sweep", async (c) => {
@@ -2370,6 +2382,16 @@ app.get("/families/:fid/sync", async (c) => {
       return problem(c, 400, "bad-cursor");
     }
   }
+  let fullResync = false;
+  if (su) {
+    const cursorAgeMs = Date.now() - Date.parse(su);
+    if (cursorAgeMs > CONTENT_TOMBSTONE_RETENTION_DAYS * 24 * 3600 * 1e3) {
+      fullResync = true;
+      su = "";
+      st = "";
+      si = "";
+    }
+  }
   const rows = await syncContent(fid, su, st, si);
   const restrictedHubIds = Array.from(new Set([
     ...rows.filter((r) => r.type === "hub" && r.payload?.visibility === "restricted" && !r.deleted_at).map((r) => r.id),
@@ -2412,7 +2434,7 @@ app.get("/families/:fid/sync", async (c) => {
   }
   const last = rows[rows.length - 1];
   const next_cursor = last ? Buffer.from(`${last.updated_at}|${last.type}|${last.id}`).toString("base64") : raw;
-  return c.json({ changes, tombstones, next_cursor, has_more: rows.length >= SYNC_LIMIT });
+  return c.json({ changes, tombstones, next_cursor, has_more: rows.length >= SYNC_LIMIT, full_resync: fullResync });
 });
 
 // src/vercel-entry.ts

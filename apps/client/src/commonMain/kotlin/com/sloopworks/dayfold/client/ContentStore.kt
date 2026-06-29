@@ -149,6 +149,14 @@ class ContentStore(driver: SqlDriver) {
     q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden() }
   }
 
+  /** ADR 0040 §3 — stale-cursor full-resync wipe. Clears the SYNCED content + the cursor so the
+   *  server's from-∞ rebuild replaces it, but PRESERVES the outbox (a staleness reset must not
+   *  drop queued member writes — unlike the tenancy-revocation [wipe]) and the local-only hidden
+   *  set (the re-synced entities keep their personal hide). */
+  fun wipeForResync() {
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor() }
+  }
+
   // ── Egress lane (ADR 0038/0039) — the outbox is WRITE-ONLY (the UI never reads it). ──
 
   /**

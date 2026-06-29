@@ -33,6 +33,38 @@ class SyncEngineTest {
     throw AssertionError("timed out; state=${store.state}")
   }
 
+  // Slice 6 (ADR 0040 §3) — a full_resync directive wipes the SYNCED cache + rebuilds from
+  // the page, but PRESERVES the outbox (a staleness reset must not drop queued member writes)
+  // and the local-only hidden set (the re-synced entities keep their personal hide). This is
+  // NOT the tenancy-revocation wipe.
+  @Test fun `full_resync rebuilds synced content but preserves the outbox and hidden set`() = runBlocking {
+    val cs = freshStore()
+    // pre-existing cached state: a stale (ghost) card + a checklist block + a hidden id + a queued write
+    cs.applyDelta(
+      listOf(Card("stale", title = "Ghost")), emptyList(), emptyList(),
+      listOf(HubBlock(id = "b1", sectionId = "s1", type = "checklist", version = 1,
+        payload = BlockPayload(items = listOf(ChecklistItem(id = "i1", text = "x", done = false))))),
+      emptyList(), "oldcur", "2026-06-18T09:00:00Z",
+    )
+    cs.hide("h_local", "2026-06-18T09:00:00Z")
+    cs.enqueueBlockToggle("b1", "i1", done = true, doneBy = "mom", nowIso = "2026-06-18T09:05:00Z", opId = "op1")
+    assertEquals(1, cs.pendingOpCount())
+
+    val sc = syncClient(MockEngine { req ->
+      when {
+        req.url.encodedPath.endsWith("/sync") ->
+          respond("""{"changes":{"cards":[{"id":"fresh","title":"Rebuilt"}]},"tombstones":[],"next_cursor":"newcur","has_more":false,"full_resync":true}""",
+            HttpStatusCode.OK, io.ktor.http.headersOf("content-type", "application/json"))
+        else -> respond("", HttpStatusCode.InternalServerError)   // PUT 500 → op backs off, stays pending
+      }
+    })
+    engine(cs, sc).syncNow()
+
+    assertEquals(listOf("fresh"), cs.activeCards().map { it.id })   // ghost gone, rebuilt from the page
+    assertEquals(1, cs.pendingOpCount())                            // outbox preserved → the write still flushes
+    assertEquals(setOf("h_local"), cs.hiddenIdsFlow().first())      // local hide preserved (not a revocation)
+  }
+
   @Test fun `cold start renders cached DB with zero network`() {
     val cs = freshStore()
     cs.applyDelta(listOf(Card("cached", title = "Cached")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
