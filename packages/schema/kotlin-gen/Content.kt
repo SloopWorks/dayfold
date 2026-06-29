@@ -129,10 +129,37 @@ data class BlockPayload (
 
 @Serializable
 data class Item (
+    /**
+     * loop-authoritative at M0
+     */
     val assignee: String? = null,
+
+    /**
+     * member-mutable (the done-triple)
+     */
     val done: Boolean? = null,
+
+    val doneAt: String? = null,
+
+    /**
+     * NEW (ADR 0038) — user id who toggled (display byline)
+     */
+    val doneBy: String? = null,
+
     val due: String? = null,
+    val id: String? = null,
+
+    /**
+     * NEW (ADR 0038) — order; loop-authoritative at M0 (§5.3); doneBy/doneAt/id are the new
+     * ADR-0038 fields
+     */
+    val ord: Long? = null,
+
+    /**
+     * loop-authoritative at M0
+     */
     val text: String? = null,
+
     val amount: Double? = null,
     val label: String? = null,
     val paid: Boolean? = null

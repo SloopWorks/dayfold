@@ -28,10 +28,17 @@ jobs:
         with: { node-version: "24" }
       - run: npm ci
       - name: codegen is up to date
+        # `npm run codegen` emits BOTH the TS (zod) types the API imports AND the
+        # Kotlin (quicktype) types the CLI/client source. Guard both — the Kotlin
+        # output was previously unguarded, so a schema change could land with a stale
+        # Content.kt (ADR 0038/0039 add many fields → drift risk). quicktype codegen
+        # is deterministic (verified), so a clean tree must match byte-for-byte.
         run: |
           npm run codegen
           git diff --exit-code apps/api/src/generated || \
-            { echo "::error::generated types are stale — run npm run codegen"; exit 1; }
+            { echo "::error::generated TS types are stale — run npm run codegen"; exit 1; }
+          git diff --exit-code packages/schema/kotlin-gen/Content.kt || \
+            { echo "::error::generated Kotlin types (packages/schema/kotlin-gen/Content.kt) are stale — run npm run codegen"; exit 1; }
       - name: api bundle is up to date
         # The committed esbuild artifact (apps/api/api/index.js) IS the Vercel function.
         # It drifted from src for ~130 PRs (#180) → prod served stale code. esbuild is

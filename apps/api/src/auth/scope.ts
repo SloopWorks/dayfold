@@ -4,7 +4,10 @@
 // (resource, action) it needs; `requireScope` is the single place that decides.
 import { q } from "../db.ts";
 
-type Action = "read" | "write";
+// `delete` is RESERVED (ADR 0038/0039) for the W4 soft-delete path — no route gates
+// on it yet (Slice 5 wires `content:delete` + the author-gate). Adding it here keeps
+// the scope vocabulary in one place so the enforcement slice is a pure wire-up.
+type Action = "read" | "write" | "delete";
 
 // All grant scope strings for a credential.
 export async function resolveGrants(credId: string): Promise<string[]> {

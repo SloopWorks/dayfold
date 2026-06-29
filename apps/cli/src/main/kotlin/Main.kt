@@ -254,12 +254,17 @@ fun main(args: Array<String>) {
       // (no generated schema in the CLI yet), so the card --type validation below
       // applies to cards only.
       val resource = pushResource(args)
+      // ADR 0038 — stamp a client-minted ULID `id` (+ `ord`) onto any checklist item
+      // that lacks one, preserving ids from `pull` (idempotent re-push). Item ids must
+      // exist before members can toggle (concurrent toggles need a stable per-item key)
+      // and the server can't mint them at M1 (ciphertext). Hub-tree resources only.
+      val stamped = stampChecklistIds(resource, payload) { Ulid.next() }
       // Fail fast with field errors before the server (which stays the authority).
       // Cards: opt-in typed validation via `--type` (against the generated schema).
       // Hub tree: always-on structural pre-check (cheap, no flag).
       val preErrors: List<String> =
-        if (resource == "cards") flagValue(args, "--type")?.let { validateCard(it, withId(payload, id)) } ?: emptyList()
-        else validateHubTree(resource, payload)
+        if (resource == "cards") flagValue(args, "--type")?.let { validateCard(it, withId(stamped, id)) } ?: emptyList()
+        else validateHubTree(resource, stamped)
       if (preErrors.isNotEmpty()) {
         System.err.println("validation failed:\n  " + preErrors.joinToString("\n  "))
         exitProcess(1)
@@ -270,7 +275,7 @@ fun main(args: Array<String>) {
       requireAuthSetup(creds != null)
       if (creds != null) {
         var access = creds.accessToken
-        var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", payload, access)
+        var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
         if (code == 401) {
           access = store.withRefreshLock {
             val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
@@ -283,7 +288,7 @@ fun main(args: Array<String>) {
             saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = newRefresh))
             newAccess
           }
-          val retry = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", payload, access)
+          val retry = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
           code = retry.first; body = retry.second
         }
         println("push $resource/$id -> $code")
@@ -291,7 +296,7 @@ fun main(args: Array<String>) {
       } else {
         // legacy env path (unchanged)
         val api = env("DAYFOLD_API"); val fam = env("FAMILY_ID"); val secret = env("HOUSEHOLD_SECRET")
-        val (code, body) = putStatus("$api/families/$fam/$resource/$id", payload, secret)
+        val (code, body) = putStatus("$api/families/$fam/$resource/$id", stamped, secret)
         println("push $resource/$id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       }
