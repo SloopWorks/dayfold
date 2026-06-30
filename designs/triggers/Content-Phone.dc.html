@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes ct-halo { 0% { box-shadow: 0 0 0 0 rgba(0,134,120,0.45); } 70%,100% { box-shadow: 0 0 0 9px rgba(0,134,120,0); } }
+  @keyframes ct-halo-d { 0% { box-shadow: 0 0 0 0 rgba(80,219,201,0.5); } 70%,100% { box-shadow: 0 0 0 9px rgba(80,219,201,0); } }
+  /* M3E spatial spring (overshoot) + shape morph on proximity-active */
+  @keyframes ct-morph { 0% { transform: scale(0.95); border-radius: 26px; } 55% { transform: scale(1.018); border-radius: 30px 30px 30px 12px; } 100% { transform: scale(1); border-radius: 28px 28px 28px 14px; } }
+  .ct-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  /* a11y: reduced-motion collapses spring/halo to a static ring */
+  @media (prefers-reduced-motion: reduce) {
+    .ct-active-card { animation: none !important; }
+    .ct-halo-dot { animation: none !important; }
+  }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <div class="ct-scroll" style="flex:1;overflow-y:auto;">
+
+    <!-- ============ FEED HEADER (shared) ============ -->
+    <sc-if value="{{ isFeed }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:8px 22px 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};">SATURDAY · JUN 20</span>
+          <span style="width:34px;height:34px;border-radius:999px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">P</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:30px;line-height:1.08;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 4px;">Good morning, Pat</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};margin:0;">{{ subtitle }}</p>
+      </div>
+    </sc-if>
+
+    <!-- ============ TIME TRIGGERS ============ -->
+    <sc-if value="{{ isTime }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 16px 24px;display:flex;flex-direction:column;gap:13px;">
+
+        <!-- imminent / alert chip -->
+        <div style="background:{{ c.primaryContainer }};border-radius:26px;padding:18px 20px 16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12.5px;background:{{ c.primary }};color:{{ c.onPrimary }};padding:6px 12px;border-radius:999px;"><span class="msr fill" style="font-size:15px;">alarm</span>In 1 hour · 4:00 PM</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onPrimaryContainer }};opacity:0.82;"><span class="msr fill" style="font-size:15px;">sports_soccer</span>SOCCER</span>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:20px;line-height:1.18;color:{{ c.onPrimaryContainer }};margin-bottom:6px;">Rain at Leo's 4pm game — pack jackets</div>
+          <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onPrimaryContainer }};opacity:0.86;margin-bottom:15px;">Riverside Field. Showers start right around kickoff.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:10px 17px;border-radius:999px;">Open game day<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
+          </div>
+        </div>
+
+        <!-- upcoming / tomorrow 4pm -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:26px;padding:17px 20px;">
+          <div style="display:flex;align-items:flex-start;gap:13px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.secondary }};">dentistry</span></span>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:5px 10px;border-radius:8px;"><span class="msr" style="font-size:15px;">schedule</span>Tomorrow · 4:00 PM</span>
+              </div>
+              <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};line-height:1.25;margin-bottom:3px;">Maya's dentist checkup</div>
+              <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};line-height:1.45;margin-bottom:11px;">We'll remind you tonight to leave by 3:30.</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:14px;">mail</span>From your email</span>
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>On your device</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- countdown variant -->
+        <div style="background:{{ c.tertiaryContainer }};border-radius:26px;padding:17px 20px;display:flex;align-items:center;gap:16px;">
+          <div style="flex:1;">
+            <div style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:11.5px;letter-spacing:0.03em;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryChipBg }};padding:5px 9px;border-radius:8px;margin-bottom:9px;"><span class="msr" style="font-size:14px;">hourglass_top</span>COUNTDOWN</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onTertiaryContainer }};line-height:1.15;">Maya starts college</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:'Outfit';font-weight:700;font-size:32px;line-height:1;color:{{ c.onTertiaryContainer }};">12</div>
+            <div style="font-family:'Figtree';font-size:12px;color:{{ c.onTertiaryContainer }};opacity:0.8;">days</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ GEO TRIGGER (inactive + active share template) ============ -->
+    <sc-if value="{{ isGeoScreen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 16px 24px;display:flex;flex-direction:column;gap:13px;">
+
+        <!-- active banner -->
+        <sc-if value="{{ isGeoActive }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:9px;background:{{ c.secondaryContainer }};border-radius:16px;padding:11px 14px;">
+            <span class="ct-halo-dot" style="position:relative;width:10px;height:10px;flex:0 0 10px;border-radius:999px;background:{{ c.secondary }};animation:{{ haloAnim }};"></span>
+            <span style="font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.onSecondaryContainer }};">Trigger active — you're near a saved place</span>
+          </div>
+        </sc-if>
+
+        <!-- the geo card -->
+        <div class="{{ geoCardClass }}" style="background:{{ geoCardBg }};border-radius:{{ geoRadius }};padding:18px 20px 16px;box-shadow:{{ geoRing }};animation:{{ geoMorphAnim }};">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;flex-wrap:wrap;">
+            <!-- geo chip: inactive vs active -->
+            <sc-if value="{{ isGeoActive }}" hint-placeholder-val="{{ false }}">
+              <span style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:12.5px;background:{{ c.secondary }};color:{{ c.onSecondary }};padding:6px 13px 6px 11px;border-radius:999px;"><span class="ct-halo-dot" style="width:8px;height:8px;border-radius:999px;background:{{ c.onSecondary }};animation:{{ haloAnim }};"></span>You're here now · Lincoln Market</span>
+            </sc-if>
+            <sc-if value="{{ isGeoInactive }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12.5px;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:6px 12px;border-radius:999px;"><span class="msr" style="font-size:16px;">near_me</span>Near Lincoln Market</span>
+            </sc-if>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:20px;line-height:1.18;color:{{ geoTitleFg }};margin-bottom:6px;">{{ geoTitle }}</div>
+          <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ geoTitleFg }};opacity:0.86;margin-bottom:15px;">The party shopping list still has 7 open items.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:{{ geoBtnBg }};color:{{ geoBtnFg }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:10px 17px;border-radius:999px;">Open list<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
+          </div>
+        </div>
+
+        <!-- second, inactive geo card for context -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:26px;padding:17px 20px;">
+          <div style="display:flex;align-items:flex-start;gap:13px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.secondary }};">school</span></span>
+            <div style="flex:1;">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:5px 10px;border-radius:8px;margin-bottom:7px;"><span class="msr" style="font-size:15px;">near_me</span>Near Maya's school</span>
+              <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};line-height:1.25;margin-bottom:3px;">Drop the permission slip at the office</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:5px 9px;"><span class="msr" style="font-size:14px;">auto_awesome</span>Added by Claude</span>
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>On your device</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ IN-APP SURFACING ============ -->
+    <sc-if value="{{ isInApp }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 16px 24px;display:flex;flex-direction:column;gap:13px;">
+        <!-- just-fired gentle section -->
+        <div style="background:{{ c.secondaryContainer }};border-radius:26px;padding:16px 18px;box-shadow:{{ geoRing }};">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:12px;letter-spacing:0.02em;color:{{ c.onSecondaryContainer }};"><span style="width:8px;height:8px;border-radius:999px;background:{{ c.secondary }};animation:{{ haloAnim }};"></span>JUST NOW · YOU'RE NEAR LINCOLN MARKET</span>
+            <span class="msr" style="font-size:19px;color:{{ c.onSecondaryContainer }};opacity:0.7;">close</span>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:18px;line-height:1.2;color:{{ c.onSecondaryContainer }};margin-bottom:5px;">Here's the party list while you're here</div>
+          <div style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSecondaryContainer }};opacity:0.85;margin-bottom:14px;">7 items still open. No notification sent — we surfaced it here instead.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:{{ c.secondary }};color:{{ c.onSecondary }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:10px 17px;border-radius:999px;">Open list<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
+          </div>
+        </div>
+        <!-- rest of feed (quiet) -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:26px;padding:17px 20px;display:flex;align-items:center;gap:14px;">
+          <span class="msr fill" style="font-size:34px;color:{{ c.secondary }};">rainy</span>
+          <div style="flex:1;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};line-height:1.2;">Rain at soccer, 4pm</div>
+            <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">Pack jackets — Leo's game at Riverside.</div>
+          </div>
+        </div>
+        <div style="background:{{ c.tertiaryContainer }};border-radius:26px;padding:17px 20px;display:flex;align-items:center;gap:16px;">
+          <div style="flex:1;">
+            <div style="font-family:'Figtree';font-weight:600;font-size:11.5px;letter-spacing:0.03em;color:{{ c.onTertiaryContainer }};opacity:0.8;margin-bottom:4px;">COUNTDOWN</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onTertiaryContainer }};line-height:1.15;">Maya starts college</div>
+          </div>
+          <div style="text-align:right;"><div style="font-family:'Outfit';font-weight:700;font-size:30px;line-height:1;color:{{ c.onTertiaryContainer }};">12</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onTertiaryContainer }};opacity:0.8;">days</div></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ HUB BLOCK (triggers inside a dossier) ============ -->
+    <sc-if value="{{ isHub }}" hint-placeholder-val="{{ false }}">
+      <div style="background:{{ c.headerBg }};padding:4px 18px 16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">arrow_back</span>
+          <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">more_vert</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:11px;">
+          <div style="width:44px;height:44px;border-radius:15px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:{{ c.onPrimary }};">celebration</span></div>
+          <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;">ACTIVE</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 4px;line-height:1.1;">Maya's birthday party</h1>
+        <div style="display:flex;align-items:center;gap:7px;font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:16px;">schedule</span>Today · 3:00 PM · home</div>
+      </div>
+
+      <div style="padding:14px 16px 24px;display:flex;flex-direction:column;gap:13px;">
+        <!-- checklist with trigger chips -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 8px;">SHOPPING</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:8px 6px;">
+            <sc-for list="{{ checklist }}" as="i" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:13px;padding:11px 13px;">
+                <span style="width:23px;height:23px;flex:0 0 23px;margin-top:1px;border-radius:8px;background:{{ i.boxBg }};border:{{ i.boxBorder }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ i.checkFg }};">{{ i.check }}</span></span>
+                <div style="flex:1;">
+                  <div style="font-family:'Figtree';font-weight:500;font-size:14.5px;color:{{ i.titleFg }};text-decoration:{{ i.strike }};">{{ i.title }}</div>
+                  <div style="margin-top:5px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:600;background:{{ i.chipBg }};color:{{ i.chipFg }};padding:4px 9px;border-radius:7px;"><span class="msr" style="font-size:13px;">{{ i.chipIcon }}</span>{{ i.chipText }}</span></div>
+                </div>
+              </div>
+            </sc-for>
+            <div style="padding:6px 13px 10px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.privacyFg }};background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:8px;padding:5px 9px;"><span class="msr fill" style="font-size:14px;">verified_user</span>Place &amp; time matched on your device</span></div>
+          </div>
+        </div>
+
+        <!-- doc with alert trigger -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:2px 4px 8px;">FILES</div>
+          <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:13px;">
+            <span style="width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.onTertiaryContainer }};">description</span></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Permission slip.pdf</div>
+              <div style="margin-top:5px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:600;background:{{ c.primary }};color:{{ c.onPrimary }};padding:4px 9px;border-radius:7px;"><span class="msr fill" style="font-size:13px;">alarm</span>Due Thursday</span></div>
+            </div>
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">open_in_new</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <!-- bottom nav -->
+  <div style="flex:0 0 84px;background:{{ c.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:12px 30px 0;z-index:5;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+      <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ navNowPill }};"><span class="msr {{ navNowFill }}" style="font-size:23px;color:{{ navNowIcon }};">today</span></span>
+      <span style="font-family:'Figtree';font-weight:{{ navNowWeight }};font-size:12px;color:{{ navNowLabel }};">Now</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+      <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ navHubPill }};"><span class="msr {{ navHubFill }}" style="font-size:23px;color:{{ navHubIcon }};">dashboard</span></span>
+      <span style="font-family:'Figtree';font-weight:{{ navHubWeight }};font-size:12px;color:{{ navHubLabel }};">Hubs</span>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;time&quot;,&quot;geo&quot;,&quot;geoActive&quot;,&quot;inApp&quot;,&quot;hub&quot;],&quot;default&quot;:&quot;time&quot;,&quot;tsType&quot;:&quot;'time' | 'geo' | 'geoActive' | 'inApp' | 'hub'&quot;}}">
+class Component extends DCLogic {
+  reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const screen = this.props.screen || 'time';
+    const light = {
+      surface:'#FFF8F6', headerBg:'#FCEBE6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#D8C2BB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C', tertiaryChipBg:'#E0CDF5',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC',
+      navBg:'#F6E5E0', navActivePill:'#FFDAD2', navActiveIcon:'#5A1100', navActiveLabel:'#271814', navInactive:'#5A423C',
+    };
+    const dark = {
+      surface:'#1A110E', headerBg:'#271D1A', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF', tertiaryChipBg:'#5C3AA0',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048',
+      navBg:'#271D1A', navActivePill:'#9A2A12', navActiveIcon:'#FFDAD2', navActiveLabel:'#F0DFDA', navInactive:'#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const isTime = screen === 'time';
+    const isGeoActive = screen === 'geoActive';
+    const isGeoInactive = screen === 'geo';
+    const isGeoScreen = isGeoActive || isGeoInactive;
+    const isInApp = screen === 'inApp';
+    const isHub = screen === 'hub';
+    const isFeed = isTime || isGeoScreen || isInApp;
+    const haloAnim = (mode === 'dark' ? 'ct-halo-d' : 'ct-halo') + ' 1.8s ease-out infinite';
+    const noMo = this.reduced();
+
+    const checkOff = (title, chipIcon, chipText, chipBg, chipFg) => ({ title, chipIcon, chipText, chipBg, chipFg, check:'', checkFg:'transparent', boxBg:'transparent', boxBorder:'2px solid '+c.outline, titleFg:c.onSurface, strike:'none' });
+
+    return {
+      c,
+      isTime, isGeoScreen, isGeoActive, isGeoInactive, isInApp, isHub, isFeed, haloAnim,
+      subtitle: isInApp ? 'A trigger just fired — surfaced quietly below' : (isGeoScreen ? '2 place reminders nearby' : '3 things to glance at · 68°F, rain later'),
+      geoCardBg: isGeoActive ? c.secondaryContainer : c.surfaceContainer,
+      geoCardClass: isGeoActive ? 'ct-active-card' : '',
+      geoRadius: isGeoActive ? '28px 28px 28px 14px' : '26px',
+      geoMorphAnim: (isGeoActive && !noMo) ? 'ct-morph 0.5s cubic-bezier(.34,1.56,.64,1) both' : 'none',
+      geoRing: isGeoActive ? ('0 0 0 2px ' + c.secondary) : 'none',
+      geoTitleFg: isGeoActive ? c.onSecondaryContainer : c.onSurface,
+      geoTitle: 'Grab the party list while you\u2019re at the store',
+      geoBtnBg: isGeoActive ? c.secondary : c.primary,
+      geoBtnFg: isGeoActive ? c.onSecondary : c.onPrimary,
+      navNowPill: isHub ? 'transparent' : c.navActivePill,
+      navNowFill: isHub ? '' : 'fill',
+      navNowIcon: isHub ? c.navInactive : c.navActiveIcon,
+      navNowWeight: isHub ? 500 : 600,
+      navNowLabel: isHub ? c.navInactive : c.navActiveLabel,
+      navHubPill: isHub ? c.navActivePill : 'transparent',
+      navHubFill: isHub ? 'fill' : '',
+      navHubIcon: isHub ? c.navActiveIcon : c.navInactive,
+      navHubWeight: isHub ? 600 : 500,
+      navHubLabel: isHub ? c.navActiveLabel : c.navInactive,
+      checklist: [
+        checkOff('Sheet cake (gluten-free)', 'near_me', 'At Lincoln Market', c.surfaceContainerHigh, c.onSurfaceVar),
+        checkOff('Pick up balloons', 'schedule', 'Today · 1:00 PM', c.surfaceContainerHigh, c.onSurfaceVar),
+        checkOff('Candles + matches', 'near_me', 'At Lincoln Market', c.surfaceContainerHigh, c.onSurfaceVar),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

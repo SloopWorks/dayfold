@@ -378,3 +378,46 @@ SELECT subject_key, last_shown_at, dismissed_at FROM surfacing_state;
 
 wipeSurfacing:
 DELETE FROM surfacing_state;
+
+-- ── Notification config (ADR 0044 Phase B) — DEVICE-LOCAL, NEVER synced (ADR 0024). The single-row
+-- (id=0) background-proximity config: enabled (default-off, ADR 0044 §1) + quiet window (minute-of-day)
+-- + daily cap. An absent row means disabled (the store maps null → NotifConfig()). Wiped on wipe()
+-- (tenancy revoke) but PRESERVED on wipeForResync() — same local-personal class as surfacing_state.
+CREATE TABLE notif_config (
+  id          INTEGER NOT NULL PRIMARY KEY,
+  enabled     INTEGER NOT NULL,
+  quiet_start INTEGER NOT NULL,
+  quiet_end   INTEGER NOT NULL,
+  daily_cap   INTEGER NOT NULL
+);
+
+notifConfigRow:
+SELECT enabled, quiet_start, quiet_end, daily_cap FROM notif_config WHERE id = 0;
+
+setNotifConfig:
+INSERT INTO notif_config(id, enabled, quiet_start, quiet_end, daily_cap)
+VALUES (0, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  enabled=excluded.enabled, quiet_start=excluded.quiet_start,
+  quiet_end=excluded.quiet_end, daily_cap=excluded.daily_cap;
+
+wipeNotifConfig:
+DELETE FROM notif_config;
+
+-- ── Notification log (ADR 0044 Phase B) — DEVICE-LOCAL, NEVER synced. One row per posted LOCAL
+-- notification; the daily cap is count-by-local-date (no reset job) + same-day per-subject dedup.
+-- Wiped on wipe(); PRESERVED on wipeForResync() (device-personal, like surfacing_state).
+CREATE TABLE notification_log (
+  subject_key TEXT NOT NULL,
+  notified_at TEXT NOT NULL
+);
+CREATE INDEX notification_log_at ON notification_log(notified_at);
+
+logNotification:
+INSERT INTO notification_log(subject_key, notified_at) VALUES (?, ?);
+
+recentNotifications:
+SELECT subject_key, notified_at FROM notification_log;
+
+wipeNotificationLog:
+DELETE FROM notification_log;

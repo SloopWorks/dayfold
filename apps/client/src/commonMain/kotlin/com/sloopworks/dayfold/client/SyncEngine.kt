@@ -35,6 +35,7 @@ class SyncEngine(
   private var hiddenBridgeJob: Job? = null
   private var nowContentBridgeJob: Job? = null
   private var surfacingBridgeJob: Job? = null
+  private var notifConfigBridgeJob: Job? = null
   private var pollJob: Job? = null
 
   /**
@@ -63,6 +64,12 @@ class SyncEngine(
     }
     surfacingBridgeJob = scope.launch {
       contentStore.surfacingFlow().collect { store.dispatch(SurfacingLoaded(it)) }
+    }
+    // ADR 0044 Phase B — the device-local notif config is DB-fed too (sole writer of state.notifConfig).
+    // Local-only; never synced. The OS-permission slices are bridged separately from the platform
+    // controllers (NOT here — they are OS-owned, not DB-owned).
+    notifConfigBridgeJob = scope.launch {
+      contentStore.notifConfigFlow().collect { store.dispatch(NotifConfigLoaded(it)) }
     }
   }
 
@@ -207,6 +214,7 @@ class SyncEngine(
     hiddenBridgeJob?.cancel(); hiddenBridgeJob = null
     nowContentBridgeJob?.cancel(); nowContentBridgeJob = null
     surfacingBridgeJob?.cancel(); surfacingBridgeJob = null
+    notifConfigBridgeJob?.cancel(); notifConfigBridgeJob = null
     pollJob?.cancel(); pollJob = null
     scope.cancel()
   }

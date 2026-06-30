@@ -18,7 +18,7 @@ fun backAction(state: AppState): Action? {
     Route.Feed -> if (state.detailStack.isNotEmpty()) NavBack else null
     Route.Hubs -> if (state.currentHubId != null) CloseHub else null
     Route.Account -> CloseAccount
-    Route.Members, Route.Devices -> OpenAccount
+    Route.Members, Route.Devices, Route.Proximity -> OpenAccount
     Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied -> CloseDeviceFlow
     Route.JoinInvite -> JoinDismissed
     Route.SignIn, Route.Loading, Route.CreateFamily, Route.AuthError -> null

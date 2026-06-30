@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes ad-halo { 0% { box-shadow: 0 0 0 0 rgba(0,134,120,0.45); } 70%,100% { box-shadow: 0 0 0 9px rgba(0,134,120,0); } }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <div style="margin-bottom:40px;max-width:840px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Triggers index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Adaptive · triggers across size classes</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">Triggers, adapted</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:80ch;">Phone gets the full hi-fi (sections A–E). Larger classes get a spec + one frame: places management gains a bigger map on tablet, notifications surface in the Now pane on desktop instead of the OS tray, and Wear is the ideal home for a glanceable trigger tile.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:52px;">
+
+    <!-- ===== TABLET — PLACES + BIG MAP ===== -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#00796F;">tablet_mac</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Tablet · places management</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">600–839dp</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;"><b>List-detail with a map that earns the width.</b> The places list sits in a pane; selecting one opens a large, draggable map with the radius editor inline — far easier than a phone-sized map. Nav moves to a rail.</p>
+      <div style="width:912px;height:600px;border-radius:28px;overflow:hidden;background:#FFF8F6;box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+        <!-- rail -->
+        <div style="width:88px;background:#FCEBE6;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:10px;">
+          <div style="width:42px;height:42px;border-radius:13px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:18px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:#5A423C;">today</span></span><span style="font-family:'Figtree';font-size:11px;color:#5A423C;">Now</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:#5A423C;">dashboard</span></span><span style="font-family:'Figtree';font-size:11px;color:#5A423C;">Hubs</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;background:#9DF2E4;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:#00201C;">place</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#271814;">Places</span></div>
+        </div>
+        <!-- list pane -->
+        <div style="width:300px;border-right:1px solid #F0DFDA;padding:22px 18px;">
+          <h3 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0 0 16px;">Places</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#9DF2E4;border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#6438AE;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#fff;">storefront</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;color:#00201C;">Lincoln Market</div><div style="font-family:'Figtree';font-size:12px;color:#0B5048;">200 m · Pat</div></div></div>
+            <div style="background:#FCEBE6;border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#C0381E;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#fff;">home</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;">Home</div><div style="font-family:'Figtree';font-size:12px;color:#5A423C;">150 m · Pat</div></div></div>
+            <div style="background:#FCEBE6;border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:13px;background:#00796F;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:21px;color:#fff;">school</span></span><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14.5px;">Maya's school</div><div style="font-family:'Figtree';font-size:12px;color:#5A423C;">250 m · Sam</div></div></div>
+          </div>
+        </div>
+        <!-- detail map -->
+        <div style="flex:1;position:relative;background:#EFE3DD;background-image:linear-gradient(#E0CEC6 1px,transparent 1px),linear-gradient(90deg,#E0CEC6 1px,transparent 1px);background-size:34px 34px;">
+          <div style="position:absolute;left:6%;top:72%;width:92%;height:18px;background:#D8C2BB;transform:rotate(-7deg);border-radius:5px;"></div>
+          <div style="position:absolute;left:46%;top:14%;width:15px;height:64%;background:#D8C2BB;transform:rotate(6deg);border-radius:5px;"></div>
+          <div style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:230px;height:230px;border-radius:999px;background:rgba(0,121,111,0.12);border:2px solid #00796F;"></div>
+          <div style="position:absolute;left:50%;top:48%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:46px;color:#6438AE;">location_on</span></div>
+          <!-- inline editor card -->
+          <div style="position:absolute;left:22px;bottom:22px;right:22px;background:#FFF8F6;border-radius:22px;padding:18px 20px;box-shadow:0 8px 24px rgba(39,24,20,0.16);display:flex;align-items:center;gap:20px;">
+            <div style="flex:1;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:18px;margin-bottom:3px;">Lincoln Market</div>
+              <div style="font-family:'Figtree';font-size:13px;color:#5A423C;">88 Lincoln Blvd · shared with family</div>
+            </div>
+            <div style="flex:0 0 240px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:#5A423C;">RADIUS</span><span style="font-family:'Outfit';font-weight:600;font-size:14px;">200 m</span></div>
+              <div style="position:relative;height:20px;display:flex;align-items:center;"><div style="position:absolute;left:0;right:0;height:6px;border-radius:999px;background:#F0DFDA;"></div><div style="position:absolute;left:0;width:42%;height:6px;border-radius:999px;background:#00796F;"></div><div style="position:absolute;left:42%;width:20px;height:20px;border-radius:999px;background:#00796F;transform:translateX(-50%);box-shadow:0 2px 6px rgba(39,24,20,0.22);"></div></div>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:#FFDAD2;color:#5A1100;font-family:'Figtree';font-weight:600;font-size:14px;padding:11px 18px;border-radius:14px;"><span class="msr" style="font-size:18px;">check</span>Save</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== DESKTOP — NOW PANE SURFACING ===== -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#C0381E;">desktop_windows</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Desktop · triggers surface in Now</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">≥1240dp</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;"><b>No OS notification tray reliance.</b> On the web app a fired trigger appears as a calm banner at the top of the Now column — the same in-app surfacing pattern as phone, given room to breathe in a permanent-drawer layout.</p>
+      <div style="width:1280px;height:660px;border-radius:24px;overflow:hidden;background:#FFF8F6;box-shadow:0 14px 40px rgba(39,24,20,0.18);display:flex;">
+        <!-- drawer -->
+        <div style="width:248px;background:#FCEBE6;padding:24px 16px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 22px;"><div style="width:38px;height:38px;border-radius:12px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div><span style="font-family:'Outfit';font-weight:600;font-size:19px;">Hearth</span></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 18px;border-radius:999px;background:#FFDAD2;"><span class="msr fill" style="font-size:22px;color:#5A1100;">today</span><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:#5A1100;">Now</span></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 18px;border-radius:999px;"><span class="msr" style="font-size:22px;color:#5A423C;">dashboard</span><span style="font-family:'Figtree';font-weight:500;font-size:15px;color:#5A423C;">Hubs</span></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 18px;border-radius:999px;"><span class="msr" style="font-size:22px;color:#5A423C;">place</span><span style="font-family:'Figtree';font-weight:500;font-size:15px;color:#5A423C;">Places</span></div>
+        </div>
+        <!-- centered Now column -->
+        <div style="flex:1;padding:34px 0;overflow:hidden;display:flex;justify-content:center;">
+          <div style="width:680px;">
+            <div style="font-family:'Figtree';font-size:13px;font-weight:600;color:#5A423C;letter-spacing:0.03em;margin-bottom:6px;">SATURDAY · JUN 20</div>
+            <h2 style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:-0.02em;margin:0 0 20px;">Good morning, Pat</h2>
+            <!-- fired trigger banner -->
+            <div style="background:#9DF2E4;border-radius:26px;padding:20px 22px;margin-bottom:16px;box-shadow:0 0 0 2px #00796F;">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span style="width:9px;height:9px;border-radius:999px;background:#00796F;animation:ad-halo 1.8s ease-out infinite;"></span><span style="font-family:'Figtree';font-weight:600;font-size:12.5px;letter-spacing:0.02em;color:#00201C;">JUST NOW · YOU'RE NEAR LINCOLN MARKET</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:600;color:#0B5048;background:#E2F4EF;border:1px solid #BFE3DC;border-radius:8px;padding:5px 9px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span></div>
+              <div style="font-family:'Outfit';font-weight:600;font-size:21px;color:#00201C;margin-bottom:5px;">Here's the party list while you're here</div>
+              <div style="font-family:'Figtree';font-size:14px;color:#00382F;opacity:0.9;margin-bottom:14px;">7 items still open. Surfaced here — no notification sent.</div>
+              <span style="display:inline-flex;align-items:center;gap:7px;background:#00796F;color:#fff;font-family:'Figtree';font-weight:600;font-size:14px;padding:11px 18px;border-radius:999px;">Open list<span class="msr" style="font-size:17px;">arrow_outward</span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div style="background:#FFDAD2;border-radius:22px;padding:18px 20px;"><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:#C0381E;color:#fff;padding:5px 11px;border-radius:999px;margin-bottom:10px;"><span class="msr fill" style="font-size:14px;">alarm</span>In 1 hour</span><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:#5A1100;line-height:1.2;">Rain at Leo's 4pm game — pack jackets</div></div>
+              <div style="background:#ECDCFF;border-radius:22px;padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between;"><div style="font-family:'Figtree';font-weight:600;font-size:11.5px;color:#23005C;">COUNTDOWN</div><div style="display:flex;align-items:baseline;justify-content:space-between;"><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:#23005C;">Maya starts college</div><div style="font-family:'Outfit';font-weight:700;font-size:30px;color:#23005C;">12</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== WEAR — TRIGGER TILE ===== -->
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:22px;color:#00796F;">watch</span><h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Wear OS · the ideal glanceable trigger</h2><span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">a tile, not a shrunken phone</span></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:78ch;">A proximity or time trigger is exactly what a glanceable <b>Tile</b> is for: the one next thing, the single action, nothing to scroll. A face <b>complication</b> surfaces the nearest place/time trigger. The privacy promise is implicit — the match happened on the watch.</p>
+      <div style="display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap;">
+        <!-- proximity tile -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:12px;">PROXIMITY TILE · active</div>
+          <div style="width:240px;height:240px;border-radius:999px;background:radial-gradient(circle at 50% 35%,#005048,#102A26);box-shadow:0 14px 40px rgba(39,24,20,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px;">
+            <span style="position:relative;width:10px;height:10px;border-radius:999px;background:#50DBC9;margin-bottom:8px;animation:ad-halo 1.8s ease-out infinite;"></span>
+            <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:#9DF2E4;letter-spacing:0.04em;">NEAR LINCOLN MARKET</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:19px;color:#F0FFFB;line-height:1.12;margin:6px 0 14px;">7 items on the<br>party list</div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:#00382F;background:#50DBC9;padding:8px 18px;border-radius:999px;">Open list</span>
+          </div>
+        </div>
+        <!-- time tile -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:12px;">TIME TILE</div>
+          <div style="width:240px;height:240px;border-radius:999px;background:radial-gradient(circle at 50% 35%,#9A2A12,#2A0F08);box-shadow:0 14px 40px rgba(39,24,20,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px;">
+            <span class="msr fill" style="font-size:26px;color:#FFB4A3;margin-bottom:6px;">alarm</span>
+            <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:#FFB4A3;letter-spacing:0.04em;">SOCCER · 4:00 PM</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:19px;color:#FFEDE8;line-height:1.12;margin:6px 0 14px;">Pack jackets —<br>rain at kickoff</div>
+            <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:#5F1500;background:#FFB4A3;padding:8px 18px;border-radius:999px;">Game day</span>
+          </div>
+        </div>
+        <!-- complication -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:12px;">FACE COMPLICATION</div>
+          <div style="width:240px;height:240px;border-radius:999px;background:radial-gradient(circle at 50% 40%,#322824,#140C0A);box-shadow:0 14px 40px rgba(39,24,20,0.3);position:relative;display:flex;align-items:center;justify-content:center;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:46px;color:#F0DFDA;letter-spacing:-0.02em;">9:41</div>
+            <div style="position:absolute;bottom:54px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:#005048;border-radius:999px;padding:6px 13px;"><span class="msr fill" style="font-size:15px;color:#9DF2E4;">near_me</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#9DF2E4;">Store · list</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

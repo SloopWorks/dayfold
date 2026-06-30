@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <div style="margin-bottom:36px;max-width:880px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Triggers index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">C · Permission flows</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">Ask gently, upgrade honestly</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 14px;max-width:80ch;">Progressive permission: we prime before the OS prompt, ask for <b>when-in-use</b> first, and only ever offer <b>Always</b> as an explicit, reversible upgrade — with the tradeoff spelled out. Limited and denied states are graceful, never naggy.</p>
+    <!-- flow strip -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12.5px;font-weight:600;background:#FFDAD2;color:#5A1100;padding:7px 13px;border-radius:999px;">1 · Prime</span>
+      <span class="msr" style="font-size:18px;color:#A98B84;">arrow_forward</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12.5px;font-weight:600;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">2 · When-in-use</span>
+      <span class="msr" style="font-size:18px;color:#A98B84;">arrow_forward</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12.5px;font-weight:600;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">3 · Always (opt-in)</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:46px;">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+      <section>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:#C0381E;">{{ g.num }}</span>
+          <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;letter-spacing:-0.01em;">{{ g.title }}</h2>
+        </div>
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:76ch;">{{ g.desc }}</p>
+        <div style="display:flex;gap:28px;align-items:flex-start;">
+          <div style="flex:none;">
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:15px;">light_mode</span>Light</div>
+            <dc-import name="Permission-Phone" mode="light" screen="{{ g.screen }}" hint-size="390px,844px"></dc-import>
+          </div>
+          <div style="flex:none;">
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:15px;">dark_mode</span>Dark</div>
+            <dc-import name="Permission-Phone" mode="dark" screen="{{ g.screen }}" hint-size="390px,844px"></dc-import>
+          </div>
+          <div style="flex:none;width:290px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:20px;padding:22px;margin-top:30px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;margin-bottom:12px;">{{ g.noteKicker }}</div>
+            <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:11px;">
+                <span class="msr" style="font-size:18px;color:{{ n.color }};margin-top:1px;">{{ n.icon }}</span>
+                <span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;">{{ n.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      groups: [
+        { num:'09a', screen:'locPrime', title:'Location priming — before the OS prompt', desc:'A friendly screen earns the ask first: concrete reasons, the on-device promise up front, and a clear when-in-use CTA. Only after "Allow while using" does the real OS dialog appear.',
+          noteKicker:'Privacy-forward', notes:[
+            { icon:'lightbulb', color:'#C0381E', text:'Reasons are concrete and local — store, school.' },
+            { icon:'verified_user', color:'#0B5048', text:'On-device promise sits above the button, not below.' },
+            { icon:'south', color:'#00796F', text:'Asks for when-in-use only — never Always here.' },
+          ] },
+        { num:'09b', screen:'alwaysUpgrade', title:'The "Always" upgrade — explicit opt-in', desc:'Offered later, never up front. The tradeoff (a little battery, runs in background) is stated plainly, the calm default ("Keep it when-in-use") is one tap, and it\'s reversible anytime.',
+          noteKicker:'Honest tradeoff', notes:[
+            { icon:'balance', color:'#6438AE', text:'Battery + background cost shown, not hidden.' },
+            { icon:'undo', color:'#00796F', text:'Reversible — and the easy out is right there.' },
+            { icon:'smartphone', color:'#0B5048', text:'Background matching still runs on this phone.' },
+          ] },
+        { num:'10', screen:'notifPrime', title:'Notification priming', desc:'Sets the calm contract before asking: at most a few a day, quiet overnight, only when useful. No badges or streaks promised — because there aren\'t any.',
+          noteKicker:'The contract', notes:[
+            { icon:'filter_list', color:'#C0381E', text:'Hard daily cap stated up front.' },
+            { icon:'bedtime', color:'#00796F', text:'Quiet hours are the default.' },
+            { icon:'toggle_on', color:'#6438AE', text:'Per-category control, and it sticks.' },
+          ] },
+        { num:'11a', screen:'limited', title:'When-in-use only — honest explainer', desc:'No nagging to upgrade. We explain that place reminders simply wait inside Now and run only when the app is open, and we frame that as a complete, valid setup.',
+          noteKicker:'No dark patterns', notes:[
+            { icon:'touch_app', color:'#00796F', text:'"Open the app to see what\'s nearby" — plainly.' },
+            { icon:'notifications_off', color:'#6438AE', text:'No background pings, and we say so.' },
+            { icon:'sentiment_satisfied', color:'#C0381E', text:'Upgrade offered once, softly, then dropped.' },
+          ] },
+        { num:'11b', screen:'denied', title:'Denied — graceful fallback', desc:'Location off is treated as fine. Triggers pause, but the briefing and Hubs keep working exactly the same — just without place timing. A calm path back to Settings, zero guilt.',
+          noteKicker:'Graceful', notes:[
+            { icon:'pause_circle', color:'#00796F', text:'"Paused," not "broken" or "missing out".' },
+            { icon:'check_circle', color:'#6438AE', text:'Shows content still works without triggers.' },
+            { icon:'settings', color:'#C0381E', text:'A way back to Settings, never pushed.' },
+          ] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

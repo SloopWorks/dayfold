@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -158,7 +160,7 @@ class ContentStore(driver: SqlDriver) {
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
    *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing(); q.wipeNotifConfig(); q.wipeNotificationLog() }
   }
 
   /** ADR 0040 §3 — stale-cursor full-resync wipe. Clears the SYNCED content + the cursor so the
@@ -358,6 +360,74 @@ class ContentStore(driver: SqlDriver) {
 
   /** Record that a subject was dismissed (omit it from future ranking). LOCAL-ONLY — never synced. */
   fun recordDismissed(subjectKey: String, nowIso: String) = q.recordDismissed(subjectKey, nowIso)
+
+  // ── Phase B notification state (ADR 0044) — DEVICE-LOCAL, NEVER synced (ADR 0024). ──
+
+  /** Reactive background-proximity config (DB→store bridge feeds state.notifConfig). Absent → default-off. */
+  fun notifConfigFlow(): Flow<NotifConfig> =
+    q.notifConfigRow().asFlow().mapToList(Dispatchers.Default).map { rows -> rows.firstOrNull()?.toNotifConfig() ?: NotifConfig() }
+
+  /** Synchronous config snapshot — for the headless background worker (no store/Compose). Absent → default-off. */
+  fun notifConfig(): NotifConfig = q.notifConfigRow().executeAsOneOrNull()?.toNotifConfig() ?: NotifConfig()
+
+  /** Persist the (device-local) config. UI→DB→flow→NotifConfigLoaded (no optimistic UI→store path). */
+  fun setNotifConfig(c: NotifConfig) =
+    q.setNotifConfig(if (c.enabled) 1L else 0L, c.quietStartMinuteOfDay.toLong(), c.quietEndMinuteOfDay.toLong(), c.dailyCap.toLong())
+
+  /** Append one posted-notification row (drives the daily cap + same-day dedup). LOCAL-ONLY. */
+  fun logNotification(subjectKey: String, nowIso: String) = q.logNotification(subjectKey, nowIso)
+
+  /** The cap/dedup view for [nowIso]'s local date: posts-today count + the set of subjects already
+   *  notified today. Pure rollover (postedTodayCount) — no midnight reset job, survives process death. */
+  fun notifLedger(nowIso: String, zone: TimeZone): NotifLedger {
+    val rows = q.recentNotifications().executeAsList()
+    val today = parseInstantFlexible(nowIso, zone)?.toLocalDateTime(zone)?.date
+    val todaysSubjects = rows
+      .filter { today != null && parseInstantFlexible(it.notified_at, zone)?.toLocalDateTime(zone)?.date == today }
+      .map { it.subject_key }
+    return NotifLedger(
+      postedToday = postedTodayCount(rows.map { it.notified_at }, nowIso, zone),
+      notifiedSubjects = todaysSubjects.toSet(),
+    )
+  }
+
+  private fun com.sloopworks.dayfold.client.db.NotifConfigRow.toNotifConfig() =
+    NotifConfig(enabled = enabled == 1L, quietStartMinuteOfDay = quiet_start.toInt(), quietEndMinuteOfDay = quiet_end.toInt(), dailyCap = daily_cap.toInt())
+
+  // ── Synchronous snapshot getters (ADR 0044 §S3) — the headless background pass reads these from the
+  //    SAME process-shared connection (no Store, no 2nd connection; WAL lets it read under a fg write).
+  //    Sync variants of the reactive projections above (activeHubsFlow/nowContentFlow/surfacingFlow).
+
+  /** Live hubs (sync). */
+  fun activeHubs(): List<Hub> = q.activeHubs().executeAsList().map(::rowToHub)
+  /** All live sections across hubs (sync). */
+  fun allSections(): List<HubSection> = q.allSections().executeAsList().map(::rowToNowSection)
+  /** All live blocks across hubs (sync). */
+  fun allBlocks(): List<HubBlock> = q.allBlocks().executeAsList().map(::rowToNowBlock)
+  /** Live named places (sync; geo-proximity source). */
+  fun activePlaces(): List<Place> = q.activePlaces().executeAsList().map(::rowToPlace)
+  /** LOCAL-ONLY surfacing state (sync). */
+  fun surfacing(): Map<String, SurfacingRecord> =
+    q.allSurfacing().executeAsList().associate { it.subject_key to SurfacingRecord(it.subject_key, it.last_shown_at, it.dismissed_at) }
+  /** The device-local notification_log as rows (sync; drives cap rollover + dedup). */
+  fun notificationLog(): List<NotifLogRow> =
+    q.recentNotifications().executeAsList().map { NotifLogRow(it.subject_key, it.notified_at) }
+
+  /**
+   * The full synchronous bundle the background notification pass needs (ADR 0044 §S3) — gathered in one
+   * read from the single shared connection, never a 2nd. The worker hands this to
+   * planBackgroundNotifications, which builds a minimal AppState and reuses nowFeed + selectNotifications.
+   */
+  fun notifSnapshot(): NotifSnapshot = NotifSnapshot(
+    cards = activeCards(),
+    hubs = activeHubs(),
+    sections = allSections(),
+    blocks = allBlocks(),
+    places = activePlaces(),
+    surfacing = surfacing(),
+    config = notifConfig(),
+    log = notificationLog(),
+  )
 
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)

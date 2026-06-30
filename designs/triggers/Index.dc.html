@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration:none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(39,24,20,0.16); }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:64px 40px 80px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:22px;">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Dayfold index</a>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+      <div style="width:52px;height:52px;border-radius:17px;background:linear-gradient(135deg,#11B5A4,#00796F);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,121,111,0.32);"><span class="msr fill" style="font-size:30px;color:#fff;">my_location</span></div>
+      <div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;">Triggers, notifications &amp; time/location</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#8C726B;">Dayfold · the private trigger engine · ADR 0014</div>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(34px,5vw,52px);line-height:1.05;letter-spacing:-0.025em;margin:0 0 16px;max-width:20ch;">Content that knows when &amp; where — privately</h1>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:64ch;margin:0 0 14px;">Claude attaches a time or place to a card; your device does the matching on-device. Saved places sync to your family, encrypted — only your live position, where you are right now, stays on this phone. Calm by default — few, timely notifications that earn the interruption. Every surface is light + dark.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:500;background:#E2F4EF;color:#0B5048;border:1px solid #BFE3DC;padding:7px 13px;border-radius:999px;"><span class="msr fill" style="font-size:15px;">verified_user</span>Matched on your device</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Light + dark</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Progressive permission</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Reuses the M3E system</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="6">
+        <a class="card" href="{{ l.href }}" style="background:{{ l.bg }};border:1px solid {{ l.border }};border-radius:28px;padding:28px;display:flex;flex-direction:column;min-height:196px;color:inherit;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:auto;">
+            <div style="width:54px;height:54px;border-radius:17px;background:{{ l.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ l.iconFg }};">{{ l.icon }}</span></div>
+            <span class="msr" style="font-size:24px;color:{{ l.arrow }};">arrow_outward</span>
+          </div>
+          <div style="margin-top:24px;">
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ l.kicker }};margin-bottom:6px;">{{ l.kick }}</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;margin-bottom:6px;">{{ l.title }}</div>
+            <div style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ l.body }};">{{ l.desc }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="margin-top:40px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
+      <span class="msr fill" style="font-size:22px;color:#00796F;margin-top:1px;">verified_user</span>
+      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">The privacy promise is a feature, not fine print: triggers are metadata and matching happens on the device. The honest two-part story rides every surface — <b>saved places sync to your family, encrypted; your live position stays on this phone</b> — with no server-tracking iconography anywhere. Provenance (“added by Claude”) rides every AI-authored trigger.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      links: [
+        { href:'Content-Triggers.dc.html', kick:'A · ON CONTENT', title:'Trigger affordances', desc:'Time & place chips on briefing cards and Hub blocks — the calm "when" / "near", and the emphasized active-proximity state.', icon:'sell', iconBg:'#C0381E', iconFg:'#fff', bg:'#FFE7E0', border:'#F4CDC2', arrow:'#C0381E', kicker:'#7A2615', body:'#7A3322' },
+        { href:'Notifications.dc.html', kick:'B · NOTIFICATIONS', title:'Few, timely, earned', desc:'Android + iOS system notifications, the calm digest with grouping / quiet-hours / daily-cap, and deep-link-on-tap arrival.', icon:'notifications', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', kicker:'#4C2092', body:'#3F2A6E' },
+        { href:'Permissions.dc.html', kick:'C · PERMISSIONS', title:'Ask gently, upgrade honestly', desc:'Location & notification priming, the explicit "Always" upgrade with its tradeoff, and graceful limited / denied states.', icon:'shield_person', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Places.dc.html', kick:'D · PLACES', title:'Places management', desc:'The family-scoped places list and the add-a-place flow — map pin, radius slider, and the on-device promise.', icon:'pin_drop', iconBg:'#C0381E', iconFg:'#fff', bg:'#FFE7E0', border:'#F4CDC2', arrow:'#C0381E', kicker:'#7A2615', body:'#7A3322' },
+        { href:'Settings.dc.html', kick:'F · SETTINGS', title:'Background proximity, reversible', desc:'The on/off toggle, the device-local permission row, quiet-hours editor and daily-cap chooser — turn it off and geofences are removed.', icon:'tune', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Offline.dc.html', kick:'G · OFFLINE', title:'Offline, still matched', desc:'Time triggers still fire and geo still matches on-device with no signal — only deep-link content and map tiles wait. The promise at its strongest.', icon:'wifi_off', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', kicker:'#4C2092', body:'#3F2A6E' },
+        { href:'Privacy-Affordance.dc.html', kick:'E · REUSABLE COMPONENT', title:'"Matched on your device"', desc:'The brand-differentiating privacy affordance — chip, info row and detail sheet — in light + dark, and shown in context.', icon:'verified_user', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Adaptive.dc.html', kick:'ADAPTIVE', title:'Tablet · desktop · Wear', desc:'Places on a bigger map, triggers surfacing in the desktop Now pane, and the glanceable Wear trigger tile + complication.', icon:'devices', iconBg:'#3D2D28', iconFg:'#FFEDE8', bg:'#FFF8F6', border:'#EBD3CB', arrow:'#3D2D28', kicker:'#7A2615', body:'#5A423C' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

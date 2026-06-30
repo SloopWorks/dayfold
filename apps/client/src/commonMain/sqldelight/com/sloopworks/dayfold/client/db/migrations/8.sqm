@@ -1,0 +1,22 @@
+-- Migration v8→v9 (ADR 0044 Phase B) — device-local, NEVER-synced notification state (ADR 0024):
+--   * notif_config — single-row background-proximity config (enabled + quiet window + daily cap).
+--     Default-off (ADR 0044 §1): an absent row ⇒ disabled (the store maps null → NotifConfig()).
+--     Wiped on wipe() (tenancy revoke) but PRESERVED on wipeForResync() (device-personal, same class
+--     as surfacing_state / hidden).
+--   * notification_log — one row per posted LOCAL notification. The daily cap is computed
+--     count-by-local-date (no midnight reset job; survives process death) and same-day per-subject
+--     dedup. Same local-personal class as notif_config.
+-- Additive; existing DBs get empty tables.
+CREATE TABLE notif_config (
+  id          INTEGER NOT NULL PRIMARY KEY,
+  enabled     INTEGER NOT NULL,
+  quiet_start INTEGER NOT NULL,
+  quiet_end   INTEGER NOT NULL,
+  daily_cap   INTEGER NOT NULL
+);
+
+CREATE TABLE notification_log (
+  subject_key TEXT NOT NULL,
+  notified_at TEXT NOT NULL
+);
+CREATE INDEX notification_log_at ON notification_log(notified_at);

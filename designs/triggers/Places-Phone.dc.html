@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .pl-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  /* M3E FAB Menu — staggered spatial spring (expressive overshoot) */
+  @keyframes pl-fab-in { 0% { opacity:0; transform: translateY(14px) scale(0.8); } 60% { opacity:1; transform: translateY(-2px) scale(1.04); } 100% { opacity:1; transform: translateY(0) scale(1); } }
+  /* M3E waveform loading indicator */
+  @keyframes pl-wave { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+  .pl-wave { transform-origin: bottom; }
+  @media (prefers-reduced-motion: reduce) {
+    .pl-fab-item { animation: none !important; }
+    .pl-wave { animation: none !important; transform: scaleY(0.7) !important; }
+  }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ===== LIST ===== -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div class="pl-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:8px 22px 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:5px;">FAMILY · SETTINGS</div>
+            <h1 style="font-family:'Outfit';font-weight:600;font-size:32px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0;">Places</h1>
+          </div>
+          <span class="msr" style="font-size:24px;color:{{ c.onSurfaceVar }};">help_outline</span>
+        </div>
+      </div>
+
+      <!-- hero map with pins -->
+      <div style="margin:2px 16px 14px;height:170px;border-radius:24px;overflow:hidden;position:relative;background:{{ c.mapBg }};background-image:linear-gradient({{ c.mapLine }} 1px,transparent 1px),linear-gradient(90deg,{{ c.mapLine }} 1px,transparent 1px);background-size:28px 28px;">
+        <div style="position:absolute;left:10%;top:64%;width:84%;height:15px;background:{{ c.mapRoad }};transform:rotate(-10deg);border-radius:4px;"></div>
+        <div style="position:absolute;left:36%;top:18%;width:13px;height:60%;background:{{ c.mapRoad }};transform:rotate(8deg);border-radius:4px;"></div>
+        <div style="position:absolute;left:22%;top:30%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:30px;color:#C0381E;">home</span></div>
+        <div style="position:absolute;left:58%;top:24%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:28px;color:#00796F;">school</span></div>
+        <div style="position:absolute;left:74%;top:58%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:28px;color:#6438AE;">storefront</span></div>
+      </div>
+
+      <!-- family privacy row -->
+      <div style="margin:0 16px 14px;background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+        <span class="msr fill" style="font-size:23px;color:{{ c.privacyIcon }};">verified_user</span>
+        <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.privacyFg }};">Your places stay private</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.privacyFg }};opacity:0.82;line-height:1.4;">Shared with your family, matched on-device. Never used for ads.</div></div>
+      </div>
+
+      <div style="padding:0 16px 96px;display:flex;flex-direction:column;gap:11px;">
+        <sc-for list="{{ places }}" as="p" hint-placeholder-count="3">
+          <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:15px 16px;display:flex;align-items:center;gap:14px;">
+            <span style="width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:{{ p.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:{{ p.iconFg }};">{{ p.icon }}</span></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};line-height:1.2;">{{ p.label }}</div>
+              <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0 6px;">{{ p.address }}</div>
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:11px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:3px 8px;border-radius:7px;"><span class="msr" style="font-size:13px;">my_location</span>{{ p.radius }}</span>
+                <span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Added by {{ p.by }}</span>
+              </div>
+            </div>
+            <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">edit</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <!-- M3E FAB Menu — expands to home / school / store / other -->
+    <sc-if value="{{ fabOpen }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ toggleFab }}" style="position:absolute;inset:48px 0 0 0;background:rgba(39,24,20,0.18);z-index:6;"></div>
+    </sc-if>
+    <div style="position:absolute;right:20px;bottom:30px;display:flex;flex-direction:column;align-items:flex-end;gap:13px;z-index:7;">
+      <sc-if value="{{ fabOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:11px;">
+          <sc-for list="{{ fabItems }}" as="f" hint-placeholder-count="4">
+            <div class="pl-fab-item" style="display:flex;align-items:center;gap:11px;animation:{{ f.anim }};">
+              <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};background:{{ c.surface }};padding:8px 13px;border-radius:11px;box-shadow:0 3px 10px rgba(39,24,20,0.18);">{{ f.label }}</span>
+              <span style="width:48px;height:48px;border-radius:16px;background:{{ f.bg }};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(39,24,20,0.20);"><span class="msr fill" style="font-size:23px;color:{{ f.fg }};">{{ f.icon }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div onClick="{{ toggleFab }}" style="display:inline-flex;align-items:center;gap:8px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};font-family:'Figtree';font-weight:600;font-size:15px;padding:16px 22px;border-radius:20px;box-shadow:0 6px 18px rgba(39,24,20,0.22);cursor:pointer;"><span class="msr" style="font-size:22px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);transform:rotate({{ fabRot }});">{{ fabIcon }}</span>{{ fabLabel }}</div>
+    </div>
+  </sc-if>
+
+  <!-- ===== ADD PLACE ===== -->
+  <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+    <div class="pl-scroll" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
+      <!-- top bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 10px;">
+        <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">close</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onSurface }};">New place</span>
+        <span style="width:24px;"></span>
+      </div>
+
+      <!-- map with radius circle -->
+      <div style="margin:0 16px;height:260px;border-radius:24px;overflow:hidden;position:relative;background:{{ c.mapBg }};background-image:linear-gradient({{ c.mapLine }} 1px,transparent 1px),linear-gradient(90deg,{{ c.mapLine }} 1px,transparent 1px);background-size:28px 28px;">
+        <div style="position:absolute;left:8%;top:70%;width:90%;height:16px;background:{{ c.mapRoad }};transform:rotate(-8deg);border-radius:4px;"></div>
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:170px;height:170px;border-radius:999px;background:{{ c.radiusFill }};border:2px solid {{ c.secondary }};"></div>
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);"><span class="msr fill" style="font-size:40px;color:#C0381E;">location_on</span></div>
+        <div style="position:absolute;right:14px;bottom:14px;width:40px;height:40px;border-radius:12px;background:{{ c.surface }};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(39,24,20,0.18);"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">my_location</span></div>
+        <!-- M3E waveform loading indicator: address resolve -->
+        <div style="position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:9px;background:{{ c.surface }};padding:7px 14px;border-radius:999px;box-shadow:0 2px 8px rgba(39,24,20,0.18);">
+          <span style="display:inline-flex;align-items:flex-end;gap:2.5px;height:15px;">
+            <span class="pl-wave" style="width:3px;height:15px;border-radius:2px;background:{{ c.secondary }};animation:pl-wave 1s ease-in-out 0s infinite;"></span>
+            <span class="pl-wave" style="width:3px;height:15px;border-radius:2px;background:{{ c.secondary }};animation:pl-wave 1s ease-in-out 0.15s infinite;"></span>
+            <span class="pl-wave" style="width:3px;height:15px;border-radius:2px;background:{{ c.secondary }};animation:pl-wave 1s ease-in-out 0.3s infinite;"></span>
+            <span class="pl-wave" style="width:3px;height:15px;border-radius:2px;background:{{ c.secondary }};animation:pl-wave 1s ease-in-out 0.45s infinite;"></span>
+          </span>
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};">Resolving address…</span>
+        </div>
+      </div>
+
+      <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:16px;">
+        <!-- label field -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:7px;">LABEL</div>
+          <div style="background:{{ c.surfaceContainer }};border:1px solid {{ c.outline }};border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:10px;">
+            <span class="msr" style="font-size:20px;color:{{ c.secondary }};">label</span>
+            <span style="font-family:'Figtree';font-size:15px;font-weight:500;color:{{ c.onSurface }};">Lincoln Market</span>
+            <span style="margin-left:auto;width:2px;height:18px;background:{{ c.primary }};"></span>
+          </div>
+        </div>
+
+        <!-- category chips -->
+        <div>
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};margin-bottom:7px;">TYPE</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <sc-for list="{{ cats }}" as="cat" hint-placeholder-count="4">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;background:{{ cat.bg }};color:{{ cat.fg }};border:{{ cat.border }};padding:8px 13px;border-radius:9px;"><span class="msr" style="font-size:16px;">{{ cat.icon }}</span>{{ cat.label }}</span>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- radius slider -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};">TRIGGER RADIUS</span>
+            <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};">200 m</span>
+          </div>
+          <div style="position:relative;height:48px;display:flex;align-items:center;">
+            <div style="position:absolute;left:0;right:0;height:6px;border-radius:999px;background:{{ c.track }};"></div>
+            <div style="position:absolute;left:0;width:42%;height:6px;border-radius:999px;background:{{ c.secondary }};"></div>
+            <!-- 48dp hit-slop around the 22px thumb -->
+            <div style="position:absolute;left:42%;width:48px;height:48px;border-radius:999px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;">
+              <span style="position:absolute;width:40px;height:40px;border-radius:999px;background:{{ c.radiusFill }};"></span>
+              <span style="width:22px;height:22px;border-radius:999px;background:{{ c.secondary }};box-shadow:0 2px 6px rgba(39,24,20,0.22);"></span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};"><span>100 m</span><span>500 m</span></div>
+        </div>
+
+        <!-- family toggle -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <span class="msr fill" style="font-size:22px;color:{{ c.secondary }};">group</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Share with family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Everyone\u2019s triggers can use this place.</div></div>
+          <span style="width:46px;height:28px;border-radius:999px;background:{{ c.secondary }};position:relative;display:inline-block;"><span style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:999px;background:{{ c.surface }};"></span></span>
+        </div>
+
+        <!-- privacy line -->
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 2px;">
+          <span class="msr fill" style="font-size:18px;color:{{ c.privacyIcon }};margin-top:1px;">verified_user</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.privacyFg }};">This place is shared with your family and stored encrypted. Your live position stays on this phone and is matched on-device.</span>
+        </div>
+        <div style="height:90px;"></div>
+      </div>
+    </div>
+    <!-- save footer -->
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:14px 20px 26px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <span style="display:flex;align-items:center;justify-content:center;gap:8px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:15px 18px;border-radius:999px;"><span class="msr" style="font-size:20px;">check</span>Save place</span>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;add&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list' | 'add'&quot;}}">
+class Component extends DCLogic {
+  state = { fabOpen: true };
+  reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const screen = this.props.screen || 'list';
+    const light = {
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#D8C2BB', outlineVar:'#E2D4CE',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC', privacyIcon:'#00796F',
+      mapBg:'#EFE3DD', mapLine:'#E0CEC6', mapRoad:'#D8C2BB', radiusFill:'rgba(0,121,111,0.14)', track:'#F0DFDA',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#53433E', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048', privacyIcon:'#50DBC9',
+      mapBg:'#231A16', mapLine:'#322824', mapRoad:'#3D322E', radiusFill:'rgba(80,219,201,0.16)', track:'#322824',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const catActive = { bg:c.secondaryContainer, fg:c.onSecondaryContainer, border:'none' };
+    const catIdle = { bg:'transparent', fg:c.onSurfaceVar, border:'1px solid '+c.outline };
+    const fabOpen = this.state.fabOpen;
+    const noMo = this.reduced();
+    const fabAnim = (i) => noMo ? 'none' : ('pl-fab-in 0.4s cubic-bezier(.34,1.56,.64,1) ' + (0.05 * i) + 's both');
+    return {
+      c,
+      isList: screen === 'list',
+      isAdd: screen === 'add',
+      fabOpen,
+      toggleFab: () => this.setState(s => ({ fabOpen: !s.fabOpen })),
+      fabIcon: fabOpen ? 'close' : 'add_location_alt',
+      fabLabel: fabOpen ? 'Choose a type' : 'Add place',
+      fabRot: fabOpen ? '0deg' : '0deg',
+      fabItems: [
+        { icon:'home', label:'Home', bg:c.primaryContainer, fg:c.onPrimaryContainer, anim: fabAnim(3) },
+        { icon:'school', label:'School', bg:c.secondaryContainer, fg:c.onSecondaryContainer, anim: fabAnim(2) },
+        { icon:'storefront', label:'Store', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, anim: fabAnim(1) },
+        { icon:'more_horiz', label:'Other', bg:c.surfaceContainerHigh, fg:c.onSurfaceVar, anim: fabAnim(0) },
+      ],
+      places: [
+        { icon:'home', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer, label:'Home', address:'412 Maple Ave', radius:'150 m', by:'Pat' },
+        { icon:'school', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer, label:"Maya's school", address:'Riverside Middle School', radius:'250 m', by:'Sam' },
+        { icon:'storefront', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer, label:'Lincoln Market', address:'88 Lincoln Blvd', radius:'200 m', by:'Pat' },
+      ],
+      cats: [
+        { icon:'storefront', label:'Store', ...catActive },
+        { icon:'home', label:'Home', ...catIdle },
+        { icon:'school', label:'School', ...catIdle },
+        { icon:'more_horiz', label:'Other', ...catIdle },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

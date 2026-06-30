@@ -50,6 +50,7 @@ fun AccountScreen(
   onClose: () -> Unit = {},
   onOpenMembers: () -> Unit = {},
   onOpenDevices: () -> Unit = {},
+  onOpenProximity: () -> Unit = {},   // ADR 0044 Phase B — device-local background-proximity settings
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
@@ -135,6 +136,23 @@ fun AccountScreen(
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         Text("Connected devices", style = MaterialTheme.typography.titleMedium, color = cs.onSurface, modifier = Modifier.weight(1f))
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
+      }
+
+      Spacer(Modifier.height(22.dp))
+      SectionLabel("ON THIS DEVICE")
+      Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(onClick = onOpenProximity).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text("Background proximity", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(
+            if (state.notifConfig.enabled) "On · matched on your device" else "Off · optional, reversible",
+            style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+          )
+        }
         androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 

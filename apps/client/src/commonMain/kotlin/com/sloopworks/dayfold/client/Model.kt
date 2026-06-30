@@ -350,7 +350,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -433,6 +433,12 @@ data class AppState(
   // deriveNow + rank over them at render time with an injected clock + location.
   val nowContent: NowContent = NowContent(),
   val surfacing: Map<String, SurfacingRecord> = emptyMap(),
+  // ADR 0044 Phase B — device-local, NEVER-synced. notifConfig is DB-fed (sole-writer bridge, like
+  // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
+  // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
+  val notifConfig: NotifConfig = NotifConfig(),
+  val locationPermission: LocationPermission = LocationPermission.Denied,
+  val notificationPermission: NotificationPermission = NotificationPermission.Denied,
   // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
   // currentHubAudience null while loading.
   val audienceSheetOpen: Boolean = false,
@@ -482,6 +488,12 @@ data class SetShowHidden(val show: Boolean) : Action
 // derived-lane candidate inputs; SurfacingLoaded carries the local-only engine state.
 data class NowContentLoaded(val content: NowContent) : Action
 data class SurfacingLoaded(val records: Map<String, SurfacingRecord>) : Action
+// ADR 0044 Phase B — device-local, never-synced bridges. NotifConfigLoaded = DB→store (sole writer of
+// state.notifConfig). The permission *Loaded actions are bridged from the OS-owned platform controllers
+// (NOT the DB), re-read on resume — OS permission is OS truth, never cached or synced (ADR 0024).
+data class NotifConfigLoaded(val config: NotifConfig) : Action
+data class LocationPermissionLoaded(val state: LocationPermission) : Action
+data class NotificationPermissionLoaded(val state: NotificationPermission) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceLoaded(val audience: HubAudience) : Action
 data object CloseAudienceSheet : Action
@@ -507,6 +519,8 @@ data object SessionExpired : Action
 data class RestoreFailed(val message: String) : Action
 data object OpenAccount : Action                           // Feed → Account (signed-in overlay)
 data object CloseAccount : Action                          // Account → back to the route gate (Feed)
+data object OpenProximity : Action                         // Account → Background-proximity settings (ADR 0044)
+data object CloseProximity : Action                        // Proximity → back to Account
 data object SignOutRequested : Action
 data object SignedOut : Action                             // clears session + feed → SignIn
 // invitee-join (S5 slice-2). RedeemRequested is an effect trigger (AuthEngine);

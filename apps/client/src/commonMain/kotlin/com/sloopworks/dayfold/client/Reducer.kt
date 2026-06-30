@@ -71,6 +71,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   // ADR 0043 Phase A — DB→store bridges (sole writers; full replace, DB is truth).
   is NowContentLoaded -> state.copy(nowContent = action.content)
   is SurfacingLoaded -> state.copy(surfacing = action.records)
+  is NotifConfigLoaded -> state.copy(notifConfig = action.config)              // ADR 0044 Phase B
+  is LocationPermissionLoaded -> state.copy(locationPermission = action.state)
+  is NotificationPermissionLoaded -> state.copy(notificationPermission = action.state)
   is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null, audienceError = null)
   is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience, audienceError = null)
   is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null, audienceError = null)
@@ -107,6 +110,8 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is RestoreFailed -> state.copy(route = Route.AuthError, authBusy = false, authError = action.message)
   is OpenAccount -> state.copy(route = Route.Account)    // overlay on the signed-in Feed
   is CloseAccount -> state.copy(route = routeFor(state.session, state.families))  // back to the gate
+  is OpenProximity -> state.copy(route = Route.Proximity)   // ADR 0044 Phase B — background-proximity settings
+  is CloseProximity -> state.copy(route = Route.Account)
   is SignedOut -> AppState(route = Route.SignIn)        // clear session + feed
   is SignOutRequested -> state.copy(signOutBusy = true)
 

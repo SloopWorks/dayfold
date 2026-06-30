@@ -105,6 +105,10 @@ fun FeedApp(
   onDeleteBlock: (String) -> Unit = {},
   onHideBlock: (String) -> Unit = {},
   onUnhideBlock: (String) -> Unit = {},
+  // ADR 0044 Phase B: device-local background-proximity config write (toggle / quiet-hours / daily-cap).
+  // UI → onSetNotifConfig → ContentStore.setNotifConfig → flow → NotifConfigLoaded (no optimistic
+  // UI→store path); the shell's notifConfigFlow reaction arms/disarms geofences + exact alarms.
+  onSetNotifConfig: (NotifConfig) -> Unit = {},
 ) {
   // ADR 0036: one-time Coil image-loader setup (Ktor network fetcher + crossfade).
   // Idempotent; runs before the first AsyncImage composes. URLs are still gated by
@@ -203,6 +207,14 @@ fun FeedApp(
         state, signOutBusy = state.signOutBusy, onSignOut = onSignOut, onClose = { store.dispatch(CloseAccount) },
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
+        onOpenProximity = { store.dispatch(OpenProximity) },
+      )
+      Route.Proximity -> ProximitySettingsHost(
+        config = state.notifConfig,
+        permission = state.locationPermission,
+        onSetNotifConfig = onSetNotifConfig,
+        onOpenPermission = onOpenAppSettings,
+        onBack = { store.dispatch(CloseProximity) },
       )
       Route.Devices -> DevicesScreen(
         state, onLoad = onLoadDevices, onRevoke = onRevokeDevice, onBack = { store.dispatch(OpenAccount) },

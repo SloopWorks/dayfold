@@ -8,15 +8,24 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.sloopworks.dayfold.client.AndroidGeofenceController
+import com.sloopworks.dayfold.client.AndroidLocalNotifier
+import com.sloopworks.dayfold.client.AndroidLocationPermissionController
+import com.sloopworks.dayfold.client.AndroidNotificationPermissionController
 import com.sloopworks.dayfold.client.AndroidTokenStore
 import com.sloopworks.dayfold.client.AuthClient
 import com.sloopworks.dayfold.client.AuthEngine
 import com.sloopworks.dayfold.client.ContentStore
+import com.sloopworks.dayfold.client.DEFAULT_GEOFENCE_RADIUS_M
 import com.sloopworks.dayfold.client.DriverFactory
 import com.sloopworks.dayfold.client.FeedApp
+import com.sloopworks.dayfold.client.GeoRegion
 import com.sloopworks.dayfold.client.HubClient
 import com.sloopworks.dayfold.client.HubEngine
+import com.sloopworks.dayfold.client.LocationPermissionLoaded
+import com.sloopworks.dayfold.client.NotificationPermissionLoaded
 import com.sloopworks.dayfold.client.NowEngine
+import com.sloopworks.dayfold.client.ANDROID_REGION_CAP
 import com.sloopworks.dayfold.client.SyncClient
 import com.sloopworks.dayfold.client.SyncEngine
 import com.sloopworks.dayfold.client.createAppStore
@@ -35,6 +44,36 @@ import kotlinx.coroutines.launch
 // Activity foreground/background to engine.resume()/pause().
 class MainActivity : ComponentActivity() {
   private lateinit var authEngine: AuthEngine
+  private lateinit var hubEngine: HubEngine
+  // ADR 0044 Phase B — OS-permission controllers (OS-owned truth; refreshed on resume, never DB-cached).
+  private val locationPermission by lazy { AndroidLocationPermissionController(applicationContext) }
+  private val notificationPermission by lazy { AndroidNotificationPermissionController(applicationContext) }
+
+  // ADR 0044 Phase B — in-app runtime prompts. POST_NOTIFICATIONS (API 33+) + while-using location are
+  // requested through ONE RequestMultiplePermissions flow (Android shows the dialogs in sequence within
+  // the single request — two back-to-back launch() calls would drop the second). Background "Always"
+  // CANNOT be requested in a dialog (Android forces a Settings trip — correct, handled by the permission
+  // row). After the result we re-read OS truth into the store.
+  private val proximityPermLauncher = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+  ) { locationPermission.refresh(); notificationPermission.refresh() }
+
+  private fun granted(permission: String): Boolean =
+    androidx.core.content.ContextCompat.checkSelfPermission(this, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+  // Enabling background proximity → request the in-app-grantable runtime permissions (notifications +
+  // while-using location) in one flow. Already-granted ones are omitted; "Always" stays a Settings step.
+  private fun requestProximityPermissions() {
+    val needed = buildList {
+      if (android.os.Build.VERSION.SDK_INT >= 33 && !granted(android.Manifest.permission.POST_NOTIFICATIONS)) {
+        add(android.Manifest.permission.POST_NOTIFICATIONS)
+      }
+      if (!granted(android.Manifest.permission.ACCESS_FINE_LOCATION)) {
+        add(android.Manifest.permission.ACCESS_FINE_LOCATION)
+      }
+    }
+    if (needed.isNotEmpty()) proximityPermLauncher.launch(needed.toTypedArray())
+  }
 
   // S6-D Tier 2: a verified App Link (https://<api-origin>/device?user_code=…) hands
   // the raw URL to the engine, which parses the code and either looks it up (signed
@@ -44,10 +83,23 @@ class MainActivity : ComponentActivity() {
     lifecycleScope.launch { authEngine.openDeviceLink(data) }
   }
 
+  // ADR 0044 Phase B — a tapped LOCAL notification relaunches us with the deep-link extras
+  // (AndroidLocalNotifier). Route straight to the source hub block — the same OpenHub the in-feed tap
+  // uses (container transform + arrival pulse). Tolerates a dangling target (openHub falls back to feed).
+  private fun handleNotificationIntent(intent: Intent?) {
+    val hubId = intent?.getStringExtra(AndroidLocalNotifier.EXTRA_HUB_ID) ?: return
+    val blockId = intent.getStringExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
+    // consume the extras so a config-change re-create doesn't re-route.
+    intent.removeExtra(AndroidLocalNotifier.EXTRA_HUB_ID)
+    intent.removeExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
+    if (::hubEngine.isInitialized) lifecycleScope.launch { hubEngine.openHub(hubId, blockId) }
+  }
+
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
     handleDeepLink(intent)
+    handleNotificationIntent(intent)
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,7 +147,9 @@ class MainActivity : ComponentActivity() {
     val http = fakeHttp ?: HttpClient()
     val clientApi = if (isFake) "http://fake.local" else apiBase
     val store = createAppStore()
-    val cs = ContentStore(DriverFactory(applicationContext).createDriver())  // shared DB
+    // Single process-shared store (ADR 0044 §S3) — the geofence/exact-alarm background receivers reuse
+    // this same instance + driver (one WAL writer); foreground and background never open two connections.
+    val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(applicationContext)
     if (isFake) {
       // Start clean so leftover real/seed rows from a prior run don't bleed into the
       // fake scenario (the persistent DB survives the backend-switch restart); the
@@ -145,14 +199,54 @@ class MainActivity : ComponentActivity() {
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         syncEngine.resume()
+        // Re-read OS permission truth on every foreground (Android has no permission-change broadcast;
+        // the user may have toggled it in Settings while we were backgrounded). ADR 0044 §S3.
+        locationPermission.refresh()
+        notificationPermission.refresh()
         try { awaitCancellation() } finally { syncEngine.pause() }
       }
     }
-    val hubEngine = HubEngine(   // ADR 0006 render — PR2: DB-fed
+    hubEngine = HubEngine(   // ADR 0006 render — PR2: DB-fed
       store, HubClient(clientApi, http),
       AuthClient(clientApi, http), tokenStore, cs, syncEngine,
     )
     val nowEngine = NowEngine(store, cs)  // ADR 0043 §2b — render-driven record-shown effect
+
+    // ADR 0044 Phase B — wire the OS-permission state into the store (sole-writer bridge from the
+    // controllers, mirroring SyncEngine's config bridge; OS-owned → re-read on resume below). Then react
+    // to the device-local config: enabling background proximity registers geofences for the saved places
+    // (capped); disabling de-registers them all. Live position never leaves the device.
+    val geofence = AndroidGeofenceController(applicationContext)
+    store.dispatch(LocationPermissionLoaded(locationPermission.currentState()))
+    store.dispatch(NotificationPermissionLoaded(notificationPermission.currentState()))
+    lifecycleScope.launch { locationPermission.state.collect { store.dispatch(LocationPermissionLoaded(it)) } }
+    lifecycleScope.launch { notificationPermission.state.collect { store.dispatch(NotificationPermissionLoaded(it)) } }
+    lifecycleScope.launch {
+      cs.notifConfigFlow().collect { cfg ->
+        if (cfg.enabled) {
+          val regions = cs.activePlaces().take(ANDROID_REGION_CAP)
+            .map { GeoRegion(it.id, it.lat, it.lng, it.radiusM?.toDouble() ?: DEFAULT_GEOFENCE_RADIUS_M) }
+          geofence.register(regions)
+          // arm exact alarms for known future instants (when.at / countdown / milestone).
+          com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
+        } else {
+          geofence.deregisterAll()
+        }
+      }
+    }
+    // Re-register on CONTENT change too (a place added/removed via /sync, or new timed items) — keeps
+    // the geofence set + exact alarms fresh while the feature is on (part of the re-registration matrix).
+    lifecycleScope.launch {
+      cs.nowContentFlow().collect {
+        if (store.state.notifConfig.enabled) {
+          val regions = cs.activePlaces().take(ANDROID_REGION_CAP)
+            .map { GeoRegion(it.id, it.lat, it.lng, it.radiusM?.toDouble() ?: DEFAULT_GEOFENCE_RADIUS_M) }
+          geofence.register(regions)
+          com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
+        }
+      }
+    }
+    handleNotificationIntent(intent)   // cold-start: did a notification tap launch us?
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
     setContent {
       // SloopWorks debug drawer: a floating bubble (debug) opens AppInfo / Backend-
@@ -193,6 +287,13 @@ class MainActivity : ComponentActivity() {
           onDeleteBlock = { blockId -> lifecycleScope.launch { hubEngine.deleteBlock(blockId) } },
           onHideBlock = { blockId -> lifecycleScope.launch { hubEngine.hideBlock(blockId) } },
           onUnhideBlock = { blockId -> lifecycleScope.launch { hubEngine.unhideBlock(blockId) } },
+          // ADR 0044 Phase B — device-local config write (toggle/quiet/cap) → DB → flow → store; the
+          // notifConfigFlow reaction above arms/disarms geofences + exact alarms. Off the main thread.
+          // Enabling also requests the in-app-grantable runtime permissions (notifications + while-using).
+          onSetNotifConfig = { cfg ->
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { cs.setNotifConfig(cfg) }
+            if (cfg.enabled) requestProximityPermissions()
+          },
         )
       }
     }

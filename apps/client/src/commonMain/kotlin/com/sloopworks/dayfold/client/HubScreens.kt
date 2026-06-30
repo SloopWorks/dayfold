@@ -59,6 +59,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
+import com.sloopworks.dayfold.client.cards.vettedOpenUri
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -906,7 +908,18 @@ private fun QueuePill(pending: Int, onSyncNow: () -> Unit) {
 @Composable
 private fun LinkRow(block: HubBlock) {
   val p = block.payload
-  Row(verticalAlignment = Alignment.CenterVertically) {
+  // The block is TAPPABLE when it carries an openable (https-vetted) URL — opens via the same installed
+  // LocalUriHandler (PlatformUriHandler → re-vetted PlatformActions.openUri) that inline body-links use,
+  // so no new callback threading. A LINK keeps its URL in `url`; a DOCUMENT keeps it in `ref`/`docRef`
+  // (e.g. a PDF link) — open whichever vets as https. A non-URL ref (internal doc id) won't vet → inert.
+  // (Bug fix: LinkRow showed the "opens externally" arrow but had no click handler → nothing on tap; a
+  // first pass only handled `url`, missing document blocks whose URL is in `ref`.)
+  val uriHandler = LocalUriHandler.current
+  val openUrl = (p?.url ?: p?.docRef ?: p?.ref)?.let { vettedOpenUri(it) }
+  val rowModifier = if (openUrl != null) {
+    Modifier.fillMaxWidth().clickable(onClickLabel = "Open ${p?.label ?: p?.domain ?: "link"}") { uriHandler.openUri(openUrl) }
+  } else Modifier.fillMaxWidth()
+  Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
     // ADR 0036: link/document preview thumbnail (image → icon-tile fallback).
     if (p?.thumbnailUrl != null) {
       EnrichedThumbnail(

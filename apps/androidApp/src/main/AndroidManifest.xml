@@ -2,6 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ADR 0044 Phase B — LOCAL notifications (no FCM/APNs). Runtime-requested on API 33+ via the
+         opt-in notification ladder; the app works fully if denied (reminders just wait inside Now). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- ADR 0044 Phase B — background proximity (opt-in, reversible, default-off). FINE is the
+         while-using grant primed first; BACKGROUND is the separate "Always" upgrade. RECEIVE_BOOT +
+         SCHEDULE_EXACT_ALARM re-arm geofences + fire known-future-instant reminders. Matched on-device;
+         the live position never leaves the phone (ADR 0014). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
     <!-- S6-D Tier 2: in-app QR scanner (requested at runtime; camera is optional so
          the app still installs on camera-less devices → enter-code fallback). -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -32,5 +44,30 @@
                     android:path="/device" />
             </intent-filter>
         </activity>
+
+        <!-- ADR 0044 Phase B — headless background receivers. Geofence + exact-alarm fire via internal
+             PendingIntents (not exported). Boot/app-update re-arm geofences (protected system broadcasts). -->
+        <receiver
+            android:name=".GeofenceReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.sloopworks.dayfold.GEOFENCE_EVENT" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".ExactAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.sloopworks.dayfold.EXACT_ALARM" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -76,6 +76,13 @@ kotlin {
         implementation("com.google.mlkit:barcode-scanning:17.3.0")
         implementation("androidx.activity:activity-compose:1.9.3")
         implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+        // ADR 0044 Phase B — LOCAL notifications (NotificationCompat: BigText, group/summary,
+        // deep-link action, on-device subtext). androidx.core, no FCM/APNs (dumb-server invariant).
+        implementation("androidx.core:core-ktx:1.13.1")
+        // ADR 0044 Phase B — background geofencing (GeofencingClient). On-device proximity only; the
+        // live position never leaves the device — only saved-place coords (already family content) are
+        // handed to the OS. No Maps SDK, no network — just the Location API.
+        implementation("com.google.android.gms:play-services-location:21.3.0")
       }
     }
     val desktopMain by getting {

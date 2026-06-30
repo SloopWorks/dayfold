@@ -159,13 +159,16 @@ private fun DerivedNowCard(item: NowItem, emphasized: Boolean, softened: Boolean
   }
 }
 
-// The "why" chip vocabulary (designs/now-derived/Chips). Derived items carry the honesty affordance
-// — "matched on your device", and for geo the location-never-leaves promise (ADR 0014). Authored
-// derived-mapped items (shouldn't reach here) fall through to a plain label.
+// The "why" chip vocabulary (designs/now-derived/Chips, designs/triggers/Privacy-Affordance). Derived
+// items carry the honest affordance "Matched on your device". The chip stays the short honest claim —
+// the true two-part story (saved places sync to your family encrypted; only your LIVE position stays on
+// this phone, ADR 0014/0044 §3) lives in the privacy info-row/sheet, NOT crammed onto the chip. The old
+// "· location never leaves" suffix was the ADR 0044 §3 P0 honesty bug (it read as "saved coords never
+// leave", which is false) — killed here. Authored derived-mapped items fall through to a plain label.
 @Composable
 private fun WhyChip(item: NowItem) {
   val label = when (item.reasonKind) {
-    ReasonKind.GEO -> "Matched on your device · location never leaves"
+    ReasonKind.GEO -> "Matched on your device"
     ReasonKind.COUNTDOWN, ReasonKind.MILESTONE, ReasonKind.CHECKLIST, ReasonKind.WHEN -> "On your device"
     ReasonKind.WEATHER -> "Weather"
     ReasonKind.EMAIL -> "From your email"

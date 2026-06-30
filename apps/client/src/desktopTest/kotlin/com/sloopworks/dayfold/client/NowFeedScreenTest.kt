@@ -41,7 +41,7 @@ class NowFeedScreenTest {
     onNodeWithText("Rain at soccer 4pm").assertIsDisplayed()              // authored peer
     onNodeWithText("Now").assertIsDisplayed()                            // band labels
     onNodeWithText("Soon").assertIsDisplayed()
-    onNodeWithText("Matched on your device · location never leaves").assertIsDisplayed()  // geo honesty chip
+    onNodeWithText("Matched on your device").assertIsDisplayed()  // geo honesty chip (honest: only LIVE position stays local; saved places sync encrypted — ADR 0044 §3 P0 fix)
     onNodeWithText("Nearby").assertIsDisplayed()                         // geo-active live cue
   }
 

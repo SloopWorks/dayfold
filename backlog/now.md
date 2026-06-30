@@ -13,6 +13,142 @@ NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemin
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
 later milestone; interim authoring = operator + Claude Code via the CLI.
 
+**Bugfix (2026-06-30, on-device report) ✅ FIXED + VERIFIED ON PIXEL 10 PRO: Hub link/document blocks
+were not tappable.** Root cause (two layers): (1) `LinkRow` (`HubScreens.kt`) rendered the "opens
+externally" arrow but had **no click handler** — the installed `LocalUriHandler` (PlatformUriHandler,
+used by inline body-links) was never invoked for structured blocks; (2) — found via the device DB —
+**`document` blocks keep their URL in `ref`/`docRef`, not `url`** (real data: a Butler PDF at
+`https://cdn.butler.edu/...Immunization-Req.pdf` in `ref`), so a first pass that only handled `url` left
+the actual tapped blocks inert. Fix: `LinkRow` is `clickable` when ANY of `url`/`docRef`/`ref` vets as
+https → `LocalUriHandler.current.openUri(it)` (a non-URL ref stays inert). TDD: `HubLinkTapTest` (link,
+document-ref, inert-ref) red→green; **662 desktop tests green**. **On-device: tapped "2026-27
+Immunization" on the Pixel → Chrome opened the Butler Health Services PDF.** (Lesson: the unit test first
+encoded the wrong assumption — real document `ref`s are https URLs; pulling the device DB found it.)
+
+**Status update (2026-06-30 PM): Now derived surfacing — PHASE B BUILD STARTED (both gates closed).**
+Worktree `derived-now-phase-b` (branch `now-derived-phase-b`, off origin/main). Operator resolved all
+Phase-B gates in-session:
+- **Gate A (ADR 0008): SIGNED OFF.** The v2 `designs/triggers/` mockup set (INB-13 §6b honesty rework +
+  the opt-in ladder + closed-app notif/lock-screen + offline + reversible settings + the "Matched on your
+  device" affordance) was imported from Claude Design (15 files) and operator-approved as-is. P0 "saved
+  coords never leave" claim confirmed absent; honest two-part promise present. **Closes INB-13.**
+- **Scope: FULL build incl. device glue** (Android device connected + iOS sim available → on-device
+  verification IS possible; the "no-device" deferral is dropped).
+- **Places: CLI/server-authored** (Add-place UI out of scope; list read-only; place-egress lane = future
+  slice + own ADR).
+- **Notif defaults RATIFIED:** cap 3/day, quiet 22:00–08:00, urgent (NOW/geo) bypasses quiet but counts
+  to the cap. (Resolves the ADR 0044 `[pending-ratify]`.)
+Plan (6-agent adversarial review: correctness/gaps/KMP/redux/simplification/UI-UX) →
+`docs/superpowers/specs/2026-06-30-now-phase-b-plan.md`. **commonMain foundation BUILT + GREEN (604
+client desktop tests, 0 fail):**
+- **S0** pure notification-selection core (`NowNotify.kt`): `selectNotifications` over the SAME
+  `RankedFeed` (NO engine fork); sibling `NotifConfig` (never `RankConfig`); quiet-hours wrap,
+  daily-cap, dedup, foreground-suppression, `nearestNPlaces`, `notificationActionFor→OpenHub`, pure
+  `postedTodayCount` rollover; `LocationPermission`/`NotificationPermission` enums — 13 tests.
+- **S1** device-local NEVER-synced state: `notif_config` + `notification_log` tables (migration
+  `8.sqm`, v8→v9, verifies clean), ContentStore `notifConfig`/`setNotifConfig`/`logNotification`/
+  `notifLedger` + sync snapshot getter, `NotifConfigLoaded`/`*PermissionLoaded` reducer bridges +
+  AppState slices, SyncEngine DB→store config bridge. wipe()=reset, wipeForResync()=preserve — 12 tests.
+- **S1b** honesty copy fix (shipped Phase-A): geo `WhyChip` → "Matched on your device" (killed the false
+  "· location never leaves"; ADR 0044 §3 P0).
+- **S2 ✅ COMPLETE — Compose surfaces, snapshot-verified light+dark, 636 client desktop tests green
+  (+29).** All map designs/trigger/* 1:1, M3-stable fallbacks (no M3E/CL-0b block):
+  - `PrivacyAffordance.kt` (keystone) — chip/info-row/detail-sheet, honest two-part promise.
+  - `PermissionLadder.kt` (9 tests) — opt-in ladder: locPrime/alwaysUpgrade(honest battery+closed-app
+    trade)/notifPrime/limited/denied/downgraded; "Not now"/secondary is a full-color OutlinedButton PEER
+    (never disabled); on-device promise rides every priming screen.
+  - `ProximitySettings.kt` (7) — reversible toggle (Switch), off→"Geofences removed" + async
+    "Removing…", permission row + device-local privacy line, quiet-hours editor (pure
+    `formatMinuteOfDay`), daily-cap `SingleChoiceSegmentedButtonRow` (1/3/5, not a slider), dimmed-when-off.
+  - `OfflineBanner.kt` (3) — "Offline · still matched on your device" (privacy teal, strength-not-error).
+  - `NotifStates.kt` (6) — quiet-held card + cap-reached "You're all caught up · N of N" (no badge/count-urgency).
+  - `PlacesList.kt` (4) — READ-ONLY list (no edit pencil/FAB), family-privacy row, "Added by Claude" provenance.
+  - a11y `rememberReduceMotion()` already shipped + matches plan (Android ANIMATOR_DURATION_SCALE==0 /
+    iOS UIAccessibilityIsReduceMotionEnabled / desktop false); Shimmer infinite anim already gated. ≥48dp
+    hit-slop + content-descriptions + labelSmall(≥11sp) privacy chip applied.
+- **S3 (commonMain core ✅ COMPLETE + GREEN — 649 client desktop tests, +13; iOS links; Android client
+  compiles):** the testable HEART of the background path, no engine fork:
+  - `BackgroundNotify.kt` (7 tests) — `planBackgroundNotifications(snapshot, nowIso, location, zone)`:
+    builds a minimal `AppState` from a synchronous `NotifSnapshot` (cards+hubs+sections+blocks+places+
+    surfacing+config+log) → calls the SAME `nowFeed()` + `selectNotifications`. Daily-cap rollover by
+    local date from the log, within-day dedup, foreground-shown suppression (`FOREGROUND_SUPPRESSION_
+    WINDOW`=30m via `surfacing.lastShown`). Live position injected, never persisted.
+  - `NotifSeams.kt` (6 tests) — device-glue as **commonMain interfaces** (deliberate deviation from
+    expect/actual: keeps logic in commonMain + unit-testable with fakes, every target green without
+    half-built actuals; the real impls are the on-device remainder): `LocalNotifier`/`GeofenceController`/
+    `ExactNotificationScheduler`/`LocationPermissionController`/`NotificationPermissionController` +
+    `GeoRegion`/`NotificationSpec` + pure mappers (`notificationSubtext` honest provenance, `toNotification
+    Spec`, `geoRegionsFor` nearest-N capped iOS-20/Android-100 w/ radius fallback). `BackgroundNotification
+    Runner` (plan→post→log once) + `cancelForegroundVisible`, both faked-tested.
+  - **WAL on the Android driver** (`DriverFactory.android.kt`) — single-writer/many-reader parity with
+    desktop so the background pass reads the SAME process-shared cache; no 2nd connection.
+  - **ContentStore SYNC snapshot getters** (3 tests) — `activeHubs/allSections/allBlocks/activePlaces/
+    surfacing/notificationLog` + `notifSnapshot()` assembler (one read from the shared connection); proven
+    end-to-end (`planBackgroundNotifications(store.notifSnapshot())`) over a real in-memory store.
+  - **Android device-glue ✅ BUILT + ON-EMULATOR-VERIFIED (assembleDebug green; 2 instrumented tests pass
+    on emulator-5558 API 35):**
+    - `AndroidLocalNotifier.kt` — NotificationCompat BigText + group/group-summary digest + deep-link
+      "Open" PendingIntent (extras → cold-start OpenHub) + honest on-device subtext; `POST_NOTIFICATIONS`
+      (runtime; denial = no-op not crash). Instrumented test posts + asserts it lands in the system set.
+    - `AndroidBackgroundNotify.kt` — `runBackgroundNotificationPass` (the receivers' shared entry: holder
+      store → `notifSnapshot()` → `BackgroundNotificationRunner` → notifier + log), `AndroidGeofenceController`
+      (GeofencingClient, MUTABLE PendingIntent, nearest-N regions, NEVER_EXPIRE/ENTER), `AndroidExact
+      NotificationScheduler` (`setExactAndAllowWhileIdle`), `onGeofenceEnter`/`reRegisterGeofences`.
+    - `AndroidPermissionControllers.kt` — Location (Denied/WhenInUse/Always from FINE+BACKGROUND) +
+      Notification (Granted/Denied/Blocked) state truth + refresh() + OS-settings deep-link.
+    - `AndroidContentStoreHolder` — ONE process-shared store/driver for fg+bg (single-writer); MainActivity
+      now uses it. **WAL** enabled via the open-helper `onConfigure` callback (the `PRAGMA` returns a row →
+      can't go through `driver.execute`; that was a real bug, fixed).
+    - 3 manifest receivers (`GeofenceReceiver`/`ExactAlarmReceiver`/`BootReceiver`) + Play Services
+      Location dep + FINE/BACKGROUND_LOCATION/BOOT/EXACT_ALARM perms. **`AndroidBackgroundPassTest` PROVES
+      the whole headless chain on-device:** seed shared store → enable config → `runBackgroundNotification
+      Pass` posts a real notification → 2nd pass dedups. (BootReceiver also observed firing on install.)
+  - **Android FOREGROUND wiring ✅ (MainActivity; assembleDebug green; app installs + launches + runs on
+    emulator-5558 with NO crash):** OS-permission bridge — controllers' Flow → `LocationPermissionLoaded`/
+    `NotificationPermissionLoaded` (initial dispatch + collect; **refreshed every foreground** since Android
+    emits no permission-change broadcast). Config reaction — `notifConfigFlow` enable → register geofences
+    for saved places (capped); disable → `deregisterAll`. Notification-tap → `hubEngine.openHub(hubId,
+    blockId)` from the notifier extras (cold-start in onCreate + warm in onNewIntent; extras consumed;
+    dangling-target tolerant). Shared store via the holder.
+  - **Exact-alarm scheduling pipeline ✅** (4 tests) — pure `planExactSchedules(snapshot, nowIso, horizon)`
+    reads BOTH raw lanes directly (`deriveNow` + `cardToNowItem`, NOT `nowFeed` whose not_before gate would
+    hide the very future authored items we wake for); keeps each subject's soonest future trigger within a
+    48h horizon; fire-time receiver re-runs the full pass (cap/quiet/dedup honored then). Wired on Android
+    (`reconcileExactSchedules` → `AndroidExactNotificationScheduler.setExactAndAllowWhileIdle`), armed on
+    enable alongside geofences. So BOTH halves now fire closed-app: proximity (geofence) + time (exact alarm).
+  - **Settings UI on-ramp ✅** (3 host tests) — `ProximitySettingsHost` (top bar + quiet-hours `TimePicker`
+    dialogs + privacy `ModalBottomSheet`) is now NAVIGABLE: Account → "Background proximity" (`Route.Proximity`
+    + `OpenProximity`/`CloseProximity` + reducer + BackNav). Toggle/cap/quiet → `onSetNotifConfig` →
+    (shell) `ContentStore.setNotifConfig` → flow → `NotifConfigLoaded` → the geofence/exact-alarm reaction
+    arms. `onSetNotifConfig` threaded through `FeedApp` (defaulted → other shells/tests unaffected); wired in
+    MainActivity (IO dispatcher). Interaction-tested: toggle/cap emit the right config write, back closes.
+**State: 659 desktop tests green · iOS links · assembleDebug green · 2 Android instrumented tests green on
+emulator · app installs+launches+runs clean WITH the new nav. The Android notification ENGINE (background
+pass + proximity + time) + foreground integration (permission reflection, geofence/alarm-on-enable,
+tap→deep-link) + the in-app Settings on-ramp are on-device-proven. NO engine fork; live position never
+persisted; config never synced; single-writer WAL.**
+  - **In-app permission PROMPTS ✅ + content-change re-registration ✅** (MainActivity; assembleDebug green;
+    app runs clean): enabling requests POST_NOTIFICATIONS + while-using location via `registerForActivity
+    Result` (background "Always" correctly stays a reversible Settings trip — Android forbids an in-app
+    dialog for it); each result refreshes OS truth into the store. Geofences + exact alarms also re-register
+    on `nowContentFlow` change (place added/removed, new timed items), not just on enable.
+
+  - **ON-DEVICE DRIVE on the Pixel 10 Pro (API 36, real Google session + synced content) ✅:** Account →
+    "Background proximity" → Settings renders design-faithful → toggle On (config write + un-dimmed
+    controls) → **in-app notification prompt → Allow** → **in-app location prompt → While using the app** →
+    permission row live-updates to "While using the app" (the bridge + refresh-on-result works). **Bug
+    found + fixed on-device:** two back-to-back permission `launch()` calls dropped the location prompt
+    (Android shows one dialog at a time) → switched to a single `RequestMultiplePermissions` flow;
+    reinstalled + re-verified. (Geofence ENTER → notification still wants a seeded place + arrival to fully
+    close; the engine + the whole permission/settings on-ramp are device-proven.)
+
+**Android side of Phase B is FEATURE-COMPLETE + on-device-verified (drive on the Pixel 10 Pro).** Remaining:
+(1) PRIMING UX polish — show the built `PermissionLadderScreen` priming screens before the OS prompt on
+first enable (today we jump straight to the system dialog; the state/flow all work). (2) geofence runtime
+drive via emulator mock-location (flaky/hard to assert). (3) **iOS actuals** (UN/CL/UNCalendarTrigger +
+BGTask via Swift AppDelegate, process-global delegate object on main thread, 20-region eviction) + iOS-sim
+smoke — entirely UNBUILT; no iOS sim booted in this env, so build-only verification at best.
+
 **Status update (2026-06-30): Now derived surfacing — PHASE B gate resolved by the operator;
 build proceeds only on the ungated carryover (Gate A still blocks the notification surface).**
 The loop stopped at the Phase-B gate (background geofence + LOCAL notifications, ADR 0043 §Phasing)

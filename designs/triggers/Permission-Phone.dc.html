@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .pm-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <div class="pm-scroll" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
+
+    <!-- ===== PRIMING screens share a hero ===== -->
+    <sc-if value="{{ isPriming }}" hint-placeholder-val="{{ true }}">
+      <div style="margin:6px 18px 0;height:248px;flex:0 0 248px;border-radius:30px;position:relative;overflow:hidden;background:{{ heroBg }};">
+        <sc-if value="{{ heroIsMap }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;inset:0;background-image:linear-gradient({{ c.mapLine }} 1px,transparent 1px),linear-gradient(90deg,{{ c.mapLine }} 1px,transparent 1px);background-size:30px 30px;"></div>
+          <div style="position:absolute;left:20%;top:62%;width:70%;height:14px;background:{{ c.mapRoad }};transform:rotate(-14deg);border-radius:4px;"></div>
+          <div style="position:absolute;left:24%;top:30%;"><span class="msr" style="font-size:22px;color:{{ c.heroDot }};">storefront</span></div>
+          <div style="position:absolute;right:22%;top:24%;"><span class="msr" style="font-size:22px;color:{{ c.heroDot }};">school</span></div>
+        </sc-if>
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96px;height:96px;border-radius:30px;background:{{ heroIconBg }};display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(39,24,20,0.22);"><span class="msr fill" style="font-size:50px;color:{{ heroIconFg }};">{{ heroIcon }}</span></div>
+      </div>
+
+      <div style="padding:22px 24px 0;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ c.secondary }};margin-bottom:8px;">{{ kicker }}</div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:26px;line-height:1.12;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">{{ title }}</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">{{ body }}</p>
+        <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:18px;">
+          <sc-for list="{{ reasons }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <span style="width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ r.fg }};">{{ r.icon }}</span></span>
+              <div style="flex:1;padding-top:2px;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};line-height:1.3;">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};line-height:1.4;">{{ r.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- on-device promise row -->
+        <div style="background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <span class="msr fill" style="font-size:24px;color:{{ c.privacyIcon }};">verified_user</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.privacyFg }};">{{ promiseTitle }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.privacyFg }};opacity:0.82;line-height:1.4;">{{ promiseBody }}</div></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ALWAYS UPGRADE tradeoff (extra panel under priming) ===== -->
+    <sc-if value="{{ isAlways }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 24px 0;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;">
+          <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:11px;">HONEST ABOUT THE TRADE</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">battery_5_bar</span><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Uses a little more battery in the background.</span></div>
+          <div style="display:flex;align-items:center;gap:10px;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">cached</span><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Checks places when the app is closed — still on-device.</span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== LIMITED state ===== -->
+    <sc-if value="{{ isLimited }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 24px 0;flex:1;">
+        <div style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.secondaryContainer }};color:{{ c.onSecondaryContainer }};padding:7px 13px;border-radius:999px;margin-bottom:20px;"><span class="msr" style="font-size:16px;">my_location</span>Location · while using the app</div>
+        <div style="width:84px;height:84px;border-radius:26px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr" style="font-size:42px;color:{{ c.onSecondaryContainer }};">touch_app</span></div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:25px;line-height:1.14;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">Open Dayfold to see what's nearby</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">You've allowed location only while the app is open — so we check your place reminders when you're here, and never in the background. That's a perfectly good setup.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+          <span class="msr" style="font-size:22px;color:{{ c.secondary }};margin-top:1px;">notifications_off</span>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurface }};">No background pings while it's set this way. We won't nag — your reminders just wait inside Now.</div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;display:flex;align-items:center;gap:12px;">
+          <span class="msr fill" style="font-size:22px;color:{{ c.privacyIcon }};">verified_user</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Want background proximity?</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};line-height:1.4;">It's an optional upgrade — and reversible.</div></div>
+          <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.secondary }};">Review</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== DENIED state ===== -->
+    <sc-if value="{{ isDenied }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 24px 0;flex:1;">
+        <div style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:7px 13px;border-radius:999px;margin-bottom:20px;"><span class="msr" style="font-size:16px;">location_off</span>Location · off</div>
+        <div style="width:84px;height:84px;border-radius:26px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr" style="font-size:42px;color:{{ c.onSurfaceVar }};">pause_circle</span></div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:25px;line-height:1.14;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">Place reminders are paused</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">That's completely fine. Everything is still here — your briefing and Hubs work exactly the same, just without the place-based timing.</p>
+        <!-- show content still works -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px 18px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">STILL WORKS — JUST NOT TIMED</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.secondary }};">checklist</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Party shopping list</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">7 open · open it anytime from the Hub</div></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex:1;min-height:14px;"></div>
+  </div>
+
+  <!-- ===== FOOTER (per screen) — M3 button group, secondary is a peer ===== -->
+  <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+    <div style="display:flex;gap:9px;align-items:stretch;">
+      <span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.secondary }};background:transparent;border:1.5px solid {{ c.outlineVar }};padding:14px 18px;border-radius:999px;">{{ secondaryBtnLabel }}</span>
+      <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:{{ primaryBtnBg }};color:{{ primaryBtnFg }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px 18px;border-radius:999px;border:1.5px solid {{ primaryBtnBorder }};"><span class="msr" style="font-size:19px;">{{ primaryBtnIcon }}</span>{{ primaryBtnLabel }}</span>
+    </div>
+    <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:9px;">{{ footnote }}</div>
+  </div>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;locPrime&quot;,&quot;alwaysUpgrade&quot;,&quot;notifPrime&quot;,&quot;limited&quot;,&quot;denied&quot;],&quot;default&quot;:&quot;locPrime&quot;,&quot;tsType&quot;:&quot;'locPrime' | 'alwaysUpgrade' | 'notifPrime' | 'limited' | 'denied'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const screen = this.props.screen || 'locPrime';
+    const light = {
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#E2D4CE',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC', privacyIcon:'#00796F',
+      mapLine:'#E7D4CC', mapRoad:'#E0C7BD', heroDot:'#A98B84',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048', privacyIcon:'#50DBC9',
+      mapLine:'#2E2420', mapRoad:'#3D322E', heroDot:'#8C726B',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const isLoc = screen === 'locPrime';
+    const isAlways = screen === 'alwaysUpgrade';
+    const isNotif = screen === 'notifPrime';
+    const isLimited = screen === 'limited';
+    const isDenied = screen === 'denied';
+    const isPriming = isLoc || isAlways || isNotif;
+
+    const cfg = {
+      locPrime: {
+        kicker:'LOCATION · WHILE USING THE APP', heroIcon:'pin_drop', heroIsMap:true,
+        title:'See what\u2019s nearby while Dayfold is open', body:'When the app is open, Dayfold surfaces the right list or reminder for a place you\u2019ve saved — the store, school, home. You\u2019ll see it in your feed while you\u2019re looking.',
+        reasons:[
+          { icon:'storefront', title:'Open at the store', sub:'The party list, right there in your feed.' },
+          { icon:'school', title:'Checking before pickup', sub:'The permission slip, when you look.' },
+        ],
+        promiseTitle:'Matched on your device', promiseBody:'Saved places sync to your family, encrypted. Your live position stays on this phone.',
+        primaryLabel:'Allow while using', primaryIcon:'check', secondaryLabel:'Not now',
+        footnote:'Background proximity is a separate, optional step — later, or never.',
+      },
+      alwaysUpgrade: {
+        kicker:'OPTIONAL UPGRADE · BACKGROUND', heroIcon:'my_location', heroIsMap:false,
+        title:'A calm nudge the moment you arrive', body:'Today Dayfold only checks while it\u2019s open. Allowing \u201cAlways\u201d lets a place reminder reach you the moment you walk in — without opening the app first.',
+        reasons:[],
+        promiseTitle:'Still matched on your device', promiseBody:'Background matching runs on this phone too. Saved places stay encrypted; your live position is never uploaded.',
+        primaryLabel:'Allow always', primaryIcon:'pin_drop', secondaryLabel:'Keep when-in-use',
+        footnote:'Reversible anytime — in Dayfold or your phone\u2019s settings.',
+      },
+      notifPrime: {
+        kicker:'NOTIFICATIONS', heroIcon:'notifications_active', heroIsMap:false,
+        title:'A few nudges — never a stream', body:'We\u2019ll only notify you when a trigger genuinely matters, and we cap it hard. No badges, no streaks, no engagement games.',
+        reasons:[
+          { icon:'filter_list', title:'At most 3 a day', sub:'A real budget. Often it\u2019s zero.' },
+          { icon:'bedtime', title:'Quiet overnight', sub:'Non-urgent things wait until morning.' },
+        ],
+        promiseTitle:'You\u2019re always in control', promiseBody:'Turn any category off in a tap — and they stay off.',
+        primaryLabel:'Turn on notifications', primaryIcon:'notifications', secondaryLabel:'Not now',
+        footnote:'You can change this anytime in Settings.',
+      },
+    };
+    const k = cfg[screen] || cfg.locPrime;
+
+    let primaryBtnBg = c.primary, primaryBtnFg = c.onPrimary, primaryBtnBorder = c.primary, primaryBtnLabel = k.primaryLabel, primaryBtnIcon = k.primaryIcon, secondaryBtnLabel = k.secondaryLabel, footnote = k.footnote;
+    if (isLimited) { primaryBtnBg = c.secondaryContainer; primaryBtnFg = c.onSecondaryContainer; primaryBtnBorder = c.secondaryContainer; primaryBtnLabel = 'Open Now'; primaryBtnIcon = 'today'; secondaryBtnLabel = 'Location access'; footnote = 'No background location is used in this mode.'; }
+    if (isDenied) { primaryBtnBg = c.secondaryContainer; primaryBtnFg = c.onSecondaryContainer; primaryBtnBorder = c.secondaryContainer; primaryBtnLabel = 'Turn on in Settings'; primaryBtnIcon = 'settings'; secondaryBtnLabel = 'Keep it off'; footnote = 'No pressure — nothing here is broken.'; }
+
+    return {
+      c, isPriming, isLoc, isAlways, isNotif, isLimited, isDenied,
+      heroBg: c.surfaceContainer, heroIsMap: !!k.heroIsMap, heroIcon: k.heroIcon,
+      heroIconBg: c.primary, heroIconFg: c.onPrimary,
+      kicker:k.kicker, title:k.title, body:k.body, reasons:k.reasons,
+      promiseTitle:k.promiseTitle, promiseBody:k.promiseBody,
+      primaryBtnBg, primaryBtnFg, primaryBtnBorder, primaryBtnLabel, primaryBtnIcon, secondaryBtnLabel, footnote,
+    };
+  }
+}
+</script>
+</body>
+</html>

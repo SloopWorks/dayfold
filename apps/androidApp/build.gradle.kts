@@ -133,6 +133,7 @@ dependencies {
   androidTestImplementation("androidx.compose.ui:ui-test-junit4")
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test:runner:1.6.2")
+  androidTestImplementation("androidx.test:core:1.6.1")   // InstrumentationRegistry (Phase B notifier test)
   // espresso 3.6.1 has the API 34/35 InputManager.getInstance() fix (older
   // espresso throws NoSuchMethodException via the compose idling bridge).
   // ⚠ API 37 (Android 16 preview) removed getInstance() entirely → espresso
