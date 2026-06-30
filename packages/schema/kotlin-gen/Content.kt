@@ -269,6 +269,15 @@ data class BriefingCard (
     val hubRef: String? = null,
 
     val id: String,
+
+    /**
+     * ADR 0043 §2b — bounded author weight/hint fed to the on-device Priority & Ordering
+     * Engine. The device decides final position (no author-controlled ordinal); the engine
+     * CLAMPS it so an author cannot pin spam to the top (the constitution's calm guarantee
+     * constrains the scoring function).
+     */
+    val importance: Double? = null,
+
     val kind: BriefingCardKind,
 
     /**

@@ -68,6 +68,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   // W5 hide (ADR 0038 §W5) — DB-fed hidden ids + the per-view "Show hidden" toggle.
   is HiddenLoaded -> state.copy(hiddenIds = action.ids)
   is SetShowHidden -> state.copy(showHidden = action.show)
+  // ADR 0043 Phase A — DB→store bridges (sole writers; full replace, DB is truth).
+  is NowContentLoaded -> state.copy(nowContent = action.content)
+  is SurfacingLoaded -> state.copy(surfacing = action.records)
   is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null, audienceError = null)
   is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience, audienceError = null)
   is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null, audienceError = null)

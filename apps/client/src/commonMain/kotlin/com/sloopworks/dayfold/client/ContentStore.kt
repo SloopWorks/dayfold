@@ -15,6 +15,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 private val RELATED_SER = ListSerializer(RelatedRef.serializer())
+private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 0043 — block triggers JSON list
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
@@ -45,11 +46,13 @@ class ContentStore(driver: SqlDriver) {
     tombstones: List<Tombstone>,
     nextCursor: String?,
     nowIso: String,
+    changedPlaces: List<Place> = emptyList(),   // ADR 0043 Phase A — named places (geo-proximity source)
   ) {
     q.transaction {
       changedCards.forEach { c ->
         q.upsertCard(
           c.id, c.kind, c.title, c.bodyMd, c.provenance?.source, c.notBefore, c.expiresAt,
+          c.importance,
           c.type,
           c.payload?.let { json.encodeToString(Payload.serializer(), it) },
           c.privacy?.let { json.encodeToString(CardPrivacy.serializer(), it) },
@@ -88,6 +91,7 @@ class ContentStore(driver: SqlDriver) {
           payloadToStore?.let { json.encodeToString(BlockPayload.serializer(), it) },
           b.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
           b.ord, nowIso, b.version, b.createdBy,    // ADR 0038 §W4 — mirror the set-once author id
+          b.triggers?.let { json.encodeToString(TRIGGERS_SER, it) },   // ADR 0043 — on-device trigger metadata
         )
         // Echo-suppress + reconcile (§5.5): drop the member's own acked op once the
         // server delivers its result version, then clear the pending flag if nothing is
@@ -95,12 +99,16 @@ class ContentStore(driver: SqlDriver) {
         q.dropAckedAtOrBelow(b.id, b.version)
         if (q.openOpsForTarget(b.id).executeAsOne() == 0L) q.clearBlockLocalState(b.id)
       }
+      changedPlaces.forEach { p ->
+        q.upsertPlace(p.id, p.kind, p.label, p.lat, p.lng, p.radiusM, nowIso)
+      }
       tombstones.forEach { t ->
         when (t.type) {
           "card"    -> q.markDeleted(nowIso, t.id)
           "hub"     -> q.markHubDeleted(nowIso, t.id)
           "section" -> q.markSectionDeleted(nowIso, t.id)
           "block"   -> q.markBlockDeleted(nowIso, t.id)
+          "place"   -> q.markPlaceDeleted(nowIso, t.id)
         }
       }
       if (nextCursor != null) q.setCursor(nextCursor, nowIso)
@@ -110,7 +118,7 @@ class ContentStore(driver: SqlDriver) {
   private fun rowToCard(row: com.sloopworks.dayfold.client.db.ActiveCards): Card = Card(
     id = row.id, kind = row.kind, title = row.title, bodyMd = row.body_md,
     provenance = row.source?.let { Provenance(it) },
-    notBefore = row.not_before, expiresAt = row.expires_at,
+    notBefore = row.not_before, expiresAt = row.expires_at, importance = row.importance,
     type = row.type, hubRef = row.hub_ref,
     targetHubId = row.target_hub_id, targetSectionId = row.target_section_id, targetBlockId = row.target_block_id,
     payload = decode(row.payload, Payload.serializer()),
@@ -135,7 +143,11 @@ class ContentStore(driver: SqlDriver) {
       payload = decode(r.payload, BlockPayload.serializer()),
       provenance = decode(r.provenance, Provenance.serializer()),
       ord = r.ord, version = r.version, localState = r.local_state, createdBy = r.created_by,
+      triggers = decode(r.triggers, TRIGGERS_SER),   // ADR 0043 — on-device trigger metadata
     )
+
+  private fun rowToPlace(r: com.sloopworks.dayfold.client.db.ActivePlaces): Place =
+    Place(id = r.id, kind = r.kind, label = r.label, lat = r.lat, lng = r.lng, radiusM = r.radius_m)
 
   // Guarded decode: corrupt cached JSON must not crash the feed — skip → null,
   // the card still renders title/kind (ADR 0020 the DB cache is disposable).
@@ -146,7 +158,7 @@ class ContentStore(driver: SqlDriver) {
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
    *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing() }
   }
 
   /** ADR 0040 §3 — stale-cursor full-resync wipe. Clears the SYNCED content + the cursor so the
@@ -154,7 +166,9 @@ class ContentStore(driver: SqlDriver) {
    *  drop queued member writes — unlike the tenancy-revocation [wipe]) and the local-only hidden
    *  set (the re-synced entities keep their personal hide). */
   fun wipeForResync() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor() }
+    // Places are synced content → drop them (the rebuild page re-delivers them). surfacing_state is
+    // LOCAL-ONLY personal anti-nag history → PRESERVED (parity with `hidden`; not wiped here).
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces() }
   }
 
   // ── Egress lane (ADR 0038/0039) — the outbox is WRITE-ONLY (the UI never reads it). ──
@@ -297,6 +311,46 @@ class ContentStore(driver: SqlDriver) {
    *  the tree against this (the "Hidden for you" section + "Show hidden" toggle). */
   fun hiddenIdsFlow(): Flow<Set<String>> =
     q.hiddenIds().asFlow().mapToList(Dispatchers.Default).map { it.toSet() }
+
+  /** ADR 0043 — reactive named-places projection (geo-proximity source for the deriver). */
+  fun activePlacesFlow(): Flow<List<Place>> =
+    q.activePlaces().asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map(::rowToPlace) }
+
+  private fun rowToNowSection(r: com.sloopworks.dayfold.client.db.AllSections): HubSection =
+    HubSection(id = r.id, hubId = r.hub_id, title = r.title, ord = r.ord)
+
+  private fun rowToNowBlock(r: com.sloopworks.dayfold.client.db.AllBlocks): HubBlock =
+    HubBlock(
+      id = r.id, sectionId = r.section_id, type = r.type, bodyMd = r.body_md,
+      payload = decode(r.payload, BlockPayload.serializer()),
+      provenance = decode(r.provenance, Provenance.serializer()),
+      ord = r.ord, version = r.version, localState = r.local_state, createdBy = r.created_by,
+      triggers = decode(r.triggers, TRIGGERS_SER),
+    )
+
+  /**
+   * ADR 0043 Phase A — the deriveNow candidate bundle (all live sections + blocks + places across
+   * hubs), as ONE reactive projection (one bridge, one writer). Re-emits on any content change.
+   * Combined so the derived feed sees a consistent snapshot rather than three racing emissions.
+   */
+  fun nowContentFlow(): Flow<NowContent> {
+    val sections = q.allSections().asFlow().mapToList(Dispatchers.Default).map { it.map(::rowToNowSection) }
+    val blocks = q.allBlocks().asFlow().mapToList(Dispatchers.Default).map { it.map(::rowToNowBlock) }
+    val places = activePlacesFlow()
+    return kotlinx.coroutines.flow.combine(sections, blocks, places) { s, b, p -> NowContent(s, b, p) }
+  }
+
+  /** ADR 0043 §2b — reactive LOCAL-ONLY surfacing state (last-shown/dismissed), keyed by subjectKey. */
+  fun surfacingFlow(): Flow<Map<String, SurfacingRecord>> =
+    q.allSurfacing().asFlow().mapToList(Dispatchers.Default).map { rows ->
+      rows.associate { it.subject_key to SurfacingRecord(it.subject_key, it.last_shown_at, it.dismissed_at) }
+    }
+
+  /** Record that a subject was surfaced (anti-nag decay clock). LOCAL-ONLY — never synced. */
+  fun recordShown(subjectKey: String, nowIso: String) = q.recordShown(subjectKey, nowIso)
+
+  /** Record that a subject was dismissed (omit it from future ranking). LOCAL-ONLY — never synced. */
+  fun recordDismissed(subjectKey: String, nowIso: String) = q.recordDismissed(subjectKey, nowIso)
 
   /** Feed projection: live cards, not_before NULLS LAST then id (the API contract). */
   fun activeCards(): List<Card> = q.activeCards().executeAsList().map(::rowToCard)

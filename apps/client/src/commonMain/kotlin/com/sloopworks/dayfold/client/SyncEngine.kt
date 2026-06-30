@@ -33,6 +33,8 @@ class SyncEngine(
   private var bridgeJob: Job? = null
   private var hubBridgeJob: Job? = null
   private var hiddenBridgeJob: Job? = null
+  private var nowContentBridgeJob: Job? = null
+  private var surfacingBridgeJob: Job? = null
   private var pollJob: Job? = null
 
   /**
@@ -53,6 +55,14 @@ class SyncEngine(
     // state.hiddenIds. Local-only; nothing here is ever synced.
     hiddenBridgeJob = scope.launch {
       contentStore.hiddenIdsFlow().collect { store.dispatch(HiddenLoaded(it)) }
+    }
+    // ADR 0043 Phase A — the derived-lane candidate inputs + local-only engine state. Sole
+    // writers of state.nowContent / state.surfacing; the nowFeed selector reads them at render.
+    nowContentBridgeJob = scope.launch {
+      contentStore.nowContentFlow().collect { store.dispatch(NowContentLoaded(it)) }
+    }
+    surfacingBridgeJob = scope.launch {
+      contentStore.surfacingFlow().collect { store.dispatch(SurfacingLoaded(it)) }
     }
   }
 
@@ -120,6 +130,7 @@ class SyncEngine(
         tombstones = resp.tombstones,
         nextCursor = resp.nextCursor,
         nowIso = nowProvider(),
+        changedPlaces = resp.changes.places,   // ADR 0043 Phase A — cache named places
       )
       hasMore = resp.hasMore
     }
@@ -194,6 +205,8 @@ class SyncEngine(
     bridgeJob?.cancel(); bridgeJob = null
     hubBridgeJob?.cancel(); hubBridgeJob = null
     hiddenBridgeJob?.cancel(); hiddenBridgeJob = null
+    nowContentBridgeJob?.cancel(); nowContentBridgeJob = null
+    surfacingBridgeJob?.cancel(); surfacingBridgeJob = null
     pollJob?.cancel(); pollJob = null
     scope.cancel()
   }

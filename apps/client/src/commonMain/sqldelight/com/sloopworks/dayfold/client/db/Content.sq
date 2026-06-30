@@ -18,7 +18,8 @@ CREATE TABLE card (
   related_kicker TEXT,                    -- CL-8: RELATED section header
   media       TEXT,                       -- ADR 0036: JSON {icon,accentColor,thumbnailUrl,imageAlt,imageFit}
   updated_at  TEXT NOT NULL,
-  deleted     INTEGER NOT NULL DEFAULT 0  -- tombstone flag
+  deleted     INTEGER NOT NULL DEFAULT 0,  -- tombstone flag
+  importance  REAL                        -- ADR 0043 §2b: bounded author weight (appended last; ALTER in 7.sqm)
 );
 -- NOTE (ADR 0020): disposable M0 cache, no .sqm migration infra. Schema.create
 -- is idempotent-skip on an existing device DB, so the old `card` table survives
@@ -33,11 +34,12 @@ CREATE TABLE sync_meta (
 );
 
 upsertCard:
-INSERT INTO card(id, kind, title, body_md, source, not_before, expires_at, type, payload, privacy, hub_ref, target_hub_id, target_section_id, target_block_id, related, related_kicker, media, updated_at, deleted)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+INSERT INTO card(id, kind, title, body_md, source, not_before, expires_at, importance, type, payload, privacy, hub_ref, target_hub_id, target_section_id, target_block_id, related, related_kicker, media, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 ON CONFLICT(id) DO UPDATE SET
   kind=excluded.kind, title=excluded.title, body_md=excluded.body_md,
   source=excluded.source, not_before=excluded.not_before, expires_at=excluded.expires_at,
+  importance=excluded.importance,
   type=excluded.type, payload=excluded.payload, privacy=excluded.privacy, hub_ref=excluded.hub_ref,
   target_hub_id=excluded.target_hub_id, target_section_id=excluded.target_section_id, target_block_id=excluded.target_block_id,
   related=excluded.related, related_kicker=excluded.related_kicker, media=excluded.media,
@@ -48,7 +50,7 @@ UPDATE card SET deleted=1, updated_at=? WHERE id=?;
 
 -- feed query: live cards, not_before NULLS LAST then id (matches the API contract)
 activeCards:
-SELECT id, kind, title, body_md, source, not_before, expires_at, type, payload, privacy, hub_ref, target_hub_id, target_section_id, target_block_id, related, related_kicker, media
+SELECT id, kind, title, body_md, source, not_before, expires_at, importance, type, payload, privacy, hub_ref, target_hub_id, target_section_id, target_block_id, related, related_kicker, media
 FROM card WHERE deleted=0
 ORDER BY (not_before IS NULL), not_before, id;
 
@@ -148,18 +150,22 @@ CREATE TABLE hub_block (
   local_state TEXT,
   -- ADR 0038 §W4 (Slice 5b) — set-once author id (server-stamped, 5a). Mirrored from
   -- /sync; drives the author-only delete gate. NULL = legacy / loop-authored.
-  created_by TEXT
+  created_by TEXT,
+  -- ADR 0014/0043 Phase A (Slice 1) — on-device trigger metadata (geo/when/activity) as a JSON
+  -- list; decoded at projection by deriveNow. NULL = no triggers. Synced-from-server, never written.
+  triggers TEXT
 );
 
 -- Inbound (from /sync): the server row is the synced truth — take its version + author,
 -- clear local_state.
 upsertBlock:
-INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted, version, local_state, created_by)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?)
+INSERT INTO hub_block(id, section_id, type, body_md, payload, provenance, ord, updated_at, deleted, version, local_state, created_by, triggers)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   section_id=excluded.section_id, type=excluded.type, body_md=excluded.body_md,
   payload=excluded.payload, provenance=excluded.provenance, ord=excluded.ord,
-  updated_at=excluded.updated_at, deleted=0, version=excluded.version, created_by=excluded.created_by;
+  updated_at=excluded.updated_at, deleted=0, version=excluded.version, created_by=excluded.created_by,
+  triggers=excluded.triggers;
 
 -- Optimistic local write (a member toggle): overlay the merged payload + mark pending.
 -- Leaves the server-owned columns (type/section/ord/provenance/version) untouched —
@@ -191,9 +197,19 @@ WHERE hub_id = ? AND deleted=0
 ORDER BY ord, id;
 
 blocksForSections:
-SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state, created_by FROM hub_block
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state, created_by, triggers FROM hub_block
 WHERE section_id IN ? AND deleted=0
 ORDER BY ord, id;
+
+-- ADR 0043 Phase A — every live block across all hubs (the deriveNow candidate set). The store
+-- only holds blocks the member may read (sync applied ADR 0030 visibility), so derived items
+-- inherit visibility for free.
+allBlocks:
+SELECT id, section_id, type, body_md, payload, provenance, ord, version, local_state, created_by, triggers FROM hub_block
+WHERE deleted=0 ORDER BY ord, id;
+
+allSections:
+SELECT id, hub_id, title, ord FROM hub_section WHERE deleted=0 ORDER BY ord, id;
 
 -- ADR 0038/0039 — the egress outbox. EGRESS-ONLY (ADR 0020): the UI never reads this;
 -- it is the write-only lane DB→outbox→network. One typed op per row (the reserved
@@ -296,3 +312,59 @@ SELECT entity_id FROM hidden;
 
 wipeHidden:
 DELETE FROM hidden;
+
+-- ── Places (ADR 0014 named places · ADR 0043 Phase A). Synced family content (deleted flag for
+-- the "place" tombstone). The deriver reads these for geo-proximity + to resolve a trigger's
+-- place_ref. Synced content → wiped by both wipe() and wipeForResync() (re-synced from the page).
+CREATE TABLE place (
+  id         TEXT NOT NULL PRIMARY KEY,
+  kind       TEXT,
+  label      TEXT NOT NULL,
+  lat        REAL NOT NULL,
+  lng        REAL NOT NULL,
+  radius_m   INTEGER,
+  updated_at TEXT NOT NULL,
+  deleted    INTEGER NOT NULL DEFAULT 0
+);
+
+upsertPlace:
+INSERT INTO place(id, kind, label, lat, lng, radius_m, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+ON CONFLICT(id) DO UPDATE SET
+  kind=excluded.kind, label=excluded.label, lat=excluded.lat, lng=excluded.lng,
+  radius_m=excluded.radius_m, updated_at=excluded.updated_at, deleted=0;
+
+markPlaceDeleted:
+UPDATE place SET deleted=1, updated_at=? WHERE id=?;
+
+activePlaces:
+SELECT id, kind, label, lat, lng, radius_m FROM place WHERE deleted=0 ORDER BY id;
+
+wipePlaces:
+DELETE FROM place;
+
+-- ── Surfacing state (ADR 0043 §2b) — LOCAL-ONLY, NEVER synced (not in Changes/applyDelta/outbox).
+-- The priority engine reads it for anti-nag decay (last-shown) + dismissed. Keyed by the canonical
+-- subjectKey. Wiped on wipe() (tenancy revocation) but PRESERVED on wipeForResync() (a staleness
+-- reset must not reset anti-nag history) — same local-personal-state class as `hidden`.
+CREATE TABLE surfacing_state (
+  subject_key   TEXT NOT NULL PRIMARY KEY,
+  last_shown_at TEXT,
+  dismissed_at  TEXT
+);
+
+recordShown:
+INSERT INTO surfacing_state(subject_key, last_shown_at, dismissed_at)
+VALUES (?, ?, NULL)
+ON CONFLICT(subject_key) DO UPDATE SET last_shown_at=excluded.last_shown_at;
+
+recordDismissed:
+INSERT INTO surfacing_state(subject_key, last_shown_at, dismissed_at)
+VALUES (?, NULL, ?)
+ON CONFLICT(subject_key) DO UPDATE SET dismissed_at=excluded.dismissed_at;
+
+allSurfacing:
+SELECT subject_key, last_shown_at, dismissed_at FROM surfacing_state;
+
+wipeSurfacing:
+DELETE FROM surfacing_state;

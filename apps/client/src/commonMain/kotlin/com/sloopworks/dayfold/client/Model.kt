@@ -21,6 +21,9 @@ data class Card(
   // the deep-link the render layer will use when Hubs land.
   @SerialName("not_before") val notBefore: String? = null,
   @SerialName("expires_at") val expiresAt: String? = null,
+  // ADR 0043 §2b — bounded author weight/hint fed to the on-device Priority & Ordering Engine.
+  // The device decides final position (no author ordinal); the engine CLAMPS it (no top-pin spam).
+  val importance: Double? = null,
   @SerialName("target_hub_id") val targetHubId: String? = null,
   @SerialName("target_section_id") val targetSectionId: String? = null,
   @SerialName("target_block_id") val targetBlockId: String? = null,
@@ -129,7 +132,7 @@ data class Attachment(val name: String? = null, val mime: String? = null, val si
 @Serializable
 data class CardPrivacy(val storage: String? = null)
 
-@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList(), val sections: List<HubSection> = emptyList(), val blocks: List<HubBlock> = emptyList())
+@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList(), val sections: List<HubSection> = emptyList(), val blocks: List<HubBlock> = emptyList(), val places: List<Place> = emptyList())
 @Serializable data class Tombstone(val type: String, val id: String)
 
 @Serializable
@@ -209,9 +212,59 @@ data class HubBlock(
   // (pre-stamp) block / loop-authored with no member author.
   @SerialName("created_by") val createdBy: String? = null,
   val version: Long = 1,                                     // ADR 0038 — server row version (If-Match base)
+  // ADR 0014/0043 Phase A — on-device trigger metadata (geo/when/activity). Decoded from /sync
+  // (schema/DB-present, client-absent until now); matched ON-DEVICE by deriveNow against the live
+  // clock/location — live position never leaves the device (ADR 0014). Dropped on the wire before.
+  val triggers: List<BlockTrigger>? = null,
   // ADR 0038 — client-only optimistic-write state ('pending'/'failed'/null=synced). Not on the
   // wire; @Transient so it never (de)serializes — it's projected from the local hub_block row.
   @kotlinx.serialization.Transient val localState: String? = null,
+)
+
+// ADR 0014/0043 — a single on-device trigger on a hub block. Exactly one of geo/when/activity is
+// set per element (the server stores them verbatim). Matched locally by deriveNow; never evaluated
+// server-side. `when` is a Kotlin hard keyword → the field is `whenTrigger`, wire name "when".
+@Serializable
+data class BlockTrigger(
+  val geo: TriggerGeo? = null,
+  @SerialName("when") val whenTrigger: TriggerWhen? = null,
+  val activity: TriggerActivity? = null,
+)
+
+@Serializable
+data class TriggerGeo(
+  val label: String? = null,
+  val lat: Double? = null,
+  val lng: Double? = null,
+  // geo-by-reference: resolves against the synced `places` set (ADR 0014 named place); falls back
+  // to inline lat/lng. Radius precedence: geo.radiusM → place.radiusM → DeriveConfig default.
+  @SerialName("place_ref") val placeRef: String? = null,
+  @SerialName("radius_m") val radiusM: Long? = null,
+)
+
+@Serializable
+data class TriggerWhen(
+  val at: String? = null,                                    // absolute instant/date the window fires at
+  val relative: String? = null,
+  val recurring: String? = null,
+  @SerialName("alert_offset") val alertOffset: String? = null,
+)
+
+@Serializable
+data class TriggerActivity(val kind: String? = null)        // biking|driving|running|walking (ADR 0014; Phase B)
+
+// ADR 0014 reusable named place (family content; encrypted at rest at M1, never live position).
+// Synced via Changes.places + a "place" tombstone. The deriver reads these for geo-proximity and to
+// resolve a trigger's place_ref. Server-served (schema-present); client cached it for the first time.
+@Serializable
+data class Place(
+  val id: String,
+  val kind: String? = null,                                  // home | school | store | other
+  val label: String,
+  val lat: Double,
+  val lng: Double,
+  @SerialName("radius_m") val radiusM: Long? = null,
+  val version: Long? = null,
 )
 
 // Flat, lenient block payload — the server stores each block type's fields directly
@@ -241,6 +294,15 @@ data class ChecklistItem(
   val due: String? = null, val assignee: String? = null,
   // budget rows (canonical schema shape): an itemized budget uses these (ADR 0035).
   val label: String? = null, val amount: Double? = null, val paid: Boolean? = null,
+)
+
+// ADR 0043 Phase A — the deriveNow candidate set, projected from the local cache (one bridge, one
+// writer). The store only holds rows the member may read (sync applied ADR 0030 visibility), so
+// derived items inherit visibility for free. Hubs ride the existing state.hubs slice.
+data class NowContent(
+  val sections: List<HubSection> = emptyList(),
+  val blocks: List<HubBlock> = emptyList(),
+  val places: List<Place> = emptyList(),
 )
 
 // GET /hubs/:id/tree envelope. Blocks carry section_id; the renderer groups them.
@@ -366,6 +428,11 @@ data class AppState(
   // local-only + personal — never synced, no family-visible signal.
   val hiddenIds: Set<String> = emptySet(),
   val showHidden: Boolean = false,
+  // ADR 0043 Phase A — the derived-lane candidate inputs + LOCAL-ONLY engine state. Both are
+  // DB-fed projections (sole-writer bridges, like hiddenIds); the nowFeed selector runs
+  // deriveNow + rank over them at render time with an injected clock + location.
+  val nowContent: NowContent = NowContent(),
+  val surfacing: Map<String, SurfacingRecord> = emptyMap(),
   // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
   // currentHubAudience null while loading.
   val audienceSheetOpen: Boolean = false,
@@ -411,6 +478,10 @@ data class SetHubFilter(val filter: String) : Action          // list filter chi
 // SetShowHidden flips the per-view "Show hidden" toggle. Hide/unhide effects run in HubEngine.
 data class HiddenLoaded(val ids: Set<String>) : Action
 data class SetShowHidden(val show: Boolean) : Action
+// ADR 0043 Phase A — DB→store bridges (sole writers of their slice). NowContentLoaded carries the
+// derived-lane candidate inputs; SurfacingLoaded carries the local-only engine state.
+data class NowContentLoaded(val content: NowContent) : Action
+data class SurfacingLoaded(val records: Map<String, SurfacingRecord>) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceLoaded(val audience: HubAudience) : Action
 data object CloseAudienceSheet : Action

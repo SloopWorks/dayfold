@@ -1,0 +1,5 @@
+-- Migration v7→v8 (ADR 0043 §2b, Slice 6 — authored importance):
+--   * card.importance — bounded author weight/hint fed to the on-device Priority & Ordering
+--     Engine (the engine clamps it; no author-controlled ordinal). NULL for existing rows.
+-- Additive.
+ALTER TABLE card ADD COLUMN importance REAL;

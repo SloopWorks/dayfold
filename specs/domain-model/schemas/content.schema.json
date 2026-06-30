@@ -124,6 +124,7 @@
         "triggers": { "type": "array", "items": { "$ref": "#/$defs/Trigger" } },
         "actions": { "type": "array", "items": { "$ref": "#/$defs/Action" } },
         "not_before": { "$ref": "#/$defs/timestamp" }, "expires_at": { "$ref": "#/$defs/timestamp" },
+        "importance": { "type": "number", "minimum": 0, "maximum": 1, "description": "ADR 0043 §2b — bounded author weight/hint fed to the on-device Priority & Ordering Engine. The device decides final position (no author-controlled ordinal); the engine CLAMPS it so an author cannot pin spam to the top (the constitution's calm guarantee constrains the scoring function)." },
         "version": { "$ref": "#/$defs/version" }, "provenance": { "$ref": "#/$defs/Provenance" },
 
         "type": { "enum": ["file", "link", "invite", "contact", "geo", "email"], "description": "content type (ADR 0022 D1) — drives the Now-card / detail layout. OPTIONAL for back-compat with kind-only M0 cards." },

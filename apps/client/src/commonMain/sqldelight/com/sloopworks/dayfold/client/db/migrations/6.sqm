@@ -1,0 +1,27 @@
+-- Migration v6→v7 (ADR 0043 Phase A, Slice 1 — derived surfacing inputs + local engine state):
+--   * hub_block.triggers — on-device trigger metadata (geo/when/activity) as a JSON list,
+--     decoded at projection by deriveNow. Synced from the server (schema-present), client-cached
+--     for the first time. NULL for existing rows.
+--   * place — ADR 0014 named places (synced family content); the deriver's geo-proximity source
+--     + place_ref resolution. Synced → wiped by wipe() AND wipeForResync().
+--   * surfacing_state — LOCAL-ONLY priority-engine state (last-shown / dismissed) for anti-nag
+--     decay. NEVER synced; wiped on wipe() but PRESERVED on wipeForResync() (like `hidden`).
+-- Additive; existing rows get NULL triggers and empty place/surfacing_state tables.
+ALTER TABLE hub_block ADD COLUMN triggers TEXT;
+
+CREATE TABLE place (
+  id         TEXT NOT NULL PRIMARY KEY,
+  kind       TEXT,
+  label      TEXT NOT NULL,
+  lat        REAL NOT NULL,
+  lng        REAL NOT NULL,
+  radius_m   INTEGER,
+  updated_at TEXT NOT NULL,
+  deleted    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE surfacing_state (
+  subject_key   TEXT NOT NULL PRIMARY KEY,
+  last_shown_at TEXT,
+  dismissed_at  TEXT
+);

@@ -2,10 +2,12 @@
 
 ## Status
 
-**Proposed** 2026-06-29 (agent-drafted from a 5-design-agent panel + requirements
-inventory; **operator-gated** — changes the Hub→Now boundary, softens the
-dumb-client posture, and is product-scope-shaped). Build is additionally gated
-on an ADR 0008 hi-fi mockup of the merged Now feed + a derived item.
+**Accepted** 2026-06-30 (operator ratified in-session — proceed with Phase A
+build). Originally **Proposed** 2026-06-29 (agent-drafted from a 5-design-agent
+panel + requirements inventory; **operator-gated** — changes the Hub→Now
+boundary, softens the dumb-client posture, and is product-scope-shaped). The
+ADR 0008 hi-fi mockup gate (`designs/now-derived/`) was **signed off by the
+operator 2026-06-30**, clearing build of the Phase A surface.
 
 Statuses: Proposed | Accepted | Superseded | Deprecated.
 

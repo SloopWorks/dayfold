@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +48,13 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}) {
+fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, location: DeviceLocation? = null) {
+  // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
+  // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
+  // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
+  val nowFeedRanked = nowFeed(state, kotlin.time.Clock.System.now().toString(), location)
+  val hasNowContent = nowFeedRanked.run { now.isNotEmpty() || soon.isNotEmpty() || later.isNotEmpty() || overflow.isNotEmpty() }
+  val cardsById = remember(state.cards) { state.cards.associateBy { it.id } }
   Scaffold(
     topBar = {
     TopAppBar(
@@ -80,7 +87,7 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
   },
     bottomBar = { DayfoldBottomNav(hubsActive = false, onNow = {}, onHubs = onNavHubs) },
   ) { pad ->
-    if (state.cards.isEmpty()) {
+    if (!hasNowContent) {
       // ADR 0008 / #164: FOUR posture states, not one. The old code showed the first-run
       // onboarding for ANY empty feed — misframing an ESTABLISHED family that's simply
       // caught up (a hub authored, zero briefing cards) as "nothing set up yet". Established
@@ -106,15 +113,12 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize().padding(pad),
       ) {
-        LazyColumn(
-          Modifier.fillMaxSize(),
-          contentPadding = PaddingValues(16.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-          if (state.error != null) item(key = "sync-error") { RefreshErrorBanner(onRefresh) }
-          items(feedCards(state, kotlin.time.Clock.System.now().toString()), key = { it.id }) { card ->
-            if (card.type != null) TypedCardItem(card, onAction) else CardItem(card)
+        Column(Modifier.fillMaxSize()) {
+          if (state.error != null) {
+            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) { RefreshErrorBanner(onRefresh) }
           }
+          // ADR 0043 Phase A — the merged derived + authored feed, ranked by the on-device engine.
+          NowFeedList(nowFeedRanked, cardsById, onAction, Modifier.weight(1f))
         }
       }
     }
@@ -202,7 +206,7 @@ private fun RefreshErrorBanner(onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun CardItem(card: Card) {
+internal fun CardItem(card: Card) {
   val m = card.media
   ElevatedCard(Modifier.fillMaxWidth()) {
     Row(Modifier.padding(16.dp)) {

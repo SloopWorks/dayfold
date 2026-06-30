@@ -9,6 +9,19 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-28 · ANSWERED 2026-06-30 → ADR 0043 ACCEPTED + now-derived designs SIGNED OFF.**
+  Operator ratified in-session (both gates, before the Phase A build loop): (1) **ADR 0043**
+  (Now derived+authored two-lane model + on-device Priority & Ordering Engine) flipped
+  **Proposed → Accepted** — status header updated, `decisions-index.md` row added (was missing).
+  (2) **`designs/now-derived/`** hi-fi mockups (the ADR 0008 gate the design brief names) **signed
+  off as-is** — merged feed / geo-active / busy-overflow / dedup / softened / caught-up / deep-link,
+  light + dark. Build proceeds: **Phase A only** (foreground in-feed; NO background location /
+  notifications / new permission — that's Phase B, operator-gated). Server stays content-blind —
+  derived items are CLIENT-ONLY (no `content.schema.json` entry, no `/sync` rows, no write
+  endpoint); the only schema touch is wiring already-present block `triggers[]` + `places` through
+  to the client + a bounded `importance` on the authored card. Branch:
+  `claude/now-derived-surfacing-phase-a-*`.
+
 - **INB-27 · 2026-06-29 · low · open — [pending-ratify] content-tombstone retention-floor
   constant.** Slice 6 (ADR 0040 §3, freshness) shipped the stale-cursor full-resync directive
   + a content-tombstone GC arm on `/cron/sweep`. Both halves are gated by ONE constant —
