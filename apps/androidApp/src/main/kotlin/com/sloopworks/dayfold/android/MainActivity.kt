@@ -16,6 +16,7 @@ import com.sloopworks.dayfold.client.DriverFactory
 import com.sloopworks.dayfold.client.FeedApp
 import com.sloopworks.dayfold.client.HubClient
 import com.sloopworks.dayfold.client.HubEngine
+import com.sloopworks.dayfold.client.NowEngine
 import com.sloopworks.dayfold.client.SyncClient
 import com.sloopworks.dayfold.client.SyncEngine
 import com.sloopworks.dayfold.client.createAppStore
