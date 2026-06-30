@@ -71,6 +71,24 @@ class NowFeedTest {
     assertEquals(listOf("authored:hi", "authored:lo"), order)    // importance orders them
   }
 
+  @Test fun `visibleSubjectKeys covers the prominent bands but not the collapsed overflow`() {
+    // 7 distinct authored cards > visibleBudget(6) → the lowest-importance one falls to overflow.
+    val cards = (1..7).map { Card(id = "c$it", title = "T$it", importance = it / 10.0, provenance = Provenance("claude")) }
+    val feed = nowFeed(state(cards = cards), now, null, zone)
+    assertTrue(feed.overflow.isNotEmpty())                       // there IS a collapsed tail
+    val visible = feed.visibleSubjectKeys()
+    (feed.now + feed.soon + feed.later).forEach { assertTrue(it.item.subjectKey in visible) }  // every head covered
+    feed.overflow.forEach { assertTrue(it.item.subjectKey !in visible) }                        // tail excluded ("More")
+  }
+
+  @Test fun `visibleSubjectKeys includes the dedup peers rendered inset under a head`() {
+    val hubs = listOf(Hub("h1", title = "Party", countdownTo = "2026-07-02"))
+    val card = Card(id = "c1", title = "Ordered groceries?", targetHubId = "h1", provenance = Provenance("claude"))
+    val feed = nowFeed(state(cards = listOf(card), hubs = hubs), now, null, zone)
+    val visible = feed.visibleSubjectKeys()
+    assertTrue("hub:h1" in visible)                              // the head + its collapsed peer share the key
+  }
+
   @Test fun `nowFeed is pure - identical inputs give identical output`() {
     val s = state(
       cards = listOf(Card(id = "c1", title = "T", provenance = Provenance("claude"))),

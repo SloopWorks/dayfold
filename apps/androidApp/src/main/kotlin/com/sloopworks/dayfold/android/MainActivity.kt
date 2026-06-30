@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
       store, HubClient(clientApi, http),
       AuthClient(clientApi, http), tokenStore, cs, syncEngine,
     )
+    val nowEngine = NowEngine(store, cs)  // ADR 0043 §2b — render-driven record-shown effect
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
     setContent {
       // SloopWorks debug drawer: a floating bubble (debug) opens AppInfo / Backend-
@@ -180,6 +181,7 @@ class MainActivity : ComponentActivity() {
           onApproveDevice = { fid -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onRefresh = { lifecycleScope.launch { syncEngine.syncNow() } },
+          onNowShown = { keys -> nowEngine.noteShown(keys) },               // ADR 0043 §2b — start the anti-nag clock
           onLoadHubs = { lifecycleScope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
           onOpenHub = { id, block -> lifecycleScope.launch { hubEngine.openHub(id, block) } },
           onCloseHub = { lifecycleScope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription

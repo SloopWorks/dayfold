@@ -49,6 +49,7 @@ fun main() = application {
   val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed via contentStore + syncEngine
     HubEngine(store, HubClient(clientApi, http), AuthClient(clientApi, http), tokenStore, cs, syncEngine)
   }
+  val nowEngine = remember { NowEngine(store, cs) }  // ADR 0043 §2b — render-driven record-shown effect
   val scope = rememberCoroutineScope()
 
   LaunchedEffect(Unit) {
@@ -82,6 +83,7 @@ fun main() = application {
       onApproveDevice = { fid -> scope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
       onRefresh = { scope.launch { syncEngine.syncNow() } },
+      onNowShown = { keys -> nowEngine.noteShown(keys) },      // ADR 0043 §2b — start the anti-nag clock
       onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
       onOpenHub = { id, block -> scope.launch { hubEngine.openHub(id, block) } },
       onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription

@@ -349,6 +349,13 @@ class ContentStore(driver: SqlDriver) {
   /** Record that a subject was surfaced (anti-nag decay clock). LOCAL-ONLY — never synced. */
   fun recordShown(subjectKey: String, nowIso: String) = q.recordShown(subjectKey, nowIso)
 
+  /**
+   * START the anti-nag clock ONCE for a subject (the render-driven record-shown effect, ADR 0043
+   * §2b). Write-if-new: preserves any existing last_shown so continuous visibility doesn't keep
+   * resetting the decay/soften clock. LOCAL-ONLY — never synced.
+   */
+  fun recordShownIfNew(subjectKey: String, nowIso: String) = q.recordShownIfNew(subjectKey, nowIso)
+
   /** Record that a subject was dismissed (omit it from future ranking). LOCAL-ONLY — never synced. */
   fun recordDismissed(subjectKey: String, nowIso: String) = q.recordDismissed(subjectKey, nowIso)
 

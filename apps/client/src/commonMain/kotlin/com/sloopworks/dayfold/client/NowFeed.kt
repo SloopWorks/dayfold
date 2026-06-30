@@ -37,6 +37,15 @@ fun nowFeed(
   return rank(derived + authored, nowIso, location, state.surfacing, zone, rankConfig)
 }
 
+// ADR 0043 §2b — the subjects ACTUALLY surfaced to the user right now: the prominent bands
+// (now/soon/later) heads plus the dedup peers rendered inset under each head. Overflow is excluded
+// — it stays collapsed behind "More" until the user expands it, so it has not been "shown" for
+// anti-nag purposes. Drives the render-shown effect that starts each subject's decay clock.
+fun RankedFeed.visibleSubjectKeys(): Set<String> =
+  (now + soon + later).flatMapTo(mutableSetOf()) { ranked ->
+    listOf(ranked.item.subjectKey) + ranked.collapsedWith.map { it.subjectKey }
+  }
+
 // One active card → a NowItem in the authored lane. subjectKey uses the deep-link target (so an
 // authored nudge collapses with the derived item about the same hub/block — the target earns its
 // second job as the dedup key); a target-less card keys on its own id (never merges with derived).

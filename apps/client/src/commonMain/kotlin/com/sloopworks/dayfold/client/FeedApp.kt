@@ -86,6 +86,10 @@ fun FeedApp(
   onDenyDevice: (String) -> Unit = {},
   onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
   onRefresh: () -> Unit = {},           // feed pull/retry → syncEngine.syncNow()
+  // ADR 0043 §2b carryover: the Now feed reports its currently-surfaced subjects → NowEngine
+  // starts each one's anti-nag decay clock (record-shown effect). Default no-op keeps screens
+  // snapshot-testable; the surfacing write NEVER happens on the render path (unidirectional).
+  onNowShown: (Set<String>) -> Unit = {},
   onLoadHubs: () -> Unit = {},          // Hubs (ADR 0006): list fetch (HubEngine.loadHubs)
   onOpenHub: (String, String?) -> Unit = { _, _ -> },  // tap/deep-link a hub → load tree (+ focus block)
   onCloseHub: () -> Unit = {},          // detail → list: cancel the DB tree subscription (HubEngine.closeHub)
@@ -143,6 +147,7 @@ fun FeedApp(
         onConnectDevice = { store.dispatch(OpenEnterCode) },
         onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
         onRefresh = onRefresh,
+        onNowShown = onNowShown,
       )
       Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock)
       else -> SafeArea { when (state.route) {
@@ -235,7 +240,7 @@ private fun SafeArea(content: @Composable () -> Unit) {
 @Suppress("DEPRECATION")   // CMP 1.11.1: PredictiveBackHandler/BackEventCompat are @Deprecated (→ NavigationEvent); intentional per design D2
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class, ExperimentalTransitionApi::class)
 @Composable
-private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}) {
+private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onNowShown: (Set<String>) -> Unit = {}) {
   val detail = currentDetailCard(state)
   val targetKey: String? = detail?.id            // top of the detail stack (null = feed)
   // Where a back POP lands: the card UNDERNEATH the top (null = feed for a 1-deep stack).
@@ -289,7 +294,7 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
       ) {
         val card = id?.let { cid -> state.cards.find { it.id == cid } }
         if (card != null) DetailScreen(card, onBack = { store.dispatch(NavBack) }, onAction = handle)
-        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh)
+        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh, onShown = onNowShown)
       }
     }
   }

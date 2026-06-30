@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,11 +49,17 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, location: DeviceLocation? = null) {
+fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
   val nowFeedRanked = nowFeed(state, kotlin.time.Clock.System.now().toString(), location)
+  // ADR 0043 §2b carryover — render-driven record-shown EFFECT. We report the subjects actually
+  // surfaced (NOT writing surfacing here — unidirectional: action → NowEngine effect → DB → bridge).
+  // Keyed by the subject SET, so it only fires when what's on screen changes, not every clock tick;
+  // NowEngine debounces + starts each subject's decay clock once (so anti-nag softening engages).
+  val visibleSubjects = nowFeedRanked.visibleSubjectKeys()
+  LaunchedEffect(visibleSubjects) { if (visibleSubjects.isNotEmpty()) onShown(visibleSubjects) }
   val hasNowContent = nowFeedRanked.run { now.isNotEmpty() || soon.isNotEmpty() || later.isNotEmpty() || overflow.isNotEmpty() }
   val cardsById = remember(state.cards) { state.cards.associateBy { it.id } }
   Scaffold(

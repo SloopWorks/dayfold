@@ -358,6 +358,16 @@ INSERT INTO surfacing_state(subject_key, last_shown_at, dismissed_at)
 VALUES (?, ?, NULL)
 ON CONFLICT(subject_key) DO UPDATE SET last_shown_at=excluded.last_shown_at;
 
+-- ADR 0043 §2b — START the anti-nag clock ONCE (the render-driven record-shown effect).
+-- last_shown_at drives the decay/soften "easing off", measured as time since first surfaced;
+-- overwriting it on every render tick would continuously RESET that clock so an item never
+-- softens. DO NOTHING preserves an existing last_shown (within OR across sessions), so decay
+-- accrues monotonically until the subject is acted on or dismissed.
+recordShownIfNew:
+INSERT INTO surfacing_state(subject_key, last_shown_at, dismissed_at)
+VALUES (?, ?, NULL)
+ON CONFLICT(subject_key) DO NOTHING;
+
 recordDismissed:
 INSERT INTO surfacing_state(subject_key, last_shown_at, dismissed_at)
 VALUES (?, NULL, ?)
