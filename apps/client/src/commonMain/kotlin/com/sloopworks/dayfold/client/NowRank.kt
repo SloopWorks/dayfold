@@ -99,19 +99,29 @@ fun rank(
   // 1. score every candidate.
   val scored = live.associateWith { scoreOf(it) }
 
-  // 2. dedup/collapse — cluster by subjectKey prefix-containment (hierarchical: "hub:H" contains
-  //    "hub:H/sec:S/blk:B"). Authored target keys share the scheme so a derived event and its
-  //    authored nudge collapse. Siblings (neither key a prefix of the other) stay separate.
-  val clusters = clusterByPrefix(live)
+  // 2. dedup/collapse — group by EXACT subjectKey. A derived event and its authored nudge collapse
+  //    because both resolve to the same canonical key (the authored item's deep-link target →
+  //    "hub:H", the derived countdown → "hub:H"). Distinct items keep distinct keys and stay
+  //    separate — prefix-containment was rejected: a hub-level countdown is a prefix of EVERY block
+  //    under the hub, so it transitively collapsed all of them into one mega-row.
+  val clusters = live.groupBy { it.subjectKey }.values
 
   val rankedItems = clusters.map { cluster ->
     val head = cluster.maxWith(compareBy({ scored.getValue(it) }, { it.id }))
     val peers = cluster.filter { it.id != head.id }.sortedWith(compareByDescending<NowItem> { scored.getValue(it) }.thenBy { it.id })
-    val emphasized = cluster.any { it.geoActive && it.id in nearestGeoIds }
-    val soonest = cluster.mapNotNull { minutesUntil(it.triggerAtIso) }.minOrNull()
+    val emphasized = cluster.any { it.geoActive && it.id in nearestGeoIds }   // nearest-N → the ring
+    // Banding uses FUTURE proximity only — a past trigger (e.g. an authored item whose not_before
+    // fired hours ago) is calm horizon (LATER), never pinned to NOW. Geo-active = physically
+    // on-location now → always NOW. Calendar "today" (date-only triggers resolve to midnight, which
+    // is "past" by afternoon) still counts as NOW via the day check.
+    val geoNow = cluster.any { it.geoActive }
+    val futureMins = cluster.mapNotNull { minutesUntil(it.triggerAtIso) }.filter { it >= 0 }.minOrNull()
+    val futureDays = cluster.mapNotNull { relativeDays(it.triggerAtIso, nowIso, zone) }.filter { it >= 0 }.minOrNull()
     val band = when {
-      emphasized || (soonest != null && soonest <= config.nowBandMinutes) -> Band.NOW
-      soonest != null && soonest <= config.soonBandHours * 60 -> Band.SOON
+      geoNow -> Band.NOW
+      futureMins != null && futureMins <= config.nowBandMinutes -> Band.NOW
+      futureDays == 0 -> Band.NOW
+      futureDays != null && futureDays * 24 <= config.soonBandHours -> Band.SOON
       else -> Band.LATER
     }
     val softened = cluster.any { isSoftened(it.subjectKey, surfacing, nowInstant, zone, config) }

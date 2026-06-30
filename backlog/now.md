@@ -13,6 +13,28 @@ NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemin
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
 later milestone; interim authoring = operator + Claude Code via the CLI.
 
+**Status update (2026-06-30): Now derived surfacing — Phase A built (ADR 0043).** Operator
+ratified both gates in-session (INB-28): **ADR 0043 → Accepted** + `designs/now-derived/` **signed
+off**. Built as a TDD slice loop → **PR #257** (branch `claude/now-derived-surfacing-phase-a-*`):
+- **Slice 1** — decode block `triggers[]` + `Place`; `places` flow through `/sync` to cache
+  (migration `6.sqm`: `hub_block.triggers`, `place`, local-only `surfacing_state`).
+- **Slice 2** — pure `deriveNow` over all 5 reason_kinds (countdown/milestone/checklist/geo/`when`)
+  each with a computed "why"; `parseInstantFlexible` (date-only + instant); geo via haversine.
+- **Slice 3** — pure **Priority & Ordering Engine** `rank`: score (urgency/proximity/importance/
+  decay) → prefix-containment dedup → calm budget (now/soon/later bands + overflow never-drops) →
+  score-snap hysteresis; local-only surfacing state (last-shown/dismissed, never synced).
+- **Slice 4a/6** — `nowFeed` merge selector (both lanes, one engine, render-time clock+location);
+  authored bounded `importance` (the one schema touch — `BriefingCard` + regen + `7.sqm`) the engine
+  ranks; `not_before` gated on-device (closes **OQ-notbefore-gating**).
+- **Slice 4b/5** — merged-feed render (`NowFeedList`: bands, why-chips, geo-active ring + "Nearby",
+  count-free overflow, caught-up keeps horizon); deep-link tap → shipped hub-arrival transform+pulse.
+**571 client tests green** (+37 from a 534 baseline); `verifyMigrations` + iOS compile clean; merged
+feed **visually verified light+dark** via headless Compose-Desktop snapshot (no Android device in the
+build env). Server stays content-blind (derived items client-only). 3-agent adversarial design review
+applied before coding. **Phase B deferred** (background geofence + local notifications; the
+render-driven record-shown effect; quiet-hours). ADR 0043 reviewed by a 3-agent design panel +
+per-slice TDD + a final code-review pass.
+
 **Status update (2026-06-29): two-way (member-writes) build STARTED.** Operator
 ratified the two-way bundle in-session — ADRs **0038/0039/0040/0041/0042 → Accepted**
 (0041 = the bounded-member-AI-command **constitution amendment**, applied; W3 ships

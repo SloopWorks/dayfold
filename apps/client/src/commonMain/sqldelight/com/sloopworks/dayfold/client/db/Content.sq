@@ -7,7 +7,6 @@ CREATE TABLE card (
   source      TEXT,                       -- provenance.source
   not_before  TEXT,
   expires_at  TEXT,
-  importance  REAL,                       -- ADR 0043 §2b: bounded author weight for the engine
   type        TEXT,                       -- CL-4: content type (ADR 0022 D1)
   payload     TEXT,                       -- CL-4: JSON {"file":{…}}; decoded once at projection
   privacy     TEXT,                       -- CL-4: JSON {"storage":…}
@@ -19,7 +18,8 @@ CREATE TABLE card (
   related_kicker TEXT,                    -- CL-8: RELATED section header
   media       TEXT,                       -- ADR 0036: JSON {icon,accentColor,thumbnailUrl,imageAlt,imageFit}
   updated_at  TEXT NOT NULL,
-  deleted     INTEGER NOT NULL DEFAULT 0  -- tombstone flag
+  deleted     INTEGER NOT NULL DEFAULT 0,  -- tombstone flag
+  importance  REAL                        -- ADR 0043 §2b: bounded author weight (appended last; ALTER in 7.sqm)
 );
 -- NOTE (ADR 0020): disposable M0 cache, no .sqm migration infra. Schema.create
 -- is idempotent-skip on an existing device DB, so the old `card` table survives

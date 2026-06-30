@@ -38,13 +38,25 @@ class NowRankTest {
     assertEquals(setOf("derived:countdown:h1", "authored:c1"), allSurfaced(f).map { it.id }.toSet())
   }
 
-  @Test fun `dedup merges a hub countdown with a block-level item by prefix containment`() {
+  @Test fun `dedup is exact-key only - a hub countdown and a block-level item stay separate`() {
+    // Exact-key dedup (not prefix-containment): a hub-level countdown must NOT swallow every block
+    // under the hub. The countdown ("hub:h1") and the checklist ("hub:h1/sec:s1/blk:b1") are
+    // distinct subjects → two distinct rows.
     val countdown = item("derived:countdown:h1", "hub:h1", triggerAt = "2026-07-01T12:00:00Z")
     val checklist = item("derived:checklist:b1", "hub:h1/sec:s1/blk:b1", kind = ReasonKind.CHECKLIST, triggerAt = "2026-07-01T12:00:00Z")
     val f = rank(listOf(countdown, checklist), now, null, emptyMap(), zone)
-    val heads = (f.now + f.soon + f.later + f.overflow)
-    assertEquals(1, heads.size)                                   // one merged event unit
-    assertEquals(2, allSurfaced(f).size)                          // both items present
+    assertEquals(2, (f.now + f.soon + f.later + f.overflow).size)
+  }
+
+  @Test fun `an authored item past not_before is calm horizon (LATER), never pinned to NOW`() {
+    // not_before is the authored item's trigger; once it has fired (hours ago) the item is live but
+    // NOT urgent — it must fall to the horizon, otherwise it pollutes NOW forever and caught-up
+    // can never be true.
+    val stale = item("authored:c1", "card:c1", origin = Origin.AUTHORED, triggerAt = "2026-06-20T12:00:00Z")
+    val f = rank(listOf(stale), now, null, emptyMap(), zone)
+    assertTrue(f.now.isEmpty())
+    assertTrue(f.caughtUp)
+    assertEquals(1, f.soon.size + f.later.size + f.overflow.size)
   }
 
   @Test fun `two sibling blocks do NOT merge (neither key is a prefix of the other)`() {
