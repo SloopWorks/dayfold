@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  /* M3E spatial spring (overshoot) — active proximity card morph + elevation lift */
+  @keyframes of-spring { 0% { transform: scale(0.94); border-radius: 22px; } 55% { transform: scale(1.018); border-radius: 30px; } 100% { transform: scale(1); border-radius: 26px; } }
+  /* M3E effects spring (high-damp) — teal halo crossfade */
+  @keyframes of-halo { 0% { box-shadow: 0 0 0 0 rgba(0,121,111,0.0); } 60% { box-shadow: 0 0 0 4px rgba(0,121,111,0.26); } 100% { box-shadow: 0 0 0 3px rgba(0,121,111,0.40); } }
+  @keyframes of-halo-d { 0% { box-shadow: 0 0 0 0 rgba(80,219,201,0.0); } 60% { box-shadow: 0 0 0 4px rgba(80,219,201,0.30); } 100% { box-shadow: 0 0 0 3px rgba(80,219,201,0.46); } }
+  /* M3E loading indicator (waveform) — deep-link fetch while offline */
+  @keyframes of-wave { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+  .of-wave span { display:inline-block; width:4px; border-radius:999px; height:18px; transform-origin:center; animation: of-wave 1s ease-in-out infinite; }
+  .of-wave span:nth-child(2){ animation-delay:.12s } .of-wave span:nth-child(3){ animation-delay:.24s }
+  .of-wave span:nth-child(4){ animation-delay:.36s } .of-wave span:nth-child(5){ animation-delay:.48s }
+  @media (prefers-reduced-motion: reduce) {
+    .of-anim { animation: none !important; }
+    .of-wave span { animation: none !important; height: 11px; }
+  }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="margin-bottom:40px;max-width:880px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Triggers index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">D · Offline · still matched on your device</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">Offline is where the promise is strongest</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:82ch;">With no network, the engine keeps working: time triggers still fire and a place still matches on-device — because the match never needed a server. Only the things that genuinely need the cloud degrade — deep-link content and map tiles — and they say so, calmly. A teal tonal banner makes the on-device truth visible the moment you go offline.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:500;background:#E2F4EF;color:#0B5048;border:1px solid #BFE3DC;padding:7px 13px;border-radius:999px;"><span class="msr fill" style="font-size:15px;">wifi_off</span>Offline · still matched on your device</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Time fires · geo matches</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Only deep-link / map tiles degrade</span>
+    </div>
+  </div>
+
+  <!-- ===== 1 · OFFLINE TRIGGER SURFACING ===== -->
+  <section style="margin-bottom:46px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:#C0381E;">01</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;letter-spacing:-0.01em;">The feed, offline — triggers still surface</h2>
+    </div>
+    <div style="display:flex;gap:28px;align-items:flex-start;">
+      <sc-for list="{{ feedThemes }}" as="t" hint-placeholder-count="2">
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:15px;">{{ t.modeIcon }}</span>{{ t.modeLabel }} · Now</div>
+          <div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ t.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);display:flex;flex-direction:column;">
+            <!-- status bar (no wifi) -->
+            <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;color:{{ t.onSurface }};">
+              <span style="font-family:'Figtree';font-weight:600;font-size:14px;">9:41</span>
+              <div style="display:flex;align-items:center;gap:7px;"><span class="msr" style="font-size:17px;">signal_cellular_off</span><span class="msr" style="font-size:16px;">wifi_off</span><span class="msr fill" style="font-size:19px;">battery_full</span></div>
+            </div>
+
+            <!-- offline tonal banner (privacy teal) -->
+            <div style="margin:2px 18px 8px;background:{{ t.privacyBg }};border:1px solid {{ t.privacyBorder }};border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:11px;">
+              <span class="msr fill" style="font-size:21px;color:{{ t.privacyIcon }};">wifi_off</span>
+              <div style="flex:1;">
+                <div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ t.privacyFg }};">Offline · still matched on your device</div>
+                <div style="font-family:'Figtree';font-size:11.5px;color:{{ t.privacyFg }};opacity:0.84;line-height:1.4;">Time &amp; place reminders keep working — the match never needed the internet.</div>
+              </div>
+            </div>
+
+            <div class="dl-scroll" style="flex:1;overflow-y:auto;padding:4px 16px 20px;">
+              <div style="padding:4px 6px 10px;">
+                <span style="font-family:'Figtree';font-size:13px;font-weight:600;color:{{ t.onSurfaceVar }};">SATURDAY · JUN 20</span>
+                <h1 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.02em;color:{{ t.onSurface }};margin:5px 0 0;">Good morning, Pat</h1>
+              </div>
+              <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ t.primary }};margin:6px 6px 10px;">NOW</div>
+
+              <!-- ACTIVE proximity card — geo matched on-device, offline (M3E spring + teal halo + shape morph) -->
+              <div class="of-anim" style="background:{{ t.primaryContainer }};border-radius:26px;padding:17px 19px 15px;margin-bottom:12px;animation:{{ t.springAnim }};box-shadow:{{ t.haloStatic }};">
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Outfit';font-weight:600;font-size:12.5px;letter-spacing:0.01em;background:{{ t.primary }};color:{{ t.onPrimary }};padding:5px 12px 5px 9px;border-radius:999px;"><span class="msr fill" style="font-size:15px;">near_me</span>Near Lincoln Market · now</span>
+                </div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:18px;line-height:1.18;color:{{ t.onPrimaryContainer }};margin-bottom:5px;">Grab the party list while you're at the store</div>
+                <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ t.onPrimaryContainer }};opacity:0.9;">7 items still open — the list is saved on this phone, so it opens offline.</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;color:{{ t.onPrimaryContainer }};font-family:'Figtree';font-weight:600;font-size:13px;">Open list<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border:1px solid {{ t.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
+                </div>
+              </div>
+
+              <!-- TIME card — still fires offline -->
+              <div style="background:{{ t.surfaceContainer }};border-radius:26px;padding:17px 19px 15px;margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ t.surfaceContainerHigh }};color:{{ t.onSurfaceVar }};padding:5px 11px;border-radius:999px;"><span class="msr" style="font-size:15px;">schedule</span>4:00 PM · today</span>
+                  <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ t.provFg }};background:{{ t.provBg }};border:1px solid {{ t.provBorder }};border-radius:8px;padding:4px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added by Claude</span>
+                </div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:17px;line-height:1.2;color:{{ t.onSurface }};margin-bottom:4px;">Soccer at 4pm — pack jackets</div>
+                <div style="font-family:'Figtree';font-size:13.5px;line-height:1.4;color:{{ t.onSurfaceVar }};">Rain at kickoff for Leo's game — the forecast was cached this morning.</div>
+              </div>
+
+              <!-- DEGRADED block — map tile / deep-link needs network (waveform loader) -->
+              <div style="background:{{ t.surfaceContainer }};border-radius:26px;padding:15px 16px;border:1px dashed {{ t.outlineVar }};">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;">
+                  <span class="msr" style="font-size:18px;color:{{ t.onSurfaceVar }};">map</span>
+                  <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ t.onSurfaceVar }};">Map preview</span>
+                  <span style="margin-left:auto;font-family:'Figtree';font-size:11px;color:{{ t.onSurfaceVar }};">needs network</span>
+                </div>
+                <!-- map tile placeholder -->
+                <div style="height:96px;border-radius:16px;background:{{ t.surfaceContainerHigh }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;">
+                  <div class="of-wave" style="display:flex;align-items:center;gap:4px;height:18px;">
+                    <span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span>
+                  </div>
+                  <span style="font-family:'Figtree';font-size:11.5px;color:{{ t.onSurfaceVar }};">Tiles will load when you're back online</span>
+                </div>
+                <div style="font-family:'Figtree';font-size:12px;color:{{ t.onSurfaceVar }};line-height:1.45;margin-top:10px;">The <b>match</b> already happened on your phone — only the picture of the map waits for a connection.</div>
+              </div>
+            </div>
+
+            <!-- bottom nav -->
+            <div style="flex:0 0 78px;background:{{ t.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:11px 30px 0;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:58px;height:30px;border-radius:999px;background:{{ t.primaryContainer }};"><span class="msr fill" style="font-size:22px;color:{{ t.onPrimaryContainer }};">today</span></span><span style="font-family:'Figtree';font-weight:600;font-size:11.5px;color:{{ t.onSurface }};">Now</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:58px;height:30px;"><span class="msr" style="font-size:22px;color:{{ t.onSurfaceVar }};">dashboard</span></span><span style="font-family:'Figtree';font-weight:500;font-size:11.5px;color:{{ t.onSurfaceVar }};">Hubs</span></div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+
+      <!-- explainer -->
+      <div style="flex:none;width:290px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:20px;padding:22px;margin-top:30px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="msr fill" style="font-size:22px;color:#00796F;">offline_bolt</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">What works, what waits</span></div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#00796F;margin-top:1px;">schedule</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;"><b>Time triggers fire.</b> The clock is local — no server required.</span></div>
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#00796F;margin-top:1px;">near_me</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;"><b>Geo still matches.</b> Saved places are cached on the phone; the match runs on-device.</span></div>
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#8C726B;margin-top:1px;">map</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;"><b>Map tiles wait.</b> The image of the map needs network — the match did not.</span></div>
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#8C726B;margin-top:1px;">sync</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;"><b>Fresh content syncs later.</b> New cards from Claude arrive when you're back online.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 2 · OFFLINE DEEP-LINK ARRIVAL ===== -->
+  <section style="margin-bottom:46px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:#C0381E;">02</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;letter-spacing:-0.01em;">Tapping a trigger offline — the card is already here</h2>
+    </div>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:80ch;">A place trigger deep-links to a card that lives on the phone, so it opens instantly even offline — landing on the same coral highlight pulse used everywhere. Only a cloud-only enrichment (live map, a fresh remote fetch) shows the calm waveform loader until the connection returns. Shown light + dark.</p>
+    <div style="display:flex;gap:28px;align-items:flex-start;">
+      <sc-for list="{{ arrivalThemes }}" as="t" hint-placeholder-count="2">
+        <div style="flex:none;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:15px;">{{ t.modeIcon }}</span>{{ t.modeLabel }} · arrival (offline)</div>
+          <div style="width:390px;height:560px;border-radius:44px 44px 30px 30px;overflow:hidden;background:{{ t.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);display:flex;flex-direction:column;">
+            <div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;color:{{ t.onSurface }};"><span style="font-family:'Figtree';font-weight:600;font-size:14px;">9:41</span><div style="display:flex;align-items:center;gap:7px;"><span class="msr" style="font-size:16px;">signal_cellular_off</span><span class="msr" style="font-size:15px;">wifi_off</span><span class="msr fill" style="font-size:18px;">battery_full</span></div></div>
+            <!-- hub header -->
+            <div style="background:{{ t.headerBg }};padding:10px 18px 14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span class="msr" style="font-size:23px;color:{{ t.onSurface }};">arrow_back</span><span class="msr" style="font-size:23px;color:{{ t.onSurface }};">more_vert</span></div>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ t.onPrimary }};background:{{ t.primary }};border-radius:7px;padding:4px 9px;"><span class="msr" style="font-size:13px;">arrow_outward</span>FROM YOUR NOTIFICATION</span></div>
+              <h1 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.015em;color:{{ t.onSurface }};margin:0 0 4px;line-height:1.1;">Maya's birthday party</h1>
+              <div style="display:flex;align-items:center;gap:7px;font-family:'Figtree';font-size:13px;color:{{ t.onSurfaceVar }};"><span class="msr" style="font-size:15px;">near_me</span>Near Lincoln Market</div>
+            </div>
+            <div style="flex:1;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+              <!-- pulsed target — local, opens instantly -->
+              <div>
+                <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ t.onSurfaceVar }};margin:0 4px 8px;">SHOPPING</div>
+                <div class="dl-target of-anim" style="background:{{ t.primaryContainer }};border-radius:22px;padding:8px 6px;box-shadow:0 0 0 3px {{ t.primary }};animation:{{ t.pulse }};">
+                  <sc-for list="{{ t.checklist }}" as="i" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:13px;padding:10px 13px;">
+                      <span style="width:22px;height:22px;flex:0 0 22px;border-radius:8px;background:{{ i.boxBg }};border:{{ i.boxBorder }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:{{ i.checkFg }};">{{ i.check }}</span></span>
+                      <div style="flex:1;"><div style="font-family:'Figtree';font-weight:500;font-size:14px;color:{{ i.titleFg }};text-decoration:{{ i.strike }};">{{ i.title }}</div></div>
+                    </div>
+                  </sc-for>
+                  <div style="padding:4px 13px 9px;"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border:1px solid {{ t.privacyBorder }};border-radius:8px;padding:4px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device · opened offline</span></div>
+                </div>
+              </div>
+              <!-- cloud-only enrichment waiting -->
+              <div>
+                <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ t.onSurfaceVar }};margin:0 4px 8px;">DRIVE TIME</div>
+                <div style="background:{{ t.surfaceContainer }};border-radius:22px;padding:15px 16px;display:flex;align-items:center;gap:13px;">
+                  <div class="of-wave" style="display:flex;align-items:center;gap:4px;height:18px;">
+                    <span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span><span style="background:{{ t.secondary }};"></span>
+                  </div>
+                  <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ t.onSurface }};">Fetching live drive time…</div><div style="font-family:'Figtree';font-size:12px;color:{{ t.onSurfaceVar }};line-height:1.4;">Will fill in when you're back online.</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- M3E signature legend -->
+  <div style="background:#F4ECFB;border:1px solid #E0CDF5;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;max-width:1000px;">
+    <span class="msr fill" style="font-size:22px;color:#6438AE;margin-top:1px;">animation</span>
+    <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#4C2092;"><b>M3E motion here:</b> the active proximity card uses the <i>spatial spring</i> (overshoot on scale + a synced shape-morph 22→26px) with the <i>effects spring</i> teal halo; the deep-link fetch and map tile use the M3 <i>loading indicator (waveform)</i> rather than a spinner. All of it collapses to a static ring under <code style="font-family:monospace;background:#fff;padding:1px 5px;border-radius:5px;font-size:12px;">prefers-reduced-motion</code>.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
+  renderVals() {
+    const noMo = this.reduced();
+    const light = {
+      modeLabel:'Light', modeIcon:'light_mode',
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', headerBg:'#FCEBE6',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#D8C2BB', navBg:'#F6E5E0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC', privacyIcon:'#00796F',
+      springAnim: noMo ? 'none' : 'of-spring 0.66s cubic-bezier(.34,1.56,.64,1) both',
+      haloStatic: '0 0 0 3px rgba(0,121,111,0.40)',
+      pulse: noMo ? 'none' : 'of-halo 1.5s ease-out 0.3s 1 forwards',
+    };
+    const dark = {
+      modeLabel:'Dark', modeIcon:'dark_mode',
+      surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', headerBg:'#271D1A',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#53433E', navBg:'#271D1A',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048', privacyIcon:'#50DBC9',
+      springAnim: noMo ? 'none' : 'of-spring 0.66s cubic-bezier(.34,1.56,.64,1) both',
+      haloStatic: '0 0 0 3px rgba(80,219,201,0.46)',
+      pulse: noMo ? 'none' : 'of-halo-d 1.5s ease-out 0.3s 1 forwards',
+    };
+    const checkFor = (c) => {
+      const on = (title) => ({ title, check:'check', checkFg:c.onPrimary, boxBg:c.primary, boxBorder:'none', titleFg:c.onPrimaryContainer, strike:'line-through' });
+      const off = (title) => ({ title, check:'', checkFg:'transparent', boxBg:'transparent', boxBorder:'2px solid '+c.onPrimaryContainer, titleFg:c.onPrimaryContainer, strike:'none' });
+      return [ off('Sheet cake (gluten-free)'), off('Juice boxes ×2'), on('Paper plates + cups') ];
+    };
+    light.checklist = checkFor(light);
+    dark.checklist = checkFor(dark);
+    return { feedThemes:[light, dark], arrivalThemes:[light, dark] };
+  }
+}
+</script>
+</body>
+</html>

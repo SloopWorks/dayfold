@@ -25,7 +25,7 @@
       <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">D · Places management</span>
     </div>
     <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">The places a trigger can watch for</h1>
-    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:80ch;">Family-scoped places — home, school, the store — each a label, a pin, and a radius. They live on your devices and are matched on-device; they\u2019re the only thing a place trigger ever compares against. Defining one is a quick map-pin-and-slider flow.</p>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:80ch;">Family-scoped places — home, school, the store — each a label, a pin, and a radius. They sync to your family, encrypted, and are matched on your device; they\u2019re the only thing a place trigger ever compares against. Defining one is a quick map-pin-and-slider flow.</p>
   </div>
 
   <div style="display:flex;flex-direction:column;gap:46px;">
@@ -75,7 +75,7 @@ class Component extends DCLogic {
           noteKicker:'The flow', notes:[
             { icon:'location_on', color:'#C0381E', text:'Map pin with a live radius circle.' },
             { icon:'tune', color:'#00796F', text:'Radius slider, 100\u2013500 m, with a value readout.' },
-            { icon:'cloud_off', color:'#6438AE', text:'Stored on-device; live location never recorded.' },
+            { icon:'lock', color:'#6438AE', text:'Synced to family encrypted; only your live position stays on the phone.' },
           ] },
       ],
     };

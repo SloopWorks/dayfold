@@ -38,9 +38,9 @@
     <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:64ch;margin:0 0 14px;">Claude attaches a time or place to a card; your device does the matching on-device, so your live location and schedule never leave the phone. Calm by default — few, timely notifications that earn the interruption. Every surface is light + dark.</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px;">
       <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:500;background:#E2F4EF;color:#0B5048;border:1px solid #BFE3DC;padding:7px 13px;border-radius:999px;"><span class="msr fill" style="font-size:15px;">verified_user</span>Matched on your device</span>
-      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Light + dark</span>
-      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Progressive permission</span>
-      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Reuses the M3E system</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Opt-in · default-off · reversible</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Local notifications · no push</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Light + dark · M3E</span>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
@@ -61,7 +61,7 @@
 
     <div style="margin-top:40px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
       <span class="msr fill" style="font-size:22px;color:#00796F;margin-top:1px;">verified_user</span>
-      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">The privacy promise is a feature, not fine print: triggers are metadata, matching happens on the device, and "<b>your location never leaves</b>" is literally true in the visuals — no server-side-tracking iconography anywhere. Provenance ("added by Claude") rides every AI-authored trigger.</div>
+      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">The privacy promise is a feature, not fine print — and it's honest and two-part: <b>saved places sync to your family, encrypted; only your live position — where you are right now — stays on this phone and is matched on-device</b>. No server-side-tracking iconography, and never "nothing is sent." Provenance ("added by Claude") rides every AI-authored trigger.</div>
     </div>
   </div>
 </div>
@@ -75,7 +75,9 @@ class Component extends DCLogic {
         { href:'Notifications.dc.html', kick:'B · NOTIFICATIONS', title:'Few, timely, earned', desc:'Android + iOS system notifications, the calm digest with grouping / quiet-hours / daily-cap, and deep-link-on-tap arrival.', icon:'notifications', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', kicker:'#4C2092', body:'#3F2A6E' },
         { href:'Permissions.dc.html', kick:'C · PERMISSIONS', title:'Ask gently, upgrade honestly', desc:'Location & notification priming, the explicit "Always" upgrade with its tradeoff, and graceful limited / denied states.', icon:'shield_person', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
         { href:'Places.dc.html', kick:'D · PLACES', title:'Places management', desc:'The family-scoped places list and the add-a-place flow — map pin, radius slider, and the on-device promise.', icon:'pin_drop', iconBg:'#C0381E', iconFg:'#fff', bg:'#FFE7E0', border:'#F4CDC2', arrow:'#C0381E', kicker:'#7A2615', body:'#7A3322' },
-        { href:'Privacy-Affordance.dc.html', kick:'E · REUSABLE COMPONENT', title:'"Matched on your device"', desc:'The brand-differentiating privacy affordance — chip, info row and detail sheet — in light + dark, and shown in context.', icon:'verified_user', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Privacy-Affordance.dc.html', kick:'E · REUSABLE COMPONENT', title:'"Matched on your device"', desc:'The brand-differentiating privacy affordance — chip, info row and detail sheet — with the honest two-part copy, in light + dark and shown in context.', icon:'verified_user', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Settings-Proximity.dc.html', kick:'F · SETTINGS', title:'Reversible &amp; device-local', desc:'The background-proximity toggle, the permission row with the honest two-part line, quiet-hours and the daily-cap chooser — off de-registers every geofence and says so.', icon:'tune', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', kicker:'#005048', body:'#1A4540' },
+        { href:'Offline.dc.html', kick:'G · OFFLINE', title:'Strongest when offline', desc:'Time triggers still fire and a place still matches on-device with no network — only deep-link content and map tiles wait. The "still matched on your device" teal banner.', icon:'wifi_off', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', kicker:'#4C2092', body:'#3F2A6E' },
         { href:'Adaptive.dc.html', kick:'ADAPTIVE', title:'Tablet · desktop · Wear', desc:'Places on a bigger map, triggers surfacing in the desktop Now pane, and the glanceable Wear trigger tile + complication.', icon:'devices', iconBg:'#3D2D28', iconFg:'#FFEDE8', bg:'#FFF8F6', border:'#EBD3CB', arrow:'#3D2D28', kicker:'#7A2615', body:'#5A423C' },
       ],
     };

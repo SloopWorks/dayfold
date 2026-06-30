@@ -17,6 +17,12 @@
   .msr.fill { font-variation-settings: 'FILL' 1; }
   @keyframes nt-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,56,30,0); } 50% { box-shadow: 0 0 0 5px rgba(192,56,30,0.30); } }
   @keyframes nt-pulse-d { 0%,100% { box-shadow: 0 0 0 0 rgba(255,180,163,0); } 50% { box-shadow: 0 0 0 5px rgba(255,180,163,0.34); } }
+  /* M3E spatial spring (overshoot) — arrival card grows in, synced shape-morph */
+  @keyframes nt-spring { 0% { transform: scale(0.95); border-radius: 22px; } 55% { transform: scale(1.015); border-radius: 30px; } 100% { transform: scale(1); border-radius: 26px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .nt-target { animation: none !important; }
+    .nt-spring { animation: none !important; }
+  }
 </style>
 </helmet>
 <div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
@@ -52,7 +58,7 @@
                 <span style="width:22px;height:22px;border-radius:999px;background:linear-gradient(135deg,#FF5436,#C0381E);display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:13px;color:#fff;">local_fire_department</span></span>
                 <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:#5A423C;">Hearth</span>
                 <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">· now</span>
-                <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10px;font-weight:500;color:#0B5048;background:#E2F4EF;border-radius:7px;padding:3px 7px;"><span class="msr fill" style="font-size:12px;">verified_user</span>On device</span>
+                <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:11px;font-weight:500;color:#0B5048;background:#E2F4EF;border-radius:7px;padding:3px 7px;"><span class="msr fill" style="font-size:12px;">verified_user</span>On device</span>
               </div>
               <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:#271814;line-height:1.2;margin-bottom:3px;">Near Lincoln Market — party list?</div>
               <div style="font-family:'Figtree';font-size:13.5px;color:#5A423C;line-height:1.4;margin-bottom:11px;">7 items still open. Grab them while you're here.</div>
@@ -156,7 +162,7 @@
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:11px;border-top:1px solid {{ t.divider }};">
                 <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ t.onVar }};"><span class="msr" style="font-size:15px;">filter_list</span>Capped at 3/day · you're at the cap</span>
-                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border-radius:7px;padding:4px 8px;"><span class="msr fill" style="font-size:12px;">verified_user</span>On device</span>
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border-radius:7px;padding:4px 8px;"><span class="msr fill" style="font-size:12px;">verified_user</span>On device</span>
               </div>
             </div>
           </div>
@@ -189,13 +195,13 @@
             <div style="padding:8px 22px 10px;"><span style="font-family:'Figtree';font-size:13px;font-weight:600;color:{{ t.onVar }};">SATURDAY · JUN 20</span><h1 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.02em;color:{{ t.onSurface }};margin:6px 0 0;">Good morning, Pat</h1></div>
             <div style="padding:6px 16px;">
               <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ t.onPrimary }};background:{{ t.primary }};border-radius:7px;padding:4px 9px;"><span class="msr" style="font-size:13px;">arrow_outward</span>FROM YOUR NOTIFICATION</span></div>
-              <div style="background:{{ t.primaryContainer }};border-radius:26px;padding:18px 20px 16px;box-shadow:0 0 0 3px {{ t.primary }};animation:{{ t.pulse }};">
+              <div class="nt-target nt-spring" style="background:{{ t.primaryContainer }};border-radius:26px;padding:18px 20px 16px;box-shadow:0 0 0 3px {{ t.primary }};animation:{{ t.arrivalAnim }};">
                 <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12.5px;background:{{ t.primary }};color:{{ t.onPrimary }};padding:6px 12px;border-radius:999px;margin-bottom:12px;"><span class="msr" style="font-size:15px;">near_me</span>Near Lincoln Market</span>
                 <div style="font-family:'Outfit';font-weight:600;font-size:19px;line-height:1.2;color:{{ t.onPrimaryContainer }};margin-bottom:6px;">Grab the party list while you're at the store</div>
                 <div style="font-family:'Figtree';font-size:13.5px;color:{{ t.onPrimaryContainer }};opacity:0.86;margin-bottom:14px;">7 items still open.</div>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
                   <span style="display:inline-flex;align-items:center;gap:7px;background:{{ t.primary }};color:{{ t.onPrimary }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:10px 17px;border-radius:999px;">Open list<span class="msr" style="font-size:16px;">arrow_outward</span></span>
-                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border:1px solid {{ t.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Location never leaves</span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:500;color:{{ t.privacyFg }};background:{{ t.privacyBg }};border:1px solid {{ t.privacyBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
                 </div>
               </div>
             </div>
@@ -204,11 +210,62 @@
       </sc-for>
     </div>
   </section>
+
+  <!-- ===== 4 · QUIET / CAP — the calm "nothing buzzes" states ===== -->
+  <section style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:#C0381E;">04</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;letter-spacing:-0.01em;">When nothing should buzz</h2>
+    </div>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:80ch;">The cap and quiet hours aren't a feed with an empty state — they're the feature working. During quiet hours a match is held silently; once the daily cap is reached, nothing more interrupts and anything new simply waits in the app. No badge, no count, no "1 missed." Shown light + dark.</p>
+    <div style="display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;">
+      <sc-for list="{{ calmThemes }}" as="t" hint-placeholder-count="2">
+        <div style="flex:none;width:360px;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:#8C726B;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:15px;">{{ t.modeIcon }}</span>{{ t.modeLabel }}</div>
+          <!-- quiet-hours suppressed -->
+          <div style="background:{{ t.card }};border-radius:24px;padding:18px 19px;margin-bottom:14px;box-shadow:0 1px 3px rgba(39,24,20,0.07);">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:11px;">
+              <span style="width:42px;height:42px;flex:0 0 42px;border-radius:14px;background:{{ t.quietBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:23px;color:{{ t.quietFg }};">bedtime</span></span>
+              <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ t.onSurface }};">Held quietly till morning</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ t.onVar }};">Quiet hours · 9:00 PM – 8:00 AM</div></div>
+            </div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ t.onVar }};">A place reminder matched, but it isn't urgent — so it waits silently and you'll see it with your morning briefing. Nothing buzzed.</div>
+          </div>
+          <!-- cap reached -->
+          <div style="background:{{ t.card }};border-radius:24px;padding:18px 19px;box-shadow:0 1px 3px rgba(39,24,20,0.07);">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:11px;">
+              <span style="width:42px;height:42px;flex:0 0 42px;border-radius:14px;background:{{ t.privacyBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:23px;color:{{ t.privacyFg }};">task_alt</span></span>
+              <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ t.onSurface }};">You're all caught up</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ t.onVar }};">Daily cap reached · 3 of 3</div></div>
+            </div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ t.onVar }};margin-bottom:12px;">That's the cap for today. Anything new from here on waits for you in the app instead of interrupting — more in the app.</div>
+            <span style="display:inline-flex;align-items:center;gap:7px;background:{{ t.btnBg }};color:{{ t.btnFg }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:999px;">Open Now<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+          </div>
+        </div>
+      </sc-for>
+      <div style="flex:none;width:280px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:20px;padding:22px;margin-top:30px;">
+        <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;margin-bottom:12px;">Silence is a feature</div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#00796F;margin-top:1px;">notifications_off</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;">No badge, no count, no red dot — ever.</span></div>
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:18px;color:#6438AE;margin-top:1px;">bedtime</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;">Non-urgent matches wait quietly for morning.</span></div>
+          <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr fill" style="font-size:18px;color:#0B5048;margin-top:1px;">task_alt</span><span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#3D2D28;">"More in the app" — never "you missed something."</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   renderVals() {
+    const calmLight = {
+      modeLabel:'Light', modeIcon:'light_mode', card:'#FFF8F6', onSurface:'#271814', onVar:'#5A423C',
+      quietFg:'#3A3000', quietBg:'#F7E9B0', privacyFg:'#0B5048', privacyBg:'#E2F4EF',
+      btnBg:'#9DF2E4', btnFg:'#00201C',
+    };
+    const calmDark = {
+      modeLabel:'Dark', modeIcon:'dark_mode', card:'#271D1A', onSurface:'#F0DFDA', onVar:'#D8C2BB',
+      quietFg:'#F7E9B0', quietBg:'#3A3000', privacyFg:'#A8F4E7', privacyBg:'#14322D',
+      btnBg:'#005048', btnFg:'#A8F4E7',
+    };
     const digestLight = {
       modeLabel:'Light', modeIcon:'light_mode',
       shadeBg:'#F0DFDA', card:'#FFF8F6', onSurface:'#271814', onVar:'#5A423C', divider:'#F0DFDA',
@@ -231,17 +288,19 @@ class Component extends DCLogic {
     };
     const arrivalLight = {
       modeLabel:'Light', modeIcon:'light_mode', pulse:'nt-pulse 1.6s ease-in-out 3',
+      arrivalAnim:'nt-spring 0.6s cubic-bezier(.34,1.56,.64,1) both, nt-pulse 1.6s ease-in-out 0.5s 2',
       surface:'#FFF8F6', onSurface:'#271814', onVar:'#5A423C',
       primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
       privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC',
     };
     const arrivalDark = {
       modeLabel:'Dark', modeIcon:'dark_mode', pulse:'nt-pulse-d 1.6s ease-in-out 3',
+      arrivalAnim:'nt-spring 0.6s cubic-bezier(.34,1.56,.64,1) both, nt-pulse-d 1.6s ease-in-out 0.5s 2',
       surface:'#1A110E', onSurface:'#F0DFDA', onVar:'#D8C2BB',
       primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
       privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048',
     };
-    return { digestThemes:[digestLight, digestDark], arrivalThemes:[arrivalLight, arrivalDark] };
+    return { digestThemes:[digestLight, digestDark], arrivalThemes:[arrivalLight, arrivalDark], calmThemes:[calmLight, calmDark] };
   }
 }
 </script>

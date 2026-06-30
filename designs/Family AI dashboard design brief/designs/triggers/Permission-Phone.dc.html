@@ -115,16 +115,12 @@
 
   <!-- ===== FOOTER (per screen) ===== -->
   <div style="flex:0 0 auto;padding:14px 24px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
-    <!-- two stacked actions, primary first -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;gap:10px;">
-        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:{{ primaryBtnBg }};color:{{ primaryBtnFg }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px 18px;border-radius:999px;"><span class="msr" style="font-size:19px;">{{ primaryBtnIcon }}</span>{{ primaryBtnLabel }}</span>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
-        <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.secondary }};padding:10px 16px;">{{ secondaryBtnLabel }}</span>
-      </div>
+    <!-- M3 button group · primary + peer ("Not now" is a peer, never greyed) -->
+    <div style="display:flex;gap:10px;align-items:stretch;">
+      <span style="flex:1.5;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:{{ primaryBtnBg }};color:{{ primaryBtnFg }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px 18px;border-radius:999px;{{ primaryBtnBorder }}"><span class="msr" style="font-size:19px;">{{ primaryBtnIcon }}</span>{{ primaryBtnLabel }}</span>
+      <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;text-align:center;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.secondary }};padding:13px 12px;border-radius:999px;border:1px solid {{ c.outline }};">{{ secondaryBtnLabel }}</span>
     </div>
-    <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:2px;">{{ footnote }}</div>
+    <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:10px;">{{ footnote }}</div>
   </div>
 
   <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
@@ -137,7 +133,7 @@ class Component extends DCLogic {
     const screen = this.props.screen || 'locPrime';
     const light = {
       surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
-      onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#E2D4CE',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#E2D4CE', outline:'#A98B84',
       primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
       secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
       tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
@@ -146,7 +142,7 @@ class Component extends DCLogic {
     };
     const dark = {
       surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
-      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#3D322E', outline:'#A08D87',
       primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
       secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
       tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
@@ -163,21 +159,21 @@ class Component extends DCLogic {
 
     const cfg = {
       locPrime: {
-        kicker:'LOCATION · WHILE USING', heroIcon:'pin_drop', heroIsMap:true,
-        title:'See what\u2019s nearby, when it matters', body:'Hearth can surface the right list or reminder the moment you\u2019re near a place you\u2019ve saved — the store, school, home.',
+        kicker:'LOCATION · WHILE USING THE APP', heroIcon:'pin_drop', heroIsMap:true,
+        title:'See what\u2019s nearby while Hearth is open', body:'When the app is open, Hearth can surface the right list or reminder for a place you\u2019ve saved — the store, school, home. It won’t check anything in the background yet.',
         reasons:[
-          { icon:'storefront', title:'At the store', sub:'The party list, right when you walk in.' },
-          { icon:'school', title:'Near school', sub:'The permission slip before you drive off.' },
+          { icon:'storefront', title:'Open at the store', sub:'The party list, right there on screen.' },
+          { icon:'school', title:'Open near school', sub:'The permission slip while parked nearby.' },
         ],
-        promiseTitle:'Matched on your device', promiseBody:'Your location is checked on the phone and never sent anywhere.',
+        promiseTitle:'Matched on your device', promiseBody:'Saved places sync to your family, encrypted; only your live position stays on this phone.',
         primaryLabel:'Allow while using', primaryIcon:'check', secondaryLabel:'Not now',
-        footnote:'You can add background proximity later — or never.',
+        footnote:'Background proximity is a separate, optional step — later, or never.',
       },
       alwaysUpgrade: {
-        kicker:'OPTIONAL UPGRADE · BACKGROUND', heroIcon:'radar', heroIsMap:false,
-        title:'Catch places even when Hearth is closed', body:'Right now we only check your location while the app is open. Allowing \u201cAlways\u201d lets a place reminder reach you without opening Hearth first.',
+        kicker:'OPTIONAL UPGRADE · BACKGROUND', heroIcon:'my_location', heroIsMap:false,
+        title:'A calm nudge the moment you arrive', body:'Right now Hearth only checks while it\u2019s open. Allowing \u201cAlways\u201d lets a place reminder reach you the moment you walk in, without opening the app first.',
         reasons:[],
-        promiseTitle:'Still on your device', promiseBody:'Background matching runs locally too — nothing about where you are is uploaded.',
+        promiseTitle:'Still matched on your device', promiseBody:'Background matching runs on the phone too — only your live position stays here; saved places sync encrypted.',
         primaryLabel:'Allow always', primaryIcon:'my_location', secondaryLabel:'Keep it when-in-use',
         footnote:'Reversible anytime — in Hearth or iOS/Android settings.',
       },
@@ -199,6 +195,7 @@ class Component extends DCLogic {
     let primaryBtnBg = c.primary, primaryBtnFg = c.onPrimary, primaryBtnLabel = k.primaryLabel, primaryBtnIcon = k.primaryIcon, secondaryBtnLabel = k.secondaryLabel, footnote = k.footnote;
     if (isLimited) { primaryBtnBg = c.secondaryContainer; primaryBtnFg = c.onSecondaryContainer; primaryBtnLabel = 'Open Now'; primaryBtnIcon = 'today'; secondaryBtnLabel = 'Manage location access'; footnote = 'No background location is used in this mode.'; }
     if (isDenied) { primaryBtnBg = 'transparent'; primaryBtnFg = c.secondary; primaryBtnLabel = 'Turn on in Settings'; primaryBtnIcon = 'settings'; secondaryBtnLabel = 'Keep it off'; footnote = 'No pressure — nothing here is broken.'; }
+    const primaryBtnBorder = (primaryBtnBg === 'transparent') ? ('border:1px solid ' + c.outline + ';') : '';
 
     return {
       c, isPriming, isLoc, isAlways, isNotif, isLimited, isDenied,
@@ -206,7 +203,7 @@ class Component extends DCLogic {
       heroIconBg: c.primary, heroIconFg: c.onPrimary,
       kicker:k.kicker, title:k.title, body:k.body, reasons:k.reasons,
       promiseTitle:k.promiseTitle, promiseBody:k.promiseBody,
-      primaryBtnBg, primaryBtnFg, primaryBtnLabel, primaryBtnIcon, secondaryBtnLabel, footnote,
+      primaryBtnBg, primaryBtnFg, primaryBtnLabel, primaryBtnIcon, primaryBtnBorder, secondaryBtnLabel, footnote,
     };
   }
 }
