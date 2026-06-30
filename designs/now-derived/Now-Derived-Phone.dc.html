@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .nd-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes nd-breathe { 0%,100% { box-shadow: 0 0 0 0 rgba(0,134,120,0.0); } 50% { box-shadow: 0 0 0 5px rgba(0,134,120,0.22); } }
+  @keyframes nd-breathe-d { 0%,100% { box-shadow: 0 0 0 0 rgba(80,219,201,0.0); } 50% { box-shadow: 0 0 0 5px rgba(80,219,201,0.26); } }
+  @keyframes nd-dot { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.55); opacity: 0.55; } }
+  @media (prefers-reduced-motion: reduce) { .nd-scroll * { animation: none !important; } }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- CAUGHT-UP -->
+  <sc-if value="{{ isCaught }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:10px 22px 8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};">SATURDAY · JUN 20</span>
+          <span style="width:34px;height:34px;border-radius:999px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">P</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:31px;line-height:1.08;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 5px;">Good evening, Pat</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};margin:0;">Nothing's pressing right now</p>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 42px;">
+        <div style="width:92px;height:92px;border-radius:30px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+          <span class="msr" style="font-size:44px;color:{{ c.onSecondaryContainer }};">wb_twilight</span>
+        </div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 10px;">You're all caught up</h2>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">Two things are coming up later this week — nothing needs you today. We'll surface things here as they get close. No pings, no badges.</p>
+        <div style="width:100%;display:flex;flex-direction:column;gap:9px;">
+          <sc-for list="{{ caughtRows }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainerLow }};border-radius:16px;padding:12px 14px;text-align:left;">
+              <span style="width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">{{ r.icon }}</span></span>
+              <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.meta }}</div></div>
+              <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- FEED -->
+  <sc-if value="{{ isFeed }}" hint-placeholder-val="{{ true }}">
+    <div class="nd-scroll" style="flex:1;overflow-y:auto;">
+      <!-- large app bar -->
+      <div style="padding:10px 22px 6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};">SATURDAY · JUN 20</span>
+          <span style="width:34px;height:34px;border-radius:999px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">P</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:31px;line-height:1.08;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 5px;">Good morning, Pat</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};margin:0;">{{ subtitle }}</p>
+      </div>
+
+      <!-- geo-active banner -->
+      <sc-if value="{{ showGeoBanner }}" hint-placeholder-val="{{ false }}">
+        <div style="margin:8px 16px 0;display:flex;align-items:center;gap:10px;background:{{ c.secondaryContainer }};border-radius:14px;padding:10px 14px;">
+          <span style="position:relative;width:9px;height:9px;flex:0 0 9px;border-radius:999px;background:{{ c.secondary }};animation:nd-dot 1.8s ease-in-out infinite;"></span>
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.onSecondaryContainer }};">You're near Safeway — moved one thing up</span>
+        </div>
+      </sc-if>
+
+      <!-- sections -->
+      <div style="padding:14px 16px 26px;display:flex;flex-direction:column;gap:8px;">
+        <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="3">
+          <div style="margin-top:{{ sec.topGap }};">
+            <!-- section header -->
+            <div style="display:flex;align-items:center;gap:8px;margin:0 4px 11px;">
+              <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ sec.labelColor }};">{{ sec.label }}</span>
+              <span style="flex:1;height:1px;background:{{ c.divider }};"></span>
+              <sc-if value="{{ sec.hasMeta }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};">{{ sec.meta }}</span></sc-if>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:11px;">
+              <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="2">
+
+                <!-- QUIET ROW -->
+                <sc-if value="{{ it.quiet }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:13px;background:{{ it.bg }};border-radius:16px;padding:12px 14px;opacity:{{ it.opacity }};">
+                    <span style="width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:{{ it.qIconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr {{ it.qIconFill }}" style="font-size:19px;color:{{ it.qIconFg }};">{{ it.qIcon }}</span></span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};line-height:1.25;">{{ it.qTitle }}</div>
+                      <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ it.qMeta }}</div>
+                    </div>
+                    <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+                  </div>
+                </sc-if>
+
+                <!-- FULL CARD -->
+                <sc-if value="{{ it.full }}" hint-placeholder-val="{{ true }}">
+                  <div style="background:{{ it.bg }};border-radius:26px;padding:17px 19px 15px;opacity:{{ it.opacity }};box-shadow:{{ it.ring }};animation:{{ it.anim }};">
+                    <!-- chips -->
+                    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px;">
+                      <sc-for list="{{ it.chips }}" as="ch" hint-placeholder-count="1">
+                        <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ ch.bg }};color:{{ ch.fg }};border:{{ ch.border }};padding:5px 11px 5px 9px;border-radius:999px;">
+                          <sc-if value="{{ ch.dot }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:999px;background:{{ ch.fg }};animation:nd-dot 1.8s ease-in-out infinite;"></span></sc-if>
+                          <sc-if value="{{ ch.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="msr {{ ch.fill }}" style="font-size:15px;">{{ ch.icon }}</span></sc-if>{{ ch.text }}</span>
+                      </sc-for>
+                    </div>
+                    <!-- title + bigTime -->
+                    <div style="display:flex;align-items:flex-start;gap:14px;">
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-family:'Outfit';font-weight:600;font-size:{{ it.titleSize }};line-height:1.18;color:{{ it.titleFg }};margin-bottom:{{ it.titleGap }};">{{ it.title }}</div>
+                        <sc-if value="{{ it.hasBody }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ it.bodyFg }};">{{ it.body }}</div></sc-if>
+                      </div>
+                      <sc-if value="{{ it.hasBigTime }}" hint-placeholder-val="{{ false }}">
+                        <div style="text-align:right;flex:0 0 auto;">
+                          <div style="font-family:'Outfit';font-weight:700;font-size:36px;line-height:0.95;color:{{ it.titleFg }};">{{ it.bigNum }}</div>
+                          <div style="font-family:'Figtree';font-size:12px;color:{{ it.titleFg }};opacity:0.75;">{{ it.bigUnit }}</div>
+                        </div>
+                      </sc-if>
+                    </div>
+
+                    <!-- grouped nudge (dedup) -->
+                    <sc-if value="{{ it.hasGroup }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:14px;padding:13px 14px;background:{{ it.groupBg }};border-radius:16px;">
+                        <div style="display:flex;align-items:flex-start;gap:10px;">
+                          <span style="width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:{{ it.groupIconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:18px;color:{{ it.groupIconFg }};">{{ it.groupIcon }}</span></span>
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ it.titleFg }};line-height:1.3;margin-bottom:9px;">{{ it.groupTitle }}</div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                              <span style="display:inline-flex;align-items:center;gap:6px;background:{{ it.groupBtnBg }};color:{{ it.groupBtnFg }};font-family:'Figtree';font-weight:600;font-size:12.5px;padding:8px 14px;border-radius:999px;">{{ it.groupBtn }}<span class="msr" style="font-size:15px;">arrow_outward</span></span>
+                              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:5px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added by Claude</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <!-- footer: action + provenance -->
+                    <sc-if value="{{ it.hasFooter }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;">
+                        <sc-if value="{{ it.hasAction }}" hint-placeholder-val="{{ true }}">
+                          <span style="display:inline-flex;align-items:center;gap:7px;background:{{ it.actBg }};color:{{ it.actFg }};font-family:'Figtree';font-weight:600;font-size:13.5px;padding:10px 17px;border-radius:999px;">{{ it.actText }}<span class="msr {{ it.actFill }}" style="font-size:16px;">{{ it.actIcon }}</span></span>
+                        </sc-if>
+                        <sc-if value="{{ it.actionAsLink }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex;align-items:center;gap:6px;color:{{ it.linkFg }};font-family:'Figtree';font-weight:600;font-size:13.5px;">{{ it.actText }}<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+                        </sc-if>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                          <sc-for list="{{ it.footer }}" as="f" hint-placeholder-count="1">
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ f.fg }};background:{{ f.bg }};border:{{ f.border }};border-radius:8px;padding:5px 8px;"><span class="msr {{ f.fill }}" style="font-size:13px;">{{ f.icon }}</span>{{ f.text }}</span>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+              </sc-for>
+
+              <!-- overflow affordance -->
+              <sc-if value="{{ sec.hasOverflow }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:{{ c.surfaceContainerLow }};border:1px solid {{ c.divider }};border-radius:16px;padding:13px 16px;">
+                  <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">expand_more</span>
+                  <span style="font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ sec.overflowText }}</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- bottom nav -->
+  <div style="flex:0 0 84px;background:{{ c.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:12px 30px 0;z-index:5;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+      <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ c.navActivePill }};"><span class="msr fill" style="font-size:23px;color:{{ c.navActiveIcon }};">today</span></span>
+      <span style="font-family:'Figtree';font-weight:600;font-size:12px;color:{{ c.navActiveLabel }};">Now</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+      <span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;"><span class="msr" style="font-size:23px;color:{{ c.navInactive }};">dashboard</span></span>
+      <span style="font-family:'Figtree';font-weight:500;font-size:12px;color:{{ c.navInactive }};">Hubs</span>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.28;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;scenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;geo&quot;,&quot;busy&quot;,&quot;dedup&quot;,&quot;softened&quot;,&quot;caught&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;'normal' | 'geo' | 'busy' | 'dedup' | 'softened' | 'caught'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const scenario = this.props.scenario || 'normal';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', divider:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', onTertiary:'#FFFFFF', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC',
+      navBg:'#F6E5E0', navActivePill:'#FFDAD2', navActiveIcon:'#5A1100', navActiveLabel:'#271814', navInactive:'#5A423C',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', divider:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', onTertiary:'#3A0080', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048',
+      navBg:'#271D1A', navActivePill:'#9A2A12', navActiveIcon:'#FFDAD2', navActiveLabel:'#F0DFDA', navInactive:'#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const breathe = (mode === 'dark' ? 'nd-breathe-d' : 'nd-breathe') + ' 2.6s ease-in-out infinite';
+
+    // ---- chip + footer builders ----
+    const chip = (icon, text, bg, fg, opts) => ({ icon, text, bg, fg, fill: (opts&&opts.fill)?'fill':'', border: (opts&&opts.border)||'none', dot: !!(opts&&opts.dot), hasIcon: icon !== '' });
+    // derived "why" reason chip (subtle, neutral container) — computed on device
+    const derivedChip = (icon, text) => chip(icon, text, c.surfaceContainerHigh, c.onSurfaceVar, { fill:false });
+    // geo-active emphasized chip (filled teal, pulsing)
+    const geoLiveChip = (text) => chip('', text, c.secondary, c.onSecondary, { dot:true });
+    // provenance footer chips
+    const provClaude = chip('auto_awesome', 'Added by Claude', c.provBg, c.provFg, { border:'1px solid '+c.provBorder });
+    const provEmail = chip('mail', 'From your email', c.provBg, c.provFg, { border:'1px solid '+c.provBorder });
+    const provWeather = chip('rainy', 'Weather', c.provBg, c.provFg, { border:'1px solid '+c.provBorder });
+    const onDevice = chip('verified_user', 'On your device', c.privacyBg, c.privacyFg, { border:'1px solid '+c.privacyBorder, fill:true });
+    const locNeverLeaves = chip('verified_user', 'Location never leaves', c.privacyBg, c.privacyFg, { border:'1px solid '+c.privacyBorder, fill:true });
+
+    // full card factory
+    const card = (o) => Object.assign({
+      full: true, quiet: false, opacity: 1, ring: 'none', anim: 'none',
+      bg: c.surfaceContainer, titleFg: c.onSurface, bodyFg: c.onSurfaceVar,
+      titleSize: '18px', titleGap: '5px',
+      chips: [], hasBody: !!o.body, hasBigTime: false, bigNum:'', bigUnit:'',
+      hasGroup: false, hasFooter: true, hasAction: false, actionAsLink: false,
+      actText:'', actIcon:'arrow_outward', actFill:'', actBg:c.primary, actFg:c.onPrimary, linkFg:c.primary,
+      footer: [],
+    }, o);
+    const quietRow = (o) => Object.assign({
+      full:false, quiet:true, opacity:1, bg:c.surfaceContainerLow, qIcon:'schedule', qIconFill:'', qIconBg:c.surfaceContainerHigh, qIconFg:c.onSurfaceVar, qMeta:'',
+    }, o);
+
+    // ===== reusable items =====
+    // DERIVED · checklist-due (deep-links into hub)
+    const checklistDue = () => card({
+      bg: c.primaryContainer, titleFg: c.onPrimaryContainer, bodyFg: c.onPrimaryContainer,
+      chips: [ chip('checklist', '3 left before the party', c.primary, c.onPrimary) ],
+      title: "Maya's party — 3 things still to buy", titleSize:'19px',
+      body: 'Sheet cake, juice boxes and candles are still open on the list.',
+      hasAction:true, actText:'Open list', actBg:c.primary, actFg:c.onPrimary,
+      footer: [ onDevice ],
+    });
+    // DERIVED · countdown (emphasized relative time)
+    const countdown = () => card({
+      bg: c.tertiaryContainer, titleFg: c.onTertiaryContainer, bodyFg: c.onTertiaryContainer,
+      chips: [ chip('hourglass_top', 'Countdown', 'transparent', c.onTertiaryContainer, { border:'1px solid '+c.tertiary }) ],
+      title: 'Maya starts college', titleSize:'19px', titleGap:'2px',
+      hasBigTime:true, bigNum:'12', bigUnit:'days', hasBody:false,
+      hasAction:false, actionAsLink:true, actText:'Open hub', linkFg:c.tertiary,
+      footer: [ onDevice ],
+    });
+    // DERIVED · time-window "when"
+    const pickup = () => card({
+      bg: c.surfaceContainer,
+      chips: [ derivedChip('schedule', 'Pickup at 3:00') ],
+      title: 'Leo from soccer at Riverside', titleSize:'17px',
+      body: "Leave by 2:40 — it's about 8 minutes away.",
+      hasAction:false, actionAsLink:true, actText:'Open day', linkFg:c.primary,
+      footer: [ onDevice ],
+    });
+    // AUTHORED · weather (typed look)
+    const weather = () => card({
+      bg: c.secondaryContainer, titleFg: c.onSecondaryContainer, bodyFg: c.onSecondaryContainer,
+      chips: [ chip('rainy', 'Rain at soccer, 4pm', 'transparent', c.onSecondaryContainer, { fill:true, border:'1px solid '+c.secondary }) ],
+      title: 'Pack jackets for the 4pm game', titleSize:'17px',
+      body: "Showers start right around kickoff at Riverside.",
+      hasAction:false, hasFooter:true, hasAction:false, actionAsLink:false,
+      footer: [ provWeather ],
+    });
+    // AUTHORED · email RSVP (typed look)
+    const emailRsvp = () => card({
+      bg: c.surfaceContainer,
+      chips: [ chip('mark_email_unread', 'Reply by Thursday', c.tertiaryContainer, c.onTertiaryContainer) ],
+      title: 'School RSVP needs a reply', titleSize:'17px',
+      body: 'Field-trip permission for Maya — yes or no.',
+      hasAction:true, actText:'Reply', actBg:c.tertiary, actFg:c.onTertiary,
+      footer: [ provEmail ],
+    });
+    // AUTHORED · milestone-ish bespoke nudge
+    const milestone = () => card({
+      bg: c.surfaceContainer,
+      chips: [ derivedChip('flag', 'In 3 days') ],
+      title: "Dad's knee surgery — Tuesday", titleSize:'17px',
+      body: 'Pre-op fasting starts Monday night. Recovery hub is ready.',
+      hasAction:false, actionAsLink:true, actText:'Open hub', linkFg:c.primary,
+      footer: [ onDevice ],
+    });
+
+    // ===== scenario assembly =====
+    let sections = [];
+    let subtitle = '3 things to glance at · 68°F, rain later';
+    let showGeoBanner = false;
+
+    if (scenario === 'normal') {
+      sections = [
+        { label:'NOW', labelColor:c.primary, hasMeta:true, meta:'needs you', topGap:'0px', items:[ checklistDue(), weather() ] },
+        { label:'SOON', labelColor:c.onSurfaceVar, hasMeta:true, meta:'today & tomorrow', topGap:'18px', items:[ pickup(), emailRsvp() ] },
+        { label:'LATER', labelColor:c.onSurfaceVar, hasMeta:false, topGap:'18px', items:[
+            countdownQuiet(), quietRow({ qIcon:'flag', qTitle:"Dad's knee surgery", qMeta:'In 3 days · recovery hub ready' }),
+        ] },
+      ];
+    } else if (scenario === 'geo') {
+      subtitle = "You're out near Safeway · 3 things";
+      showGeoBanner = true;
+      const geo = card({
+        bg: c.secondaryContainer, titleFg: c.onSecondaryContainer, bodyFg: c.onSecondaryContainer,
+        ring: '0 0 0 2px '+c.secondary, anim: breathe,
+        chips: [ geoLiveChip("You're near Safeway") ],
+        title: "Grab the party list while you're here", titleSize:'19px',
+        body: '7 items still open — sheet cake, juice boxes, candles…',
+        hasAction:true, actText:'Open list', actBg:c.secondary, actFg:c.onSecondary,
+        footer: [ locNeverLeaves ],
+      });
+      sections = [
+        { label:'NOW · NEARBY', labelColor:c.secondary, hasMeta:true, meta:'while you’re out', topGap:'0px', items:[ geo, checklistDue() ] },
+        { label:'SOON', labelColor:c.onSurfaceVar, hasMeta:true, meta:'today', topGap:'18px', items:[ weather(), pickup() ] },
+        { label:'LATER', labelColor:c.onSurfaceVar, hasMeta:false, topGap:'18px', items:[ countdownQuiet() ] },
+      ];
+    } else if (scenario === 'busy') {
+      subtitle = 'A full Saturday · we picked the top few';
+      sections = [
+        { label:'NOW', labelColor:c.primary, hasMeta:true, meta:'needs you', topGap:'0px', items:[ checklistDue(), weather() ] },
+        { label:'SOON', labelColor:c.onSurfaceVar, hasMeta:true, meta:'today', topGap:'18px', items:[ pickup() ],
+          hasOverflow:true, overflowText:'5 more from later today' },
+        { label:'LATER THIS WEEK', labelColor:c.onSurfaceVar, hasMeta:false, topGap:'18px', items:[
+            countdownQuiet(),
+            quietRow({ qIcon:'flag', qTitle:"Dad's knee surgery", qMeta:'In 3 days' }),
+            quietRow({ qIcon:'flight_takeoff', qTitle:'Lisbon trip', qMeta:'In 48 days · passports to renew' }),
+        ] },
+      ];
+    } else if (scenario === 'dedup') {
+      subtitle = '2 things to glance at · grouped';
+      // one unit: derived countdown + authored nudge about the SAME event
+      const grouped = card({
+        bg: c.primaryContainer, titleFg: c.onPrimaryContainer, bodyFg: c.onPrimaryContainer,
+        chips: [ chip('celebration', "Maya's party", c.primary, c.onPrimary), derivedChip('hourglass_top', 'In 2 days') ],
+        title: "Maya's party is Saturday", titleSize:'20px',
+        body: '12 guests at 3pm. Everything for it lives in one place.',
+        hasGroup:true, groupBg: mode==='dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.55)',
+        groupIcon:'shopping_cart', groupIconBg: mode==='dark' ? 'rgba(255,255,255,0.10)':'#FFFFFF', groupIconFg:c.primary,
+        groupTitle:'Ordered the groceries yet? 7 items still open.',
+        groupBtn:'Open list', groupBtnBg:c.primary, groupBtnFg:c.onPrimary,
+        hasAction:false, actionAsLink:true, actText:'Open party hub', linkFg:c.onPrimaryContainer,
+        footer: [ onDevice ],
+      });
+      sections = [
+        { label:'NOW', labelColor:c.primary, hasMeta:true, meta:'1 event · 2 reasons, merged', topGap:'0px', items:[ grouped ] },
+        { label:'SOON', labelColor:c.onSurfaceVar, hasMeta:true, meta:'today', topGap:'18px', items:[ weather() ] },
+      ];
+    } else if (scenario === 'softened') {
+      subtitle = '2 things to glance at';
+      // a repeatedly-shown, un-acted item that has softened (anti-nag decay)
+      const soft = card({
+        bg: c.surfaceContainerLow, opacity: 0.66, titleFg: c.onSurface, bodyFg: c.onSurfaceVar,
+        chips: [ chip('schedule', 'Still here when you need it', 'transparent', c.onSurfaceVar, { border:'1px solid '+c.divider }) ],
+        title: 'Soccer registration form', titleSize:'16px',
+        body: 'Closes Friday — no rush, surfaced a few times now.',
+        hasAction:false, actionAsLink:true, actText:'Open form', linkFg:c.onSurfaceVar,
+        footer: [ chip('bookmark', 'Link you saved', c.provBg, c.provFg, { border:'1px solid '+c.provBorder }) ],
+      });
+      sections = [
+        { label:'NOW', labelColor:c.primary, hasMeta:true, meta:'needs you', topGap:'0px', items:[ checklistDue() ] },
+        { label:'SOON', labelColor:c.onSurfaceVar, hasMeta:true, meta:'today', topGap:'18px', items:[ weather() ] },
+        { label:'EASING OFF', labelColor:c.onSurfaceVar, hasMeta:true, meta:'shown a few times · softened', topGap:'18px', items:[ soft ] },
+      ];
+    }
+
+    // a compacted countdown that lives in LATER as a quiet row
+    function countdownQuiet() {
+      return quietRow({ qIcon:'school', qIconBg: c.tertiaryContainer, qIconFg: c.onTertiaryContainer, qTitle:'Maya starts college', qMeta:'In 12 days · move-in hub' });
+    }
+
+    return {
+      c, scenario,
+      isFeed: scenario !== 'caught',
+      isCaught: scenario === 'caught',
+      subtitle, showGeoBanner, sections,
+      caughtRows: [
+        { icon:'school', title:'Maya starts college', meta:'In 12 days' },
+        { icon:'flight_takeoff', title:'Lisbon trip', meta:'In 48 days' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

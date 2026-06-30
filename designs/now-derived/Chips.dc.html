@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes cc-dot { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.55); opacity: 0.55; } }
+</style>
+</helmet>
+<div style="min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="margin-bottom:32px;max-width:880px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Now · derived</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">04 · The "why" chip catalog</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">"Why am I seeing this?"</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:78ch;">One quiet caption-row chip answers it on every card. The chip family is the only thing that distinguishes a <b>derived</b> item from an <b>authored</b> one — the cards are otherwise peers.</p>
+  </div>
+
+  <!-- distinction principle -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1000px;margin-bottom:38px;">
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:20px 22px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="msr" style="font-size:20px;color:#00796F;">bolt</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Derived chips name a reason</span></div>
+      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">A verb, a number, a place — computed live on the device from hub metadata and the clock or location. Always current; nothing is stored on a server. The honesty is built in: the reason is literally true at the moment you read it.</div>
+    </div>
+    <div style="background:#F4ECFB;border:1px solid #E0CDF5;border-radius:22px;padding:20px 22px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="msr" style="font-size:20px;color:#6438AE;">auto_awesome</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;color:#3A0080;">Authored chips name a source</span></div>
+      <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#4C2092;">Where the item came from — Claude, your email, the forecast, a link you saved. Used for the irreducible remainder no on-device rule could compute. Same chip shape, different word and glyph: the seam stays legible but quiet.</div>
+    </div>
+  </div>
+
+  <!-- two theme columns -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div style="background:{{ t.surface }};border:1px solid {{ t.cardBorder }};border-radius:28px;padding:26px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ t.onVar }};margin-bottom:22px;display:flex;align-items:center;gap:6px;"><span class="msr" style="font-size:16px;">{{ t.modeIcon }}</span>{{ t.modeLabel }}</div>
+
+        <sc-for list="{{ t.groups }}" as="g" hint-placeholder-count="3">
+          <div style="margin-bottom:22px;">
+            <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.03em;color:{{ g.labelColor }};margin-bottom:14px;text-transform:uppercase;">{{ g.label }}</div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="5">
+                <div style="display:flex;align-items:flex-start;gap:14px;">
+                  <div style="flex:0 0 196px;display:flex;align-items:center;min-height:30px;">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ r.bg }};color:{{ r.fg }};border:{{ r.border }};padding:5px 11px 5px 9px;border-radius:999px;">
+                      <sc-if value="{{ r.dot }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:999px;background:{{ r.fg }};animation:cc-dot 1.8s ease-in-out infinite;"></span></sc-if>
+                      <sc-if value="{{ r.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="msr {{ r.fill }}" style="font-size:15px;">{{ r.icon }}</span></sc-if>{{ r.text }}</span>
+                  </div>
+                  <div style="flex:1;min-width:0;padding-top:1px;">
+                    <div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ t.onSurface }};">{{ r.kind }}</div>
+                    <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ t.onVar }};">{{ r.note }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const build = (c, modeLabel, modeIcon) => {
+      const chip = (variant, icon, text, opts) => {
+        const o = opts || {};
+        let bg, fg, border = 'none';
+        if (variant === 'derived') { bg = c.surfaceContainerHigh; fg = c.onSurfaceVar; }
+        else if (variant === 'emph') { bg = c.tertiaryContainer; fg = c.onTertiaryContainer; }
+        else if (variant === 'primary') { bg = c.primary; fg = c.onPrimary; }
+        else if (variant === 'geo') { bg = c.secondary; fg = c.onSecondary; }
+        else if (variant === 'prov') { bg = c.provBg; fg = c.provFg; border = '1px solid ' + c.provBorder; }
+        else if (variant === 'privacy') { bg = c.privacyBg; fg = c.privacyFg; border = '1px solid ' + c.privacyBorder; }
+        return { icon, text, bg, fg, border, fill: o.fill ? 'fill' : '', dot: !!o.dot, hasIcon: icon !== '' };
+      };
+      return {
+        modeLabel, modeIcon,
+        surface: c.surface, cardBorder: c.cardBorder, onSurface: c.onSurface, onVar: c.onSurfaceVar,
+        groups: [
+          { label: 'Derived · computed reason (live on device)', labelColor: c.secondary, rows: [
+            { ...chip('primary', 'checklist', '3 left before Saturday'), kind: 'checklist-due', note: 'Open items in a hub checklist, counted against its due date. Deep-links into that block.' },
+            { ...chip('emph', 'hourglass_top', '12 days'), kind: 'countdown', note: 'Emphasized relative time, recomputed from the clock each render — never stale.' },
+            { ...chip('derived', 'flag', 'Move-in · Aug 24'), kind: 'milestone', note: 'A dated hub milestone approaching. The date is the hub’s; the "in N days" is computed.' },
+            { ...chip('geo', '', "You're near Safeway", { dot: true }), kind: 'geo-proximity', note: 'Fires only while you are physically near a saved place. Carries the privacy promise.' },
+            { ...chip('derived', 'schedule', 'Pickup at 3:00'), kind: 'time-window (when)', note: 'A time window from hub metadata; surfaces as it opens, retires once it passes.' },
+          ]},
+          { label: 'Authored · provenance (where it came from)', labelColor: c.tertiary, rows: [
+            { ...chip('prov', 'auto_awesome', 'Added by Claude'), kind: 'claude', note: 'Claude wrote this because no on-device rule could compute it.' },
+            { ...chip('prov', 'mail', 'From your email'), kind: 'email', note: 'Lifted from a connected mailbox.' },
+            { ...chip('prov', 'rainy', 'Weather'), kind: 'weather', note: 'An authored forecast note tied to an event.' },
+            { ...chip('prov', 'bookmark', 'Link you saved'), kind: 'saved-link', note: 'Something you bookmarked, resurfaced in context.' },
+          ]},
+          { label: 'Honesty affordance · the privacy promise', labelColor: c.secondary, rows: [
+            { ...chip('privacy', 'verified_user', 'Matched on your device', { fill: true }), kind: 'on cards', note: 'Rides any place- or time-matched item.' },
+            { ...chip('privacy', 'verified_user', 'Location never leaves', { fill: true }), kind: 'on geo items', note: 'States exactly what is true — the match is on-device.' },
+            { ...chip('privacy', 'verified_user', 'On your device', { fill: true }), kind: 'compact', note: 'The short form for tight footers. Tapping any of these opens the full explanation.' },
+          ]},
+        ],
+      };
+    };
+    const light = build({
+      surface:'#FFF8F6', cardBorder:'#EBD3CB', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C',
+      primary:'#C0381E', onPrimary:'#FFFFFF', secondary:'#00796F', onSecondary:'#FFFFFF',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC',
+    }, 'Light', 'light_mode');
+    const dark = build({
+      surface:'#1A110E', cardBorder:'#3D322E', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB',
+      primary:'#FFB4A3', onPrimary:'#5F1500', secondary:'#50DBC9', onSecondary:'#00382F',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048',
+    }, 'Dark', 'dark_mode');
+    return { themes: [light, dark] };
+  }
+}
+</script>
+</body>
+</html>

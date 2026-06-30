@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="margin-bottom:34px;max-width:820px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Now · derived</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">01 · The merged feed</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;">One feed, two origins</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:74ch;"><b>Derived</b> items (computed on-device from hub metadata) and <b>authored</b> items (what Claude writes because no rule could) sit in one ranked list as peers — told apart only by a quiet "why" chip, never a layout split. The on-device <b>Priority &amp; Ordering Engine</b> decides what surfaces, in what order, and how many.</p>
+  </div>
+
+  <!-- ranking system band -->
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-width:1080px;margin-bottom:22px;">
+    <sc-for list="{{ concepts }}" as="k" hint-placeholder-count="3">
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:20px 22px;">
+        <span class="msr" style="font-size:24px;color:{{ k.color }};margin-bottom:12px;">{{ k.icon }}</span>
+        <div style="font-family:'Outfit';font-weight:600;font-size:16px;margin:0 0 6px;">{{ k.title }}</div>
+        <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#5A423C;">{{ k.body }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- grouping decision note -->
+  <div style="display:flex;align-items:flex-start;gap:13px;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:22px;padding:18px 22px;max-width:1080px;margin-bottom:40px;">
+    <span class="msr" style="font-size:22px;color:#6438AE;margin-top:1px;">rule</span>
+    <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#4C2092;"><b>Grouping decision.</b> We considered a single ranked list with subtle time dividers vs. explicit <b>now / soon / later</b> sections. We chose <b>now / soon / later</b>: the named bands let "Now" hold only the two or three things that need attention while "Later" stays reachable but visibly de-emphasized — ranking reads as gentle triage, not a queue you must clear. The dividers are quiet hairlines, not headers competing with content.</div>
+  </div>
+
+  <!-- phone row -->
+  <div style="display:flex;gap:38px;align-items:flex-start;">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="6">
+      <div style="flex:none;width:390px;">
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-family:'Outfit';font-weight:600;font-size:16px;color:#271814;">{{ f.title }}</span>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ f.tagColor }};background:{{ f.tagBg }};border-radius:999px;padding:3px 9px;">{{ f.tag }}</span>
+          </div>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:#5A423C;max-width:42ch;">{{ f.note }}</div>
+        </div>
+        <dc-import name="Now-Derived-Phone" mode="{{ f.mode }}" scenario="{{ f.scenario }}" hint-size="390px,844px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const L = { tag: 'Light', tagColor: '#7A2615', tagBg: '#FCEBE6' };
+    const D = { tag: 'Dark', tagColor: '#D3BBFF', tagBg: '#2A1F3D' };
+    return {
+      concepts: [
+        { icon:'view_agenda', color:'#C0381E', title:'Now · soon · later', body:'Three calm bands. "Now" carries only what needs attention; "soon" is today/tomorrow; "later" is reachable but de-emphasized.' },
+        { icon:'filter_list', color:'#00796F', title:'Calm budget', body:'Only the top few surface as full cards. The tail collapses into a quiet "more" row — never a wall, never a red count.' },
+        { icon:'near_me', color:'#6438AE', title:'Geo-active boost', body:'When you are physically near a place, that item rises to the top and takes the M3E emphasized treatment — a soft ring, never an alarm.' },
+      ],
+      frames: [
+        { title:'Normal day', mode:'light', scenario:'normal', note:'Derived (3-left checklist, college countdown) and authored (weather) cards as peers. The seam shows only in the "why" chips.', ...L },
+        { title:'Normal day', mode:'dark', scenario:'normal', note:'Dark is first-class — the same ranked feed, same chip vocabulary.', ...D },
+        { title:'Geo-active', mode:'light', scenario:'geo', note:"Same data — but you're near Safeway. The nearby item is boosted to a NOW · NEARBY band with an emphasized ring and a pulsing live dot.", ...L },
+        { title:'Geo-active', mode:'dark', scenario:'geo', note:'"Location never leaves" rides the boosted card; the privacy promise is always visible.', ...D },
+        { title:'Caught up', mode:'light', scenario:'caught', note:'Nothing clears the calm budget. We extend the existing caught-up state and still show what is gently coming.', ...L },
+        { title:'Caught up', mode:'dark', scenario:'caught', note:'No pings, no badges — just a quiet horizon of what is next.', ...D },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
