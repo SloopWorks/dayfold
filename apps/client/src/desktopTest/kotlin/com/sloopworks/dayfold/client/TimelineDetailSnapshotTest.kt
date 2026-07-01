@@ -83,6 +83,7 @@ class TimelineDetailSnapshotTest {
                 ),
             ),
             Stop(at = "2026-09-15", title = "Family weekend"),
+            Stop(at = "2026-10-01", title = "Graduation open house", major = true),
         ),
     )
 
@@ -107,10 +108,37 @@ class TimelineDetailSnapshotTest {
             .let { dir -> ImageIO.write(img.toAwtImage(), "png", File(dir, "$name.png")) }
     }
 
+    // Variant that scrolls to a given list index before capturing, to show below-fold items.
+    private fun shotScrolled(name: String, tl: Timeline, scale: TimelineScale, scrollToIdx: Int) =
+        runComposeUiTest {
+            setContent {
+                DayfoldTheme(darkTheme = false) {
+                    Box(Modifier.width(390.dp).height(780.dp)) {
+                        TimelineDetail(
+                            tl = tl,
+                            scale = scale,
+                            nowIso = nowIso,
+                            tz = ny,
+                            onBack = {},
+                            onAction = {},
+                        )
+                    }
+                }
+            }
+            onNode(hasScrollAction()).performScrollToIndex(scrollToIdx)
+            val img = onRoot().captureToImage()
+            assertTrue(img.width > 0 && img.height > 0, "snapshot $name has no pixels")
+            File("build/snapshots").apply { mkdirs() }
+                .let { dir -> ImageIO.write(img.toAwtImage(), "png", File(dir, "$name.png")) }
+        }
+
     // ── Snapshot outputs ──────────────────────────────────────────────────────
 
     @Test fun dayLight()  = shot("timeline-detail-day-light", dayTimeline(), TimelineScale.Day)
     @Test fun hubLight()  = shot("timeline-detail-hub-light", hubTimeline(), TimelineScale.Hub)
+    // Scrolled hub snapshot: shows the October future-major stop (star glyph + T4 card).
+    @Test fun hubMajorFutureLight() =
+        shotScrolled("timeline-detail-hub-major-future-light", hubTimeline(), TimelineScale.Hub, 12)
 
     // ── Behavioral assertions — Day ───────────────────────────────────────────
 
@@ -217,6 +245,19 @@ class TimelineDetailSnapshotTest {
         onNodeWithText("Pat + Maya", substring = true).assertExists()
     }
 
+    @Test fun hubShowsFutureMajorTitle() = runComposeUiTest {
+        setContent {
+            DayfoldTheme {
+                Box(Modifier.width(390.dp).height(780.dp)) {
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                }
+            }
+        }
+        // Scroll so the October future-major stop is visible (near bottom of list).
+        onNode(hasScrollAction()).performScrollToIndex(13)
+        onNodeWithText("Graduation open house", substring = true).assertExists()
+    }
+
     @Test fun hubShowsProvenanceNote() = runComposeUiTest {
         setContent {
             DayfoldTheme {
@@ -225,8 +266,8 @@ class TimelineDetailSnapshotTest {
                 }
             }
         }
-        // Scroll to provenance item (index 11 = last in the 12-item hub list).
-        onNode(hasScrollAction()).performScrollToIndex(11)
+        // Scroll to provenance item (index 13 = last in the 14-item hub list).
+        onNode(hasScrollAction()).performScrollToIndex(13)
         onNodeWithText("These milestones were added", substring = true).assertExists()
     }
 }

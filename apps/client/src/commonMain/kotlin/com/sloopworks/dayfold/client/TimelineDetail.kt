@@ -382,9 +382,10 @@ private fun TlEntryRow(
                 verticalAlignment = Alignment.Top,
             ) {
                 val titleColor = when {
-                    isDone -> cs.onSurfaceVariant
-                    isMajor -> cs.onTertiaryContainer
-                    else -> cs.onSurface
+                    isMajor && isDone -> cs.onTertiaryContainer.copy(alpha = 0.7f)
+                    isMajor           -> cs.onTertiaryContainer
+                    isDone            -> cs.onSurfaceVariant
+                    else              -> cs.onSurface
                 }
                 Text(
                     text = stop.title,
@@ -396,10 +397,11 @@ private fun TlEntryRow(
                 )
                 Spacer(Modifier.width(10.dp))
                 val timeColor = when {
-                    isNext -> cs.primary
-                    isDone -> cs.onSurfaceVariant
-                    isMajor -> cs.onTertiaryContainer
-                    else -> cs.onSurface
+                    isNext            -> cs.primary
+                    isMajor && isDone -> cs.onTertiaryContainer.copy(alpha = 0.7f)
+                    isMajor           -> cs.onTertiaryContainer
+                    isDone            -> cs.onSurfaceVariant
+                    else              -> cs.onSurface
                 }
                 Text(
                     text = tlStopTimeLabel(stop.at, scale),
@@ -504,7 +506,7 @@ private fun TlProvenanceCard(scale: TimelineScale) {
     val provNote = if (scale == TimelineScale.Hub)
         "These milestones were added to this hub’s plan. The author keeps them current and confirms each one — edits are author-only, like two-way (ADR 0038/0039)."
     else
-        "These stops were added to this hub’s plan; the client lays them out in time on-device — from plans you set, never live location. Edits are author-only (ADR 0038/0039)."
+        "These stops were added to this hub’s plan; the author keeps them current. Edits are author-only (ADR 0038/0039)."
 
     Row(
         modifier = Modifier
