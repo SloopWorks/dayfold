@@ -69,6 +69,30 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   LaunchedEffect(Unit) {
     IosDeepLinkBus.taps.collect { hubEngine.openHub(it.hubId, it.blockId) }
   }
+  // ADR 0044 §S3 — OS-permission truth → store (OS-owned; re-read on resume, never DB-cached). Seed the
+  // initial state + bridge changes; the CL delegate drives the location flow, getNotificationSettings the
+  // notif flow (refreshed on resume below). Mirrors MainActivity's permission bridge.
+  val locPerm = remember { IosNotifGlue.locationPermission }
+  val notifPerm = remember { IosNotifGlue.notificationPermission }
+  LaunchedEffect(Unit) {
+    store.dispatch(LocationPermissionLoaded(locPerm.currentState()))
+    store.dispatch(NotificationPermissionLoaded(notifPerm.currentState()))
+  }
+  LaunchedEffect(Unit) { locPerm.state.collect { store.dispatch(LocationPermissionLoaded(it)) } }
+  LaunchedEffect(Unit) { notifPerm.state.collect { store.dispatch(NotificationPermissionLoaded(it)) } }
+  // Device-local config reaction: enabling background proximity registers geofences (nearest-N, capped) +
+  // arms exact schedules; disabling de-registers them. Re-register on CONTENT change while enabled (a
+  // place added/removed, new timed items). Live position never leaves the device. Mirrors MainActivity.
+  LaunchedEffect(Unit) {
+    cs.notifConfigFlow().collect { cfg ->
+      if (cfg.enabled) { reRegisterGeofences(); reconcileExactSchedules() } else { IosNotifGlue.geofence.deregisterAll() }
+    }
+  }
+  LaunchedEffect(Unit) {
+    cs.nowContentFlow().collect {
+      if (cs.notifConfig().enabled) { reRegisterGeofences(); reconcileExactSchedules() }
+    }
+  }
   // Pause the 45s poll when the app is backgrounded; resume when it returns to foreground.
   // Mirrors Android's repeatOnLifecycle(STARTED) pattern — stops fetching restricted hub
   // data while backgrounded. Uses NSNotificationCenter (no new deps; LifecycleOwner API
@@ -80,7 +104,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
       name = UIApplicationDidBecomeActiveNotification,
       `object` = null,
       queue = mainQueue,
-    ) { _ -> scope.launch { syncEngine.resume() } }
+    ) { _ ->
+      scope.launch { syncEngine.resume() }
+      // Re-read OS permission truth on every foreground (iOS has no notif permission-change broadcast;
+      // the user may have toggled it in Settings while backgrounded). ADR 0044 §S3.
+      locPerm.refresh(); notifPerm.refresh()
+    }
     val pauseToken = nc.addObserverForName(
       name = UIApplicationWillResignActiveNotification,
       `object` = null,
@@ -124,5 +153,13 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onDeleteBlock = { blockId -> scope.launch { hubEngine.deleteBlock(blockId) } },
     onHideBlock = { blockId -> scope.launch { hubEngine.hideBlock(blockId) } },
     onUnhideBlock = { blockId -> scope.launch { hubEngine.unhideBlock(blockId) } },
+    // ADR 0044 — device-local config write (toggle/quiet/cap) → DB → flow → the reactions above arm/disarm
+    // geofences + exact schedules. Enabling also drives the permission ladder (notifications + location:
+    // WhenInUse → Always, delegate-sequenced). Never upfront — opt-in only.
+    onSetNotifConfig = { cfg ->
+      scope.launch(kotlinx.coroutines.Dispatchers.Default) { cs.setNotifConfig(cfg) }
+      if (cfg.enabled) { notifPerm.request(); locPerm.requestAlways() }
+    },
+    onOpenAppSettings = { locPerm.openOsSettings() },
   )
 }

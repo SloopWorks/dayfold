@@ -1,7 +1,5 @@
 package com.sloopworks.dayfold.client
 
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import platform.UserNotifications.UNUserNotificationCenter
 
 // ADR 0044 Phase B — the process-global notification glue for iOS. Mirrors the pieces MainActivity keeps
@@ -14,10 +12,13 @@ import platform.UserNotifications.UNUserNotificationCenter
 object IosNotifGlue {
   val localNotifier = IosLocalNotifier()
   val unDelegate = IosUNDelegate()
-  // Process-global geofence controller (owns its CLLocationManager; retained here for the app lifetime).
-  // Lazily created on first access — which is IosNotifGlue.start() on the MAIN THREAD (CLLocationManager
-  // must be created on the thread whose run loop delivers its callbacks). Do not touch before start().
+  // Process-global controllers (each owns a CLLocationManager / UN center; retained here for the app
+  // lifetime — their OS .delegate refs are weak). Lazily created on first access, which is
+  // IosNotifGlue.start() on the MAIN THREAD (CLLocationManager must be created on the thread whose run
+  // loop delivers its callbacks). Do not touch before start().
   val geofence = IosGeofenceController()
+  val locationPermission = IosLocationPermissionController()
+  val notificationPermission = IosNotificationPermissionController()
 
   private var started = false
 
@@ -28,58 +29,21 @@ object IosNotifGlue {
     if (started) return
     started = true
     UNUserNotificationCenter.currentNotificationCenter().setDelegate(unDelegate)
-    geofence   // force creation on the main thread (its CLLocationManager wires its delegate in init)
+    // Force creation on the main thread (each CLLocationManager wires its delegate in init).
+    geofence; locationPermission; notificationPermission
+    notificationPermission.refresh()   // async re-read of OS auth into its flow
     IosContentStoreHolder.get()
-    requestNotificationAuthorization()
   }
 
-  // S1 verification scaffold — posts a two-item group so the notifier can be exercised before the real
-  // callers exist (the geofence pass in S3 / the scheduler in S2). Removed once those lanes are wired.
-  fun debugTestPost() {
-    localNotifier.postGroup(
-      listOf(
-        NotificationSpec(
-          subjectKey = "debug:soccer",
-          title = "Rain at soccer 4pm",
-          body = "Pack jackets — showers expected right at pickup.",
-          subtext = "Matched on your device",
-          target = DeepLinkTarget(hubId = "hub-demo"),
-          urgent = true,
-        ),
-        NotificationSpec(
-          subjectKey = "debug:rsvp",
-          title = "School RSVP due Thursday",
-          body = "The field-trip form needs a reply by Thursday.",
-          subtext = "From your email",
-          target = DeepLinkTarget(hubId = "hub-demo"),
-          urgent = false,
-        ),
-      ),
-    )
-  }
-
-  // S3 verification scaffold — enable device-local proximity + register geofences for the seeded places
-  // (the real path is the settings toggle → notifConfigFlow reaction, wired in S4). Then a simulator
-  // location crossing a region fires didEnterRegion → runBackgroundNotificationPass.
+  // Verification scaffold — drive the full enable path without navigating the settings UI: request the
+  // permission ladder (notifications + location Always) and enable device-local proximity. The
+  // notifConfigFlow reaction in MainViewController then registers geofences + reconciles exact schedules
+  // (same code the real settings toggle runs). Removed at S5 once the toggle is the sole entry point.
   fun debugEnableProximity() {
+    notificationPermission.request()
+    locationPermission.requestAlways()
     IosContentStoreHolder.get().setNotifConfig(NotifConfig(enabled = true))
     reRegisterGeofences()
-  }
-
-  // S2 verification scaffold — arms an exact local notification ~15s out via the time-lane scheduler
-  // (UNTimeIntervalNotificationTrigger). Removed once the real reconcileExactSchedules path is exercised
-  // through the settings toggle (S4).
-  fun debugScheduleTest() {
-    IosExactNotificationScheduler().schedule(
-      (Clock.System.now() + 15.seconds).toString(),
-      NotificationSpec(
-        subjectKey = "debug:sched",
-        title = "Field-trip form due Thursday",
-        body = "Reply to the school before the Thursday cutoff.",
-        subtext = "From your email",
-        target = DeepLinkTarget(hubId = "hub-demo"),
-        urgent = false,
-      ),
-    )
+    reconcileExactSchedules()
   }
 }
