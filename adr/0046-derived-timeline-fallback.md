@@ -105,7 +105,26 @@ decision 2 = render-only), 0030 (visibility), 0022 (typed renderers).
 
 ## Open
 
-- **INB → operator decision** on the five points above (source set, Now-feeding,
-  provenance copy, tz, dumb-client posture) **before** any build.
-- A hi-fi design mock of the derived states (the "Built from this hub" provenance +
-  the empty/sparse cases) is required (ADR 0008 Gate A) before deep build.
+- **Gate A (ADR 0008 hi-fi mock) — CLEARED** 2026-07-01: `designs/derived-timeline/`
+  authored in Claude Design + imported (Index, Provenance, Sparse, Tap-To-Detail,
+  the derived card + detail). It reuses the signed-off hub-timeline card/detail
+  verbatim; the new pieces are the honest provenance chip, per-stop source tags, the
+  sparse/"not enough" states, and the render-only posture. The mock **resolves the
+  open decisions** with these recommended answers (operator design-stage guidance,
+  to be **ratified together with Gate B**):
+  1. **Source set** — all four: checklist due-dates, milestones, location pickups,
+     the hub's own countdown/start/end.
+  2. **Now-feeding** — **render-only** (no `deriveNow`, no notification; no bell /
+     reminder / "notify me" anywhere).
+  3. **Provenance copy** — **"From this hub's dates"** (neutral outline chip, `event`
+     glyph — no fill, no accent, no "AI"); detail footnote states it plainly.
+  4. **tz** — family → device fallback (a derived timeline has no author `tz`).
+  5. **Per-stop source depth** — **"label"** (icon + one word); minimal/verbose are
+     live-toggleable. Each stop names its source block, distinct from attachment chips.
+  - **New rule surfaced by the mock:** when a block carries >1 date, the **most-
+    specific stated time wins** (an instant beats a bare date), matching the ADR 0045
+    authored rule — never inferred from location/traffic.
+- **Gate B — operator ratification of this ADR (accept the second on-device
+  projection) — STILL OPEN.** The mock marks the design "approved," but flipping this
+  ADR to Accepted is the operator's formal call; do not build the derive path until
+  ratified.
