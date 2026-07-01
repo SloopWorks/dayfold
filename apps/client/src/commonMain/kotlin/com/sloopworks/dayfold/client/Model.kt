@@ -204,7 +204,7 @@ data class Stop(
   val major: Boolean = false,
   val done: Boolean = false,
   val assignee: String? = null,
-  val attachments: List<Attachment>? = null,
+  val attachments: List<Attachment> = emptyList(),
 )
 
 @Serializable
@@ -219,7 +219,7 @@ data class Attachment(
 
 @Serializable
 data class AttachmentRef(
-  val hubId: String? = null,
+  val hubId: String,
   val sectionId: String? = null,
   val blockId: String? = null,
 )

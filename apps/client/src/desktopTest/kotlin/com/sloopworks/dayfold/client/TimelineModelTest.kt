@@ -20,4 +20,8 @@ class TimelineModelTest {
   @Test fun `hub without timeline parses null`() {
     assertEquals(null, json.decodeFromString<Hub>("""{"id":"h1","title":"X"}""").timeline)
   }
+  @Test fun `stop with no attachments field deserializes to empty list`() {
+    val h = json.decodeFromString<Hub>("""{"id":"h1","title":"X","timeline":{"tz":"UTC","stops":[{"at":"2026-01-01","title":"Y"}]}}""")
+    assertEquals(emptyList<Attachment>(), h.timeline!!.stops.first().attachments)
+  }
 }
