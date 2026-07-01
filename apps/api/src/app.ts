@@ -5,7 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { q, pool } from "./db.ts";
 import { stripServerManaged, stampProvenance, constantTimeEqual } from "./security.ts";
 import { BriefingCardSchema } from "./generated/content.ts";
-import { crossValidateCard, blockPayloadIssues } from "./content-validation.ts";
+import { crossValidateCard, blockPayloadIssues, hubTimelineIssues } from "./content-validation.ts";
 import { validateHubMedia, validateCardMedia, validateBlockPayloadMedia, normalizedAccent } from "./media-validation.ts";
 import * as repo from "./repo.ts";
 // Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
@@ -515,6 +515,8 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   const hubMediaIssues = validateHubMedia((parsed.data as any).media);
   if (hubMediaIssues.length) return c.json({ type: "validation", issues: hubMediaIssues }, 422);
   { const m = (parsed.data as any).media; if (m?.accentColor) m.accentColor = normalizedAccent(m.accentColor); }
+  const timelineIssues = hubTimelineIssues(parsed.data as any);
+  if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
   const caller = { userId: a.userId, legacy: a.legacy };
   const existing = await hubs.getHub(fid, id);
   if (existing) {
