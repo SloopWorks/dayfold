@@ -19,4 +19,12 @@ describe("hubTimelineIssues", () => {
     expect(hubTimelineIssues({ timeline: { tz: "UTC", stops: [{ at: "2026-01-01", title: "X",
       attachments: [{ kind: "df", label: "y" }] }] } }).length).toBe(1);
   });
+  it("null stop element → issue, no throw", () => {
+    const result = hubTimelineIssues({ timeline: { tz: "UTC", stops: [null] } });
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+  it("null attachment element → issue, no throw", () => {
+    const result = hubTimelineIssues({ timeline: { tz: "UTC", stops: [{ at: "2026-01-01", title: "X", attachments: [null] }] } });
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
 });
