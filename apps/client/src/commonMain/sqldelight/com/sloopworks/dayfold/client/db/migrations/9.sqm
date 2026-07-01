@@ -1,0 +1,3 @@
+-- Migration v9→v10 (ADR 0045) — hub timeline: add JSON TEXT column for the authored stop list.
+-- Additive; existing device DBs gain the column (nullable, default NULL = no timeline).
+ALTER TABLE hub ADD COLUMN timeline TEXT;

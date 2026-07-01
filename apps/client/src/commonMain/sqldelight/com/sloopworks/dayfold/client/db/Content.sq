@@ -84,24 +84,26 @@ CREATE TABLE hub (
   visibility   TEXT,
   created_by   TEXT,
   media        TEXT,                       -- ADR 0036: JSON {heroUrl,thumbnailUrl,heroFit,imageAlt,icon,accentColor}
+  timeline     TEXT,                       -- ADR 0045: JSON Timeline {title,tz,stops:[…]}
   updated_at   TEXT NOT NULL,
   deleted      INTEGER NOT NULL DEFAULT 0
 );
 
 upsertHub:
-INSERT INTO hub(id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, updated_at, deleted)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+INSERT INTO hub(id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 ON CONFLICT(id) DO UPDATE SET
   type=excluded.type, title=excluded.title, status=excluded.status,
   start_at=excluded.start_at, end_at=excluded.end_at, countdown_to=excluded.countdown_to,
   visibility=excluded.visibility, created_by=excluded.created_by, media=excluded.media,
+  timeline=excluded.timeline,
   updated_at=excluded.updated_at, deleted=0;
 
 markHubDeleted:
 UPDATE hub SET deleted=1, updated_at=? WHERE id=?;
 
 activeHubs:
-SELECT id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media
+SELECT id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline
 FROM hub WHERE deleted=0 ORDER BY COALESCE(start_at, countdown_to), id;
 
 wipeHubs:

@@ -88,6 +88,7 @@ class HubCacheTest {
             visibility = "family",
             created_by = null,
             media = null,
+            timeline = null,
             updated_at = "2026-06-24T00:00:00Z",
         )
 
@@ -171,8 +172,8 @@ class HubCacheTest {
         ContentDb.Schema.create(driver)
         val q = ContentDb(driver).contentQueries
 
-        q.upsertHub("h1", "party-event", "Birthday", "active", null, null, null, "family", null, null, "2026-06-24T00:00:00Z")
-        q.upsertHub("h2", "medical", "Doctor", "active", null, null, null, "family", null, null, "2026-06-24T00:00:00Z")
+        q.upsertHub("h1", "party-event", "Birthday", "active", null, null, null, "family", null, null, null, "2026-06-24T00:00:00Z")
+        q.upsertHub("h2", "medical", "Doctor", "active", null, null, null, "family", null, null, null, "2026-06-24T00:00:00Z")
         assertEquals(2, q.activeHubs().executeAsList().size)
 
         q.markHubDeleted("2026-06-24T01:00:00Z", "h1")
