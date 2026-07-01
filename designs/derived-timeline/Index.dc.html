@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration:none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(39,24,20,0.16); }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:60px 40px 84px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- masthead -->
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:22px;flex-wrap:wrap;">
+      <a href="../hub-timeline/Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Hub timeline (authored)</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:#fff;background:#00796F;border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>ADR 0046 · PHASE 2 · APPROVED</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;">A delta on the signed-off timeline</span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+      <div style="width:52px;height:52px;border-radius:17px;background:{{ '#FFF8F6' }};border:1px solid #EBD3CB;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:28px;color:#C0381E;">bottom_right_click</span></div>
+      <div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;">Derived timeline — the no-author fallback</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#8C726B;">Dayfold · renders through the identical card + detail · light + dark · content-blind</div>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(34px,5.2vw,54px);line-height:1.04;letter-spacing:-0.025em;margin:0 0 16px;max-width:19ch;">A timeline for a hub that never got one</h1>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 14px;">Most hubs will never have an authored <code style="font-family:monospace;font-size:14px;color:#6438AE;">timeline</code>. But many already carry <b>dates</b> — checklist due-dates, milestones, a pickup, the hub’s own countdown. Phase 2 projects those existing dated blocks into the <b>same</b> timeline card and detail — on-device, content-blind, nothing authored or invented. This delta designs only the states that make it read as <b>derived, honestly</b>.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:46px;">
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FFDAD2;color:#5A1100;padding:7px 13px;border-radius:999px;">Same card + detail</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Honest provenance</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Per-stop source</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Render-only</span>
+    </div>
+
+    <!-- WHAT'S THE SAME -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:24px 26px;margin-bottom:44px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;"><span class="msr fill" style="font-size:20px;color:#00796F;">lock</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Unchanged — reused verbatim</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <sc-for list="{{ same }}" as="s" hint-placeholder-count="8">
+          <span style="font-family:'Figtree';font-size:12.5px;font-weight:500;color:#5A423C;background:#F6E5E0;border-radius:999px;padding:6px 12px;">{{ s }}</span>
+        </sc-for>
+      </div>
+      <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#8C726B;margin:16px 0 0;">A derived timeline is not a new surface. It renders through the exact same components; only the provenance, the per-stop source hint, and the thin-content states are new.</p>
+    </div>
+
+    <!-- 01 PROVENANCE -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">01 · the crux</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Provenance — say mechanics, not magic</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 6px;">The chip is where honesty lives</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:68ch;margin:0 0 22px;">Authored timelines wear a purple <b>“Added to this hub”</b> chip with a sparkle — someone placed those stops on purpose. Derived timelines invented nothing, so they wear a <b>quiet neutral chip</b> with a calendar glyph: a plain system fact, unmistakable from authored, no “AI” overclaim. Below, the derived card in both scales and modes — read the chip in situ, then pick the exact wording.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:14px;">
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="msr" style="font-size:20px;color:#C0381E;">wb_sunny</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Derived day</span><span style="margin-left:auto;font-family:'Figtree';font-size:11px;font-weight:600;color:#8C726B;">light</span></div>
+        <dc-import name="Timeline-Card-Derived" scale="day" mode="light" hint-size="100%,300px"></dc-import>
+      </div>
+      <div style="background:#221812;border:1px solid #3D322E;border-radius:26px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="msr" style="font-size:20px;color:#FFB4A3;">calendar_month</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;color:#F0DFDA;">Derived roadmap</span><span style="margin-left:auto;font-family:'Figtree';font-size:11px;font-weight:600;color:#A08D87;">dark</span></div>
+        <dc-import name="Timeline-Card-Derived" scale="hub" mode="dark" hint-size="100%,240px"></dc-import>
+        <div style="height:16px;"></div>
+        <dc-import name="Timeline-Card-Derived" scale="day" mode="dark" hint-size="100%,300px"></dc-import>
+      </div>
+    </div>
+
+    <a class="card" href="Provenance.dc.html" style="display:flex;align-items:center;gap:16px;background:#EFE4FB;border:1px solid #DECBF3;border-radius:22px;padding:20px 24px;margin-bottom:44px;color:inherit;">
+      <div style="width:46px;height:46px;border-radius:14px;background:#6438AE;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr fill" style="font-size:24px;color:#fff;">how_to_vote</span></div>
+      <div style="flex:1;">
+        <div style="font-family:'Outfit';font-weight:600;font-size:18px;color:#23005C;">Pick the copy → authored vs derived, side by side</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#3F2A6E;">Five honest candidates rendered as the real chip, plus the detail footnote. This is ADR 0046, decision 3.</div>
+      </div>
+      <span class="msr" style="font-size:22px;color:#6438AE;">arrow_forward</span>
+    </a>
+
+    <!-- 02 PER-STOP SOURCE -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">02</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Per-stop source — where each stop came from</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 6px;">A hint, not a badge wall</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:68ch;margin:0 0 22px;">Every derived stop traces to one real block. In the detail’s T3/T4 rows a quiet ghost tag names the source — distinct from the filled attachment chips beside it. Four block types, one calm treatment. <b>How loud?</b> — three depths below; the detail exposes this as a live tweak so you can decide.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:14px;">
+      <!-- block types -->
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:22px 24px;">
+        <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.06em;color:#8C726B;margin-bottom:14px;">FOUR SOURCES</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <sc-for list="{{ sources }}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:{{ s.border }};">
+              <span class="msr" style="font-size:20px;color:#8C726B;flex:0 0 20px;">{{ s.icon }}</span>
+              <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:14px;color:#271814;">{{ s.name }}</div><div style="font-family:'Figtree';font-size:12px;color:#8C726B;">{{ s.from }}</div></div>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:500;color:#5A423C;"><span class="msr" style="font-size:13px;color:#8C726B;">{{ s.icon }}</span>{{ s.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- three depths -->
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:22px 24px;">
+        <div style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.06em;color:#8C726B;margin-bottom:14px;">HOW MUCH TO SHOW</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <sc-for list="{{ depths }}" as="d" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:center;padding:14px 0;border-top:{{ d.border }};">
+              <div>
+                <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:'Figtree';font-size:13px;font-weight:600;color:#271814;">{{ d.name }}</span><sc-if value="{{ d.rec }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:999px;background:#00796F;"></span></sc-if></div>
+                <div style="font-family:'Figtree';font-size:11px;color:#8C726B;">{{ d.note }}</div>
+              </div>
+              <!-- sample row -->
+              <div style="background:#FCEBE6;border-radius:12px;padding:11px 13px;">
+                <div style="font-family:'Outfit';font-weight:600;font-size:13.5px;color:#271814;">Bookstore &amp; student ID</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:3px;">
+                  <span style="font-family:'Figtree';font-size:12px;color:#5A423C;">2:00 PM</span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:500;color:#5A423C;opacity:0.9;"><span class="msr" style="font-size:13px;color:#8C726B;">checklist</span><span style="{{ d.hide }}">{{ d.sample }}</span></span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <a class="card" href="Tap-To-Detail.dc.html" style="display:flex;align-items:center;gap:16px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:20px 24px;margin-bottom:44px;color:inherit;">
+      <div style="width:46px;height:46px;border-radius:14px;background:#C0381E;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr fill" style="font-size:24px;color:#fff;">touch_app</span></div>
+      <div style="flex:1;">
+        <div style="font-family:'Outfit';font-weight:600;font-size:18px;">Open the live derived detail — day &amp; roadmap</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#5A423C;">The full timeline with source tags in place. Toggle scope, mode, and source depth. Container-transforms from the card.</div>
+      </div>
+      <span class="msr" style="font-size:22px;color:#C0381E;">arrow_forward</span>
+    </a>
+
+    <!-- 03 STATES -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">03</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Thin content — sparse & empty</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 22px;">It never fakes a fuller hub</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:44px;">
+      <a class="card" href="Sparse.dc.html" style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px;color:inherit;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span class="msr" style="font-size:20px;color:#C0381E;">density_small</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Sparse — two dates</span></div>
+        <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;">A milestone and the hub’s countdown target, laid out with a real span between them. No NOW line off-day. Still a legible timeline. →</div>
+      </a>
+      <a class="card" href="Sparse.dc.html" style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px;color:inherit;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span class="msr" style="font-size:20px;color:#8C726B;">event_upcoming</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Not enough — one or none</span></div>
+        <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;">A single date isn’t a timeline. A gentle nudge invites more dated content — or the dossier shows nothing. Operator picks. →</div>
+      </a>
+    </div>
+
+    <!-- 04 RENDER-ONLY -->
+    <div style="background:#FCEBE6;border:1px solid #EBD3CB;border-radius:24px;padding:24px 26px;margin-bottom:44px;display:flex;gap:16px;align-items:flex-start;">
+      <span class="msr" style="font-size:26px;color:#C0381E;margin-top:2px;">notifications_off</span>
+      <div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">04</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;">Render-only, everywhere</span></div>
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.55;color:#5A423C;margin:0;max-width:78ch;">A derived stop does not notify and is never a Now item (ADR 0046, decision 2). There is <b>no bell, no reminder chip, no “notify me”</b> anywhere in the derived card or detail — the copy says plainly “it just shows what’s already here.” The dates were already visible in their own blocks; the timeline only rearranges them in time.</p>
+      </div>
+    </div>
+
+    <!-- OPEN QUESTIONS -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:28px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:#00796F;">task_alt</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Decided — ADR 0046, Phase 2 approved</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:78ch;">Every open question is now resolved to the answer below. Each is rendered somewhere in this set, so the decision is legible in the mock, not just in text.</p>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <sc-for list="{{ questions }}" as="q" hint-placeholder-count="5">
+          <div style="display:flex;gap:16px;align-items:flex-start;padding:16px 6px;border-top:1px solid #F0DFDA;">
+            <span style="font-family:'Figtree';font-size:11px;font-weight:700;color:#fff;background:#C0381E;border-radius:6px;padding:3px 8px;margin-top:1px;flex:0 0 auto;">Q{{ q.n }}</span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:#271814;margin-bottom:3px;">{{ q.q }}</div>
+              <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#5A423C;"><b style="color:#00695f;">Decided:</b> {{ q.a }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      same: ['Two scales (day rail + roadmap)','The density ladder T1–T4','The NOW line','Grouping & ✓N collapse','Card → detail transform','Outfit + Figtree + Material Symbols','The M3 token palettes','Author-only edit model'],
+      sources: [
+        { icon:'checklist',   name:'Checklist item', from:'a due date on a to-do', label:'checklist', border:'none' },
+        { icon:'flag',        name:'Milestone block', from:'a dated milestone', label:'milestone', border:'1px solid #F0DFDA' },
+        { icon:'location_on', name:'Location pickup', from:'a place with a time', label:'pickup', border:'1px solid #F0DFDA' },
+        { icon:'event',       name:'Hub’s own dates', from:'countdown / start / end', label:'hub date', border:'1px solid #F0DFDA' },
+      ],
+      depths: [
+        { name:'Minimal', note:'icon only', rec:false, sample:'checklist', hide:'display:none;', border:'none' },
+        { name:'Label', note:'icon + word', rec:true, sample:'checklist', hide:'', border:'1px solid #F0DFDA' },
+        { name:'Verbose', note:'icon + phrase', rec:false, sample:'from a checklist item', hide:'', border:'1px solid #F0DFDA' },
+      ],
+      questions: [
+        { n:1, q:'How much per-stop source detail?', a:'“Label” depth — a one-word ghost tag. Enough to answer “where’s this from?” without a badge wall. (Live tweak in the detail.)' },
+        { n:2, q:'What is the derived chip’s wording?', a:'“From this hub’s dates.” Shortest, literal, claims nothing built. Four alternatives on the Provenance board.' },
+        { n:3, q:'Empty behaviour at one date or none?', a:'A gentle nudge card that teaches the mechanic; fall back to showing nothing if it reads as clutter.' },
+        { n:4, q:'Which block types become stops?', a:'All four — checklist due-dates, milestones, location pickups, and the hub’s own countdown/start/end.' },
+        { n:5, q:'When a block has more than one date?', a:'Most-specific stated time wins (an instant beats a bare date), consistent with the authored rule in ADR 0045. Never inferred from location or traffic.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
+

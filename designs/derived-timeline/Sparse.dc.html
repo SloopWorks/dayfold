@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:56px 40px 84px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- masthead -->
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:22px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Derived timeline</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:#fff;background:#C0381E;border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">density_small</span>ADR 0046 · THIN CONTENT</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;">Sparse & empty · past the happy path</span>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(30px,4.4vw,46px);line-height:1.05;letter-spacing:-0.02em;margin:0 0 14px;max-width:20ch;">Honest when there’s barely anything to lay out</h1>
+    <p style="font-family:'Figtree';font-size:16px;line-height:1.55;color:#5A423C;max-width:64ch;margin:0 0 36px;">A derived timeline only has what the hub already holds. Most of the time that’s rich — but the renderer has to stay calm at two dated blocks, and disappear gracefully at one or zero. It never fabricates stops to look fuller.</p>
+
+    <!-- SPECTRUM -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">The spectrum</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Rich → sparse → not enough</span></div>
+
+    <!-- RICH reference (the real component) -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:22px;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="msr" style="font-size:19px;color:#00796F;">dashboard</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Rich — for reference</span><span style="margin-left:auto;font-family:'Figtree';font-size:11px;font-weight:600;color:#8C726B;">7 dated blocks · full rail</span></div>
+      <div style="max-width:360px;"><dc-import name="Timeline-Card-Derived" scale="day" mode="light" hint-size="100%,300px"></dc-import></div>
+    </div>
+
+    <!-- SPARSE -->
+    <div style="display:flex;align-items:center;gap:10px;margin:40px 0 16px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">Sparse</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Two dated blocks — still a real timeline</span></div>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 20px;">Early in the hub, only a milestone and the hub’s own countdown target carry dates. The card renders both honestly — no NOW line (it isn’t today), a real span between them, and the same derived chip. It reads as “this is all there is,” not as broken.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;">
+      <sc-for list="{{ variants }}" as="v" hint-placeholder-count="2">
+        <div style="background:{{ v.tile }};border:1px solid {{ v.tileBorder }};border-radius:24px;padding:22px;">
+          <div style="font-family:'Figtree';font-size:10px;font-weight:700;letter-spacing:0.07em;color:{{ v.tileFg }};margin-bottom:16px;">{{ v.name }}</div>
+
+          <!-- sparse card -->
+          <div style="font-family:'Figtree';">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 8px;">
+              <span style="font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ v.c.onSurfaceVar }};">TIMELINE</span>
+              <span style="font-size:11.5px;font-weight:500;color:{{ v.c.onSurfaceVar }};">Roadmap · 2 dates</span>
+            </div>
+            <div style="background:{{ v.c.surfaceContainerHigh }};border-radius:22px;padding:16px 17px 13px;">
+              <sc-for list="{{ v.stops }}" as="r" hint-placeholder-count="2">
+                <div style="display:flex;gap:13px;">
+                  <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 15px;">
+                    <span style="width:{{ r.dotSize }};height:{{ r.dotSize }};border-radius:999px;background:{{ r.dotBg }};border:{{ r.dotBorder }};display:flex;align-items:center;justify-content:center;margin-top:3px;"><span class="msr fill" style="font-size:9px;color:{{ r.tickFg }};">{{ r.tick }}</span></span>
+                    <span style="flex:1;width:2px;background:{{ v.c.outlineVar }};margin:4px 0;{{ r.lineHide }}"></span>
+                  </div>
+                  <div style="padding-bottom:{{ r.padB }};min-width:0;flex:1;">
+                    <div style="font-family:'Outfit';font-weight:600;font-size:14.5px;color:{{ r.titleFg }};">{{ r.title }}</div>
+                    <div style="display:flex;align-items:center;gap:11px;margin-top:3px;">
+                      <span style="font-size:12.5px;color:{{ v.c.onSurfaceVar }};">{{ r.time }}</span>
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:{{ v.c.onSurfaceVar }};opacity:0.9;"><span class="msr" style="font-size:13px;color:{{ v.c.outline }};">{{ r.srcIcon }}</span>{{ r.src }}</span>
+                    </div>
+                    <sc-if value="{{ r.showGap }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:7px;margin:9px 0 4px;">
+                        <span style="font-size:11px;font-weight:500;font-style:italic;color:{{ v.c.outline }};">≈ 16 weeks between</span>
+                        <span style="flex:1;border-top:1.5px dotted {{ v.c.outlineVar }};"></span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding-top:5px;">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:13px;color:{{ v.c.primary }};">Open roadmap<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+                <span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ v.c.onSurfaceVar }};background:transparent;border:1px solid {{ v.c.outlineVar }};border-radius:8px;padding:4px 9px;"><span class="msr" style="font-size:13px;">event</span>From this hub’s dates</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- NOT ENOUGH -->
+    <div style="display:flex;align-items:center;gap:10px;margin:40px 0 16px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">Not enough</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">One date or none — the gentle nudge</span></div>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 20px;">A single date is not a timeline. The renderer stops rather than draw a one-dot rail. Two honest options for the operator to choose between (ADR 0046): a quiet <b>nudge card</b> that invites more dated content, or <b>no card at all</b> — the dossier simply omits it, matching the authored empty state.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+      <sc-for list="{{ variants }}" as="v" hint-placeholder-count="2">
+        <div style="background:{{ v.tile }};border:1px solid {{ v.tileBorder }};border-radius:24px;padding:22px;">
+          <div style="font-family:'Figtree';font-size:10px;font-weight:700;letter-spacing:0.07em;color:{{ v.tileFg }};margin-bottom:16px;">{{ v.name }} · OPTION A — nudge</div>
+          <div style="font-family:'Figtree';">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 8px;">
+              <span style="font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ v.c.onSurfaceVar }};">TIMELINE</span>
+            </div>
+            <div style="background:{{ v.c.surfaceContainerHigh }};border:1.5px dashed {{ v.c.outlineVar }};border-radius:22px;padding:22px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:11px;">
+              <span style="width:40px;height:40px;border-radius:13px;background:{{ v.c.surface }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ v.c.outline }};">event_upcoming</span></span>
+              <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ v.c.onSurface }};">No timeline yet</div>
+              <div style="font-size:12.5px;line-height:1.5;color:{{ v.c.onSurfaceVar }};">This hub has just one date so far. Add due dates to a couple of checklist items or a milestone and they’ll lay out here automatically — nothing to set up.</div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:22px 24px;display:flex;gap:14px;align-items:flex-start;">
+      <span class="msr" style="font-size:22px;color:#8C726B;margin-top:1px;">do_not_disturb_on</span>
+      <div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:16px;margin-bottom:4px;">Option B — show nothing</div>
+        <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;max-width:72ch;">The dossier omits the card entirely, exactly like a hub with no authored <code style="font-family:monospace;font-size:12px;color:#6438AE;">timeline</code>. Quietest, but the derived feature stays invisible until enough dates exist. <b>Recommendation:</b> the nudge for the derived case — it teaches the mechanic; fall back to nothing if research shows it reads as clutter.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    const light = {
+      surface:'#FFF8F6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C726B', outlineVar:'#EBD3CB',
+      primary:'#C0381E', secondary:'#00796F', onSecondary:'#FFFFFF',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', secondary:'#50DBC9', onSecondary:'#00382F',
+    };
+    const stops = (c) => ([
+      { done:true, title:'Enrollment deposit paid', time:'May 1', src:'milestone', srcIcon:'flag',
+        dotSize:'12px', dotBg:c.secondary, dotBorder:'none', tick:'check', tickFg:c.onSecondary,
+        titleFg:c.onSurfaceVar, padB:'2px', lineHide:'', showGap:true },
+      { done:false, title:'Move-in day', time:'Aug 24', src:'hub date', srcIcon:'event',
+        dotSize:'13px', dotBg:'transparent', dotBorder:'2px solid '+c.outline, tick:'', tickFg:c.onSurface,
+        titleFg:c.onSurface, padB:'0', lineHide:'visibility:hidden;', showGap:false },
+    ]);
+    return {
+      variants: [
+        { name:'LIGHT', tile:'#F6E5E0', tileBorder:'#EBD3CB', tileFg:'#8C726B', c:light, stops:stops(light) },
+        { name:'DARK',  tile:'#231A16', tileBorder:'#3D322E', tileFg:'#A08D87', c:dark,  stops:stops(dark) },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
+
