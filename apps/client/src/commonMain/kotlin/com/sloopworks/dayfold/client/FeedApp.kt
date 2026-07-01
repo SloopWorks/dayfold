@@ -233,13 +233,18 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
   val seekable = remember { SeekableTransitionState<String?>(targetKey) }
   val reduceMotion = rememberReduceMotion()
 
-  // Redux -> animation sync for NON-gesture transitions. The gesture path drives the
-  // seekable directly and dispatches NavBack on commit; afterwards targetKey == the
-  // settled state, so this no-ops.
+  // Redux -> animation sync for NON-gesture transitions (tap-open, hero-arrow/hardware back,
+  // deep pops). The gesture path drives the seekable directly and dispatches NavBack on commit;
+  // afterwards targetKey == the settled state, so this no-ops.
+  // Easing: default (FastOutSlowIn) — a from-REST open/close needs a symmetric ease-in-out so the
+  // whole morph is visible. Do NOT use EmphasizedDecelerate here: it is a settle-only curve (heavily
+  // front-loaded — ~80% of travel in the first frame), correct for the gesture commit/cancel below
+  // where motion is already underway from the finger, but on a from-rest transition it collapses the
+  // morph into a one-frame blip (the pre-fix regression).
   LaunchedEffect(targetKey) {
     if (seekable.currentState != targetKey) {
       if (reduceMotion) seekable.snapTo(targetKey)
-      else seekable.animateTo(targetKey, animationSpec = tween(if (targetKey != null) 360 else 280, easing = EmphasizedDecelerate))
+      else seekable.animateTo(targetKey, animationSpec = tween(if (targetKey != null) 360 else 280))
     }
   }
 
