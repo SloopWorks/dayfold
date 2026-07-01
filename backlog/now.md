@@ -75,6 +75,14 @@ document-ref, inert-ref) red→green; **662 desktop tests green**. **On-device: 
 Immunization" on the Pixel → Chrome opened the Butler Health Services PDF.** (Lesson: the unit test first
 encoded the wrong assumption — real document `ref`s are https URLs; pulling the device DB found it.)
 
+**Status update (2026-07-01): Now derived surfacing — PHASE B BUILT + SHIPPED to `main` (PR #260).**
+Local-only Android background notifications are live on `main` (background pass, `AndroidLocalNotifier`,
+`GeofencingClient` + `AlarmManager` scheduling, `NotifConfig` quiet-hours + daily-cap, permission ladder,
+offline states; **default-OFF / opt-in**). Gate A re-approved as-shipped by the operator ("I approve",
+INB-29 RESOLVED). **Open (not blocking):** iOS parity (needs Xcode); the **activity** trigger stays a
+reserved schema slot (matching DEFERRED per operator); the **public-ship** Play/App-Store
+background-location data-safety declaration + disclosure review (pre-public). Detail of the build below.
+
 **Status update (2026-06-30 PM): Now derived surfacing — PHASE B BUILD STARTED (both gates closed).**
 Worktree `derived-now-phase-b` (branch `now-derived-phase-b`, off origin/main). Operator resolved all
 Phase-B gates in-session:

@@ -9,6 +9,16 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-29 · RESOLVED 2026-07-01 → BOTH GATES CLOSED; Phase B BUILT + SHIPPED to `main` (PR #260).**
+  Gate B ratified 2026-06-30 (ADR 0044 Accepted); **Gate A design sign-off CLEARED 2026-06-30**
+  (v2 `designs/triggers/` mockups + INB-13 §6b honesty rework) and **re-approved as-shipped
+  2026-07-01** (operator reviewed the built notification/permission surfaces: "I approve").
+  Shipped local-only Android Phase B (background pass, local notifier, geofence + alarm scheduling,
+  quiet-hours + daily-cap, permission ladder, offline states; default-OFF/opt-in). **Carried open
+  (not blocking):** iOS parity (needs Xcode); the **activity** trigger stays DEFERRED (operator
+  2026-07-01); public-ship Play/App-Store background-location declaration + disclosure review.
+  Prior partial-answer + gate-stop write-up below (historical).
+
 - **INB-29 · PARTIALLY ANSWERED 2026-06-30 → Gate B RATIFIED (ADR 0044 Accepted); Gate A =
   design prompt delivered (sign-off still pending); carryover pulled forward.** Operator
   in-session: (1) **Gate B** — "Accept ADR 0044 as written" → ADR 0044 flipped Proposed →
@@ -400,6 +410,12 @@ Each item: question, context link, **proposed default**, urgency.
   headlessly, no SDK) to prove the render path while the phone targets wait on
   you. Tell me: install the Android SDK + run an emulator now, or hold for your
   device?
+
+- **INB-13 · CLOSED 2026-07-01 (via INB-29 / ADR 0044 Gate A) — trigger designs v2 done + signed off.**
+  The §6b fix-list (P0 honesty rework — false "saved-place coords never leave" removed, honest
+  two-part promise in place — + the M3-Expressive signatures, offline screen, geo-labeling) was
+  taken through Claude Design, signed off, and shipped in the Phase-B surfaces on `main` (PR #260).
+  Original (the v2-pass request) below.
 
 - **INB-13 · 2026-06-18 · med · open — Trigger designs need a v2 pass (Claude Design).**
   The new trigger/place/notification mockups are complete (14.5/15) + calm, but

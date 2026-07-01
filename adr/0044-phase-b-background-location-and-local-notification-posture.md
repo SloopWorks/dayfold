@@ -7,14 +7,27 @@ written" → Gate B closed). Was **Proposed** 2026-06-30 (agent-drafted at the
 Phase B build-loop gate; **operator-gated — HARD GUARDRAIL tier**: requests a
 new background-location permission posture + a customer-disclosure review,
 touching guardrails #3 [restricted-scope/location data] and #4
-[customer-relationship line]). **Gate B (this posture) is now ratified; Gate A
-(the ADR 0008 Phase-B design sign-off, INB-13 §6b) is still open** — so Phase-B
-*implementation* (geofence / local-notification / permission surfaces) stays
-blocked on signed-off mockups; only the ungated Phase-A record-shown carryover
-proceeds. **Extends ADR 0043 Phase B**
+[customer-relationship line]). **Extends ADR 0043 Phase B**
 and **concretizes ADR 0014 §4/§5/§6** (the "later milestone" the trigger engine
 ADR reserved). Does **not** edit either (both Accepted/immutable) — it adds the
 Phase-B posture they deferred.
+
+**Both gates CLOSED → Phase B BUILT + SHIPPED.** Gate B ratified 2026-06-30
+(above). **Gate A — ADR 0008 design sign-off — CLEARED** 2026-06-30 (the v2
+`designs/triggers/` Phase-B mockups landed with the INB-13 §6b honesty rework —
+the false "saved-place coords never leave" claim removed, the honest two-part
+promise present — and the operator signed off; INB-13 closed) and
+**re-approved as-shipped 2026-07-01** (operator reviewed the built surfaces:
+"I approve"). Phase B is **implemented + shipped to `main`** (PR #260): the
+headless background pass (`BackgroundNotify`), `AndroidLocalNotifier`,
+`GeofencingClient` + `AlarmManager` scheduling, the `NotifConfig` quiet-hours +
+daily-cap (device-local, never-synced, default-OFF), the permission ladder, and
+the offline/geo-on states — **Android**. **Still open (recorded, not blocking):**
+iOS parity (`UNUserNotificationCenter`/`CLLocationManager` — unbuilt, needs
+Xcode); the **activity** trigger stays a reserved schema slot (matching
+**DEFERRED** per operator 2026-07-01); and the **public-ship** Play/App-Store
+background-location data-safety declaration + disclosure review (pre-public,
+not pre-dogfood).
 
 Statuses: Proposed | Accepted | Superseded | Deprecated.
 
