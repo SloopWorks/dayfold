@@ -24,12 +24,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     // Main thread. Sets the (retained) UN delegate, warms the shared ContentStore, requests notif auth.
     // Geofence CL delegate + BGTaskScheduler.register/submit are added in S3.
     IosNotifGlue.shared.start()
-    // S1 verification scaffold — post a demo group a moment after launch so the notifier (banner +
-    // threadIdentifier grouping + on-device subtitle + tap→deep-link) is observable. Removed in S3
-    // once the real geofence pass calls postGroup.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-      IosNotifGlue.shared.debugTestPost()
-    }
+    // S2 verification scaffold — arm an exact local notification ~15s out (UNTimeIntervalNotificationTrigger).
+    // Removed once the settings toggle drives the real reconcileExactSchedules path (S4).
+    IosNotifGlue.shared.debugScheduleTest()
     return true
   }
 }

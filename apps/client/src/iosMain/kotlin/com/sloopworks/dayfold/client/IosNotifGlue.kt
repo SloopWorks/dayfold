@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import platform.UserNotifications.UNUserNotificationCenter
 
 // ADR 0044 Phase B — the process-global notification glue for iOS. Mirrors the pieces MainActivity keeps
@@ -47,6 +49,23 @@ object IosNotifGlue {
           target = DeepLinkTarget(hubId = "hub-demo"),
           urgent = false,
         ),
+      ),
+    )
+  }
+
+  // S2 verification scaffold — arms an exact local notification ~15s out via the time-lane scheduler
+  // (UNTimeIntervalNotificationTrigger). Removed once the real reconcileExactSchedules path is exercised
+  // through the settings toggle (S4).
+  fun debugScheduleTest() {
+    IosExactNotificationScheduler().schedule(
+      (Clock.System.now() + 15.seconds).toString(),
+      NotificationSpec(
+        subjectKey = "debug:sched",
+        title = "Field-trip form due Thursday",
+        body = "Reply to the school before the Thursday cutoff.",
+        subtext = "From your email",
+        target = DeepLinkTarget(hubId = "hub-demo"),
+        urgent = false,
       ),
     )
   }

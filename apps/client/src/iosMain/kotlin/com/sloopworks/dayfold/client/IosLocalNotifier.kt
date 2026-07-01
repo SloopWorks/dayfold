@@ -40,7 +40,7 @@ object IosDeepLinkBus {
   val taps = MutableSharedFlow<DeepLinkTarget>(replay = 1, extraBufferCapacity = 1)
 }
 
-private fun buildContent(spec: NotificationSpec): UNMutableNotificationContent =
+internal fun buildContent(spec: NotificationSpec): UNMutableNotificationContent =
   UNMutableNotificationContent().apply {
     setTitle(spec.title)
     setBody(spec.body)
