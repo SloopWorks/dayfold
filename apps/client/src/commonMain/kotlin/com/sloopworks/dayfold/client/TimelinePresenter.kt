@@ -154,7 +154,8 @@ internal fun nowLineIndex(day: List<PresentedStop>, nowIso: String, tz: TimeZone
 
 data class TimelineGroup(val label: String, val stops: List<PresentedStop>)
 data class PresentedTimeline(val scale: TimelineScale, val groups: List<TimelineGroup>, val nowIndex: Int?, val nowTimeLabel: String?)
-data class SpineNode(val label: String, val status: StopStatus)
+/** A roadmap spine node. [collapsedCount] non-null → a "✓N" node standing in for N collapsed done months. */
+data class SpineNode(val label: String, val status: StopStatus, val collapsedCount: Int? = null)
 data class TimelineCardModel(
     val scale: TimelineScale,
     val doneCount: Int,
@@ -163,7 +164,6 @@ data class TimelineCardModel(
     val tailCount: Int,
     val spine: List<SpineNode>? = null,
     val nextCallout: PresentedStop? = null,
-    val moreCount: Int = 0,
 )
 
 // ── Card windowing ──────────────────────────────────────────────────────────
@@ -178,8 +178,8 @@ data class TimelineCardModel(
  *  - nowTimeLabel = clockTime(now, tz) iff the focal day is today; else null
  *
  * Hub/roadmap card:
- *  - spine = ≤6 month-nodes; status = dominant status of that month's stops
- *  - moreCount = overflow beyond 6 months
+ *  - spine = one node per month; status = dominant status of that month's stops.
+ *            Past ~6 nodes, a leading Done-run of >2 collapses into one "✓N" node.
  *  - nextCallout = first non-Done stop
  *  - nowTimeLabel always null (roadmap is date-only)
  */
@@ -216,7 +216,7 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
             val todayYear = now?.toLocalDateTime(tz)?.year
             val monthGroups = buildMonthGroups(presented, tz, todayYear)
 
-            val cappedNodes = monthGroups.take(6).map { (label, stops) ->
+            val allNodes = monthGroups.map { (label, stops) ->
                 val dominantStatus = when {
                     stops.any { it.status == StopStatus.Next } -> StopStatus.Next
                     stops.any { it.status == StopStatus.Upcoming } -> StopStatus.Upcoming
@@ -224,7 +224,6 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
                 }
                 SpineNode(label = label, status = dominantStatus)
             }
-            val moreCount = (monthGroups.size - 6).coerceAtLeast(0)
             val nextCallout = presented.firstOrNull { it.status != StopStatus.Done }
 
             TimelineCardModel(
@@ -233,9 +232,8 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
                 nowTimeLabel = null,
                 window = emptyList(),
                 tailCount = 0,
-                spine = cappedNodes,
+                spine = collapseLeadingDoneRun(allNodes),
                 nextCallout = nextCallout,
-                moreCount = moreCount,
             )
         }
     }
@@ -257,6 +255,19 @@ private fun buildMonthGroups(
         grouped.getOrPut(label) { mutableListOf() }.add(ps)
     }
     return grouped.entries.map { it.key to it.value }
+}
+
+/**
+ * Roadmap spine condense rule (Timeline-Card.dc.html): once a roadmap runs past ~6 month-nodes,
+ * fold a *leading* run of >2 consecutive Done months into a single "✓N" node, keeping the rest.
+ * Below 7 nodes (or a leading Done-run of ≤2) the spine renders every node.
+ */
+internal fun collapseLeadingDoneRun(nodes: List<SpineNode>): List<SpineNode> {
+    if (nodes.size <= 6) return nodes
+    var run = 0
+    while (run < nodes.size && nodes[run].status == StopStatus.Done) run++
+    if (run <= 2) return nodes
+    return listOf(SpineNode(label = "✓$run", status = StopStatus.Done, collapsedCount = run)) + nodes.drop(run)
 }
 
 // ── Detail grouped feed ─────────────────────────────────────────────────────

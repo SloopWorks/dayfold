@@ -23,6 +23,14 @@ class TimelinePresenterWindowTest {
         )
     )
 
+    private fun hubMonths6() = Timeline(
+        tz = "America/New_York",
+        stops = listOf(
+            Stop("2026-05-01", "may"), Stop("2026-06-01", "jun"), Stop("2026-07-01", "jul"),
+            Stop("2026-09-01", "sep"), Stop("2026-10-01", "oct"), Stop("2026-11-01", "nov"),
+        ),
+    )
+
     @Test fun `day card windows done-cap + next3 + tail`() {
         val c = presentTimelineCard(day(), "2026-08-24T10:40:00-04:00", ny)!!
         assertEquals(TimelineScale.Day, c.scale)
@@ -35,19 +43,42 @@ class TimelinePresenterWindowTest {
         assertNull(presentTimelineCard(Timeline(tz = "UTC", stops = emptyList()), "2026-08-24T10:40:00-04:00", ny))
     }
 
-    @Test fun `roadmap more than 6 months caps spine and sets moreCount`() {
-        // 8 distinct months (date-only stops → Hub scale)
+    @Test fun `roadmap over 6 months collapses the leading done-run into one checkmark-N node`() {
+        // 8 distinct months. Jan–Apr are past (Done), Sep–Dec are future (Upcoming/Next).
         val stops = listOf(
             Stop("2026-01-01", "jan"), Stop("2026-02-01", "feb"),
             Stop("2026-03-01", "mar"), Stop("2026-04-01", "apr"),
-            Stop("2026-05-01", "may"), Stop("2026-06-01", "jun"),
-            Stop("2026-07-01", "jul"), Stop("2026-08-01", "aug"),
+            Stop("2026-09-01", "sep"), Stop("2026-10-01", "oct"),
+            Stop("2026-11-01", "nov"), Stop("2026-12-01", "dec"),
         )
         val tl = Timeline(tz = "America/New_York", stops = stops)
         val c = presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
         assertEquals(TimelineScale.Hub, c.scale)
+        // leading Done-run of 4 (>2) collapses → [✓4, SEP, OCT, NOV, DEC]
+        assertEquals(5, c.spine?.size)
+        assertEquals(4, c.spine?.first()?.collapsedCount)
+        assertEquals("✓4", c.spine?.first()?.label)
+        assertEquals(StopStatus.Next, c.spine?.get(1)?.status) // SEP is the next
+    }
+
+    @Test fun `roadmap over 6 months with short leading done-run does not collapse`() {
+        // 7 months, only the first 2 Done → run of 2 is NOT > 2, so no collapse.
+        val stops = listOf(
+            Stop("2026-06-01", "jun"), Stop("2026-07-01", "jul"),   // done
+            Stop("2026-09-01", "sep"), Stop("2026-10-01", "oct"),
+            Stop("2026-11-01", "nov"), Stop("2026-12-01", "dec"),
+            Stop("2027-01-01", "jan"),
+        )
+        val tl = Timeline(tz = "America/New_York", stops = stops)
+        val c = presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
+        assertEquals(7, c.spine?.size)
+        assertNull(c.spine?.first()?.collapsedCount)
+    }
+
+    @Test fun `roadmap of 6 or fewer months never collapses`() {
+        val c = presentTimelineCard(hubMonths6(), "2026-08-24T10:00:00-04:00", ny)!!
         assertEquals(6, c.spine?.size)
-        assertEquals(2, c.moreCount) // 8 months - 6 = 2
+        assertTrue(c.spine!!.all { it.collapsedCount == null })
     }
 
     @Test fun `all-done day timeline - doneCount all, window empty, tailCount 0, nowTimeLabel null`() {

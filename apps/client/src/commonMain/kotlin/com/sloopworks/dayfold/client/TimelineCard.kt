@@ -62,7 +62,7 @@ private fun TimelineRoadmapCard(model: TimelineCardModel, onOpen: () -> Unit) {
         Column(Modifier.padding(horizontal = 18.dp).padding(top = 18.dp, bottom = 15.dp)) {
             val spine = model.spine
             if (!spine.isNullOrEmpty()) {
-                RoadmapSpine(spine, model.moreCount)
+                RoadmapSpine(spine)
             }
             if (model.nextCallout != null) {
                 HorizontalDivider(
@@ -79,9 +79,9 @@ private fun TimelineRoadmapCard(model: TimelineCardModel, onOpen: () -> Unit) {
 // ── Phase spine ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun RoadmapSpine(spine: List<SpineNode>, moreCount: Int) {
+private fun RoadmapSpine(spine: List<SpineNode>) {
     val cs = MaterialTheme.colorScheme
-    val totalNodes = spine.size + (if (moreCount > 0) 1 else 0)
+    val totalNodes = spine.size
     // Index of the Next node; fall back to last Done if none (all-done roadmap).
     val fillEndIdx = spine.indexOfFirst { it.status == StopStatus.Next }
         .let { idx -> if (idx >= 0) idx else spine.indexOfLast { it.status == StopStatus.Done } }
@@ -128,9 +128,6 @@ private fun RoadmapSpine(spine: List<SpineNode>, moreCount: Int) {
             spine.forEach { node ->
                 SpineNodeColumn(node)
             }
-            if (moreCount > 0) {
-                SpineMoreColumn(moreCount)
-            }
         }
     }
 }
@@ -142,8 +139,15 @@ private fun SpineNodeColumn(node: SpineNode) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        when (node.status) {
-            StopStatus.Done -> Box(
+        when {
+            // ✓N collapsed done-run: filled secondary dot, no check glyph (the ✓ lives in the label)
+            node.collapsedCount != null -> Box(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(11.dp)
+                    .background(cs.secondary, CircleShape),
+            )
+            node.status == StopStatus.Done -> Box(
                 modifier = Modifier
                     .padding(top = 2.dp)
                     .size(11.dp)
@@ -157,12 +161,12 @@ private fun SpineNodeColumn(node: SpineNode) {
                     modifier = Modifier.size(8.dp),
                 )
             }
-            StopStatus.Next -> Box(
+            node.status == StopStatus.Next -> Box(
                 modifier = Modifier
                     .size(15.dp)
                     .background(cs.primary, CircleShape),
             )
-            StopStatus.Upcoming -> Box(
+            else -> Box(
                 modifier = Modifier
                     .padding(top = 2.dp)
                     .size(11.dp)
@@ -171,32 +175,11 @@ private fun SpineNodeColumn(node: SpineNode) {
             )
         }
         Text(
-            text = node.label.take(3),
+            // collapsed node shows its full "✓N" label; month nodes abbreviate to 3 letters
+            text = if (node.collapsedCount != null) node.label else node.label.take(3),
             fontSize = 11.sp,
             fontWeight = if (node.status == StopStatus.Next) FontWeight.Bold else FontWeight.W500,
             color = if (node.status == StopStatus.Next) cs.onSurface else cs.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun SpineMoreColumn(moreCount: Int) {
-    val cs = MaterialTheme.colorScheme
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .size(11.dp)
-                .background(cs.outlineVariant, CircleShape),
-        )
-        Text(
-            text = "+$moreCount",
-            fontSize = 9.sp,
-            fontWeight = FontWeight.W500,
-            color = cs.onSurfaceVariant,
         )
     }
 }

@@ -79,12 +79,28 @@ class TimelineCardSnapshotTest {
         return presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
     }
 
+    private fun hubCollapsedModel(): TimelineCardModel {
+        // 8 months: Jan–Apr past (Done), Sep–Dec future → leading Done-run of 4 collapses to ✓4.
+        val tl = Timeline(
+            tz = "America/New_York",
+            stops = listOf(
+                Stop("2026-01-15", "Kickoff"), Stop("2026-02-15", "Research"),
+                Stop("2026-03-15", "Design"), Stop("2026-04-15", "Alpha"),
+                Stop("2026-09-15", "Move-in day"), Stop("2026-10-15", "Midterms"),
+                Stop("2026-11-15", "Break"), Stop("2026-12-15", "Finals"),
+            )
+        )
+        return presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
+    }
+
     // ── Snapshot tests ─────────────────────────────────────────────────────────
 
     @Test fun dayLight() = shot("timeline-card-day-light", false)
     @Test fun dayDark()  = shot("timeline-card-day-dark",  true)
     @Test fun hubLight() = shot("timeline-card-hub-light", false, hubModel())
     @Test fun hubDark()  = shot("timeline-card-hub-dark",  true,  hubModel())
+    @Test fun hubCollapsedLight() = shot("timeline-card-hub-collapsed-light", false, hubCollapsedModel())
+    @Test fun hubCollapsedDark()  = shot("timeline-card-hub-collapsed-dark",  true,  hubCollapsedModel())
 
     // ── Behavioral assertions ─────────────────────────────────────────────────
     // Verify the card renders real content — not just non-empty pixels.
@@ -135,5 +151,11 @@ class TimelineCardSnapshotTest {
     @Test fun hubShowsProvenanceChip() = runComposeUiTest {
         setContent { DayfoldTheme { TimelineCard(hubModel(), onOpen = {}) } }
         onNodeWithText("Added to this hub").assertExists()
+    }
+
+    @Test fun hubCollapsedShowsCheckN() = runComposeUiTest {
+        setContent { DayfoldTheme { TimelineCard(hubCollapsedModel(), onOpen = {}) } }
+        // leading Done-run of 4 collapses into a single "✓4" node
+        onNodeWithText("✓4").assertExists()
     }
 }
