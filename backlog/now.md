@@ -26,9 +26,25 @@ windowing, injected clock+tz — the multi-member wedge holds cross-tz), day-rai
 scrollable detail, nav substate + BackNav, attachment→CardAction handoff, and the card→detail
 shared-element morph. **Phase 1 = authored, render-only, Now-invisible, zero notifications**; provenance
 copy is authored-honest (no "derived on-device" claim). Full-stack gate green (codegen · api 345 · CLI ·
-client desktopTest). **Deferred to Phase 2 (operator-approved):** client-derived fallback
-(`deriveTimeline`), the day↔hub scope toggle + second-scale affordance, the roadmap `✓N` collapse, and
-per-member "Hide for me" on the card. Not yet on-device-verified (desktop snapshots only) or merged.
+client desktopTest).
+
+**Status update (2026-07-01): Hub Timeline — Phase 2 BUILT (branch `feat/hub-timeline-phase2` off
+`origin/now-derived-phase-b`).** Six commits, TDD, on-device-verified on emulator vs `designs/hub-timeline/`.
+**Shipped:** (S1) tz-aware **AM/PM** stop labels moved into the presenter — killed the raw-`at`
+string-parsers + DST/offset risk; robust detail-day NOW index. (S2) roadmap **`✓N` collapse**
+(`SpineNode.collapsedCount`; replaces the +M-more tail). (S3) per-member **"Hide for me"** on the hoisted
+card (synthetic id, reuses the W5 hide plumbing; swipe + a11y action + recovery row). (S4) in-detail
+**day↔hub scope toggle** (`SingleChoiceSegmentedButtonRow` + `hasBothScales`). (S5-fix) **Day scale scopes
+to the focal day** (on-device caught roadmap milestones bleeding into "Today's schedule"). (S5) **authoring
+enablement** — `dayfold template timeline` + `dayfold-curator` skill teaches timeline authoring. Enriched
+the fake college hub to a both-scales demo. **On-device VERIFIED** (day card "2 done"/AM-PM, toggle→roadmap
+month groups + tz "Mon D" labels + NOW band). Full gate green (`:client:desktopTest` + `apps/cli` test).
+**Operator-gated remainder (loop STOPPED here):** (a) **4b card "also a roadmap/day" hint** — not in any
+signed-off mock → design sign-off; (b) **ADR 0046** (client-derived `deriveTimeline` fallback — the
+ADR-0043-class second on-device projection) drafted **Proposed** → accept + a derived-states mock;
+(c) **dogfood** a real authored timeline onto the operator's own hub → external content; (d) **ship**
+`now-derived-phase-b → main` → deploy/spend. Governance (family-tz delivery, NOW-marker calm tuning) revisit
+vs real authored content.
 
 **Bugfix (2026-06-30, on-device report) ✅ FIXED + VERIFIED ON PIXEL 10 PRO: Hub link/document blocks
 were not tappable.** Root cause (two layers): (1) `LinkRow` (`HubScreens.kt`) rendered the "opens
