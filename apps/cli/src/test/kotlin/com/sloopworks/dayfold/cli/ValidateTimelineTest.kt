@@ -21,4 +21,12 @@ class ValidateTimelineTest {
     val e = validateHubTree("hubs", hub("""{"tz":"UTC","stops":[{"at":"2026-01-01","title":"X","attachments":[{"kind":"df","label":"y"}]}]}"""))
     assertTrue(e.any { it.contains("kind") })
   }
+  @Test fun nullStopFlagged() {
+    val e = validateHubTree("hubs", hub("""{"tz":"UTC","stops":[null]}"""))
+    assertTrue(e.isNotEmpty())
+  }
+  @Test fun nullAttachmentFlagged() {
+    val e = validateHubTree("hubs", hub("""{"tz":"UTC","stops":[{"at":"2026-01-01","title":"X","attachments":[null]}]}"""))
+    assertTrue(e.isNotEmpty())
+  }
 }
