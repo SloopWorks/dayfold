@@ -10,6 +10,19 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 ## Unreleased
 
 ### Added
+- **Hub timelines** — a hub can now show an **axis of time**: a live intraday
+  **day rail** (with a NOW line) or a multi-month **roadmap**, rendered on-device
+  from an authored, content-blind `Hub.timeline` (author the stops; the client
+  lays them out — status, scale, grouping, `✓N` collapse, tz-aware AM/PM). Opens
+  from a hoisted dossier card into a full detail with a **day↔hub scope toggle**,
+  attachment chips (call/nav/link/in-app), assignees, and per-member **Hide for
+  me**. Authorable via `dayfold template timeline` + the `dayfold-curator` skill.
+  When a hub has **no authored timeline**, one is **derived on-device** from its
+  own dated blocks (checklist due-dates, milestones, pickups, the hub's countdown)
+  — honestly labelled "From this hub's dates" (render-only, never notifies).
+  (ADR 0045, 0046)
+- Android now supports **Android 13+** (minSdk lowered 34 → 33) — installs on
+  more devices (e.g. Pixel 4a) with no behaviour change.
 - Background proximity + local notifications (Android): the Now feed's
   priority engine now also drives **closed-app** notifications — a geofence
   "arrived near a saved place" or a scheduled "starts soon" alert — entirely

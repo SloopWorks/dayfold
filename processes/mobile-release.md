@@ -16,6 +16,12 @@ present (same posture as the CLI release, `processes/cli-release.md`).
 
 ## How it works
 
+- **Supported Android versions:** **minSdk 33** (Android 13) → the app installs on
+  Android 13+ devices; **compileSdk / targetSdk 37**. minSdk is a plain build-config
+  floor (`:androidApp` + `:client` + the `:debugdrawer*` modules) — not ADR-governed
+  and carries no API-34-only code (dropping 34→33 needed zero source change, no `NewApi`
+  lint). Lowering it further re-runs the same check: `assembleDebug` + `lintDebug` must
+  stay clean (no `NewApi` / API-guard additions) or the change isn't free.
 - **versionCode** = `GITHUB_RUN_NUMBER + 1000` (strictly monotonic across every track —
   Play requires it). **versionName** = the tag's semver (alpha builds get
   `0.0.0-alpha.<run>`). Local dev keeps the `1` / `0.0.0-M0` defaults.

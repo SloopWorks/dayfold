@@ -13,6 +13,23 @@ NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemin
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
 later milestone; interim authoring = operator + Claude Code via the CLI.
 
+**Status update (2026-07-01): Hub Timeline — COMPLETE + SHIPPED TO `main` (ADR 0045 + 0046).**
+The full feature is on `main` (PRs #269 timeline + #270 minSdk) and prod-deploying — `Hub.timeline`
+is authorable in production. **Everything in the Phase-2 plan is done:** authoring enablement
+(`dayfold template timeline` + curator skill), the client-derived fallback (`deriveTimeline`, **ADR 0046
+Accepted** — a hub with no authored timeline projects its own dated blocks → honest "From this hub's
+dates" provenance + per-stop source tags + render-only), the day↔hub scope toggle + the "also a
+roadmap/day" discoverability row, the `✓N` roadmap collapse (+ a ≤6-node cap from review), per-member
+Hide-for-me, tz-aware AM/PM labels, focal-day scoping, and the polish/fidelity gaps. Design mock imported
+(`designs/derived-timeline/`); whole-branch adversarial review done + all findings fixed; on-device
+verified (authored + **derived** timelines, every state) on the Pixel 10 Pro + emulators. Also dropped
+**minSdk 34→33** (Android 13+ / Pixel 4a; pure config, zero source change). **Still open — not blocking:**
+(a) **dogfood** a real authored timeline onto the operator's own prod hub (external content → operator
+sends; needs their hub data); (b) **tuning** the scale thresholds + NOW-marker calm against real authored
+content (pairs with dogfood); (c) **family-tz delivery** — deferred to M1 `family_settings.timezone`.
+Minor deferred: an on-card *visible* Hide overflow (swipe + screen-reader action ship; the signed-off card
+has no overflow chrome — placement TBD) and a pre-existing `HubScreens.kt` indent nit (no formatter).
+
 **Status update (2026-06-30): Hub Timeline — Phase 1 BUILT (authored content type + on-device
 presentation, ADR 0045).** Worktree `derived-now-phase-b`, branch **`feat/hub-timeline`** (off the
 phase-B HEAD — the timeline reuses `NowDerive` date helpers, absent on `main`). Imported the
