@@ -191,12 +191,14 @@ private fun TlDetailHeader(
         )
         // Day↔hub scope toggle — only when both scales are meaningful (spec §5/§6).
         if (showToggle) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             val options = listOf(
                 TimelineScale.Day to ("This day" to DayfoldIcons.WbSunny),
                 TimelineScale.Hub to ("Whole hub" to DayfoldIcons.CalendarMonth),
             )
-            SingleChoiceSegmentedButtonRow {
+            // Full-width so each half has room (an intrinsic-width row clipped "Whole hub" against
+            // the pill's rounded end); mirrors the ProximitySettings segmented control.
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 options.forEachIndexed { i, (scale, labelIcon) ->
                     val (label, icon) = labelIcon
                     SegmentedButton(
@@ -211,7 +213,7 @@ private fun TlDetailHeader(
                             )
                         },
                     ) {
-                        Text(label, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(label, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
                 }
             }
