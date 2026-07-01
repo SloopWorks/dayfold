@@ -1,13 +1,21 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.ExperimentalTransitionApi
+import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +70,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import com.sloopworks.dayfold.client.cards.CardAction
+import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
+import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
+import com.sloopworks.dayfold.client.cards.cardSharedBounds
 import com.sloopworks.dayfold.client.cards.vettedOpenUri
 import kotlinx.datetime.TimeZone
 import androidx.compose.ui.semantics.Role
@@ -235,7 +247,7 @@ private fun StatusChip(status: String) {
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalTransitionApi::class)
 @Composable
 fun HubDetailScreen(
   state: AppState,
@@ -266,11 +278,37 @@ fun HubDetailScreen(
   val tz = tl?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { TimeZone.currentSystemDefault() } }
     ?: TimeZone.currentSystemDefault()
   val nowIso = kotlin.time.Clock.System.now().toString()
-  // ADR 0045 13a: full-screen swap — render detail exclusively when open; TimelineDetail owns
-  // its own background (cs.surface). 13b will layer Scaffold+detail for shared-element morph.
-  if (state.timelineDetail != null && tl != null) {
-    TimelineDetail(tl, state.timelineDetail, nowIso, tz, onBack = onCloseTimeline, onAction = onTimelineAction)
-  } else {
+  // ADR 0045 13b: shared-element container-transform (card→detail morph). Both branches of
+  // AnimatedContent apply cardSharedBounds("timeline") so the card bounds morph into the detail
+  // and back. Reduced motion → snapTo (no animation). System back dispatches CloseTimelineDetail
+  // → state.timelineDetail = null → morph back; no gesture handler needed for correctness.
+  val seekable = remember { SeekableTransitionState<TimelineScale?>(state.timelineDetail) }
+  val reduceMotion = rememberReduceMotion()
+  LaunchedEffect(state.timelineDetail) {
+    if (seekable.currentState != state.timelineDetail) {
+      if (reduceMotion) seekable.snapTo(state.timelineDetail)
+      else seekable.animateTo(state.timelineDetail, animationSpec = tween(if (state.timelineDetail != null) 360 else 280, easing = EmphasizedDecelerate))
+    }
+  }
+  val transition = rememberTransition(seekable, label = "hub-timeline")
+  SharedTransitionLayout {
+    transition.AnimatedContent(
+      contentKey = { it != null },
+      transitionSpec = {
+        val opening = targetState != null
+        val dur = if (opening) 360 else 280
+        (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
+      },
+    ) { scale ->
+      CompositionLocalProvider(
+        LocalSharedTransitionScope provides this@SharedTransitionLayout,
+        LocalAnimatedVisibilityScope provides this@AnimatedContent,
+      ) {
+        if (scale != null && tl != null) {
+          Box(Modifier.fillMaxSize().cardSharedBounds("timeline")) {
+            TimelineDetail(tl, scale, nowIso, tz, onBack = onCloseTimeline, onAction = onTimelineAction)
+          }
+        } else {
   Scaffold(
     topBar = {
       TopAppBar(
@@ -383,7 +421,9 @@ fun HubDetailScreen(
         tl?.let { timeline ->
           presentTimelineCard(timeline, nowIso, tz)?.let { model ->
             item(key = "timeline") {
-              TimelineCard(model) { onOpenTimeline(model.scale) }
+              Box(Modifier.cardSharedBounds("timeline")) {
+                TimelineCard(model) { onOpenTimeline(model.scale) }
+              }
             }
           }
         }
@@ -431,7 +471,10 @@ fun HubDetailScreen(
       }
     }
   }
-  } // closes else { Scaffold(...) }
+        } // closes else { dossier branch of AnimatedContent scale check
+      } // closes CompositionLocalProvider
+    } // closes AnimatedContent
+  } // closes SharedTransitionLayout
 }
 
 // Pure: the LazyColumn item index of the focused block (or null = not present / no
