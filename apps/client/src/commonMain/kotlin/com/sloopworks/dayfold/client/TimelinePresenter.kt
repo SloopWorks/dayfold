@@ -191,7 +191,7 @@ internal fun nowLineIndex(day: List<PresentedStop>, nowIso: String, tz: TimeZone
 // ── Shared card/detail types (ADR 0045 Phase 1) ──────────────────────────────
 
 data class TimelineGroup(val label: String, val stops: List<PresentedStop>)
-data class PresentedTimeline(val scale: TimelineScale, val groups: List<TimelineGroup>, val nowIndex: Int?, val nowTimeLabel: String?)
+data class PresentedTimeline(val scale: TimelineScale, val groups: List<TimelineGroup>, val nowIndex: Int?, val nowTimeLabel: String?, val derived: Boolean = false)
 /** A roadmap spine node. [collapsedCount] non-null → a "✓N" node standing in for N collapsed done months. */
 data class SpineNode(val label: String, val status: StopStatus, val collapsedCount: Int? = null)
 data class TimelineCardModel(
@@ -203,6 +203,7 @@ data class TimelineCardModel(
     val spine: List<SpineNode>? = null,
     val nextCallout: PresentedStop? = null,
     val moreCount: Int = 0,   // roadmap: months beyond the ≤6-node spine cap (trailing "+M")
+    val derived: Boolean = false,   // ADR 0046 — synthesized by deriveTimeline → honest derived provenance
 )
 
 // ── Card windowing ──────────────────────────────────────────────────────────
@@ -249,6 +250,7 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
                 nowTimeLabel = nowTimeLabel,
                 window = window,
                 tailCount = tailCount,
+                derived = tl.derived,
             )
         }
 
@@ -279,6 +281,7 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
                 spine = spine,
                 nextCallout = nextCallout,
                 moreCount = moreCount,
+                derived = tl.derived,
             )
         }
     }
@@ -365,7 +368,7 @@ fun presentTimelineDetail(tl: Timeline, scale: TimelineScale, nowIso: String, tz
             val today = now?.toLocalDateTime(tz)?.date
             val nowTimeLabel = if (focal != null && focal == today && now != null) clockTime(now, tz) else null
 
-            PresentedTimeline(scale = TimelineScale.Day, groups = groups, nowIndex = nowIdx, nowTimeLabel = nowTimeLabel)
+            PresentedTimeline(scale = TimelineScale.Day, groups = groups, nowIndex = nowIdx, nowTimeLabel = nowTimeLabel, derived = tl.derived)
         }
 
         TimelineScale.Hub -> {
@@ -387,7 +390,7 @@ fun presentTimelineDetail(tl: Timeline, scale: TimelineScale, nowIso: String, tz
                 }.takeIf { idx -> idx >= 0 }
             }
 
-            PresentedTimeline(scale = TimelineScale.Hub, groups = groups, nowIndex = nowIndex, nowTimeLabel = null)
+            PresentedTimeline(scale = TimelineScale.Hub, groups = groups, nowIndex = nowIndex, nowTimeLabel = null, derived = tl.derived)
         }
     }
 }

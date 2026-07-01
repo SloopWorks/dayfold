@@ -71,7 +71,7 @@ private fun TimelineRoadmapCard(model: TimelineCardModel, onOpen: () -> Unit) {
                 )
                 NextMilestoneRow(model.nextCallout)
             }
-            RoadmapFooterRow(onOpen)
+            RoadmapFooterRow(onOpen, model.derived)
         }
     }
 }
@@ -286,9 +286,8 @@ private fun NextMilestoneRow(callout: PresentedStop) {
 // ── Roadmap footer ────────────────────────────────────────────────────────────
 
 @Composable
-private fun RoadmapFooterRow(onOpen: () -> Unit) {
+private fun RoadmapFooterRow(onOpen: () -> Unit, derived: Boolean) {
     val cs = MaterialTheme.colorScheme
-    val ext = LocalDayfoldColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,28 +314,7 @@ private fun RoadmapFooterRow(onOpen: () -> Unit) {
             )
         }
 
-        // "Added to this hub" provenance chip (decorative, same as day card)
-        Row(
-            modifier = Modifier
-                .background(ext.providerChip, RoundedCornerShape(8.dp))
-                .border(1.dp, ext.providerChipOutline, RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                imageVector = DayfoldIcons.AutoAwesome,
-                contentDescription = null,
-                tint = ext.onProviderChip,
-                modifier = Modifier.size(13.dp),
-            )
-            Text(
-                text = "Added to this hub",
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = ext.onProviderChip,
-            )
-        }
+        TimelineProvenanceChip(derived)
     }
 }
 
@@ -371,7 +349,7 @@ private fun TimelineDayCard(model: TimelineCardModel, onOpen: () -> Unit) {
                 TailRow(model.tailCount)
             }
             // Footer: "Open timeline" + "Added to this hub" chip
-            FooterRow(onOpen)
+            FooterRow(onOpen, model.derived)
         }
     }
 }
@@ -631,9 +609,8 @@ private fun TailRow(tailCount: Int) {
 // ── Footer row ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun FooterRow(onOpen: () -> Unit) {
+private fun FooterRow(onOpen: () -> Unit, derived: Boolean) {
     val cs = MaterialTheme.colorScheme
-    val ext = LocalDayfoldColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -661,27 +638,38 @@ private fun FooterRow(onOpen: () -> Unit) {
             )
         }
 
-        // "Added to this hub" provenance chip
-        Row(
-            modifier = Modifier
-                .background(ext.providerChip, RoundedCornerShape(8.dp))
-                .border(1.dp, ext.providerChipOutline, RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                imageVector = DayfoldIcons.AutoAwesome,
-                contentDescription = null,
-                tint = ext.onProviderChip,
-                modifier = Modifier.size(13.dp),
-            )
-            Text(
-                text = "Added to this hub",
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = ext.onProviderChip,
-            )
-        }
+        TimelineProvenanceChip(derived)
+    }
+}
+
+/**
+ * Provenance chip (ADR 0045/0046). Authored = purple "Added to this hub" (auto_awesome). Derived =
+ * a neutral outline "From this hub's dates" (event glyph, no fill/accent) — honest that it's a
+ * mechanical layout of the hub's own dates, never implying authorship or AI.
+ */
+@Composable
+private fun TimelineProvenanceChip(derived: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    val ext = LocalDayfoldColors.current
+    Row(
+        modifier = Modifier
+            .background(if (derived) Color.Transparent else ext.providerChip, RoundedCornerShape(8.dp))
+            .border(1.dp, if (derived) cs.outlineVariant else ext.providerChipOutline, RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = if (derived) DayfoldIcons.Event else DayfoldIcons.AutoAwesome,
+            contentDescription = null,
+            tint = if (derived) cs.onSurfaceVariant else ext.onProviderChip,
+            modifier = Modifier.size(13.dp),
+        )
+        Text(
+            text = if (derived) "From this hub’s dates" else "Added to this hub",
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (derived) cs.onSurfaceVariant else ext.onProviderChip,
+        )
     }
 }

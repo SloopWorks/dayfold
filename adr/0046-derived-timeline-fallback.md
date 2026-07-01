@@ -2,13 +2,12 @@
 
 ## Status
 
-**Proposed** 2026-07-01 (agent-drafted at the ADR 0045 Phase-2 gate the parent ADR
-reserved: *"a client-side derived fallback (`deriveTimeline` over a hub's existing
-dated blocks) is deferred to Phase 2 and ADR-gated separately — it is the
-ADR-0043-class second on-device projection over hub content and is not opened
-here."* **Operator-gated** — it softens the dumb-client posture and re-touches the
-Hub→Now boundary (product-scope-shaped, ADR-0043/0045-class). **Not accepted; do
-not build until ratified.**
+**Accepted** 2026-07-01 (operator ratified in-session — "Accept + build"; **both gates
+closed**: Gate A = `designs/derived-timeline/` hi-fi mock imported + signed off, Gate B =
+this ADR accepted). The five open decisions are resolved to the mock's recommended
+answers (see Decision §1–§5). Was **Proposed** 2026-07-01 (agent-drafted at the ADR 0045
+Phase-2 gate the parent reserved; **operator-gated** — it softens the dumb-client posture
+and re-touches the Hub→Now boundary, ADR-0043/0045-class).
 
 Statuses: Proposed | Accepted | Superseded | Deprecated.
 
@@ -37,45 +36,44 @@ must become "Built from this hub"); no `Hub.timeline.tz` exists for a derived
 timeline (the authored one carries its own `tz`; a derived one must fall back
 family→device tz).
 
-## Decision (proposed — options flagged for the operator)
+## Decision (ratified 2026-07-01)
 
 Add a pure `deriveTimeline(hub, clock, tz): Timeline?` in `commonMain` (mirrors
 `deriveNow` / `TimelinePresenter` — ephemeral, never synced, snapshot-testable). It
 runs **only when a hub has no authored `Hub.timeline`**, projecting the hub's
 already-synced dated blocks into synthetic stops, then renders through the **same**
 `TimelinePresenter` + card + detail (zero new render code). **Authored always wins**
-(a hub with an authored timeline never derives).
+(a hub with an authored timeline never derives). The **second on-device projection**
+over hub content (after `deriveNow`) is accepted — it adds no server projection and
+no write path (the dumb-server invariant holds).
 
-Open decisions the operator must settle before build:
+1. **Source set — all four dated sources.** Checklist items with a `due`
+   (title = item text, `done` = item done); `milestone` blocks (`payload.date` +
+   label); **location pickups** (a location/timed block via its `triggers[].when.at`);
+   and the hub's own `countdown_to` / `start_at` / `end_at` as anchor stops.
 
-1. **Source set — which dated content maps to a stop.** Proposed: checklist items
-   with a `due` (title = item text, `done` = item done); `milestone` blocks
-   (`date` + `label`); `location`/place pickups with a time; and the hub's
-   `countdown_to` / `start_at` / `end_at` as anchor stops. Attachments derive from
-   the block (a `location` → `nav`; a `link`/`document` → `link`/`open`). **Question:
-   include all of these, or a narrower set for the first slice?**
+2. **Now-feeding — render-only.** A derived stop does **not** feed `deriveNow`
+   (ADR 0043) and fires **no** notification (ADR 0044) — no bell, reminder chip, or
+   "notify me" anywhere. Any future Now-feeding is a separate ADR (avoids re-opening
+   the notification surface + double-surfacing the same dated block).
 
-2. **Now-feeding — stays render-only, or feeds the derived Now engine.** Proposed:
-   **render-only, like ADR 0045 Phase 1** — a derived timeline stop does **not**
-   feed `deriveNow` (ADR 0043) and fires **no** notification (ADR 0044). Feeding Now
-   would re-open the notification-posture surface and risk double-surfacing the same
-   dated block (once as a Now item, once as a timeline stop). **Recommend deferring
-   any Now-feeding to a further ADR.**
+3. **Provenance copy — "From this hub's dates".** A neutral outline chip (no fill,
+   no accent hue, plain `event` glyph — never a sparkle, never "AI"), visually
+   unmistakable from the authored purple "Added to this hub". The detail footnote
+   states plainly it's laid out from existing dates and doesn't notify. (Honesty
+   guardrail, ADR 0014/0015; four alternates on the signed-off `Provenance` board.)
 
-3. **Provenance copy.** Proposed: a derived timeline shows **"Built from this hub"**
-   (honest — it *is* derived), distinct from the authored **"Added to this hub"**.
-   Non-negotiable per the ADR 0045 / ADR 0014-0015 honesty guardrail.
+4. **Timezone — family → device fallback** (a derived timeline has no author-stamped
+   `tz`). Accepts the cross-device-disagreement risk the authored `tz` avoids —
+   acceptable because a derived timeline is a convenience, not the source of truth.
 
-4. **Timezone.** A derived timeline has no author-stamped `tz`. Proposed: family-tz →
-   device-tz fallback (same chain as ADR 0045, minus the authored layer). Accepts the
-   cross-device disagreement risk the authored `tz` was designed to avoid — acceptable
-   because a derived timeline is a convenience, not the authored source of truth.
-
-5. **Dumb-client posture.** The load-bearing question: **is a second on-device
-   projection acceptable?** ADR 0043 already established on-device derivation for Now;
-   this extends the same precedent to timelines. It does **not** add a server
-   projection or a write path. The operator decides whether the convenience (free
-   timelines for dated hubs) is worth the further softening.
+5. **Per-stop source tag — "label" depth.** Each derived stop shows a quiet ghost
+   tag (icon + one word: `checklist` / `milestone` / `pickup` / `hub date`), distinct
+   from the filled attachment chips; minimal (icon-only) / verbose (phrase) are
+   available. When a block carries **>1 date, the most-specific stated time wins** (an
+   instant beats a bare date; matches the ADR 0045 authored rule) — never inferred
+   from location or traffic. **Thin content:** ≥2 dated stops render; **1 or 0** → a
+   gentle "No timeline yet" nudge (fall back to showing nothing if it reads as clutter).
 
 ## Consequences
 
@@ -124,7 +122,5 @@ decision 2 = render-only), 0030 (visibility), 0022 (typed renderers).
   - **New rule surfaced by the mock:** when a block carries >1 date, the **most-
     specific stated time wins** (an instant beats a bare date), matching the ADR 0045
     authored rule — never inferred from location/traffic.
-- **Gate B — operator ratification of this ADR (accept the second on-device
-  projection) — STILL OPEN.** The mock marks the design "approved," but flipping this
-  ADR to Accepted is the operator's formal call; do not build the derive path until
-  ratified.
+- **Gate B — operator ratification (accept the second on-device projection) —
+  CLEARED** 2026-07-01 ("Accept + build"). Both gates closed → **cleared for build**.

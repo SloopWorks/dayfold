@@ -194,6 +194,9 @@ data class Timeline(
   val title: String? = null,
   val tz: String,
   val stops: List<Stop> = emptyList(),
+  // ADR 0046 — client-only: true when synthesized by deriveTimeline (never on the wire).
+  // Flips the provenance to the honest derived treatment ("From this hub's dates").
+  @kotlinx.serialization.Transient val derived: Boolean = false,
 )
 
 @Serializable
@@ -205,6 +208,9 @@ data class Stop(
   val done: Boolean = false,
   val assignee: String? = null,
   val attachments: List<Attachment> = emptyList(),
+  // ADR 0046 — client-only source tag for a *derived* stop (checklist|milestone|pickup|hubdate);
+  // null for authored stops. Never serialized.
+  @kotlinx.serialization.Transient val source: String? = null,
 )
 
 @Serializable

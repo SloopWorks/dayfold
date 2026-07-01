@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -87,7 +88,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.ui.loading.ErrorRetry
@@ -275,10 +279,15 @@ fun HubDetailScreen(
   onTimelineAction: (CardAction) -> Unit = {},
 ) {
   val tree = state.currentHubTree
-  // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay
-  val tl = tree?.hub?.timeline
-  val tz = tl?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { TimeZone.currentSystemDefault() } }
+  // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay.
+  val authoredTimeline = tree?.hub?.timeline
+  // tz: an authored timeline carries its own; a derived one falls back family→device (device for now).
+  val tz = authoredTimeline?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { TimeZone.currentSystemDefault() } }
     ?: TimeZone.currentSystemDefault()
+  // ADR 0046: when no authored timeline, derive one from the hub's already-dated blocks (≥2 stops).
+  val tl = authoredTimeline ?: tree?.let { deriveTimeline(it, tz) }
+  // "No timeline yet" nudge: no authored + not enough to derive, but exactly one dated block.
+  val showTimelineNudge = authoredTimeline == null && tl == null && tree != null && hubHasSingleDate(tree, tz)
   val nowIso = kotlin.time.Clock.System.now().toString()
   // ADR 0045 13b: shared-element container-transform (card→detail morph). Both branches of
   // AnimatedContent apply cardSharedBounds("timeline") so the card bounds morph into the detail
@@ -338,9 +347,9 @@ fun HubDetailScreen(
       LaunchedEffect(state.hubFocusBlockId, tree) {
         focusedBlockItemIndex(
           tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
-          // a card hidden for this member (W5) isn't emitted → don't count it in the index
-          hasTimelineCard = tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
-            presentTimelineCard(tl, nowIso, tz) != null,
+          // one hoisted slot when a (non-hidden) timeline card OR the "No timeline yet" nudge shows
+          hasTimelineCard = (tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
+            presentTimelineCard(tl, nowIso, tz) != null) || showTimelineNudge,
         )?.let { listState.animateScrollToItem(it) }
       }
       // Slice 4 (ADR 0038, States screen): the optimistic-write status, derived off the
@@ -454,6 +463,22 @@ fun HubDetailScreen(
               }
             }
           }
+        }
+        // Discoverability (ADR 0045 §4.2 / designs Tap-To-Detail): when a timeline has BOTH scales,
+        // the card shows one auto-selected scale; a small row invites the other (opens the detail there).
+        if (tl != null && !timelineHidden && presentTimelineCard(tl, nowIso, tz) != null &&
+            hasBothScales(tl, nowIso, tz)) {
+          val cardScale = selectScale(tl, nowIso, tz)
+          item(key = "timeline-scale-hint") {
+            TimelineScaleHintRow(cardScale) {
+              onOpenTimeline(if (cardScale == TimelineScale.Day) TimelineScale.Hub else TimelineScale.Day)
+            }
+          }
+        }
+        // ADR 0046: "No timeline yet" nudge — one dated block, not enough to lay out. Teaches the
+        // mechanic (add a couple more dates and a timeline appears) without faking a fuller hub.
+        if (showTimelineNudge) {
+          item(key = "timeline-nudge") { TimelineNudgeCard() }
         }
         // sections (ordered) each followed by their blocks (grouped by section_id). Hidden
         // blocks (W5) are filtered out of the live sections and collected into the one
@@ -803,6 +828,71 @@ private fun HiddenBlockCard(block: HubBlock, onUnhide: () -> Unit) {
         Text("You hid this", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f))
         TextButton(onClick = onUnhide) { Text("Unhide") }
       }
+    }
+  }
+}
+
+// Second-scale discoverability row (designs/hub-timeline Tap-To-Detail): the card shows one scale;
+// this invites the other. cardScale = the shown scale → the row names the OTHER one.
+@Composable
+private fun TimelineScaleHintRow(cardScale: TimelineScale, onOpen: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  val otherIsRoadmap = cardScale == TimelineScale.Day
+  Surface(
+    modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+    color = cs.surfaceContainer,
+    shape = RoundedCornerShape(16.dp),
+  ) {
+    Row(
+      modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 15.dp, vertical = 11.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+      androidx.compose.material3.Icon(
+        if (otherIsRoadmap) DayfoldIcons.CalendarMonth else DayfoldIcons.WbSunny,
+        contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(19.dp),
+      )
+      Text(
+        buildAnnotatedString {
+          append("This hub also has a ")
+          withStyle(SpanStyle(color = cs.onSurface, fontWeight = FontWeight.SemiBold)) {
+            append(if (otherIsRoadmap) "roadmap" else "day view")
+          }
+          append(" — open to switch scales")
+        },
+        style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+        modifier = Modifier.weight(1f),
+      )
+      androidx.compose.material3.Icon(
+        DayfoldIcons.ArrowOutward, contentDescription = null,
+        tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp),
+      )
+    }
+  }
+}
+
+// ADR 0046 "No timeline yet" nudge — shown when a hub has exactly one dated block (not enough to
+// derive a timeline). Teaches the mechanic; honest that nothing is authored.
+@Composable
+private fun TimelineNudgeCard() {
+  val cs = MaterialTheme.colorScheme
+  Card(
+    Modifier.fillMaxWidth(),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    shape = RoundedCornerShape(22.dp),
+  ) {
+    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+      Box(
+        modifier = Modifier.size(40.dp).background(cs.surface, RoundedCornerShape(13.dp)),
+        contentAlignment = Alignment.Center,
+      ) {
+        androidx.compose.material3.Icon(DayfoldIcons.Event, contentDescription = null, tint = cs.outline, modifier = Modifier.size(22.dp))
+      }
+      Text("No timeline yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+      Text(
+        "This hub has just one date so far. Add due dates to a couple of checklist items or a milestone and they’ll lay out here automatically — nothing to set up.",
+        style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+      )
     }
   }
 }

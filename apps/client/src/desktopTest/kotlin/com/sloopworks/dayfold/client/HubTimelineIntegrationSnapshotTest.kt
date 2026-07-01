@@ -100,6 +100,44 @@ class HubTimelineIntegrationSnapshotTest {
         onNodeWithText("MORNING", substring = true).assertExists()
     }
 
+    // ── (4) Derived fallback (ADR 0046) — no authored timeline, but dated blocks ──
+
+    @Test fun derivedTimelineCardAppearsWhenNoAuthoredTimeline() = runComposeUiTest {
+        // hub has NO timeline, but a countdown + a milestone + a checklist due → derives one.
+        val hub = Hub(id = "h2", type = "party-event", title = "Maya's party", status = "active",
+            visibility = "family", countdownTo = "2026-08-24")
+        val blocks = listOf(
+            HubBlock(id = "m", sectionId = "s", type = "milestone",
+                payload = BlockPayload(date = "2026-08-20", label = "Order cake")),
+            HubBlock(id = "c", sectionId = "s", type = "checklist",
+                payload = BlockPayload(items = listOf(ChecklistItem(id = "i", text = "Buy balloons", due = "2026-08-22")))),
+        )
+        val state = AppState(route = Route.Hubs, currentHubId = "h2",
+            currentHubTree = HubTree(hub = hub, blocks = blocks))
+        setContent {
+            DayfoldTheme(darkTheme = false) {
+                Box(Modifier.width(390.dp).height(780.dp)) { HubDetailScreen(state) }
+            }
+        }
+        // the honest derived chip — not the authored "Added to this hub"
+        onNodeWithText("From this hub’s dates", substring = true).assertExists()
+        onNodeWithText("Added to this hub", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun singleDatedBlockShowsNudgeNotACard() = runComposeUiTest {
+        // only the hub countdown is dated → one stop → "No timeline yet" nudge, no card.
+        val hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
+            visibility = "family", countdownTo = "2026-09-01")
+        val state = AppState(route = Route.Hubs, currentHubId = "h3", currentHubTree = HubTree(hub = hub))
+        setContent {
+            DayfoldTheme(darkTheme = false) {
+                Box(Modifier.width(390.dp).height(780.dp)) { HubDetailScreen(state) }
+            }
+        }
+        onNodeWithText("No timeline yet", substring = true).assertExists()
+        onNodeWithText("Open timeline", substring = true).assertDoesNotExist()
+    }
+
     // ── (3) Hide for me (W5) — card leaves the dossier, recoverable in "Hidden for you" ──
 
     @Test fun hiddenTimelineLeavesDossierAndIsRecoverable() = runComposeUiTest {
