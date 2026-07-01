@@ -121,7 +121,7 @@ fun TimelineDetail(
                     val isLast = groupIdx == presented.groups.lastIndex &&
                         stopIdx == group.stops.lastIndex
                     item(key = "stop_${groupIdx}_$stopIdx") {
-                        TlEntryRow(ps, isLast, active, onAction)
+                        TlEntryRow(ps, isLast, active, presented.derived, onAction)
                     }
                     flatIdx++
                 }
@@ -137,7 +137,7 @@ fun TimelineDetail(
 
             // Provenance footnote
             item(key = "provenance") {
-                TlProvenanceCard(active)
+                TlProvenanceCard(active, presented.derived)
             }
         }
     }
@@ -315,6 +315,7 @@ private fun TlEntryRow(
     ps: PresentedStop,
     isLast: Boolean,
     scale: TimelineScale,
+    derived: Boolean,
     onAction: (CardAction) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -483,17 +484,39 @@ private fun TlEntryRow(
                 )
             }
 
-            // Meta: assignee avatar + attachment chips
+            // Meta: (derived) per-stop source tag + assignee avatar + attachment chips
+            val sourceTag = if (derived) tlSourceTag(stop.source) else null
             val hasAssignee = !stop.assignee.isNullOrEmpty()
             val hasAttachments = stop.attachments.isNotEmpty()
-            if (hasAssignee || hasAttachments) {
+            if (sourceTag != null || hasAssignee || hasAttachments) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(11.dp),
                 ) {
+                    if (sourceTag != null) {
+                        // Quiet ghost tag naming the source block — distinct from the filled
+                        // attachment chips (outline-colored icon + one word, "label" depth).
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            Icon(
+                                imageVector = sourceTag.first,
+                                contentDescription = null,
+                                tint = cs.outline,
+                                modifier = Modifier.size(13.dp),
+                            )
+                            Text(
+                                text = sourceTag.second,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = cs.onSurfaceVariant,
+                            )
+                        }
+                    }
                     if (hasAssignee) {
                         val name = stop.assignee!!
                         val avatarBg = if (isMajor) cs.tertiary else cs.primaryContainer
@@ -561,27 +584,40 @@ private fun TlEntryRow(
 // ── Provenance footnote ───────────────────────────────────────────────────────
 
 @Composable
-private fun TlProvenanceCard(scale: TimelineScale) {
+private fun TlProvenanceCard(scale: TimelineScale, derived: Boolean) {
+    val cs = MaterialTheme.colorScheme
     val ext: DayfoldExtendedColors = LocalDayfoldColors.current
-    val provNote = if (scale == TimelineScale.Hub)
-        "These milestones were added to this hub’s plan. The author keeps them current and confirms each one — edits are author-only, like two-way (ADR 0038/0039)."
-    else
-        "These stops were added to this hub’s plan; the author keeps them current. Edits are author-only (ADR 0038/0039)."
+    val isHub = scale == TimelineScale.Hub
+    // Derived = a neutral, honest footnote (nothing authored; render-only; no notification).
+    val provNote = when {
+        derived && isHub ->
+            "Nothing was authored here. This roadmap is laid out from dates already in the hub — milestones, checklist due-dates and the hub’s own dates — arranged on your device. It doesn’t notify; it just shows what’s already here, in time order."
+        derived ->
+            "Nothing was authored here. This day is laid out from dates already in the hub — checklist due-times and a pickup — arranged on your device. It doesn’t notify; it just shows what’s already here, in time order."
+        isHub ->
+            "These milestones were added to this hub’s plan. The author keeps them current and confirms each one — edits are author-only, like two-way (ADR 0038/0039)."
+        else ->
+            "These stops were added to this hub’s plan; the author keeps them current. Edits are author-only (ADR 0038/0039)."
+    }
+    val bg = if (derived) Color.Transparent else ext.providerChip
+    val borderColor = if (derived) cs.outlineVariant else ext.providerChipOutline
+    val fg = if (derived) cs.onSurfaceVariant else ext.onProviderChip
+    val icon = if (derived) DayfoldIcons.Event else DayfoldIcons.AutoAwesome
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp)
-            .background(ext.providerChip, RoundedCornerShape(14.dp))
-            .border(1.dp, ext.providerChipOutline, RoundedCornerShape(14.dp))
+            .background(bg, RoundedCornerShape(14.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Icon(
-            imageVector = DayfoldIcons.AutoAwesome,
+            imageVector = icon,
             contentDescription = null,
-            tint = ext.onProviderChip,
+            tint = if (derived) cs.outline else ext.onProviderChip,
             modifier = Modifier
                 .size(17.dp)
                 .padding(top = 1.dp),
@@ -590,9 +626,18 @@ private fun TlProvenanceCard(scale: TimelineScale) {
             text = provNote,
             fontSize = 12.sp,
             lineHeight = 17.sp,
-            color = ext.onProviderChip,
+            color = fg,
         )
     }
+}
+
+/** Per-stop source tag for a derived stop (ADR 0046): icon + one word ("label" depth). */
+private fun tlSourceTag(source: String?): Pair<ImageVector, String>? = when (source) {
+    "checklist" -> DayfoldIcons.Checklist to "checklist"
+    "milestone" -> DayfoldIcons.Star to "milestone"
+    "pickup"    -> DayfoldIcons.Location to "pickup"
+    "hubdate"   -> DayfoldIcons.Event to "hub date"
+    else        -> null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
