@@ -22,7 +22,7 @@ android {
 
   defaultConfig {
     applicationId = "com.sloopworks.dayfold"
-    minSdk = 34 // matches :client
+    minSdk = 33 // matches :client
     targetSdk = 37
     // versionCode/Name are CI-overridable (ADR 0034): CI sets a monotonic
     // versionCode (GitHub run number + offset) and a versionName from the release

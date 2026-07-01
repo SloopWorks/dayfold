@@ -45,5 +45,5 @@ kotlin {
 android {
   namespace = "com.sloopworks.debugdrawer"
   compileSdk = 35
-  defaultConfig { minSdk = 34 }
+  defaultConfig { minSdk = 33 }
 }

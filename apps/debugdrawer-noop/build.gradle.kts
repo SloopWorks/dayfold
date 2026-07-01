@@ -35,7 +35,7 @@ kotlin {
 android {
   namespace = "com.sloopworks.debugdrawer.noop"
   compileSdk = 35
-  defaultConfig { minSdk = 34 }
+  defaultConfig { minSdk = 33 }
 }
 
 // Gradle 9 fails a Test task that has compiled test sources but discovers zero
