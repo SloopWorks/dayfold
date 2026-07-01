@@ -21,8 +21,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // S1/S3 wire: IosNotifGlue.shared.start(); UNUserNotificationCenter.current().delegate = …;
-    // BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.sloopworks.dayfold.now.refresh").
+    // Main thread. Sets the (retained) UN delegate, warms the shared ContentStore, requests notif auth.
+    // Geofence CL delegate + BGTaskScheduler.register/submit are added in S3.
+    IosNotifGlue.shared.start()
+    // S1 verification scaffold — post a demo group a moment after launch so the notifier (banner +
+    // threadIdentifier grouping + on-device subtitle + tap→deep-link) is observable. Removed in S3
+    // once the real geofence pass calls postGroup.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+      IosNotifGlue.shared.debugTestPost()
+    }
     return true
   }
 }
