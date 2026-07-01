@@ -605,6 +605,7 @@ data class Hub (
     val startAt: String? = null,
 
     val status: Status? = null,
+    val timeline: Timeline? = null,
 
     /**
      * [CONTENT/E2E-hole]
@@ -682,6 +683,78 @@ enum class Status(val value: String) {
     @SerialName("archived") Archived("archived"),
     @SerialName("planning") Planning("planning");
 }
+
+@Serializable
+data class Timeline (
+    val stops: List<StopElement>,
+
+    /**
+     * [CONTENT/E2E-hole]
+     */
+    val title: String? = null,
+
+    /**
+     * IANA timezone, author-stamped; anchors the day-boundary + NOW line
+     */
+    val tz: String
+)
+
+@Serializable
+data class StopElement (
+    /**
+     * [CONTENT/E2E-hole] display-only label, never an identity binding
+     */
+    val assignee: String? = null,
+
+    /**
+     * RFC-3339 instant, or a bare YYYY-MM-DD for an all-day stop
+     */
+    val at: String,
+
+    val attachments: List<AttachmentElement>? = null,
+    val done: Boolean? = null,
+    val major: Boolean? = null,
+
+    /**
+     * [CONTENT/E2E-hole]
+     */
+    val sub: String? = null,
+
+    /**
+     * [CONTENT/E2E-hole]
+     */
+    val title: String
+)
+
+@Serializable
+data class AttachmentElement (
+    val kind: AttachmentKind,
+    val label: String,
+    val query: String? = null,
+    val ref: Ref? = null,
+    val tel: String? = null,
+    val url: String? = null
+)
+
+@Serializable
+enum class AttachmentKind(val value: String) {
+    @SerialName("call") Call("call"),
+    @SerialName("link") Link("link"),
+    @SerialName("nav") Nav("nav"),
+    @SerialName("open") Open("open");
+}
+
+@Serializable
+data class Ref (
+    @SerialName("blockId")
+    val blockID: String? = null,
+
+    @SerialName("hubId")
+    val hubID: String,
+
+    @SerialName("sectionId")
+    val sectionID: String? = null
+)
 
 /**
  * ADR 0014 reusable named place; family content (encrypted at rest, never live position)

@@ -13,6 +13,23 @@ NO-GO** → **building to learn**; the business unknowns (OQ-wtp / niche / gemin
 are **untouched by design**. The "brains" (G1 authoring loop) is a deliberate
 later milestone; interim authoring = operator + Claude Code via the CLI.
 
+**Status update (2026-06-30): Hub Timeline — Phase 1 BUILT (authored content type + on-device
+presentation, ADR 0045).** Worktree `derived-now-phase-b`, branch **`feat/hub-timeline`** (off the
+phase-B HEAD — the timeline reuses `NowDerive` date helpers, absent on `main`). Imported the
+`designs/hub-timeline/` hi-fi mock from Claude Design, 6-agent review (correctness/gaps/xplat +
+completeness/UX-M3/data-systems), brainstormed the source model, wrote `specs/hub-timeline-design.md` +
+**ADR 0045 (Accepted)**, revised + re-signed-off the mock (Gate A), planned
+(`docs/superpowers/plans/2026-06-30-hub-timeline.md`, 2 adversarial rounds), and built it subagent-driven
+(16 task-units, TDD, per-task review). **Shipped:** `Hub.timeline` authored property (schema + server +
+CLI content-blind structural validation), a pure on-device `TimelinePresenter` (status/scale/NOW/grouping/
+windowing, injected clock+tz — the multi-member wedge holds cross-tz), day-rail + hub-roadmap cards, a
+scrollable detail, nav substate + BackNav, attachment→CardAction handoff, and the card→detail
+shared-element morph. **Phase 1 = authored, render-only, Now-invisible, zero notifications**; provenance
+copy is authored-honest (no "derived on-device" claim). Full-stack gate green (codegen · api 345 · CLI ·
+client desktopTest). **Deferred to Phase 2 (operator-approved):** client-derived fallback
+(`deriveTimeline`), the day↔hub scope toggle + second-scale affordance, the roadmap `✓N` collapse, and
+per-member "Hide for me" on the card. Not yet on-device-verified (desktop snapshots only) or merged.
+
 **Bugfix (2026-06-30, on-device report) ✅ FIXED + VERIFIED ON PIXEL 10 PRO: Hub link/document blocks
 were not tappable.** Root cause (two layers): (1) `LinkRow` (`HubScreens.kt`) rendered the "opens
 externally" arrow but had **no click handler** — the installed `LocalUriHandler` (PlatformUriHandler,

@@ -200,4 +200,43 @@ class ContentStoreTest {
     assertEquals("h1", c.hubRef)               // @SerialName("hub_ref")
     assertTrue(resp.tombstones.isEmpty())
   }
+
+  // ADR 0045 — Hub.timeline DB round-trip (the bug: timeline was always null on-device
+  // because the hub table had no timeline column and rowToHub had no mapping).
+  @Test fun `hub timeline survives applyDelta through DB to activeHubs`() {
+    val s = store()
+    val tl = Timeline(
+      title = "Vacation Roadmap",
+      tz = "America/New_York",
+      stops = listOf(
+        Stop(at = "2026-07-04T12:00:00Z", title = "Depart", major = true),
+        Stop(at = "2026-07-04T18:00:00Z", title = "Arrive hotel", sub = "Check-in 3pm"),
+      ),
+    )
+    s.applyDelta(
+      changedCards = emptyList(),
+      changedHubs = listOf(Hub(id = "h_vac", title = "Summer Vacation", timeline = tl)),
+      tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-07-01T10:00:00Z",
+    )
+    val hub = assertNotNull(s.activeHubs().firstOrNull { it.id == "h_vac" })
+    val got = assertNotNull(hub.timeline)           // was null before this fix
+    assertEquals("Vacation Roadmap", got.title)
+    assertEquals("America/New_York", got.tz)
+    assertEquals(2, got.stops.size)
+    assertEquals("Depart", got.stops[0].title)
+    assertTrue(got.stops[0].major)
+    assertEquals("Arrive hotel", got.stops[1].title)
+    assertEquals("Check-in 3pm", got.stops[1].sub)
+  }
+
+  @Test fun `hub without timeline has null timeline after round-trip`() {
+    val s = store()
+    s.applyDelta(
+      changedCards = emptyList(),
+      changedHubs = listOf(Hub(id = "h_plain", title = "Plain Hub")),
+      tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-07-01T10:00:00Z",
+    )
+    val hub = assertNotNull(s.activeHubs().firstOrNull { it.id == "h_plain" })
+    assertNull(hub.timeline)
+  }
 }

@@ -57,12 +57,15 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     hubsBusy = false,
     currentHubId = state.currentHubId?.takeIf { id -> action.hubs.any { it.id == id } },
     currentHubTree = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.currentHubTree,
+    timelineDetail = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.timelineDetail,
   )
   is HubsFailed -> state.copy(hubsBusy = false, hubError = action.message)
-  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null, showHidden = false)
+  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null)
   is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
-  is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.")
-  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false)
+  is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.", timelineDetail = null)
+  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null)
+  is OpenTimelineDetail -> state.copy(timelineDetail = action.scale)  // ADR 0045 — open the timeline detail overlay
+  is CloseTimelineDetail -> state.copy(timelineDetail = null)         // ADR 0045 — close the timeline detail overlay
   is SetHubFocus -> state.copy(hubFocusBlockId = action.blockId)
   is SetHubFilter -> state.copy(hubFilter = action.filter)
   // W5 hide (ADR 0038 §W5) — DB-fed hidden ids + the per-view "Show hidden" toggle.

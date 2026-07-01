@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  /* NOW halo = a single settle-pulse on arrival, then the static box-shadow below (brand = calm); halo color is the per-mode primaryHalo token, never a hardcoded rgba. */
+</style>
+</helmet>
+<div style="font-family:'Figtree',sans-serif;">
+
+  <!-- block label -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 8px;">
+    <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">{{ label }}</span>
+    <span style="font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};">{{ meta }}</span>
+  </div>
+
+  <!-- ===================== DAY CARD (vertical, windowed) ===================== -->
+  <sc-if value="{{ isDay }}" hint-placeholder-val="{{ true }}">
+    <div style="background:{{ c.surfaceContainerHigh }};border-radius:22px;padding:15px 17px 13px;">
+
+      <!-- collapsed "done" cap -->
+      <sc-if value="{{ showDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:10px;padding:2px 2px 11px;">
+          <span style="width:13px;height:13px;flex:0 0 13px;border-radius:999px;background:{{ c.secondary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:9px;color:{{ c.onSecondary }};">check</span></span>
+          <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ doneText }}</span>
+          <span style="flex:1;height:1px;background:{{ c.outlineVar }};"></span>
+        </div>
+      </sc-if>
+
+      <!-- NOW marker (canonical: rail dot + halo + pill + gradient trail) -->
+      <sc-if value="{{ showNow }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:13px;margin:0 0 11px;">
+          <span style="width:14px;flex:0 0 14px;display:flex;justify-content:center;"><span style="width:11px;height:11px;border-radius:999px;background:{{ c.primary }};box-shadow:0 0 0 4px {{ c.primaryHalo }};"></span></span>
+          <span style="font-family:'Figtree';font-size:10px;font-weight:700;letter-spacing:0.06em;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:6px;padding:3px 8px;">NOW · {{ nowTime }}</span>
+          <span style="flex:1;height:2px;border-radius:2px;background:linear-gradient(90deg,{{ c.primary }},transparent);"></span>
+        </div>
+      </sc-if>
+
+      <!-- upcoming window -->
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;gap:13px;">
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 14px;">
+            <span class="{{ r.pulse }}" style="width:{{ r.dotSize }};height:{{ r.dotSize }};border-radius:999px;background:{{ r.dotBg }};border:{{ r.dotBorder }};margin-top:3px;"></span>
+            <span style="flex:1;width:2px;background:{{ c.outlineVar }};margin:3px 0;{{ r.lineHide }}"></span>
+          </div>
+          <div style="padding-bottom:13px;min-width:0;flex:1;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:'Outfit';font-weight:600;font-size:14.5px;color:{{ r.titleFg }};">{{ r.title }}</span>
+              <sc-if value="{{ r.isNext }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:9.5px;font-weight:700;letter-spacing:0.04em;color:{{ c.primary }};border:1px solid {{ c.primary }};border-radius:6px;padding:2px 6px;">NEXT</span></sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+              <span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ r.time }}</span>
+              <sc-if value="{{ r.hasAttach }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:3px;font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:13px;">attachment</span>{{ r.attachText }}</span></sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+
+      <!-- windowed tail: more stops exist below the fold -->
+      <sc-if value="{{ showTail }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:13px;align-items:center;margin:-4px 0 9px;">
+          <span style="width:14px;flex:0 0 14px;display:flex;justify-content:center;"><span style="width:5px;height:5px;border-radius:999px;background:{{ c.outline }};"></span></span>
+          <span style="font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};">{{ tailText }}</span>
+        </div>
+      </sc-if>
+
+      <!-- footer -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:3px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.primary }};">Open timeline<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:4px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added to this hub</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== HUB CARD (horizontal roadmap) ===================== -->
+  <sc-if value="{{ isHub }}" hint-placeholder-val="{{ false }}">
+    <div style="background:{{ c.surfaceContainerHigh }};border-radius:22px;padding:18px 18px 15px;">
+
+      <!-- phase spine -->
+      <div style="position:relative;height:46px;margin:2px 4px 4px;">
+        <div style="position:absolute;left:5px;right:5px;top:6px;height:3px;border-radius:3px;background:{{ c.outlineVar }};"></div>
+        <div style="position:absolute;left:5px;top:6px;height:3px;border-radius:3px;background:{{ c.secondary }};width:{{ fillPct }};"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <sc-for list="{{ spine }}" as="n" hint-placeholder-count="5">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:7px;width:{{ n.cellW }};">
+              <span class="{{ n.pulse }}" style="width:{{ n.size }};height:{{ n.size }};border-radius:999px;background:{{ n.bg }};border:{{ n.border }};display:flex;align-items:center;justify-content:center;margin-top:{{ n.top }};"><span class="msr fill" style="font-size:9px;color:{{ n.tickFg }};">{{ n.tick }}</span></span>
+              <span style="font-family:'Figtree';font-size:11px;font-weight:{{ n.weight }};color:{{ n.labelFg }};">{{ n.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- next milestone callout -->
+      <div style="display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:14px;border-top:1px solid {{ c.outlineVar }};">
+        <div style="text-align:center;flex:0 0 auto;background:{{ c.primary }};border-radius:13px;padding:7px 13px;min-width:50px;">
+          <div style="font-family:'Figtree';font-size:10px;font-weight:700;letter-spacing:0.08em;color:{{ c.onPrimary }};">{{ nextMon }}</div>
+          <div style="font-family:'Outfit';font-weight:700;font-size:22px;line-height:1;color:{{ c.onPrimary }};">{{ nextDay }}</div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="font-family:'Figtree';font-size:9.5px;font-weight:700;letter-spacing:0.04em;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:6px;padding:2px 7px;">{{ nextChip }}</span>
+            <span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">{{ nextDate }}</span>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-top:4px;line-height:1.15;">{{ nextTitle }}</div>
+        </div>
+      </div>
+
+      <!-- footer -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:13px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.primary }};">Open roadmap<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:8px;padding:4px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added to this hub</span>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:360,&quot;height&quot;:300},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;scale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;day&quot;,&quot;hub&quot;],&quot;default&quot;:&quot;day&quot;,&quot;tsType&quot;:&quot;'day' | 'hub'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const scale = this.props.scale === 'hub' ? 'hub' : 'day';
+    const light = {
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C726B', outlineVar:'#EBD3CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100', primaryHalo:'rgba(192,56,30,0.22)',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2', primaryHalo:'rgba(255,180,163,0.24)',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+    };
+    const c = mode === 'dark' ? dark : light;
+
+    // ----- DAY -----
+    const dayRows = [
+      { title:'Elevator slot', time:'11:00 AM', isNext:true, kind:'next', hasAttach:true, attachText:'Reminder' },
+      { title:'Lunch break', time:'12:30 PM · dining hall', isNext:false, kind:'up', hasAttach:false, attachText:'' },
+      { title:'Bookstore & student ID', time:'2:00 PM', isNext:false, kind:'up', hasAttach:false, attachText:'' },
+    ];
+    const rows = dayRows.map((r, i, arr) => ({
+      title:r.title, time:r.time, isNext:r.isNext, hasAttach:r.hasAttach, attachText:r.attachText,
+      dotSize: r.kind==='next' ? '14px' : '11px',
+      dotBg: r.kind==='next' ? c.primary : 'transparent',
+      dotBorder: r.kind==='next' ? 'none' : ('2px solid '+c.outline),
+      pulse: r.kind==='next' ? 'tlc-now' : '',
+      titleFg: c.onSurface,
+      lineHide: i === arr.length-1 ? 'visibility:hidden;' : '',
+    }));
+
+    // ----- HUB -----
+    const months = [
+      { label:'May', state:'done' }, { label:'Jun', state:'done' }, { label:'Jul', state:'done' },
+      { label:'Aug', state:'now' }, { label:'Sep', state:'up' },
+    ];
+    const curIdx = months.findIndex(m => m.state === 'now');
+    // condense rule: past ~6 nodes, collapse the leading done run into one checkmark-N node
+    let display = months;
+    if (months.length > 6) {
+      let i = 0; while (i < months.length && months[i].state === 'done') i++;
+      if (i > 2) display = [{ label:'✓'+i, state:'doneCollapsed' }].concat(months.slice(i));
+    }
+    const nowIdx = display.findIndex(m => m.state === 'now');
+    const fillPct = Math.round((nowIdx / (display.length - 1)) * 100) + '%';
+    const spine = display.map(m => {
+      const now = m.state === 'now', done = m.state === 'done', coll = m.state === 'doneCollapsed';
+      return {
+        label: m.label, cellW: '34px',
+        size: now ? '15px' : '11px',
+        top: now ? '0px' : '2px',
+        bg: (done||coll) ? c.secondary : now ? c.primary : c.surfaceContainer,
+        border: (done||now||coll) ? 'none' : ('2px solid '+c.outline),
+        tick: done ? 'check' : '',
+        tickFg: c.onSecondary,
+        pulse: now ? 'tlc-now' : '',
+        labelFg: now ? c.onSurface : c.onSurfaceVar,
+        weight: now ? '700' : '500',
+      };
+    });
+
+    return {
+      c, isDay: scale==='day', isHub: scale==='hub',
+      label: 'TIMELINE',
+      meta: scale==='day' ? 'Today · 7 stops' : 'Roadmap · May–Sep',
+      // day
+      showDone: true, doneText: '3 done this morning',
+      showNow: true, nowTime: '10:40',
+      rows,
+      showTail: scale==='day', tailText: '1 more after 2 PM',
+      // hub
+      spine, fillPct,
+      nextMon: 'AUG', nextDay: '24', nextChip: 'TODAY',
+      nextDate: 'Henderson Hall · today', nextTitle: 'Move-in day',
+    };
+  }
+}
+</script>
+</body>
+</html>

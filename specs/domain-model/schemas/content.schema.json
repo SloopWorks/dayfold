@@ -46,6 +46,49 @@
     "ChecklistPayload":{ "x-e2e": "ciphertext-at-M1", "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "type": "object", "required": ["id", "text"], "properties": { "id": { "$ref": "#/$defs/ulid" }, "text": { "type": "string", "description": "loop-authoritative at M0" }, "done": { "type": "boolean", "default": false, "description": "member-mutable (the done-triple)" }, "doneBy": { "type": "string", "description": "NEW (ADR 0038) — user id who toggled (display byline)" }, "doneAt": { "$ref": "#/$defs/timestamp" }, "ord": { "type": "integer", "default": 0, "description": "NEW (ADR 0038) — order; loop-authoritative at M0 (§5.3); doneBy/doneAt/id are the new ADR-0038 fields" }, "due": { "$ref": "#/$defs/timestamp" }, "assignee": { "type": "string", "description": "loop-authoritative at M0" } }, "additionalProperties": false } } }, "additionalProperties": false },
     "DocumentPayload": { "type": "object", "required": ["ref"], "properties": { "ref": { "type": "string", "description": "url | fileRef (links+small refs at MVP)" }, "label": { "type": "string" }, "kind": { "type": "string" }, "thumbnailUrl": { "type": "string", "format": "uri", "maxLength": 2048, "description": "document preview image; https + allowlisted host (ADR 0036)" }, "thumbnailAlt": { "type": "string", "maxLength": 256, "description": "a11y alt for thumbnailUrl" } }, "additionalProperties": false },
     "MilestonePayload":{ "type": "object", "required": ["date", "label"], "properties": { "date": { "$ref": "#/$defs/timestamp" }, "label": { "type": "string" } }, "additionalProperties": false },
+
+    "TimelineAttachment": {
+      "type": "object",
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": { "enum": ["call", "nav", "link", "open"] },
+        "label": { "type": "string" },
+        "tel": { "type": "string" },
+        "query": { "type": "string" },
+        "url": { "type": "string" },
+        "ref": {
+          "type": "object",
+          "required": ["hubId"],
+          "properties": { "hubId": { "$ref": "#/$defs/ulid" }, "sectionId": { "$ref": "#/$defs/ulid" }, "blockId": { "$ref": "#/$defs/ulid" } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "TimelineStop": {
+      "type": "object",
+      "required": ["at", "title"],
+      "properties": {
+        "at": { "type": "string", "description": "RFC-3339 instant, or a bare YYYY-MM-DD for an all-day stop" },
+        "title": { "type": "string", "description": "[CONTENT/E2E-hole]" },
+        "sub": { "type": "string", "description": "[CONTENT/E2E-hole]" },
+        "major": { "type": "boolean", "default": false },
+        "done": { "type": "boolean", "default": false },
+        "assignee": { "type": "string", "description": "[CONTENT/E2E-hole] display-only label, never an identity binding" },
+        "attachments": { "type": "array", "items": { "$ref": "#/$defs/TimelineAttachment" } }
+      },
+      "additionalProperties": false
+    },
+    "Timeline": {
+      "type": "object",
+      "required": ["tz", "stops"],
+      "properties": {
+        "title": { "type": "string", "description": "[CONTENT/E2E-hole]" },
+        "tz": { "type": "string", "description": "IANA timezone, author-stamped; anchors the day-boundary + NOW line" },
+        "stops": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/TimelineStop" } }
+      },
+      "additionalProperties": false
+    },
     "ContactPayload":  { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "role": { "type": "string" }, "phone": { "type": "string" }, "email": { "type": "string" }, "avatarUrl": { "type": "string", "format": "uri", "maxLength": 2048, "description": "contact avatar photo; https + allowlisted host (ADR 0036); falls back to initials" }, "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "decorative-only accent seed (ADR 0036)" } }, "additionalProperties": false },
     "LocationPayload": { "type": "object", "required": ["label"], "properties": { "label": { "type": "string" }, "address": { "type": "string" }, "mapUrl": { "type": "string" } }, "additionalProperties": false },
     "BudgetPayload":   { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "type": "object", "required": ["label", "amount"], "properties": { "label": { "type": "string" }, "amount": { "type": "number" }, "paid": { "type": "boolean", "default": false } }, "additionalProperties": false } } }, "additionalProperties": false },
@@ -93,6 +136,7 @@
         "start_at": { "$ref": "#/$defs/timestamp" }, "end_at": { "$ref": "#/$defs/timestamp" }, "countdown_to": { "$ref": "#/$defs/timestamp" },
         "version": { "$ref": "#/$defs/version" },
         "sections": { "type": "array", "items": { "$ref": "#/$defs/Section" } },
+        "timeline": { "$ref": "#/$defs/Timeline" },
         "media": {
           "description": "visual enrichment (ADR 0036; all optional, absent = unenriched/today's look). URLs are https + allowlisted-host (ADR 0036 shared validator); icon ∈ curated set; accentColor is decorative-only.",
           "type": "object",

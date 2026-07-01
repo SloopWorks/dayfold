@@ -53,8 +53,8 @@ object SampleData {
         bodyExcerpt = "Please reply yes/no for Maya's field trip by Thursday.",
         labels = listOf("School", "Action needed"),
         attachments = listOf(
-          Attachment(name = "permission.pdf", mime = "application/pdf", size = 240000),
-          Attachment(name = "itinerary.pdf", mime = "application/pdf", size = 88000),
+          EmailAttachment(name = "permission.pdf", mime = "application/pdf", size = 240000),
+          EmailAttachment(name = "itinerary.pdf", mime = "application/pdf", size = 88000),
         ))),
       relatedKicker = "FROM THE SAME EMAIL",
       related = listOf(

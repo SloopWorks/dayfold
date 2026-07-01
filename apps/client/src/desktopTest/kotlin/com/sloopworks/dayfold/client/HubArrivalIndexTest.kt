@@ -37,6 +37,13 @@ class HubArrivalIndexTest {
     assertNull(focusedBlockItemIndex(tree, "nope", hasCountdown = false, restricted = false))
   }
 
+  @Test fun timelineCardShiftsIndexByOne() {
+    // hasTimelineCard=true must return exactly 1 more than hasTimelineCard=false
+    val withoutTl = focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hasTimelineCard = false)
+    val withTl    = focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hasTimelineCard = true)
+    assertEquals(withoutTl!! + 1, withTl)
+  }
+
   @Test fun emptySectionRendersNothingAndDoesNotShiftTheIndex() {
     // an empty section (created via CLI, blocks not pushed yet) renders no header,
     // so it must not occupy an item slot before a later focused block.

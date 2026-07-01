@@ -1,13 +1,21 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.ExperimentalTransitionApi
+import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +69,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import com.sloopworks.dayfold.client.cards.CardAction
+import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
+import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
+import com.sloopworks.dayfold.client.cards.cardSharedBounds
 import com.sloopworks.dayfold.client.cards.vettedOpenUri
+import kotlinx.datetime.TimeZone
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -233,7 +247,7 @@ private fun StatusChip(status: String) {
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalTransitionApi::class)
 @Composable
 fun HubDetailScreen(
   state: AppState,
@@ -253,8 +267,48 @@ fun HubDetailScreen(
   onHideBlock: (String) -> Unit = {},
   onUnhideBlock: (String) -> Unit = {},
   onSetShowHidden: (Boolean) -> Unit = {},
+  // ADR 0045 — hub timeline card + detail overlay (Task 13a: static integration, no shared-element morph)
+  onOpenTimeline: (TimelineScale) -> Unit = {},
+  onCloseTimeline: () -> Unit = {},
+  onTimelineAction: (CardAction) -> Unit = {},
 ) {
   val tree = state.currentHubTree
+  // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay
+  val tl = tree?.hub?.timeline
+  val tz = tl?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { TimeZone.currentSystemDefault() } }
+    ?: TimeZone.currentSystemDefault()
+  val nowIso = kotlin.time.Clock.System.now().toString()
+  // ADR 0045 13b: shared-element container-transform (card→detail morph). Both branches of
+  // AnimatedContent apply cardSharedBounds("timeline") so the card bounds morph into the detail
+  // and back. Reduced motion → snapTo (no animation). System back dispatches CloseTimelineDetail
+  // → state.timelineDetail = null → morph back; no gesture handler needed for correctness.
+  val seekable = remember { SeekableTransitionState<TimelineScale?>(state.timelineDetail) }
+  val reduceMotion = rememberReduceMotion()
+  LaunchedEffect(state.timelineDetail) {
+    if (seekable.currentState != state.timelineDetail) {
+      if (reduceMotion) seekable.snapTo(state.timelineDetail)
+      else seekable.animateTo(state.timelineDetail, animationSpec = tween(if (state.timelineDetail != null) 360 else 280, easing = EmphasizedDecelerate))
+    }
+  }
+  val transition = rememberTransition(seekable, label = "hub-timeline")
+  SharedTransitionLayout {
+    transition.AnimatedContent(
+      contentKey = { it != null },
+      transitionSpec = {
+        val opening = targetState != null
+        val dur = if (opening) 360 else 280
+        (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
+      },
+    ) { scale ->
+      CompositionLocalProvider(
+        LocalSharedTransitionScope provides this@SharedTransitionLayout,
+        LocalAnimatedVisibilityScope provides this@AnimatedContent,
+      ) {
+        if (scale != null && tl != null) {
+          Box(Modifier.fillMaxSize().cardSharedBounds("timeline")) {
+            TimelineDetail(tl, scale, nowIso, tz, onBack = onCloseTimeline, onAction = onTimelineAction)
+          }
+        } else {
   Scaffold(
     topBar = {
       TopAppBar(
@@ -280,8 +334,10 @@ fun HubDetailScreen(
       // must mirror the header items emitted below (the helper counts them).
       val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString()) != null && tree.hub.status != "archived"
       LaunchedEffect(state.hubFocusBlockId, tree) {
-        focusedBlockItemIndex(tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted")
-          ?.let { listState.animateScrollToItem(it) }
+        focusedBlockItemIndex(
+          tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
+          hasTimelineCard = tl != null && presentTimelineCard(tl, nowIso, tz) != null,
+        )?.let { listState.animateScrollToItem(it) }
       }
       // Slice 4 (ADR 0038, States screen): the optimistic-write status, derived off the
       // blocks' local_state — one calm queue affordance, never a per-row alarm.
@@ -360,6 +416,17 @@ fun HubDetailScreen(
             )
           }
         }
+        // ADR 0045: hoisted timeline card — hub-level, above all content sections.
+        // presentTimelineCard selects Day vs Hub scale automatically from the stop cadence.
+        tl?.let { timeline ->
+          presentTimelineCard(timeline, nowIso, tz)?.let { model ->
+            item(key = "timeline") {
+              Box(Modifier.cardSharedBounds("timeline")) {
+                TimelineCard(model) { onOpenTimeline(model.scale) }
+              }
+            }
+          }
+        }
         // sections (ordered) each followed by their blocks (grouped by section_id). Hidden
         // blocks (W5) are filtered out of the live sections and collected into the one
         // "Hidden for you" section below — hide is a pure VIEW split, never a deletion (D4).
@@ -404,17 +471,22 @@ fun HubDetailScreen(
       }
     }
   }
+        } // closes else { dossier branch of AnimatedContent scale check
+      } // closes CompositionLocalProvider
+    } // closes AnimatedContent
+  } // closes SharedTransitionLayout
 }
 
 // Pure: the LazyColumn item index of the focused block (or null = not present / no
 // focus), so the arrival can scroll it into view. Mirrors HubDetailScreen's emission
 // order: [status header] + [countdown?] + [honesty?] + per section [header] + [blocks].
 // Unit-tested so it can't silently drift from the render.
-fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Boolean, restricted: Boolean): Int? {
+fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Boolean, restricted: Boolean, hasTimelineCard: Boolean = false): Int? {
   if (focusBlockId == null) return null
   var idx = 1                                       // status header (always)
   if (hasCountdown) idx += 1
   if (restricted) idx += 1
+  if (hasTimelineCard) idx += 1
   for (section in tree.sections.sortedBy { it.ord }) {
     val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
     if (blocks.isEmpty()) continue                   // empty sections render nothing → don't count a header
@@ -643,8 +715,12 @@ private fun HubBlockCard(
 // colour, never the coral delete owns).
 @Composable
 private fun HideSwipeBackground() {
+  // fillMaxSize (not fillMaxWidth): the affordance must match the card's FULL height so
+  // its rounded corners align with the card's. With fillMaxWidth it wrapped its content
+  // (~48dp), top-aligned, and its rounded top corners peeked through the card's rounded
+  // top corners at rest — the stray "greenish corners".
   Box(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+    Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))
       .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 20.dp),
   ) {
     Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

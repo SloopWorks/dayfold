@@ -217,7 +217,7 @@ internal fun parseInstantFlexible(s: String?, zone: TimeZone): Instant? {
 }
 
 // 12-hour clock time with no am/pm, e.g. 13:30 → "1:30", 15:00 → "3:00" (matches the mockup).
-private fun clockTime(instant: Instant, zone: TimeZone): String {
+internal fun clockTime(instant: Instant, zone: TimeZone): String {
   val t = instant.toLocalDateTime(zone).time
   val h12 = (t.hour % 12).let { if (it == 0) 12 else it }
   return "$h12:${t.minute.toString().padStart(2, '0')}"

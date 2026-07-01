@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration:none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(39,24,20,0.16); }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:60px 40px 84px;">
+  <div style="max-width:1080px;margin:0 auto;">
+
+    <!-- masthead -->
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:22px;flex-wrap:wrap;">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Dayfold index</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.08em;color:#fff;background:#00796F;border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>SPEC v2 · AWAITING SIGN-OFF</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;">Hubs · an authored property · timeline</span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+      <div style="width:52px;height:52px;border-radius:17px;background:linear-gradient(135deg,#FF8A6E,#C0381E);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(192,56,30,0.30);"><span class="msr fill" style="font-size:28px;color:#fff;">timeline</span></div>
+      <div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;">Timeline — an authored hub property</div>
+        <div style="font-family:'Figtree';font-size:13px;color:#8C726B;">Dayfold · extends the Hubs detail anatomy · light + dark · Compose-named</div>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(34px,5.2vw,54px);line-height:1.04;letter-spacing:-0.025em;margin:0 0 16px;max-width:18ch;">The spine of a hub</h1>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 14px;">Hubs already hold a flat list of blocks. A timeline gives a hub an <b>axis of time</b> — so a months-long project and a single frantic day are both legible at a glance. One authored property, rendered at <b>two scales</b>: a <b>day</b> timeline for a busy day, and a hub <b>roadmap</b> spanning weeks or months. Each lives as a calm card in the dossier and taps open to a full, linkable view.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:46px;">
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FFDAD2;color:#5A1100;padding:7px 13px;border-radius:999px;">Card + detail</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Two scales</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Light + dark</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Authored, with provenance</span>
+    </div>
+
+    <!-- ===== TWO SCALES ===== -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">01</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Two scales, one timeline</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 6px;">The layout signals the span</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:68ch;margin:0 0 24px;">A <b>day</b> reads top-to-bottom as a vertical rail with a live <b>NOW</b> line; a <b>roadmap</b> reads left-to-right as a horizontal spine of month milestones. Same data model, two renderings — you never have to read a label to know which scale you're looking at. In a real hub the dossier shows <b>one</b> card, scale auto-selected from the stops; the second scale is one tap away via the in-detail toggle. (Both are shown together here only to document the two renderings.)</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:30px;">
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="msr" style="font-size:20px;color:#C0381E;">wb_sunny</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Day · the busy day</span><span style="margin-left:auto;font-family:'Figtree';font-size:11px;font-weight:600;color:#8C726B;">vertical · hours</span></div>
+        <dc-import name="Timeline-Card" scale="day" mode="light" hint-size="100%,300px"></dc-import>
+      </div>
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="msr" style="font-size:20px;color:#6438AE;">calendar_month</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;">Hub · the roadmap</span><span style="margin-left:auto;font-family:'Figtree';font-size:11px;font-weight:600;color:#8C726B;">horizontal · months</span></div>
+        <dc-import name="Timeline-Card" scale="hub" mode="light" hint-size="100%,230px"></dc-import>
+        <div style="height:18px;"></div>
+        <dc-import name="Timeline-Card" scale="day" mode="dark" hint-size="100%,300px"></dc-import>
+      </div>
+    </div>
+
+    <!-- ===== DENSITY LADDER ===== -->
+    <div style="display:flex;align-items:center;gap:10px;margin:46px 0 6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">02</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Density · level of detail</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 6px;">One entry, four densities</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:68ch;margin:0 0 24px;">Every timeline entry can render at four levels of detail. The <b>card</b> stays shallow (marker → row) so the dossier never feels heavy; the <b>detail</b> view promotes the moments that matter (rich row → expanded). Done items always drop back a rung.</p>
+
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:10px 26px;margin-bottom:30px;">
+      <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:170px 1fr;gap:24px;align-items:center;padding:20px 0;border-top:{{ t.border }};">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><span style="font-family:'Figtree';font-size:11px;font-weight:700;color:#fff;background:{{ t.tagBg }};border-radius:6px;padding:2px 7px;">{{ t.tag }}</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">{{ t.name }}</span></div>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#8C726B;">{{ t.where }}</div>
+          </div>
+          <div style="background:#FCEBE6;border-radius:16px;padding:14px 16px;">{{ t.demo }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ===== CARD -> DETAIL ===== -->
+    <div style="display:flex;align-items:center;gap:10px;margin:46px 0 6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">03</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Card → detail</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 18px;">The card is a window; the detail is the whole thing</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:30px;">
+      <a class="card" href="Tap-To-Detail.dc.html" style="background:#EFE4FB;border:1px solid #DECBF3;border-radius:28px;padding:28px;display:flex;flex-direction:column;min-height:200px;color:inherit;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:auto;">
+          <div style="width:54px;height:54px;border-radius:17px;background:#6438AE;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:#fff;">open_in_full</span></div>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11px;font-weight:700;color:#4C2092;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:999px;padding:5px 10px;"><span class="msr" style="font-size:13px;">touch_app</span>LIVE</span>
+        </div>
+        <div style="margin-top:22px;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:#4C2092;margin-bottom:6px;">THE INTERACTION</div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;margin-bottom:6px;">Tap → container transform</div>
+          <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#3F2A6E;">A working hub with both timelines. Tap a card and it grows into the full view; the scope toggle zooms between day and hub. Light + dark.</div>
+        </div>
+      </a>
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px;display:flex;flex-direction:column;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:14px;">THE RULE</div>
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-top:1px solid #F0DFDA;">
+            <span class="msr" style="flex:0 0 20px;font-size:19px;color:#C0381E;margin-top:1px;">{{ r.icon }}</span>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;"><b style="color:#271814;">{{ r.k }}</b> {{ r.v }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ===== STATES ===== -->
+    <div style="display:flex;align-items:center;gap:10px;margin:46px 0 6px;"><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">04</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">States · the quiet cases</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 6px;">Designed past the happy path</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;max-width:68ch;margin:0 0 24px;">The rich both-scales-today card is one case. The renderer must hold up when there's nothing to lay out, when everything is behind us, and when you're not viewing on the key day.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:30px;">
+
+      <!-- EMPTY -->
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:20px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="msr" style="font-size:19px;color:#8C726B;">do_not_disturb_on</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Empty</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:120px;border:1.5px dashed #EBD3CB;border-radius:16px;background:#FCEBE6;">
+          <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;text-align:center;padding:0 14px;">No card rendered.<br>The dossier simply omits it.</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#5A423C;margin-top:13px;">A hub with no authored <code style="font-family:monospace;font-size:11px;color:#6438AE;">timeline</code> shows nothing — no placeholder, no empty card.</div>
+      </div>
+
+      <!-- ALL DONE -->
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:20px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="msr fill" style="font-size:19px;color:#00796F;">verified</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">All done</span></div>
+        <div style="flex:1;min-height:120px;background:#F6E5E0;border-radius:16px;padding:14px 15px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <span style="width:13px;height:13px;flex:0 0 13px;border-radius:999px;background:#00796F;display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:9px;color:#fff;">check</span></span>
+            <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:#5A423C;">All 7 stops complete</span>
+          </div>
+          <div style="height:1px;background:#EBD3CB;margin:11px 0;"></div>
+          <div style="font-family:'Figtree';font-size:12px;color:#8C726B;font-style:italic;">Nothing left to unfold here.</div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#5A423C;margin-top:13px;">Event passed: roadmap fully filled / day all-checked, <b>no NOW line</b>. The calm empty voice — never a broken-looking collapse.</div>
+      </div>
+
+      <!-- NOT TODAY -->
+      <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:24px;padding:20px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="msr" style="font-size:19px;color:#6438AE;">event_upcoming</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Not today</span></div>
+        <div style="flex:1;min-height:120px;background:#F6E5E0;border-radius:16px;padding:14px 15px;display:flex;flex-direction:column;gap:11px;">
+          <div style="display:flex;gap:11px;align-items:center;"><span style="width:11px;height:11px;flex:0 0 11px;border-radius:999px;border:2px solid #8C726B;"></span><span style="font-family:'Figtree';font-size:12.5px;color:#271814;">Move-up slot<span style="color:#8C726B;margin-left:8px;">Aug 24</span></span></div>
+          <div style="display:flex;gap:11px;align-items:center;"><span style="width:11px;height:11px;flex:0 0 11px;border-radius:999px;border:2px solid #8C726B;"></span><span style="font-family:'Figtree';font-size:12.5px;color:#271814;">Bookstore<span style="color:#8C726B;margin-left:8px;">Aug 24</span></span></div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#5A423C;margin-top:13px;">Viewing off the key day: every stop reads <b>upcoming</b>, no NOW line. The day scale targets the hub's focal day, in its own timezone.</div>
+      </div>
+
+    </div>
+
+    <!-- ===== DECISIONS ===== -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:28px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:#00796F;">task_alt</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Decisions baked in</h2></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 18px;max-width:78ch;">Every open call a timeline raises, resolved to a single design. The timeline is a new <b>authored, content-blind hub property</b> (ADR 0045) — the author writes the stops; the client lays them out in time on-device. Extends the Hubs detail anatomy, the Now deep-link transform, and the two-way write model (<b>ADR 0038/0039</b>); per-member visibility follows <b>ADR 0030</b>.</p>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="6">
+          <div style="display:flex;gap:16px;align-items:flex-start;padding:15px 6px;border-top:1px solid #F0DFDA;">
+            <span class="msr fill" style="flex:0 0 22px;font-size:20px;color:#00796F;margin-top:1px;">check_circle</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:#271814;margin-bottom:3px;">{{ d.q }}</div><div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#5A423C;">{{ d.a }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ===== ACCESSIBILITY ===== -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:28px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:#00796F;">accessibility_new</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Accessibility</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.015em;margin:0 0 18px;">Legible without color or motion</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 28px;">
+        <sc-for list="{{ a11y }}" as="x" hint-placeholder-count="6">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #F0DFDA;">
+            <span class="msr" style="font-size:19px;color:#6438AE;margin-top:1px;">{{ x.icon }}</span>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#5A423C;"><b style="color:#271814;">{{ x.k }}</b> {{ x.v }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ===== COMPOSE MAP ===== -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:26px;padding:28px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:#1C6E8C;">view_in_ar</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Maps 1:1 to Compose</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.015em;margin:0 0 18px;">M3 component map</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 28px;">
+        <sc-for list="{{ compose }}" as="m" hint-placeholder-count="10">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #F0DFDA;">
+            <span class="msr" style="font-size:19px;color:#C0381E;margin-top:1px;">{{ m.icon }}</span>
+            <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:#271814;">{{ m.ui }}</div></div>
+            <code style="font-family:monospace;font-size:11px;color:#6438AE;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:7px;padding:4px 8px;white-space:nowrap;align-self:flex-start;">{{ m.compose }}</code>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    const C = React.createElement;
+    const dot = (bg, border) => C('span', { style:{ width:'13px', height:'13px', flex:'0 0 13px', borderRadius:'999px', background:bg, border:border||'none', display:'inline-block' } });
+    const railCol = (bg, border, lineHide) => C('div', { style:{ display:'flex', flexDirection:'column', alignItems:'center', flex:'0 0 14px' } },
+      dot(bg, border),
+      C('span', { style:{ flex:1, width:'2px', background:'#EBD3CB', margin:'3px 0', minHeight:'18px', visibility: lineHide?'hidden':'visible' } })
+    );
+    const chip = (icon, label, bg, fg) => C('span', { style:{ display:'inline-flex', alignItems:'center', gap:'5px', fontFamily:"'Figtree'", fontSize:'11.5px', fontWeight:600, color:fg, background:bg, borderRadius:'8px', padding:'5px 9px' } },
+      C('span', { className:'msr', style:{ fontSize:'14px' } }, icon), label);
+    const avatar = (init) => C('span', { style:{ display:'inline-flex', alignItems:'center', gap:'6px', fontFamily:"'Figtree'", fontSize:'11.5px', color:'#5A423C' } },
+      C('span', { style:{ width:'20px', height:'20px', borderRadius:'999px', background:'#FFDAD2', color:'#5A1100', display:'inline-flex', alignItems:'center', justifyContent:'center', fontFamily:"'Outfit'", fontWeight:600, fontSize:'9.5px' } }, init), 'Pat');
+
+    // ---- density demos ----
+    const tier1 = C('div', { style:{ display:'flex', gap:'13px', alignItems:'center' } },
+      dot('transparent','2px solid #8C726B'),
+      C('div', {},
+        C('span', { style:{ fontFamily:"'Outfit'", fontWeight:600, fontSize:'14px', color:'#271814' } }, 'Family weekend'),
+        C('span', { style:{ fontFamily:"'Figtree'", fontSize:'12px', color:'#5A423C', marginLeft:'10px' } }, 'Sep 19')));
+    const tier2 = C('div', { style:{ display:'flex', gap:'13px' } },
+      railCol('#C0381E', 'none', true),
+      C('div', {},
+        C('div', { style:{ fontFamily:"'Outfit'", fontWeight:600, fontSize:'14.5px', color:'#271814' } }, 'Elevator move-up slot'),
+        C('div', { style:{ fontFamily:"'Figtree'", fontSize:'12.5px', color:'#5A423C' } }, '11:00 AM')));
+    const tier3 = C('div', { style:{ display:'flex', gap:'13px' } },
+      railCol('#00796F', 'none', true),
+      C('div', {},
+        C('div', { style:{ fontFamily:"'Outfit'", fontWeight:600, fontSize:'14.5px', color:'#271814' } }, 'Checked in, keys collected'),
+        C('div', { style:{ fontFamily:"'Figtree'", fontSize:'12.5px', color:'#5A423C', marginBottom:'9px' } }, '9:50 AM · Move-in desk, Lot C'),
+        C('div', { style:{ display:'flex', gap:'7px', flexWrap:'wrap' } }, avatar('PM'), chip('map','Map','#9DF2E4','#00201C'))));
+    const tier4 = C('div', { style:{ display:'flex', gap:'13px' } },
+      railCol('#6438AE', 'none', true),
+      C('div', { style:{ flex:1 } },
+        C('div', { style:{ background:'#ECDCFF', border:'1px solid #6438AE', borderRadius:'14px', padding:'13px 15px' } },
+          C('div', { style:{ display:'flex', justifyContent:'space-between', alignItems:'baseline' } },
+            C('span', { style:{ fontFamily:"'Outfit'", fontWeight:600, fontSize:'15px', color:'#23005C' } }, 'Move-in day'),
+            C('span', { style:{ fontFamily:"'Figtree'", fontSize:'12px', fontWeight:600, color:'#23005C' } }, 'Today')),
+          C('div', { style:{ fontFamily:"'Figtree'", fontSize:'12.5px', color:'#5A423C', margin:'4px 0 11px' } }, 'Henderson Hall, room 214 — happening now'),
+          C('div', { style:{ display:'flex', gap:'7px', flexWrap:'wrap' } },
+            chip('checklist','Dorm list','#ECDCFF','#23005C'), chip('map','Map','#9DF2E4','#00201C'), chip('schedule','Day plan','#ECDCFF','#23005C')))));
+
+    const tiers = [
+      { tag:'T1', tagBg:'#8C726B', name:'Marker', where:'Minor dates. Rail only.', demo: tier1, border:'none' },
+      { tag:'T2', tagBg:'#C0381E', name:'Row', where:'The card default. Title + time.', demo: tier2, border:'1px solid #F0DFDA' },
+      { tag:'T3', tagBg:'#00796F', name:'Rich row', where:'The detail default. + who + links.', demo: tier3, border:'1px solid #F0DFDA' },
+      { tag:'T4', tagBg:'#6438AE', name:'Expanded', where:'Next-up & major. Bordered card.', demo: tier4, border:'1px solid #F0DFDA' },
+    ];
+
+    return {
+      tiers,
+      rules: [
+        { icon:'crop_7_5', k:'The card windows.', v:'It shows a collapsed "done" cap, the NOW line, and the next ~3 stops — never the whole list.' },
+        { icon:'unfold_more', k:'The detail is complete.', v:'Grouped by part-of-day or month, with assignees and inline call / navigate / file / link chips.' },
+        { icon:'bolt', k:'NOW is shared.', v:'A day is live only on its day; the roadmap always highlights the current month band.' },
+        { icon:'auto_awesome', k:'It is authored.', v:'The Claude skill / CLI writes the stops to this hub; the client only lays them out in time. A derived-from-blocks fallback is a later phase.' },
+      ],
+      decisions: [
+        { q:'One timeline type, or two?', a:'One block, two scales. The day renders as a vertical rail with a live NOW line; the hub renders as a horizontal month spine. The layout itself tells you the span.' },
+        { q:'How much detail on the card?', a:'A shallow window: a "N done" cap, the NOW line, and the next ~3 rows (T2). Attachments collapse to a single count — no avatars, no chips.' },
+        { q:'What does tapping do?', a:'The whole card container-transforms into the full timeline (back returns), reusing the Now deep-link arrival motion. No new screen pattern.' },
+        { q:'Where does "now" live?', a:'One per hub. The day timeline is live only on its date; otherwise every stop is upcoming. The roadmap always bands the current month.' },
+        { q:'How are entries promoted?', a:'Detail rows default to T3; only the next-up stop and major milestones promote to the bordered T4 card. Done entries dim and shed their attachments.' },
+        { q:'Where does the data come from?', a:'Authored to the hub via the content API / CLI / Claude skill, then laid out in time on-device (Phase 1). A derived-from-blocks fallback for un-authored dated hubs is Phase 2. Provenance is a quiet "Added to this hub" chip.' },
+        { q:'When does it set a stop’s time?', a:'The author sets each stop’s time — an RFC-3339 instant, or a bare date for an all-day stop — carrying the timeline’s own IANA timezone so every family member sees the same NOW line. Nothing is inferred from live location or traffic. (When the Phase-2 derived fallback lands, the most specific stated time wins.)' },
+        { q:'Who can edit a timeline?', a:'Author-only, matching the two-way write model (ADR 0038/0039); per-member visibility follows ADR 0030. Everyone in the hub can view; the author confirms or edits. The timeline has no notification channel of its own — a stop notifies only if it independently surfaces as a Now item under ADR 0044 (Phase 2).' },
+        { q:'What about a long roadmap?', a:'The horizontal spine caps at ~6 nodes; past that the leading done run collapses into one ✓N node, keeping the current month and what’s ahead legible. The vertical detail always stays complete.' },
+        { q:'One NOW treatment, or many?', a:'One canonical marker everywhere — a coral dot with a soft halo, a NOW-time pill, and a fading trail line — identical on the card and in the detail.' },
+      ],
+      a11y: [
+        { icon:'label', k:'Status, never color-only.', v:'Each entry announces done / now / next / upcoming in its label; in the detail, dots carry a glyph (check · arrow · star), and the card adds a NEXT label + filled-vs-hollow shape — never hue alone.' },
+        { icon:'segment', k:'Linearized spine.', v:'The horizontal roadmap reads top-to-bottom to a screen reader in the same order as the vertical detail, its accessible twin.' },
+        { icon:'campaign', k:'NOW is spoken.', v:'The marker exposes “current time, N stops remaining”; the live region updates politely, not on every tick.' },
+        { icon:'touch_app', k:'Targets ≥ 48dp.', v:'The whole card opens the detail; scope-toggle pills, entry rows and attachment chips all clear the touch minimum (≥48dp via minimumInteractiveComponentSize).' },
+        { icon:'motion_photos_off', k:'Reduced motion.', v:'The NOW pulse and the container transform fall back to a cross-fade.' },
+        { icon:'contrast', k:'Contrast holds.', v:'Done text and hollow upcoming dots keep ≥ 4.5:1 on surface in both light and dark.' },
+      ],
+      compose: [
+        { icon:'view_day', ui:'Timeline list + group headers', compose:'LazyColumn + stickyHeader' },
+        { icon:'crop_square', ui:'Entry row / expanded card', compose:'ListItem / Card' },
+        { icon:'radio_button_checked', ui:'Rail dot + connector', compose:'Canvas / Box' },
+        { icon:'bolt', ui:'NOW marker', compose:'HorizontalDivider + Badge' },
+        { icon:'linear_scale', ui:'Roadmap spine + progress', compose:'Row + LinearProgressIndicator' },
+        { icon:'tab', ui:'Day / Hub scope toggle', compose:'SingleChoiceSegmentedButtonRow' },
+        { icon:'sell', ui:'Attachment chip', compose:'AssistChip' },
+        { icon:'account_circle', ui:'Assignee avatar', compose:'Box + Text (label)' },
+        { icon:'open_in_full', ui:'Card → detail transform', compose:'SharedTransitionLayout' },
+        { icon:'today', ui:'Date / countdown tile', compose:'Card + Text(displaySmall)' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

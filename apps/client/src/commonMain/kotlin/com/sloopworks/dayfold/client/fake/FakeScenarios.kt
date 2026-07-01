@@ -1,7 +1,11 @@
 package com.sloopworks.dayfold.client.fake
 
+import com.sloopworks.dayfold.client.Attachment
+import com.sloopworks.dayfold.client.AttachmentRef
 import com.sloopworks.dayfold.client.BlockPayload
 import com.sloopworks.dayfold.client.Card
+import com.sloopworks.dayfold.client.Stop
+import com.sloopworks.dayfold.client.Timeline
 import com.sloopworks.dayfold.client.Changes
 import com.sloopworks.dayfold.client.ChecklistItem
 import com.sloopworks.dayfold.client.DeviceCredential
@@ -162,7 +166,20 @@ object FakeScenarios {
     title = "Lillian → Butler · Fall 2026", status = "active",
     countdownTo = "2026-08-01T00:00:00Z", visibility = "family", createdBy = "u_owner",
     media = HubMedia(heroUrl = mascotHero, heroFit = "cover", icon = "school",
-      accentColor = "#13294b", imageAlt = "Butler Blue, the Butler University bulldog mascot"))
+      accentColor = "#13294b", imageAlt = "Butler Blue, the Butler University bulldog mascot"),
+    // ADR 0045: an authored timeline (roadmap scale — the client renders it on-device).
+    timeline = Timeline(title = "Roadmap", tz = "America/New_York", stops = listOf(
+      Stop(at = "2026-05-01", title = "Enrollment deposit paid", done = true, assignee = "Pat"),
+      Stop(at = "2026-06-12", title = "Housing application submitted", done = true, assignee = "Lillian"),
+      Stop(at = "2026-07-20", title = "Orientation", assignee = "Lillian"),
+      Stop(at = "2026-08-24", title = "Move-in day", major = true, sub = "Henderson Hall, room 214",
+        assignee = "Pat + Lillian", attachments = listOf(
+          Attachment(kind = "nav", label = "Map", query = "Butler University Henderson Hall"),
+          Attachment(kind = "open", label = "Health forms",
+            ref = AttachmentRef(hubId = "h_college", sectionId = "s_college_health", blockId = "b_college_doc")))),
+      Stop(at = "2026-08-28", title = "First day of classes", sub = "Syllabus week begins"),
+      Stop(at = "2026-09-19", title = "Family weekend"),
+    )))
   private val collegeSections = listOf(
     HubSection(id = "s_college_health", hubId = "h_college", title = "Health & Forms", ord = 0),
     HubSection(id = "s_college_contacts", hubId = "h_college", title = "Contacts", ord = 1),

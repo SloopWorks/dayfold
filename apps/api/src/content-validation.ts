@@ -95,3 +95,41 @@ export function blockPayloadIssues(block: { type?: unknown; payload?: unknown; b
     true; // unknown type already rejected by the enum
   return ok ? [] : [{ path: ["payload"], message: `block ${String(type)}: payload present but missing its core field` }];
 }
+
+const ATTACH_KINDS = new Set(["call", "nav", "link", "open"]);
+
+/**
+ * Content-blind structural validation for Hub.timeline (ADR 0045).
+ * Validates STRUCTURE only — presence, non-empty array, enum membership.
+ * Never reads stop title/sub prose (server stays content-blind per ADR 0015/0017).
+ */
+export function hubTimelineIssues(hub: { timeline?: unknown }): CrossIssue[] {
+  const t = hub.timeline;
+  if (t == null) return [];
+  if (typeof t !== "object" || Array.isArray(t)) return [{ path: ["timeline"], message: "timeline must be an object" }];
+  const tl = t as Record<string, unknown>;
+  const issues: CrossIssue[] = [];
+  if (typeof tl.tz !== "string" || tl.tz.trim() === "") issues.push({ path: ["timeline", "tz"], message: "timeline.tz (IANA) is required" });
+  if (!Array.isArray(tl.stops) || tl.stops.length === 0) { issues.push({ path: ["timeline", "stops"], message: "timeline.stops must be a non-empty array" }); return issues; }
+  (tl.stops as unknown[]).forEach((s, i) => {
+    if (typeof s !== "object" || s === null || Array.isArray(s)) {
+      issues.push({ path: ["timeline", "stops", i], message: "stop must be an object" });
+      return;
+    }
+    const stop = s as Record<string, unknown>;
+    if (typeof stop.at !== "string" || stop.at.trim() === "") issues.push({ path: ["timeline", "stops", i, "at"], message: "stop.at is required" });
+    if (typeof stop.title !== "string" || stop.title.trim() === "") issues.push({ path: ["timeline", "stops", i, "title"], message: "stop.title is required" });
+    if (stop.attachments != null) {
+      if (!Array.isArray(stop.attachments)) issues.push({ path: ["timeline", "stops", i, "attachments"], message: "attachments must be an array" });
+      else (stop.attachments as unknown[]).forEach((a, j) => {
+        if (typeof a !== "object" || a === null || Array.isArray(a)) {
+          issues.push({ path: ["timeline", "stops", i, "attachments", j], message: "attachment must be an object" });
+          return;
+        }
+        const k = (a as Record<string, unknown>).kind;
+        if (typeof k !== "string" || !ATTACH_KINDS.has(k)) issues.push({ path: ["timeline", "stops", i, "attachments", j, "kind"], message: `attachment.kind must be one of ${[...ATTACH_KINDS].join("|")}` });
+      });
+    }
+  });
+  return issues;
+}

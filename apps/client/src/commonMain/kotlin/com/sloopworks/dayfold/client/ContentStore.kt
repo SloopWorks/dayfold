@@ -70,6 +70,7 @@ class ContentStore(driver: SqlDriver) {
         q.upsertHub(
           h.id, h.type, h.title, h.status, h.startAt, h.endAt, h.countdownTo, h.visibility, h.createdBy,
           h.media?.let { json.encodeToString(HubMedia.serializer(), it) },     // ADR 0036
+          h.timeline?.let { json.encodeToString(Timeline.serializer(), it) },  // ADR 0045
           nowIso,
         )
       }
@@ -133,7 +134,8 @@ class ContentStore(driver: SqlDriver) {
     id = r.id, type = r.type, title = r.title, status = r.status ?: "active",
     startAt = r.start_at, endAt = r.end_at, countdownTo = r.countdown_to,
     visibility = r.visibility ?: "family", createdBy = r.created_by,
-    media = decode(r.media, HubMedia.serializer()),   // ADR 0036
+    media = decode(r.media, HubMedia.serializer()),       // ADR 0036
+    timeline = decode(r.timeline, Timeline.serializer()), // ADR 0045
   )
 
   private fun rowToSection(r: com.sloopworks.dayfold.client.db.SectionsForHub): HubSection =

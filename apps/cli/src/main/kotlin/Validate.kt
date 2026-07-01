@@ -117,6 +117,8 @@ fun validateHubTree(resource: String, json: String): List<String> {
       str("status")?.let { if (it !in HUB_STATUS) e += "hub: status \"$it\" must be ${HUB_STATUS.joinToString("|")}" }
       // ADR 0036 — Hub.media (heroUrl/thumbnailUrl/icon/accentColor).
       e += mediaJsonErrors("media", obj["media"] as? JsonObject, listOf("heroUrl", "thumbnailUrl"))
+      // ADR 0045 — Hub.timeline structural validation (mirrors server gate).
+      e += hubTimelineErrors(obj["timeline"] as? JsonObject)
     }
     "sections" -> if (str("hubId").isNullOrBlank()) e += "section: `hubId` is required"
     "blocks" -> {
@@ -135,6 +137,28 @@ fun validateHubTree(resource: String, json: String): List<String> {
           }
         }
       }
+    }
+  }
+  return e
+}
+
+// ── hub timeline structural pre-check (ADR 0045) ─────────────────────────────
+private val ATTACH_KINDS = setOf("call", "nav", "link", "open")
+
+internal fun hubTimelineErrors(timeline: JsonObject?): List<String> {
+  if (timeline == null) return emptyList()
+  val e = mutableListOf<String>()
+  val tz = (timeline["tz"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+  if (tz.isNullOrBlank()) e += "timeline: `tz` (IANA) is required"
+  val stops = timeline["stops"] as? JsonArray
+  if (stops == null || stops.isEmpty()) { e += "timeline: `stops` must be a non-empty array"; return e }
+  stops.forEachIndexed { i, s ->
+    val stop = s as? JsonObject ?: run { e += "timeline.stops[$i]: must be an object"; return@forEachIndexed }
+    if ((stop["at"] as? JsonPrimitive)?.takeIf { it.isString }?.content.isNullOrBlank()) e += "timeline.stops[$i]: `at` is required"
+    if ((stop["title"] as? JsonPrimitive)?.takeIf { it.isString }?.content.isNullOrBlank()) e += "timeline.stops[$i]: `title` is required"
+    (stop["attachments"] as? JsonArray)?.forEachIndexed { j, a ->
+      val kind = ((a as? JsonObject)?.get("kind") as? JsonPrimitive)?.content
+      if (kind !in ATTACH_KINDS) e += "timeline.stops[$i].attachments[$j]: `kind` must be ${ATTACH_KINDS.joinToString("|")}"
     }
   }
   return e

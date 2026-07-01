@@ -16,7 +16,7 @@ fun backAction(state: AppState): Action? {
   if (state.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
   return when (state.route) {
     Route.Feed -> if (state.detailStack.isNotEmpty()) NavBack else null
-    Route.Hubs -> if (state.currentHubId != null) CloseHub else null
+    Route.Hubs -> if (state.timelineDetail != null) CloseTimelineDetail else if (state.currentHubId != null) CloseHub else null
     Route.Account -> CloseAccount
     Route.Members, Route.Devices, Route.Proximity -> OpenAccount
     Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied -> CloseDeviceFlow

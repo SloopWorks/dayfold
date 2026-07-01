@@ -17,7 +17,7 @@ const order = [
   "Provenance", "Trigger", "Action",
   "LinkPayload", "ChecklistPayload", "DocumentPayload", "MilestonePayload",
   "ContactPayload", "LocationPayload", "BudgetPayload",
-  "Block", "Section", "Hub", "BriefingCard", "Place", "SyncResponse",
+  "Block", "Section", "Timeline", "Hub", "BriefingCard", "Place", "SyncResponse",
 ];
 
 let out = `// GENERATED from specs/domain-model/schemas/content.schema.json — DO NOT EDIT.\n`;
