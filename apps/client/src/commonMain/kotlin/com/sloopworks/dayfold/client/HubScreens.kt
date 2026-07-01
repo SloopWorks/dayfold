@@ -75,9 +75,11 @@ import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
 import com.sloopworks.dayfold.client.cards.cardSharedBounds
 import com.sloopworks.dayfold.client.cards.vettedOpenUri
 import kotlinx.datetime.TimeZone
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.runtime.Composable
@@ -336,7 +338,9 @@ fun HubDetailScreen(
       LaunchedEffect(state.hubFocusBlockId, tree) {
         focusedBlockItemIndex(
           tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
-          hasTimelineCard = tl != null && presentTimelineCard(tl, nowIso, tz) != null,
+          // a card hidden for this member (W5) isn't emitted → don't count it in the index
+          hasTimelineCard = tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
+            presentTimelineCard(tl, nowIso, tz) != null,
         )?.let { listState.animateScrollToItem(it) }
       }
       // Slice 4 (ADR 0038, States screen): the optimistic-write status, derived off the
@@ -418,11 +422,35 @@ fun HubDetailScreen(
         }
         // ADR 0045: hoisted timeline card — hub-level, above all content sections.
         // presentTimelineCard selects Day vs Hub scale automatically from the stop cadence.
+        // Per-member "Hide for me" (ADR 0039 §W5): local-only, keyed by a synthetic id so the
+        // card partitions into the "Hidden for you" section like any other dossier element.
+        val timelineHideId = "timeline:${tree.hub.id}"
+        val timelineHidden = tl != null && state.hiddenIds.contains(timelineHideId)
         tl?.let { timeline ->
-          presentTimelineCard(timeline, nowIso, tz)?.let { model ->
-            item(key = "timeline") {
-              Box(Modifier.cardSharedBounds("timeline")) {
-                TimelineCard(model) { onOpenTimeline(model.scale) }
+          if (!timelineHidden) {
+            presentTimelineCard(timeline, nowIso, tz)?.let { model ->
+              item(key = "timeline") {
+                // Swipe (on-brand) + a screen-reader custom action, mirroring HubBlockCard's W5 hide.
+                val dismissState = rememberSwipeToDismissBoxState(
+                  confirmValueChange = { v ->
+                    if (v == SwipeToDismissBoxValue.EndToStart || v == SwipeToDismissBoxValue.StartToEnd) {
+                      onHideBlock(timelineHideId); false
+                    } else false
+                  },
+                )
+                SwipeToDismissBox(
+                  state = dismissState,
+                  backgroundContent = { HideSwipeBackground() },
+                  modifier = Modifier.fillMaxWidth().semantics {
+                    customActions = listOf(CustomAccessibilityAction("Hide timeline for me") {
+                      onHideBlock(timelineHideId); true
+                    })
+                  },
+                ) {
+                  Box(Modifier.cardSharedBounds("timeline")) {
+                    TimelineCard(model) { onOpenTimeline(model.scale) }
+                  }
+                }
               }
             }
           }
@@ -457,11 +485,16 @@ fun HubDetailScreen(
         // ── "Hidden for you" (W5) — a collapsed, personal section; never a family-visible
         // signal. Each hidden item carries the "You hid this" self-reminder + an Unhide path.
         val hidden = tree.blocks.filter { state.hiddenIds.contains(it.id) }.sortedBy { it.ord }
-        if (hidden.isNotEmpty()) {
+        if (hidden.isNotEmpty() || timelineHidden) {
           item(key = "hidden-header") {
-            HiddenForYouHeader(hidden.size, state.showHidden, onToggle = { onSetShowHidden(!state.showHidden) })
+            HiddenForYouHeader(hidden.size + (if (timelineHidden) 1 else 0), state.showHidden, onToggle = { onSetShowHidden(!state.showHidden) })
           }
           if (state.showHidden) {
+            if (timelineHidden) {
+              item(key = "hidden-timeline") {
+                HiddenTimelineCard(onUnhide = { onUnhideBlock(timelineHideId) })
+              }
+            }
             items(hidden, key = { "hidden-${it.id}" }) { block ->
               HiddenBlockCard(block, onUnhide = { onUnhideBlock(block.id) })
             }
@@ -764,6 +797,28 @@ private fun HiddenBlockCard(block: HubBlock, onUnhide: () -> Unit) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Box(Modifier.alpha(0.6f)) {
         Text(blockPreviewText(block), style = MaterialTheme.typography.bodyMedium)
+      }
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+        Text("You hid this", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f))
+        TextButton(onClick = onUnhide) { Text("Unhide") }
+      }
+    }
+  }
+}
+
+// The hidden hoisted timeline card (ADR 0045 / 0039 §W5): dimmed label + "You hid this" +
+// Unhide, mirroring HiddenBlockCard. The family still sees the timeline; this is local-only.
+@Composable
+private fun HiddenTimelineCard(onUnhide: () -> Unit) {
+  Card(
+    Modifier.fillMaxWidth(),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    shape = RoundedCornerShape(22.dp),
+  ) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Box(Modifier.alpha(0.6f)) {
+        Text("Timeline", style = MaterialTheme.typography.bodyMedium)
       }
       Row(verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))

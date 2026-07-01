@@ -99,4 +99,27 @@ class HubTimelineIntegrationSnapshotTest {
         // TimelineDetail renders a MORNING group header (unique to the detail — the dossier does not).
         onNodeWithText("MORNING", substring = true).assertExists()
     }
+
+    // ── (3) Hide for me (W5) — card leaves the dossier, recoverable in "Hidden for you" ──
+
+    @Test fun hiddenTimelineLeavesDossierAndIsRecoverable() = runComposeUiTest {
+        // Member hid the timeline: the synthetic id "timeline:<hubId>" is in hiddenIds.
+        val state = cardState().copy(hiddenIds = setOf("timeline:h1"), showHidden = true)
+        setContent {
+            DayfoldTheme(darkTheme = false) {
+                Box(Modifier.width(390.dp).height(780.dp)) {
+                    HubDetailScreen(state)
+                }
+            }
+        }
+        // The hoisted card is gone…
+        onNodeWithText("Open timeline", substring = true).assertDoesNotExist()
+        // …but it's in the "Hidden for you" section with an Unhide path.
+        onNodeWithText("Hidden for you", substring = true).assertExists()
+        onNodeWithText("Unhide", substring = true).assertExists()
+        val img = onRoot().captureToImage()
+        assertTrue(img.width > 0 && img.height > 0, "hidden snapshot has no pixels")
+        File("build/snapshots").apply { mkdirs() }
+            .let { dir -> ImageIO.write(img.toAwtImage(), "png", File(dir, "hub-timeline-integration-hidden.png")) }
+    }
 }
