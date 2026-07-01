@@ -9,6 +9,24 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-30 · 2026-07-01 · low · open — Positioning refinement: "one managed surface /
+  connective tissue."** Reviewed the framing *"AI that connects all the disparate information
+  into one managed surface, providing context when/where needed, deep links to sources when
+  needed"* → `research/2026-07-01-positioning-review.md`. **3 of 4 clauses are honest, built,
+  and differentiated** (single family-tenant surface = the moat; context-when/where = the Now
+  engine; deep-links-to-sources = the trust posture / no-system-of-record). **One clause needs
+  a rewrite:** read literally, "connects **all** the disparate information" (a) is the
+  commoditized platform pitch validation already REFUTED (Gemini/Alexa+/Siri own cross-app
+  aggregation), and (b) over-claims vs the "render, don't reason" content-API architecture
+  (Dayfold renders intelligence connected in the AI loop; it does not ingest sources — Gmail
+  ingestion is the guardrail-#3 wall the MVP dodges). Fix = anchor "connective" to *across
+  family members + moments* (the one un-shipped defensible surface), not *across apps*.
+  **Proposed default:** adopt the rewritten lead clause + net statement (doc §"Net positioning
+  statement"); if yes, fold one line into `context/business-constitution.md` §Identity via a
+  short identity ADR + reconcile brand copy in `designs/` and the naming doc. **Operator-owned**
+  (positioning/scope is never agent-decided; ADR 0004). Does NOT change scope, guardrails, or the
+  KS-6/KS-7 business verdict — copy/identity only. Urgency low (no build blocked).
+
 - **INB-29 · PARTIALLY ANSWERED 2026-06-30 → Gate B RATIFIED (ADR 0044 Accepted); Gate A =
   design prompt delivered (sign-off still pending); carryover pulled forward.** Operator
   in-session: (1) **Gate B** — "Accept ADR 0044 as written" → ADR 0044 flipped Proposed →
