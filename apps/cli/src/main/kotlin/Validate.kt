@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.cli
 
+import com.sloopworks.dayfold.client.MediaValidation
 import com.sloopworks.dayfold.schema.BlockType
 import com.sloopworks.dayfold.schema.BriefingCard
 import com.sloopworks.dayfold.schema.BriefingCardPayload

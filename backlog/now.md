@@ -6,6 +6,21 @@
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
+**Status update (2026-07-02): repo maintenance pass** (simplification +
+agentic-dev optimization, operator-requested, not a feature slice). CI
+verified green (no breakage). Changes: deduped `Ulid.kt`/`MediaValidation.kt`
+(CLI+client hand-maintained copies → moved into `packages/linkrules`, the
+existing shared-source pattern, -178 lines); added `dayfold delete <id>
+--block` (the API route existed, CLI/skill docs wrongly said it didn't);
+scoped `processes/agent-dev-loop.md` so CLI-/API-only agent work doesn't pay
+for the Compose/KMP toolchain section; refreshed `docs/architecture.md` +
+`README.md` for the shipped Hub Timeline + fixed a stale CLI command list in
+README; added the devtools-gating perf fix + the new `--block` flag to
+CHANGELOG. Values spot-check: the inert AccountScreen delete button and the
+Claude-processing disclosure gap were both already correctly tracked
+(`backlog/next.md`, `context/open-questions.md`) — no new items opened.
+Pushed to `claude/upbeat-fermat-r4mggb`; not yet a PR (none requested).
+
 Stage: **M0 render prototype BUILT + cloud-live (2026-06-19).** server · Kotlin
 CLI · KMP/Compose client · feed — on Vercel + Neon, rendering on the Pixel 10.
 Validation verdict still stands: **CONDITIONAL — learning-lab GO, business

@@ -1,20 +1,15 @@
-package com.sloopworks.dayfold.cli
+package com.sloopworks.dayfold.client
 
-// ADR 0036 — shared hardened validation for author-supplied image enrichment.
-//
-// MUST stay byte-for-byte in lock-step with the server (apps/api/src/media-
-// validation.ts) and the client (apps/client/.../client/MediaValidation.kt) — a
-// parser differential IS the vulnerability. Pure Kotlin, no platform deps, so the
-// SAME source compiles in the client's commonMain. (Phase 2: codegen all three
-// from one source.)
-//
-// Phase-1 posture: https-only, no userinfo, exact-host allowlist (NOT suffix),
-// port empty/443, reject SVG, length-cap, curated-icon enum, #RRGGBB accent.
-// Allowlist = exactly `upload.wikimedia.org`.
+// ADR 0036 — SHARED (packages/linkrules, srcDir'd into client commonMain AND the CLI)
+// hardened validation for author-supplied image enrichment. MUST stay byte-for-byte in
+// lock-step with the server (apps/api/src/media-validation.ts) — a parser differential
+// IS the vulnerability. The client also applies this before any Coil load (defense in
+// depth: the server already validated, but cached/old rows + future surfaces must not
+// fetch a non-allowlisted host). Pure Kotlin, no platform deps, so one source compiles
+// into both the CLI (author-side pre-check) and client commonMain (render-side guard).
 object MediaValidation {
   val ALLOWED_IMAGE_HOSTS: Set<String> = setOf("upload.wikimedia.org")
 
-  // 18 curated icon NAMES from the signed-off design (Enrichment.dc.html §D).
   val CURATED_ICONS: Set<String> = setOf(
     "school", "luggage", "medical", "move", "party", "baby",
     "calendar", "location", "link", "document", "contact", "budget",
@@ -69,4 +64,7 @@ object MediaValidation {
   fun accentHexError(hex: String?): String? =
     if (hex == null) "must be a string"
     else if (ACCENT_RE.matches(hex)) null else "accentColor must match #RRGGBB"
+
+  /** The URL only if it passes — Coil never receives a non-allowlisted/SVG/insecure URL. */
+  fun safeImageUrl(url: String?): String? = url?.takeIf { imageUrlError(it) == null }
 }

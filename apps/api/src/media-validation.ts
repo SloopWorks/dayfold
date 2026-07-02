@@ -1,9 +1,9 @@
 // ADR 0036 — shared hardened validation for author-supplied image enrichment.
 //
-// One rule, mirrored across server (this file), client
-// (apps/client/.../client/MediaValidation.kt) and CLI
-// (apps/cli/.../MediaValidation.kt). A parser differential IS the vulnerability,
-// so keep the three in lock-step (Phase 2 will codegen them from one source).
+// One rule, mirrored across server (this file) and the Kotlin side
+// (packages/linkrules/MediaValidation.kt, srcDir'd into both apps/client
+// commonMain and apps/cli). A parser differential IS the vulnerability, so
+// keep the two in lock-step (Phase 2 will codegen them from one source).
 //
 // Phase-1 posture (ADR 0036): https-only, no userinfo, exact-host allowlist
 // (NOT suffix), port empty/443, reject SVG, length-cap, curated-icon enum,

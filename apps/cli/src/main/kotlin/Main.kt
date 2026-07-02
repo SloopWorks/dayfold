@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.cli
 
+import com.sloopworks.dayfold.client.Ulid
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -211,9 +212,9 @@ fun main(args: Array<String>) {
       maybeNudgeUpdate()   // ADR 0037: throttled once/day update nudge (interactive only)
     }
 
-    // dayfold delete <id> [--card]  — remove a hub (default; cascades its sections+blocks)
-    // or a card. There is no section/block delete route (MVP); to drop a stray block,
-    // delete its hub and re-push the tree.
+    // dayfold delete <id> [--card|--block]  — remove a hub (default; cascades its
+    // sections+blocks), a card, or a single block. There is no section delete route
+    // (MVP); to drop a stray section, delete its hub and re-push the tree.
     "delete", "rm" -> {
       val id = deleteId(args) ?: usage()
       val resource = deleteResource(args)
@@ -333,8 +334,12 @@ fun pushResource(args: Array<String>): String = when {
   else -> "cards"
 }
 
-/** `dayfold delete <id> [--card]` — a hub (default; cascades sections+blocks) or a card. */
-internal fun deleteResource(args: Array<String>): String = if (hasFlag(args, "--card")) "cards" else "hubs"
+/** `dayfold delete <id> [--card|--block]` — a hub (default; cascades sections+blocks), a card, or a block. */
+internal fun deleteResource(args: Array<String>): String = when {
+  hasFlag(args, "--card") -> "cards"
+  hasFlag(args, "--block") -> "blocks"
+  else -> "hubs"
+}
 
 /** The delete target id = the first NON-FLAG positional after the subcommand, so `--card`
  *  can come before OR after the id (a flag is never mistaken for the id — `delete --card x`
@@ -467,7 +472,8 @@ internal val USAGE =
     "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
     "  template <type>            starter body: a card type, hub|section|block, or timeline\n" +
-    "  delete <id> [--card] | rm  remove a hub (cascades sections+blocks) or a card\n" +
+    "  delete <id> [--card|--block] | rm\n" +
+    "        remove a hub (cascades sections+blocks), a card, or a single block\n" +
     "  update                     update to the latest dayfold (brew upgrade)\n" +
     "  version | --version       print the CLI version\n" +
     "  help | -h | --help         print this usage\n" +

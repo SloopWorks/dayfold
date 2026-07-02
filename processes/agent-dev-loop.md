@@ -1,4 +1,4 @@
-# Agent Dev Loop — build, test, observe (read this before touching the apps)
+# Agent Dev Loop — build, test, observe (read this before touching apps/client, apps/androidApp, or iOS)
 
 For future sessions: the **cheap, repeatable feedback loop** for each module, so
 you don't re-derive the toolchain (that's the token sink). Hypothesis (unproven,
@@ -6,7 +6,20 @@ worth measuring): the **text action log** + **snapshot PNGs** + **devtools** let
 an agent verify changes with *text + on-demand image reads* instead of
 device-screencap-every-iteration → faster, fewer tokens.
 
+**Scope / jump table** — most of this file is Compose/KMP (client+Android+iOS)
+detail. If you're only touching `apps/api`, read just `## API` below (~20
+lines) and stop. If you're only touching `apps/cli`, you don't need this file
+at all — it's a plain Gradle/JVM module (`./gradlew test`); see
+`processes/cli-release.md` for packaging.
+
 ## Toolchain (fixed — don't re-discover)
+- **Cloud/remote sandbox sessions:** if `./gradlew` can't reach
+  `services.gradle.org` (proxy 403 / no egress), you're in a network-restricted
+  environment — there's no local Gradle distribution + Kotlin-plugin cache
+  pre-seeded for `apps/cli`'s pinned Gradle 9.5.1 there. Make Kotlin changes
+  carefully by inspection (grep every call site, mirror an already-proven
+  pattern) and rely on CI to compile-verify; don't spend the session fighting
+  the sandbox network.
 - **JDK 17** for all Gradle builds: `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`
   (the version-independent brew symlink — use this, NOT the `Cellar/openjdk@17/17.0.x`
   path, which breaks on every patch bump, e.g. 17.0.18→17.0.19). Gradle's own daemon may

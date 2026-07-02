@@ -5,9 +5,10 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * ULID minter (ADR 0038). The client mints `op_id`s for the egress outbox (and any
- * client-minted item ids) — the server can't mint when the payload is ciphertext at M1.
- * Mirrors the CLI minter (`apps/cli/.../Ulid.kt`) exactly so ids are interchangeable.
+ * ULID minter (ADR 0038). SHARED (packages/linkrules, srcDir'd into client commonMain
+ * AND the CLI) — checklist item ids / egress `op_id`s are **client-minted** (the server
+ * can't mint them at M1 because the payload is ciphertext) so the CLI and app must mint
+ * byte-identical ids; a single source keeps them interchangeable.
  *
  * Output is Crockford base32, 26 chars (10-char 48-bit time prefix + 16-char 80-bit
  * randomness), matching the schema's `$defs.ulid` pattern `^[0-9A-HJKMNP-TV-Z]{26}$`.
