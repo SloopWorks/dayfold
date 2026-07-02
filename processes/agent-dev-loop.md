@@ -79,15 +79,29 @@ prod Neon `DATABASE_URL` is a **Sensitive** Vercel var (unreadable via `env pull
 dashboard) — get the connection string from the Neon console. The durable fix for the
 manual-apply process is **ADR 0033** (tracked migration runner; Proposed).
 
-## ⚠ Single Gradle build at `apps/` (TASK-KMP, 2026-06-19)
-`apps/client` is now a **true KMP module** (`commonMain` = all shared logic+UI+
-SQLDelight+ktor sync; `androidMain`/`desktopMain` = driver actual + entrypoint;
-iOS target = pending). `apps/androidApp` is a **thin app** depending on `:client`
-(no srcDir borrow, no excludes). **One Gradle root at `apps/`** (Gradle 9.4.1 +
-AGP 9.2.1 since PR #26). Run from `apps/`:
-`./gradlew :client:<task>` / `:androidApp:<task>`. Module-level `cd apps/client`
-no longer works (no per-module wrapper/settings). ktor: cio desktop · okhttp
-android · darwin iOS (when added). SyncClient is now `suspend` (no Dispatchers.IO).
+## ⚠ Two-module KMP build at `apps/` (TASK-KMP 2026-06-19 + TASK-CLIENT-MODULARIZE 2026-07-02)
+
+`apps/` contains two shared KMP modules plus a thin Android app:
+
+| Module | `apps/` path | Contents | Compose? | iOS framework? |
+|--------|-------------|----------|----------|----------------|
+| `:client` | `apps/client/` | **Compose-free core:** reducers, selectors, engines (Now/Sync/Hub/Outbox), data clients (AuthClient, SyncClient), ContentStore, SQLDelight, store, `cards/` logic (CardAction, DetailMeta, TypedCardLogic), fake backend | **No** | Targets only (no framework) |
+| `:ui` | `apps/ui/` | **Compose layer:** composables, theme, `cards/` Compose, entry points (Main.kt, MainViewController.kt), `expect/actual` seams (QrScanner, PlatformActions, rememberReduceMotion), composeResources (fonts) | **Yes** | `client.framework` (static, emitted by `:ui`) |
+| `:androidApp` | `apps/androidApp/` | Thin Android app — depends on `:ui` | Via `:ui` | N/A |
+
+**Dependency:** `:ui` `api(project(":client"))` — `:ui` sees all of `:client`; `:client` has no Compose dependency.
+
+**Build from `apps/`** (one Gradle root, Gradle 9.4.1 + AGP 9.2.1):
+- `:client` logic/data edit → only `:client` recompiles (~7,348 lines, ~2.4s)
+- `:ui` composable edit → `:ui` recompiles (~7,434 lines, ~2.6s); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
+- Both modules: KT-62686 still fires (full recompile within module) — KMP + Kotlin 2.3.20 project-level issue, not Compose-specific
+
+```
+./gradlew :client:<task>   # logic/data layer
+./gradlew :ui:<task>       # Compose layer + iOS framework
+./gradlew :androidApp:<task>
+```
+Module-level `cd apps/client` no longer works (no per-module wrapper). ktor: cio desktop · okhttp android · darwin iOS.
 
 ## On-device demo (real Compose UI + seeded data, one command)
 ```
@@ -136,12 +150,14 @@ models (so field names are correct by construction).
   hub DETAIL content rides in the `/sync` delta (sections+blocks), NOT `/tree` (the
   app is DB-fed); the DB is wiped on entry so prior real/seed rows don't bleed in.
 
-## Client core + desktop (`:client` — KMP core + Compose desktop)
+## Client core + desktop (`:client` + `:ui` — KMP modules, post-split 2026-07-02)
 ```
-cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest
+cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest   # 440 tests: logic/data/reducers
+cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 311 tests: Compose snapshots + UI
 ```
-- Reducer/selector/sync unit tests + **Compose snapshot tests** (all in
-  `desktopTest`). 24 tests green post-TASK-SYNC.
+- **`:client` tests:** reducer/selector/sync/engine unit tests — Compose-free. Run when editing logic, reducers, engines, data clients, store, ContentStore.
+- **`:ui` tests:** Compose snapshot tests + UI behavior tests. Run when editing composables, theme, entry points.
+- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). 24 tests green post-TASK-SYNC (now 440+311=751).
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
   **silently NOT run** (JUnit ignores non-void test methods). Use
@@ -204,14 +220,16 @@ $SDK/platform-tools/adb -s $DEV exec-out screencap -p > /tmp/x.png   # then Read
 - BuildConfig bakes `DAYFOLD_API/FAMILY_ID/HOUSEHOLD_SECRET` at build time
   (emulator→host = `http://10.0.2.2:8799`).
 
-## iOS (`:client` framework — TASK-KMP)
+## iOS (`:ui` framework — TASK-KMP + TASK-CLIENT-MODULARIZE)
 ```
-cd apps && JAVA_HOME=<jdk17> ./gradlew :client:compileKotlinIosArm64 \
-  :client:linkDebugFrameworkIosSimulatorArm64    # → client/build/bin/iosSimulatorArm64/debugFramework/client.framework
+cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:compileKotlinIosArm64 \
+  :ui:linkDebugFrameworkIosSimulatorArm64    # → ui/build/bin/iosSimulatorArm64/debugFramework/client.framework
 ```
+- The iOS framework is now emitted by **`:ui`** (not `:client` — split 2026-07-02, ADR 0047).
+  Header path: `apps/ui/build/bin/iosSimulatorArm64/debugFramework/client.framework/Headers/client.h`
 - Targets: **iosArm64** (device) + **iosSimulatorArm64** (Apple-Silicon sim).
   **No iosX64** (intel sim) — redux-kotlin-granular alpha01 has no iosX64 publish.
-- `MainViewController()` (iosMain) = `ComposeUIViewController { FeedApp(store) }`,
+- `MainViewController()` (iosMain in `:ui`) = `ComposeUIViewController { FeedApp(store) }`,
   the entry a Swift `@main` app embeds. **No Xcode project yet** — the runnable
   iosApp shell (Swift host + signing + sim run) + iOS sync-config = operator-gated
   / TASK-SYNC. Xcode 26.2 + Kotlin/Native 2.3.20 confirmed present on this Mac.

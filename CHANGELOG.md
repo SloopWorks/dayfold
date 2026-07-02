@@ -9,6 +9,13 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
 ## Unreleased
 
+### Internal (build)
+- `apps/client` split into two KMP modules: **`:client`** (Compose-free core —
+  reducers, engines, data, store) and **`:ui`** (Compose layer + iOS framework).
+  A logic edit to `:client` now recompiles ~7,348 lines (~2.4s) instead of ~15,570
+  (~4.2s); a UI edit to `:ui` is similarly scoped. No behavior change; developer
+  and agent inner-loop speed improvement. (ADR 0047)
+
 ### Added
 - **iOS local notifications (Phase B parity)** — iOS now reaches parity with the
   shipped Android Phase-B notifications (ADR 0044): on-device, local-only background

@@ -149,3 +149,101 @@ Source changed: only `FeedScreen.kt` (1 file). Files recompiled: 110–115 (all 
 Incremental N-files (115) ≈ cold-full N-files (115). IC is not narrowing the recompile set for the main compilation task. Splitting `:client` into smaller modules will reduce files-per-task proportionally and directly lower the incremental inner loop time.
 
 Example: splitting into 4 modules of ~29 files each would reduce the per-module incremental compile from ~4.2s to roughly ~1–1.5s per touched module.
+
+---
+
+## Phase 2 (post-split) — `:client` + `:ui` module measurements
+
+**Date:** 2026-07-02 | Kotlin 2.3.20 | Gradle 9.4.1 | Java 17 Homebrew | Darwin arm64  
+**Branch:** `client-modularize` (commit `ef813d5` — P2.2b: strip Compose from `:client`)  
+**Module sizes (post-split):**
+
+| Module | Lines analyzed (warm daemon, full recompile) | Source scope |
+|--------|---------------------------------------------|--------------|
+| `:client` commonMain | ~7,347–7,348 | Compose-free: reducers, engines, data, store |
+| `:ui` commonMain | ~7,434–7,453 | Compose composables, theme, cards, entry points |
+| `:ui` test | ~2,885–3,555 | UI desktop tests |
+| **Total (both modules, warm)** | **~14,795** | vs P0 monolith: ~15,570 |
+
+---
+
+### Measurement 1: `:client` logic edit — KT-62686 escape test
+
+**Method:** edit NowRank.kt (Compose-free `:client` file, blank line appended); run `./gradlew :client:compileKotlinDesktop` with warm daemon; revert.
+
+**Kotlin report:** `dayfold-apps-build-2026-07-02-16-47-06-0.txt`
+
+```
+tasks = [:client:compileKotlinDesktop]
+Number of lines analyzed: 7348
+REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+Total Gradle task time: 2.399 s (wall: 2.797 s)
+```
+
+**KT-62686 verdict: SIZE WIN ONLY — KT-62686 still fires.**
+
+A logic edit to a Compose-free `:client` file still triggers the KT-62686 safety fallback (full recompile within the module). The compiler does **not** escape KT-62686 just because Compose was removed.
+
+**However, the size win is real:**
+- P0 monolith (before split): ~15,570 lines analyzed, ~4.2s Kotlin compile
+- P2 `:client` alone (after split): **7,348 lines, ~2.4s Kotlin compile** — a ~53% reduction in lines, ~43% faster
+- The remaining half (~8,100 lines, ~2.6s) now lives in `:ui` and is NOT recompiled on a `:client`-only logic edit
+
+**On a pure `:client` edit:** only `:client` recompiles (~2.4s); `:ui` does not recompile if its jar is up-to-date. Net: **~43% faster logic edit** vs P0, even with KT-62686 still active.
+
+---
+
+### Measurement 2: `:ui` edit isolation
+
+**Method:** edit FeedScreen.kt (`:ui` composable, blank line appended); run `./gradlew :ui:compileTestKotlinDesktop`; check whether `:client:compileKotlinDesktop` is UP-TO-DATE; revert.
+
+**Kotlin report:** `dayfold-apps-build-2026-07-02-16-48-20-0.txt`
+
+```
+tasks = [:ui:compileTestKotlinDesktop]
+:client:compileKotlinDesktop finished in 2.412 s  (recompiled — NOT up-to-date)
+  Number of lines analyzed: 7347  REBUILD_REASON: KT-62686
+:ui:compileKotlinDesktop finished in 2.644 s
+  Number of lines analyzed: 8241  REBUILD_REASON: KT-62686
+:ui:compileTestKotlinDesktop finished in 0.778 s
+  Number of lines analyzed: 2885
+Total Gradle task time: 5.898 s
+```
+
+**`:client` was NOT up-to-date on a `:ui` edit.** When `compileTestKotlinDesktop` is the target (which requires `:ui` main + `:client` as upstream), Gradle also runs `:client:compileKotlinDesktop` — and KT-62686 fires there too.
+
+**Context:** this is because Gradle must produce `:client`'s jar (a `:ui` compile input) before compiling `:ui`. When `:ui`'s source changes, Gradle re-runs `:client:compileKotlinDesktop` to check for ABI changes, and KT-62686 fires on that task as well. The split narrows the total to ~10.6s of Kotlin compile time (client 2.4s + ui 2.6s + ui-test 0.8s) vs the P0 monolith's ~5s + ~8.7s for test — BUT the expected "client UP-TO-DATE" isolation does not hold when targeting `compileTestKotlinDesktop`.
+
+**Partial isolation observed:** when targeting just `:ui:compileKotlinDesktop` alone (main only, report `16-30-15`), `:client` was already compiled and UP-TO-DATE (7,434 lines in that invocation, `:client` not recompiled). The isolation holds for main-only invocations after `:client` is compiled; it does not hold when `compileTestKotlinDesktop` forces a full upstream recheck.
+
+---
+
+### DoD verification
+
+| Check | Result |
+|-------|--------|
+| `:client:desktopTest` | **440 / 440 passed**, 0 failures |
+| `:ui:desktopTest` | **311 / 311 passed**, 0 failures |
+| `:ui:linkDebugFrameworkIosSimulatorArm64` | **BUILD SUCCESSFUL** — `ui/build/bin/iosSimulatorArm64/debugFramework/client.framework` linked |
+| `grep -rE "androidx\.compose\|@Composable\|coil3" client/src` | **client Compose-free ✓** — no hits |
+| `:androidApp:assembleDebug` / `assembleRelease` | **BLOCKED — `google-services.json` absent from worktree** — REQUIRED DEFERRED FOLLOW-UP: run in CI or secret-bearing env before declaring full-build DoD |
+
+Test counts match the P2.2a expected values (client 440 / ui 311).
+
+---
+
+### P2 verdict vs P0
+
+| Metric | P0 monolith | P2 `:client` edit | P2 `:ui` edit (main only) | Delta (client edit) |
+|--------|-------------|-------------------|---------------------------|---------------------|
+| Lines analyzed | ~15,570 | ~7,348 | ~7,434 (ui only) | **−53%** |
+| Kotlin compile time | ~4.2s | ~2.4s | ~2.6s (ui) + :client UP-TO-DATE | **~−43%** |
+| KT-62686 fires? | Yes (always) | **Yes (still)** | Yes | No escape |
+| Recompile scope (logic edit) | All 115 files (~15,570 lines) | `:client` only (~7,348 lines) | `:ui` only (~7,434 lines) | Scope halved |
+| Compose import in `:client`? | Yes | **No** | N/A | ✓ clean split |
+
+**KT-62686 escape hypothesis: NOT proven.** Removing Compose from `:client` does not escape KT-62686. The fallback fires on all tasks in all modules (`:client`, `:ui`, `:androidApp`). This is a Kotlin 2.3.20 + KMP issue at the project level, not a Compose-specific trigger. The split delivers a **size win** (each module is ~half the lines → ~half the compile time per module), but not a KT-62686 escape.
+
+**Split benefit is real but different from the hypothesis:** a pure logic edit (`:client` only) recompiles ~7,348 lines in ~2.4s vs ~15,570 lines in ~4.2s before — a meaningful improvement for the agent dev loop. A `:ui` edit recompiles `:ui` (~7,434 lines, ~2.6s) and not the logic layer (when targeting main only). The biggest gap vs expectation: `compileTestKotlinDesktop` triggers upstream recompile of `:client` due to Gradle's jar-dependency chain.
+
+**Next lever:** the `:model`/`:data` further split (the second slice noted in ADR 0047 §Remaining) would shrink each module further. Alternatively, investigate whether Kotlin 2.4.x or a project-level `enableUnsafeIncrementalCompilationForMultiplatform=true` can escape KT-62686 — but that is explicitly flagged as unsafe by the Kotlin team.
