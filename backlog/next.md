@@ -58,53 +58,74 @@ lines; android/desktop/iOS targets must all still build; snapshots + the full
 targets compile; snapshots + tests green. **Reference:** measured in the CL-SNAP
 session (PR #277); `specs/cl-snap-agent-snapshot-loop-design.md`.
 
-## TASK-HOT-RELOAD-SPIKE — JetBrains Compose Hot Reload for live visual iteration (NEXT — spike)
+## TASK-HEADLESS-RENDER-DAEMON — persistent headless Compose render engine (PNG + layout tree, code-reload) (NEXT — spike)
 
-**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Sibling to
-`TASK-CLIENT-MODULARIZE` — both attack the measured ~5s recompile loop, from
-different angles: modularize shrinks the compile unit for *all* consumers
-(CI/agent/human); hot-reload sidesteps compile entirely for *human visual* work.
-Low risk — dev-only, desktop-only, additive.
+**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Supersedes the
+earlier "add Compose Hot Reload" framing — hot-reload was a *means*; a headless
+render daemon is the *end*. The agent-optimal render engine: a warm long-lived
+JVM exposing `render(scene | stateJson) → {png, semanticsTree, bounds}`, that also
+absorbs *code* edits without a JVM restart or full Gradle build. Collapses three
+follow-ups into one engine: persistent render + layout-info (the inspector) +
+code-reload (escapes the ~5s recompile for composable edits too). Ideal backend
+for **AI design-matching** (render → diff vs mockup → region → owning composable
+→ edit → re-render, ~1s, mostly text).
 
-**What it is:** `org.jetbrains.compose.hot-reload` — three parts: a **Gradle
-plugin** (adds a `ComposeHotRun` task, provisions the runtime), a **runtime API**
-(`hot-reload-runtime-api` → wrap the dev UI in `DevelopmentEntryPoint { }`), and
-a **JetBrains Runtime (JBR)** with enhanced class redefinition (DCEVM-style
-hotswap; plugin auto-downloads it). A recompiler watches sources → incremental
-Kotlin compile → pushes changed **classes** into the *running* desktop app via
-the JBR agent → Compose invalidates + recomposes **in place, state preserved**.
-No app restart, no test-compile+fork → typically sub-second per UI tweak.
+**Why this shape (measured):** CL-SNAP's inner loop is ~5s recompile + ~2s
+fork/render; batch-in-one-process already gets **~150ms/shot** warm. Two axes:
+- **State iteration (same code, new state)** — EASY, no hot-reload needed. Extend
+  CL-SNAP's batch to a daemon (stdin/socket loop) holding a warm JVM. Sub-second
+  headless renders today.
+- **Code iteration (edit a composable)** — the frontier (below).
 
-**Scope fit:** desktop/JVM target ONLY (not Android — that's Studio Live Edit;
-not iOS). dayfold's UI is `commonMain` and the desktop target already exists
-(`jvm("desktop")`, `compose.desktop.application`), so hot-reload runs the *same*
-shared composables the snapshots render — same iOS/Android-chrome blind spot as
-the snapshot proxy.
+**Key insight — hot-reload's Compose half is UNUSED headlessly.** `ImageComposeScene`
+renders a **fresh composition per shot** (create → render → close). So there is no
+long-lived composition to invalidate → hot-reload's `DevelopmentEntryPoint`
+recompose-in-place hooks don't apply. The daemon needs only "the next `render()`
+runs the new code." Two routes to get recompiled classes into the live process:
+- **Route B — classloader swap (LOWER RISK, evaluate FIRST; no plugin, no JBR):**
+  a watching/incremental compile of the changed module → render each shot through a
+  fresh child `URLClassLoader` that loads the new classes (each shot is a throwaway
+  composition anyway → drop the old loader). No experimental dependency. Risk =
+  Compose runtime *global* state resisting reload across classloaders — the real
+  thing to prove.
+- **Route A — JBR hotswap (FASTER, riskier, fallback):** reuse `org.jetbrains.
+  compose.hot-reload`'s JBR enhanced class-redefinition to swap classes in place →
+  next render uses them. Fastest (everything stays warm) but off hot-reload's paved
+  path (built to drive a *window*, not a headless server → likely reaching under
+  the plugin API) + needs the JBR (~200MB) and a CMP 1.9.3 / Kotlin 2.3.20-compatible
+  plugin version (tight matrix — verify first).
+
+**Layout-info output** = the inspector Level-1 work: `SemanticsNode.boundsInRoot`
+(+ role/text/testTag, unmerged) as JSON per render; optionally the LayoutNode tree
+for every composable (see the `later.md` pixel↔composable inspector task — this
+daemon is its natural host).
 
 **Spike steps:**
-1. **Version-matrix gate FIRST** (most likely failure point): find the
-   hot-reload plugin release compatible with **CMP 1.9.3 / Kotlin 2.3.20** (its
-   version is tightly coupled to both). If none fits without a CMP/Kotlin bump,
-   record that and stop — the bump is a separate decision.
-2. Add the plugin + a **dev-only desktop entry** wrapping the real UI in
-   `DevelopmentEntryPoint { DayfoldTheme { FeedApp(store) } }`, **seeded from the
-   existing `SnapshotStates`/`FakeScenarios` fixtures** (the CL-SNAP scenes double
-   as hot-reload seeds).
-3. Run it, edit a composable, **measure edit→visible latency** vs the ~5s
-   snapshot loop; note state-preservation behavior + any structural-change limits.
+1. **Persistent render daemon (low-risk core):** batch → long-lived process,
+   `render(scene|stateJson) → {png, layout}` on stdin/socket, seeded from the
+   existing `SnapshotStates`/`FakeScenarios` fixtures. Confirm ~150ms/shot warm.
+2. **Add layout-info output:** bounds + semantics tree as text per render (needs
+   the reduxkotlin dump to carry bounds — coordinate with the inspector task).
+3. **Code-reload experiment — Route B first:** watching compile + fresh-classloader
+   render; prove Compose global state survives a reload. If it fights, evaluate
+   **Route A** (hot-reload/JBR) — after the CMP/Kotlin version-matrix check.
+4. **Measure** edit→(headless re-render + layout dump) latency vs the ~7s baseline.
 
-**Payoff / relation:** the human operator's tight visual loop ("nudge padding,
-watch it"); snapshots stay the **agent/CI verification** loop (headless,
-deterministic, text semantics — an agent can't watch a live window). Complementary,
-not a replacement.
+**Relation to siblings:** `TASK-CLIENT-MODULARIZE` shrinks the ~5s recompile for
+*every* consumer (also feeds this daemon's Route B); this daemon is the
+**agent/CI-facing** engine (headless, text-first). Live *human* visual iteration
+(watch-a-window, state-preserved) remains hot-reload's actual sweet spot — a
+smaller, separate dev-convenience if wanted, not this task.
 
-**Caveats:** pre-1.0 / experimental; needs the JBR (~200MB provisioned);
-dev-only + desktop-only so zero prod/CI blast radius.
+**Caveats / risk:** Route B's classloader hygiene vs Compose runtime globals is the
+core unknown; Route A depends on undocumented hot-reload internals + JBR. This is
+R&D — the persistent-render + layout-output core is low-risk/high-value on its own;
+the code-hot-reload half is the experiment. All dev-only → zero prod/CI blast radius.
 
-**DoD:** a recorded verdict — compatible plugin version (or "needs CMP/Kotlin
-bump"), a working `DevelopmentEntryPoint` desktop playground seeded from
-`SnapshotStates`, and the measured live-edit latency vs ~5s. **Reference:**
-CL-SNAP session (PR #277).
+**DoD:** a warm daemon rendering `{png, layout-tree}` sub-second per state; a
+recorded verdict on Route B (classloader swap) — works / Compose-globals-block-it /
+needs Route A; and the measured edit→render+layout latency vs ~7s. **Reference:**
+CL-SNAP session (PR #277); pairs with the `later.md` pixel↔composable inspector.
 
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
