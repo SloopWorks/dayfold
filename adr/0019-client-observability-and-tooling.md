@@ -85,7 +85,9 @@ entry for headless render + semantic inspection. See `processes/agent-dev-loop.m
 
 **"Remaining" item #5 (remote devtools)** is still pending.
 
+Accordingly the Revisit Trigger effectively narrows to #5 (remote DevTools) — #3/#4/#6 are now delivered.
+
 ## Revisit Trigger
 
-`redux-kotlin-devtools` remote/bridge module publishes to Maven Central (adopt
-#5); or time-travel becomes load-bearing for the deep-link surface.
+`redux-kotlin-devtools` / a screenshot module / the CLI publish to Maven Central
+(adopt #3–#5); or time-travel becomes load-bearing for the deep-link surface.
