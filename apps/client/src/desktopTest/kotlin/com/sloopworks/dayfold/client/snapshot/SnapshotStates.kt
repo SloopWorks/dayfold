@@ -95,4 +95,205 @@ object SnapshotStates {
   fun detailCard(preset: String): Card =
     TYPED_FEED.cards.firstOrNull { it.id == preset }
       ?: error("unknown detail preset '$preset' (ids: ${TYPED_FEED.cards.map { it.id }})")
+
+  // ── Feed extras ─────────────────────────────────────────────────────────────
+  // Lift verbatim from FeedSnapshotTest.kt (inviteWith) — RSVP tri-state on the invite slice.
+  fun inviteFeed(rsvp: String): AppState = AppState(cards = listOf(
+    Card("inv", kind = "action", title = "Maya's party", provenance = Provenance("email"),
+      type = "invite", payload = Payload(invite = InvitePayload(eventName = "Maya's party", rsvpState = rsvp))),
+  ))
+
+  // Lift verbatim from EnrichmentSnapshotTest.kt (`feed` val) — thumb tile + accent-only pair.
+  private const val HERO = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.png"
+  val ENRICHED_PAIR_FEED: AppState = AppState(cards = listOf(
+    Card("trip", kind = "action", title = "Lisbon check-in opens today", bodyMd = "Window seats still free.",
+      provenance = Provenance("claude"), media = CardMedia(icon = "travel", accentColor = "#1C6E8C", thumbnailUrl = HERO, imageAlt = "trip")),
+    Card("school", kind = "action", title = "Dorm forms due Thursday", bodyMd = "Sign the housing waiver.",
+      provenance = Provenance("claude"), media = CardMedia(icon = "school", accentColor = "#2C3E73")),
+  ))
+
+  // ── Enrichment hubs (EnrichmentSnapshotTest.kt `hubs` val, verbatim) ────────
+  val ENRICHED_HUBS: List<Hub> = listOf(
+    Hub(id = "trip", type = "vacation", title = "Summer trip — Lisbon", status = "planning", countdownTo = "2026-08-03T00:00:00Z",
+      media = HubMedia(heroUrl = HERO, thumbnailUrl = HERO, heroFit = "cover", imageAlt = "Lisbon coast", icon = "travel", accentColor = "#1C6E8C")),
+    Hub(id = "college", type = "starting-college", title = "Maya starts college", status = "planning", countdownTo = "2026-08-24T00:00:00Z",
+      media = HubMedia(heroUrl = HERO, heroFit = "contain", imageAlt = "University logo", icon = "school", accentColor = "#2C3E73")),
+    Hub(id = "med", type = "medical", title = "Dad's knee surgery", status = "active",
+      media = HubMedia(icon = "medical", accentColor = "#1F8A6D")),
+    Hub(id = "plain", type = "move", title = "House move (unenriched)", status = "planning"),
+  )
+  fun enrichedHubDetail(hub: Hub): AppState =
+    AppState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+
+  // ── Checklist hub (HubChecklistSnapshotTest.kt `tree()`, verbatim) ──────────
+  val CHECKLIST_HUB: AppState = AppState(currentHubId = "h1", currentHubTree = HubTree(
+    hub = Hub(id = "h1", type = "party-event", title = "Maya's birthday", status = "active", visibility = "family"),
+    sections = listOf(HubSection(id = "s1", hubId = "h1", title = "Packing", ord = 0)),
+    blocks = listOf(HubBlock(id = "b_chk", sectionId = "s1", type = "checklist", ord = 0, version = 3,
+      payload = BlockPayload(items = listOf(
+        ChecklistItem(id = "i1", text = "Cooler + ice", done = false, assignee = "Sam"),
+        ChecklistItem(id = "i2", text = "Beach umbrella", done = false),
+        ChecklistItem(id = "i3", text = "Sunscreen", done = true, doneBy = "Mom", doneAt = "2026-06-29T10:00:00Z"))))),
+  ))
+
+  // ── Timelines (TimelineCard/TimelineDetail/HubTimelineIntegration tests, verbatim) ──
+  // All pinned to move-in day 10:40 ET so done/next markers are stable.
+  const val TIMELINE_NOW = "2026-08-24T14:40:00Z"
+
+  fun dayTimeline() = Timeline(
+    title = "Move-in day", tz = "America/New_York",
+    stops = listOf(
+      Stop(at = "2026-08-24T07:30:00-04:00", title = "Car loaded", sub = "Boxes, mini-fridge, bedding", assignee = "Pat", done = true),
+      Stop(at = "2026-08-24T08:00:00-04:00", title = "Left home", done = true),
+      Stop(at = "2026-08-24T09:50:00-04:00", title = "Checked in", done = true,
+        attachments = listOf(Attachment(kind = "nav", label = "Map", query = "Henderson Hall"))),
+      Stop(at = "2026-08-24T11:00:00-04:00", title = "Elevator slot", sub = "20-min window — grab the loading cart",
+        attachments = listOf(Attachment(kind = "link", label = "Booklist", url = "https://example.com"))),
+      Stop(at = "2026-08-24T12:30:00-04:00", title = "Lunch break", sub = "Campus dining hall"),
+      Stop(at = "2026-08-24T14:00:00-04:00", title = "Bookstore run"),
+    ),
+  )
+
+  fun hubTimeline() = Timeline(
+    title = "College Roadmap", tz = "America/New_York",
+    stops = listOf(
+      Stop(at = "2026-05-01", title = "Enrollment deposit paid", assignee = "Pat", done = true),
+      Stop(at = "2026-06-12", title = "Housing application submitted", assignee = "Maya", done = true),
+      Stop(at = "2026-07-20", title = "Orientation completed", done = true),
+      Stop(at = "2026-08-24", title = "Move-in day", major = true, sub = "Henderson Hall, room 214", assignee = "Pat + Maya",
+        attachments = listOf(Attachment(kind = "nav", label = "Map", query = "Henderson Hall"))),
+      Stop(at = "2026-09-15", title = "Family weekend"),
+      Stop(at = "2026-10-01", title = "Graduation open house", major = true),
+    ),
+  )
+
+  fun bothScalesTimeline() = Timeline(
+    title = "Move-in day", tz = "America/New_York",
+    stops = listOf(
+      Stop(at = "2026-05-01", title = "Enrollment deposit", done = true),
+      Stop(at = "2026-07-01", title = "Housing assigned", done = true),
+      Stop(at = "2026-08-24T08:00:00-04:00", title = "Car loaded", done = true),
+      Stop(at = "2026-08-24T11:00:00-04:00", title = "Elevator slot"),
+      Stop(at = "2026-09-19", title = "Orientation"),
+    ),
+  )
+
+  // TimelineCardSnapshotTest hub/hub-collapsed models (date-only stop sets).
+  fun hubCardTimeline() = Timeline(
+    tz = "America/New_York",
+    stops = listOf(
+      Stop("2026-05-01", "Planning phase"), Stop("2026-06-01", "Design complete"),
+      Stop("2026-07-01", "Dev alpha"), Stop("2026-08-25", "Move-in day"), Stop("2026-09-15", "Launch"),
+    ),
+  )
+  fun hubCollapsedCardTimeline() = Timeline(
+    tz = "America/New_York",
+    stops = listOf(
+      Stop("2026-01-15", "Kickoff"), Stop("2026-02-15", "Research"),
+      Stop("2026-03-15", "Design"), Stop("2026-04-15", "Alpha"),
+      Stop("2026-09-15", "Move-in day"), Stop("2026-10-15", "Midterms"),
+      Stop("2026-11-15", "Break"), Stop("2026-12-15", "Finals"),
+    ),
+  )
+
+  // Derived-timeline hub (DerivedTimelineSnapshotTest.kt `tree()`, verbatim).
+  fun derivedTimelineTree() = HubTree(
+    hub = Hub(id = "h", title = "Maya starts college", countdownTo = "2026-08-24", startAt = "2026-05-01"),
+    blocks = listOf(
+      HubBlock(id = "m1", sectionId = "s", type = "milestone", payload = BlockPayload(date = "2026-06-12", label = "Housing confirmed")),
+      HubBlock(id = "c1", sectionId = "s", type = "checklist", payload = BlockPayload(items = listOf(
+        ChecklistItem(id = "i1", text = "Car loaded", due = "2026-08-24T07:30:00-04:00", done = true, assignee = "Pat"),
+        ChecklistItem(id = "i2", text = "Bookstore & student ID", due = "2026-08-24T14:00:00-04:00"),
+      ))),
+      HubBlock(id = "loc", sectionId = "s", type = "location", payload = BlockPayload(label = "Checked in"),
+        triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-08-24T09:50:00-04:00")))),
+    ),
+  )
+
+  // Hub-with-authored-timeline states (HubTimelineIntegrationSnapshotTest.kt, verbatim).
+  private fun integrationTimeline() = Timeline(
+    title = "Move-in day", tz = "America/New_York",
+    stops = listOf(
+      Stop("2026-08-24T07:30:00-04:00", "Car loaded", done = true),
+      Stop("2026-08-24T08:00:00-04:00", "Keys pickup", done = true),
+      Stop("2026-08-24T09:50:00-04:00", "Checked in", done = true),
+      Stop("2026-08-24T11:00:00-04:00", "Elevator slot"),
+      Stop("2026-08-24T12:30:00-04:00", "Lunch break"),
+      Stop("2026-08-24T13:00:00-04:00", "Bookstore run"),
+      Stop("2026-08-24T14:00:00-04:00", "Final walkthrough"),
+    ),
+  )
+  fun timelineHubCardState(): AppState = AppState(
+    route = Route.Hubs, currentHubId = "h1",
+    currentHubTree = HubTree(hub = Hub(id = "h1", type = "starting-college", title = "Move-in Day Hub",
+      status = "active", visibility = "family", timeline = integrationTimeline())),
+  )
+  fun timelineHubOverlayState(): AppState = timelineHubCardState().copy(timelineDetail = TimelineScale.Day)
+  fun timelineHubHiddenState(): AppState = timelineHubCardState().copy(hiddenIds = setOf("timeline:h1"), showHidden = true)
+  fun timelineNudgeState(): AppState = AppState(route = Route.Hubs, currentHubId = "h3",
+    currentHubTree = HubTree(hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
+      visibility = "family", countdownTo = "2026-09-01")))
+  fun derivedTimelineHubState(): AppState =
+    AppState(route = Route.Hubs, currentHubId = "h", currentHubTree = derivedTimelineTree())
+
+  // ── Auth / account / join (AuthScreensSnapshotTest.kt, verbatim) ────────────
+  val ACCOUNT_STATE: AppState = AppState(
+    session = Session("a", "r"),
+    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+    activeFamilyId = "fam1", route = Route.Account,
+  )
+  fun joinState(outcome: String? = null, familyName: String? = null): AppState =
+    AppState(route = Route.JoinInvite, joinOutcome = outcome, joinFamilyName = familyName)
+
+  // ── Members (AuthScreensSnapshotTest.kt members* fixtures, verbatim) ────────
+  private val FAM = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))
+  fun membersState(preset: String): AppState = when (preset) {
+    "roster" -> AppState(families = FAM, activeFamilyId = "fam1",
+      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
+      members = listOf(
+        FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
+        FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
+      ))
+    "loading" -> AppState(families = FAM, activeFamilyId = "fam1", rosterBusy = true)
+    "error" -> AppState(families = FAM, activeFamilyId = "fam1", rosterError = "Couldn't load members. Try again.")
+    "row-busy" -> AppState(families = FAM, activeFamilyId = "fam1",
+      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
+      members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
+      memberOpId = "u9")
+    else -> error("unknown members preset '$preset'")
+  }
+
+  // ── Devices (AuthScreensSnapshotTest.kt devices* fixtures, verbatim) ────────
+  fun devicesState(preset: String): AppState = when (preset) {
+    "list" -> AppState(devices = listOf(
+      DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
+      DeviceCredential("c2", kind = "cli", label = "claude-code · CI", lastUsedAt = "2026-06-19T09:00:00Z", lastUsedIp = "San Jose"),
+    ))
+    "loading" -> AppState(deviceListBusy = true)
+    "error" -> AppState(deviceListError = "Couldn't load devices. Try again.")
+    "row-busy" -> AppState(devices = listOf(
+      DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
+      DeviceCredential("c2", kind = "cli", label = "claude-code · CI"),
+    ), deviceOpId = "c2")
+    else -> error("unknown devices preset '$preset'")
+  }
+
+  // ── Device approval (AuthScreensSnapshotTest.kt authState/oneOwner/twoOwner) ─
+  private val TWO_FAM = FAM + FamilyMembership("fam2", "Lake House", role = "owner", status = "active")
+  fun authorizeState(originKind: String, multiOwner: Boolean = false): AppState {
+    val fams = if (multiOwner) TWO_FAM else FAM
+    return AppState(
+      session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId,
+      route = Route.AuthorizeDevice,
+      pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
+        originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
+    )
+  }
+
+  // ── Places (PlacesListTest.kt, verbatim) ────────────────────────────────────
+  val PLACES: List<Place> = listOf(
+    Place(id = "home", kind = "home", label = "Home", lat = 0.0, lng = 0.0, radiusM = 150),
+    Place(id = "school", kind = "school", label = "Maya's school", lat = 0.01, lng = 0.0, radiusM = 250),
+    Place(id = "store", kind = "store", label = "Lincoln Market", lat = 0.02, lng = 0.0, radiusM = 200),
+  )
 }

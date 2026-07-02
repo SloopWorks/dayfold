@@ -72,7 +72,8 @@ the Roborazzi DIY path noted at acceptance. Implementation (epic CL-SNAP):
 - `desktopTest` dep in `apps/client/build.gradle.kts`.
 - Scene registry: `SnapshotScenes.kt` (scenes `feed`, `hub-detail`, `detail`;
   state fixtures from `SnapshotStates.kt` — hand-built `AppState` literals).
-- 12 committed goldens in `apps/client/src/desktopTest/resources/snapshots/`.
+- 131 committed goldens in `apps/client/src/desktopTest/resources/snapshots/`
+  (20 scenes: every client surface, light + selected dark variants).
 - `GoldenSnapshotTest` verifies goldens at `maxDiffPercent = 4.0` in
   `:client:desktopTest` (CI = ubuntu-latest); measured cross-OS drift on
   bold-dense scenes is 2.2–2.9% (variable-font wght instantiation differs
