@@ -1,244 +1,160 @@
-# TASK-CLIENT-MODULARIZE Implementation Plan
+# TASK-CLIENT-MODULARIZE Implementation Plan (rev 2, post round-2 panel)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Speed up (and de-risk) the client build/iteration loop by first measuring, then enabling Gradle build/config caching, then extracting the 40 Compose files into a `:ui` module so a UI edit stops recompiling the core + logic tests.
+**Goal:** Speed up / de-risk the client iteration loop by first measuring, then enabling Gradle build/config caching, then extracting the 40 Compose files into a `:ui` module so a UI edit stops recompiling core + logic tests.
 
-**Architecture:** Three phases with gates. Phase 0 measures the real cost breakdown (is incremental compilation already effective?). Phase 1 enables `build-cache`/`configuration-cache`/`parallel`. Phase 2 extracts a new `:ui` KMP module that `api`-depends on `:client` (engines/data/store stay in `:client`; no dependency inversion). An **operator gate** sits between Phase 1 and Phase 2.
+**Architecture:** Three phases with gates. P0 measures (is incremental compilation already effective?). P1 enables `build-cache`/`configuration-cache`/`parallel`. P2 extracts a `:ui` KMP module that `api`-depends on `:client` (engines/data/store stay; no dependency inversion). Operator gate + ADR gate before P2.
 
-**Tech Stack:** Kotlin 2.3.20 multiplatform, Compose-MP 1.9.3 (desktop) / 1.11.1 (android), AGP 9.2.1, Gradle 9.4.1, SQLDelight 2.3.2, ktor 3.5.0, redux-kotlin 1.0.0-alpha03, JDK 17.
+**Tech Stack:** Kotlin 2.3.20 MP, Compose-MP 1.9.3(desktop)/1.11.1(android), AGP 9.2.1, Gradle 9.4.1, SQLDelight 2.3.2, ktor 3.5.0, redux-kotlin 1.0.0-alpha03, JDK 17.
 
 ## Global Constraints
 
-- **JDK 17** for all Gradle; **run every command from `apps/`** (single root). Resolve JDK17 via `/usr/libexec/java_home -v 17`.
-- Modules: existing `:client` (becomes "core"), new `:ui`, apps `:androidApp` + desktop entry + iOS framework consumer. `:ui` **`api(project(":client"))`** (mandatory — apps use core types through it).
-- **Move rule is MECHANICAL:** a `commonMain` file moves to `:ui` iff it imports `androidx.compose` / `org.jetbrains.compose` / `@Composable` / `coil3`. Verified move-set = **40 files**. Everything else stays in `:client`.
-- **Stay in `:client` (Compose-free, core depends on them):** `cards/CardAction.kt`, `cards/DetailMeta.kt`, `cards/TypedCardLogic.kt` + their tests `DetailMetaTest`, `TypedCardLogicTest`.
-- **Three expect/actual seams move to `:ui`:** `QrScanner`, `cards/PlatformActions`, `rememberReduceMotion` (`ui/loading/Shimmer.kt` + `ReduceMotion.{android,desktop,ios}.kt`). `DriverFactory` (SQLDelight) **stays** in `:client`.
-- **`linkrules` srcDir stays single-homed in `:client`** — never duplicate `kotlin.srcDir("../../packages/linkrules")` into `:ui` (FQN clash).
-- `:ui` android: `namespace = "com.sloopworks.dayfold.client.ui"`, `compileSdk = 37`, `minSdk = 33`, `sourceCompatibility/targetCompatibility = VERSION_17`, `jvmToolchain(17)` — mirror `:client` exactly.
-- **iOS:** targets `iosArm64()` + `iosSimulatorArm64()` ONLY (no iosX64) on BOTH modules; `:ui` declares `binaries.framework { baseName = "client"; isStatic = true }`; `:client` **drops** `binaries.framework` but keeps the two iOS targets. No `export()` needed. `:client` iosMain glue consumed by `:ui` entry points (`IosTokenStore`, `IosContentStoreHolder`, `IosNotifGlue`, `IosDeepLinkBus`, `reRegisterGeofences()`, `reconcileExactSchedules()`, desktop `FileTokenStore`, `fake.fakeClientForApi`) **must stay `public`**.
-- **`:client` must end with ZERO Compose** on its classpath (grep-verified). Includes checking `Reducer.kt`'s `import org.reduxkotlin.compose` + `compose(...)` resolves from redux **core** after `redux-kotlin-compose` leaves.
-- **Operator gate (Phase 1 → Phase 2):** if the measured split win is marginal, STOP and prompt the operator; do not auto-proceed.
-- **ADR gate:** Phase 2 is ADR-class — a Proposed ADR must be operator-Accepted before Phase 2 implementation.
-- **No behavior/UX change** anywhere. Every phase keeps the full test suite green.
-- Measurements method: warm daemon, N=5 discard-first; record numbers in `specs/client-modularize-measurements.md`.
+- **JDK 17**; **run from `apps/`**; `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`.
+- New `:ui` module `api(project(":client"))` (mandatory — apps use core types through it).
+- **Move rule (MECHANICAL, commonMain):** move to `:ui` iff imports `androidx.compose`/`org.jetbrains.compose`/`@Composable`/`coil3`. Verified = **40 files**. Plus the named platform actuals + entries (below). Everything else stays.
+- **Stay in `:client` (Compose-free):** `cards/CardAction.kt`, `cards/DetailMeta.kt`, `cards/TypedCardLogic.kt` + tests `DetailMetaTest`, `TypedCardLogicTest`.
+- **Three expect/actual seams move to `:ui`:** `QrScanner`, `cards/PlatformActions`, `rememberReduceMotion` (`ui/loading/Shimmer.kt` + `ReduceMotion.{android,desktop,ios}.kt`) — each with all android+desktop+ios actuals. `DriverFactory` stays.
+- **`linkrules` srcDir stays single-homed in `:client`** (never duplicate into `:ui`). Moved UI uses only its public `linkify`/`MediaValidation`.
+- **CROSS-MODULE `internal` CONTRACT (round-2 critical):** `internal` is *module*-scoped. Any symbol that STAYS in `:client` but is referenced by a MOVED file/test must be `public`. Known cases to promote: `selectScale` (`TimelinePresenter.kt:166`, used by `HubScreens.kt:471`), `cardToNowItem` (`NowFeed.kt:52`, used by `NowFeedScreenTest`). More surface at compile — promote each as it appears. Also keep the iOS/desktop entry glue public (`IosTokenStore`, `IosContentStoreHolder`, `IosNotifGlue`, `IosDeepLinkBus`, `reRegisterGeofences()`, `reconcileExactSchedules()`, `FileTokenStore`, `fake.fakeClientForApi`).
+- `:ui` android: `namespace="com.sloopworks.dayfold.client.ui"`, `compileSdk=37`, `minSdk=33`, `sourceCompatibility/targetCompatibility=VERSION_17`, `jvmToolchain(17)`.
+- **iOS:** `iosArm64()`+`iosSimulatorArm64()` ONLY (no iosX64) on BOTH modules; `:ui` declares `binaries.framework { baseName="client"; isStatic=true }`; `:client` keeps the two targets but **drops** `binaries.framework`. No `export()`. Generated framework header: `apps/ui/build/bin/iosSimulatorArm64/debugFramework/client.framework/Headers/client.h`.
+- `:client` must end **Compose-free** (grep-verified). `Reducer.kt`'s `compose(...)` is redux **core** (from `redux-kotlin-concurrent`, stays) — no change needed; `FeedApp`'s `selectorState` needs `redux-kotlin-compose` moved to `:ui`.
+- **Operator gate (P1→P2):** if the split win is marginal, STOP + prompt operator. **ADR gate:** Proposed ADR Accepted before P2.
+- **No behavior/UX change.** Every phase keeps the full suite green. **Refactor verification = existing suite green + all targets compile + grep invariants**, not new behavioral tests.
+- **Measurement method:** warm daemon; for **cold-full** compile numbers use `clean` (wipe the module `build/`) — `--rerun-tasks` alone still hits Kotlin IC caches; for **incremental** numbers re-edit the file each iteration. Kotlin build reports land in **`apps/build/kotlin-reports/`** (root), metric label ≈ "Number of source files compiled". Record in `specs/client-modularize-measurements.md`, labeling each number cold-full vs incremental.
 
 ---
 
 ## PHASE 0 — Measure (unconditional; gates the split's speed claim)
 
-### Task 0.1: Enable Kotlin build reports + capture the baseline
+### Task 0.1: Kotlin build reports + baselines (inner loop AND full build)
 
-**Files:**
-- Modify: `apps/gradle.properties`
-- Create: `specs/client-modularize-measurements.md`
+**Files:** Modify `apps/gradle.properties`; Create `specs/client-modularize-measurements.md`.
 
-**Interfaces:**
-- Produces: the baseline numbers every later phase compares against, and the answer to "is IC already effective?" (recompiled-N-files).
-
-- [ ] **Step 1: Add build-report props**
-
-Append to `apps/gradle.properties`:
+- [ ] **Step 1:** Append to `apps/gradle.properties`:
 ```
-# CL-MODULARIZE Phase 0 — attribute compile time + incremental-recompile size
+# CL-MODULARIZE P0 — attribute compile time + incremental-recompile size
 kotlin.build.report.output=file
 kotlin.build.report.file.output_dir=build/kotlin-reports
 ```
-
-- [ ] **Step 2: Capture the baseline (warm daemon, N=5, discard first run)**
-
-Run each, discard run 1, average runs 2-5. Record verbatim outputs:
+- [ ] **Step 2 — incremental inner loop (the C1 signal):** warm daemon; edit one UI file body (blank line in `FeedScreen.kt`) **before each** run:
 ```
 cd apps; export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-./gradlew :client:compileKotlinDesktop --profile                 # main compile alone
-./gradlew :client:compileTestKotlinDesktop --profile             # the ~5.1s task
-# then edit ONE UI file body (add a blank line to FeedScreen.kt), re-run compileTestKotlinDesktop
-./gradlew help --profile                                         # pure configuration time
-./gradlew :client:desktopTest --rerun-tasks --profile            # full test-compile+run
+for i in 1 2 3; do printf '\n//probe %s\n' $i >> client/src/commonMain/kotlin/com/sloopworks/dayfold/client/FeedScreen.kt; \
+  ./gradlew :client:compileTestKotlinDesktop --profile; done
+git checkout -- client/src/commonMain/kotlin/com/sloopworks/dayfold/client/FeedScreen.kt
 ```
-Read after each: `apps/client/build/kotlin-reports/*` (look for **"recompiled N files"**) and `apps/build/reports/profile/*.html` (configuration vs task-execution vs test).
-
-- [ ] **Step 3: Record findings in `specs/client-modularize-measurements.md`**
-
-Write a table: task | wall (avg) | recompiled-N-files | config-time. Then a one-line verdict on **C1**: is `:client` recompiling broadly (many files → split will help) or 1–2 files (fixed-cost-bound → split marginal)? And separate main-compile (edit→render path) from test-compile (edit→test path).
-
-- [ ] **Step 4: Commit**
-```bash
-git add apps/gradle.properties specs/client-modularize-measurements.md
-git commit -m "CL-MODULARIZE P0: kotlin build reports + baseline measurements"
+Read `apps/build/kotlin-reports/*` for **"Number of source files compiled: N"** per run. **N≈1–2 ⇒ IC effective ⇒ split marginal; N≈all ⇒ broad recompile ⇒ split delivers.** Also note config-time from `apps/build/reports/profile/*.html`.
+- [ ] **Step 3 — cold-full compile baselines (main vs test, separated):**
 ```
+cd apps
+./gradlew :client:clean; ./gradlew :client:compileKotlinDesktop --profile         # main cold
+./gradlew :client:clean; ./gradlew :client:compileTestKotlinDesktop --profile     # test cold
+```
+- [ ] **Step 4 — whole-repo full-build baseline (for the +5–15% regression, DoD):**
+```
+cd apps && ./gradlew clean && ./gradlew assembleDebug :client:desktopTest --profile   # wall time
+```
+- [ ] **Step 5:** Record all numbers in `specs/client-modularize-measurements.md` (table: metric | cold-full | incremental-N | wall), + the C1 verdict + the full-build baseline.
+- [ ] **Step 6:** `git add apps/gradle.properties specs/client-modularize-measurements.md && git commit -m "CL-MODULARIZE P0: build reports + inner-loop + full-build baselines"`
 
 ---
 
-## PHASE 1 — Cheap build levers (bank regardless of the split)
+## PHASE 1 — Cheap build levers
 
-### Task 1.1: Enable build-cache + parallel; re-measure
+### Task 1.1: build-cache + parallel; re-measure
+**Files:** Modify `apps/gradle.properties`, `specs/client-modularize-measurements.md`.
+- [ ] **Step 1:** add `org.gradle.caching=true` and `org.gradle.parallel=true`.
+- [ ] **Step 2:** `cd apps && ./gradlew :client:desktopTest` → BUILD SUCCESSFUL.
+- [ ] **Step 3:** re-measure the incremental inner loop (0.1 Step 2 method) + a cold-daemon proxy (`./gradlew --stop` then time `assembleDebug :client:desktopTest`). Append.
+- [ ] **Step 4:** `git commit -am "CL-MODULARIZE P1a: build-cache + parallel; re-measure"`
 
-**Files:** Modify `apps/gradle.properties`, `specs/client-modularize-measurements.md`
-
-- [ ] **Step 1: Add the safe levers**
+### Task 1.2: configuration-cache spike (exercise the ANDROID + iOS graph)
+**Files:** Modify `apps/gradle.properties` (+ build scripts only if a task needs a CC fix), `specs/client-modularize-measurements.md`.
+- [ ] **Step 1:** set `org.gradle.configuration-cache=true`. Test the graphs that actually matter (not just desktopTest):
 ```
-org.gradle.caching=true
-org.gradle.parallel=true
+cd apps && ./gradlew :androidApp:assembleDebug        # google-services is the prime CC suspect
+./gradlew :client:linkDebugFrameworkIosSimulatorArm64
+./gradlew :client:desktopTest
 ```
-- [ ] **Step 2: Verify the build still passes clean**
-Run: `cd apps && ./gradlew :client:desktopTest` → BUILD SUCCESSFUL.
-- [ ] **Step 3: Re-measure** the inner loop (same method as 0.1 Step 2) + a **worktree-cold** proxy: `./gradlew :client:desktopTest --offline` after `./gradlew --stop` (cold daemon) — record the build-cache benefit on a cold start. Append to the measurements doc.
-- [ ] **Step 4: Commit**
-```bash
-git add apps/gradle.properties specs/client-modularize-measurements.md
-git commit -m "CL-MODULARIZE P1a: enable build-cache + parallel; re-measure"
-```
-
-### Task 1.2: Spike configuration-cache (may need compat fixes)
-
-**Files:** Modify `apps/gradle.properties` (+ possibly build scripts if a task is CC-incompatible), `specs/client-modularize-measurements.md`
-
-- [ ] **Step 1: Try turning it on**
-Set `org.gradle.configuration-cache=true`. Run: `cd apps && ./gradlew :client:desktopTest`.
-- [ ] **Step 2: Branch on the result**
-  - **If BUILD SUCCESSFUL + "Configuration cache entry stored":** run twice more; confirm "Reusing configuration cache" and record the config-time delta. Keep it on.
-  - **If it fails** (SQLDelight / Compose-resources / AGP 9.2.1 task not CC-compatible — the `android.*` experimental flags in gradle.properties hint at AGP-9 quirks): capture the exact incompatible-task error. Attempt the standard fix (avoid `Project` at execution time / `providers.*`). If not cleanly fixable in ≤ the task's budget, **revert to `false`**, and record the blocker + the offending task in the measurements doc as a filed follow-up. Do NOT force it.
-- [ ] **Step 3: Re-measure** the inner loop; append.
-- [ ] **Step 4: Commit**
-```bash
-git add apps/gradle.properties specs/client-modularize-measurements.md
-git commit -m "CL-MODULARIZE P1b: configuration-cache spike (on, or blocker recorded)"
-```
+- [ ] **Step 2 — branch:**
+  - **All store "Configuration cache entry stored" + reuse on 2nd run:** keep it on; record the config-time delta.
+  - **A task is CC-incompatible** (likely `com.google.gms.google-services`, or a CL-SNAP-style custom task if #277 merged): capture the exact incompatible-task report; attempt the standard fix (no `Project` at execution time / use `providers`/`layout`). If not cleanly fixable in budget, **revert to `false`** and record the blocker + offending task as a filed follow-up. Do NOT force it.
+- [ ] **Step 3:** re-measure; append.
+- [ ] **Step 4:** `git commit -am "CL-MODULARIZE P1b: configuration-cache spike (on, or blocker recorded)"`
 
 ---
 
-## ⛔ GATE (operator) — after Phase 1
+## ⛔ GATE (operator + ADR) — after Phase 1
 
-**The implementer STOPS here and reports the measured numbers to the controller/operator.** Compute the **projected** Phase-2 win: (Phase-1 test-compile time) − (estimated `:ui`-only test-compile). Per the design's operator gate:
-- If the projected split win is **marginal** (< ~1s, or Phase 1 already captured most of it): **prompt the operator to discuss** before Phase 2. Do not proceed.
-- If **worthwhile**: author the **Proposed ADR** (module architecture) → operator Accepts → proceed to Phase 2.
-
-Phase 2 tasks below execute only after this gate clears.
+Implementer STOPS and reports measured numbers. Compute projected P2 win = (P1 test-compile) − (estimated `:ui`-only test-compile, informed by the C1 N-files signal).
+- **Marginal** (< ~1s, or P1 captured most of it): **prompt the operator to discuss** before P2.
+- **Worthwhile:** author the **Proposed ADR** (module architecture) → operator **Accepts** → proceed.
 
 ---
 
 ## PHASE 2 — Extract `:ui` (gated)
 
-> Phase-2 verification is refactor-shaped: the "tests" are **(a)** the existing suite staying green, **(b)** all targets compiling, **(c)** grep invariants (zero Compose on `:client`). No behavior changes, so no new behavioral tests — the guarantee is "same tests, redistributed, still green."
+### Task 2.1: Scaffold empty `:ui` KMP module (NO compose.resources block yet)
+**Files:** Create `apps/ui/build.gradle.kts`, `apps/ui/src/commonMain/kotlin/.gitkeep`; Modify `apps/settings.gradle.kts`.
+- [ ] **Step 1:** add `include(":ui")` to `apps/settings.gradle.kts`.
+- [ ] **Step 2:** write `apps/ui/build.gradle.kts` — plugins `kotlin("multiplatform")`, `plugin.compose`, `org.jetbrains.compose`, `com.android.library` (+ `plugin.serialization` only if a moved file needs it); `jvmToolchain(17)`; `androidTarget()`; `jvm("desktop")`; `listOf(iosArm64(), iosSimulatorArm64()).forEach { it.binaries.framework { baseName="client"; isStatic=true } }`. commonMain: `api(project(":client"))` + Compose (runtime/foundation/material3/ui), `compose.components.resources`, `compose.materialIconsExtended`, `org.jetbrains.compose.ui:ui-backhandler`, `io.coil-kt.coil3:coil-compose`+`coil-network-ktor3`, `org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha03`. androidMain (`implementation`): CameraX core/camera2/lifecycle/view, `mlkit:barcode-scanning`, `activity-compose`, `lifecycle-runtime-compose`. desktopMain: `compose.desktop.currentOs`. desktopTest: `compose.uiTest`, `kotlin("test")`. `android { namespace="com.sloopworks.dayfold.client.ui"; compileSdk=37; defaultConfig{minSdk=33}; compileOptions{VERSION_17} }`. `compose.desktop { application { mainClass="com.sloopworks.dayfold.client.MainKt" } }`. **Do NOT add `compose.resources {}` yet** (deferred to 2.2a to avoid a duplicate-`Res` window while `:client` still owns it).
+- [ ] **Step 3:** verify empty module compiles: `cd apps && ./gradlew :ui:compileKotlinDesktop :ui:compileDebugKotlinAndroid :ui:compileKotlinIosSimulatorArm64` → SUCCESS.
+- [ ] **Step 4:** `git add apps/settings.gradle.kts apps/ui/ && git commit -m "CL-MODULARIZE P2.1: scaffold empty :ui KMP module (api-depends :client)"`
 
-### Task 2.1: Scaffold the empty `:ui` KMP module + wire the build
+### Task 2.2a: Move ALL Compose (main+tests+resources+entries) to `:ui`, rewire app, promote internals — ONE GREEN COMMIT
+**Files:** `git mv` the move-set + Compose/render tests + `composeResources/` + entries from `apps/client/src/**` → `apps/ui/src/**`; Modify `apps/client/build.gradle.kts` (move the `compose.resources{}` block OUT), `apps/ui/build.gradle.kts` (add the `compose.resources{}` block), `apps/androidApp/build.gradle.kts` (dep `:client`→`:ui`), and promote internals in `:client`.
 
-**Files:**
-- Create: `apps/ui/build.gradle.kts`, `apps/ui/src/commonMain/kotlin/.gitkeep`
-- Modify: `apps/settings.gradle.kts` (add `include(":ui")`)
-
-**Interfaces:**
-- Produces: an empty `:ui` module that `api`-depends on `:client` and compiles all targets — the container for Task 2.2's move.
-
-- [ ] **Step 1: Add `include(":ui")` to `apps/settings.gradle.kts`.**
-- [ ] **Step 2: Write `apps/ui/build.gradle.kts`** — mirror `:client`'s plugins (`kotlin("multiplatform")`, `plugin.serialization` if needed, `plugin.compose`, `org.jetbrains.compose`, `com.android.library`), `jvmToolchain(17)`, `androidTarget()`, `jvm("desktop")`, `listOf(iosArm64(), iosSimulatorArm64()).forEach { it.binaries.framework { baseName = "client"; isStatic = true } }`. commonMain deps: `api(project(":client"))` + all Compose/coil/redux-kotlin-compose/ui-backhandler deps (per design §6b). androidMain: CameraX + mlkit + activity-compose + lifecycle-runtime-compose (`implementation`). desktopMain: `compose.desktop.currentOs`. desktopTest: `compose.uiTest` + `kotlin("test")`. `android { namespace="com.sloopworks.dayfold.client.ui"; compileSdk=37; defaultConfig{minSdk=33}; compileOptions{17/17} }`. Add the `compose.resources { }` block (packageOfResClass = `com.sloopworks.dayfold.client.generated`). `compose.desktop { application { mainClass = "com.sloopworks.dayfold.client.MainKt" } }`.
-- [ ] **Step 3: Verify the empty module compiles all targets**
-```
-cd apps && ./gradlew :ui:compileKotlinDesktop :ui:compileDebugKotlinAndroid :ui:compileKotlinIosSimulatorArm64
-```
-Expected: BUILD SUCCESSFUL (empty commonMain).
-- [ ] **Step 4: Commit**
-```bash
-git add apps/settings.gradle.kts apps/ui/
-git commit -m "CL-MODULARIZE P2.1: scaffold empty :ui KMP module (api-depends :client)"
-```
-
-### Task 2.2: Move the 40 Compose files + actuals + resources + entries; strip Compose from `:client`
-
-**Files:** `git mv` the move-set from `apps/client/src/**` → `apps/ui/src/**` (same package paths); Modify `apps/client/build.gradle.kts` (remove Compose deps + `compose.resources` block + `compose.desktop`), `apps/ui/build.gradle.kts` (already has them).
-
-**Interfaces:**
-- Produces: `:client` Compose-free + `:ui` holding all UI; the iOS framework now emitted by `:ui`.
-
-- [ ] **Step 1: Generate the move list mechanically and `git mv` (preserve history), keeping package dirs**
-
-commonMain (40): `cd apps/client/src/commonMain/kotlin && grep -rlE "androidx\.compose|org\.jetbrains\.compose|coil3|@Composable" . ` → for each, `git mv apps/client/src/commonMain/kotlin/<p> apps/ui/src/commonMain/kotlin/<p>`. Then move platform source sets for the seams + entries: `QrScanner.{android,desktop,ios}.kt`, `cards/PlatformActions.{android,desktop,ios}.kt`, `ui/loading/ReduceMotion.{android,desktop,ios}.kt`, desktop `Main.kt`, iosMain `MainViewController.kt`. Move `apps/client/src/commonMain/composeResources/` → `apps/ui/src/commonMain/composeResources/`.
-
-- [ ] **Step 2: Strip Compose from `apps/client/build.gradle.kts`** — remove `compose.*` deps, `compose.components.resources`, `materialIconsExtended`, `ui-backhandler`, coil, `redux-kotlin-compose`, the `compose.resources { }` block, the `compose.desktop { }` block, and the compose plugins (`plugin.compose`, `org.jetbrains.compose`). Remove `binaries.framework { }` from `:client` (keep the two iOS targets). Remove the moved androidMain deps (CameraX/mlkit/activity-compose/lifecycle).
-
-- [ ] **Step 3: Verify `:client` is Compose-free and compiles**
-```
-cd apps && ./gradlew :client:compileKotlinDesktop :client:compileDebugKotlinAndroid :client:compileKotlinIosSimulatorArm64
-grep -rE "androidx\.compose|org\.jetbrains\.compose|@Composable|coil3" client/src && echo "LEFTOVER COMPOSE" || echo "client is Compose-free ✓"
-```
-Expected: BUILD SUCCESSFUL + "Compose-free". If `Reducer.kt`'s `compose(...)` fails to resolve, qualify the import to the redux-core symbol (not `redux-kotlin-compose`).
-
-- [ ] **Step 4: iOS de-risk — link the `:ui` framework and confirm the entry is exported**
-```
-cd apps && ./gradlew :ui:linkDebugFrameworkIosSimulatorArm64
-grep -q MainViewController client/build/bin/*/debugFramework/../.. 2>/dev/null; \
-  find . -path "*client.framework/Headers/client.h" -exec grep -l MainViewController {} \;
-```
-Expected: link SUCCEEDS; `MainViewController` present in the generated `client.h`. (This is the highest-risk check — do it here, not at the end.)
-
-- [ ] **Step 5: Verify `:ui` compiles all targets**
-```
-cd apps && ./gradlew :ui:compileKotlinDesktop :ui:compileDebugKotlinAndroid :ui:compileKotlinIosSimulatorArm64
-```
-
-- [ ] **Step 6: Commit**
-```bash
-git add -A
-git commit -m "CL-MODULARIZE P2.2: move 40 Compose files + actuals + resources + entries to :ui; strip Compose from :client"
-```
-
-### Task 2.3: Wire the apps to `:ui`; smoke all app targets
-
-**Files:** Modify `apps/androidApp/build.gradle.kts` (dep `:client` → `:ui`).
-
-- [ ] **Step 1:** In `apps/androidApp/build.gradle.kts`, change `implementation(project(":client"))` → `implementation(project(":ui"))` (debugdrawer deps unchanged).
-- [ ] **Step 2: Build the Android app + desktop entry**
-```
-cd apps && ./gradlew :androidApp:assembleDebug :ui:compileKotlinDesktop
-```
-Expected: BUILD SUCCESSFUL. (Desktop `run`/`Main.kt` now lives in `:ui`.)
-- [ ] **Step 3: Commit**
-```bash
-git add apps/androidApp/build.gradle.kts
-git commit -m "CL-MODULARIZE P2.3: androidApp depends on :ui"
-```
-
-### Task 2.4: Split the test source sets
-
-**Files:** `git mv` render/UI tests `apps/client/src/desktopTest/**` → `apps/ui/src/desktopTest/**`; logic tests (+ `DetailMetaTest`, `TypedCardLogicTest`) STAY in `:client`.
-
-- [ ] **Step 1: Move the render/integration tests to `:ui`** — `*SnapshotTest` (Feed/Hub/Auth/Enrichment/LoadingKit/Timeline/Checklist/Notif), `ScanScreensUiTest`, `AuthFlowUiTest`, `FeedAppHostTest`, `PlatformActionsTest`, `CardRenderTest`, `PlatformUriHandlerTest`. Rule: a test moves iff it imports `androidx.compose.ui.test`/`runComposeUiTest`/renders a composable. Verify with: `grep -lE "runComposeUiTest|compose.ui.test" apps/client/src/desktopTest -r`.
-- [ ] **Step 2: Confirm the split is clean**
+- [ ] **Step 1 — move main files:** `cd apps/client/src/commonMain/kotlin && for f in $(grep -rlE "androidx\.compose|org\.jetbrains\.compose|coil3|@Composable" .); do mkdir -p "../../../../ui/src/commonMain/kotlin/$(dirname $f)"; git mv "$f" "apps/ui/src/commonMain/kotlin/$f"; done` (run from repo root with correct paths). Then `git mv` the platform actuals (`QrScanner.{android,desktop,ios}`, `cards/PlatformActions.{android,desktop,ios}`, `ui/loading/ReduceMotion.{android,desktop,ios}`), desktop `Main.kt`, iosMain `MainViewController.kt`, and the `composeResources/` dir → mirror paths under `apps/ui/src/**`.
+- [ ] **Step 2 — move the Compose/render tests** (compile-driven rule: a test moves iff it references a moved symbol). Move the 29 tests matching `grep -rlE "runComposeUiTest|compose.ui.test" apps/client/src/desktopTest` PLUS the symbol-referencing ones the grep misses: `CardRenderTest`, `cards/PlatformActionsTest`, `cards/PlatformUriHandlerTest`, `BlockMarkdownTest`, `DayfoldThemeTest`, `EnrichmentValidationTest`, `NowFeedScreenTest`. **Keep** logic tests incl. `DetailMetaTest`, `TypedCardLogicTest` in `:client`.
+- [ ] **Step 3 — resources block relocation (atomic):** remove the `compose.resources {}` block from `apps/client/build.gradle.kts`; add it to `apps/ui/build.gradle.kts` (`publicResClass=false; packageOfResClass="com.sloopworks.dayfold.client.generated"; generateResClass=auto`). (Fonts dir already moved in Step 1.)
+- [ ] **Step 4 — rewire app:** in `apps/androidApp/build.gradle.kts` change `implementation(project(":client"))` → `implementation(project(":ui"))`.
+- [ ] **Step 5 — compile-driven internal promotion:** `cd apps && ./gradlew :ui:compileKotlinDesktop`. For every `cannot access '<sym>': it is internal` error where `<sym>` lives in a staying `:client` file, change that declaration to `public` (add `// public: consumed cross-module by :ui`). Known: `selectScale` (`TimelinePresenter.kt`), `cardToNowItem` (`NowFeed.kt`). Repeat until `:ui` compiles. (If a symbol shouldn't be public API, extract a public wrapper — but for this slice, promote.)
+- [ ] **Step 6 — verify GREEN at this commit (all of it):**
 ```
 cd apps
-./gradlew :client:desktopTest    # logic tests only — green, count = (old total − moved)
-./gradlew :ui:desktopTest        # render tests — green, count = moved
+./gradlew :client:compileKotlinDesktop :client:desktopTest          # :client still has (unused) compose deps → green; logic tests only
+./gradlew :ui:compileKotlinDesktop :ui:compileDebugKotlinAndroid :ui:compileKotlinIosSimulatorArm64 :ui:desktopTest
+./gradlew :androidApp:assembleDebug
+./gradlew :ui:linkDebugFrameworkIosSimulatorArm64                    # iOS de-risk (highest risk)
+find apps/ui/build -name client.h | xargs grep -l MainViewController # entry exported?
 ```
-Expected: both BUILD SUCCESSFUL; **sum of the two test counts == the pre-split total** (record both).
-- [ ] **Step 3: Commit**
-```bash
-git add -A
-git commit -m "CL-MODULARIZE P2.4: split tests — render→:ui, logic(+cards logic)→:client"
+Expected: all SUCCESS; `client.h` contains `MainViewController`; sum(`:client`+`:ui` desktopTest counts) == pre-split total.
+- [ ] **Step 7:** `git add -A && git commit -m "CL-MODULARIZE P2.2a: move Compose (main+tests+resources+entries) to :ui, rewire app, promote cross-module internals"`
+
+### Task 2.2b: Strip Compose from `:client` → Compose-free
+**Files:** Modify `apps/client/build.gradle.kts`.
+- [ ] **Step 1:** remove from `:client`: the compose plugins (`plugin.compose`, `org.jetbrains.compose`), all `compose.*` deps, `compose.components.resources`, `materialIconsExtended`, `ui-backhandler`, coil, `redux-kotlin-compose`, `compose.uiTest` (desktopTest), the `compose.desktop {}` block, and `binaries.framework {}` (keep the two iOS targets).
+- [ ] **Step 2 — verify Compose-free + green:**
 ```
-
-### Task 2.5: Measure the split; verify DoD; update docs
-
-**Files:** Modify `specs/client-modularize-measurements.md`, `processes/agent-dev-loop.md`, `backlog/next.md`, `CHANGELOG.md`; the Accepted ADR (from the gate).
-
-- [ ] **Step 1: Measure post-split** — edit one `:ui` composable body; run `./gradlew :ui:compileTestKotlinDesktop`; confirm `:client` is NOT recompiled (kotlin-report shows `:client` up-to-date) and record the `:ui`-edit recompile time vs the Phase-0/1 baselines. Confirm the logic tests are skipped on a UI edit.
-- [ ] **Step 2: DoD verification** — full suite green across `:client` + `:ui` (counts preserved); all targets build (`./gradlew :androidApp:assembleDebug :ui:linkDebugFrameworkIosSimulatorArm64 :ui:compileKotlinDesktop`); `:client` grep Compose-free.
-- [ ] **Step 3: Update docs** — record the measured before/after in the measurements doc; update `agent-dev-loop.md` (the `:client`/`:ui` module map + which module a UI edit recompiles); mark `TASK-CLIENT-MODULARIZE` done in `backlog/next.md`; CHANGELOG entry (internal tooling — optional per repo rules); ensure the Accepted ADR reflects the final shape.
-- [ ] **Step 4: Commit**
-```bash
-git add -A
-git commit -m "CL-MODULARIZE P2.5: measure split, verify DoD, update docs + ADR"
+cd apps && ./gradlew :client:compileKotlinDesktop :client:compileDebugKotlinAndroid :client:compileKotlinIosSimulatorArm64 :client:desktopTest
+grep -rE "androidx\.compose|org\.jetbrains\.compose|@Composable|coil3" client/src && echo "LEFTOVER" || echo "client Compose-free ✓"
 ```
+Expected: SUCCESS + "Compose-free". If `Reducer.kt`'s `compose(...)` fails, qualify to the redux-core symbol (per Global Constraints it should resolve unchanged).
+- [ ] **Step 3:** `git commit -am "CL-MODULARIZE P2.2b: strip Compose deps/plugin/framework from :client (Compose-free)"`
+
+### Task 2.3: Measure the split; verify full DoD (incl. release + iOS); update docs
+**Files:** Modify `specs/client-modularize-measurements.md`, `processes/agent-dev-loop.md`, `backlog/next.md`, `CHANGELOG.md`, the Accepted ADR.
+- [ ] **Step 1 — measure post-split:** edit one `:ui` composable body; `./gradlew :ui:compileTestKotlinDesktop`; confirm the kotlin-report shows `:client` **up-to-date** (not recompiled) and the logic tests skipped; record `:ui`-edit recompile time vs P0/P1 baselines.
+- [ ] **Step 2 — full DoD:**
+```
+cd apps
+./gradlew :client:desktopTest :ui:desktopTest                    # full suite green, counts preserved
+./gradlew :androidApp:assembleDebug :androidApp:assembleRelease  # BOTH variants (release: devtools-core exclusion)
+./gradlew :ui:linkDebugFrameworkIosSimulatorArm64
+```
+- [ ] **Step 3 — docs:** record before/after in the measurements doc; update `agent-dev-loop.md` (`:client`/`:ui` map + which module a UI edit recompiles); mark `TASK-CLIENT-MODULARIZE` done in `backlog/next.md`; CHANGELOG (internal — optional); reconcile the Accepted ADR to the final shape.
+- [ ] **Step 4:** `git add -A && git commit -m "CL-MODULARIZE P2.3: measure split, verify DoD (debug+release+iOS), update docs+ADR"`
 
 ---
 
 ## Self-Review
 
-**Spec coverage** (design §→task): Phase 0 measure §4 → T0.1 ✅; Phase 1 §5 → T1.1/T1.2 ✅; operator gate §2 → the ⛔ GATE ✅; move-set/mechanical rule §3/§6a → T2.2 Step 1 (grep-derived, not hand-listed) ✅; deps incl redux-kotlin-compose §6b → T2.1/T2.2 ✅; compose.resources full removal §6c → T2.2 Step 2 ✅; android SDK values §6d → T2.1 Step 2 (Global Constraints) ✅; iOS framework relocation + link de-risk §6e → T2.2 Step 4 ✅; public-glue contract → Global Constraints ✅; test split incl cards-logic-stays §6f → T2.4 ✅; CL-SNAP coordination §7 → assumed #277-first (noted; if not, T2.2/T2.4 also relocate CL-SNAP snapshot files) ✅; DoD §9 → T2.5 ✅; ADR gate → the ⛔ GATE ✅.
+**Spec coverage:** P0 §4 → T0.1 (now incremental + cold-full + full-build, corrected method) ✅; P1 §5 → T1.1/T1.2 (CC spike exercises android+iOS graphs) ✅; operator+ADR gate §2 → ⛔ GATE ✅; mechanical move §3/§6a → T2.2a Step 1 (grep) ✅; **cross-module internal contract (round-2 C1/C2)** → Global Constraints + T2.2a Step 5 ✅; deps incl redux-kotlin-compose §6b → T2.1/T2.2b ✅; compose.resources atomic relocation (Android C1) → T2.1 (no block) + T2.2a Step 3 ✅; SDK values §6d → Global Constraints + T2.1 ✅; iOS framework + link de-risk + **correct header path** §6e → T2.2a Step 6 ✅; test split incl the 6 grep-missed tests (round-2 I1/I2) → T2.2a Step 2 ✅; **assembleRelease** (round-2 I1) → T2.3 Step 2 ✅; full-build regression (round-2 I-4) → T0.1 Step 4 + T2.3 ✅; DoD §9 → T2.3 ✅.
 
-**Placeholder scan:** the 40-file move is defined by an exact grep (DRY, robust) rather than a hand-enumerated list — intentional, not a placeholder. No "TBD"/"handle edge cases". Refactor tasks verify via compile + existing-suite-green + grep invariants (correct for a no-behavior-change extraction).
+**Green-at-boundary (round-2 C-1/C-2 fixed):** T2.1 empty `:ui` compiles; **T2.2a is one atomic green commit** (move + tests + resources + app-rewire + internal-promotion — `:client` keeps unused compose deps so it stays green); **T2.2b** strips `:client` (green). No red intermediate commit.
 
-**Type/naming consistency:** module names `:client`/`:ui`, namespace `…client.ui`, framework baseName `client`, package `com.sloopworks.dayfold.client(.generated)`, SDK 37/33/17, iosArm64+iosSimulatorArm64 — used identically across Global Constraints + all tasks. `MainKt` mainClass matches the desktop entry moved in T2.2.
+**Placeholder scan:** the 40-file move + internal-promotion are compile-driven procedures (grep + iterate-on-compile-errors), not hand-lists or TBDs — the correct shape for a mechanical refactor with unknown-count visibility fixes. Known cases named (`selectScale`, `cardToNowItem`).
 
-**Known contingencies flagged inline:** CC compat (T1.2 branch), `Reducer.kt` `compose()` resolution (T2.2 Step 3), CL-SNAP merge order (§7), and the operator/ADR gate — each with an explicit branch, not a silent assumption.
+**Type/naming consistency:** `:client`/`:ui`, namespace `…client.ui`, framework `client`/isStatic, `packageOfResClass=…client.generated`, SDK 37/33/17, iosArm64+iosSimulatorArm64, mainClass `MainKt`, header path `apps/ui/build/bin/iosSimulatorArm64/debugFramework/client.framework/Headers/client.h` — consistent across constraints + tasks.
