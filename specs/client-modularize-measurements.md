@@ -40,6 +40,50 @@
 
 ---
 
+## Phase 1a — org.gradle.caching=true + org.gradle.parallel=true
+
+**Date:** 2026-07-02 | Gradle 9.4.1 | Kotlin 2.3.20 | Java 17 Homebrew | Darwin arm64
+
+Properties added to `apps/gradle.properties`:
+```
+org.gradle.caching=true
+org.gradle.parallel=true
+```
+
+### Build times — Phase 1a
+
+| Build | Task | Lines analyzed (proxy) | Wall time | Kotlin time |
+|-------|------|----------------------|-----------|-------------|
+| Incremental P1a run 1 | compileKotlinDesktop | 15571 | ~15s total | 4.670 s |
+| Incremental P1a run 1 | compileTestKotlinDesktop | UP-TO-DATE | — | — |
+| Incremental P1a run 1 | desktopTest | ran | ~10s (incl. in total) | — |
+| Incremental P1a run 2 | compileKotlinDesktop | 15572 | ~15.9s total | 4.438 s |
+| Incremental P1a run 2 | compileTestKotlinDesktop | UP-TO-DATE | — | — |
+| Incremental P1a run 2 | desktopTest | ran | ~10s (incl. in total) | — |
+| Cold-daemon proxy (--stop + touch FeedScreen.kt) | compileKotlinDesktop | 15573 | 28s | 12.783 s |
+
+### Phase 0 vs Phase 1a delta
+
+| Metric | P0 baseline | P1a | Delta |
+|--------|-------------|-----|-------|
+| Kotlin compile time (incremental, warm daemon) | ~4.1–4.5 s | 4.44–4.67 s | ~0 (within noise) |
+| Lines analyzed (main compile) | ~15570 | ~15571–15573 | ~0 |
+| REBUILD_REASON | KT-62686 every run | KT-62686 every run | unchanged |
+| `desktopTest` re-runs on FeedScreen.kt touch | Skipped runs 2+3 | Runs every time | Regression: +10s/loop |
+| Cold-proxy wall time | 18.8s (warm-daemon + clean) | 28s (cold JVM + incremental) | Not comparable; cold JVM startup dominates |
+
+### Notes
+
+- Kotlin compile time **unchanged** — caching/parallel don't accelerate an IC-fallback full recompile.
+- `desktopTest` now re-executes every incremental build (vs UP-TO-DATE in P0 runs 2+3). With build-cache enabled, the compile task writes outputs to cache and touches output files → test task sees changed inputs → re-runs. **Net effect: +~10s per incremental loop turn** while under KT-62686.
+- Cold-daemon proxy (28s) is dominated by cold JVM startup (12.78s Kotlin compile vs ~4.5s warm). Not comparable to P0's clean-build cold metric (18.8s with warm daemon).
+- Build cache is computing keys and storing entries, but offers no help for the inner-loop scenario because the source changes on every run.
+- `org.gradle.parallel=true` benefits multi-module builds; no measurable effect on single-module `:client:desktopTest`.
+
+**Verdict:** Neither `org.gradle.caching` nor `org.gradle.parallel` moves the incremental inner loop. KT-62686 is the controlling variable. Module split (Phase 2) remains the path to improvement.
+
+---
+
 ## IC behavior
 
 **KT-62686 fires on every incremental build of `:client:compileKotlinDesktop`.**
