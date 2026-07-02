@@ -7,6 +7,27 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
+
+### Added (dev tooling)
+- **Headless snapshot render** for the client UI: `./gradlew :client:snapshotUi
+  -PsnapshotArgs="--scene <scene> --preset <preset> --out <file>.png"` renders
+  any of 3 scenes (feed / hub-detail / detail) from pre-built `AppState` fixtures
+  off-screen in milliseconds — no device, no emulator. Powered by
+  `org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04` (Maven Central,
+  `desktopTest` scope). Use `--list` to enumerate all scenes and presets (JSON).
+- **Semantic node inspection** (`--semantics` flag, Tier-0 loop, zero vision
+  tokens): prints the Compose semantic tree (roles, text, descriptions, selected
+  state) to stdout. Preferred first-pass for content and refactor changes.
+- **Committed-golden regression gate**: `GoldenSnapshotTest` (`:client:desktopTest`,
+  CI = ubuntu-latest) verifies 12 committed PNGs in
+  `apps/client/src/desktopTest/resources/snapshots/` at `maxDiffPercent = 4.0`
+  (measured cross-OS bold-glyph drift is 2.2–2.9%; snapshot clock pinned so
+  the feed header date can't go stale).
+  Re-record after intentional visual changes with `-Dsnapshot.record=true`, then
+  eyeball the diff before committing. Delivers ADR 0019 "Remaining" #4 and #6
+  (replaces the deferred Roborazzi DIY plan).
+
 ## Unreleased
 
 ### Added

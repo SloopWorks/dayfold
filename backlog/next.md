@@ -8,6 +8,125 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-CLIENT-MODULARIZE — split `:client` into `:model` / `:ui` / `:data` (NEXT — active front)
+
+**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Builds on
+`TASK-KMP` (done — `:client` is a true KMP module). This is a further
+decomposition, not a redo.
+
+**Why (measured, not theorized):** `:client` is one monolithic KMP module —
+79 `commonMain` files (UI + state/logic + data/sync + fake backend) + 24
+generated SQLDelight files, with sqldelight/ktor/coil on the compile classpath.
+In the CL-SNAP session the inner loop measured **~5s recompile + ~2s
+fork/render**, and the recompile was **the same ~5s whether editing a UI file
+(`FeedScreen`) or an unrelated data file (`SyncClient`)** → the whole module is
+one compilation unit. A 1-line body change pays the full ~5s floor (Kotlin
+incremental analysis + Compose compiler plugin over the module + test-compile
+depends on main). The render itself is already fast (~150ms/shot in-process).
+
+**Goal:** shrink the compile unit a UI edit touches.
+- `:model` — `Model`/`AppState`, `Reducer`, `Selectors`, `*Engine`, pure logic
+  (kotlinx-serialization + datetime; **no** Compose, sqldelight, or ktor).
+- `:ui` — Compose composables (`FeedScreen`, `cards/`, `theme/`, screens) →
+  depends on `:model` + Compose only. **The snapshot registry renders from here.**
+- `:data` — `SyncClient`, `*Client`, `ContentStore`, `OutboxSender`, SQLDelight,
+  ktor.
+- `:client` (app) — wires them + `expect/actual` drivers + fake backend.
+
+**Payoff:** a UI edit recompiles `:ui` only (the 24 generated SQLDelight files +
+ktor/sync leave the UI compile unit) → est. **~5s → ~2–3s** (unverified — needs
+the actual split to confirm), plus per-module build-cache + parallelism. Beyond
+speed: it isolates the deferred **web-target (wasmJs) + async-DB migration**
+(`OQ-web-target`) to `:data`, and makes `:model`/`:ui` independently testable.
+The CL-SNAP snapshot loop is a direct beneficiary.
+
+**Caveats:** the Compose compiler plugin is a per-changed-UI-file floor — the
+split shrinks the analyzed set + kills cross-concern recompiles, it doesn't
+remove Compose's cost. For tight *visual* iteration, Compose Hot Reload is the
+complementary tool (snapshots stay the verification gate). Cheaper adjacent win
+to bank first: enable `org.gradle.configuration-cache` (the `snapshotUi` task is
+already config-cache-safe) — attacks the ~2s fork/config overhead.
+
+**Risks / scope:** large refactor — the redux store wiring, `expect/actual`
+driver boundaries, and the debug-only fake backend all cross the new module
+lines; android/desktop/iOS targets must all still build; snapshots + the full
+`:client:desktopTest` suite must stay green. **Module architecture is ADR-class**
+(structure/platform) → short Proposed ADR or a design-first pass before the split.
+
+**DoD:** editing a `:ui` composable recompiles `:ui` (+ snapshot test) only, not
+`:data`/sqldelight; the measured UI-edit recompile improvement is recorded; all
+targets compile; snapshots + tests green. **Reference:** measured in the CL-SNAP
+session (PR #277); `specs/cl-snap-agent-snapshot-loop-design.md`.
+
+## TASK-HEADLESS-RENDER-DAEMON — persistent headless Compose render engine (PNG + layout tree, code-reload) (NEXT — spike)
+
+**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Supersedes the
+earlier "add Compose Hot Reload" framing — hot-reload was a *means*; a headless
+render daemon is the *end*. The agent-optimal render engine: a warm long-lived
+JVM exposing `render(scene | stateJson) → {png, semanticsTree, bounds}`, that also
+absorbs *code* edits without a JVM restart or full Gradle build. Collapses three
+follow-ups into one engine: persistent render + layout-info (the inspector) +
+code-reload (escapes the ~5s recompile for composable edits too). Ideal backend
+for **AI design-matching** (render → diff vs mockup → region → owning composable
+→ edit → re-render, ~1s, mostly text).
+
+**Why this shape (measured):** CL-SNAP's inner loop is ~5s recompile + ~2s
+fork/render; batch-in-one-process already gets **~150ms/shot** warm. Two axes:
+- **State iteration (same code, new state)** — EASY, no hot-reload needed. Extend
+  CL-SNAP's batch to a daemon (stdin/socket loop) holding a warm JVM. Sub-second
+  headless renders today.
+- **Code iteration (edit a composable)** — the frontier (below).
+
+**Key insight — hot-reload's Compose half is UNUSED headlessly.** `ImageComposeScene`
+renders a **fresh composition per shot** (create → render → close). So there is no
+long-lived composition to invalidate → hot-reload's `DevelopmentEntryPoint`
+recompose-in-place hooks don't apply. The daemon needs only "the next `render()`
+runs the new code." Two routes to get recompiled classes into the live process:
+- **Route B — classloader swap (LOWER RISK, evaluate FIRST; no plugin, no JBR):**
+  a watching/incremental compile of the changed module → render each shot through a
+  fresh child `URLClassLoader` that loads the new classes (each shot is a throwaway
+  composition anyway → drop the old loader). No experimental dependency. Risk =
+  Compose runtime *global* state resisting reload across classloaders — the real
+  thing to prove.
+- **Route A — JBR hotswap (FASTER, riskier, fallback):** reuse `org.jetbrains.
+  compose.hot-reload`'s JBR enhanced class-redefinition to swap classes in place →
+  next render uses them. Fastest (everything stays warm) but off hot-reload's paved
+  path (built to drive a *window*, not a headless server → likely reaching under
+  the plugin API) + needs the JBR (~200MB) and a CMP 1.9.3 / Kotlin 2.3.20-compatible
+  plugin version (tight matrix — verify first).
+
+**Layout-info output** = the inspector Level-1 work: `SemanticsNode.boundsInRoot`
+(+ role/text/testTag, unmerged) as JSON per render; optionally the LayoutNode tree
+for every composable (see the `later.md` pixel↔composable inspector task — this
+daemon is its natural host).
+
+**Spike steps:**
+1. **Persistent render daemon (low-risk core):** batch → long-lived process,
+   `render(scene|stateJson) → {png, layout}` on stdin/socket, seeded from the
+   existing `SnapshotStates`/`FakeScenarios` fixtures. Confirm ~150ms/shot warm.
+2. **Add layout-info output:** bounds + semantics tree as text per render (needs
+   the reduxkotlin dump to carry bounds — coordinate with the inspector task).
+3. **Code-reload experiment — Route B first:** watching compile + fresh-classloader
+   render; prove Compose global state survives a reload. If it fights, evaluate
+   **Route A** (hot-reload/JBR) — after the CMP/Kotlin version-matrix check.
+4. **Measure** edit→(headless re-render + layout dump) latency vs the ~7s baseline.
+
+**Relation to siblings:** `TASK-CLIENT-MODULARIZE` shrinks the ~5s recompile for
+*every* consumer (also feeds this daemon's Route B); this daemon is the
+**agent/CI-facing** engine (headless, text-first). Live *human* visual iteration
+(watch-a-window, state-preserved) remains hot-reload's actual sweet spot — a
+smaller, separate dev-convenience if wanted, not this task.
+
+**Caveats / risk:** Route B's classloader hygiene vs Compose runtime globals is the
+core unknown; Route A depends on undocumented hot-reload internals + JBR. This is
+R&D — the persistent-render + layout-output core is low-risk/high-value on its own;
+the code-hot-reload half is the experiment. All dev-only → zero prod/CI blast radius.
+
+**DoD:** a warm daemon rendering `{png, layout-tree}` sub-second per state; a
+recorded verdict on Route B (classloader swap) — works / Compose-globals-block-it /
+needs Route A; and the measured edit→render+layout latency vs ~7s. **Reference:**
+CL-SNAP session (PR #277); pairs with the `later.md` pixel↔composable inspector.
+
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 > **STATUS 2026-06-21 — M0 build order EXHAUSTED + MERGED TO MAIN** (PR #7
