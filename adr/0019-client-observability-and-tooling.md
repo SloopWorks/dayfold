@@ -73,8 +73,10 @@ the Roborazzi DIY path noted at acceptance. Implementation (epic CL-SNAP):
 - Scene registry: `SnapshotScenes.kt` (scenes `feed`, `hub-detail`, `detail`;
   state fixtures from `SnapshotStates.kt` — hand-built `AppState` literals).
 - 12 committed goldens in `apps/client/src/desktopTest/resources/snapshots/`.
-- `GoldenSnapshotTest` verifies goldens at `maxDiffPercent = 2.0` in
-  `:client:desktopTest` (CI = ubuntu-latest). Re-record: `-Dsnapshot.record=true`.
+- `GoldenSnapshotTest` verifies goldens at `maxDiffPercent = 4.0` in
+  `:client:desktopTest` (CI = ubuntu-latest); measured cross-OS drift on
+  bold-dense scenes is 2.2–2.9% (variable-font wght instantiation differs
+  CoreText vs FreeType). Re-record: `-Dsnapshot.record=true`.
 - `--semantics` flag confirmed working in alpha04 (Tier-0 text smoke, zero
   vision tokens).
 

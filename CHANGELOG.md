@@ -21,7 +21,9 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   state) to stdout. Preferred first-pass for content and refactor changes.
 - **Committed-golden regression gate**: `GoldenSnapshotTest` (`:client:desktopTest`,
   CI = ubuntu-latest) verifies 12 committed PNGs in
-  `apps/client/src/desktopTest/resources/snapshots/` at `maxDiffPercent = 2.0`.
+  `apps/client/src/desktopTest/resources/snapshots/` at `maxDiffPercent = 4.0`
+  (measured cross-OS bold-glyph drift is 2.2–2.9%; snapshot clock pinned so
+  the feed header date can't go stale).
   Re-record after intentional visual changes with `-Dsnapshot.record=true`, then
   eyeball the diff before committing. Delivers ADR 0019 "Remaining" #4 and #6
   (replaces the deferred Roborazzi DIY plan).

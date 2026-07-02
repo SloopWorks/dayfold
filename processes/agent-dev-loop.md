@@ -185,9 +185,13 @@ stdout. Use this first for content/refactor changes — no image read needed.
   visual change you want to eyeball.
 
 **Golden gate (CI):** `GoldenSnapshotTest` in `desktopTest` verifies the
-committed goldens at `maxDiffPercent = 2.0`. Runs in `:client:desktopTest`
-(CI = ubuntu-latest). Brand fonts are bundled → cross-arch drift is small →
-2% tolerance holds. Re-record after an intentional visual change:
+committed goldens at `maxDiffPercent = 4.0`. Runs in `:client:desktopTest`
+(CI = ubuntu-latest). The bundled brand fonts are variable fonts (wght axis);
+macOS (CoreText) and linux (FreeType) instantiate the bold weights with
+slightly different glyph advances, so bold-dense scenes measure 2.2–2.9%
+cross-OS (AA-only drift stays under 2%) → 4% gate. Snapshot renders pin the
+clock (`SNAPSHOT_NOW`) so the feed header date can't go stale. Re-record
+after an intentional visual change:
 ```
 cd apps && ./gradlew :client:desktopTest --tests "*GoldenSnapshotTest" -Dsnapshot.record=true
 ```

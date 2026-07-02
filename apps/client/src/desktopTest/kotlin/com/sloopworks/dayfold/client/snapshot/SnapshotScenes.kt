@@ -14,6 +14,10 @@ import org.reduxkotlin.snapshot.snapshotApp
 
 // One registry, two consumers: assertGolden tests (Task 6/7) and the :client:snapshotUi
 // CLI (Task 5). presets -> SnapshotStates -> the state-based composables under DayfoldTheme.
+
+// The fixed "now" every snapshot renders at (matches the committed goldens' header date).
+val SNAPSHOT_NOW: kotlin.time.Instant = kotlin.time.Instant.parse("2026-07-02T12:00:00Z")
+
 val clientSnapshots: SnapshotApp = snapshotApp {
   defaults { width = 411; height = 891; density = 2f; theme = "light" }
 
@@ -21,7 +25,9 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     presets("busy", "empty", "caught-up", "syncing", "offline", "typed", "enriched")
     render { args ->
       val state = SnapshotStates.feed(presetName(args.input))
-      themed(args.theme) { FeedScreen(state) }
+      // Pinned clock/tz: the header renders "Today / <date>" from the clock — a live clock
+      // makes every feed golden stale at the next date rollover (and CI runs in UTC).
+      themed(args.theme) { FeedScreen(state, now = SNAPSHOT_NOW, timeZone = kotlinx.datetime.TimeZone.UTC) }
     }
   }
 
