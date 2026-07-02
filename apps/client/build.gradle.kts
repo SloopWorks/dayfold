@@ -107,6 +107,9 @@ kotlin {
         implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
         implementation("io.ktor:ktor-client-mock:3.5.0")
         implementation("app.cash.turbine:turbine:1.2.1")
+        // CL-SNAP: headless f(state)->UI render + golden diff + text semantics.
+        // Test-scope ONLY (must not ship). JVM-only artifact (no target suffix).
+        implementation("org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04")
       }
     }
   }
