@@ -40,11 +40,15 @@ re-attacked on cadence.
 **If asked to "run a loop iteration":** follow `processes/planning-loop.md`
 end to end, including the journal entry and inbox/digest close-out.
 **If asked to "bootstrap this project":** follow `BOOTSTRAP.md`.
-**If building/editing the apps (`apps/`):** read `processes/agent-dev-loop.md`
-first — the fixed toolchain (JDK17, Kotlin 2.3.20, redux-kotlin alpha01 gotchas)
-+ the cheap feedback loop (text action log, snapshot PNGs, devtools, cloud URL).
-The M0 prototype is **built + live** (Vercel+Neon; Android renders on-device) —
-see `specs/prototype/00-build-spec-plan.md`.
+**If building/editing `apps/client`, `apps/androidApp`, or the iOS target:** read
+`processes/agent-dev-loop.md` first — the fixed toolchain (JDK17, Kotlin 2.3.20,
+redux-kotlin alpha01 gotchas) + the cheap feedback loop (text action log,
+snapshot PNGs, devtools). It's Compose/KMP-heavy — skip it for `apps/cli`-only
+work (a plain standalone Gradle/JVM module, no special gotchas: `cd apps/cli
+&& ./gradlew test`; packaging/release is `processes/cli-release.md`) or
+`apps/api`-only work (that file's own `## API` section is ~20 lines — jump
+straight there). The M0 prototype is **built + live** (Vercel+Neon; Android
+renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 
 ## Directory map
 

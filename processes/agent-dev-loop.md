@@ -1,10 +1,16 @@
-# Agent Dev Loop — build, test, observe (read this before touching the apps)
+# Agent Dev Loop — build, test, observe (read this before touching apps/client, apps/androidApp, or iOS)
 
 For future sessions: the **cheap, repeatable feedback loop** for each module, so
 you don't re-derive the toolchain (that's the token sink). Hypothesis (unproven,
 worth measuring): the **text action log** + **snapshot PNGs** + **devtools** let
 an agent verify changes with *text + on-demand image reads* instead of
 device-screencap-every-iteration → faster, fewer tokens.
+
+**Scope / jump table** — most of this file is Compose/KMP (client+Android+iOS)
+detail. If you're only touching `apps/api`, read just `## API` below (~20
+lines) and stop. If you're only touching `apps/cli`, you don't need this file
+at all — it's a plain Gradle/JVM module (`./gradlew test`); see
+`processes/cli-release.md` for packaging.
 
 ## Toolchain (fixed — don't re-discover)
 - **JDK 17** for all Gradle builds: `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`

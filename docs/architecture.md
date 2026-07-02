@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-01). For product framing
+A map of the system as it actually runs today (2026-07-02). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -54,7 +54,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Client | `apps/client` | Kotlin Multiplatform, Compose Multiplatform, redux-kotlin, SQLDelight | Shared `commonMain` holds all logic + UI: sync engine, offline cache, the Now priority/ranking engine, notification selection, hub/feed rendering. Targets: Android, desktop (dev/test), iOS (compiles; no shipped app yet) |
 | Android host | `apps/androidApp` | Thin Android app depending on `:client` | The dogfood install target; owns the manifest, notification/geofence device glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
-| Link rules | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Shared phone/email linkification + URL/mailto vetting, used by both CLI (`push --no-linkify` opt-out) and client render |
+| Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
 
 ## Data flow
 
@@ -75,7 +75,12 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    (`network → DB → store → UI`, never network → store directly). The Now feed
    is computed on-device from cached content (`rank()` in `NowRank.kt`) —
    urgency/proximity/importance/decay, calm-budget banding, local-only
-   surfacing state (`last_shown`/`dismissed`, never synced).
+   surfacing state (`last_shown`/`dismissed`, never synced). A hub can also
+   render a **timeline** (day rail or multi-month roadmap): authored via
+   `Hub.timeline` (content-blind, laid out entirely on-device), or — when a
+   hub has none — **derived on-device** from its own dated blocks (checklist
+   due-dates, milestones, pickups), honestly labelled as derived (ADR 0045,
+   0046).
 5. **Member writes (two-way, ADR 0038–0042).** A signed-in member can toggle a
    checklist item, delete their own block, or hide a block locally. These go
    through an **outbox** (optimistic apply → `PUT`/`DELETE` with
@@ -109,7 +114,8 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 (build-order), `adr/0027` (Firebase JWKS), `adr/0029`/`0030` (scope + hub
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
-derived surfacing + background notifications).
+derived surfacing + background notifications), `adr/0045`/`0046` (Hub
+Timeline — authored + on-device-derived).
 
 ## Deploy
 

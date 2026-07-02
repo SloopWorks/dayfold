@@ -4,14 +4,16 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-// `delete <id> [--card]` removes a hub (default; the server cascades sections+blocks) or
-// a card. Destructive, so the id must be resolved flag-position-agnostically — a `--card`
-// before the id must NOT be mistaken for the id (which would target "/cards/--card").
+// `delete <id> [--card|--block]` removes a hub (default; the server cascades sections+
+// blocks), a card, or a single block. Destructive, so the id must be resolved flag-
+// position-agnostically — a `--card` before the id must NOT be mistaken for the id
+// (which would target "/cards/--card").
 class DeleteTargetTest {
-  @Test fun `default deletes a hub, --card targets a card`() {
+  @Test fun `default deletes a hub, --card targets a card, --block targets a block`() {
     assertEquals("hubs", deleteResource(arrayOf("delete", "h1")))
     assertEquals("cards", deleteResource(arrayOf("delete", "c1", "--card")))
     assertEquals("cards", deleteResource(arrayOf("rm", "--card", "c1")))   // flag-first
+    assertEquals("blocks", deleteResource(arrayOf("delete", "b1", "--block")))
   }
 
   @Test fun `id is the first non-flag positional (flag may come before or after it)`() {

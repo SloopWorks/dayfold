@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.cli
 
+import com.sloopworks.dayfold.client.MediaValidation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

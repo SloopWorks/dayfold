@@ -31,6 +31,15 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   (ADR 0044)
 - Hub link/document blocks are now tappable end-to-end (previously rendered
   as a link but did nothing when tapped).
+- `dayfold delete <id> --block` — the CLI can now remove a single stray block
+  directly (previously you had to delete and re-push the whole hub tree; the
+  server route already supported it).
+
+### Fixed
+- Release builds no longer run the Redux DevTools recorder or the action-log
+  middleware (both were accidentally on in production, serializing the full
+  app state on every dispatch) — debug-only now, as intended. No behavior
+  change; reduces main-thread work under dispatch bursts on release builds.
 
 ## 2026-06-29 – 2026-06-30 — Now derived surfacing (Phases A + B)
 
