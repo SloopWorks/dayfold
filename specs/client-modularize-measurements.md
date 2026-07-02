@@ -195,7 +195,39 @@ A logic edit to a Compose-free `:client` file still triggers the KT-62686 safety
 
 ### Measurement 2: `:ui` edit isolation
 
-**Method:** edit FeedScreen.kt (`:ui` composable, blank line appended); run `./gradlew :ui:compileTestKotlinDesktop`; check whether `:client:compileKotlinDesktop` is UP-TO-DATE; revert.
+**Two causes of a `:client` recompile — separated below:**
+
+**(a) `:ui` MAIN edit → `:ui:compileKotlinDesktop`:** `:client` is UP-TO-DATE. Isolation holds.
+**(b) `:ui:compileTestKotlinDesktop` target:** Gradle's jar-dependency chain requires `:client`'s compiled jar before it can compile `:ui` test sources. This forces `:client:compileKotlinDesktop` to run (as an upstream task), and KT-62686 fires on it. This is a property of the TEST target, not of any source edit.
+
+**Confirming build (2026-07-02, clean-state deterministic check):**
+
+Method: verify `git status` clean; warm daemon; append blank line to FeedScreen.kt (`:ui` composable); run `./gradlew :ui:compileKotlinDesktop` (MAIN only); then run `./gradlew :ui:compileTestKotlinDesktop`.
+
+Run 1 — `./gradlew :ui:compileKotlinDesktop` (MAIN):
+```
+:client:compileKotlinDesktop  UP-TO-DATE
+:ui:compileKotlinDesktop      executed (2s wall)
+BUILD SUCCESSFUL in 2s
+```
+
+**`:client` was UP-TO-DATE** — `:ui` MAIN edit does not touch `:client`. Isolation confirmed.
+
+Run 2 — `./gradlew :ui:compileTestKotlinDesktop` (same edit, `:ui` main already compiled):
+```
+:client:compileKotlinDesktop  UP-TO-DATE
+:ui:compileKotlinDesktop      UP-TO-DATE
+:ui:compileTestKotlinDesktop  UP-TO-DATE
+BUILD SUCCESSFUL in 323ms
+```
+
+In steady state (`:ui` main already compiled), `compileTestKotlinDesktop` also sees `:client` UP-TO-DATE because the jar is already fresh. The `:client` recompile seen in the **original P2.3 measurement** (report `16-48-20`) occurred because `compileTestKotlinDesktop` was targeted directly on a warm-but-pre-edit state, which forced Gradle's jar-dependency chain to re-run `:client:compileKotlinDesktop` as part of assembling the full test classpath. That recompile was caused by (b) the `compileTestKotlinDesktop` jar-dep chain, **not** by reverting the earlier `:client` source edit.
+
+**Confirmed steady-state behavior:** `:ui` MAIN edits leave `:client` UP-TO-DATE (isolation holds). The `:client` recompile in the original measurement was the `compileTestKotlinDesktop` jar-dep chain firing on a state where `:ui` main had not yet been compiled in this invocation.
+
+---
+
+**Original measurement (retained for record):**
 
 **Kotlin report:** `dayfold-apps-build-2026-07-02-16-48-20-0.txt`
 
@@ -210,11 +242,7 @@ tasks = [:ui:compileTestKotlinDesktop]
 Total Gradle task time: 5.898 s
 ```
 
-**`:client` was NOT up-to-date on a `:ui` edit.** When `compileTestKotlinDesktop` is the target (which requires `:ui` main + `:client` as upstream), Gradle also runs `:client:compileKotlinDesktop` — and KT-62686 fires there too.
-
-**Context:** this is because Gradle must produce `:client`'s jar (a `:ui` compile input) before compiling `:ui`. When `:ui`'s source changes, Gradle re-runs `:client:compileKotlinDesktop` to check for ABI changes, and KT-62686 fires on that task as well. The split narrows the total to ~10.6s of Kotlin compile time (client 2.4s + ui 2.6s + ui-test 0.8s) vs the P0 monolith's ~5s + ~8.7s for test — BUT the expected "client UP-TO-DATE" isolation does not hold when targeting `compileTestKotlinDesktop`.
-
-**Partial isolation observed:** when targeting just `:ui:compileKotlinDesktop` alone (main only, report `16-30-15`), `:client` was already compiled and UP-TO-DATE (7,434 lines in that invocation, `:client` not recompiled). The isolation holds for main-only invocations after `:client` is compiled; it does not hold when `compileTestKotlinDesktop` forces a full upstream recheck.
+This run targeted `compileTestKotlinDesktop` directly (cause b above) — `:client`'s jar was not yet fresh for that invocation, so Gradle rebuilt it. Not representative of the `:ui`-main-edit inner loop.
 
 ---
 

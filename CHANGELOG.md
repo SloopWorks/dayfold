@@ -20,7 +20,7 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 - **iOS local notifications (Phase B parity)** — iOS now reaches parity with the
   shipped Android Phase-B notifications (ADR 0044): on-device, local-only background
   proximity + local notifications, **default-OFF / opt-in**. A runnable iOS host
-  (`apps/iosApp/`) embeds the shared `:client` framework; the device glue lives in
+  (`apps/iosApp/`) embeds the shared `:ui` framework; the device glue lives in
   `iosMain` over the **same** decision core as Android (no engine fork). Both lanes
   fire on-device: **time/date** reminders (`UNTimeIntervalNotificationTrigger`) and
   **place/geofence** reminders (`CLLocationManager` region monitoring, honoring the

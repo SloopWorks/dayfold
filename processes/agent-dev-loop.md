@@ -162,7 +162,7 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 311 tests: Compos
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
   **silently NOT run** (JUnit ignores non-void test methods). Use
   `runBlocking<Unit> { … }`. Verify test COUNTS, not just BUILD SUCCESSFUL.
-- **Snapshots land in `apps/client/build/snapshots/*.png`** — `Read` them to
+- **Snapshots land in `apps/ui/build/snapshots/*.png`** — `Read` them to
   verify UI without a device. (The hand-rolled `FeedSnapshotTest` writes raw
   PNGs, no diff.) **Golden-diff is now `rk snapshot` — see below; it supersedes
   the Roborazzi-DIY plan in ADR 0019's "remaining".**

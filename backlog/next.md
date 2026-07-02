@@ -613,7 +613,7 @@ until the operator gates (**INB-23** / ADR 0034 G1–G5). Follow-on tasks:
 
 ## TASK-CLIENT-MODULARIZE — `:client`/`:ui` module split (ADR 0047) ✅ DONE 2026-07-02
 
-**Status:** Slice 1 (`:ui` Compose extraction) COMPLETE. Branch `client-modularize`; commit `ef813d5` + P2.3 measurement/docs commit.
+**Status:** Slice 1 (`:ui` Compose extraction) COMPLETE. Branch `client-modularize`; commits `ef813d5` (P2.2b) + `ccb7aab` (P2.3 measure/docs) + fix commit (P2.3 isolation provenance + snapshot path + iOS-framework doc refs).
 
 **Shipped (Phases 0–2):**
 - **P0:** Measured the monolith — KT-62686 fires on every edit, ~15,570 lines recompiled, ~4.2s per incremental build. Kotlin-reports baseline captured; build-cache reverted (regression); CC kept.
