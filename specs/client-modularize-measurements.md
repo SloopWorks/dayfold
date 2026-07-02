@@ -70,17 +70,19 @@ org.gradle.parallel=true
 | Lines analyzed (main compile) | ~15570 | ~15571–15573 | ~0 |
 | REBUILD_REASON | KT-62686 every run | KT-62686 every run | unchanged |
 | `desktopTest` re-runs on FeedScreen.kt touch | Skipped runs 2+3 | Runs every time | Regression: +10s/loop |
-| Cold-proxy wall time | 18.8s (warm-daemon + clean) | 28s (cold JVM + incremental) | Not comparable; cold JVM startup dominates |
+| Cold-proxy wall time | 18.8s (warm-daemon + clean) | 28s (cold JVM + incremental) | **NOT COMPARABLE / excluded** — cold JVM startup dominates; apples-to-oranges measurement |
 
 ### Notes
 
 - Kotlin compile time **unchanged** — caching/parallel don't accelerate an IC-fallback full recompile.
-- `desktopTest` now re-executes every incremental build (vs UP-TO-DATE in P0 runs 2+3). With build-cache enabled, the compile task writes outputs to cache and touches output files → test task sees changed inputs → re-runs. **Net effect: +~10s per incremental loop turn** while under KT-62686.
+- `desktopTest` now re-executes every incremental build (vs UP-TO-DATE in P0 runs 2+3). With `org.gradle.caching=true`, the `Test` task becomes cacheable, which changes its output/up-to-date handling so `:client:desktopTest` no longer reaches UP-TO-DATE on an incremental edit. **Net effect: +~10s per incremental loop turn** while under KT-62686.
 - Cold-daemon proxy (28s) is dominated by cold JVM startup (12.78s Kotlin compile vs ~4.5s warm). Not comparable to P0's clean-build cold metric (18.8s with warm daemon).
 - Build cache is computing keys and storing entries, but offers no help for the inner-loop scenario because the source changes on every run.
 - `org.gradle.parallel=true` benefits multi-module builds; no measurable effect on single-module `:client:desktopTest`.
 
 **Verdict:** Neither `org.gradle.caching` nor `org.gradle.parallel` moves the incremental inner loop. KT-62686 is the controlling variable. Module split (Phase 2) remains the path to improvement.
+
+**Gate recommendation:** `org.gradle.caching` REVERTED for local dev (it re-ran the full test suite every edit under KT-62686, +~10s/loop, and re-enabling test UP-TO-DATE skip restores the P0 fast path). Its CI/cold-build benefit is UNQUANTIFIED here — a valid full-build baseline needs the google-services secret (see the P0 required-follow-up). Re-evaluate enabling build-cache CI-side after the Phase-2 split, with a valid cold baseline. `org.gradle.parallel` kept (neutral for a single module, helps the multi-module build post-split). Net: neither config lever helps the inner loop under KT-62686 — the module split is the controlling lever.
 
 ---
 
