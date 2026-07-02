@@ -147,7 +147,12 @@ compose.resources {
 }
 
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
-tasks.named<Test>("desktopTest") { useJUnitPlatform() }
+// Forward snapshot.record so -Dsnapshot.record=true reaches the test JVM (Gradle doesn't
+// auto-forward -D flags from the Gradle process to forked test processes).
+tasks.named<Test>("desktopTest") {
+  useJUnitPlatform()
+  systemProperty("snapshot.record", System.getProperty("snapshot.record", "false"))
+}
 
 // CL-SNAP: run the snapshot scene registry's CLI against the desktopTest classpath.
 // Usage: ./gradlew :client:snapshotUi -PsnapshotArgs="--scene feed --preset busy --out /tmp/x.png"
