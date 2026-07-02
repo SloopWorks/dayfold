@@ -86,6 +86,48 @@ org.gradle.parallel=true
 
 ---
 
+## Phase 1b — org.gradle.configuration-cache=true
+
+**Date:** 2026-07-02 | Gradle 9.4.1 | Kotlin 2.3.20 | Java 17 Homebrew | Darwin arm64
+
+Property changed in `apps/gradle.properties`:
+```
+org.gradle.configuration-cache=true   # was false
+```
+
+### CC results per graph
+
+| Graph | Task | Run 1 | Run 2 | CC result |
+|-------|------|-------|-------|-----------|
+| `:client` desktop | `./gradlew :client:desktopTest` | "entry stored" / 1s wall | "entry reused" / 315ms wall | PASS |
+| `:client` iOS | `./gradlew :client:linkDebugFrameworkIosSimulatorArm64` | "entry stored" / 29s wall | "entry reused" / 363ms wall | PASS |
+| `:androidApp` config-only | `./gradlew :androidApp:help --configuration-cache` | "entry stored" / 537ms wall | "entry reused" / 237ms wall | PASS |
+
+### Configuration-time delta (from `--profile`)
+
+| Graph | Config time (store, 1st run) | Config time (reuse, 2nd run) | Delta |
+|-------|------------------------------|------------------------------|-------|
+| `:client:desktopTest` | 0.175s | 0s | −0.175s |
+| `:client:linkDebugFrameworkIosSimulatorArm64` | 0.120s | 0s | −0.120s |
+
+Config-phase savings are small in absolute terms (~0.1–0.2s) because the project graph is shallow. The real CC win is that Gradle skips all `settings.gradle.kts` + plugin-application work on reuse, which matters more as the graph grows (Phase 2 module split will increase this).
+
+### android-graph CC — DEFERRED (no secret)
+
+`com.google.gms.google-services` (the prime CC-incompatibility suspect) was NOT exercised by `:androidApp:help` — that task only configures the project, it does not trigger the plugin's execution-time work. A full CC compatibility test for the android graph requires `./gradlew :androidApp:assembleDebug`, which needs `google-services.json` (absent from this worktree — same blocker as P0).
+
+**Required follow-up:** run `./gradlew :androidApp:assembleDebug` in CI or an environment with the secret. If `com.google.gms.google-services` is CC-incompatible at execution time, Gradle will report it in the CC problem report and degrade gracefully (stores no entry for that invocation). Fix options: upgrade to a google-services version with CC support, or exclude the android assembleDebug invocation from CC. This is a required validation before declaring CC on for the full project.
+
+### Verdict
+
+**CC ON. Kept `org.gradle.configuration-cache=true`.**
+
+All runnable graphs (`:client:desktopTest`, `:client:linkDebugFrameworkIosSimulatorArm64`) store and reuse the CC entry cleanly. Config-time win is small per-run (~0.12–0.18s) but compounds across the inner loop and will grow with the Phase-2 module split. No incompatibilities on any tested graph.
+
+Android-graph full CC compatibility (`:androidApp:assembleDebug` + `com.google.gms.google-services`) is **UNTESTED** — needs the secret in CI. This is a required follow-up before shipping CC as a permanent setting for the android build path.
+
+---
+
 ## IC behavior
 
 **KT-62686 fires on every incremental build of `:client:compileKotlinDesktop`.**
