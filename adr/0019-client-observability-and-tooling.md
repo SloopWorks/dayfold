@@ -64,7 +64,28 @@ a temporary stand-in; golden diffing + devtools are pending external releases
 (can't be CI-enforced until then); snapshot golden files add repo weight when #4
 lands.
 
+## Update 2026-07-02 — CL-SNAP delivered Remaining #4 and #6
+
+**"Remaining" item #4 (golden-image diffing)** is now delivered via
+`org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04` (Maven Central), **not**
+the Roborazzi DIY path noted at acceptance. Implementation (epic CL-SNAP):
+- `desktopTest` dep in `apps/client/build.gradle.kts`.
+- Scene registry: `SnapshotScenes.kt` (scenes `feed`, `hub-detail`, `detail`;
+  state fixtures from `SnapshotStates.kt` — hand-built `AppState` literals).
+- 12 committed goldens in `apps/client/src/desktopTest/resources/snapshots/`.
+- `GoldenSnapshotTest` verifies goldens at `maxDiffPercent = 2.0` in
+  `:client:desktopTest` (CI = ubuntu-latest). Re-record: `-Dsnapshot.record=true`.
+- `--semantics` flag confirmed working in alpha04 (Tier-0 text smoke, zero
+  vision tokens).
+
+**"Remaining" item #6 (redux-kotlin CLI)** is also delivered: the
+`:client:snapshotUi` Gradle task (`-PsnapshotArgs="…"`) is the agent-loop
+entry for headless render + semantic inspection. See `processes/agent-dev-loop.md`
+`⭐ rk snapshot` section for the full workflow.
+
+**"Remaining" item #5 (remote devtools)** is still pending.
+
 ## Revisit Trigger
 
-`redux-kotlin-devtools` / a screenshot module / the CLI publish to Maven Central
-(adopt #3–#5); or time-travel becomes load-bearing for the deep-link surface.
+`redux-kotlin-devtools` remote/bridge module publishes to Maven Central (adopt
+#5); or time-travel becomes load-bearing for the deep-link surface.
