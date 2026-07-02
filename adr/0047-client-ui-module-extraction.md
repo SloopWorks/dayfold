@@ -2,13 +2,14 @@
 
 ## Status
 
-**Proposed** 2026-07-02 (agent-drafted from a measurement pass + a two-round
-expert panel — design round-1: 4 agents (KMP/iOS/Android/Gradle); plan round-2:
-3 agents. **Operator-gated** — module/platform architecture + maintenance-burden
-class, ADR-class per `CLAUDE.md`). Operator directed the work + chose the
-incremental scope (2026-07-02) and, at the Phase-1 measurement gate, directed
-"proceed with the split." Acceptance here ratifies the architecture before the
-Phase-2 structural move.
+**Accepted** 2026-07-02 (operator accepted as written — "yes"; Phase 2
+implementation cleared). Was **Proposed** 2026-07-02 (agent-drafted from a
+measurement pass + a two-round expert panel — design round-1: 4 agents
+(KMP/iOS/Android/Gradle); plan round-2: 3 agents. **Operator-gated** —
+module/platform architecture + maintenance-burden class, ADR-class per
+`CLAUDE.md`). Operator directed the work + chose the incremental scope
+(2026-07-02) and, at the Phase-1 measurement gate, directed "proceed with the
+split."
 
 ## Context
 
