@@ -94,9 +94,24 @@ encoded the wrong assumption — real document `ref`s are https URLs; pulling th
 Local-only Android background notifications are live on `main` (background pass, `AndroidLocalNotifier`,
 `GeofencingClient` + `AlarmManager` scheduling, `NotifConfig` quiet-hours + daily-cap, permission ladder,
 offline states; **default-OFF / opt-in**). Gate A re-approved as-shipped by the operator ("I approve",
-INB-29 RESOLVED). **Open (not blocking):** iOS parity (needs Xcode); the **activity** trigger stays a
-reserved schema slot (matching DEFERRED per operator); the **public-ship** Play/App-Store
-background-location data-safety declaration + disclosure review (pre-public). Detail of the build below.
+INB-29 RESOLVED). **Open (not blocking):** the **activity** trigger stays a reserved schema slot (matching
+DEFERRED per operator); the **public-ship** Play/App-Store background-location data-safety declaration +
+disclosure review (pre-public). Detail of the build below.
+
+**Status update (2026-07-01): iOS PARITY BUILT + sim-verified (PR #273, branch `ios-notif-phase-b`).**
+Brings iOS to parity with the shipped Android Phase B (ADR 0044). A SwiftUI/xcodegen host under
+`apps/iosApp/` embeds the `:client` static framework + renders the shared Compose UI; the 5 device seams
+are implemented in `iosMain` over the SAME commonMain core (no engine fork): `IosLocalNotifier`
+(`UNUserNotificationCenter`), `IosExactNotificationScheduler` (`UNTimeIntervalNotificationTrigger`),
+`IosGeofenceController` (`CLLocationManager` region monitoring, 20-region nearest-N), the two permission
+controllers, `IosContentStoreHolder`, and process-global `IosNotifGlue` (retained UN/CL delegates on the
+main thread) + a reconcile-only `BGTaskScheduler`. **Verified on the iOS Simulator:** time lane fires;
+geofence lane fires (`simctl` location crossing → `didEnterRegion` → shared pass → banner); tap →
+`openHub` (console-confirmed); permission ladder prompts. **Sim-limited (real-device/lldb, documented):**
+background/killed region wake + BGTask launch. **iOS time-lane divergence** (operator-accepted via the
+build plan): quiet/cap/dedup applied at SCHEDULE time (iOS can't re-run the pass at fire) — see ADR 0044
+Status. Public App-Store background-location justification stays operator/legal-gated. 659 desktop tests
+green; both iOS targets link; commonMain reused-verbatim untouched.
 
 **Status update (2026-06-30 PM): Now derived surfacing — PHASE B BUILD STARTED (both gates closed).**
 Worktree `derived-now-phase-b` (branch `now-derived-phase-b`, off origin/main). Operator resolved all

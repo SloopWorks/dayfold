@@ -22,7 +22,9 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
   val store = remember { createAppStore(debug = kotlin.native.Platform.isDebugBinary) }
   val tokenStore = remember { IosTokenStore() }
-  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB
+  // ADR 0044 §S3 — the SINGLE process-shared ContentStore (the region-enter delegate + BGTask reconcile
+  // reuse this exact instance/driver; two connections would race the WAL writer).
+  val cs = remember { IosContentStoreHolder.get() }
   // Data-boundary: drop the local cache on logout / dead session (see AuthEngine.clearCache).
   val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null, clearCache = { cs.wipe() }) }
   val syncEngine = remember {
@@ -39,9 +41,60 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   val actions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
   val scope = rememberCoroutineScope()
   LaunchedEffect(Unit) {
+    // ADR 0044 iOS dev seed (DEBUG-only — real-backend sync auth is operator-gated): seed the shared
+    // ContentStore with sample cards + a saved place so the feed renders and both notification lanes
+    // (time + geofence) have content to fire on, without a network/session. Mirrors Android's debug seed.
+    if (kotlin.native.Platform.isDebugBinary) cs.applyDelta(
+      SampleData.cards,
+      listOf(Hub(id = "hub-demo", type = "party-event", title = "Soccer Saturday", status = "active")),
+      listOf(HubSection(id = "sec-demo", hubId = "hub-demo", title = "Game day", ord = 0)),
+      // A geo-triggered block: when the device is near the saved "Soccer field" place, deriveNow emits a
+      // geo-active NowItem → the geofence pass posts it. Also gives the tap→openHub a real destination.
+      listOf(
+        HubBlock(
+          id = "blk-geo", sectionId = "sec-demo", type = "text",
+          bodyMd = "Pack jackets — showers expected right at pickup.", ord = 0,
+          triggers = listOf(BlockTrigger(geo = TriggerGeo(placeRef = "place-soccer", label = "Soccer field"))),
+        ),
+      ),
+      emptyList(), null, "2026-06-20T10:00:00Z",
+      changedPlaces = listOf(
+        Place(id = "place-soccer", kind = "other", label = "Soccer field", lat = 37.3349, lng = -122.0090, radiusM = 150),
+      ),
+    )
     syncEngine.start()
     authEngine.restore()
     syncEngine.resume()
+  }
+  // ADR 0044 — a tapped LOCAL notification emits its deep-link target on IosDeepLinkBus (the process-global
+  // UN delegate); route it to the source hub block (same OpenHub the in-feed tap uses). replay=1 covers a
+  // cold-start tap that fired before this collector was ready. Dangling target tolerated (openHub → feed).
+  LaunchedEffect(Unit) {
+    IosDeepLinkBus.taps.collect { hubEngine.openHub(it.hubId, it.blockId) }
+  }
+  // ADR 0044 §S3 — OS-permission truth → store (OS-owned; re-read on resume, never DB-cached). Seed the
+  // initial state + bridge changes; the CL delegate drives the location flow, getNotificationSettings the
+  // notif flow (refreshed on resume below). Mirrors MainActivity's permission bridge.
+  val locPerm = remember { IosNotifGlue.locationPermission }
+  val notifPerm = remember { IosNotifGlue.notificationPermission }
+  LaunchedEffect(Unit) {
+    store.dispatch(LocationPermissionLoaded(locPerm.currentState()))
+    store.dispatch(NotificationPermissionLoaded(notifPerm.currentState()))
+  }
+  LaunchedEffect(Unit) { locPerm.state.collect { store.dispatch(LocationPermissionLoaded(it)) } }
+  LaunchedEffect(Unit) { notifPerm.state.collect { store.dispatch(NotificationPermissionLoaded(it)) } }
+  // Device-local config reaction: enabling background proximity registers geofences (nearest-N, capped) +
+  // arms exact schedules; disabling de-registers them. Re-register on CONTENT change while enabled (a
+  // place added/removed, new timed items). Live position never leaves the device. Mirrors MainActivity.
+  LaunchedEffect(Unit) {
+    cs.notifConfigFlow().collect { cfg ->
+      if (cfg.enabled) { reRegisterGeofences(); reconcileExactSchedules() } else { IosNotifGlue.geofence.deregisterAll() }
+    }
+  }
+  LaunchedEffect(Unit) {
+    cs.nowContentFlow().collect {
+      if (cs.notifConfig().enabled) { reRegisterGeofences(); reconcileExactSchedules() }
+    }
   }
   // Pause the 45s poll when the app is backgrounded; resume when it returns to foreground.
   // Mirrors Android's repeatOnLifecycle(STARTED) pattern — stops fetching restricted hub
@@ -54,7 +107,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
       name = UIApplicationDidBecomeActiveNotification,
       `object` = null,
       queue = mainQueue,
-    ) { _ -> scope.launch { syncEngine.resume() } }
+    ) { _ ->
+      scope.launch { syncEngine.resume() }
+      // Re-read OS permission truth on every foreground (iOS has no notif permission-change broadcast;
+      // the user may have toggled it in Settings while backgrounded). ADR 0044 §S3.
+      locPerm.refresh(); notifPerm.refresh()
+    }
     val pauseToken = nc.addObserverForName(
       name = UIApplicationWillResignActiveNotification,
       `object` = null,
@@ -70,6 +128,10 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onPlatformAction = actions::perform,
     onOpenUri = actions::openUri,
     onSignIn = { provider -> scope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
+    // ADR 0044 iOS dev entry (DEBUG-only): mint a local session (no network/Firebase) so the seeded feed
+    // is reachable past the AUTH-S5 route gate. Null in release → the button is absent. Real Google/Apple
+    // sign-in stays operator-gated.
+    onDevSignIn = if (kotlin.native.Platform.isDebugBinary) ({ scope.launch { authEngine.devSignIn() } }) else null,
     onCreateFamily = { name -> scope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
     onSignOut = { scope.launch { authEngine.signOut() } },
     onRedeemInvite = { token -> scope.launch { authEngine.redeemInvite(token) } },
@@ -95,5 +157,13 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onDeleteBlock = { blockId -> scope.launch { hubEngine.deleteBlock(blockId) } },
     onHideBlock = { blockId -> scope.launch { hubEngine.hideBlock(blockId) } },
     onUnhideBlock = { blockId -> scope.launch { hubEngine.unhideBlock(blockId) } },
+    // ADR 0044 — device-local config write (toggle/quiet/cap) → DB → flow → the reactions above arm/disarm
+    // geofences + exact schedules. Enabling also drives the permission ladder (notifications + location:
+    // WhenInUse → Always, delegate-sequenced). Never upfront — opt-in only.
+    onSetNotifConfig = { cfg ->
+      scope.launch(kotlinx.coroutines.Dispatchers.Default) { cs.setNotifConfig(cfg) }
+      if (cfg.enabled) { notifPerm.request(); locPerm.requestAlways() }
+    },
+    onOpenAppSettings = { locPerm.openOsSettings() },
   )
 }

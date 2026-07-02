@@ -10,6 +10,21 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 ## Unreleased
 
 ### Added
+- **iOS local notifications (Phase B parity)** — iOS now reaches parity with the
+  shipped Android Phase-B notifications (ADR 0044): on-device, local-only background
+  proximity + local notifications, **default-OFF / opt-in**. A runnable iOS host
+  (`apps/iosApp/`) embeds the shared `:client` framework; the device glue lives in
+  `iosMain` over the **same** decision core as Android (no engine fork). Both lanes
+  fire on-device: **time/date** reminders (`UNTimeIntervalNotificationTrigger`) and
+  **place/geofence** reminders (`CLLocationManager` region monitoring, honoring the
+  iOS 20-region cap via nearest-N), each carrying the honest on-device provenance
+  line ("Matched on your device" / "Added by Claude") and deep-linking to the source
+  hub on tap. Quiet-hours + daily-cap + permission state stay device-local and
+  never sync; the live position never leaves the device. No FCM/APNs, no server
+  change. iOS delivers scheduled notifications directly (no fire-time re-run), so
+  quiet-hours/cap/dedup are applied when the reminder is scheduled — the one small
+  behavioral difference from Android (ADR 0044 Status). Public App-Store
+  background-location disclosure remains gated for a future public release.
 - **Hub timelines** — a hub can now show an **axis of time**: a live intraday
   **day rail** (with a NOW line) or a multi-month **roadmap**, rendered on-device
   from an authored, content-blind `Hub.timeline` (author the stops; the client

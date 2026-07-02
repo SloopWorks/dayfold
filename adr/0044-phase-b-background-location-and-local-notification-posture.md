@@ -22,12 +22,41 @@ promise present — and the operator signed off; INB-13 closed) and
 headless background pass (`BackgroundNotify`), `AndroidLocalNotifier`,
 `GeofencingClient` + `AlarmManager` scheduling, the `NotifConfig` quiet-hours +
 daily-cap (device-local, never-synced, default-OFF), the permission ladder, and
-the offline/geo-on states — **Android**. **Still open (recorded, not blocking):**
-iOS parity (`UNUserNotificationCenter`/`CLLocationManager` — unbuilt, needs
-Xcode); the **activity** trigger stays a reserved schema slot (matching
-**DEFERRED** per operator 2026-07-01); and the **public-ship** Play/App-Store
-background-location data-safety declaration + disclosure review (pre-public,
-not pre-dogfood).
+the offline/geo-on states — **Android**.
+
+**iOS parity BUILT + sim-verified 2026-07-01** (PR #273): a SwiftUI/xcodegen host
+under `apps/iosApp/` embeds the `:client` static framework and renders the shared
+Compose `MainViewController`; the 5 device seams are implemented in `iosMain` over
+the SAME commonMain core (no engine fork) — `IosLocalNotifier`
+(`UNUserNotificationCenter`, `threadIdentifier` grouping, on-device subtitle,
+deep-link `userInfo`), `IosExactNotificationScheduler`
+(`UNTimeIntervalNotificationTrigger`), `IosGeofenceController` (`CLLocationManager`
+region monitoring, 20-region nearest-N cap), `IosLocation`/`IosNotificationPermissionController`,
+plus `IosContentStoreHolder` + the process-global `IosNotifGlue` (retained UN/CL
+delegates on the main thread) + a reconcile-only `BGTaskScheduler`. Verified on the
+iOS Simulator: the time lane fires (`UNTimeIntervalNotificationTrigger`), the
+geofence lane fires (a `simctl` location crossing → `didEnterRegion` → the shared
+pass → banner with the honest "Matched on your device" subtext), the notification
+tap routes to the source hub (`didReceive` → deep-link bus → `openHub`, confirmed
+in-console), and the permission ladder prompts (WhenInUse→Always) with the honest
+usage copy. **Sim-limited (real-device / lldb only, documented):** background/
+killed-app region wake + the opportunistic `BGTask` launch.
+
+**iOS time-lane posture divergence (operator-accepted via the build plan
+2026-07-01):** Android's exact-alarm receiver re-runs the full pass at FIRE time, so
+quiet-hours/cap/dedup are honored then. iOS delivers a scheduled local notification
+directly with no wake to re-run, so those posture filters are applied at SCHEDULE
+time (`reconcileExactSchedules`: skip subjects already notified today, skip
+non-urgent triggers landing in quiet hours, stop at the daily cap), re-reconciled on
+config/content change. Residual: the cap count can be stale by fire time — the only
+Phase-B behavioral difference from Android, and within the calm-posture spirit.
+
+**Still open (recorded, not blocking):** the **activity** trigger stays a reserved
+schema slot (**DEFERRED** per operator 2026-07-01); and the **public-ship**
+Play/App-Store background-location data-safety declaration + disclosure review, plus
+the iOS App-Store background-location justification (`UIBackgroundModes` usage), stay
+**operator/legal-gated** (pre-public, not pre-dogfood; the dev/sim/TestFlight
+Info.plist usage strings ARE in place).
 
 Statuses: Proposed | Accepted | Superseded | Deprecated.
 
