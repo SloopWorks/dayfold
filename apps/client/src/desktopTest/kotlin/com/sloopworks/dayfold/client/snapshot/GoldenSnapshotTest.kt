@@ -10,13 +10,26 @@ import kotlin.test.Test
 //   cd apps && ./gradlew :client:desktopTest --tests "*GoldenSnapshotTest" -Dsnapshot.record=true
 // then EYEBALL the changed PNG before committing.
 class GoldenSnapshotTest {
-  private fun golden(scene: String, preset: String, theme: String? = null) =
+  private fun golden(scene: String, preset: String, theme: String? = null) {
+    val name = if (theme != null) "$scene-$preset-$theme" else "$scene-$preset"
     clientSnapshots.assertGolden(
       scene = scene, preset = preset, theme = theme,
-      goldenDir = GOLDEN_DIR, maxDiffPercent = 2.0,
+      goldenDir = GOLDEN_DIR, name = name, maxDiffPercent = 2.0,
     )
+  }
 
   @Test fun feedBusy() = golden("feed", "busy")
+  @Test fun feedTyped() = golden("feed", "typed")
+  @Test fun feedEmpty() = golden("feed", "empty")
+  @Test fun feedCaughtUp() = golden("feed", "caught-up")
+  @Test fun feedEnriched() = golden("feed", "enriched")
+  @Test fun hubCanonical() = golden("hub-detail", "canonical")
+  @Test fun hubCanonicalDark() = golden("hub-detail", "canonical", theme = "dark")
+  @Test fun hubEnriched() = golden("hub-detail", "enriched")
+  @Test fun detailInvite() = golden("detail", "invite")
+  @Test fun detailContact() = golden("detail", "contact")
+  @Test fun detailFile() = golden("detail", "file")
+  @Test fun detailEmail() = golden("detail", "email")
 
   companion object { val GOLDEN_DIR = File("src/desktopTest/resources/snapshots") }
 }
