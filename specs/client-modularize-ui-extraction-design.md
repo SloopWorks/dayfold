@@ -44,9 +44,14 @@ migration; any behavior/UX change.
 - **Phase 2 — Extract `:ui`.** The structural move (below), justified by the
   architectural benefits + the Phase-0/1 measured numbers.
 
-Each phase is independently valuable and independently shippable. If Phase 0 shows
-IC already tight and Phase 1 gives most of the win, Phase 2 proceeds for the
-architectural value with eyes open, not oversold.
+Each phase is independently valuable and independently shippable.
+
+**Operator gate between Phase 1 and Phase 2 (operator-directed 2026-07-02):** after
+Phase 0/1 measurement, if the `:ui` split's projected compile win is **marginal**
+(e.g. Phase 1 already captured most of it, or IC is already tight so the split
+saves < ~1s), **STOP and prompt the operator to discuss** before starting Phase 2
+— do not auto-proceed on "architectural value" alone. If the numbers show a
+worthwhile win, continue into Phase 2.
 
 ## 3. Verified feasibility (corrected by panel)
 
