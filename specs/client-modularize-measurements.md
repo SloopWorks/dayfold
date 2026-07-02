@@ -36,6 +36,8 @@
 
 *`assembleDebug` blocked by missing `google-services.json` in worktree.
 
+**REQUIRED FOLLOW-UP:** the whole-repo full-build baseline (`./gradlew clean && ./gradlew assembleDebug :client:desktopTest`) is NOT yet captured — `assembleDebug` needs `google-services.json` (a secret absent from this worktree). Capture it in CI or an environment that has the secret BEFORE claiming the +5–15% full-build-regression DoD in Phase 2.3. `:client:desktopTest` (18.8s) does NOT substitute — it excludes the androidApp compile.
+
 ---
 
 ## IC behavior
