@@ -58,6 +58,54 @@ lines; android/desktop/iOS targets must all still build; snapshots + the full
 targets compile; snapshots + tests green. **Reference:** measured in the CL-SNAP
 session (PR #277); `specs/cl-snap-agent-snapshot-loop-design.md`.
 
+## TASK-HOT-RELOAD-SPIKE — JetBrains Compose Hot Reload for live visual iteration (NEXT — spike)
+
+**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Sibling to
+`TASK-CLIENT-MODULARIZE` — both attack the measured ~5s recompile loop, from
+different angles: modularize shrinks the compile unit for *all* consumers
+(CI/agent/human); hot-reload sidesteps compile entirely for *human visual* work.
+Low risk — dev-only, desktop-only, additive.
+
+**What it is:** `org.jetbrains.compose.hot-reload` — three parts: a **Gradle
+plugin** (adds a `ComposeHotRun` task, provisions the runtime), a **runtime API**
+(`hot-reload-runtime-api` → wrap the dev UI in `DevelopmentEntryPoint { }`), and
+a **JetBrains Runtime (JBR)** with enhanced class redefinition (DCEVM-style
+hotswap; plugin auto-downloads it). A recompiler watches sources → incremental
+Kotlin compile → pushes changed **classes** into the *running* desktop app via
+the JBR agent → Compose invalidates + recomposes **in place, state preserved**.
+No app restart, no test-compile+fork → typically sub-second per UI tweak.
+
+**Scope fit:** desktop/JVM target ONLY (not Android — that's Studio Live Edit;
+not iOS). dayfold's UI is `commonMain` and the desktop target already exists
+(`jvm("desktop")`, `compose.desktop.application`), so hot-reload runs the *same*
+shared composables the snapshots render — same iOS/Android-chrome blind spot as
+the snapshot proxy.
+
+**Spike steps:**
+1. **Version-matrix gate FIRST** (most likely failure point): find the
+   hot-reload plugin release compatible with **CMP 1.9.3 / Kotlin 2.3.20** (its
+   version is tightly coupled to both). If none fits without a CMP/Kotlin bump,
+   record that and stop — the bump is a separate decision.
+2. Add the plugin + a **dev-only desktop entry** wrapping the real UI in
+   `DevelopmentEntryPoint { DayfoldTheme { FeedApp(store) } }`, **seeded from the
+   existing `SnapshotStates`/`FakeScenarios` fixtures** (the CL-SNAP scenes double
+   as hot-reload seeds).
+3. Run it, edit a composable, **measure edit→visible latency** vs the ~5s
+   snapshot loop; note state-preservation behavior + any structural-change limits.
+
+**Payoff / relation:** the human operator's tight visual loop ("nudge padding,
+watch it"); snapshots stay the **agent/CI verification** loop (headless,
+deterministic, text semantics — an agent can't watch a live window). Complementary,
+not a replacement.
+
+**Caveats:** pre-1.0 / experimental; needs the JBR (~200MB provisioned);
+dev-only + desktop-only so zero prod/CI blast radius.
+
+**DoD:** a recorded verdict — compatible plugin version (or "needs CMP/Kotlin
+bump"), a working `DevelopmentEntryPoint` desktop playground seeded from
+`SnapshotStates`, and the measured live-edit latency vs ~5s. **Reference:**
+CL-SNAP session (PR #277).
+
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 > **STATUS 2026-06-21 — M0 build order EXHAUSTED + MERGED TO MAIN** (PR #7
