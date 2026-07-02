@@ -146,7 +146,9 @@ class MainActivity : ComponentActivity() {
     val isFake = fakeHttp != null
     val http = fakeHttp ?: HttpClient()
     val clientApi = if (isFake) "http://fake.local" else apiBase
-    val store = createAppStore()
+    // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes
+    // the full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
+    val store = createAppStore(debug = BuildConfig.DEBUG)
     // Single process-shared store (ADR 0044 §S3) — the geofence/exact-alarm background receivers reuse
     // this same instance + driver (one WAL writer); foreground and background never open two connections.
     val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(applicationContext)

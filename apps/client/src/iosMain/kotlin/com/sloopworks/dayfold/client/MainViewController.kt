@@ -16,9 +16,11 @@ import platform.UIKit.UIViewController
 // NSUserDefaults (IosTokenStore). The dev-token sign-in secret + a real API base
 // stay unset here (iOS run config is operator-gated on Mac/Xcode), so sign-in is
 // inert on-device this slice; the gate + onboarding UI + restore are all wired.
-@OptIn(kotlin.experimental.ExperimentalNativeApi::class)   // Platform.isDebugBinary (DEBUG-only dev seed/entry)
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)   // Platform.isDebugBinary (release-gate DevTools)
 fun MainViewController(): UIViewController = ComposeUIViewController {
-  val store = remember { createAppStore() }
+  // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
+  // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
+  val store = remember { createAppStore(debug = kotlin.native.Platform.isDebugBinary) }
   val tokenStore = remember { IosTokenStore() }
   // ADR 0044 §S3 — the SINGLE process-shared ContentStore (the region-enter delegate + BGTask reconcile
   // reuse this exact instance/driver; two connections would race the WAL writer).
