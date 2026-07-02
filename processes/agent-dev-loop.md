@@ -147,12 +147,15 @@ an agent to *see* what a change produced and to catch visual regressions.
 - Dep: `org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04` (Maven Central),
   scoped `desktopTest` in `apps/client/build.gradle.kts`.
 - Scene registry: `apps/client/src/desktopTest/kotlin/com/sloopworks/dayfold/client/snapshot/SnapshotScenes.kt`
-  — `clientSnapshots` with scenes `feed` (presets: busy/empty/caught-up/syncing/offline/typed/enriched),
-  `hub-detail` (canonical/enriched), `detail` (file/link/invite/contact/geo/email).
-  State fixtures come from `SnapshotStates.kt` (hand-built `AppState` literals —
-  reuses the tests' existing fixtures, **not** `FakeScenarios`).
-- 12 goldens committed in `apps/client/src/desktopTest/resources/snapshots/`
-  covering the three canonical surfaces.
+  — `clientSnapshots` with 20 scenes covering every client surface: `feed`,
+  `hub-detail`, `hub-list`, `detail`, `auth`, `account`, `join`, `members`,
+  `devices`, `device-approval`, `scan`, `notif`, `privacy`, `places`,
+  `proximity`, `permission`, `offline-banner`, `kit`, `timeline-card`,
+  `timeline-detail` (run `--list` for presets). State fixtures come from
+  `SnapshotStates.kt` (hand-built `AppState` literals — reuses the tests'
+  existing fixtures, **not** `FakeScenarios`).
+- 131 goldens committed in `apps/client/src/desktopTest/resources/snapshots/`
+  (light + selected dark variants per surface).
 
 **CLI entry (Gradle — NOT the brew `rk` binary):**
 The brew `rk` binary only carries its own demo scenes. Our scenes run via the
@@ -185,17 +188,25 @@ stdout. Use this first for content/refactor changes — no image read needed.
   visual change you want to eyeball.
 
 **Golden gate (CI):** `GoldenSnapshotTest` in `desktopTest` verifies the
-committed goldens at `maxDiffPercent = 4.0`. Runs in `:client:desktopTest`
-(CI = ubuntu-latest). The bundled brand fonts are variable fonts (wght axis);
-macOS (CoreText) and linux (FreeType) instantiate the bold weights with
-slightly different glyph advances, so bold-dense scenes measure 2.2–2.9%
-cross-OS (AA-only drift stays under 2%) → 4% gate. Snapshot renders pin the
-clock (`SNAPSHOT_NOW`) so the feed header date can't go stale. Re-record
-after an intentional visual change:
+committed goldens at `maxDiffPercent = 4.0` against a **per-OS golden set**
+(`snapshots/macos/` for the local dev/agent loop, `snapshots/linux/` for CI —
+picked by `os.name`). Why per-OS: macOS (CoreText) and linux (FreeType)
+rasterize the same fonts with slightly different glyph advances — bold-dense
+scenes drift 2–3% and long paragraphs can flip a line-wrap, shifting whole
+layouts (measured up to 22%) — no single tolerance gates that honestly. The
+4% only absorbs same-OS / cross-arch Skiko AA. Snapshot renders pin the clock
+(`SNAPSHOT_NOW` / `TIMELINE_NOW`) so dates can't go stale. Re-record BOTH
+sets after an intentional visual change:
 ```
+# macOS set (local):
 cd apps && ./gradlew :client:desktopTest --tests "*GoldenSnapshotTest" -Dsnapshot.record=true
+# linux set (docker; Skiko needs libGL+libEGL, default heap OOM-kills gradle):
+docker run --rm --memory=7g -v "$(git rev-parse --show-toplevel)":/repo -w /repo/apps \
+  -e GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx2g" eclipse-temurin:17-jdk bash -c \
+  'apt-get update -qq && apt-get install -y -qq libgl1 libegl1 libgles2 libglx-mesa0 fontconfig >/dev/null 2>&1; \
+   ./gradlew --no-daemon :client:desktopTest --tests "*GoldenSnapshotTest*" -Dsnapshot.record=true'
 ```
-Then **eyeball the changed PNG** before committing.
+Then **eyeball the changed PNGs** before committing.
 
 **Headless caveat:** no async image loading → enriched presets render the
 icon+accent fallback, not the hero image. Expected behavior.

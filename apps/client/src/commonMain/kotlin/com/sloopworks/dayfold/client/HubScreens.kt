@@ -130,6 +130,8 @@ fun HubListScreen(
   onNow: () -> Unit = {},
   onFilter: (String) -> Unit = {},
   onRetry: () -> Unit = {},
+  // defaults to the live clock; snapshot renders pin it so countdown badges are date-stable
+  now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
 ) {
   val shown = state.hubs.filter { when (state.hubFilter) { "active" -> it.status == "active"; "planning" -> it.status == "planning"; else -> true } }
   Scaffold(
@@ -166,7 +168,7 @@ fun HubListScreen(
           contentPadding = PaddingValues(16.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          items(shown, key = { it.id }) { hub -> HubRow(hub, onClick = { onOpenHub(hub.id) }) }
+          items(shown, key = { it.id }) { hub -> HubRow(hub, nowIso = now.toString(), onClick = { onOpenHub(hub.id) }) }
         }
       }
     }
@@ -192,8 +194,8 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun HubRow(hub: Hub, onClick: () -> Unit) {
-  val count = hubWhenLabel(hub.countdownTo, hub.startAt, hub.endAt, kotlin.time.Clock.System.now().toString())
+private fun HubRow(hub: Hub, nowIso: String, onClick: () -> Unit) {
+  val count = hubWhenLabel(hub.countdownTo, hub.startAt, hub.endAt, nowIso)
   Card(
     onClick = onClick,
     modifier = Modifier.fillMaxWidth(),
@@ -277,18 +279,22 @@ fun HubDetailScreen(
   onOpenTimeline: (TimelineScale) -> Unit = {},
   onCloseTimeline: () -> Unit = {},
   onTimelineAction: (CardAction) -> Unit = {},
+  // default to the live clock/device tz; snapshot renders pin them so countdown badges
+  // and timeline done/next markers are date-stable
+  now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
+  timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
   val tree = state.currentHubTree
   // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay.
   val authoredTimeline = tree?.hub?.timeline
   // tz: an authored timeline carries its own; a derived one falls back family→device (device for now).
-  val tz = authoredTimeline?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { TimeZone.currentSystemDefault() } }
-    ?: TimeZone.currentSystemDefault()
+  val tz = authoredTimeline?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { timeZone } }
+    ?: timeZone
   // ADR 0046: when no authored timeline, derive one from the hub's already-dated blocks (≥2 stops).
   val tl = authoredTimeline ?: tree?.let { deriveTimeline(it, tz) }
   // "No timeline yet" nudge: no authored + not enough to derive, but exactly one dated block.
   val showTimelineNudge = authoredTimeline == null && tl == null && tree != null && hubHasSingleDate(tree, tz)
-  val nowIso = kotlin.time.Clock.System.now().toString()
+  val nowIso = now.toString()
   // ADR 0045 13b: shared-element container-transform (card→detail morph). Both branches of
   // AnimatedContent apply cardSharedBounds("timeline") so the card bounds morph into the detail
   // and back. Reduced motion → snapTo (no animation). System back dispatches CloseTimelineDetail
@@ -343,7 +349,7 @@ fun HubDetailScreen(
       val listState = rememberLazyListState()
       // deep-link arrival: scroll the focused block into view. hasCountdown/restricted
       // must mirror the header items emitted below (the helper counts them).
-      val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString()) != null && tree.hub.status != "archived"
+      val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso) != null && tree.hub.status != "archived"
       LaunchedEffect(state.hubFocusBlockId, tree) {
         focusedBlockItemIndex(
           tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
@@ -378,7 +384,7 @@ fun HubDetailScreen(
           if (tree.hub.media.isEnriched()) {
             EnrichedHeroBanner(
               tree.hub.media, tree.hub.title,
-              hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString()),
+              hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso),
               modifier = Modifier.padding(bottom = 14.dp),
             )
           }
@@ -400,7 +406,7 @@ fun HubDetailScreen(
             }
           }
         }
-        hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, kotlin.time.Clock.System.now().toString())?.let { c ->
+        hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso)?.let { c ->
           if (tree.hub.status != "archived") item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
               androidx.compose.material3.Icon(DayfoldIcons.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
