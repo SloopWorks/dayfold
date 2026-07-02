@@ -8,6 +8,56 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-CLIENT-MODULARIZE — split `:client` into `:model` / `:ui` / `:data` (NEXT — active front)
+
+**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Builds on
+`TASK-KMP` (done — `:client` is a true KMP module). This is a further
+decomposition, not a redo.
+
+**Why (measured, not theorized):** `:client` is one monolithic KMP module —
+79 `commonMain` files (UI + state/logic + data/sync + fake backend) + 24
+generated SQLDelight files, with sqldelight/ktor/coil on the compile classpath.
+In the CL-SNAP session the inner loop measured **~5s recompile + ~2s
+fork/render**, and the recompile was **the same ~5s whether editing a UI file
+(`FeedScreen`) or an unrelated data file (`SyncClient`)** → the whole module is
+one compilation unit. A 1-line body change pays the full ~5s floor (Kotlin
+incremental analysis + Compose compiler plugin over the module + test-compile
+depends on main). The render itself is already fast (~150ms/shot in-process).
+
+**Goal:** shrink the compile unit a UI edit touches.
+- `:model` — `Model`/`AppState`, `Reducer`, `Selectors`, `*Engine`, pure logic
+  (kotlinx-serialization + datetime; **no** Compose, sqldelight, or ktor).
+- `:ui` — Compose composables (`FeedScreen`, `cards/`, `theme/`, screens) →
+  depends on `:model` + Compose only. **The snapshot registry renders from here.**
+- `:data` — `SyncClient`, `*Client`, `ContentStore`, `OutboxSender`, SQLDelight,
+  ktor.
+- `:client` (app) — wires them + `expect/actual` drivers + fake backend.
+
+**Payoff:** a UI edit recompiles `:ui` only (the 24 generated SQLDelight files +
+ktor/sync leave the UI compile unit) → est. **~5s → ~2–3s** (unverified — needs
+the actual split to confirm), plus per-module build-cache + parallelism. Beyond
+speed: it isolates the deferred **web-target (wasmJs) + async-DB migration**
+(`OQ-web-target`) to `:data`, and makes `:model`/`:ui` independently testable.
+The CL-SNAP snapshot loop is a direct beneficiary.
+
+**Caveats:** the Compose compiler plugin is a per-changed-UI-file floor — the
+split shrinks the analyzed set + kills cross-concern recompiles, it doesn't
+remove Compose's cost. For tight *visual* iteration, Compose Hot Reload is the
+complementary tool (snapshots stay the verification gate). Cheaper adjacent win
+to bank first: enable `org.gradle.configuration-cache` (the `snapshotUi` task is
+already config-cache-safe) — attacks the ~2s fork/config overhead.
+
+**Risks / scope:** large refactor — the redux store wiring, `expect/actual`
+driver boundaries, and the debug-only fake backend all cross the new module
+lines; android/desktop/iOS targets must all still build; snapshots + the full
+`:client:desktopTest` suite must stay green. **Module architecture is ADR-class**
+(structure/platform) → short Proposed ADR or a design-first pass before the split.
+
+**DoD:** editing a `:ui` composable recompiles `:ui` (+ snapshot test) only, not
+`:data`/sqldelight; the measured UI-edit recompile improvement is recorded; all
+targets compile; snapshots + tests green. **Reference:** measured in the CL-SNAP
+session (PR #277); `specs/cl-snap-agent-snapshot-loop-design.md`.
+
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 > **STATUS 2026-06-21 — M0 build order EXHAUSTED + MERGED TO MAIN** (PR #7
