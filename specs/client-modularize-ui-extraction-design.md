@@ -1,164 +1,238 @@
-# TASK-CLIENT-MODULARIZE — Slice 1: extract `:ui` from `:client`
+# TASK-CLIENT-MODULARIZE — measure → cheap levers → extract `:ui`
 
-**Status:** Proposed (design) · 2026-07-02 · **ADR-class** (module architecture →
-Proposed ADR + operator acceptance before implementation)
-**Scope decision (operator):** incremental — extract `:ui` first; engines/data/
-store stay in `:client`. **No dependency-inversion refactor** this slice.
-**Composes with:** `TASK-KMP` (done — `:client` is a true KMP module),
-`backlog/next.md` TASK-CLIENT-MODULARIZE, CL-SNAP (PR #277 — coordination note §8).
+**Status:** Proposed (design, rev 2 post expert-panel) · 2026-07-02 · **ADR-class**
+**Scope decision (operator):** incremental — measure first, bank the cheap build
+levers, then extract `:ui` (no dependency inversion; engines/data/store stay in
+`:client`).
+**Reviewed by:** 4-agent expert panel (KMP-arch, iOS/Native, Android, Gradle
+build-speed) — all findings folded in below.
+**Composes with:** `TASK-KMP` (done), CL-SNAP (PR #277 — §Coordination).
 
 ---
 
-## 1. Goal
+## 1. Goal & the honest value proposition (revised after panel)
 
-Shrink the compilation unit a UI edit touches. Measured (CL-SNAP session): the
-inner loop is **~5s recompile + ~2s fork/render**, and the recompile is the
-**same ~5s whether editing a UI file or an unrelated data file** — `:client` is
-one monolithic KMP compilation unit (79 commonMain files + 24 generated SQLDelight
-+ sqldelight/ktor/coil). Extracting the 25 Compose files into a `:ui` module that
-**depends on `:client`** means a UI edit recompiles `:ui` only — the 54 core files
-+ generated SQLDelight + ktor leave the UI compile unit.
+The trigger was the measured inner loop: **~5s recompile + ~2s fork/render**,
+recompile the **same ~5s whether editing a UI or a data file**. The naive read
+("monolith → split → 2–3s") **did not survive review.** The Gradle expert's verdict:
+- The ~5s could be **fixed per-task overhead** (daemon, classpath fingerprint,
+  Compose plugin init, IC bookkeeping, test-compile), not module size — in which
+  case the split lands **~4–4.5s, not 2–3s**. This is **unproven** and must be
+  measured before the split is justified on speed.
+- **`configuration-cache` and `build-cache` are OFF.** Enabling them is ~2 lines,
+  zero architectural risk, and likely a **bigger** inner-loop win than the split —
+  and a large win on this **worktree-heavy** repo (every worktree switch is cold).
 
-**Target payoff:** UI-edit recompile ~5s → **~2–3s** (to be verified — the Compose
-compiler plugin floor remains; the split removes cross-concern recompiles + shrinks
-the analyzed set). Secondary: independent `:ui`/`:client` build-cache + parallelism;
-`:client` (core) no longer pulls Compose.
+**So the split's durable value is architectural, not the headline speed number:**
+test isolation (a UI edit stops recompiling the logic tests), `:client` sheds
+Compose from its classpath, independent build-cache/parallelism, and the structural
+setup for the eventual `:model`/`:data` split. Any compile-time win is a measured
+bonus, not the premise.
 
-**Non-goals (this slice):** splitting `:client` into `:model`/`:data`; dependency
-inversion of the engine↔client coupling; the web (wasmJs)/async-DB migration; any
-behavior change. Pure structural move — **all tests stay green, no UX delta.**
+**Non-goals:** `:model`/`:data` split; dependency inversion; web/async-DB
+migration; any behavior/UX change.
 
-## 2. Why this is safe to do now (verified)
+## 2. Phased approach
 
-- **No Compose in the 54 core files** (grep: zero `androidx.compose`/`@Composable`).
-- **Acyclic:** 0 reverse-dependencies — no core file references any symbol defined
-  in the 25 UI files. So `:ui → :client` is a clean one-way edge.
-- **The engine↔client coupling stays intact** inside `:client` (SyncEngine/Auth
-  Engine/HubEngine reference SyncClient/AuthClient/HubClient/ContentStore; Reducer
-  references SyncClient). Because we are NOT splitting core, no interface extraction
-  is needed — `:ui` simply depends on the whole of `:client`.
+- **Phase 0 — Measure** (gates everything). Turn on Kotlin build reports; attribute
+  the 5s to compile-vs-config-vs-fork and main-vs-test; get "recompiled N files"
+  per edit. Resolves whether IC is already effective (→ split marginal) or `:client`
+  recompiles broadly (→ split delivers).
+- **Phase 1 — Cheap levers.** Enable `build-cache` (safe) + `configuration-cache`
+  (spike compat with SQLDelight/Compose/AGP 9.2.1). Re-measure. Bank whatever they
+  give regardless of the split.
+- **Phase 2 — Extract `:ui`.** The structural move (below), justified by the
+  architectural benefits + the Phase-0/1 measured numbers.
 
-## 3. Target module graph
+Each phase is independently valuable and independently shippable. If Phase 0 shows
+IC already tight and Phase 1 gives most of the win, Phase 2 proceeds for the
+architectural value with eyes open, not oversold.
+
+## 3. Verified feasibility (corrected by panel)
+
+- **Acyclic `:ui → :client` — at the Compose boundary, per file.** Corrected counts:
+  `commonMain` ≈ **40 Compose/coil files → `:ui`, ~37 Compose-free → `:client`**
+  (my first scan under-counted at 25/54; it missed `ui/loading/`, `cards/` Compose
+  files, and `org.jetbrains.compose`/`coil3` imports).
+- **The move boundary is MECHANICAL:** a commonMain file moves to `:ui` iff it
+  imports `androidx.compose` / `org.jetbrains.compose` / `@Composable` / `coil3`.
+  Everything else stays. This is the definition — not a hand-list.
+- **Explicit stay-in-`:client` exceptions** (Compose-free, and core depends on them
+  → moving would create a cycle): `cards/CardAction.kt` (used by `NowNotify`,
+  `TimelineActions`), `cards/DetailMeta.kt`, `cards/TypedCardLogic.kt`. Their tests
+  (`DetailMetaTest`, `TypedCardLogicTest`) stay too.
+- **Three expect/actual seams move to `:ui`** (not two): `QrScanner`,
+  `cards/PlatformActions`, and **`rememberReduceMotion`** (`ui/loading/Shimmer.kt`
+  + `ReduceMotion.{android,desktop,ios}.kt`). Each is self-contained in the moved
+  set; `:ui` declares android+desktop+ios source sets. `DriverFactory` (SQLDelight)
+  stays in `:client`.
+- **`linkrules` srcDir stays single-homed in `:client`** (`kotlin.srcDir(
+  "../../packages/linkrules")`) — consumed by both core (`Model`/`MediaValidation`)
+  and UI (`MediaEnrichment`/`CoilSetup` via `linkify`); `:ui` gets it through the
+  `api` edge. **Do NOT duplicate the srcDir into `:ui`** (FQN redeclaration clash).
+
+## 4. Phase 0 — Measurement (do first; it gates the split's speed claim)
+
+Add to `apps/gradle.properties` (one-time):
+```
+kotlin.build.report.output=file
+kotlin.build.report.file.output_dir=build/kotlin-reports
+```
+Method (warm daemon, N=5, discard first), captured **before** any change:
+```
+./gradlew :client:compileKotlinDesktop --profile          # main compile alone
+./gradlew :client:compileTestKotlinDesktop --profile      # the 5.1s task
+# edit one UI file body (non-ABI), re-run; read:
+#   build/kotlin-reports/*  → "recompiled N files"  (1–2 = fixed-cost-bound → split marginal;
+#                                                     ~all = broad recompile → split delivers)
+#   build/reports/profile/*.html → configuration vs task-execution vs fork split
+./gradlew help --profile                                  # pure configuration cost
+```
+**Record the numbers in the plan's Phase-0 task.** They set the honest target for
+Phase 2 and separate the human's edit→render path (main compile) from the
+edit→test path (test compile) — the split's biggest real win is **test isolation**,
+so measure them separately.
+
+## 5. Phase 1 — Cheap build levers (bank regardless of the split)
+
+`apps/gradle.properties`:
+```
+org.gradle.caching=true                 # build-cache — safe; big on worktree/branch switch + CI
+org.gradle.configuration-cache=true     # kills re-configuration every build; grows with modules
+org.gradle.parallel=true                # minor inner loop; helps full/CI
+# optional: kotlin.daemon.jvmargs=-Xmx2g   # less daemon GC thrash under Compose
+```
+`configuration-cache` may need a compatibility spike (SQLDelight / Compose / AGP
+9.2.1 tasks that break CC). If it can't be turned on cleanly, keep `build-cache` +
+`parallel` and file the CC blocker. **Re-measure** the inner loop after this phase —
+this is the number the split must then beat to justify itself on speed.
+
+## 6. Phase 2 — Extract `:ui` (target module graph)
 
 ```
-:client   (KMP: android/desktop/ios + desktopTest)   — "core", NO Compose
-   ▲ api
-:ui       (KMP: android/desktop/ios + desktopTest)   — Compose only
+:client   (KMP: android/desktop/ios + desktopTest)   — "core", NO Compose on classpath
+   ▲ api(project(":client"))
+:ui       (KMP: android/desktop/ios + desktopTest)   — Compose only; emits the iOS framework
    ▲
-:androidApp   /   desktop entry   /   iOS framework consumer
+:androidApp   /   desktop app entry (:ui)   /   iOS framework consumer (:ui)
 ```
+`api` (not `implementation`) is **mandatory**: `androidApp/MainActivity` uses
+`createAppStore`/`AuthEngine`/`SyncEngine`/`ContentStore`/`DriverFactory`/
+`AndroidContentStoreHolder` — all in `:client`; `implementation` would hide them.
+Zero encapsulation of core from apps is accepted this slice (that's what the
+deferred `:model`/`:data` split fixes).
 
-`:ui` `api(project(":client"))` so app modules that depend on `:ui` transitively
-see core types. `:androidApp` switches its `project(":client")` dep → `:ui`.
+### 6a. What moves (by the mechanical rule) — the ~40 Compose/coil files
+All commonMain composables + `theme/` (4) + `ui/loading/` (5: BusyIndicators,
+Shimmer, Skeletons, StableLoading, StateViews) + the Compose `cards/` files
+(TypedCards, DetailScreen, PlatformActions, PlatformUriHandler, SharedScopes) +
+FeedApp + MediaEnrichment + CoilSetup. Plus platform actuals: `QrScanner.{android,
+desktop,ios}`, `PlatformActions.{android,desktop,ios}`, `ReduceMotion.{android,
+desktop,ios}`. Plus entry points: `Main.kt` (desktop) + `MainViewController.kt`
+(iOS framework entry). **The implementation plan derives the exact list by grep,
+not by copying this prose.**
 
-## 4. What moves into `:ui`
+### 6b. Dependencies to relocate (`:client` → `:ui`)
+commonMain: `compose.runtime/foundation/material3/ui`, `compose.components.resources`,
+`compose.materialIconsExtended`, `org.jetbrains.compose.ui:ui-backhandler`,
+`io.coil-kt.coil3:coil-compose` + `coil-network-ktor3`, **and
+`org.reduxkotlin:redux-kotlin-compose`** (FeedApp's `selectorState` — was
+`implementation` on `:client`, not transitive; panel-caught). `:ui` androidMain:
+CameraX (core/camera2/lifecycle/view) + `mlkit:barcode-scanning` +
+`activity-compose` + `lifecycle-runtime-compose` (all `implementation` — used only
+inside `QrScanner.android`). `:client` **keeps** redux-kotlin core/granular/
+devtools, serialization, coroutines, sqldelight, datetime, ktor-client-*.
+**Verify `:client` compiles with Compose fully gone** — incl. `Reducer.kt`'s
+`import org.reduxkotlin.compose` + `compose(...)` enhancer call (redux **core**
+composition, not the Jetpack binding; qualify the import if it fails to resolve
+after `redux-kotlin-compose` leaves).
 
-**The 25 composable files** (commonMain):
-AccountScreen, AuthScreens, CardRender, DayfoldIcons, DeviceApprovalScreens,
-DevicesScreen, FeedScreen, HubScreens, JoinInviteScreen, MembersScreen, NotifStates,
-NowFeedScreen, OfflineBanner, PermissionLadder, PlacesList, PredictiveBackMotion,
-PrivacyAffordance, ProximitySettings, ProximitySettingsHost, ScanScreens,
-TimelineCard, TimelineDetail, FeedApp, MediaEnrichment, QrScanner (expect) — plus
-the `theme/` package (4 files) and the `cards/` UI (TypedCards/DetailScreen/shared
-chrome + `PlatformActions` expect).
+### 6c. Compose Resources (fonts) — Android dex-merge trap
+Move the `compose.resources { }` block, `composeResources/font/` (Outfit/Figtree),
+and keep the generated package `com.sloopworks.dayfold.client.generated` **to `:ui`**.
+**Fully remove** the block + assets from `:client` — a partial leftover makes both
+modules generate the same `Res` class → duplicate-class dex-merge failure in
+release. Only `theme/Theme.kt`/`Type.kt` reference `Res` (they move with it); no
+core file does.
 
-**Platform actuals** (move with their expect):
-- `QrScanner.{android,desktop,ios}.kt` (androidMain uses CameraX + ML Kit).
-- `cards/PlatformActions.{android,desktop,ios}.kt` + `PlatformActionsTest` (desktopTest).
+### 6d. Android module config (must mirror `:client` exactly)
+`:ui` = `com.android.library`, `namespace = "com.sloopworks.dayfold.client.ui"`
+(distinct → no R/BuildConfig clash), `compileSdk = 37`, `minSdk = 33`,
+`sourceCompatibility/targetCompatibility = 17`, `jvmToolchain(17)`. Failure modes:
+compileSdk < 37 → immediate Compose build fail; minSdk drift → runtime crash on
+API-33 symbols; JVM mismatch → Kotlin metadata errors. **CAMERA / uses-feature
+stay in `:androidApp`'s manifest** (already there; `:client` has no manifest) —
+nothing to move. debug/release variant matching is already proven by `:client`;
+debugdrawer deps stay at `:androidApp`. R8 is off today; when TASK-mobile-r8 runs,
+Compose/CameraX/ML-Kit/redux keep-rules belong in `:ui`'s **`consumerProguardFiles`**
+(file that note in the R8 ticket now).
 
-**iOS framework entry:** `MainViewController.kt` (`ComposeUIViewController {
-FeedApp(store) }`) → `:ui` iosMain. **`:ui` produces the iOS framework** (baseName
-`client` preserved for the Swift side); `:client` stops emitting a framework.
+### 6e. iOS framework relocation (highest-uncertainty piece)
+`:ui` declares `iosArm64()`/`iosSimulatorArm64()` (no iosX64 — granular alpha has
+none; **both** modules must keep exactly this pair) with
+`binaries.framework { baseName = "client"; isStatic = true }`. `:client` **keeps**
+its iOS targets (its iosMain klibs are what the framework needs) but **drops
+`binaries.framework`** (two frameworks named `client` = duplicate). No
+`export(project(":client"))` needed — Swift calls only `MainViewController()`; the
+store is built inside Kotlin. **New public contract:** `MainViewController` (in
+`:ui`) consumes public `:client` iosMain glue (`IosTokenStore`,
+`IosContentStoreHolder`, `IosNotifGlue`, `IosDeepLinkBus`, `reRegisterGeofences()`,
+`reconcileExactSchedules()`) — these are public today and **must stay public**
+(add as a constraint). Desktop `Main.kt` likewise consumes public `:client` glue
+(`FileTokenStore`, `fake.fakeClientForApi`).
 
-**Desktop entry:** `Main.kt` (references `FeedApp`) → `:ui` desktopMain; the
-`compose.desktop { application { mainClass } }` block moves to `:ui`.
-
-**Image loading:** `CoilSetup.kt` + `MediaEnrichment.kt` → `:ui` (image loading is a
-UI cross-cut; keeps coil out of `:client`). *Open for panel: CoilSetup imports ktor
-for the network fetcher — confirm all coil (`coil-compose`, `coil-network-ktor3`)
-lands in `:ui` and `:client` needs none.*
-
-**composeResources (bundled fonts):** the `composeResources/font/` (Outfit/Figtree)
-+ the `compose.resources { }` block + generated `Res` accessor package
-(`com.sloopworks.dayfold.client.generated`) → `:ui`.
-
-## 5. Dependencies to relocate (`:client` build.gradle.kts → `:ui`)
-
-Move to `:ui` commonMain: `compose.runtime/foundation/material3/ui`,
-`compose.components.resources`, `compose.materialIconsExtended`,
-`org.jetbrains.compose.ui:ui-backhandler`, `io.coil-kt.coil3:coil-compose` +
-`coil-network-ktor3`. `:ui` androidMain: CameraX (core/camera2/lifecycle/view) +
-`mlkit:barcode-scanning` + `activity-compose` + `lifecycle-runtime-compose`.
-`:client` **keeps** redux-kotlin, serialization, coroutines, sqldelight, datetime,
-ktor-client-* (the data/engine layer). *Panel: audit that `:client` still compiles
-with Compose fully removed — any stray Compose usage in a "core" file is a blocker.*
-
-## 6. Tests split
-
-- **Stay in `:client` desktopTest:** Reducer/Selector/Engine/pure-logic tests
-  (ReducerTest, {Sync,Auth,Hub,Now}EngineTest, OutboxEgressTest, ContentStoreTest,
-  ChecklistMerge, NowDerive/Rank, DeriveTimeline, etc.).
-- **Move to `:ui` desktopTest:** the render/UI tests — `*SnapshotTest`
+### 6f. Test split
+- **Stay in `:client` desktopTest** (logic): Reducer/Selector/{Sync,Auth,Hub,Now}
+  Engine/OutboxEgress/ContentStore/ChecklistMerge/NowDerive/NowRank/DeriveTimeline,
+  **plus the Compose-free `cards/` logic tests `DetailMetaTest`, `TypedCardLogicTest`**.
+- **Move to `:ui` desktopTest** (render/integration): `*SnapshotTest`
   (Feed/Hub/Auth/Enrichment/LoadingKit/Timeline/Checklist/Notif), `ScanScreensUiTest`,
-  `AuthFlowUiTest`, `FeedAppHostTest` (integration: builds a store from `:client`,
-  renders `FeedApp` from `:ui`), `PlatformActionsTest`.
+  `AuthFlowUiTest`, `FeedAppHostTest` (builds a `:client` store, renders `:ui`
+  FeedApp), `PlatformActionsTest`, `CardRenderTest`, `PlatformUriHandlerTest`.
 - `:ui` desktopTest gets `compose.uiTest` + `kotlin("test")`; `:client` keeps its
-  JUnit-platform test setup for the non-UI tests.
+  JUnit-platform setup. Total test count unchanged, just redistributed.
 
-## 7. iOS / Android / desktop wiring
+## 7. Coordination with CL-SNAP (PR #277)
 
-- **iOS:** `:ui` declares `iosArm64()`/`iosSimulatorArm64()` with the
-  `binaries.framework { baseName = "client"; isStatic = true }` (moved from
-  `:client`); `MainViewController` in `:ui` iosMain. `:client` keeps its iOS targets
-  (for the data/engine code the framework transitively needs) but **no longer emits
-  a framework**. *Panel (iOS): confirm a static framework from `:ui` correctly
-  includes the transitive `:client` iOS klibs; watch `isStatic` + export.*
-- **Android:** `:androidApp` deps `project(":client")` → `project(":ui")`;
-  debugdrawer debug/release deps unchanged (they live at the app level). `:ui` is a
-  `com.android.library` (namespace `…client.ui`), `:client` keeps its library
-  namespace. *Panel (Android): variant/namespace collisions, manifest merging for
-  the CameraX/permissions that move to `:ui`.*
-- **Desktop:** app entry + `compose.desktop.application` move to `:ui`.
+This branch is off `main` (`b3b0dee`) without CL-SNAP. CL-SNAP adds a snapshot
+registry + golden tests that render composables → they belong in `:ui`. Assume
+**#277 merges first**; Phase 2 then also relocates the CL-SNAP snapshot files
+(`SnapshotScenes`, `SnapshotStates`, `GoldenSnapshotTest`, the goldens, the
+`snapshotUi` task) to `:ui`. If #277 lands after, rebase. Operator sets merge order.
 
-## 8. Coordination with CL-SNAP (PR #277)
+## 8. Risks
 
-This branch is off latest `main` (`b3b0dee`), which does **not** include CL-SNAP.
-CL-SNAP adds a snapshot registry (`SnapshotScenes`) + tests that render composables
-→ those belong in `:ui` after the split. **Ordering:** land after #277 merges (then
-this slice also relocates the CL-SNAP snapshot files to `:ui`), or rebase #277 onto
-this. Operator decides merge order; the plan will assume #277 merges first and
-include the CL-SNAP snapshot-file relocation, or note the rebase.
+- **iOS framework relocation** — highest uncertainty (static-framework transitive
+  klib inclusion). De-risk FIRST, before the bulk move:
+  `./gradlew :ui:linkDebugFrameworkIosSimulatorArm64`, then grep the generated
+  `client.framework/Headers/client.h` for `MainViewController`.
+- **Speed under-delivery** — the split may yield only ~0.5–1.5s; Phase 0/1 make
+  this honest, not a surprise.
+- **Full/CI build ~5–15% slower** (2 compile tasks + 2× config + extra klib link);
+  build-cache mitigates on reruns. Quantify in Phase 0.
+- **compose.resources dex-merge trap** (§6c) and **`Res` package** migration.
+- **Large mechanical move** — a missed Compose file leaves Compose on `:client`
+  (DoD catches it); a misplaced test lands in the wrong module (compile catches it).
 
-## 9. Risks
+## 9. Success criteria (DoD)
 
-- **iOS framework relocation** (`:client`→`:ui`) is the highest-uncertainty piece
-  (static-framework transitive klib inclusion; Swift host consumes `client.framework`
-  — no Xcode project exists yet, so low blast radius today).
-- **Compose-plugin floor:** the split shrinks the analyzed set + kills cross-concern
-  recompiles; it does not remove Compose's per-file cost. The ~2–3s target is an
-  estimate — **measure before/after** (DoD).
-- **composeResources migration** (font generation moving modules) can be fiddly.
-- **Two KMP modules** now configure android/desktop/ios source sets — more Gradle
-  config; mitigated because `:client` sheds Compose.
-- **Large mechanical test/file move** — risk is a missed reference or a test landing
-  in the wrong module; caught by "all targets compile + full suite green".
-
-## 10. Success criteria (DoD)
-
-- Editing a `:ui` composable recompiles `:ui` (+ its tests) only — **not** `:client`
-  or the generated SQLDelight; the **measured** UI-edit recompile improvement vs the
-  ~5s baseline is recorded.
-- `:client` compiles with **zero Compose** on its classpath.
-- All targets build (android/desktop/iosArm64/iosSimulatorArm64); the **full test
-  suite stays green** (counts unchanged, just redistributed across `:client`/`:ui`).
+- **Measured** before/after inner-loop numbers recorded (Phase 0 baseline, Phase 1
+  post-cheap-levers, Phase 2 post-split), separating main vs test compile.
+- Editing a `:ui` composable recompiles `:ui` (+ its tests) only — not `:client`
+  or generated SQLDelight, and not the `:client` logic tests.
+- `:client` compiles with **zero Compose** on its classpath (grep-verified).
+- All targets build (android/desktop/iosArm64/iosSimulatorArm64); **full test suite
+  green** (counts unchanged, redistributed). `:ui:linkDebugFrameworkIosSimulatorArm64`
+  succeeds with `MainViewController` exported.
 - No behavior/UX change.
 
-## 11. Alternatives considered
+## 10. Alternatives considered
 
-- **Full `:model`/`:data`/`:ui` split** (needs dependency inversion of engine↔client)
-  — higher payoff (independent model/data testability, web-target prep) but higher
-  risk; deferred (operator chose incremental).
-- **Model-first** (extract pure-leaf `:model`) — less UI-loop benefit (UI stays
-  coupled to engines/data). Rejected for this slice's goal.
-- **Config-cache only** (no split) — cheap, attacks the ~2s fork not the ~5s
-  recompile. Complementary, not a substitute; bank it alongside.
+- **Full `:model`/`:data`/`:ui`** (dependency inversion) — deferred (operator chose
+  incremental).
+- **Config-cache/build-cache only, no split** — now Phase 1; if measurement shows
+  the split adds little compile win, the split still proceeds for architectural
+  value, but the operator may stop after Phase 1 (the phasing makes that a clean
+  exit).
+- **Rename `:client`→`:core`** — deferred as tech-debt to the `:model`/`:data`
+  slice (settings/dep churn now for no functional gain; package + namespaces stay).
