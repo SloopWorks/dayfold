@@ -51,15 +51,8 @@ import androidx.compose.ui.unit.sp
 // and routed by FeedApp. No icon-font dep (glyphs are text/drawn, like AuthScreens
 // + DevicesScreen). Scanner + deep-link stay Phase 2 (onScan defaults null).
 
-private const val CODE_LEN = 8   // user_code is 8 chars rendered XXXX-XXXX
-
-// Normalize free input → 8 uppercased alphanumerics (drop the dash + noise).
-internal fun normalizeDeviceCode(raw: String): String =
-  raw.uppercase().filter { it.isLetterOrDigit() }.take(CODE_LEN)
-
-// 8 alnum chars → the user_code the server expects (WDJF-7K2P).
-internal fun formatUserCode(code: String): String =
-  if (code.length == CODE_LEN) "${code.take(4)}-${code.drop(4)}" else code
+// CODE_LEN / normalizeDeviceCode / formatUserCode moved to :client (DeviceCode.kt)
+// in P2.2a — staying DeepLink.kt needs them and :client can't depend on :ui.
 
 // ── small shared chrome ──
 

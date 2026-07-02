@@ -19,6 +19,11 @@ kotlin {
     val commonMain by getting {
       dependencies {
         api(project(":client"))
+        // Moved Compose screens reference these directly; :client declares them as
+        // implementation (not api) so they aren't transitive → declare here (P2.2a).
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+        implementation("io.ktor:ktor-client-core:3.5.0")
         implementation(compose.runtime)
         implementation(compose.foundation)
         implementation(compose.material3)
@@ -68,3 +73,13 @@ android {
 }
 
 compose.desktop { application { mainClass = "com.sloopworks.dayfold.client.MainKt" } }
+
+// Generated Res accessor for the bundled fonts (src/commonMain/composeResources/font/) — relocated from :client in P2.2a.
+compose.resources {
+  publicResClass = false
+  packageOfResClass = "com.sloopworks.dayfold.client.generated"
+  generateResClass = auto
+}
+
+// desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
+tasks.named<Test>("desktopTest") { useJUnitPlatform() }

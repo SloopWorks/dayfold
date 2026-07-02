@@ -474,9 +474,10 @@ private fun TlEntryRow(
             }
 
             // Sub
-            if (!stop.sub.isNullOrEmpty()) {
+            val sub = stop.sub   // local: stop is a cross-module type → no smart-cast
+            if (!sub.isNullOrEmpty()) {
                 Text(
-                    text = stop.sub,
+                    text = sub,
                     fontSize = 12.5.sp,
                     lineHeight = 18.sp,
                     color = cs.onSurfaceVariant,

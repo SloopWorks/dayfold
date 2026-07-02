@@ -86,7 +86,7 @@ configurations.configureEach {
 }
 
 dependencies {
-  implementation(project(":client"))
+  implementation(project(":ui"))
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
   // S2 (ADR 0023/0027): real Google sign-in. Credential Manager yields a Google

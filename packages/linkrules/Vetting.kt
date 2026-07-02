@@ -12,7 +12,8 @@ import com.sloopworks.dayfold.client.schemeOf
  * (`?subject=&body=`), multi-recipient (`,`), and any whitespace/CRLF header
  * injection; rebuild as a clean `mailto:<addr>`. Returns null if it doesn't vet.
  */
-internal fun vetMailto(raw: String): String? {
+// public: consumed cross-module by :ui (cards/PlatformActions)
+fun vetMailto(raw: String): String? {
   if (schemeOf(raw) != "mailto") return null
   val addr = raw.trim().removePrefix("mailto:").substringBefore("?") // drop any params
   if (addr.isBlank()) return null

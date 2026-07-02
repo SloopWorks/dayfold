@@ -64,12 +64,13 @@ private fun TimelineRoadmapCard(model: TimelineCardModel, onOpen: () -> Unit) {
             if (!spine.isNullOrEmpty()) {
                 RoadmapSpine(spine, model.moreCount)
             }
-            if (model.nextCallout != null) {
+            val nextCallout = model.nextCallout   // local: model is a cross-module type → no smart-cast
+            if (nextCallout != null) {
                 HorizontalDivider(
                     modifier = Modifier.padding(top = 13.dp),
                     color = cs.outlineVariant,
                 )
-                NextMilestoneRow(model.nextCallout)
+                NextMilestoneRow(nextCallout)
             }
             RoadmapFooterRow(onOpen, model.derived)
         }
@@ -336,8 +337,9 @@ private fun TimelineDayCard(model: TimelineCardModel, onOpen: () -> Unit) {
                 DoneCapRow(model.doneCount)
             }
             // NOW marker row
-            if (model.nowTimeLabel != null) {
-                NowRow(model.nowTimeLabel)
+            val nowTimeLabel = model.nowTimeLabel   // local: model is a cross-module type → no smart-cast
+            if (nowTimeLabel != null) {
+                NowRow(nowTimeLabel)
             }
             // Windowed upcoming rows
             model.window.forEachIndexed { idx, ps ->

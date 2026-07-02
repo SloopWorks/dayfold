@@ -49,7 +49,8 @@ fun RankedFeed.visibleSubjectKeys(): Set<String> =
 // One active card → a NowItem in the authored lane. subjectKey uses the deep-link target (so an
 // authored nudge collapses with the derived item about the same hub/block — the target earns its
 // second job as the dedup key); a target-less card keys on its own id (never merges with derived).
-internal fun cardToNowItem(card: Card, config: RankConfig): NowItem {
+// public: consumed cross-module by :ui (NowFeedScreenTest)
+fun cardToNowItem(card: Card, config: RankConfig): NowItem {
   val subjectKey = card.targetHubId?.let { hub ->
     buildString {
       append("hub:").append(hub)

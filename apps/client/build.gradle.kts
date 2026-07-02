@@ -136,12 +136,5 @@ sqldelight {
 
 compose.desktop { application { mainClass = "com.sloopworks.dayfold.client.MainKt" } }
 
-// Generated Res accessor for the bundled fonts (src/commonMain/composeResources/font/).
-compose.resources {
-  publicResClass = false
-  packageOfResClass = "com.sloopworks.dayfold.client.generated"
-  generateResClass = auto
-}
-
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
 tasks.named<Test>("desktopTest") { useJUnitPlatform() }
