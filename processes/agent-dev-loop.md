@@ -208,6 +208,19 @@ docker run --rm --memory=7g -v "$(git rev-parse --show-toplevel)":/repo -w /repo
 ```
 Then **eyeball the changed PNGs** before committing.
 
+**Golden dashboard (HTML):** render all 131 shots + verify against a golden
+set + emit a self-contained `index.html` (per-shot image, verdict + diff%,
+magenta diff overlay on mismatch, failures sorted first):
+```
+cd apps && ./gradlew :client:snapshotUi -PsnapshotArgs="--batch snapshot-shots.json --golden-dir src/desktopTest/resources/snapshots/macos --dashboard"
+open client/.rk-snapshots/index.html
+```
+The shot list is the committed `apps/client/snapshot-shots.json`
+(`SnapshotScenesTest.batchManifestMatchesGoldens` keeps it in sync with the
+goldens). CI runs the same dashboard against `snapshots/linux/` when the
+golden gate fails and uploads `.rk-snapshots/` as the `snapshot-dashboard`
+artifact — clickable visual diffs straight from the failed PR run.
+
 **Headless caveat:** no async image loading → enriched presets render the
 icon+accent fallback, not the hero image. Expected behavior.
 
