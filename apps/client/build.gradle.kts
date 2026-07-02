@@ -147,11 +147,11 @@ compose.resources {
 }
 
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
-// Forward snapshot.record so -Dsnapshot.record=true reaches the test JVM (Gradle doesn't
-// auto-forward -D flags from the Gradle process to forked test processes).
+// Forward snapshot.record ONLY when it is explicitly set, so the forked test JVM never
+// sees the property in verify mode (Gradle doesn't auto-forward -D flags to forked JVMs).
 tasks.named<Test>("desktopTest") {
   useJUnitPlatform()
-  systemProperty("snapshot.record", System.getProperty("snapshot.record", "false"))
+  System.getProperty("snapshot.record")?.let { systemProperty("snapshot.record", it) }
 }
 
 // CL-SNAP: run the snapshot scene registry's CLI against the desktopTest classpath.
