@@ -148,3 +148,17 @@ compose.resources {
 
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
 tasks.named<Test>("desktopTest") { useJUnitPlatform() }
+
+// CL-SNAP: run the snapshot scene registry's CLI against the desktopTest classpath.
+// Usage: ./gradlew :client:snapshotUi -PsnapshotArgs="--scene feed --preset busy --out /tmp/x.png"
+// NOTE: args are OPTIONS ONLY (no leading "snapshot"); split on spaces (no spaces in paths).
+tasks.register<JavaExec>("snapshotUi") {
+  group = "verification"
+  description = "Render/verify client snapshot scenes headlessly (agent loop)."
+  val testComp = kotlin.targets.getByName("desktop").compilations.getByName("test")
+  dependsOn(testComp.compileTaskProvider)
+  mainClass.set("com.sloopworks.dayfold.client.snapshot.SnapshotScenesKt")
+  classpath = files(testComp.output.allOutputs, testComp.runtimeDependencyFiles)
+  val raw = (project.findProperty("snapshotArgs") as String?).orEmpty()
+  argumentProviders.add { raw.split(" ").filter { it.isNotBlank() } }
+}
