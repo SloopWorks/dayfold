@@ -66,17 +66,17 @@ export async function upsertHub(
   try {
     await client.query("BEGIN");
     const r = await client.query(
-      `INSERT INTO hubs (id, family_id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, version)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1)
+      `INSERT INTO hubs (id, family_id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
        ON CONFLICT (family_id, id) DO UPDATE SET
          type=EXCLUDED.type, title=EXCLUDED.title, status=EXCLUDED.status,
          start_at=EXCLUDED.start_at, end_at=EXCLUDED.end_at, countdown_to=EXCLUDED.countdown_to,
          visibility=EXCLUDED.visibility, created_by=COALESCE(hubs.created_by, EXCLUDED.created_by),
-         media=EXCLUDED.media,
+         media=EXCLUDED.media, timeline=EXCLUDED.timeline,
          version=hubs.version + 1, deleted_at=NULL
        RETURNING *`,
       [id, familyId, b.type, b.title, b.status ?? "active",
-       b.start_at ?? null, b.end_at ?? null, b.countdown_to ?? null, visibility, caller.userId, J(b.media)],
+       b.start_at ?? null, b.end_at ?? null, b.countdown_to ?? null, visibility, caller.userId, J(b.media), J(b.timeline)],
     );
     // Replace the allow-list when restricted; clear it when family.
     await client.query(`DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id]);
