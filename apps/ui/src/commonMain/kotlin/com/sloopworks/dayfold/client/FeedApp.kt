@@ -153,7 +153,7 @@ fun FeedApp(
         onRefresh = onRefresh,
         onNowShown = onNowShown,
       )
-      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onTimelineAction = handle)
+      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
       else -> SafeArea { when (state.route) {
       Route.Loading -> SplashScreen()
       // A deep-link tapped before sign-in shows the branded resume screen instead
@@ -315,7 +315,7 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
 // Hubs surface host (ADR 0006): list ↔ detail substate driven by currentHubId.
 // A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
 @Composable
-private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onTimelineAction: (CardAction) -> Unit = {}) {
+private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onCardAction: (CardAction) -> Unit = {}) {
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
   val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
@@ -329,7 +329,7 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
         onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
         onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock,
         onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
-        onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onTimelineAction = onTimelineAction,
+        onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
       )
     } else {
       HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onNow = { store.dispatch(OpenFeed) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)

@@ -278,7 +278,9 @@ fun HubDetailScreen(
   // ADR 0045 — hub timeline card + detail overlay (Task 13a: static integration, no shared-element morph)
   onOpenTimeline: (TimelineScale) -> Unit = {},
   onCloseTimeline: () -> Unit = {},
-  onTimelineAction: (CardAction) -> Unit = {},
+  // OS-handoff channel for structured blocks (contact Call/Text/Email, location Directions) AND
+  // timeline attachments — the same CardAction router the Now cards use (FeedApp.routeCardAction).
+  onCardAction: (CardAction) -> Unit = {},
   // default to the live clock/device tz; snapshot renders pin them so countdown badges
   // and timeline done/next markers are date-stable
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
@@ -323,7 +325,7 @@ fun HubDetailScreen(
       ) {
         if (scale != null && tl != null) {
           Box(Modifier.fillMaxSize().cardSharedBounds("timeline")) {
-            TimelineDetail(tl, scale, nowIso, tz, onBack = onCloseTimeline, onAction = onTimelineAction)
+            TimelineDetail(tl, scale, nowIso, tz, onBack = onCloseTimeline, onAction = onCardAction)
           }
         } else {
   Scaffold(
@@ -510,6 +512,7 @@ fun HubDetailScreen(
               canDelete = block.createdBy != null && block.createdBy == selfId,
               onToggleItem = onToggleItem, onRetryBlock = onRetryBlock,
               onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock,
+              onCardAction = onCardAction,
             )
           }
         }
@@ -673,6 +676,7 @@ private fun HubBlockCard(
   onRetryBlock: (String) -> Unit = {},
   onDeleteBlock: (String) -> Unit = {},
   onHideBlock: (String) -> Unit = {},
+  onCardAction: (CardAction) -> Unit = {},
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   var confirmDelete by remember { mutableStateOf(false) }
@@ -716,8 +720,8 @@ private fun HubBlockCard(
               "text", "markdown" -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
               "checklist" -> ChecklistBlock(block, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock)
               "link", "document" -> LinkRow(block)
-              "contact" -> ContactRow(block.payload)
-              "location" -> LocationBlock(block.payload)
+              "contact" -> ContactRow(block.payload, onCardAction)
+              "location" -> LocationBlock(block.payload, onCardAction)
               "milestone" -> MilestoneRow(block.payload, block.bodyMd)
               "budget" -> BudgetBar(block.payload)
               else -> Text(rememberRenderedMarkdown(block.bodyMd ?: block.type), style = MaterialTheme.typography.bodyMedium)
@@ -1169,7 +1173,7 @@ private fun LinkRow(block: HubBlock) {
 }
 
 @Composable
-private fun ContactRow(p: BlockPayload?) {
+private fun ContactRow(p: BlockPayload?, onAction: (CardAction) -> Unit) {
   Row(verticalAlignment = Alignment.CenterVertically) {
     // ADR 0036: avatarUrl photo → initials fallback (invisible on miss).
     ContactAvatar(p?.name, p?.avatarUrl)
@@ -1177,17 +1181,30 @@ private fun ContactRow(p: BlockPayload?) {
       Text(p?.name ?: "Contact", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
       p?.role?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-    // round Call / Text affordances (OS handoff when wired — display here)
-    if (p?.phone != null) { RoundAffordance(DayfoldIcons.Call, "Call"); Box(Modifier.width(8.dp)); RoundAffordance(DayfoldIcons.Message, "Message") }
+    // round Call / Text / Email affordances → OS handoff (tel: / sms: / mailto:) via CardAction,
+    // the same channel the Now contact card uses. Only shown for the fields the contact carries.
+    p?.phone?.let { phone ->
+      RoundAffordance(DayfoldIcons.Call, "Call") { onAction(CardAction.Call(phone)) }
+      Box(Modifier.width(8.dp))
+      RoundAffordance(DayfoldIcons.Message, "Message") { onAction(CardAction.Message(phone)) }
+    }
+    p?.email?.let { email ->
+      if (p.phone != null) Box(Modifier.width(8.dp))
+      RoundAffordance(DayfoldIcons.Email, "Email") { onAction(CardAction.Email("mailto:$email")) }
+    }
   }
 }
 
 @Composable
-private fun LocationBlock(p: BlockPayload?) {
+private fun LocationBlock(p: BlockPayload?, onAction: (CardAction) -> Unit) {
+  // What we hand to the maps app (ADR 0014: an address/place query, never a raw lat/lng position).
+  val navQuery = (p?.address ?: p?.label)?.takeIf { it.isNotBlank() }
+  val navigate = navQuery?.let { { onAction(CardAction.Navigate(it)) } }
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    // map placeholder tile (Coil3 map render is M1; a calm warm tile + pin at M0)
+    // map placeholder tile (Coil3 map render is M1; a calm warm tile + pin at M0) — tap → Directions
     Box(
-      Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+      Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+        .then(if (navigate != null) Modifier.clickable(role = Role.Button, onClickLabel = "Directions", onClick = navigate) else Modifier),
       contentAlignment = Alignment.Center,
     ) { androidx.compose.material3.Icon(DayfoldIcons.Location, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp)) }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1195,9 +1212,15 @@ private fun LocationBlock(p: BlockPayload?) {
         Text(p?.label ?: "Location", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         p?.address?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
       }
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Directions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 3.dp).size(16.dp))
+      if (navigate != null) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClickLabel = "Directions", onClick = navigate).padding(horizontal = 4.dp),
+        ) {
+          Text("Directions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+          androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 3.dp).size(16.dp))
+        }
       }
     }
   }
@@ -1238,10 +1261,20 @@ private fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, bg: 
 
 // `label` is the screen-reader name for the action affordance (was a bare emoji before).
 @Composable
-private fun RoundAffordance(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) =
-  Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+private fun RoundAffordance(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: (() -> Unit)? = null) {
+  // 40dp visual circle; when actionable it sits in a 48dp touch target (a11y min) as a Button.
+  val circle = Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer)
+  val content = @Composable {
     androidx.compose.material3.Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
   }
+  if (onClick != null) {
+    Box(Modifier.size(48.dp).clip(RoundedCornerShape(50)).clickable(role = Role.Button, onClickLabel = label, onClick = onClick), contentAlignment = Alignment.Center) {
+      Box(circle, contentAlignment = Alignment.Center) { content() }
+    }
+  } else {
+    Box(circle, contentAlignment = Alignment.Center) { content() }
+  }
+}
 
 @Composable
 private fun ProvenanceChip(src: String) {
