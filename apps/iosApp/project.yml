@@ -50,11 +50,11 @@ targets:
           - client
           - -lsqlite3   # touchlab/sqliter native driver links system sqlite3
         FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]:
-          - $(SRCROOT)/../client/build/bin/iosSimulatorArm64/debugFramework
+          - $(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework
         FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]:
-          - $(SRCROOT)/../client/build/bin/iosArm64/debugFramework
+          - $(SRCROOT)/../ui/build/bin/iosArm64/debugFramework
     preBuildScripts:
-      - name: "Build Kotlin :client framework"
+      - name: "Build Kotlin :ui framework"
         basedOnDependencyAnalysis: false
         script: |
           set -e
@@ -65,7 +65,7 @@ targets:
             TASK=linkDebugFrameworkIosArm64
           fi
           cd "$SRCROOT/.."
-          ./gradlew :client:$TASK
+          ./gradlew :ui:$TASK
           # Copy Compose Multiplatform resources (fonts/images) into the app bundle. Reads the Xcode
           # env (BUILT_PRODUCTS_DIR / CONTENTS_FOLDER_PATH / CONFIGURATION / ARCHS) → syncs into the .app.
-          ./gradlew :client:syncComposeResourcesForIos
+          ./gradlew :ui:syncComposeResourcesForIos
