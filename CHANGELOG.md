@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-03 — Client heals a stale cache on a behavior-affecting model change (#283)
+
+### Fixed (client)
+- **Checklists (and any list) written by an older build become interactive after upgrade.**
+  A behavior-affecting field added to a synced model (e.g. `ChecklistItem.id`, the ADR 0038
+  interactivity/merge key) was never backfilled into rows an older build had already cached: the
+  old model dropped the unknown field (`ignoreUnknownKeys`) and advanced the incremental cursor
+  past those rows, so they stayed stale forever — rendering read-only lists that couldn't be
+  checked. The client now tracks a hand-bumped `CLIENT_SCHEMA_VERSION` in the local DB (stamped by
+  the sync write path); on startup, if the cache was written under an older version it forces a
+  full resync (wipe synced content + cursor, preserving queued member writes + local hides), so
+  the current model re-fetches every row. Verified end-to-end on a real device upgrade.
+
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 
 ### Added (dev tooling)

@@ -30,7 +30,13 @@ CREATE TABLE card (
 CREATE TABLE sync_meta (
   id             INTEGER NOT NULL PRIMARY KEY DEFAULT 0,
   cursor         TEXT,
-  last_synced_at TEXT
+  last_synced_at TEXT,
+  -- Client CONTENT-schema version the cached rows were last synced under (issue #283).
+  -- Distinct from ContentDb.Schema.version: bumped by hand only when a synced model gains
+  -- a BEHAVIOR-affecting field (e.g. ChecklistItem.id → interactivity, ADR 0038). On a bump
+  -- the incremental cursor can't heal rows an older model wrote (it dropped the field via
+  -- ignoreUnknownKeys and advanced past them), so we force a full resync. NULL = pre-#283.
+  client_schema_version INTEGER
 );
 
 upsertCard:
@@ -69,6 +75,16 @@ SELECT cursor FROM sync_meta WHERE id=0;
 setCursor:
 INSERT INTO sync_meta(id, cursor, last_synced_at) VALUES (0, ?, ?)
 ON CONFLICT(id) DO UPDATE SET cursor=excluded.cursor, last_synced_at=excluded.last_synced_at;
+
+-- Client content-schema version (issue #283). Read → NULL when the row is absent or pre-#283.
+getSchemaVersion:
+SELECT client_schema_version FROM sync_meta WHERE id=0;
+
+-- Stamp the version WITHOUT clobbering the cursor (reconcile runs it right after wipeForResync,
+-- when the row has been deleted → this re-creates it with a null cursor).
+setSchemaVersion:
+INSERT INTO sync_meta(id, client_schema_version) VALUES (0, ?)
+ON CONFLICT(id) DO UPDATE SET client_schema_version=excluded.client_schema_version;
 
 -- ── Hubs (ADR 0006 render). Mirrors the server `hubs` table: business cols +
 -- deleted flag for soft-deletes from the hub-sync delta. No JSON cols in PR1.

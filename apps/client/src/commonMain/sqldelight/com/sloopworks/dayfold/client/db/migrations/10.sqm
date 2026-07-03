@@ -1,0 +1,5 @@
+-- Migration v10→v11 (issue #283): track the client CONTENT-schema version the cached rows
+-- were synced under, so a behavior-affecting model bump can force a full resync (existing
+-- rows an older model wrote — e.g. checklist items missing their ADR 0038 id — are never
+-- healed by the incremental cursor). NULL on existing DBs → treated as pre-#283 → heal once.
+ALTER TABLE sync_meta ADD COLUMN client_schema_version INTEGER;
