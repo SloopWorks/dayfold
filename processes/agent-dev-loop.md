@@ -153,11 +153,11 @@ models (so field names are correct by construction).
 ## Client core + desktop (`:client` + `:ui` — KMP modules, post-split 2026-07-02)
 ```
 cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest   # 440 tests: logic/data/reducers
-cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 311 tests: Compose snapshots + UI
+cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 329 tests: Compose snapshots + UI (incl. CL-SNAP golden suite)
 ```
 - **`:client` tests:** reducer/selector/sync/engine unit tests — Compose-free. Run when editing logic, reducers, engines, data clients, store, ContentStore.
 - **`:ui` tests:** Compose snapshot tests + UI behavior tests. Run when editing composables, theme, entry points.
-- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). 24 tests green post-TASK-SYNC (now 440+311=751).
+- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Post-merge of CL-SNAP (#277): 440 + 329 = 769 (CL-SNAP's 18 snapshot tests relocated to `:ui`).
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
   **silently NOT run** (JUnit ignores non-void test methods). Use
@@ -172,38 +172,63 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 311 tests: Compos
 **off-screen in ms**, and verifies it against a **golden** — the fastest way for
 an agent to *see* what a change produced and to catch visual regressions.
 
-**App side (one-time, = epic task CL-SNAP):** add a test-scoped
-`redux-kotlin-snapshot` dep (⚠ not yet on Maven Central per the docs — operator
-owns reduxkotlin; confirm the published coordinate/version at task time), define
-a scene registry, and expose it as a Gradle task `:client:snapshotUi`:
-```kotlin
-val clientSnapshots = snapshotApp {
-  defaults { width = 411; height = 891; density = 2f; theme = "light" }
-  scene("feed") { presets("loaded", "empty", "loading")
-    render { args -> DayfoldTheme(args.theme) { FeedScreen(stateOf(args)) } } }
-  scene("card-invite") { presets("default", "urgent")
-    render { args -> DayfoldTheme(args.theme) { CardItem(cardOf(args)) } } }
-  // …one scene per card type + per detail type; presets = states; theme = light|dark
-}
-fun main(args: Array<String>) { clientSnapshots.runCli(args); kotlin.system.exitProcess(0) }
-```
-The brew `rk` binary only carries its own demo scenes (`rk snapshot --list` →
-`counter`/`demo`) — **our scenes run through `./gradlew :client:snapshotUi --args="…"`**.
+**Status (CL-SNAP, delivered):**
+- Dep: `org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04` (Maven Central),
+  scoped `desktopTest` in `apps/ui/build.gradle.kts` (relocated `:client`→`:ui`
+  in the modularize merge — the scenes render Compose, which lives in `:ui`).
+- Scene registry: `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/snapshot/SnapshotScenes.kt`
+  — `clientSnapshots` with scenes `feed` (presets: busy/empty/caught-up/syncing/offline/typed/enriched),
+  `hub-detail` (canonical/enriched), `detail` (file/link/invite/contact/geo/email).
+  State fixtures come from `SnapshotStates.kt` (hand-built `AppState` literals —
+  reuses the tests' existing fixtures, **not** `FakeScenarios`).
+- 12 goldens committed in `apps/ui/src/desktopTest/resources/snapshots/`
+  covering the three canonical surfaces.
 
-**Rapid single-shot (agent loop):** render one state → PNG, then `Read` it.
+**CLI entry (Gradle — NOT the brew `rk` binary):**
+The brew `rk` binary only carries its own demo scenes. Our scenes run via the
+Gradle task. **Args are OPTIONS ONLY — no leading `snapshot` token.**
+(Old examples writing `--args="snapshot --scene …"` were wrong — the lib
+command IS snapshot; the `rk snapshot` prefix applies only to the standalone
+brew binary, which doesn't know our scenes.)
+
+List all scenes/presets (JSON):
 ```
-cd apps && ./gradlew :client:snapshotUi --args="snapshot --scene card-invite --preset urgent --theme dark --out /tmp/x.png"
+cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--list"
 ```
-**Golden verify (single):** `--verify golden.png` exits 1 on drift.
-**Batch + golden CI:** a manifest of shots, verified against a golden dir, with
-an HTML report:
+Render one state → PNG, then `Read` it:
 ```
-./gradlew :client:snapshotUi --args="snapshot --batch shots.json --out-dir build/snapshots --golden-dir designs/goldens --dashboard --json"
+cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--scene feed --preset busy --out /tmp/x.png"
 ```
-`shots.json` = `{ "defaults": {…}, "shots": [ {"id","scene","preset"|"stateJson","theme"?} ] }`.
-Exit 1 if any shot mismatches → **this is the golden-diff CI ADR 0019 deferred.**
-JUnit path also exists: `SnapshotApp.assertGolden(...)` (goldens under
-`src/test/resources/snapshots/`, record with `-Dsnapshot.record=true`).
+Semantics smoke (Tier-0, **zero vision tokens** — confirmed working in alpha04):
+```
+cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--scene feed --preset busy --semantics --out /tmp/x.png"
+```
+Prints the semantic node tree (roles, text, descriptions, selected state) to
+stdout. Use this first for content/refactor changes — no image read needed.
+
+**Tiered agent loop:**
+- **Tier 0 — semantics text** (`--semantics`): content + accessibility asserts,
+  zero vision tokens. Start here for content/refactor changes.
+- **Tier 1 — golden verdict** (`GoldenSnapshotTest` / batch `report.json`):
+  text pass/fail from `:client:desktopTest`. Start here for regression checks.
+- **Tier 2 — read the PNG**: only when a shot drifted or after a deliberate
+  visual change you want to eyeball.
+
+**Golden gate (CI):** `GoldenSnapshotTest` in `desktopTest` verifies the
+committed goldens at `maxDiffPercent = 4.0`. Runs in `:client:desktopTest`
+(CI = ubuntu-latest). The bundled brand fonts are variable fonts (wght axis);
+macOS (CoreText) and linux (FreeType) instantiate the bold weights with
+slightly different glyph advances, so bold-dense scenes measure 2.2–2.9%
+cross-OS (AA-only drift stays under 2%) → 4% gate. Snapshot renders pin the
+clock (`SNAPSHOT_NOW`) so the feed header date can't go stale. Re-record
+after an intentional visual change:
+```
+cd apps && ./gradlew :client:desktopTest --tests "*GoldenSnapshotTest" -Dsnapshot.record=true
+```
+Then **eyeball the changed PNG** before committing.
+
+**Headless caveat:** no async image loading → enriched presets render the
+icon+accent fallback, not the hero image. Expected behavior.
 
 ## Android (`:androidApp` — the real device target)
 ```
@@ -260,10 +285,12 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:compileKotlinIosArm64 \
   use only when the text log + `rk devtools` aren't enough.
 - **Snapshot PNGs / `rk snapshot`** (above) for UI checks.
 
-## Now available (2026-06-19 — supersedes the old "not available" note)
+## Now available (updated 2026-07-02 — supersedes the old "not available" note)
 - **redux-kotlin CLI `rk`**: **PUBLISHED** via Homebrew (`reduxkotlin/tap/rk`,
   1.0.0-alpha02). devtools + snapshot, both wired above. (Mind the broken brew
   symlink — see Toolchain.)
-- **screenshot/golden module**: **`rk snapshot`** provides headless render +
-  golden-diff + dashboard — no Roborazzi DIY needed. Realizes ADR 0019's
-  remaining golden-diff + CLI items.
+- **screenshot/golden module**: **`redux-kotlin-snapshot:1.0.0-alpha04`** is on
+  Maven Central. Headless render + committed-golden CI gate are **DELIVERED**
+  (CL-SNAP) — no Roborazzi DIY needed. Realizes ADR 0019 "Remaining" items #4
+  and #6. See the `⭐ rk snapshot` section above for the exact CLI and golden
+  workflow.

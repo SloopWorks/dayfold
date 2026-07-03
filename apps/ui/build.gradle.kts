@@ -57,6 +57,10 @@ kotlin {
         implementation(kotlin("test"))
         @OptIn(ExperimentalComposeLibrary::class)
         implementation(compose.uiTest)
+        // CL-SNAP: headless f(state)->UI render + golden diff + text semantics.
+        // Test-scope ONLY (must not ship). JVM-only artifact (no target suffix).
+        // Relocated from :client → :ui (renders Compose, which lives in :ui).
+        implementation("org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04")
       }
     }
   }
@@ -82,4 +86,24 @@ compose.resources {
 }
 
 // desktopTest reuses the JVM JUnit-platform setup the old jvm module had.
-tasks.named<Test>("desktopTest") { useJUnitPlatform() }
+// Forward snapshot.record ONLY when it is explicitly set, so the forked test JVM never
+// sees the property in verify mode (Gradle doesn't auto-forward -D flags to forked JVMs).
+tasks.named<Test>("desktopTest") {
+  useJUnitPlatform()
+  System.getProperty("snapshot.record")?.let { systemProperty("snapshot.record", it) }
+}
+
+// CL-SNAP: run the snapshot scene registry's CLI against the desktopTest classpath.
+// Relocated from :client → :ui (renders Compose, which lives in :ui).
+// Usage: ./gradlew :ui:snapshotUi -PsnapshotArgs="--scene feed --preset busy --out /tmp/x.png"
+// NOTE: args are OPTIONS ONLY (no leading "snapshot"); split on spaces (no spaces in paths).
+tasks.register<JavaExec>("snapshotUi") {
+  group = "verification"
+  description = "Render/verify client snapshot scenes headlessly (agent loop)."
+  val testComp = kotlin.targets.getByName("desktop").compilations.getByName("test")
+  dependsOn(testComp.compileTaskProvider)
+  mainClass.set("com.sloopworks.dayfold.client.snapshot.SnapshotScenesKt")
+  classpath = files(testComp.output.allOutputs, testComp.runtimeDependencyFiles)
+  val raw = (project.findProperty("snapshotArgs") as String?).orEmpty()
+  argumentProviders.add { raw.split(" ").filter { it.isNotBlank() } }
+}
