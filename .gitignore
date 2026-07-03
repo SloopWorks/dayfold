@@ -27,4 +27,4 @@ apps/androidApp/google-services.json
 **/GoogleService-Info.plist
 
 # rk snapshot batch/dashboard output (regenerate: agent-dev-loop.md "Golden dashboard")
-apps/client/.rk-snapshots/
+apps/ui/.rk-snapshots/

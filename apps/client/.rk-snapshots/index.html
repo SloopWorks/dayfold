@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>rk snapshot — run-1783035450570</title>
+<style>:root { color-scheme: dark; }
+  body { margin: 0; font: 14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; background:#0d1117; color:#e6edf3; }
+  header { padding:16px 24px; border-bottom:1px solid #30363d; display:flex; gap:24px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  .totals span { margin-right:14px; }
+  .ok{color:#3fb950} .fail{color:#f85149} .warn{color:#d29922}
+  main { padding:24px; display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:20px; }
+  .card { border:1px solid #30363d; border-radius:10px; overflow:hidden; background:#161b22; }
+  .card.bad { border-color:#f85149; }
+  .card h2 { font-size:14px; margin:0; padding:10px 12px; display:flex; justify-content:space-between; gap:8px; align-items:center; background:#1c2128; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:999px; }
+  .pill.ok{background:#172e1b;color:#3fb950} .pill.bad{background:#3a1416;color:#f85149} .pill.warn{background:#332701;color:#d29922}
+  .imgs { display:flex; gap:8px; padding:12px; background:#0d1117; }
+  .imgs figure { margin:0; flex:1; text-align:center; }
+  .imgs figcaption { font-size:11px; color:#8b949e; margin-bottom:4px; }
+  /* smooth downscale for thumbnails (pixelated would nearest-neighbour a 2x screenshot -> jagged) */
+  .imgs img { max-width:100%; border:1px solid #30363d; border-radius:4px; image-rendering:auto; cursor:zoom-in; }
+  .meta { padding:10px 12px; font-size:12px; color:#8b949e; }
+  .meta code { color:#e6edf3; background:#0d1117; padding:1px 4px; border-radius:3px; }
+  /* click-to-zoom lightbox */
+  .lb { display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.88); flex-direction:column; }
+  .lb.open { display:flex; }
+  .lbbar { display:flex; gap:16px; align-items:center; padding:10px 16px; background:#161b22; color:#e6edf3; font-size:13px; }
+  .lbbar .sp { flex:1; }
+  .lbbar button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:4px 10px; cursor:pointer; }
+  .lbwrap { flex:1; overflow:auto; display:flex; align-items:flex-start; justify-content:center; padding:16px; }
+  .lbwrap img.fit { max-width:100%; max-height:calc(100vh - 56px); object-fit:contain; image-rendering:auto; cursor:zoom-in; }
+  .lbwrap img.actual { image-rendering:pixelated; cursor:zoom-out; } /* 1:1 native pixels for diff inspection */</style></head>
+<body>
+<header>
+  <h1>rk snapshot · <code>run-1783035450570</code></h1>
+  <div class="totals">
+    <span>131 total</span>
+    <span class="ok">131 ok</span>
+    <span class="fail">0 failed</span>
+    <span class="fail">0 mismatched</span>
+    <span class="warn">0 missing-golden</span>
+    <span class="fail">0 semantics-mismatched</span>
+  </div>
+</header>
+<main>
+<div class="card">
+  <h2><span>account-default-dark <small style="color:#8b949e">account</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/account-default-dark.png" onclick="lbOpen('goldens/account-default-dark.png','golden · account-default-dark')"></figure><figure><figcaption>actual</figcaption><img src="account-default-dark.png" onclick="lbOpen('account-default-dark.png','actual · account-default-dark')"></figure></div>
+  <div class="meta">input <code>preset=default</code> · theme <code>dark</code> · 822×1782px · 503ms</div>
+</div>
+<div class="card">
+  <h2><span>account-default <small style="color:#8b949e">account</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/account-default.png" onclick="lbOpen('goldens/account-default.png','golden · account-default')"></figure><figure><figcaption>actual</figcaption><img src="account-default.png" onclick="lbOpen('account-default.png','actual · account-default')"></figure></div>
+  <div class="meta">input <code>preset=default</code> · theme <code>light</code> · 822×1782px · 116ms</div>
+</div>
+<div class="card">
+  <h2><span>account-signout-busy <small style="color:#8b949e">account</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/account-signout-busy.png" onclick="lbOpen('goldens/account-signout-busy.png','golden · account-signout-busy')"></figure><figure><figcaption>actual</figcaption><img src="account-signout-busy.png" onclick="lbOpen('account-signout-busy.png','actual · account-signout-busy')"></figure></div>
+  <div class="meta">input <code>preset=signout-busy</code> · theme <code>light</code> · 822×1782px · 125ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-createfamily-dark <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-createfamily-dark.png" onclick="lbOpen('goldens/auth-createfamily-dark.png','golden · auth-createfamily-dark')"></figure><figure><figcaption>actual</figcaption><img src="auth-createfamily-dark.png" onclick="lbOpen('auth-createfamily-dark.png','actual · auth-createfamily-dark')"></figure></div>
+  <div class="meta">input <code>preset=createfamily</code> · theme <code>dark</code> · 822×1782px · 145ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-createfamily <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-createfamily.png" onclick="lbOpen('goldens/auth-createfamily.png','golden · auth-createfamily')"></figure><figure><figcaption>actual</figcaption><img src="auth-createfamily.png" onclick="lbOpen('auth-createfamily.png','actual · auth-createfamily')"></figure></div>
+  <div class="meta">input <code>preset=createfamily</code> · theme <code>light</code> · 822×1782px · 79ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-familynull-dark <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-familynull-dark.png" onclick="lbOpen('goldens/auth-familynull-dark.png','golden · auth-familynull-dark')"></figure><figure><figcaption>actual</figcaption><img src="auth-familynull-dark.png" onclick="lbOpen('auth-familynull-dark.png','actual · auth-familynull-dark')"></figure></div>
+  <div class="meta">input <code>preset=familynull</code> · theme <code>dark</code> · 822×1782px · 101ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-familynull <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-familynull.png" onclick="lbOpen('goldens/auth-familynull.png','golden · auth-familynull')"></figure><figure><figcaption>actual</figcaption><img src="auth-familynull.png" onclick="lbOpen('auth-familynull.png','actual · auth-familynull')"></figure></div>
+  <div class="meta">input <code>preset=familynull</code> · theme <code>light</code> · 822×1782px · 94ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-signin-busy <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-signin-busy.png" onclick="lbOpen('goldens/auth-signin-busy.png','golden · auth-signin-busy')"></figure><figure><figcaption>actual</figcaption><img src="auth-signin-busy.png" onclick="lbOpen('auth-signin-busy.png','actual · auth-signin-busy')"></figure></div>
+  <div class="meta">input <code>preset=signin-busy</code> · theme <code>light</code> · 822×1782px · 97ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-signin-dark <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-signin-dark.png" onclick="lbOpen('goldens/auth-signin-dark.png','golden · auth-signin-dark')"></figure><figure><figcaption>actual</figcaption><img src="auth-signin-dark.png" onclick="lbOpen('auth-signin-dark.png','actual · auth-signin-dark')"></figure></div>
+  <div class="meta">input <code>preset=signin</code> · theme <code>dark</code> · 822×1782px · 97ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-signin-error <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-signin-error.png" onclick="lbOpen('goldens/auth-signin-error.png','golden · auth-signin-error')"></figure><figure><figcaption>actual</figcaption><img src="auth-signin-error.png" onclick="lbOpen('auth-signin-error.png','actual · auth-signin-error')"></figure></div>
+  <div class="meta">input <code>preset=signin-error</code> · theme <code>light</code> · 822×1782px · 105ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-signin <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-signin.png" onclick="lbOpen('goldens/auth-signin.png','golden · auth-signin')"></figure><figure><figcaption>actual</figcaption><img src="auth-signin.png" onclick="lbOpen('auth-signin.png','actual · auth-signin')"></figure></div>
+  <div class="meta">input <code>preset=signin</code> · theme <code>light</code> · 822×1782px · 101ms</div>
+</div>
+<div class="card">
+  <h2><span>auth-splash <small style="color:#8b949e">auth</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/auth-splash.png" onclick="lbOpen('goldens/auth-splash.png','golden · auth-splash')"></figure><figure><figcaption>actual</figcaption><img src="auth-splash.png" onclick="lbOpen('auth-splash.png','actual · auth-splash')"></figure></div>
+  <div class="meta">input <code>preset=splash</code> · theme <code>light</code> · 822×1782px · 46ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-contact-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-contact-dark.png" onclick="lbOpen('goldens/detail-contact-dark.png','golden · detail-contact-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-contact-dark.png" onclick="lbOpen('detail-contact-dark.png','actual · detail-contact-dark')"></figure></div>
+  <div class="meta">input <code>preset=contact</code> · theme <code>dark</code> · 822×1782px · 125ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-contact <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-contact.png" onclick="lbOpen('goldens/detail-contact.png','golden · detail-contact')"></figure><figure><figcaption>actual</figcaption><img src="detail-contact.png" onclick="lbOpen('detail-contact.png','actual · detail-contact')"></figure></div>
+  <div class="meta">input <code>preset=contact</code> · theme <code>light</code> · 822×1782px · 90ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-email-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-email-dark.png" onclick="lbOpen('goldens/detail-email-dark.png','golden · detail-email-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-email-dark.png" onclick="lbOpen('detail-email-dark.png','actual · detail-email-dark')"></figure></div>
+  <div class="meta">input <code>preset=email</code> · theme <code>dark</code> · 822×1782px · 97ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-email <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-email.png" onclick="lbOpen('goldens/detail-email.png','golden · detail-email')"></figure><figure><figcaption>actual</figcaption><img src="detail-email.png" onclick="lbOpen('detail-email.png','actual · detail-email')"></figure></div>
+  <div class="meta">input <code>preset=email</code> · theme <code>light</code> · 822×1782px · 92ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-file-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-file-dark.png" onclick="lbOpen('goldens/detail-file-dark.png','golden · detail-file-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-file-dark.png" onclick="lbOpen('detail-file-dark.png','actual · detail-file-dark')"></figure></div>
+  <div class="meta">input <code>preset=file</code> · theme <code>dark</code> · 822×1782px · 89ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-file <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-file.png" onclick="lbOpen('goldens/detail-file.png','golden · detail-file')"></figure><figure><figcaption>actual</figcaption><img src="detail-file.png" onclick="lbOpen('detail-file.png','actual · detail-file')"></figure></div>
+  <div class="meta">input <code>preset=file</code> · theme <code>light</code> · 822×1782px · 89ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-geo-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-geo-dark.png" onclick="lbOpen('goldens/detail-geo-dark.png','golden · detail-geo-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-geo-dark.png" onclick="lbOpen('detail-geo-dark.png','actual · detail-geo-dark')"></figure></div>
+  <div class="meta">input <code>preset=geo</code> · theme <code>dark</code> · 822×1782px · 90ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-geo <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-geo.png" onclick="lbOpen('goldens/detail-geo.png','golden · detail-geo')"></figure><figure><figcaption>actual</figcaption><img src="detail-geo.png" onclick="lbOpen('detail-geo.png','actual · detail-geo')"></figure></div>
+  <div class="meta">input <code>preset=geo</code> · theme <code>light</code> · 822×1782px · 87ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-invite-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-invite-dark.png" onclick="lbOpen('goldens/detail-invite-dark.png','golden · detail-invite-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-invite-dark.png" onclick="lbOpen('detail-invite-dark.png','actual · detail-invite-dark')"></figure></div>
+  <div class="meta">input <code>preset=invite</code> · theme <code>dark</code> · 822×1782px · 86ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-invite <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-invite.png" onclick="lbOpen('goldens/detail-invite.png','golden · detail-invite')"></figure><figure><figcaption>actual</figcaption><img src="detail-invite.png" onclick="lbOpen('detail-invite.png','actual · detail-invite')"></figure></div>
+  <div class="meta">input <code>preset=invite</code> · theme <code>light</code> · 822×1782px · 84ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-link-dark <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-link-dark.png" onclick="lbOpen('goldens/detail-link-dark.png','golden · detail-link-dark')"></figure><figure><figcaption>actual</figcaption><img src="detail-link-dark.png" onclick="lbOpen('detail-link-dark.png','actual · detail-link-dark')"></figure></div>
+  <div class="meta">input <code>preset=link</code> · theme <code>dark</code> · 822×1782px · 87ms</div>
+</div>
+<div class="card">
+  <h2><span>detail-link <small style="color:#8b949e">detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/detail-link.png" onclick="lbOpen('goldens/detail-link.png','golden · detail-link')"></figure><figure><figcaption>actual</figcaption><img src="detail-link.png" onclick="lbOpen('detail-link.png','actual · detail-link')"></figure></div>
+  <div class="meta">input <code>preset=link</code> · theme <code>light</code> · 822×1782px · 87ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-approved <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-approved.png" onclick="lbOpen('goldens/device-approval-approved.png','golden · device-approval-approved')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-approved.png" onclick="lbOpen('device-approval-approved.png','actual · device-approval-approved')"></figure></div>
+  <div class="meta">input <code>preset=approved</code> · theme <code>light</code> · 822×1782px · 67ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-authorize-datacenter-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-authorize-datacenter-dark.png" onclick="lbOpen('goldens/device-approval-authorize-datacenter-dark.png','golden · device-approval-authorize-datacenter-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-authorize-datacenter-dark.png" onclick="lbOpen('device-approval-authorize-datacenter-dark.png','actual · device-approval-authorize-datacenter-dark')"></figure></div>
+  <div class="meta">input <code>preset=authorize-datacenter</code> · theme <code>dark</code> · 822×1782px · 131ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-authorize-datacenter <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-authorize-datacenter.png" onclick="lbOpen('goldens/device-approval-authorize-datacenter.png','golden · device-approval-authorize-datacenter')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-authorize-datacenter.png" onclick="lbOpen('device-approval-authorize-datacenter.png','actual · device-approval-authorize-datacenter')"></figure></div>
+  <div class="meta">input <code>preset=authorize-datacenter</code> · theme <code>light</code> · 822×1782px · 125ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-authorize-multiowner <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-authorize-multiowner.png" onclick="lbOpen('goldens/device-approval-authorize-multiowner.png','golden · device-approval-authorize-multiowner')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-authorize-multiowner.png" onclick="lbOpen('device-approval-authorize-multiowner.png','actual · device-approval-authorize-multiowner')"></figure></div>
+  <div class="meta">input <code>preset=authorize-multiowner</code> · theme <code>light</code> · 822×1782px · 109ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-authorize-residential <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-authorize-residential.png" onclick="lbOpen('goldens/device-approval-authorize-residential.png','golden · device-approval-authorize-residential')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-authorize-residential.png" onclick="lbOpen('device-approval-authorize-residential.png','actual · device-approval-authorize-residential')"></figure></div>
+  <div class="meta">input <code>preset=authorize-residential</code> · theme <code>light</code> · 822×1782px · 115ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-denied-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-denied-dark.png" onclick="lbOpen('goldens/device-approval-denied-dark.png','golden · device-approval-denied-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-denied-dark.png" onclick="lbOpen('device-approval-denied-dark.png','actual · device-approval-denied-dark')"></figure></div>
+  <div class="meta">input <code>preset=denied</code> · theme <code>dark</code> · 822×1782px · 68ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-denied <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-denied.png" onclick="lbOpen('goldens/device-approval-denied.png','golden · device-approval-denied')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-denied.png" onclick="lbOpen('device-approval-denied.png','actual · device-approval-denied')"></figure></div>
+  <div class="meta">input <code>preset=denied</code> · theme <code>light</code> · 822×1782px · 66ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-entercode-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-entercode-dark.png" onclick="lbOpen('goldens/device-approval-entercode-dark.png','golden · device-approval-entercode-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-entercode-dark.png" onclick="lbOpen('device-approval-entercode-dark.png','actual · device-approval-entercode-dark')"></figure></div>
+  <div class="meta">input <code>preset=entercode</code> · theme <code>dark</code> · 822×1782px · 73ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-entercode-error <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-entercode-error.png" onclick="lbOpen('goldens/device-approval-entercode-error.png','golden · device-approval-entercode-error')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-entercode-error.png" onclick="lbOpen('device-approval-entercode-error.png','actual · device-approval-entercode-error')"></figure></div>
+  <div class="meta">input <code>preset=entercode-error</code> · theme <code>light</code> · 822×1782px · 78ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-entercode-scan-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-entercode-scan-dark.png" onclick="lbOpen('goldens/device-approval-entercode-scan-dark.png','golden · device-approval-entercode-scan-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-entercode-scan-dark.png" onclick="lbOpen('device-approval-entercode-scan-dark.png','actual · device-approval-entercode-scan-dark')"></figure></div>
+  <div class="meta">input <code>preset=entercode-scan</code> · theme <code>dark</code> · 822×1782px · 85ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-entercode-scan <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-entercode-scan.png" onclick="lbOpen('goldens/device-approval-entercode-scan.png','golden · device-approval-entercode-scan')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-entercode-scan.png" onclick="lbOpen('device-approval-entercode-scan.png','actual · device-approval-entercode-scan')"></figure></div>
+  <div class="meta">input <code>preset=entercode-scan</code> · theme <code>light</code> · 822×1782px · 85ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-entercode <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-entercode.png" onclick="lbOpen('goldens/device-approval-entercode.png','golden · device-approval-entercode')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-entercode.png" onclick="lbOpen('device-approval-entercode.png','actual · device-approval-entercode')"></figure></div>
+  <div class="meta">input <code>preset=entercode</code> · theme <code>light</code> · 822×1782px · 73ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-expired-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-expired-dark.png" onclick="lbOpen('goldens/device-approval-expired-dark.png','golden · device-approval-expired-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-expired-dark.png" onclick="lbOpen('device-approval-expired-dark.png','actual · device-approval-expired-dark')"></figure></div>
+  <div class="meta">input <code>preset=expired</code> · theme <code>dark</code> · 822×1782px · 80ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-expired <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-expired.png" onclick="lbOpen('goldens/device-approval-expired.png','golden · device-approval-expired')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-expired.png" onclick="lbOpen('device-approval-expired.png','actual · device-approval-expired')"></figure></div>
+  <div class="meta">input <code>preset=expired</code> · theme <code>light</code> · 822×1782px · 79ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-finishing <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-finishing.png" onclick="lbOpen('goldens/device-approval-finishing.png','golden · device-approval-finishing')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-finishing.png" onclick="lbOpen('device-approval-finishing.png','actual · device-approval-finishing')"></figure></div>
+  <div class="meta">input <code>preset=finishing</code> · theme <code>light</code> · 822×1782px · 64ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-resume-dark <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-resume-dark.png" onclick="lbOpen('goldens/device-approval-resume-dark.png','golden · device-approval-resume-dark')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-resume-dark.png" onclick="lbOpen('device-approval-resume-dark.png','actual · device-approval-resume-dark')"></figure></div>
+  <div class="meta">input <code>preset=resume</code> · theme <code>dark</code> · 822×1782px · 94ms</div>
+</div>
+<div class="card">
+  <h2><span>device-approval-resume <small style="color:#8b949e">device-approval</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/device-approval-resume.png" onclick="lbOpen('goldens/device-approval-resume.png','golden · device-approval-resume')"></figure><figure><figcaption>actual</figcaption><img src="device-approval-resume.png" onclick="lbOpen('device-approval-resume.png','actual · device-approval-resume')"></figure></div>
+  <div class="meta">input <code>preset=resume</code> · theme <code>light</code> · 822×1782px · 93ms</div>
+</div>
+<div class="card">
+  <h2><span>devices-error <small style="color:#8b949e">devices</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/devices-error.png" onclick="lbOpen('goldens/devices-error.png','golden · devices-error')"></figure><figure><figcaption>actual</figcaption><img src="devices-error.png" onclick="lbOpen('devices-error.png','actual · devices-error')"></figure></div>
+  <div class="meta">input <code>preset=error</code> · theme <code>light</code> · 822×1782px · 83ms</div>
+</div>
+<div class="card">
+  <h2><span>devices-list-dark <small style="color:#8b949e">devices</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/devices-list-dark.png" onclick="lbOpen('goldens/devices-list-dark.png','golden · devices-list-dark')"></figure><figure><figcaption>actual</figcaption><img src="devices-list-dark.png" onclick="lbOpen('devices-list-dark.png','actual · devices-list-dark')"></figure></div>
+  <div class="meta">input <code>preset=list</code> · theme <code>dark</code> · 822×1782px · 91ms</div>
+</div>
+<div class="card">
+  <h2><span>devices-list <small style="color:#8b949e">devices</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/devices-list.png" onclick="lbOpen('goldens/devices-list.png','golden · devices-list')"></figure><figure><figcaption>actual</figcaption><img src="devices-list.png" onclick="lbOpen('devices-list.png','actual · devices-list')"></figure></div>
+  <div class="meta">input <code>preset=list</code> · theme <code>light</code> · 822×1782px · 89ms</div>
+</div>
+<div class="card">
+  <h2><span>devices-loading <small style="color:#8b949e">devices</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/devices-loading.png" onclick="lbOpen('goldens/devices-loading.png','golden · devices-loading')"></figure><figure><figcaption>actual</figcaption><img src="devices-loading.png" onclick="lbOpen('devices-loading.png','actual · devices-loading')"></figure></div>
+  <div class="meta">input <code>preset=loading</code> · theme <code>light</code> · 822×1782px · 78ms</div>
+</div>
+<div class="card">
+  <h2><span>devices-row-busy <small style="color:#8b949e">devices</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/devices-row-busy.png" onclick="lbOpen('goldens/devices-row-busy.png','golden · devices-row-busy')"></figure><figure><figcaption>actual</figcaption><img src="devices-row-busy.png" onclick="lbOpen('devices-row-busy.png','actual · devices-row-busy')"></figure></div>
+  <div class="meta">input <code>preset=row-busy</code> · theme <code>light</code> · 822×1782px · 84ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-busy-dark <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-busy-dark.png" onclick="lbOpen('goldens/feed-busy-dark.png','golden · feed-busy-dark')"></figure><figure><figcaption>actual</figcaption><img src="feed-busy-dark.png" onclick="lbOpen('feed-busy-dark.png','actual · feed-busy-dark')"></figure></div>
+  <div class="meta">input <code>preset=busy</code> · theme <code>dark</code> · 822×1782px · 158ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-busy <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-busy.png" onclick="lbOpen('goldens/feed-busy.png','golden · feed-busy')"></figure><figure><figcaption>actual</figcaption><img src="feed-busy.png" onclick="lbOpen('feed-busy.png','actual · feed-busy')"></figure></div>
+  <div class="meta">input <code>preset=busy</code> · theme <code>light</code> · 822×1782px · 109ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-caught-up-dark <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-caught-up-dark.png" onclick="lbOpen('goldens/feed-caught-up-dark.png','golden · feed-caught-up-dark')"></figure><figure><figcaption>actual</figcaption><img src="feed-caught-up-dark.png" onclick="lbOpen('feed-caught-up-dark.png','actual · feed-caught-up-dark')"></figure></div>
+  <div class="meta">input <code>preset=caught-up</code> · theme <code>dark</code> · 822×1782px · 82ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-caught-up <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-caught-up.png" onclick="lbOpen('goldens/feed-caught-up.png','golden · feed-caught-up')"></figure><figure><figcaption>actual</figcaption><img src="feed-caught-up.png" onclick="lbOpen('feed-caught-up.png','actual · feed-caught-up')"></figure></div>
+  <div class="meta">input <code>preset=caught-up</code> · theme <code>light</code> · 822×1782px · 79ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-empty <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-empty.png" onclick="lbOpen('goldens/feed-empty.png','golden · feed-empty')"></figure><figure><figcaption>actual</figcaption><img src="feed-empty.png" onclick="lbOpen('feed-empty.png','actual · feed-empty')"></figure></div>
+  <div class="meta">input <code>preset=empty</code> · theme <code>light</code> · 822×1782px · 106ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-enriched-pair-dark <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-enriched-pair-dark.png" onclick="lbOpen('goldens/feed-enriched-pair-dark.png','golden · feed-enriched-pair-dark')"></figure><figure><figcaption>actual</figcaption><img src="feed-enriched-pair-dark.png" onclick="lbOpen('feed-enriched-pair-dark.png','actual · feed-enriched-pair-dark')"></figure></div>
+  <div class="meta">input <code>preset=enriched-pair</code> · theme <code>dark</code> · 822×1782px · 135ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-enriched-pair <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-enriched-pair.png" onclick="lbOpen('goldens/feed-enriched-pair.png','golden · feed-enriched-pair')"></figure><figure><figcaption>actual</figcaption><img src="feed-enriched-pair.png" onclick="lbOpen('feed-enriched-pair.png','actual · feed-enriched-pair')"></figure></div>
+  <div class="meta">input <code>preset=enriched-pair</code> · theme <code>light</code> · 822×1782px · 102ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-enriched <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-enriched.png" onclick="lbOpen('goldens/feed-enriched.png','golden · feed-enriched')"></figure><figure><figcaption>actual</figcaption><img src="feed-enriched.png" onclick="lbOpen('feed-enriched.png','actual · feed-enriched')"></figure></div>
+  <div class="meta">input <code>preset=enriched</code> · theme <code>light</code> · 822×1782px · 86ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-invite-no <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-invite-no.png" onclick="lbOpen('goldens/feed-invite-no.png','golden · feed-invite-no')"></figure><figure><figcaption>actual</figcaption><img src="feed-invite-no.png" onclick="lbOpen('feed-invite-no.png','actual · feed-invite-no')"></figure></div>
+  <div class="meta">input <code>preset=invite-no</code> · theme <code>light</code> · 822×1782px · 92ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-invite-none <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-invite-none.png" onclick="lbOpen('goldens/feed-invite-none.png','golden · feed-invite-none')"></figure><figure><figcaption>actual</figcaption><img src="feed-invite-none.png" onclick="lbOpen('feed-invite-none.png','actual · feed-invite-none')"></figure></div>
+  <div class="meta">input <code>preset=invite-none</code> · theme <code>light</code> · 822×1782px · 86ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-invite-yes <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-invite-yes.png" onclick="lbOpen('goldens/feed-invite-yes.png','golden · feed-invite-yes')"></figure><figure><figcaption>actual</figcaption><img src="feed-invite-yes.png" onclick="lbOpen('feed-invite-yes.png','actual · feed-invite-yes')"></figure></div>
+  <div class="meta">input <code>preset=invite-yes</code> · theme <code>light</code> · 822×1782px · 88ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-offline-dark <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-offline-dark.png" onclick="lbOpen('goldens/feed-offline-dark.png','golden · feed-offline-dark')"></figure><figure><figcaption>actual</figcaption><img src="feed-offline-dark.png" onclick="lbOpen('feed-offline-dark.png','actual · feed-offline-dark')"></figure></div>
+  <div class="meta">input <code>preset=offline</code> · theme <code>dark</code> · 822×1782px · 64ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-offline <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-offline.png" onclick="lbOpen('goldens/feed-offline.png','golden · feed-offline')"></figure><figure><figcaption>actual</figcaption><img src="feed-offline.png" onclick="lbOpen('feed-offline.png','actual · feed-offline')"></figure></div>
+  <div class="meta">input <code>preset=offline</code> · theme <code>light</code> · 822×1782px · 65ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-syncing <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-syncing.png" onclick="lbOpen('goldens/feed-syncing.png','golden · feed-syncing')"></figure><figure><figcaption>actual</figcaption><img src="feed-syncing.png" onclick="lbOpen('feed-syncing.png','actual · feed-syncing')"></figure></div>
+  <div class="meta">input <code>preset=syncing</code> · theme <code>light</code> · 822×1782px · 52ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-typed-dark <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-typed-dark.png" onclick="lbOpen('goldens/feed-typed-dark.png','golden · feed-typed-dark')"></figure><figure><figcaption>actual</figcaption><img src="feed-typed-dark.png" onclick="lbOpen('feed-typed-dark.png','actual · feed-typed-dark')"></figure></div>
+  <div class="meta">input <code>preset=typed</code> · theme <code>dark</code> · 822×1782px · 140ms</div>
+</div>
+<div class="card">
+  <h2><span>feed-typed <small style="color:#8b949e">feed</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/feed-typed.png" onclick="lbOpen('goldens/feed-typed.png','golden · feed-typed')"></figure><figure><figcaption>actual</figcaption><img src="feed-typed.png" onclick="lbOpen('feed-typed.png','actual · feed-typed')"></figure></div>
+  <div class="meta">input <code>preset=typed</code> · theme <code>light</code> · 822×1782px · 135ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-canonical-dark <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-canonical-dark.png" onclick="lbOpen('goldens/hub-detail-canonical-dark.png','golden · hub-detail-canonical-dark')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-canonical-dark.png" onclick="lbOpen('hub-detail-canonical-dark.png','actual · hub-detail-canonical-dark')"></figure></div>
+  <div class="meta">input <code>preset=canonical</code> · theme <code>dark</code> · 822×1782px · 182ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-canonical <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-canonical.png" onclick="lbOpen('goldens/hub-detail-canonical.png','golden · hub-detail-canonical')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-canonical.png" onclick="lbOpen('hub-detail-canonical.png','actual · hub-detail-canonical')"></figure></div>
+  <div class="meta">input <code>preset=canonical</code> · theme <code>light</code> · 822×1782px · 135ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-checklist-dark <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-checklist-dark.png" onclick="lbOpen('goldens/hub-detail-checklist-dark.png','golden · hub-detail-checklist-dark')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-checklist-dark.png" onclick="lbOpen('hub-detail-checklist-dark.png','actual · hub-detail-checklist-dark')"></figure></div>
+  <div class="meta">input <code>preset=checklist</code> · theme <code>dark</code> · 822×1782px · 82ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-checklist <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-checklist.png" onclick="lbOpen('goldens/hub-detail-checklist.png','golden · hub-detail-checklist')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-checklist.png" onclick="lbOpen('hub-detail-checklist.png','actual · hub-detail-checklist')"></figure></div>
+  <div class="meta">input <code>preset=checklist</code> · theme <code>light</code> · 822×1782px · 75ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-derived-timeline <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-derived-timeline.png" onclick="lbOpen('goldens/hub-detail-derived-timeline.png','golden · hub-detail-derived-timeline')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-derived-timeline.png" onclick="lbOpen('hub-detail-derived-timeline.png','actual · hub-detail-derived-timeline')"></figure></div>
+  <div class="meta">input <code>preset=derived-timeline</code> · theme <code>light</code> · 822×1782px · 114ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-enriched-dark <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-enriched-dark.png" onclick="lbOpen('goldens/hub-detail-enriched-dark.png','golden · hub-detail-enriched-dark')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-enriched-dark.png" onclick="lbOpen('hub-detail-enriched-dark.png','actual · hub-detail-enriched-dark')"></figure></div>
+  <div class="meta">input <code>preset=enriched</code> · theme <code>dark</code> · 822×1782px · 125ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-enriched-logo-dark <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-enriched-logo-dark.png" onclick="lbOpen('goldens/hub-detail-enriched-logo-dark.png','golden · hub-detail-enriched-logo-dark')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-enriched-logo-dark.png" onclick="lbOpen('hub-detail-enriched-logo-dark.png','actual · hub-detail-enriched-logo-dark')"></figure></div>
+  <div class="meta">input <code>preset=enriched-logo</code> · theme <code>dark</code> · 822×1782px · 109ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-enriched-logo <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-enriched-logo.png" onclick="lbOpen('goldens/hub-detail-enriched-logo.png','golden · hub-detail-enriched-logo')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-enriched-logo.png" onclick="lbOpen('hub-detail-enriched-logo.png','actual · hub-detail-enriched-logo')"></figure></div>
+  <div class="meta">input <code>preset=enriched-logo</code> · theme <code>light</code> · 822×1782px · 105ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-enriched-photo <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-enriched-photo.png" onclick="lbOpen('goldens/hub-detail-enriched-photo.png','golden · hub-detail-enriched-photo')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-enriched-photo.png" onclick="lbOpen('hub-detail-enriched-photo.png','actual · hub-detail-enriched-photo')"></figure></div>
+  <div class="meta">input <code>preset=enriched-photo</code> · theme <code>light</code> · 822×1782px · 106ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-enriched <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-enriched.png" onclick="lbOpen('goldens/hub-detail-enriched.png','golden · hub-detail-enriched')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-enriched.png" onclick="lbOpen('hub-detail-enriched.png','actual · hub-detail-enriched')"></figure></div>
+  <div class="meta">input <code>preset=enriched</code> · theme <code>light</code> · 822×1782px · 126ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-timeline-card <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-timeline-card.png" onclick="lbOpen('goldens/hub-detail-timeline-card.png','golden · hub-detail-timeline-card')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-timeline-card.png" onclick="lbOpen('hub-detail-timeline-card.png','actual · hub-detail-timeline-card')"></figure></div>
+  <div class="meta">input <code>preset=timeline-card</code> · theme <code>light</code> · 822×1782px · 98ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-timeline-hidden <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-timeline-hidden.png" onclick="lbOpen('goldens/hub-detail-timeline-hidden.png','golden · hub-detail-timeline-hidden')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-timeline-hidden.png" onclick="lbOpen('hub-detail-timeline-hidden.png','actual · hub-detail-timeline-hidden')"></figure></div>
+  <div class="meta">input <code>preset=timeline-hidden</code> · theme <code>light</code> · 822×1782px · 82ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-timeline-nudge <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-timeline-nudge.png" onclick="lbOpen('goldens/hub-detail-timeline-nudge.png','golden · hub-detail-timeline-nudge')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-timeline-nudge.png" onclick="lbOpen('hub-detail-timeline-nudge.png','actual · hub-detail-timeline-nudge')"></figure></div>
+  <div class="meta">input <code>preset=timeline-nudge</code> · theme <code>light</code> · 822×1782px · 86ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-detail-timeline-overlay <small style="color:#8b949e">hub-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-detail-timeline-overlay.png" onclick="lbOpen('goldens/hub-detail-timeline-overlay.png','golden · hub-detail-timeline-overlay')"></figure><figure><figcaption>actual</figcaption><img src="hub-detail-timeline-overlay.png" onclick="lbOpen('hub-detail-timeline-overlay.png','actual · hub-detail-timeline-overlay')"></figure></div>
+  <div class="meta">input <code>preset=timeline-overlay</code> · theme <code>light</code> · 822×1782px · 115ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-list-enriched-dark <small style="color:#8b949e">hub-list</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-list-enriched-dark.png" onclick="lbOpen('goldens/hub-list-enriched-dark.png','golden · hub-list-enriched-dark')"></figure><figure><figcaption>actual</figcaption><img src="hub-list-enriched-dark.png" onclick="lbOpen('hub-list-enriched-dark.png','actual · hub-list-enriched-dark')"></figure></div>
+  <div class="meta">input <code>preset=enriched</code> · theme <code>dark</code> · 822×1782px · 110ms</div>
+</div>
+<div class="card">
+  <h2><span>hub-list-enriched <small style="color:#8b949e">hub-list</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/hub-list-enriched.png" onclick="lbOpen('goldens/hub-list-enriched.png','golden · hub-list-enriched')"></figure><figure><figcaption>actual</figcaption><img src="hub-list-enriched.png" onclick="lbOpen('hub-list-enriched.png','actual · hub-list-enriched')"></figure></div>
+  <div class="meta">input <code>preset=enriched</code> · theme <code>light</code> · 822×1782px · 103ms</div>
+</div>
+<div class="card">
+  <h2><span>join-entry <small style="color:#8b949e">join</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/join-entry.png" onclick="lbOpen('goldens/join-entry.png','golden · join-entry')"></figure><figure><figcaption>actual</figcaption><img src="join-entry.png" onclick="lbOpen('join-entry.png','actual · join-entry')"></figure></div>
+  <div class="meta">input <code>preset=entry</code> · theme <code>light</code> · 822×1782px · 70ms</div>
+</div>
+<div class="card">
+  <h2><span>join-error-dark <small style="color:#8b949e">join</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/join-error-dark.png" onclick="lbOpen('goldens/join-error-dark.png','golden · join-error-dark')"></figure><figure><figcaption>actual</figcaption><img src="join-error-dark.png" onclick="lbOpen('join-error-dark.png','actual · join-error-dark')"></figure></div>
+  <div class="meta">input <code>preset=error</code> · theme <code>dark</code> · 822×1782px · 64ms</div>
+</div>
+<div class="card">
+  <h2><span>join-locked <small style="color:#8b949e">join</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/join-locked.png" onclick="lbOpen('goldens/join-locked.png','golden · join-locked')"></figure><figure><figcaption>actual</figcaption><img src="join-locked.png" onclick="lbOpen('join-locked.png','actual · join-locked')"></figure></div>
+  <div class="meta">input <code>preset=locked</code> · theme <code>light</code> · 822×1782px · 65ms</div>
+</div>
+<div class="card">
+  <h2><span>join-waiting <small style="color:#8b949e">join</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/join-waiting.png" onclick="lbOpen('goldens/join-waiting.png','golden · join-waiting')"></figure><figure><figcaption>actual</figcaption><img src="join-waiting.png" onclick="lbOpen('join-waiting.png','actual · join-waiting')"></figure></div>
+  <div class="meta">input <code>preset=waiting</code> · theme <code>light</code> · 822×1782px · 62ms</div>
+</div>
+<div class="card">
+  <h2><span>kit-empty-state <small style="color:#8b949e">kit</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/kit-empty-state.png" onclick="lbOpen('goldens/kit-empty-state.png','golden · kit-empty-state')"></figure><figure><figcaption>actual</figcaption><img src="kit-empty-state.png" onclick="lbOpen('kit-empty-state.png','actual · kit-empty-state')"></figure></div>
+  <div class="meta">input <code>preset=empty-state</code> · theme <code>light</code> · 822×1120px · 39ms</div>
+</div>
+<div class="card">
+  <h2><span>kit-error-retry-busy <small style="color:#8b949e">kit</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/kit-error-retry-busy.png" onclick="lbOpen('goldens/kit-error-retry-busy.png','golden · kit-error-retry-busy')"></figure><figure><figcaption>actual</figcaption><img src="kit-error-retry-busy.png" onclick="lbOpen('kit-error-retry-busy.png','actual · kit-error-retry-busy')"></figure></div>
+  <div class="meta">input <code>preset=error-retry-busy</code> · theme <code>light</code> · 822×1120px · 38ms</div>
+</div>
+<div class="card">
+  <h2><span>kit-error-retry <small style="color:#8b949e">kit</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/kit-error-retry.png" onclick="lbOpen('goldens/kit-error-retry.png','golden · kit-error-retry')"></figure><figure><figcaption>actual</figcaption><img src="kit-error-retry.png" onclick="lbOpen('kit-error-retry.png','actual · kit-error-retry')"></figure></div>
+  <div class="meta">input <code>preset=error-retry</code> · theme <code>light</code> · 822×1120px · 44ms</div>
+</div>
+<div class="card">
+  <h2><span>kit-feed-skeleton <small style="color:#8b949e">kit</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/kit-feed-skeleton.png" onclick="lbOpen('goldens/kit-feed-skeleton.png','golden · kit-feed-skeleton')"></figure><figure><figcaption>actual</figcaption><img src="kit-feed-skeleton.png" onclick="lbOpen('kit-feed-skeleton.png','actual · kit-feed-skeleton')"></figure></div>
+  <div class="meta">input <code>preset=feed-skeleton</code> · theme <code>light</code> · 822×1120px · 32ms</div>
+</div>
+<div class="card">
+  <h2><span>kit-list-skeleton <small style="color:#8b949e">kit</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/kit-list-skeleton.png" onclick="lbOpen('goldens/kit-list-skeleton.png','golden · kit-list-skeleton')"></figure><figure><figcaption>actual</figcaption><img src="kit-list-skeleton.png" onclick="lbOpen('kit-list-skeleton.png','actual · kit-list-skeleton')"></figure></div>
+  <div class="meta">input <code>preset=list-skeleton</code> · theme <code>light</code> · 822×1120px · 38ms</div>
+</div>
+<div class="card">
+  <h2><span>members-error <small style="color:#8b949e">members</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/members-error.png" onclick="lbOpen('goldens/members-error.png','golden · members-error')"></figure><figure><figcaption>actual</figcaption><img src="members-error.png" onclick="lbOpen('members-error.png','actual · members-error')"></figure></div>
+  <div class="meta">input <code>preset=error</code> · theme <code>light</code> · 822×1782px · 63ms</div>
+</div>
+<div class="card">
+  <h2><span>members-loading <small style="color:#8b949e">members</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/members-loading.png" onclick="lbOpen('goldens/members-loading.png','golden · members-loading')"></figure><figure><figcaption>actual</figcaption><img src="members-loading.png" onclick="lbOpen('members-loading.png','actual · members-loading')"></figure></div>
+  <div class="meta">input <code>preset=loading</code> · theme <code>light</code> · 822×1782px · 55ms</div>
+</div>
+<div class="card">
+  <h2><span>members-roster-dark <small style="color:#8b949e">members</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/members-roster-dark.png" onclick="lbOpen('goldens/members-roster-dark.png','golden · members-roster-dark')"></figure><figure><figcaption>actual</figcaption><img src="members-roster-dark.png" onclick="lbOpen('members-roster-dark.png','actual · members-roster-dark')"></figure></div>
+  <div class="meta">input <code>preset=roster</code> · theme <code>dark</code> · 822×1782px · 79ms</div>
+</div>
+<div class="card">
+  <h2><span>members-roster <small style="color:#8b949e">members</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/members-roster.png" onclick="lbOpen('goldens/members-roster.png','golden · members-roster')"></figure><figure><figcaption>actual</figcaption><img src="members-roster.png" onclick="lbOpen('members-roster.png','actual · members-roster')"></figure></div>
+  <div class="meta">input <code>preset=roster</code> · theme <code>light</code> · 822×1782px · 80ms</div>
+</div>
+<div class="card">
+  <h2><span>members-row-busy <small style="color:#8b949e">members</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/members-row-busy.png" onclick="lbOpen('goldens/members-row-busy.png','golden · members-row-busy')"></figure><figure><figcaption>actual</figcaption><img src="members-row-busy.png" onclick="lbOpen('members-row-busy.png','actual · members-row-busy')"></figure></div>
+  <div class="meta">input <code>preset=row-busy</code> · theme <code>light</code> · 822×1782px · 71ms</div>
+</div>
+<div class="card">
+  <h2><span>notif-cap-reached-dark <small style="color:#8b949e">notif</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/notif-cap-reached-dark.png" onclick="lbOpen('goldens/notif-cap-reached-dark.png','golden · notif-cap-reached-dark')"></figure><figure><figcaption>actual</figcaption><img src="notif-cap-reached-dark.png" onclick="lbOpen('notif-cap-reached-dark.png','actual · notif-cap-reached-dark')"></figure></div>
+  <div class="meta">input <code>preset=cap-reached</code> · theme <code>dark</code> · 822×720px · 56ms</div>
+</div>
+<div class="card">
+  <h2><span>notif-cap-reached <small style="color:#8b949e">notif</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/notif-cap-reached.png" onclick="lbOpen('goldens/notif-cap-reached.png','golden · notif-cap-reached')"></figure><figure><figcaption>actual</figcaption><img src="notif-cap-reached.png" onclick="lbOpen('notif-cap-reached.png','actual · notif-cap-reached')"></figure></div>
+  <div class="meta">input <code>preset=cap-reached</code> · theme <code>light</code> · 822×720px · 53ms</div>
+</div>
+<div class="card">
+  <h2><span>notif-quiet-held-dark <small style="color:#8b949e">notif</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/notif-quiet-held-dark.png" onclick="lbOpen('goldens/notif-quiet-held-dark.png','golden · notif-quiet-held-dark')"></figure><figure><figcaption>actual</figcaption><img src="notif-quiet-held-dark.png" onclick="lbOpen('notif-quiet-held-dark.png','actual · notif-quiet-held-dark')"></figure></div>
+  <div class="meta">input <code>preset=quiet-held</code> · theme <code>dark</code> · 822×720px · 34ms</div>
+</div>
+<div class="card">
+  <h2><span>notif-quiet-held <small style="color:#8b949e">notif</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/notif-quiet-held.png" onclick="lbOpen('goldens/notif-quiet-held.png','golden · notif-quiet-held')"></figure><figure><figcaption>actual</figcaption><img src="notif-quiet-held.png" onclick="lbOpen('notif-quiet-held.png','actual · notif-quiet-held')"></figure></div>
+  <div class="meta">input <code>preset=quiet-held</code> · theme <code>light</code> · 822×720px · 32ms</div>
+</div>
+<div class="card">
+  <h2><span>offline-banner-default-dark <small style="color:#8b949e">offline-banner</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/offline-banner-default-dark.png" onclick="lbOpen('goldens/offline-banner-default-dark.png','golden · offline-banner-default-dark')"></figure><figure><figcaption>actual</figcaption><img src="offline-banner-default-dark.png" onclick="lbOpen('offline-banner-default-dark.png','actual · offline-banner-default-dark')"></figure></div>
+  <div class="meta">input <code>preset=default</code> · theme <code>dark</code> · 822×280px · 31ms</div>
+</div>
+<div class="card">
+  <h2><span>offline-banner-default <small style="color:#8b949e">offline-banner</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/offline-banner-default.png" onclick="lbOpen('goldens/offline-banner-default.png','golden · offline-banner-default')"></figure><figure><figcaption>actual</figcaption><img src="offline-banner-default.png" onclick="lbOpen('offline-banner-default.png','actual · offline-banner-default')"></figure></div>
+  <div class="meta">input <code>preset=default</code> · theme <code>light</code> · 822×280px · 29ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-always <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-always.png" onclick="lbOpen('goldens/permission-always.png','golden · permission-always')"></figure><figure><figcaption>actual</figcaption><img src="permission-always.png" onclick="lbOpen('permission-always.png','actual · permission-always')"></figure></div>
+  <div class="meta">input <code>preset=always</code> · theme <code>light</code> · 822×1782px · 146ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-denied <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-denied.png" onclick="lbOpen('goldens/permission-denied.png','golden · permission-denied')"></figure><figure><figcaption>actual</figcaption><img src="permission-denied.png" onclick="lbOpen('permission-denied.png','actual · permission-denied')"></figure></div>
+  <div class="meta">input <code>preset=denied</code> · theme <code>light</code> · 822×1782px · 105ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-downgraded-dark <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-downgraded-dark.png" onclick="lbOpen('goldens/permission-downgraded-dark.png','golden · permission-downgraded-dark')"></figure><figure><figcaption>actual</figcaption><img src="permission-downgraded-dark.png" onclick="lbOpen('permission-downgraded-dark.png','actual · permission-downgraded-dark')"></figure></div>
+  <div class="meta">input <code>preset=downgraded</code> · theme <code>dark</code> · 822×1782px · 122ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-downgraded <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-downgraded.png" onclick="lbOpen('goldens/permission-downgraded.png','golden · permission-downgraded')"></figure><figure><figcaption>actual</figcaption><img src="permission-downgraded.png" onclick="lbOpen('permission-downgraded.png','actual · permission-downgraded')"></figure></div>
+  <div class="meta">input <code>preset=downgraded</code> · theme <code>light</code> · 822×1782px · 123ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-limited <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-limited.png" onclick="lbOpen('goldens/permission-limited.png','golden · permission-limited')"></figure><figure><figcaption>actual</figcaption><img src="permission-limited.png" onclick="lbOpen('permission-limited.png','actual · permission-limited')"></figure></div>
+  <div class="meta">input <code>preset=limited</code> · theme <code>light</code> · 822×1782px · 130ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-locprime-dark <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-locprime-dark.png" onclick="lbOpen('goldens/permission-locprime-dark.png','golden · permission-locprime-dark')"></figure><figure><figcaption>actual</figcaption><img src="permission-locprime-dark.png" onclick="lbOpen('permission-locprime-dark.png','actual · permission-locprime-dark')"></figure></div>
+  <div class="meta">input <code>preset=locprime</code> · theme <code>dark</code> · 822×1782px · 144ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-locprime <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-locprime.png" onclick="lbOpen('goldens/permission-locprime.png','golden · permission-locprime')"></figure><figure><figcaption>actual</figcaption><img src="permission-locprime.png" onclick="lbOpen('permission-locprime.png','actual · permission-locprime')"></figure></div>
+  <div class="meta">input <code>preset=locprime</code> · theme <code>light</code> · 822×1782px · 146ms</div>
+</div>
+<div class="card">
+  <h2><span>permission-notif <small style="color:#8b949e">permission</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/permission-notif.png" onclick="lbOpen('goldens/permission-notif.png','golden · permission-notif')"></figure><figure><figcaption>actual</figcaption><img src="permission-notif.png" onclick="lbOpen('permission-notif.png','actual · permission-notif')"></figure></div>
+  <div class="meta">input <code>preset=notif</code> · theme <code>light</code> · 822×1782px · 122ms</div>
+</div>
+<div class="card">
+  <h2><span>places-empty <small style="color:#8b949e">places</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/places-empty.png" onclick="lbOpen('goldens/places-empty.png','golden · places-empty')"></figure><figure><figcaption>actual</figcaption><img src="places-empty.png" onclick="lbOpen('places-empty.png','actual · places-empty')"></figure></div>
+  <div class="meta">input <code>preset=empty</code> · theme <code>light</code> · 822×1120px · 59ms</div>
+</div>
+<div class="card">
+  <h2><span>places-list-dark <small style="color:#8b949e">places</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/places-list-dark.png" onclick="lbOpen('goldens/places-list-dark.png','golden · places-list-dark')"></figure><figure><figcaption>actual</figcaption><img src="places-list-dark.png" onclick="lbOpen('places-list-dark.png','actual · places-list-dark')"></figure></div>
+  <div class="meta">input <code>preset=list</code> · theme <code>dark</code> · 822×1120px · 87ms</div>
+</div>
+<div class="card">
+  <h2><span>places-list <small style="color:#8b949e">places</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/places-list.png" onclick="lbOpen('goldens/places-list.png','golden · places-list')"></figure><figure><figcaption>actual</figcaption><img src="places-list.png" onclick="lbOpen('places-list.png','actual · places-list')"></figure></div>
+  <div class="meta">input <code>preset=list</code> · theme <code>light</code> · 822×1120px · 83ms</div>
+</div>
+<div class="card">
+  <h2><span>privacy-affordance-dark <small style="color:#8b949e">privacy</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/privacy-affordance-dark.png" onclick="lbOpen('goldens/privacy-affordance-dark.png','golden · privacy-affordance-dark')"></figure><figure><figcaption>actual</figcaption><img src="privacy-affordance-dark.png" onclick="lbOpen('privacy-affordance-dark.png','actual · privacy-affordance-dark')"></figure></div>
+  <div class="meta">input <code>preset=affordance</code> · theme <code>dark</code> · 822×1280px · 100ms</div>
+</div>
+<div class="card">
+  <h2><span>privacy-affordance <small style="color:#8b949e">privacy</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/privacy-affordance.png" onclick="lbOpen('goldens/privacy-affordance.png','golden · privacy-affordance')"></figure><figure><figcaption>actual</figcaption><img src="privacy-affordance.png" onclick="lbOpen('privacy-affordance.png','actual · privacy-affordance')"></figure></div>
+  <div class="meta">input <code>preset=affordance</code> · theme <code>light</code> · 822×1280px · 100ms</div>
+</div>
+<div class="card">
+  <h2><span>proximity-deregistering <small style="color:#8b949e">proximity</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/proximity-deregistering.png" onclick="lbOpen('goldens/proximity-deregistering.png','golden · proximity-deregistering')"></figure><figure><figcaption>actual</figcaption><img src="proximity-deregistering.png" onclick="lbOpen('proximity-deregistering.png','actual · proximity-deregistering')"></figure></div>
+  <div class="meta">input <code>preset=deregistering</code> · theme <code>light</code> · 822×1782px · 157ms</div>
+</div>
+<div class="card">
+  <h2><span>proximity-off <small style="color:#8b949e">proximity</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/proximity-off.png" onclick="lbOpen('goldens/proximity-off.png','golden · proximity-off')"></figure><figure><figcaption>actual</figcaption><img src="proximity-off.png" onclick="lbOpen('proximity-off.png','actual · proximity-off')"></figure></div>
+  <div class="meta">input <code>preset=off</code> · theme <code>light</code> · 822×1782px · 147ms</div>
+</div>
+<div class="card">
+  <h2><span>proximity-on-dark <small style="color:#8b949e">proximity</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/proximity-on-dark.png" onclick="lbOpen('goldens/proximity-on-dark.png','golden · proximity-on-dark')"></figure><figure><figcaption>actual</figcaption><img src="proximity-on-dark.png" onclick="lbOpen('proximity-on-dark.png','actual · proximity-on-dark')"></figure></div>
+  <div class="meta">input <code>preset=on</code> · theme <code>dark</code> · 822×1782px · 134ms</div>
+</div>
+<div class="card">
+  <h2><span>proximity-on <small style="color:#8b949e">proximity</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/proximity-on.png" onclick="lbOpen('goldens/proximity-on.png','golden · proximity-on')"></figure><figure><figcaption>actual</figcaption><img src="proximity-on.png" onclick="lbOpen('proximity-on.png','actual · proximity-on')"></figure></div>
+  <div class="meta">input <code>preset=on</code> · theme <code>light</code> · 822×1782px · 137ms</div>
+</div>
+<div class="card">
+  <h2><span>scan-denied-dark <small style="color:#8b949e">scan</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/scan-denied-dark.png" onclick="lbOpen('goldens/scan-denied-dark.png','golden · scan-denied-dark')"></figure><figure><figcaption>actual</figcaption><img src="scan-denied-dark.png" onclick="lbOpen('scan-denied-dark.png','actual · scan-denied-dark')"></figure></div>
+  <div class="meta">input <code>preset=denied</code> · theme <code>dark</code> · 822×1782px · 99ms</div>
+</div>
+<div class="card">
+  <h2><span>scan-denied <small style="color:#8b949e">scan</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/scan-denied.png" onclick="lbOpen('goldens/scan-denied.png','golden · scan-denied')"></figure><figure><figcaption>actual</figcaption><img src="scan-denied.png" onclick="lbOpen('scan-denied.png','actual · scan-denied')"></figure></div>
+  <div class="meta">input <code>preset=denied</code> · theme <code>light</code> · 822×1782px · 94ms</div>
+</div>
+<div class="card">
+  <h2><span>scan-device <small style="color:#8b949e">scan</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/scan-device.png" onclick="lbOpen('goldens/scan-device.png','golden · scan-device')"></figure><figure><figcaption>actual</figcaption><img src="scan-device.png" onclick="lbOpen('scan-device.png','actual · scan-device')"></figure></div>
+  <div class="meta">input <code>preset=device</code> · theme <code>light</code> · 822×1782px · 71ms</div>
+</div>
+<div class="card">
+  <h2><span>scan-primer-dark <small style="color:#8b949e">scan</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/scan-primer-dark.png" onclick="lbOpen('goldens/scan-primer-dark.png','golden · scan-primer-dark')"></figure><figure><figcaption>actual</figcaption><img src="scan-primer-dark.png" onclick="lbOpen('scan-primer-dark.png','actual · scan-primer-dark')"></figure></div>
+  <div class="meta">input <code>preset=primer</code> · theme <code>dark</code> · 822×1782px · 97ms</div>
+</div>
+<div class="card">
+  <h2><span>scan-primer <small style="color:#8b949e">scan</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/scan-primer.png" onclick="lbOpen('goldens/scan-primer.png','golden · scan-primer')"></figure><figure><figcaption>actual</figcaption><img src="scan-primer.png" onclick="lbOpen('scan-primer.png','actual · scan-primer')"></figure></div>
+  <div class="meta">input <code>preset=primer</code> · theme <code>light</code> · 822×1782px · 93ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-day-dark <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-day-dark.png" onclick="lbOpen('goldens/timeline-card-day-dark.png','golden · timeline-card-day-dark')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-day-dark.png" onclick="lbOpen('timeline-card-day-dark.png','actual · timeline-card-day-dark')"></figure></div>
+  <div class="meta">input <code>preset=day</code> · theme <code>dark</code> · 822×1280px · 64ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-day <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-day.png" onclick="lbOpen('goldens/timeline-card-day.png','golden · timeline-card-day')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-day.png" onclick="lbOpen('timeline-card-day.png','actual · timeline-card-day')"></figure></div>
+  <div class="meta">input <code>preset=day</code> · theme <code>light</code> · 822×1280px · 62ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-derived <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-derived.png" onclick="lbOpen('goldens/timeline-card-derived.png','golden · timeline-card-derived')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-derived.png" onclick="lbOpen('timeline-card-derived.png','actual · timeline-card-derived')"></figure></div>
+  <div class="meta">input <code>preset=derived</code> · theme <code>light</code> · 822×1280px · 53ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-hub-collapsed-dark <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-hub-collapsed-dark.png" onclick="lbOpen('goldens/timeline-card-hub-collapsed-dark.png','golden · timeline-card-hub-collapsed-dark')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-hub-collapsed-dark.png" onclick="lbOpen('timeline-card-hub-collapsed-dark.png','actual · timeline-card-hub-collapsed-dark')"></figure></div>
+  <div class="meta">input <code>preset=hub-collapsed</code> · theme <code>dark</code> · 822×1280px · 54ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-hub-collapsed <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-hub-collapsed.png" onclick="lbOpen('goldens/timeline-card-hub-collapsed.png','golden · timeline-card-hub-collapsed')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-hub-collapsed.png" onclick="lbOpen('timeline-card-hub-collapsed.png','actual · timeline-card-hub-collapsed')"></figure></div>
+  <div class="meta">input <code>preset=hub-collapsed</code> · theme <code>light</code> · 822×1280px · 53ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-hub-dark <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-hub-dark.png" onclick="lbOpen('goldens/timeline-card-hub-dark.png','golden · timeline-card-hub-dark')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-hub-dark.png" onclick="lbOpen('timeline-card-hub-dark.png','actual · timeline-card-hub-dark')"></figure></div>
+  <div class="meta">input <code>preset=hub</code> · theme <code>dark</code> · 822×1280px · 54ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-card-hub <small style="color:#8b949e">timeline-card</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-card-hub.png" onclick="lbOpen('goldens/timeline-card-hub.png','golden · timeline-card-hub')"></figure><figure><figcaption>actual</figcaption><img src="timeline-card-hub.png" onclick="lbOpen('timeline-card-hub.png','actual · timeline-card-hub')"></figure></div>
+  <div class="meta">input <code>preset=hub</code> · theme <code>light</code> · 822×1280px · 52ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-detail-both-toggle <small style="color:#8b949e">timeline-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-detail-both-toggle.png" onclick="lbOpen('goldens/timeline-detail-both-toggle.png','golden · timeline-detail-both-toggle')"></figure><figure><figcaption>actual</figcaption><img src="timeline-detail-both-toggle.png" onclick="lbOpen('timeline-detail-both-toggle.png','actual · timeline-detail-both-toggle')"></figure></div>
+  <div class="meta">input <code>preset=both-toggle</code> · theme <code>light</code> · 822×1782px · 90ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-detail-day <small style="color:#8b949e">timeline-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-detail-day.png" onclick="lbOpen('goldens/timeline-detail-day.png','golden · timeline-detail-day')"></figure><figure><figcaption>actual</figcaption><img src="timeline-detail-day.png" onclick="lbOpen('timeline-detail-day.png','actual · timeline-detail-day')"></figure></div>
+  <div class="meta">input <code>preset=day</code> · theme <code>light</code> · 822×1782px · 124ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-detail-derived <small style="color:#8b949e">timeline-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-detail-derived.png" onclick="lbOpen('goldens/timeline-detail-derived.png','golden · timeline-detail-derived')"></figure><figure><figcaption>actual</figcaption><img src="timeline-detail-derived.png" onclick="lbOpen('timeline-detail-derived.png','actual · timeline-detail-derived')"></figure></div>
+  <div class="meta">input <code>preset=derived</code> · theme <code>light</code> · 822×1782px · 122ms</div>
+</div>
+<div class="card">
+  <h2><span>timeline-detail-hub <small style="color:#8b949e">timeline-detail</small></span><span class="pill ok">match</span></h2>
+  <div class="imgs"><figure><figcaption>golden</figcaption><img src="goldens/timeline-detail-hub.png" onclick="lbOpen('goldens/timeline-detail-hub.png','golden · timeline-detail-hub')"></figure><figure><figcaption>actual</figcaption><img src="timeline-detail-hub.png" onclick="lbOpen('timeline-detail-hub.png','actual · timeline-detail-hub')"></figure></div>
+  <div class="meta">input <code>preset=hub</code> · theme <code>light</code> · 822×1782px · 106ms</div>
+</div>
+</main>
+<div id="lb" class="lb" onclick="if(event.target.id==='lb')lbClose()">
+  <div class="lbbar">
+    <span id="lbcap"></span><span class="sp"></span>
+    <button onclick="lbToggle()">fit / 1:1</button>
+    <button onclick="lbClose()">&#10005; close</button>
+  </div>
+  <div class="lbwrap"><img id="lbimg" class="fit" onclick="lbToggle()"></div>
+</div>
+<script>
+  function lbOpen(src, cap) {
+    var i = document.getElementById('lbimg');
+    i.src = src; i.className = 'fit';
+    document.getElementById('lbcap').textContent = cap;
+    document.getElementById('lb').classList.add('open');
+  }
+  function lbClose() { document.getElementById('lb').classList.remove('open'); }
+  function lbToggle() {
+    var i = document.getElementById('lbimg');
+    i.className = (i.className === 'fit') ? 'actual' : 'fit';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lbClose(); });
+</script>
+</body></html>

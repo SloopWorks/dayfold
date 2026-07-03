@@ -76,8 +76,10 @@ jobs:
         run: bash scripts/check-expect-actual.sh
       # TASK-KMP consolidated :client into the single apps/ Gradle build —
       # apps/client no longer has its own wrapper. Run the module task from apps/.
+      # ADR 0047 split the Compose UI + render/snapshot tests into :ui — run both
+      # (:client = logic tests; :ui = render/UI + CL-SNAP golden/snapshot tests).
       - working-directory: apps
-        run: ./gradlew --no-daemon :client:desktopTest
+        run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest
       # On golden failure: render the batch dashboard (per-shot image + magenta diff +
       # verdict, self-contained index.html) and upload it, so a failed PR run gives
       # clickable visual diffs without a local repro. `|| true`: the dashboard run
@@ -85,13 +87,13 @@ jobs:
       - name: Golden dashboard (on failure)
         if: failure()
         working-directory: apps
-        run: ./gradlew --no-daemon :client:snapshotUi -PsnapshotArgs="--batch snapshot-shots.json --golden-dir src/desktopTest/resources/snapshots/linux --dashboard" || true
+        run: ./gradlew --no-daemon :ui:snapshotUi -PsnapshotArgs="--batch snapshot-shots.json --golden-dir src/desktopTest/resources/snapshots/linux --dashboard" || true
       - name: Upload snapshot dashboard
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: snapshot-dashboard
-          path: apps/client/.rk-snapshots
+          path: apps/ui/.rk-snapshots
           if-no-files-found: ignore
 
   debugdrawer:
