@@ -2,6 +2,21 @@
 
 Parked. Pull forward only through `now.md`.
 
+## "Dayfold Home" — Android launcher mode (brainstormed, ADR-gated)
+
+Operator-requested brainstorm (2026-07-03):
+`research/2026-07-03-android-launcher-brainstorm.md`. Verdict: feasible and
+unusually cheap for this codebase (the whole Compose client + sync/background
+stack reuses as-is; a launcher is mostly a new front door: HOME intent + dock +
+search-first drawer). Best form = **tablet kiosk family display** (the
+validated family-shared wedge; Skylight-category for the cost of a spare
+tablet); phone launcher = dogfood/power-user mode only (adoption ask too high,
+maintenance tail conflicts with <2 hrs/wk). App launching is explicitly
+secondary. Suggested rungs: Glance widget (re-opens N5) → dogfood launcher
+(sideload only) → viability-review decision. **Gates before any build:** scope
+ADR (amends the ADR 0007 home-surface exclusion, with explicit anti-goals) +
+ADR 0008 hi-fi mockups. Android-only by nature (no iOS launcher concept).
+
 ## CL-SNAP follow-up: pixel ↔ composable inspector (Layout-Inspector-style overlay)
 
 Make a rendered snapshot a **queryable, addressable surface** — map an image
