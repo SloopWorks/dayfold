@@ -8,11 +8,15 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
-## TASK-CLIENT-MODULARIZE — split `:client` into `:model` / `:ui` / `:data` (NEXT — active front)
+## TASK-CLIENT-MODULARIZE — split `:client` into `:model` / `:ui` / `:data`
 
-**Status: NEXT (queued 2026-07-02, from the CL-SNAP session).** Builds on
-`TASK-KMP` (done — `:client` is a true KMP module). This is a further
-decomposition, not a redo.
+**Status: PARTIALLY SUPERSEDED — see the `✅ DONE 2026-07-02` entry below.** The
+`:ui` extraction this section proposed shipped (ADR 0047, ~line 733) as a
+2-module split (`:client` core + `:ui` Compose), not the original 3-module
+`:model`/`:ui`/`:data` shape. The further `:model`/`:data` split described below
+is **still queued** (ADR 0047 §Remaining) if the DONE entry's measured payoff
+isn't enough on its own. Kept for that follow-up context; read the DONE entry
+first for current state.
 
 **Why (measured, not theorized):** `:client` is one monolithic KMP module —
 79 `commonMain` files (UI + state/logic + data/sync + fake backend) + 24
@@ -770,8 +774,29 @@ normal dev environment (`processes/agent-dev-loop.md`).
   parse → save → return) is inlined three times in `Main.kt`
   (`authedGet` ~L82, `authedDelete` ~L104, inline in `push` ~L280). Extract
   `refreshAccessToken(store, keychain, api, refreshToken): String` once.
-- **`apps/api`/`apps/cli`/`apps/client`** — `media-validation`/`MediaValidation`
-  exists as three synchronized copies (TS + 2× Kotlin). This one is
-  **intentional** (a parser differential between copies is a security bypass;
-  ADR 0036 notes a Phase 2 codegen-from-one-source plan) — leave as-is, don't
-  "simplify" it into a shared runtime dependency without re-reading ADR 0036.
+- **`apps/api`/`packages/linkrules`** — `media-validation.ts` /
+  `MediaValidation.kt` exists as two synchronized copies (TS + one shared
+  Kotlin copy — the CLI/client duplication was removed in `be45de6`/#276).
+  This one is **intentional** (a parser differential between copies is a
+  security bypass; ADR 0036 notes a Phase 2 codegen-from-one-source plan) —
+  leave as-is, don't "simplify" it into a shared runtime dependency without
+  re-reading ADR 0036. If picked up before Phase 2 codegen lands, the
+  lower-risk interim step is a **CI parity guard** (assert the two files'
+  allowed-host / icon-enum / hex-color literals match), not a shared
+  implementation.
+- **`apps/api`** — the post-`authorizeTenant()` caller shape
+  `{ userId: a.userId, legacy: a.legacy }` is rebuilt inline 11× in `app.ts`
+  (2026-07-03 audit: lines 357/399/409/424/443/470/486/520/593/655/939).
+  Extract a `callerFrom(a)` helper, use everywhere.
+- **`apps/api`** — `src/generated/content.timeline.test.ts` is a hand-written
+  test living inside `src/generated/`, whose whole convention is "codegen
+  output, don't hand-edit or you'll lose it on regen." Move it next to
+  `src/content-validation.timeline.test.ts` (or merge the two — they test
+  Hub.timeline from different angles: structural issues vs. loose schema
+  parse) before someone treats the directory as truly generated-only and
+  deletes it.
+- **`apps/api`** — `app.ts` is a single 1051-line file holding all ~45 routes
+  (auth, families, hubs/sections/blocks, device-grant, invites, sync, cron).
+  Splitting into per-resource route modules would make it easier for an agent
+  to navigate/diff safely — bigger and riskier than the items above, so listed
+  but not sized as a quick win.

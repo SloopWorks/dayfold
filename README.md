@@ -55,10 +55,13 @@ haven't been captured yet.
 | Path | What |
 |---|---|
 | `apps/api` | Content API — TypeScript / Hono / Postgres (Neon), on Vercel. Auth (token mint, device-grant RFC 8628, Firebase verify), hubs + cards, scope + per-hub visibility. |
-| `apps/client` | Compose Multiplatform UI (Android/iOS/desktop) — the feed + hub renderer; redux-kotlin store; SQLDelight offline cache. |
+| `apps/client` | Compose-free KMP core (ADR 0047) — reducers, engines, sync/data, redux-kotlin store, SQLDelight offline cache. Android/iOS/desktop logic, no UI. |
+| `apps/ui` | Compose Multiplatform UI (ADR 0047) — the feed + hub renderer + iOS framework target; depends on `:client`. |
 | `apps/androidApp` | Android host — the dogfood target. |
+| `apps/iosApp` | iOS host (SwiftUI/xcodegen) embedding the `:ui` framework — notification parity with Android (ADR 0044 Phase B). |
 | `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `delete` · `whoami`; authors content into the API (`push --type` runs local structural validation before every network call). |
 | `packages/schema` | Generated content schema (`content.schema.json` → Kotlin/TS) — the card/hub contract. |
+| `packages/linkrules` | Shared Kotlin (`commonMain`) srcdir'd into CLI + client — link/URL vetting, the ULID minter, media validation. |
 
 - **Build & run the apps:** `processes/agent-dev-loop.md` (fixed toolchain + the cheap
   feedback loop) and `specs/prototype/00-build-spec-plan.md` (the live M0).

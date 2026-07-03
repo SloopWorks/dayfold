@@ -11,7 +11,7 @@ the short form: `/loop follow processes/build-loop-prompt.md`.
 ---
 
 SCOPE & GUARDRAILS
-- DO NOT touch the auth/login work — another agent owns it (auth-* branches, AuthEngine, invites, route gate, S2/S6). Only integrate around it on merge.
+- If another agent/worktree is actively building a lane (check `backlog/now.md` and running worktrees before starting), don't touch its files — only integrate around it on merge. The auth epic (ADR 0021 S1-S6) is DONE + merged; this is a generic reminder, not a standing exclusion.
 - Never agent-decide scope/pricing/legal/spend (CLAUDE.md guardrails). If the planned build order is exhausted and only deferred/design-blocked/device-gated items remain, STOP and ask which to do (don't auto-pick a deferred item).
 - Pick the next BUILDABLE task in the planned order (e.g. content-detail-epic CL-* order, or backlog/next.md TASK-*). Skip items that need a device you can't get, a design mockup that doesn't exist, or operator spend.
 
@@ -37,7 +37,7 @@ PER-TASK LOOP (do every step)
 1. Write a short spec+plan to docs/superpowers/specs/<date>-<slug>-design.md (scope, files, security/privacy, test plan, DoD, risks).
 2. Launch a pre-impl adversarial review subagent (read-only) against the spec, graded across ALL applicable REVIEW DIMENSIONS above; fold its Critical/Important findings before coding. For substantial UI work, run a second reviewer focused on the UI dimensions (Compose + Material3-Expressive + mobile UX + a11y).
 3. Implement TDD. Match existing code style. Keep read-only M0 invariants (ADR 0020) and honesty/privacy rules (ADR 0014/0015).
-4. Verify: apps/api `npx vitest run` green; apps/client `./gradlew :client:desktopTest` green; `npm run codegen` idempotent; android + iOS-sim compile; for UI, write snapshot PNGs and READ them to eyeball, and when an emulator is FREE (check `adb devices` + foreground app — do NOT contend with the other agent's app) deploy + drive via adb screencap.
+4. Verify: apps/api `npx vitest run` green; from `apps/`, `./gradlew :client:desktopTest :ui:desktopTest` green (ADR 0047 split — logic tests live in `:client`, render/golden-snapshot tests in `:ui`); `npm run codegen` idempotent; android + iOS-sim compile; for UI, write snapshot PNGs and READ them to eyeball (or use the CL-SNAP `--dashboard` gate, `processes/agent-dev-loop.md`), and when an emulator is FREE (check `adb devices` + foreground app — do NOT contend with another agent's app) deploy + drive via adb screencap.
 5. Launch a final whole-branch review subagent graded across ALL applicable REVIEW DIMENSIONS (plus a dedicated UI/Compose/Material3-Expressive/UX/a11y reviewer when UI changed); fix Critical/Important findings.
 6. Commit (normal prose message; end with: Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>). Update backlog/next.md (TASK-* done + follows). ff-merge onto the integration branch.
 
