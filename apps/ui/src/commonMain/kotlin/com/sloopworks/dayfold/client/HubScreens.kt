@@ -649,7 +649,8 @@ private fun hasTypedPayload(block: HubBlock): Boolean = when (block.type) {
 // Budget spent/total: the client `total`/`spent` summary if present, else derived
 // from a canonical itemized budget (schema `items[{amount, paid}]`) — ADR 0035.
 internal fun budgetTotals(p: BlockPayload?): Pair<Double, Double> {
-  if (p?.total != null) return p.total to (p.spent ?: 0.0)
+  val pTotal = p?.total   // local: BlockPayload is a cross-module type → no smart-cast
+  if (pTotal != null) return pTotal to (p.spent ?: 0.0)
   val items = p?.items.orEmpty()
   val total = items.sumOf { it.amount ?: 0.0 }
   val spent = items.filter { it.paid == true }.sumOf { it.amount ?: 0.0 }

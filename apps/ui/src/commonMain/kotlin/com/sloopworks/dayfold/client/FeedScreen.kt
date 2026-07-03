@@ -107,8 +107,9 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         rememberStableLoading(state.syncing) -> SyncingState(Modifier.padding(pad))
         state.syncing -> Unit   // pre-debounce window: render nothing, not the onboarding state
         else -> Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
+          val error = state.error   // local: state is a cross-module type → no smart-cast
           when {
-            state.error != null -> EmptyFeedError(state.error, onRefresh)                          // offline / sync error
+            error != null -> EmptyFeedError(error, onRefresh)                                       // offline / sync error
             established -> CaughtUpState(hasHubs = state.hubs.isNotEmpty(), onOpenHubs = onNavHubs) // all clear (the headline fix)
             else -> FamilyNullState(onConnectDevice = onConnectDevice)                             // first run
           }

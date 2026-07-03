@@ -163,7 +163,8 @@ internal fun hubScaleAvailable(tl: Timeline, tz: TimeZone): Boolean {
  * Hub if stops span >14 days OR ≥3 date-only stops;
  * else Day.
  */
-internal fun selectScale(tl: Timeline, nowIso: String, tz: TimeZone): TimelineScale {
+// public: consumed cross-module by :ui (HubScreens)
+fun selectScale(tl: Timeline, nowIso: String, tz: TimeZone): TimelineScale {
     if (dayScaleAvailable(tl, nowIso, tz)) return TimelineScale.Day
     return if (hubScaleAvailable(tl, tz)) TimelineScale.Hub else TimelineScale.Day
 }

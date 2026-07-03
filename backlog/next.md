@@ -730,6 +730,29 @@ until the operator gates (**INB-23** / ADR 0034 G1–G5). Follow-on tasks:
   Mac + an Apple Developer account ($99/yr — **spend**). Large; sequenced after the iOS
   host shell (contends with the iOS-shell task in TASK-KMP).
 
+## TASK-CLIENT-MODULARIZE — `:client`/`:ui` module split (ADR 0047) ✅ DONE 2026-07-02
+
+**Status:** Slice 1 (`:ui` Compose extraction) COMPLETE. Branch `client-modularize`; commits `ef813d5` (P2.2b) + `ccb7aab` (P2.3 measure/docs) + fix commit (P2.3 isolation provenance + snapshot path + iOS-framework doc refs).
+
+**Shipped (Phases 0–2):**
+- **P0:** Measured the monolith — KT-62686 fires on every edit, ~15,570 lines recompiled, ~4.2s per incremental build. Kotlin-reports baseline captured; build-cache reverted (regression); CC kept.
+- **P1:** Gradle caching/parallel/CC levers measured — none escape KT-62686 for inner loop. CC kept (~0.15s win; neutral), build-cache reverted (+~10s/loop regression).
+- **P2.1:** Scaffolded empty `:ui` KMP module (`api`-depends `:client`).
+- **P2.2a:** Moved all Compose files (~40 files: composables, theme, cards Compose, resources, entry points, expect/actual seams) from `:client` → `:ui`; rewired `:androidApp`; promoted cross-module internals; iOS framework target moved to `:ui`.
+- **P2.2b:** Stripped Compose deps/plugin/framework from `:client` — now fully Compose-free (grep-verified).
+- **P2.3:** Measured split — `:client` logic edit: 7,348 lines / ~2.4s (vs 15,570 / ~4.2s P0 = **−53% lines, ~−43% time**). KT-62686 still fires (size win, not KT-62686 escape). DoD verified: client 440/440 + ui 311/311 tests green; iOS framework links; `:client` Compose-free ✓. Docs updated.
+
+**Deferred / still open:**
+- `:androidApp:assembleDebug` / `assembleRelease` — **BLOCKED** by missing `google-services.json` (no secret in worktree). Required follow-up in CI/secret-bearing env before declaring full-build DoD.
+- Android CC compatibility (`:androidApp:assembleDebug` + `com.google.gms.google-services`) — untested, same blocker.
+- Android + full-graph incremental compile measurements — deferred for same reason.
+- **`:model`/`:data` further split** (second slice, ADR 0047 §Remaining) — would shrink each module further; not in this slice.
+- KT-62686 escape investigation — not Compose-specific (fires on all KMP modules); may need Kotlin 2.4.x or `enableUnsafeIncrementalCompilationForMultiplatform=true` (risky); deferred.
+
+**ADR 0047 shape delta:** iOS framework now in `:ui` (not `:client`). Header: `apps/ui/build/bin/iosSimulatorArm64/debugFramework/client.framework/Headers/client.h`. Immutable ADR unchanged; delta recorded in `specs/client-modularize-measurements.md` P2 section.
+
+---
+
 ## CODE DEDUP FINDINGS (2026-07-01 audit — Small, do with a build-capable toolchain)
 
 Not urgent (CI is green, nothing broken) — surfaced by a repo-wide simplify pass.
