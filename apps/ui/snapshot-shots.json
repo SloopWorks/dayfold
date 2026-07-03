@@ -1,0 +1,701 @@
+{
+ "shots": [
+  {
+   "id": "account-default-dark",
+   "scene": "account",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "account-default",
+   "scene": "account",
+   "preset": "default"
+  },
+  {
+   "id": "account-signout-busy",
+   "scene": "account",
+   "preset": "signout-busy"
+  },
+  {
+   "id": "auth-createfamily-dark",
+   "scene": "auth",
+   "preset": "createfamily",
+   "theme": "dark"
+  },
+  {
+   "id": "auth-createfamily",
+   "scene": "auth",
+   "preset": "createfamily"
+  },
+  {
+   "id": "auth-familynull-dark",
+   "scene": "auth",
+   "preset": "familynull",
+   "theme": "dark"
+  },
+  {
+   "id": "auth-familynull",
+   "scene": "auth",
+   "preset": "familynull"
+  },
+  {
+   "id": "auth-signin-busy",
+   "scene": "auth",
+   "preset": "signin-busy"
+  },
+  {
+   "id": "auth-signin-dark",
+   "scene": "auth",
+   "preset": "signin",
+   "theme": "dark"
+  },
+  {
+   "id": "auth-signin-error",
+   "scene": "auth",
+   "preset": "signin-error"
+  },
+  {
+   "id": "auth-signin",
+   "scene": "auth",
+   "preset": "signin"
+  },
+  {
+   "id": "auth-splash",
+   "scene": "auth",
+   "preset": "splash"
+  },
+  {
+   "id": "detail-contact-dark",
+   "scene": "detail",
+   "preset": "contact",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-contact",
+   "scene": "detail",
+   "preset": "contact"
+  },
+  {
+   "id": "detail-email-dark",
+   "scene": "detail",
+   "preset": "email",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-email",
+   "scene": "detail",
+   "preset": "email"
+  },
+  {
+   "id": "detail-file-dark",
+   "scene": "detail",
+   "preset": "file",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-file",
+   "scene": "detail",
+   "preset": "file"
+  },
+  {
+   "id": "detail-geo-dark",
+   "scene": "detail",
+   "preset": "geo",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-geo",
+   "scene": "detail",
+   "preset": "geo"
+  },
+  {
+   "id": "detail-invite-dark",
+   "scene": "detail",
+   "preset": "invite",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-invite",
+   "scene": "detail",
+   "preset": "invite"
+  },
+  {
+   "id": "detail-link-dark",
+   "scene": "detail",
+   "preset": "link",
+   "theme": "dark"
+  },
+  {
+   "id": "detail-link",
+   "scene": "detail",
+   "preset": "link"
+  },
+  {
+   "id": "device-approval-approved",
+   "scene": "device-approval",
+   "preset": "approved"
+  },
+  {
+   "id": "device-approval-authorize-datacenter-dark",
+   "scene": "device-approval",
+   "preset": "authorize-datacenter",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-authorize-datacenter",
+   "scene": "device-approval",
+   "preset": "authorize-datacenter"
+  },
+  {
+   "id": "device-approval-authorize-multiowner",
+   "scene": "device-approval",
+   "preset": "authorize-multiowner"
+  },
+  {
+   "id": "device-approval-authorize-residential",
+   "scene": "device-approval",
+   "preset": "authorize-residential"
+  },
+  {
+   "id": "device-approval-denied-dark",
+   "scene": "device-approval",
+   "preset": "denied",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-denied",
+   "scene": "device-approval",
+   "preset": "denied"
+  },
+  {
+   "id": "device-approval-entercode-dark",
+   "scene": "device-approval",
+   "preset": "entercode",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-entercode-error",
+   "scene": "device-approval",
+   "preset": "entercode-error"
+  },
+  {
+   "id": "device-approval-entercode-scan-dark",
+   "scene": "device-approval",
+   "preset": "entercode-scan",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-entercode-scan",
+   "scene": "device-approval",
+   "preset": "entercode-scan"
+  },
+  {
+   "id": "device-approval-entercode",
+   "scene": "device-approval",
+   "preset": "entercode"
+  },
+  {
+   "id": "device-approval-expired-dark",
+   "scene": "device-approval",
+   "preset": "expired",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-expired",
+   "scene": "device-approval",
+   "preset": "expired"
+  },
+  {
+   "id": "device-approval-finishing",
+   "scene": "device-approval",
+   "preset": "finishing"
+  },
+  {
+   "id": "device-approval-resume-dark",
+   "scene": "device-approval",
+   "preset": "resume",
+   "theme": "dark"
+  },
+  {
+   "id": "device-approval-resume",
+   "scene": "device-approval",
+   "preset": "resume"
+  },
+  {
+   "id": "devices-error",
+   "scene": "devices",
+   "preset": "error"
+  },
+  {
+   "id": "devices-list-dark",
+   "scene": "devices",
+   "preset": "list",
+   "theme": "dark"
+  },
+  {
+   "id": "devices-list",
+   "scene": "devices",
+   "preset": "list"
+  },
+  {
+   "id": "devices-loading",
+   "scene": "devices",
+   "preset": "loading"
+  },
+  {
+   "id": "devices-row-busy",
+   "scene": "devices",
+   "preset": "row-busy"
+  },
+  {
+   "id": "feed-busy-dark",
+   "scene": "feed",
+   "preset": "busy",
+   "theme": "dark"
+  },
+  {
+   "id": "feed-busy",
+   "scene": "feed",
+   "preset": "busy"
+  },
+  {
+   "id": "feed-caught-up-dark",
+   "scene": "feed",
+   "preset": "caught-up",
+   "theme": "dark"
+  },
+  {
+   "id": "feed-caught-up",
+   "scene": "feed",
+   "preset": "caught-up"
+  },
+  {
+   "id": "feed-empty",
+   "scene": "feed",
+   "preset": "empty"
+  },
+  {
+   "id": "feed-enriched-pair-dark",
+   "scene": "feed",
+   "preset": "enriched-pair",
+   "theme": "dark"
+  },
+  {
+   "id": "feed-enriched-pair",
+   "scene": "feed",
+   "preset": "enriched-pair"
+  },
+  {
+   "id": "feed-enriched",
+   "scene": "feed",
+   "preset": "enriched"
+  },
+  {
+   "id": "feed-invite-no",
+   "scene": "feed",
+   "preset": "invite-no"
+  },
+  {
+   "id": "feed-invite-none",
+   "scene": "feed",
+   "preset": "invite-none"
+  },
+  {
+   "id": "feed-invite-yes",
+   "scene": "feed",
+   "preset": "invite-yes"
+  },
+  {
+   "id": "feed-offline-dark",
+   "scene": "feed",
+   "preset": "offline",
+   "theme": "dark"
+  },
+  {
+   "id": "feed-offline",
+   "scene": "feed",
+   "preset": "offline"
+  },
+  {
+   "id": "feed-syncing",
+   "scene": "feed",
+   "preset": "syncing"
+  },
+  {
+   "id": "feed-typed-dark",
+   "scene": "feed",
+   "preset": "typed",
+   "theme": "dark"
+  },
+  {
+   "id": "feed-typed",
+   "scene": "feed",
+   "preset": "typed"
+  },
+  {
+   "id": "hub-detail-canonical-dark",
+   "scene": "hub-detail",
+   "preset": "canonical",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-detail-canonical",
+   "scene": "hub-detail",
+   "preset": "canonical"
+  },
+  {
+   "id": "hub-detail-checklist-dark",
+   "scene": "hub-detail",
+   "preset": "checklist",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-detail-checklist",
+   "scene": "hub-detail",
+   "preset": "checklist"
+  },
+  {
+   "id": "hub-detail-derived-timeline",
+   "scene": "hub-detail",
+   "preset": "derived-timeline"
+  },
+  {
+   "id": "hub-detail-enriched-dark",
+   "scene": "hub-detail",
+   "preset": "enriched",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-detail-enriched-logo-dark",
+   "scene": "hub-detail",
+   "preset": "enriched-logo",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-detail-enriched-logo",
+   "scene": "hub-detail",
+   "preset": "enriched-logo"
+  },
+  {
+   "id": "hub-detail-enriched-photo",
+   "scene": "hub-detail",
+   "preset": "enriched-photo"
+  },
+  {
+   "id": "hub-detail-enriched",
+   "scene": "hub-detail",
+   "preset": "enriched"
+  },
+  {
+   "id": "hub-detail-timeline-card",
+   "scene": "hub-detail",
+   "preset": "timeline-card"
+  },
+  {
+   "id": "hub-detail-timeline-hidden",
+   "scene": "hub-detail",
+   "preset": "timeline-hidden"
+  },
+  {
+   "id": "hub-detail-timeline-nudge",
+   "scene": "hub-detail",
+   "preset": "timeline-nudge"
+  },
+  {
+   "id": "hub-detail-timeline-overlay",
+   "scene": "hub-detail",
+   "preset": "timeline-overlay"
+  },
+  {
+   "id": "hub-list-enriched-dark",
+   "scene": "hub-list",
+   "preset": "enriched",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-list-enriched",
+   "scene": "hub-list",
+   "preset": "enriched"
+  },
+  {
+   "id": "join-entry",
+   "scene": "join",
+   "preset": "entry"
+  },
+  {
+   "id": "join-error-dark",
+   "scene": "join",
+   "preset": "error",
+   "theme": "dark"
+  },
+  {
+   "id": "join-locked",
+   "scene": "join",
+   "preset": "locked"
+  },
+  {
+   "id": "join-waiting",
+   "scene": "join",
+   "preset": "waiting"
+  },
+  {
+   "id": "kit-empty-state",
+   "scene": "kit",
+   "preset": "empty-state"
+  },
+  {
+   "id": "kit-error-retry-busy",
+   "scene": "kit",
+   "preset": "error-retry-busy"
+  },
+  {
+   "id": "kit-error-retry",
+   "scene": "kit",
+   "preset": "error-retry"
+  },
+  {
+   "id": "kit-feed-skeleton",
+   "scene": "kit",
+   "preset": "feed-skeleton"
+  },
+  {
+   "id": "kit-list-skeleton",
+   "scene": "kit",
+   "preset": "list-skeleton"
+  },
+  {
+   "id": "members-error",
+   "scene": "members",
+   "preset": "error"
+  },
+  {
+   "id": "members-loading",
+   "scene": "members",
+   "preset": "loading"
+  },
+  {
+   "id": "members-roster-dark",
+   "scene": "members",
+   "preset": "roster",
+   "theme": "dark"
+  },
+  {
+   "id": "members-roster",
+   "scene": "members",
+   "preset": "roster"
+  },
+  {
+   "id": "members-row-busy",
+   "scene": "members",
+   "preset": "row-busy"
+  },
+  {
+   "id": "notif-cap-reached-dark",
+   "scene": "notif",
+   "preset": "cap-reached",
+   "theme": "dark"
+  },
+  {
+   "id": "notif-cap-reached",
+   "scene": "notif",
+   "preset": "cap-reached"
+  },
+  {
+   "id": "notif-quiet-held-dark",
+   "scene": "notif",
+   "preset": "quiet-held",
+   "theme": "dark"
+  },
+  {
+   "id": "notif-quiet-held",
+   "scene": "notif",
+   "preset": "quiet-held"
+  },
+  {
+   "id": "offline-banner-default-dark",
+   "scene": "offline-banner",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "offline-banner-default",
+   "scene": "offline-banner",
+   "preset": "default"
+  },
+  {
+   "id": "permission-always",
+   "scene": "permission",
+   "preset": "always"
+  },
+  {
+   "id": "permission-denied",
+   "scene": "permission",
+   "preset": "denied"
+  },
+  {
+   "id": "permission-downgraded-dark",
+   "scene": "permission",
+   "preset": "downgraded",
+   "theme": "dark"
+  },
+  {
+   "id": "permission-downgraded",
+   "scene": "permission",
+   "preset": "downgraded"
+  },
+  {
+   "id": "permission-limited",
+   "scene": "permission",
+   "preset": "limited"
+  },
+  {
+   "id": "permission-locprime-dark",
+   "scene": "permission",
+   "preset": "locprime",
+   "theme": "dark"
+  },
+  {
+   "id": "permission-locprime",
+   "scene": "permission",
+   "preset": "locprime"
+  },
+  {
+   "id": "permission-notif",
+   "scene": "permission",
+   "preset": "notif"
+  },
+  {
+   "id": "places-empty",
+   "scene": "places",
+   "preset": "empty"
+  },
+  {
+   "id": "places-list-dark",
+   "scene": "places",
+   "preset": "list",
+   "theme": "dark"
+  },
+  {
+   "id": "places-list",
+   "scene": "places",
+   "preset": "list"
+  },
+  {
+   "id": "privacy-affordance-dark",
+   "scene": "privacy",
+   "preset": "affordance",
+   "theme": "dark"
+  },
+  {
+   "id": "privacy-affordance",
+   "scene": "privacy",
+   "preset": "affordance"
+  },
+  {
+   "id": "proximity-deregistering",
+   "scene": "proximity",
+   "preset": "deregistering"
+  },
+  {
+   "id": "proximity-off",
+   "scene": "proximity",
+   "preset": "off"
+  },
+  {
+   "id": "proximity-on-dark",
+   "scene": "proximity",
+   "preset": "on",
+   "theme": "dark"
+  },
+  {
+   "id": "proximity-on",
+   "scene": "proximity",
+   "preset": "on"
+  },
+  {
+   "id": "scan-denied-dark",
+   "scene": "scan",
+   "preset": "denied",
+   "theme": "dark"
+  },
+  {
+   "id": "scan-denied",
+   "scene": "scan",
+   "preset": "denied"
+  },
+  {
+   "id": "scan-device",
+   "scene": "scan",
+   "preset": "device"
+  },
+  {
+   "id": "scan-primer-dark",
+   "scene": "scan",
+   "preset": "primer",
+   "theme": "dark"
+  },
+  {
+   "id": "scan-primer",
+   "scene": "scan",
+   "preset": "primer"
+  },
+  {
+   "id": "timeline-card-day-dark",
+   "scene": "timeline-card",
+   "preset": "day",
+   "theme": "dark"
+  },
+  {
+   "id": "timeline-card-day",
+   "scene": "timeline-card",
+   "preset": "day"
+  },
+  {
+   "id": "timeline-card-derived",
+   "scene": "timeline-card",
+   "preset": "derived"
+  },
+  {
+   "id": "timeline-card-hub-collapsed-dark",
+   "scene": "timeline-card",
+   "preset": "hub-collapsed",
+   "theme": "dark"
+  },
+  {
+   "id": "timeline-card-hub-collapsed",
+   "scene": "timeline-card",
+   "preset": "hub-collapsed"
+  },
+  {
+   "id": "timeline-card-hub-dark",
+   "scene": "timeline-card",
+   "preset": "hub",
+   "theme": "dark"
+  },
+  {
+   "id": "timeline-card-hub",
+   "scene": "timeline-card",
+   "preset": "hub"
+  },
+  {
+   "id": "timeline-detail-both-toggle",
+   "scene": "timeline-detail",
+   "preset": "both-toggle"
+  },
+  {
+   "id": "timeline-detail-day",
+   "scene": "timeline-detail",
+   "preset": "day"
+  },
+  {
+   "id": "timeline-detail-derived",
+   "scene": "timeline-detail",
+   "preset": "derived"
+  },
+  {
+   "id": "timeline-detail-hub",
+   "scene": "timeline-detail",
+   "preset": "hub"
+  }
+ ]
+}

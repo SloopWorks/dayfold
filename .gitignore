@@ -25,3 +25,6 @@ local.properties
 # Firebase client config — injected per-env, not committed (public repo). See specs/auth-s2-google-signin-design.md
 apps/androidApp/google-services.json
 **/GoogleService-Info.plist
+
+# rk snapshot batch/dashboard output (regenerate: agent-dev-loop.md "Golden dashboard")
+apps/ui/.rk-snapshots/

@@ -10,7 +10,7 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 
 ### Added (dev tooling)
-- **Headless snapshot render** for the client UI: `./gradlew :client:snapshotUi
+- **Headless snapshot render** for the client UI: `./gradlew :ui:snapshotUi
   -PsnapshotArgs="--scene <scene> --preset <preset> --out <file>.png"` renders
   any of 3 scenes (feed / hub-detail / detail) from pre-built `AppState` fixtures
   off-screen in milliseconds — no device, no emulator. Powered by
@@ -20,8 +20,10 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   tokens): prints the Compose semantic tree (roles, text, descriptions, selected
   state) to stdout. Preferred first-pass for content and refactor changes.
 - **Committed-golden regression gate**: `GoldenSnapshotTest` (`:client:desktopTest`,
-  CI = ubuntu-latest) verifies 12 committed PNGs in
-  `apps/client/src/desktopTest/resources/snapshots/` at `maxDiffPercent = 4.0`
+  CI = ubuntu-latest) verifies 131 committed PNGs (20 scenes — feed, hub, detail,
+  auth/onboarding, members/devices, device approval, scan, notification states,
+  privacy, places, proximity, permission ladder, loading kit, timelines) in
+  `apps/ui/src/desktopTest/resources/snapshots/` at `maxDiffPercent = 4.0`
   (measured cross-OS bold-glyph drift is 2.2–2.9%; snapshot clock pinned so
   the feed header date can't go stale).
   Re-record after intentional visual changes with `-Dsnapshot.record=true`, then

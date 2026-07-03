@@ -72,7 +72,8 @@ the Roborazzi DIY path noted at acceptance. Implementation (epic CL-SNAP):
 - `desktopTest` dep in `apps/client/build.gradle.kts`.
 - Scene registry: `SnapshotScenes.kt` (scenes `feed`, `hub-detail`, `detail`;
   state fixtures from `SnapshotStates.kt` — hand-built `AppState` literals).
-- 12 committed goldens in `apps/client/src/desktopTest/resources/snapshots/`.
+- 131 committed goldens in `apps/ui/src/desktopTest/resources/snapshots/`
+  (20 scenes: every client surface, light + selected dark variants).
 - `GoldenSnapshotTest` verifies goldens at `maxDiffPercent = 4.0` in
   `:client:desktopTest` (CI = ubuntu-latest); measured cross-OS drift on
   bold-dense scenes is 2.2–2.9% (variable-font wght instantiation differs
@@ -81,7 +82,7 @@ the Roborazzi DIY path noted at acceptance. Implementation (epic CL-SNAP):
   vision tokens).
 
 **"Remaining" item #6 (redux-kotlin CLI)** is also delivered: the
-`:client:snapshotUi` Gradle task (`-PsnapshotArgs="…"`) is the agent-loop
+`:ui:snapshotUi` Gradle task (`-PsnapshotArgs="…"`) is the agent-loop
 entry for headless render + semantic inspection. See `processes/agent-dev-loop.md`
 `⭐ rk snapshot` section for the full workflow.
 

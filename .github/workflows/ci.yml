@@ -80,6 +80,21 @@ jobs:
       # (:client = logic tests; :ui = render/UI + CL-SNAP golden/snapshot tests).
       - working-directory: apps
         run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest
+      # On golden failure: render the batch dashboard (per-shot image + magenta diff +
+      # verdict, self-contained index.html) and upload it, so a failed PR run gives
+      # clickable visual diffs without a local repro. `|| true`: the dashboard run
+      # exits 1 on the same mismatches that failed the gate — we want the artifact.
+      - name: Golden dashboard (on failure)
+        if: failure()
+        working-directory: apps
+        run: ./gradlew --no-daemon :ui:snapshotUi -PsnapshotArgs="--batch snapshot-shots.json --golden-dir src/desktopTest/resources/snapshots/linux --dashboard" || true
+      - name: Upload snapshot dashboard
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-dashboard
+          path: apps/ui/.rk-snapshots
+          if-no-files-found: ignore
 
   debugdrawer:
     name: Debug Drawer (Compose-MP lib, headless)
