@@ -1,13 +1,28 @@
 # dayfold CLI — command cheatsheet
 
-The skill drives ONLY these commands. Assume `dayfold` is on PATH and logged in.
+The skill drives ONLY these commands. Assume `dayfold` is on PATH.
 
-## Prereq
+## Prereq — sign-in gate
 
 ```
 dayfold whoami      # family=<id> api=<url> (device|legacy); prints scope=...
 ```
-If it shows `(legacy)` with empty family or errors → operator must `dayfold login`.
+If it shows `(legacy)` with empty family or errors → the operator (not the
+skill) must run:
+
+```
+dayfold login [--allow-env-key]
+```
+This is an interactive RFC 8628 device-grant flow (prints a code, the family
+owner approves it in the app) — the skill should tell the operator to run it
+and wait, never attempt it itself. The refresh token is stored in the OS
+keychain; on a host with no keychain, `login` refuses unless
+`--allow-env-key`, then falls back to a plaintext `0600` file at
+`~/.config/dayfold/credentials.json` (headless/CI only).
+
+`dayfold logout` clears the stored credential. `dayfold update` / `dayfold
+version` (or `--version`) are maintenance commands, not part of the authoring
+flow — mention them only if the operator asks about upgrading the CLI itself.
 
 ## Read current state (Phase C, and to get ids before push)
 

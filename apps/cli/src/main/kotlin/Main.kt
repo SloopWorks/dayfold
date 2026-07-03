@@ -464,19 +464,32 @@ private fun deviceLogin(api: String, allowEnvKey: Boolean) {
 internal val USAGE =
   "usage: dayfold <command>\n" +
     "  login [--allow-env-key] | logout | whoami\n" +
-    "        (refresh token is stored in the OS keychain; --allow-env-key permits\n" +
-    "         a 0600-file fallback on hosts without a keychain — headless/CI)\n" +
+    "        (refresh token is stored in the OS keychain; on a host with no keychain,\n" +
+    "         login refuses unless --allow-env-key, then falls back to a plaintext\n" +
+    "         0600 file at ~/.config/dayfold/credentials.json — headless/CI.\n" +
+    "         whoami also prints scope=<grants> for the signed-in credential.)\n" +
     "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
     "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
     "         --type runs local typed card validation before the server.\n" +
     "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
-    "  template <type>            starter body: a card type, hub|section|block, or timeline\n" +
+    "  template <type>            starter body: file|link|invite|contact|geo|email\n" +
+    "                              (card types) or hub|section|block|timeline (hub tree)\n" +
     "  delete <id> [--card|--block] | rm\n" +
     "        remove a hub (cascades sections+blocks), a card, or a single block\n" +
     "  update                     update to the latest dayfold (brew upgrade)\n" +
+    "        (auto-checks at most once/24h; set DAYFOLD_NO_UPDATE_CHECK to disable)\n" +
     "  version | --version       print the CLI version\n" +
     "  help | -h | --help         print this usage\n" +
+    "\n" +
+    "  exit codes: 0 = success (or explicit help); 1 = the server/session rejected\n" +
+    "    the request (login/session-expired, non-2xx, validation failure) — re-run\n" +
+    "    `dayfold login` or fix the payload; 2 = local misuse (bad flags/args, missing\n" +
+    "    env, unreadable file, no keychain without --allow-env-key).\n" +
+    "\n" +
+    "  legacy auth (pre-device-grant, still accepted by the API): set DAYFOLD_API,\n" +
+    "    FAMILY_ID, and HOUSEHOLD_SECRET in the environment instead of `login` — no\n" +
+    "    flag needed, the CLI falls back to these when no stored credential exists.\n" +
     "\n" +
     "  visual enrichment (ADR 0036): hub/card `media` {heroUrl,thumbnailUrl,heroFit,\n" +
     "    imageAlt,icon,accentColor} + block link/document thumbnailUrl + contact\n" +
