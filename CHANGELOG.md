@@ -7,6 +7,18 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-03 — Hub timeline now persists (ADR 0045 write-path fix)
+
+### Fixed (API)
+- **Authored Hub `timeline` is now stored and returned.** A hub pushed with a
+  `timeline` ({ tz, stops[] }) previously validated and returned `200`, then was
+  silently dropped — pull showed `timeline: false`. ADR 0045 shipped the CLI
+  template, server validation, and client rendering, but `upsertHub` had no
+  column to write into and no migration ever added one. Migration
+  `0016_hub_timeline.sql` adds `hubs.timeline jsonb` (+ object-shape CHECK,
+  mirroring `media`), and `upsertHub` now persists it (`EXCLUDED` semantics: a
+  re-push without a timeline clears it). Round-trips on PUT / GET / sync.
+
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 
 ### Added (dev tooling)
