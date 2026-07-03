@@ -76,8 +76,10 @@ jobs:
         run: bash scripts/check-expect-actual.sh
       # TASK-KMP consolidated :client into the single apps/ Gradle build —
       # apps/client no longer has its own wrapper. Run the module task from apps/.
+      # ADR 0047 split the Compose UI + render/snapshot tests into :ui — run both
+      # (:client = logic tests; :ui = render/UI + CL-SNAP golden/snapshot tests).
       - working-directory: apps
-        run: ./gradlew --no-daemon :client:desktopTest
+        run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest
 
   debugdrawer:
     name: Debug Drawer (Compose-MP lib, headless)
