@@ -764,16 +764,36 @@ Not applied in that session: the sandbox had no outbound access to the Gradle/np
 registries, so nothing here could be build-verified before pushing. Pick up with a
 normal dev environment (`processes/agent-dev-loop.md`).
 
+- **✅ DONE 2026-07-04** — the post-`authorizeTenant()` caller shape was rebuilt
+  inline 11× in `app.ts`; extracted `callerFrom(a)`, used everywhere (2 of the 11
+  sites also need `cred` → `{ ...callerFrom(a), cred: a.cred }`). Pure syntactic
+  dedup, no behavior change; `tsc --noEmit` (module-resolution errors filtered,
+  since this sandbox still has no npm-tarball egress — see below) showed no new
+  type errors. CI will give the real confirmation on push.
+- **✅ DONE 2026-07-04** — moved `src/generated/content.timeline.test.ts` →
+  `src/content-schema.timeline.test.ts` (fixed its `./content` import to
+  `./generated/content`); `src/generated/` is codegen-output-only again. Left it
+  as a sibling of `content-validation.timeline.test.ts` rather than merging —
+  they test Hub.timeline from genuinely different angles (schema parse vs.
+  structural-issue listing) and merging wasn't a dedup win, just file-shuffling.
 - **`apps/api`** — `bearer()` token-extraction is defined twice, identically:
   `src/app.ts:48` and `src/auth/middleware.ts:10`. Export the one in
-  `middleware.ts`, import it in `app.ts`.
+  `middleware.ts`, import it in `app.ts`. **Not done this pass** (deliberately):
+  it's the auth-token-extraction path, touched by every route in the file — the
+  two items above were pure local refactors verifiable by inspection; this one's
+  blast radius (12+ call sites, security-sensitive) warrants an environment that
+  can actually run the 80+ API auth tests, not just a syntax check.
 - **`apps/api`** — visibility/audience validation on `PUT` is copy-pasted between
   the cards handler (`src/app.ts:363`) and the hubs handler (`src/app.ts:501`).
   Extract one `validateVisibilityAudience(raw)` helper, use in both.
 - **`apps/cli`** — the refresh-token flow (load creds → `POST /auth/refresh` →
   parse → save → return) is inlined three times in `Main.kt`
   (`authedGet` ~L82, `authedDelete` ~L104, inline in `push` ~L280). Extract
-  `refreshAccessToken(store, keychain, api, refreshToken): String` once.
+  `refreshAccessToken(store, keychain, api, refreshToken): String` once. **Not
+  done this pass:** no Gradle/Kotlin compiler reachable in this sandbox at all
+  (unlike the TS side, where the globally-installed `tsc` at least catches
+  syntax/structural breakage) — auth-token-refresh code needs a real compile +
+  test run before touching, not a hand-read.
 - **`apps/api`/`packages/linkrules`** — `media-validation.ts` /
   `MediaValidation.kt` exists as two synchronized copies (TS + one shared
   Kotlin copy — the CLI/client duplication was removed in `be45de6`/#276).
@@ -784,19 +804,17 @@ normal dev environment (`processes/agent-dev-loop.md`).
   lower-risk interim step is a **CI parity guard** (assert the two files'
   allowed-host / icon-enum / hex-color literals match), not a shared
   implementation.
-- **`apps/api`** — the post-`authorizeTenant()` caller shape
-  `{ userId: a.userId, legacy: a.legacy }` is rebuilt inline 11× in `app.ts`
-  (2026-07-03 audit: lines 357/399/409/424/443/470/486/520/593/655/939).
-  Extract a `callerFrom(a)` helper, use everywhere.
-- **`apps/api`** — `src/generated/content.timeline.test.ts` is a hand-written
-  test living inside `src/generated/`, whose whole convention is "codegen
-  output, don't hand-edit or you'll lose it on regen." Move it next to
-  `src/content-validation.timeline.test.ts` (or merge the two — they test
-  Hub.timeline from different angles: structural issues vs. loose schema
-  parse) before someone treats the directory as truly generated-only and
-  deletes it.
 - **`apps/api`** — `app.ts` is a single 1051-line file holding all ~45 routes
   (auth, families, hubs/sections/blocks, device-grant, invites, sync, cron).
   Splitting into per-resource route modules would make it easier for an agent
   to navigate/diff safely — bigger and riskier than the items above, so listed
   but not sized as a quick win.
+
+**Sandbox note (recurring across the 2026-07-01/02/03/04 passes):** `registry.npmjs.org`
+resolves and answers registry-metadata `GET`s directly (bypasses the agent proxy
+via `no_proxy`), but tarball downloads (`registry.npmjs.org/<pkg>/-/<pkg>-<ver>.tgz`)
+and `services.gradle.org` both 403 at the egress-policy layer — so `npm install`
+and any Gradle invocation still fail in this sandbox class. A global `tsc` binary
+*is* present, which is enough to syntax/structural-check standalone TS edits
+(module-resolution errors expected and filtered) but not to type-check against
+real dependency types or run tests. No Kotlin compiler is reachable at all.

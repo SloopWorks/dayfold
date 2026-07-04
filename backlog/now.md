@@ -57,6 +57,25 @@ similar ground; its useful content already shipped separately via `be45de6`
 (PR #276) — see `backlog/now-history.md` if you land on that branch and need
 to know it's superseded.
 
+**2026-07-04 repo-audit pass (this session, operator-requested recurring sweep —
+same brief as the 07-02/07-03 passes, not a feature slice):** re-ran the full
+audit (simplify/dedup, agentic-dev docs, skill/CLI-help completeness, diagrams,
+changelog, CI, values/privacy) — found the prior two passes had already closed
+the real gaps: CI 30/30 green on `main`, CHANGELOG/`docs/architecture.md`/skill
+docs all current against the last 24h of ships (hub block Call/Text/Email/
+Directions actions, full-resync schema bump, timeline "This day" fix, deep-link
+section-targeting fix — verified the location-Directions handoff still passes
+an address/label, never a raw lat/lng, per ADR 0014). Applied 2 of the small
+queued `CODE DEDUP FINDINGS` items (`backlog/next.md`): extracted `callerFrom()`
+in `apps/api/src/app.ts` (11× duplicate caller-object literal) and moved the
+misplaced hand-written test out of `src/generated/`. Both are pure, low-risk
+refactors verified by hand + a syntax/structural pass with the sandbox's global
+`tsc` (still no npm-tarball or Gradle egress here — same constraint as prior
+passes, noted in `backlog/next.md`); left the `bearer()` dedup and the CLI
+refresh-token dedup queued, since both sit on security-sensitive auth paths that
+deserve a real test run, not a hand-read. No CI breakage to fix, no new
+doc/values drift found.
+
 ## Design-first gate (ADR 0008) — status
 
 The **feed-only** M0 slice was built **build-first** (operator-directed) from the

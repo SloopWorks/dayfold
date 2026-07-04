@@ -19,6 +19,13 @@ import { CONTENT_TOMBSTONE_RETENTION_DAYS } from "./auth/sweep.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
 
+// The post-authorizeTenant() caller shape most content routes pass down
+// (visibility checks, listCards/listHubs) — a small slice of the full auth
+// result `a`. hubWriteGate's Caller additionally needs `cred`; spread this in.
+function callerFrom(a: { userId: string | null; legacy: boolean }): { userId: string | null; legacy: boolean } {
+  return { userId: a.userId, legacy: a.legacy };
+}
+
 export const app = new Hono();
 
 // Liveness — no auth, no DB (isolates routing/cold-start from the DB path).
@@ -362,7 +369,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
   // 404. A new id or a family/own card → visible → proceed.
   {
     const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
-    if (cur.rowCount && !cardVisible(cur.rows[0], { userId: a.userId, legacy: a.legacy })) return c.body(null, 404);
+    if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
   }
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
@@ -399,7 +406,7 @@ app.get("/families/:fid/cards", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
-  return c.json(await repo.listCards(fid, { userId: a.userId, legacy: a.legacy }));
+  return c.json(await repo.listCards(fid, callerFrom(a)));
 });
 
 // Active member roster (member-gated — every member can see who's in the family).
@@ -445,7 +452,7 @@ app.get("/families/:fid/hubs", async (c) => {
   const grants = await resolveGrants(a.cred.id);
   const hubGrantIds = grantedHubIds(grants, "read");          // null = global content:read
   if (hubGrantIds !== null && hubGrantIds.length === 0) return c.json({ type: "forbidden" }, 403);
-  return c.json(await hubs.listHubs(fid, { userId: a.userId, legacy: a.legacy }, hubGrantIds));
+  return c.json(await hubs.listHubs(fid, callerFrom(a), hubGrantIds));
 });
 
 app.get("/families/:fid/hubs/:id", async (c) => {
@@ -454,7 +461,7 @@ app.get("/families/:fid/hubs/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404); // uniform 404 on scope-miss
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -467,7 +474,7 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -483,7 +490,7 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -517,7 +524,7 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   { const m = (parsed.data as any).media; if (m?.accentColor) m.accentColor = normalizedAccent(m.accentColor); }
   const timelineIssues = hubTimelineIssues(parsed.data as any);
   if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const existing = await hubs.getHub(fid, id);
   if (existing) {
     const allow = await hubs.allowListFor(fid, id);
@@ -564,7 +571,7 @@ app.put("/families/:fid/sections/:id", async (c) => {
   // Visibility-on-write (ADR 0038): restricted-invisible hub → 404 (no oracle); absent
   // parent hub → 409 give-up (§6.2, matches the existing parent-must-exist contract);
   // 403 only visible-but-scope-denied.
-  const gate = await hubWriteGate(fid, hubId, { userId: a.userId, legacy: a.legacy, cred: a.cred });
+  const gate = await hubWriteGate(fid, hubId, { ...callerFrom(a), cred: a.cred });
   if (gate === "invisible") return c.body(null, 404);
   if (gate === "denied") return c.json({ type: "forbidden" }, 403);
   if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
@@ -590,7 +597,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy, cred: a.cred };
+  const caller = { ...callerFrom(a), cred: a.cred };
   // Resolve the owning hub (via the live section); 409 if the parent is gone → the
   // outbox sender gives up (distinct from 412 stale / 410 tombstone — ADR 0038 §6.2).
   const hubId = await hubs.liveHubOfSection(fid, sectionId);
@@ -652,7 +659,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   { const e = idError(id); if (e) return c.json(e, 422); }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const opId = c.req.header("idempotency-key");
   // Idempotent replay: the delete already applied under this op_id → 204 (before the
   // 404-on-tombstone below, so a drained/retried delete converges instead of 404ing).
@@ -936,7 +943,7 @@ app.get("/families/:fid/sync", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const raw = c.req.query("since") ?? "";
 
   // [F4] cursor decode:
