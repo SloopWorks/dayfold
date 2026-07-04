@@ -42,6 +42,17 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   tile + "Directions" open the maps app (an address/place query, never a raw
   position — ADR 0014). No new infra — `HubBlockCard` now threads the existing
   hub-screen action channel (renamed `onTimelineAction` → `onCardAction`).
+## 2026-07-03 — Timeline "This day" now means today
+
+### Fixed (client)
+- **The timeline "This day" scale shows today's schedule, not a future day's.** The
+  Day scale keyed off the "focal day" = the day with the most intraday-timed stops,
+  which only *preferred* today — so when today had no timed stops it fell to the
+  busiest upcoming day and rendered that future day's items under a "Today" /
+  "Today's schedule" label (e.g. a July view showing an August-14 7 PM webinar).
+  `focalDay` is now literally today; the Day scale is offered only when today itself
+  has an intraday-timed stop, otherwise the hub shows the roadmap. The "Today" labels
+  are now always accurate.
 
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 

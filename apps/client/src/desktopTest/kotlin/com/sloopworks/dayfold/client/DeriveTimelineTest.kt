@@ -51,9 +51,9 @@ class DeriveTimelineTest {
         assertTrue(tl.derived)
         assertEquals("Maya starts college", tl.title)
         assertEquals("America/New_York", tl.tz)
-        // renders through the same presenter — the intraday pickup on Aug 24 makes Aug 24 the
-        // focal day with an intraday stop → Day scale (the roadmap is a toggle away).
-        val card = presentTimelineCard(tl, "2026-07-01T10:00:00-04:00", ny)!!
+        // renders through the same presenter — on the intraday pickup day (Aug 24) TODAY has a
+        // timed stop → Day scale (the roadmap is a toggle away). "This day" means today (#285-fix).
+        val card = presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
         assertEquals(TimelineScale.Day, card.scale)
     }
 

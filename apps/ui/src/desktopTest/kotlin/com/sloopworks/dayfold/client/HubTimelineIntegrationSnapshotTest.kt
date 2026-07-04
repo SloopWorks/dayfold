@@ -67,7 +67,7 @@ class HubTimelineIntegrationSnapshotTest {
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    HubDetailScreen(state)
+                    HubDetailScreen(state, now = kotlin.time.Instant.parse(nowIso))
                 }
             }
         }
@@ -87,7 +87,7 @@ class HubTimelineIntegrationSnapshotTest {
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    HubDetailScreen(state)
+                    HubDetailScreen(state, now = kotlin.time.Instant.parse(nowIso))
                 }
             }
         }
