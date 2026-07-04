@@ -27,6 +27,13 @@ class HubArrivalIndexTest {
     assertEquals(5, focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false))
   }
 
+  @Test fun indexesSectionHeadersForSectionDeepLinks() {
+    // A deep-link may target a SECTION (blk-* vs sec-* are distinct id namespaces). It resolves
+    // to the section HEADER item so the section scrolls to the top: s1hdr(1), s2hdr(4).
+    assertEquals(1, focusedBlockItemIndex(tree, "s1", hasCountdown = false, restricted = false))
+    assertEquals(4, focusedBlockItemIndex(tree, "s2", hasCountdown = false, restricted = false))
+  }
+
   @Test fun preludeItemsShiftTheIndex() {
     // +countdown +honesty → prelude = 3: b2 = 3(prelude) + 1(s1hdr) + 1(pos) = 5
     assertEquals(5, focusedBlockItemIndex(tree, "b2", hasCountdown = true, restricted = true))

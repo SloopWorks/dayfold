@@ -548,8 +548,11 @@ fun HubDetailScreen(
 // focus), so the arrival can scroll it into view. Mirrors HubDetailScreen's emission
 // order: [status header] + [countdown?] + [honesty?] + per section [header] + [blocks].
 // Unit-tested so it can't silently drift from the render.
-fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Boolean, restricted: Boolean, hasTimelineCard: Boolean = false): Int? {
-  if (focusBlockId == null) return null
+// Item index to scroll a deep-link target into view. [focusId] is a block OR a section id
+// (blk-* / sec-* are distinct namespaces): a section deep-link resolves to that section's HEADER
+// item (so the section scrolls to the top), a block deep-link to the block's row.
+fun focusedBlockItemIndex(tree: HubTree, focusId: String?, hasCountdown: Boolean, restricted: Boolean, hasTimelineCard: Boolean = false): Int? {
+  if (focusId == null) return null
   var idx = 1                                       // status header (always)
   if (hasCountdown) idx += 1
   if (restricted) idx += 1
@@ -557,8 +560,9 @@ fun focusedBlockItemIndex(tree: HubTree, focusBlockId: String?, hasCountdown: Bo
   for (section in tree.sections.sortedBy { it.ord }) {
     val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
     if (blocks.isEmpty()) continue                   // empty sections render nothing → don't count a header
+    if (section.id == focusId) return idx            // section deep-link → its header row
     idx += 1                                          // section header
-    val pos = blocks.indexOfFirst { it.id == focusBlockId }
+    val pos = blocks.indexOfFirst { it.id == focusId }
     if (pos >= 0) return idx + pos
     idx += blocks.size
   }
