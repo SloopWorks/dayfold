@@ -157,14 +157,17 @@ class MainActivity : ComponentActivity() {
       // fake scenario (the persistent DB survives the backend-switch restart); the
       // fake /sync repopulates from the scenario.
       cs.wipe()
-    } else if (BuildConfig.DEBUG && BuildConfig.FAMILY_ID.isEmpty()) {
-      // Debug-only: seed the DB with sample cards so the content UI (cards/detail/
-      // transition) is exercisable on-device without a live API. Sync only adds/
-      // tombstones, never wipes these. NOTE (post AUTH-S5): the route gate hides the
-      // feed until Route.Feed (signed-in + active family) — sign in via the dev path
-      // to reach the seeded feed.
-      cs.applyDelta(com.sloopworks.dayfold.client.SampleData.cards, emptyList(), emptyList(), emptyList(), emptyList(), null, "2026-06-20T10:00:00Z")
     }
+    // NOTE: no standalone SampleData seed here. It used to run on every debug launch
+    // (BuildConfig.FAMILY_ID is the build-time legacy const, always empty — NOT the
+    // interactively signed-in activeFamilyId), so the sample cards (ids s_*) were
+    // upserted into the SAME persistent DB that a real signed-in family syncs into.
+    // Because the server never knows those ids it can never tombstone them, and the
+    // incremental cursor sync never prunes rows it didn't deliver — so the fake cards
+    // rendered permanently in the Now feed next to real prod content. On-device UI
+    // exercise without a live API is still available via the `fake://` showcase
+    // backend (reuses SampleData.cards, wipes on entry so it never coexists with real
+    // data). See fix/debug-seed-pollutes-now-feed.
     val tokenStore = AndroidTokenStore(applicationContext)
     authEngine = AuthEngine(
       store, AuthClient(clientApi, http), tokenStore,

@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-04 — Debug sample cards no longer leak into the Now feed
+
+### Fixed (client)
+- **Fake seed content (`s_briefing`, "Maya's party", "Jake's Rentals", …) is gone from
+  the Now tab.** Android debug builds seeded `SampleData.cards` into the same persistent
+  DB a real signed-in family syncs into (the seed gate keyed off the empty build-time
+  `FAMILY_ID` const, not the interactive `activeFamilyId`), so sample cards rendered
+  permanently beside real content — the server never emits those ids, so incremental
+  sync (upsert + tombstone, ADR 0040) could never prune them. The standalone seed is
+  removed (on-device sample viewing stays available via the `fake://` showcase backend,
+  which wipes on entry). Existing devices self-heal on upgrade: `CLIENT_SCHEMA_VERSION`
+  bumps 1→2, so `reconcileSchemaVersion` wipes synced content+cursor once and the next
+  sync full-rehydrates from the server (outbox / hidden / session preserved). Verified
+  on-device: 7 seed cards purged, 9 real cards re-synced, no re-sign-in.
+
 ## 2026-07-03 — Hub timeline now persists (ADR 0045 write-path fix)
 
 ### Fixed (API)
