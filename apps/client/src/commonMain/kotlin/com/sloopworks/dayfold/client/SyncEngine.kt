@@ -46,6 +46,11 @@ class SyncEngine(
    */
   fun start() {
     if (bridgeJob != null) return
+    // Issue #283 — heal a cache written by an older content-model BEFORE the bridges collect it,
+    // so stale rows (e.g. checklist items missing their ADR 0038 id → non-interactive) never flash
+    // to the UI. A no-op unless the stored client-schema version is behind; when it heals it wipes
+    // synced content + cursor → the first syncNow() below rebuilds from -∞.
+    contentStore.reconcileSchemaVersion()
     bridgeJob = scope.launch {
       contentStore.activeCardsFlow().collect { store.dispatch(CardsLoaded(it)) }
     }

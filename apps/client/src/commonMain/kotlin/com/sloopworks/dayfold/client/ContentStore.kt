@@ -19,6 +19,14 @@ import kotlinx.serialization.json.Json
 private val RELATED_SER = ListSerializer(RelatedRef.serializer())
 private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 0043 — block triggers JSON list
 
+// Issue #283 — the client CONTENT-schema version. BUMP THIS BY HAND whenever a synced model
+// gains (or changes) a BEHAVIOR-affecting field, so devices upgrading over an older cache force a
+// full resync ([ContentStore.reconcileSchemaVersion]) instead of silently rendering rows the old
+// model wrote without the field. NOT ContentDb.Schema.version (that tracks the SQLite schema and
+// bumps for additive cache tables too — too aggressive to resync on).
+//   v1: ChecklistItem.id became render-behavior (checklist interactivity + LWW merge, ADR 0038).
+const val CLIENT_SCHEMA_VERSION: Long = 1L
+
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
 // (JdbcSqliteDriver desktop/test · AndroidSqliteDriver · NativeSqliteDriver iOS).
@@ -115,6 +123,11 @@ class ContentStore(driver: SqlDriver) {
         }
       }
       if (nextCursor != null) q.setCursor(nextCursor, nowIso)
+      // Issue #283 — tag the cache with the schema this build wrote it under, so a future build
+      // that adds a behavior-affecting field can detect an older cache and force a resync
+      // ([reconcileSchemaVersion]). Stamping at the write keeps the tag meaning exactly "the
+      // schema of the content currently cached".
+      q.setSchemaVersion(CLIENT_SCHEMA_VERSION)
     }
   }
 
@@ -172,8 +185,31 @@ class ContentStore(driver: SqlDriver) {
   fun wipeForResync() {
     // Places are synced content → drop them (the rebuild page re-delivers them). surfacing_state is
     // LOCAL-ONLY personal anti-nag history → PRESERVED (parity with `hidden`; not wiped here).
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces() }
+    q.transaction { wipeSyncedContent() }
   }
+
+  // The synced-content deletes shared by [wipeForResync] and [reconcileSchemaVersion]. NOT
+  // transactional itself — callers wrap it (so a wipe + version-stamp commit atomically).
+  private fun wipeSyncedContent() {
+    q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces()
+  }
+
+  /** Issue #283 — heal rows an older content-model wrote. If the cache was last synced under an
+   *  OLDER [CLIENT_SCHEMA_VERSION], the incremental cursor can't backfill a since-added
+   *  behavior-affecting field (an older model dropped it via ignoreUnknownKeys and advanced the
+   *  cursor past those rows), so force a full resync: wipe synced content + cursor (keeping the
+   *  outbox + local hidden, [wipeForResync] semantics) and stamp the current version — atomically,
+   *  so a crash mid-way just re-heals next launch. Fresh/legacy DB → NULL → 0 → heal once (a no-op
+   *  wipe on empty tables). Call BEFORE the first sync. */
+  fun reconcileSchemaVersion(current: Long = CLIENT_SCHEMA_VERSION) {
+    val stored = q.getSchemaVersion().executeAsOneOrNull()?.client_schema_version ?: 0L
+    if (stored >= current) return
+    q.transaction { wipeSyncedContent(); q.setSchemaVersion(current) }
+  }
+
+  /** The client content-schema version the cache was last synced under (issue #283); 0 when the
+   *  row is absent or predates #283. */
+  fun schemaVersion(): Long = q.getSchemaVersion().executeAsOneOrNull()?.client_schema_version ?: 0L
 
   // ── Egress lane (ADR 0038/0039) — the outbox is WRITE-ONLY (the UI never reads it). ──
 
