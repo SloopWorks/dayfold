@@ -25,7 +25,12 @@ private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 00
 // model wrote without the field. NOT ContentDb.Schema.version (that tracks the SQLite schema and
 // bumps for additive cache tables too — too aggressive to resync on).
 //   v1: ChecklistItem.id became render-behavior (checklist interactivity + LWW merge, ADR 0038).
-const val CLIENT_SCHEMA_VERSION: Long = 1L
+//   v2: one-shot purge of debug SampleData seed rows (ids s_*) that older debug builds upserted
+//       into the shared prod-synced DB — the server never emits those ids so it can never tombstone
+//       them, and incremental sync never prunes undelivered rows. reconcileSchemaVersion wipes
+//       synced content+cursor once so the next sync full-rehydrates from the server (truth). The
+//       seed source was removed (MainActivity), so this is a durable heal, not a recurring one.
+const val CLIENT_SCHEMA_VERSION: Long = 2L
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
