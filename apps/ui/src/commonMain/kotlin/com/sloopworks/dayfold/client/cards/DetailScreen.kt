@@ -51,7 +51,9 @@ import com.sloopworks.dayfold.client.RelatedRef
 // means no link. Pure so the signature value-prop glue is unit-tested, not just
 // inline in the Composable. Returns (hubId, focusBlockId?) or null = no deep-link.
 internal fun hubLinkTarget(card: Card): Pair<String, String?>? =
-  (card.targetHubId ?: card.hubRef)?.takeIf { it.isNotBlank() }?.let { it to card.targetBlockId }
+  // focus a specific block when the card names one, else the section (deep-links are usually
+  // section-level). blk-* / sec-* are distinct id namespaces → one focus id resolves either.
+  (card.targetHubId ?: card.hubRef)?.takeIf { it.isNotBlank() }?.let { it to (card.targetBlockId ?: card.targetSectionId) }
 
 @Composable
 fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit) {

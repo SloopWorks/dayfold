@@ -54,6 +54,18 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   has an intraday-timed stop, otherwise the hub shows the roadmap. The "Today" labels
   are now always accurate.
 
+## 2026-07-03 — Deep-links locate to the right section
+
+### Fixed (client)
+- **Tapping a deep-link (timeline chip, Now card, or card detail) now scrolls to the
+  target section, not the top of the hub.** Every deep-link in practice targets a
+  *section* (`sectionId` / `target_section_id`), but the client only ever passed the
+  (usually null) *block* id — so `CardAction.OpenHub` opened the hub at the top and the
+  section was never located. All three deep-link builders now fall back to the section
+  id, and the arrival-scroll resolves a section id to its header row (blk-* / sec-* are
+  distinct id namespaces, so one focus id handles either). E.g. a timeline's "Money &
+  Billing" chip now jumps to the Money & Billing section.
+
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 
 ### Added (dev tooling)
