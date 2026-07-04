@@ -127,26 +127,19 @@ private fun scopedDayStops(presented: List<PresentedStop>, focal: LocalDate?, tz
 private fun Stop.hasIntradayTime(): Boolean = at.trim().length > 10  // "YYYY-MM-DD" = 10; longer has a time component
 
 /**
- * Returns the date with the most intraday-timed stops.
- * Tie → the date containing [nowIso] if any, else earliest.
- * If no intraday stops exist, returns today.
+ * The day the "This day" scale is about — **today**. (It previously returned the day with the most
+ * intraday-timed stops, which surfaced a FUTURE day's schedule under a "Today" label when today had
+ * no timed stops.) The Day scale is offered only when today itself has intraday-timed stops
+ * ([dayScaleAvailable]); otherwise the hub falls to the roadmap. null when [nowIso] is unparseable.
  */
-internal fun focalDay(tl: Timeline, nowIso: String, tz: TimeZone): LocalDate? {
-    val today = parseInstantFlexible(nowIso, tz)?.toLocalDateTime(tz)?.date
-    val byDay = tl.stops.filter { it.hasIntradayTime() }
-        .mapNotNull { parseInstantFlexible(it.at, tz)?.toLocalDateTime(tz)?.date }
-        .groupingBy { it }.eachCount()
-    if (byDay.isEmpty()) return today
-    val max = byDay.values.max()
-    val tied = byDay.filterValues { it == max }.keys
-    return tied.firstOrNull { it == today } ?: tied.minOrNull()
-}
+internal fun focalDay(nowIso: String, tz: TimeZone): LocalDate? =
+    parseInstantFlexible(nowIso, tz)?.toLocalDateTime(tz)?.date
 
-/** True when the timeline has ≥1 intraday-timed stop on the focal day (the day view is meaningful). */
+/** True when the timeline has ≥1 intraday-timed stop TODAY (the day view is meaningful + literal). */
 internal fun dayScaleAvailable(tl: Timeline, nowIso: String, tz: TimeZone): Boolean {
-    val focal = focalDay(tl, nowIso, tz)
+    val today = focalDay(nowIso, tz)
     return tl.stops.any { it.hasIntradayTime() &&
-        parseInstantFlexible(it.at, tz)?.toLocalDateTime(tz)?.date == focal }
+        parseInstantFlexible(it.at, tz)?.toLocalDateTime(tz)?.date == today }
 }
 
 /** True when the stops span >14 days, or ≥3 date-only stops, or >1 distinct month (the roadmap is meaningful). */
@@ -233,7 +226,7 @@ fun presentTimelineCard(tl: Timeline, nowIso: String, tz: TimeZone): TimelineCar
         TimelineScale.Day -> {
             // Day scale is the focal day's schedule — scope to that date (a timeline may also
             // carry multi-month roadmap stops, reachable via the detail's "Whole hub" toggle).
-            val focal = focalDay(tl, nowIso, tz)
+            val focal = focalDay(nowIso, tz)
             val dayStops = scopedDayStops(presented, focal, tz)
             val doneCount = dayStops.count { it.status == StopStatus.Done }
             val nonDone = dayStops.filter { it.status != StopStatus.Done }
@@ -349,7 +342,7 @@ fun presentTimelineDetail(tl: Timeline, scale: TimelineScale, nowIso: String, tz
     return when (scale) {
         TimelineScale.Day -> {
             // Scope to the focal day (the roadmap stops live in the Hub scale), chronological.
-            val focal = focalDay(tl, nowIso, tz)
+            val focal = focalDay(nowIso, tz)
             val dayStops = scopedDayStops(presented, focal, tz)
             val morning = dayStops.filter { (it.instant?.toLocalDateTime(tz)?.hour ?: 0) < 12 }
             val afternoon = dayStops.filter { val h = it.instant?.toLocalDateTime(tz)?.hour ?: 0; h in 12..16 }

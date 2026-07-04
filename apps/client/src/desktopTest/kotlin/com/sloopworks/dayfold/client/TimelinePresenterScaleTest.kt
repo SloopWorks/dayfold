@@ -44,13 +44,31 @@ class TimelinePresenterScaleTest {
         assertNull(nowLineIndex(day, "2026-09-01T10:00:00-04:00", ny))
     }
 
-    @Test fun `focalDay tie resolved by today`() {
-        // Two dates each have 2 intraday stops; one is today → focalDay returns today
+    @Test fun `focalDay is today (the This day scale means today)`() {
+        // Even with more intraday stops on a later day, the Day scale is about TODAY.
         val tl = Timeline(tz = "America/New_York", stops = listOf(
-            Stop("2026-08-24T08:00:00-04:00", "a"), Stop("2026-08-24T11:00:00-04:00", "b"),
+            Stop("2026-08-24T08:00:00-04:00", "a"),
             Stop("2026-08-25T08:00:00-04:00", "c"), Stop("2026-08-25T11:00:00-04:00", "d")))
-        val result = focalDay(tl, "2026-08-24T10:00:00-04:00", ny)
-        assertEquals(kotlinx.datetime.LocalDate(2026, 8, 24), result)
+        assertEquals(kotlinx.datetime.LocalDate(2026, 8, 24), focalDay("2026-08-24T10:00:00-04:00", ny))
+    }
+
+    // The webinar bug: today has NO intraday-timed stop, but a FUTURE day does. The Day scale
+    // must NOT surface that future day under a "This day" label — fall to the roadmap instead.
+    private fun futureTimedOnly() = Timeline(tz = "America/New_York", stops = listOf(
+        Stop("2026-07-06", "housing"), Stop("2026-07-08", "e-bill"),
+        Stop("2026-07-14T19:00:00-04:00", "Living On Campus webinar"),   // future, timed
+        Stop("2026-08-01", "deadline cluster")))
+
+    @Test fun `a future timed day does not make today's scale Day`() {
+        val today = "2026-07-03T10:00:00-04:00"                          // nothing timed today
+        assertEquals(false, dayScaleAvailable(futureTimedOnly(), today, ny))
+        assertEquals(TimelineScale.Hub, selectScale(futureTimedOnly(), today, ny))
+    }
+
+    @Test fun `Day scale returns the moment today itself has a timed stop`() {
+        val timedToday = "2026-07-14T09:00:00-04:00"                     // now IS the webinar day
+        assertEquals(true, dayScaleAvailable(futureTimedOnly(), timedToday, ny))
+        assertEquals(TimelineScale.Day, selectScale(futureTimedOnly(), timedToday, ny))
     }
 
     @Test fun `cross-tz injected tz drives day-boundary classification`() {

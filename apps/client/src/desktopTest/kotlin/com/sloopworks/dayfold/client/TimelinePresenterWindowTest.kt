@@ -50,13 +50,14 @@ class TimelinePresenterWindowTest {
             Stop("2026-08-24T14:00:00-04:00", "bookstore"),
             Stop("2026-08-28", "classes"),
         ))
-        val c = presentTimelineCard(tl, "2026-06-30T10:00:00-04:00", ny)!!
-        assertEquals(TimelineScale.Day, c.scale)          // focal day (Aug 24) has intraday stops
-        assertEquals(1, c.doneCount)                       // only the focal day's done stop (car loaded), not the 3 roadmap
+        // now = move-in day (Aug 24) — "This day" means today (#285-fix), so the Day view is today's.
+        val c = presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
+        assertEquals(TimelineScale.Day, c.scale)          // today (Aug 24) has intraday stops
+        assertEquals(1, c.doneCount)                       // only today's done stop (car loaded), not the 3 roadmap
         assertEquals(2, c.window.size)                     // elevator + bookstore
         assertEquals(0, c.tailCount)                       // Aug 28 (roadmap) is NOT in the day view
-        // detail day view groups only focal-day stops
-        val d = presentTimelineDetail(tl, TimelineScale.Day, "2026-06-30T10:00:00-04:00", ny)
+        // detail day view groups only today's stops
+        val d = presentTimelineDetail(tl, TimelineScale.Day, "2026-08-24T10:00:00-04:00", ny)
         val titles = d.groups.flatMap { g -> g.stops.map { it.stop.title } }
         assertEquals(listOf("car loaded", "elevator", "bookstore"), titles)
     }
@@ -115,20 +116,21 @@ class TimelinePresenterWindowTest {
         assertTrue(c.spine!!.all { it.collapsedCount == null })
     }
 
-    @Test fun `all-done day timeline - doneCount all, window empty, tailCount 0, nowTimeLabel null`() {
-        // All stops are in the past; focal day is not today (today is 2026-08-24 per nowIso but stops are in June)
+    @Test fun `all-done today - doneCount all, window empty, tailCount 0, now time shown`() {
+        // Today's timed stops are all in the past (later in the day) — a Day card that's fully done.
+        // "This day" means today (#285-fix), so the day view IS today and the now-time is shown.
         val stops = listOf(
             Stop("2026-06-10T08:00:00-04:00", "a"),
             Stop("2026-06-10T09:00:00-04:00", "b"),
             Stop("2026-06-10T10:00:00-04:00", "c"),
         )
         val tl = Timeline(tz = "America/New_York", stops = stops)
-        val c = presentTimelineCard(tl, "2026-08-24T10:00:00-04:00", ny)!!
+        val c = presentTimelineCard(tl, "2026-06-10T23:00:00-04:00", ny)!!   // later the same day
         assertEquals(TimelineScale.Day, c.scale)
         assertEquals(3, c.doneCount)
         assertEquals(0, c.window.size)
         assertEquals(0, c.tailCount)
-        assertNull(c.nowTimeLabel) // focal day not today
+        assertNotNull(c.nowTimeLabel) // the day IS today → the now-time is shown
     }
 
     @Test fun `single-scale date-only stops returns Hub card`() {
@@ -195,17 +197,21 @@ class TimelinePresenterWindowTest {
         assertEquals(2, result.nowIndex)
     }
 
-    @Test fun `day scale re-derives Next within the focal day, not the global timeline`() {
-        // Global first-non-done is an earlier roadmap milestone (Sep 1); the focal day is Nov 15.
+    @Test fun `day scale re-derives Next within today, not the global timeline`() {
+        // A done roadmap milestone + a future roadmap milestone flank today's two timed tasks.
+        // The day view promotes TODAY's first non-done to Next (not the global next, which could be
+        // the trailing Dec roadmap stop), and demotes the rest to Upcoming.
         val tl = Timeline(tz = "America/New_York", stops = listOf(
-            Stop("2026-09-01", "milestone"),                          // global Next, but off-focal
+            Stop("2026-09-01", "past milestone", done = true),
             Stop("2026-11-15T09:00:00-05:00", "morning task"),
             Stop("2026-11-15T11:00:00-05:00", "later task"),
+            Stop("2026-12-01", "future milestone"),
         ))
-        val d = presentTimelineDetail(tl, TimelineScale.Day, "2026-06-30T10:00:00-04:00", ny)
+        val d = presentTimelineDetail(tl, TimelineScale.Day, "2026-11-15T08:00:00-05:00", ny)
         val byTitle = d.groups.flatMap { g -> g.stops }.associate { it.stop.title to it.status }
-        assertEquals(StopStatus.Next, byTitle["morning task"])       // focal day's first non-done
+        assertEquals(StopStatus.Next, byTitle["morning task"])       // today's first non-done
         assertEquals(StopStatus.Upcoming, byTitle["later task"])
+        assertEquals(null, byTitle["future milestone"])              // roadmap stop excluded from the day view
     }
 
     @Test fun `hub NOW band lands on the next future month when the current month has no stop`() {
