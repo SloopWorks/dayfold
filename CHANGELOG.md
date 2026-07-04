@@ -30,6 +30,18 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   the sync write path); on startup, if the cache was written under an older version it forces a
   full resync (wipe synced content + cursor, preserving queued member writes + local hides), so
   the current model re-fetches every row. Verified end-to-end on a real device upgrade.
+## 2026-07-03 — Hub contact & location blocks are now actionable
+
+### Added (client)
+- **Tap a contact in a hub to Call / Text / Email; tap a location for Directions.**
+  Contact and location blocks inside a Hub were display-only — the round Call/Text
+  affordances had no tap handler and the block was given no action channel. They now
+  hand off to the OS through the same `CardAction` router the Now feed cards use
+  (`tel:` / `sms:` / `mailto:` / `geo:`): a contact shows Call + Text when it has a
+  phone and Email when it has an address (48dp touch targets), and a location's map
+  tile + "Directions" open the maps app (an address/place query, never a raw
+  position — ADR 0014). No new infra — `HubBlockCard` now threads the existing
+  hub-screen action channel (renamed `onTimelineAction` → `onCardAction`).
 
 ## 2026-07-02 — Headless snapshot render + committed-golden CI gate (CL-SNAP)
 
