@@ -10,7 +10,7 @@ import { validateHubMedia, validateCardMedia, validateBlockPayloadMedia, normali
 import * as repo from "./repo.ts";
 // Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
 // load app.ts without triggering the module-level env-guard throws in tokens.ts.
-import { authorizeTenant } from "./auth/middleware.ts";
+import { authorizeTenant, bearer } from "./auth/middleware.ts";
 import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
@@ -45,9 +45,30 @@ function problem(c: any, status: number, type: string, detail?: string) {
 // [F8] body-size cap (cost-DoS floor for the <$50/mo cap). Raw 1 MB.
 app.use("*", bodyLimit({ maxSize: 1024 * 1024, onError: (c) => problem(c, 413, "payload-too-large") }));
 
-function bearer(c: any): string | undefined {
-  const h = c.req.header("authorization") || "";
-  return h.startsWith("Bearer ") ? h.slice(7) : undefined;
+// The post-authorizeTenant() caller shape, rebuilt inline throughout this file.
+// `cred` is harmless to include even where a callee only reads userId/legacy
+// (structural typing) — one shape for every call site.
+function callerFrom(a: { userId: string | null; legacy: boolean; cred: any }) {
+  return { userId: a.userId, legacy: a.legacy, cred: a.cred };
+}
+
+// ADR 0030: visibility + author-stamped audience are authoring fields OUTSIDE the
+// typed content schemas (card + hub) — extract + validate them, then strip before
+// the strict schema parse. Returns a 422 issue payload on bad input.
+function parseVisibilityAudience(raw: any):
+  | { error: { type: string; issues: { path: string[]; message: string }[] } }
+  | { visibility: "family" | "restricted"; audience: string[] | undefined; rest: any } {
+  if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
+    return { error: { type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] } };
+  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  let audience: string[] | undefined;
+  if (visibility === "restricted") {
+    if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
+      return { error: { type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] } };
+    audience = Array.isArray(raw.audience) ? raw.audience : [];
+  }
+  const { visibility: _v, audience: _a, ...rest } = raw;
+  return { visibility, audience, rest };
 }
 
 // Content scope is gated by `requireScope` (ADR 0029, src/auth/scope.ts): resolved
@@ -362,22 +383,13 @@ app.put("/families/:fid/cards/:id", async (c) => {
   // 404. A new id or a family/own card → visible → proceed.
   {
     const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
-    if (cur.rowCount && !cardVisible(cur.rows[0], { userId: a.userId, legacy: a.legacy })) return c.body(null, 404);
+    if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
   }
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
-  // ADR 0030: visibility + author-stamped audience are authoring fields OUTSIDE the
-  // typed-card schema — extract + validate them, then strip before the strict parse.
-  if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
-    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
-  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
-  let audience: string[] | undefined;
-  if (visibility === "restricted") {
-    if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
-      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
-    audience = Array.isArray(raw.audience) ? raw.audience : [];
-  }
-  const { visibility: _v, audience: _a, ...rest } = raw;          // strip before strict schema parse
+  const va = parseVisibilityAudience(raw);
+  if ("error" in va) return c.json(va.error, 422);
+  const { visibility, audience, rest } = va;
   let body: any = stripServerManaged(rest);          // mass-assignment: drop server fields
   body = stampProvenance(body, a.cred.id);           // un-forgeable provenance
   const parsed = BriefingCardSchema.safeParse({ ...body, id }); // path id wins
@@ -399,7 +411,7 @@ app.get("/families/:fid/cards", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
-  return c.json(await repo.listCards(fid, { userId: a.userId, legacy: a.legacy }));
+  return c.json(await repo.listCards(fid, callerFrom(a)));
 });
 
 // Active member roster (member-gated — every member can see who's in the family).
@@ -445,7 +457,7 @@ app.get("/families/:fid/hubs", async (c) => {
   const grants = await resolveGrants(a.cred.id);
   const hubGrantIds = grantedHubIds(grants, "read");          // null = global content:read
   if (hubGrantIds !== null && hubGrantIds.length === 0) return c.json({ type: "forbidden" }, 403);
-  return c.json(await hubs.listHubs(fid, { userId: a.userId, legacy: a.legacy }, hubGrantIds));
+  return c.json(await hubs.listHubs(fid, callerFrom(a), hubGrantIds));
 });
 
 app.get("/families/:fid/hubs/:id", async (c) => {
@@ -454,7 +466,7 @@ app.get("/families/:fid/hubs/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404); // uniform 404 on scope-miss
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -467,7 +479,7 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -483,7 +495,7 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
   const hub = await hubs.getHub(fid, id);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -499,16 +511,9 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   // visibility + allow-list authoring (outside the strict hub schema).
-  if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
-    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
-  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
-  let audience: string[] | undefined;
-  if (visibility === "restricted") {
-    if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
-      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
-    audience = Array.isArray(raw.audience) ? raw.audience : [];
-  }
-  const { visibility: _v, audience: _a, ...rest } = raw;
+  const va = parseVisibilityAudience(raw);
+  if ("error" in va) return c.json(va.error, 422);
+  const { visibility, audience, rest } = va;
   const parsed = HubSchema.safeParse({ ...rest, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   // ADR 0036: hardened image-URL + curated-icon + accent validation.
@@ -517,7 +522,7 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   { const m = (parsed.data as any).media; if (m?.accentColor) m.accentColor = normalizedAccent(m.accentColor); }
   const timelineIssues = hubTimelineIssues(parsed.data as any);
   if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const existing = await hubs.getHub(fid, id);
   if (existing) {
     const allow = await hubs.allowListFor(fid, id);
@@ -564,7 +569,7 @@ app.put("/families/:fid/sections/:id", async (c) => {
   // Visibility-on-write (ADR 0038): restricted-invisible hub → 404 (no oracle); absent
   // parent hub → 409 give-up (§6.2, matches the existing parent-must-exist contract);
   // 403 only visible-but-scope-denied.
-  const gate = await hubWriteGate(fid, hubId, { userId: a.userId, legacy: a.legacy, cred: a.cred });
+  const gate = await hubWriteGate(fid, hubId, callerFrom(a));
   if (gate === "invisible") return c.body(null, 404);
   if (gate === "denied") return c.json({ type: "forbidden" }, 403);
   if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
@@ -590,7 +595,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy, cred: a.cred };
+  const caller = callerFrom(a);
   // Resolve the owning hub (via the live section); 409 if the parent is gone → the
   // outbox sender gives up (distinct from 412 stale / 410 tombstone — ADR 0038 §6.2).
   const hubId = await hubs.liveHubOfSection(fid, sectionId);
@@ -652,7 +657,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   { const e = idError(id); if (e) return c.json(e, 422); }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const opId = c.req.header("idempotency-key");
   // Idempotent replay: the delete already applied under this op_id → 204 (before the
   // 404-on-tombstone below, so a drained/retried delete converges instead of 404ing).
@@ -936,7 +941,7 @@ app.get("/families/:fid/sync", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const raw = c.req.query("since") ?? "";
 
   // [F4] cursor decode:

@@ -52,16 +52,6 @@ export async function softDeleteCard(familyId: string, id: string) {
   return (r.rowCount ?? 0) > 0;
 }
 
-// keyset over (updated_at, id); INCLUDES tombstones (deleted_at not null) — the
-// trigger bumps updated_at on soft-delete so they sort past the cursor.
-export async function syncCards(familyId: string, su: string | null, si: string | null, limit = SYNC_LIMIT) {
-  const r = await q(
-    `SELECT * FROM briefing_cards WHERE family_id=$1 AND (updated_at, id) > ($2::timestamptz, $3)
-     ORDER BY updated_at, id LIMIT $4`,
-    [familyId, su ?? "-infinity", si ?? "", limit]);
-  return r.rows;
-}
-
 // Merged keyset over (updated_at, type, id) spanning cards + hubs + sections + blocks.
 // Row-wise comparison so the tuple is globally unique. INCLUDES tombstones (deleted_at
 // not null) — soft-delete bumps updated_at so they surface past any cursor.

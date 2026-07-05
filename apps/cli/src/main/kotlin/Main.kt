@@ -70,6 +70,25 @@ private fun signout(c: Creds) {
 }
 
 /**
+ * Refresh the access token via `/auth/refresh`, persist the rotated access+refresh
+ * pair, and return the new access token — exits with actionable `dayfold login`
+ * guidance on any failure. Shared by authedGet/authedDelete/push's 401-retry path
+ * (was inlined three times, byte-for-byte, before this extraction).
+ */
+private fun refreshAccessToken(store: Credentials, keychain: SecretStore?): String =
+  store.withRefreshLock {
+    val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
+    val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
+    if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
+    val o = runCatching { J.parseToJsonElement(rt).jsonObject }.getOrNull()
+    val newAccess = o?.get("access")?.jsonPrimitive?.contentOrNull
+    val newRefresh = o?.get("refresh")?.jsonPrimitive?.contentOrNull
+    if (newAccess == null || newRefresh == null) { System.err.println("session refresh failed — run: dayfold login"); exitProcess(1) }
+    saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = newRefresh))
+    newAccess
+  }
+
+/**
  * Authed GET with one transparent refresh on 401 (device creds only; the legacy
  * env path has no refresh). Returns Pair<statusCode, body>.
  */
@@ -79,16 +98,7 @@ private fun authedGet(
 ): Pair<Int, String> {
   var (code, body) = getStatus("$api$path", token)
   if (code == 401 && store != null && refreshable != null) {
-    val st = store
-    val newAccess = st.withRefreshLock {
-      val cur = loadCreds(st, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
-      val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
-      if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
-      val o = J.parseToJsonElement(rt).jsonObject
-      val na = o["access"]!!.jsonPrimitive.content
-      saveCreds(st, keychain, cur.copy(accessToken = na, refreshToken = o["refresh"]!!.jsonPrimitive.content))
-      na
-    }
+    val newAccess = refreshAccessToken(store, keychain)
     val retry = getStatus("$api$path", newAccess); code = retry.first; body = retry.second
   }
   return Pair(code, body)
@@ -101,16 +111,7 @@ private fun authedDelete(
 ): Pair<Int, String> {
   var (code, body) = deleteStatus("$api$path", token)
   if (code == 401 && store != null && refreshable != null) {
-    val st = store
-    val newAccess = st.withRefreshLock {
-      val cur = loadCreds(st, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
-      val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
-      if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
-      val o = J.parseToJsonElement(rt).jsonObject
-      val na = o["access"]!!.jsonPrimitive.content
-      saveCreds(st, keychain, cur.copy(accessToken = na, refreshToken = o["refresh"]!!.jsonPrimitive.content))
-      na
-    }
+    val newAccess = refreshAccessToken(store, keychain)
     val retry = deleteStatus("$api$path", newAccess); code = retry.first; body = retry.second
   }
   return Pair(code, body)
@@ -278,17 +279,7 @@ fun main(args: Array<String>) {
         var access = creds.accessToken
         var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
         if (code == 401) {
-          access = store.withRefreshLock {
-            val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
-            val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
-            if (rc != 200) { System.err.println("session expired — run: dayfold login"); exitProcess(1) }
-            val o = runCatching { J.parseToJsonElement(rt).jsonObject }.getOrNull()
-            val newAccess = o?.get("access")?.jsonPrimitive?.contentOrNull
-            val newRefresh = o?.get("refresh")?.jsonPrimitive?.contentOrNull
-            if (newAccess == null || newRefresh == null) { System.err.println("session refresh failed — run: dayfold login"); exitProcess(1) }
-            saveCreds(store, keychain, cur.copy(accessToken = newAccess, refreshToken = newRefresh))
-            newAccess
-          }
+          access = refreshAccessToken(store, keychain)
           val retry = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
           code = retry.first; body = retry.second
         }
@@ -471,15 +462,18 @@ internal val USAGE =
     "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
     "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
     "         --type runs local typed card validation before the server.\n" +
-    "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out)\n" +
+    "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out.\n" +
+    "         checklist items without an id get one stamped client-side (ADR 0038) — reuse\n" +
+    "         ids from `pull` on a re-push, don't hand-author new ones each time, or you'll\n" +
+    "         mint a fresh interactive item and lose members' prior toggle state)\n" +
     "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
     "  template <type>            starter body: file|link|invite|contact|geo|email\n" +
     "                              (card types) or hub|section|block|timeline (hub tree)\n" +
     "  delete <id> [--card|--block] | rm\n" +
     "        remove a hub (cascades sections+blocks), a card, or a single block\n" +
-    "  update                     update to the latest dayfold (brew upgrade)\n" +
+    "  update | upgrade           update to the latest dayfold (brew upgrade)\n" +
     "        (auto-checks at most once/24h; set DAYFOLD_NO_UPDATE_CHECK to disable)\n" +
-    "  version | --version       print the CLI version\n" +
+    "  version | --version | -v  print the CLI version\n" +
     "  help | -h | --help         print this usage\n" +
     "\n" +
     "  exit codes: 0 = success (or explicit help); 1 = the server/session rejected\n" +
