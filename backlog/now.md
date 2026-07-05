@@ -35,7 +35,29 @@ Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
 
-**2026-07-03 repo-maintenance pass (this session, operator-requested, not a
+**2026-07-05 repo-maintenance pass (this session, scheduled/operator-requested,
+not a feature slice):** applied the small, mechanically-safe items from
+`backlog/next.md`'s CODE DEDUP FINDINGS by careful inspection (same no-registry-
+access sandbox constraint as 2026-07-03; relies on the real CI run, not a local
+build, to compile-verify): deduped `bearer()` (`apps/api`), extracted
+`parseVisibilityAudience()` and `callerFrom()` in `app.ts` (removes ~11 inline
+rebuilds + one copy-pasted validation block), deleted dead `repo.syncCards`,
+and extracted `refreshAccessToken()` in the CLI's `Main.kt` (was inlined 3×).
+Closed further CLI/skill doc drift the CI-health + CLI-agent audits found:
+`timeline` was missing from `references/cli.md`'s type list (present in code
+and two other docs), `upgrade`/`-v` aliases were undocumented, and checklist
+item id-stamping (ADR 0038) — real, behavior-affecting, and previously
+undocumented anywhere — is now called out in `USAGE` + `cli.md`; added
+`importance`/`relatedKicker` to `content-model.md`'s field list. Refreshed
+`CLAUDE.md`'s "Current stage" snapshot (was dated 2026-06-29, claimed two-way
+member-writes were "in active build" when they'd since shipped — see
+CHANGELOG). CI workflows independently audited (via GitHub Actions run
+history, not local): all 6 green on `main`, no breakage found. Values/privacy
+spot-check clean. Remaining dedup findings (auth-route boilerplate, a
+hub-visibility-fetch helper, `app.ts`'s size, CLI-doc consolidation) re-ranked
+in `backlog/next.md` for a build-capable environment — see that file.
+
+**2026-07-03 repo-maintenance pass (operator-requested, not a
 feature slice):** removed 21MB of orphaned generated-dashboard binaries
 (`apps/client/.rk-snapshots/`, stray pre-`:ui`-split output, unreferenced by
 CI); refreshed `README.md`/`docs/architecture.md`/`CLAUDE.md` for the

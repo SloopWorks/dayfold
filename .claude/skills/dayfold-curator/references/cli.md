@@ -20,9 +20,10 @@ keychain; on a host with no keychain, `login` refuses unless
 `--allow-env-key`, then falls back to a plaintext `0600` file at
 `~/.config/dayfold/credentials.json` (headless/CI only).
 
-`dayfold logout` clears the stored credential. `dayfold update` / `dayfold
-version` (or `--version`) are maintenance commands, not part of the authoring
-flow — mention them only if the operator asks about upgrading the CLI itself.
+`dayfold logout` clears the stored credential. `dayfold update` (alias
+`upgrade`) / `dayfold version` (alias `--version`, `-v`) are maintenance
+commands, not part of the authoring flow — mention them only if the operator
+asks about upgrading the CLI itself.
 
 ## Read current state (Phase C, and to get ids before push)
 
@@ -37,7 +38,10 @@ dayfold pull --hub <hubId>   # that hub's full section/block tree
 dayfold template <type>      # prints starter JSON to stdout
 ```
 `<type>` ∈ card types `file link invite contact geo email`
-        + hub-tree bodies `hub section block`.
+        + hub-tree bodies `hub section block timeline`.
+`timeline` is not its own push resource — it's a starter for the `Hub.timeline`
+field (ADR 0045), embedded in a hub body and pushed with `--hub` like any
+other hub edit.
 Redirect to a file to edit: `dayfold template invite > card.json`.
 
 ## Push (PUT) — card by default, hub tree with a flag
@@ -56,6 +60,11 @@ dayfold push <blockId> block.json --block         # block (body carries sectionI
 - By default `push` auto-links bare phone/email in every `body_md` to tappable
   `tel:`/`mailto:` links and prints a diff of what changed — so author plain text, not
   hand-rolled markdown links. `--no-linkify` stores the body verbatim.
+- Any checklist item lacking an `id` gets one stamped client-side before the request
+  (ADR 0038 — members need a stable per-item key to toggle). **Re-pushing an edited
+  checklist must reuse the ids from `dayfold pull`**, not hand-author fresh ones —
+  a new id looks like a new item to members and drops their prior checked/unchecked
+  state.
 - The path `<id>` overwrites the body `id` server-side — the body `id` can stay
   `REPLACE_WITH_CARD_ID`.
 - Output: `push <resource>/<id> -> <httpStatus>`. Non-200 prints the server body

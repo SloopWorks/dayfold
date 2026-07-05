@@ -7,7 +7,7 @@ import { constantTimeEqual } from "../security.ts";
 // module does not trigger the module-level AUTH_* env guards in tokens.ts.
 // Tests that don't set AUTH vars (api.test.ts) can still load app.ts safely.
 
-function bearer(c: any): string | undefined {
+export function bearer(c: any): string | undefined {
   const h = c.req.header("authorization") || "";
   return h.startsWith("Bearer ") ? h.slice(7) : undefined;
 }

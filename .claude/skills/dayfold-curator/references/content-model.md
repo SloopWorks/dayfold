@@ -19,6 +19,11 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `triggers[]` — relevance: `{ "when": { "at": <ts>, "alert_offset": "-PT1H" } }`
   or `{ "geo": { "lat","lng","radius_m","label" } }` (geo matched on-device).
 - `related[]` — cross-links to other cards in THIS family.
+- `relatedKicker` — section header shown above `related[]` rows (e.g. `"FROM THE
+  SAME EMAIL"`).
+- `importance` — optional `0..1` hint to the on-device Priority & Ordering Engine
+  (ADR 0043 §2b). The device clamps and re-ranks — this is a weight hint, NOT an
+  author-controlled position; don't treat it as a way to pin a card to the top.
 - `not_before` / `expires_at` — show/hide window (ISO-8601).
 - `privacy.storage` — honest chip (see guardrails).
 - `provenance` — `{ "source": "claude", "at": <ISO-8601> }`.

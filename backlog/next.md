@@ -757,46 +757,71 @@ until the operator gates (**INB-23** / ADR 0034 G1–G5). Follow-on tasks:
 
 ---
 
-## CODE DEDUP FINDINGS (2026-07-01 audit — Small, do with a build-capable toolchain)
+## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept + partly applied 2026-07-05)
 
-Not urgent (CI is green, nothing broken) — surfaced by a repo-wide simplify pass.
-Not applied in that session: the sandbox had no outbound access to the Gradle/npm
-registries, so nothing here could be build-verified before pushing. Pick up with a
-normal dev environment (`processes/agent-dev-loop.md`).
+Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify passes.
+The 2026-07-05 pass applied the small, mechanically-safe items below **by careful
+inspection** (no local Gradle/npm registry access in that sandbox either — same
+constraint as 2026-07-01; verification relies on the real CI run on push, not a
+local build). Re-verify green on `main` before trusting this list as current.
 
-- **`apps/api`** — `bearer()` token-extraction is defined twice, identically:
-  `src/app.ts:48` and `src/auth/middleware.ts:10`. Export the one in
-  `middleware.ts`, import it in `app.ts`.
-- **`apps/api`** — visibility/audience validation on `PUT` is copy-pasted between
-  the cards handler (`src/app.ts:363`) and the hubs handler (`src/app.ts:501`).
-  Extract one `validateVisibilityAudience(raw)` helper, use in both.
-- **`apps/cli`** — the refresh-token flow (load creds → `POST /auth/refresh` →
-  parse → save → return) is inlined three times in `Main.kt`
-  (`authedGet` ~L82, `authedDelete` ~L104, inline in `push` ~L280). Extract
-  `refreshAccessToken(store, keychain, api, refreshToken): String` once.
-- **`apps/api`/`packages/linkrules`** — `media-validation.ts` /
-  `MediaValidation.kt` exists as two synchronized copies (TS + one shared
-  Kotlin copy — the CLI/client duplication was removed in `be45de6`/#276).
-  This one is **intentional** (a parser differential between copies is a
-  security bypass; ADR 0036 notes a Phase 2 codegen-from-one-source plan) —
-  leave as-is, don't "simplify" it into a shared runtime dependency without
-  re-reading ADR 0036. If picked up before Phase 2 codegen lands, the
-  lower-risk interim step is a **CI parity guard** (assert the two files'
-  allowed-host / icon-enum / hex-color literals match), not a shared
-  implementation.
-- **`apps/api`** — the post-`authorizeTenant()` caller shape
-  `{ userId: a.userId, legacy: a.legacy }` is rebuilt inline 11× in `app.ts`
-  (2026-07-03 audit: lines 357/399/409/424/443/470/486/520/593/655/939).
-  Extract a `callerFrom(a)` helper, use everywhere.
-- **`apps/api`** — `src/generated/content.timeline.test.ts` is a hand-written
-  test living inside `src/generated/`, whose whole convention is "codegen
-  output, don't hand-edit or you'll lose it on regen." Move it next to
-  `src/content-validation.timeline.test.ts` (or merge the two — they test
-  Hub.timeline from different angles: structural issues vs. loose schema
-  parse) before someone treats the directory as truly generated-only and
-  deletes it.
-- **`apps/api`** — `app.ts` is a single 1051-line file holding all ~45 routes
-  (auth, families, hubs/sections/blocks, device-grant, invites, sync, cron).
-  Splitting into per-resource route modules would make it easier for an agent
-  to navigate/diff safely — bigger and riskier than the items above, so listed
-  but not sized as a quick win.
+**Applied 2026-07-05 (verify CI landed green, then delete this sub-list):**
+- `apps/api` — `bearer()` de-duplicated: sole definition now `src/auth/middleware.ts`
+  (exported), imported by `app.ts`.
+- `apps/api` — visibility/audience PUT validation extracted to
+  `parseVisibilityAudience(raw)` in `app.ts`, used by both the card and hub PUT
+  handlers.
+- `apps/api` — the post-`authorizeTenant()` caller shape extracted to
+  `callerFrom(a)` in `app.ts`, replacing all 11 inline rebuilds.
+- `apps/api` — dead `repo.syncCards` (superseded by `syncContent`, zero callers)
+  deleted from `repo.ts`.
+- `apps/cli` — the refresh-token flow extracted to `refreshAccessToken(store,
+  keychain): String` in `Main.kt`, replacing the three inlined copies in
+  `authedGet`/`authedDelete`/`push`.
+- CLI/skill doc drift closed: `timeline` added to `references/cli.md`'s type
+  list (was in code + `templates/README.md`/`content-model.md` but missing
+  there); `upgrade`/`-v` aliases documented in `USAGE` + `cli.md`; checklist
+  item id-stamping (ADR 0038) documented in `USAGE` + `cli.md` (was real
+  undocumented behavior — an agent hand-authoring checklist ids on every push
+  would silently break per-member toggle continuity); `importance` +
+  `relatedKicker` added to `content-model.md`'s BriefingCard field list.
+
+**Still open — not applied, still needs a build-capable toolchain to verify:**
+- **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
+  the revoked-credential check) is repeated ~9× across `/auth/signout`,
+  `/auth/whoami`, `GET`/`PATCH /auth/me`, `/auth/me/export`, `/auth/me/credentials`
+  (GET+DELETE), `DELETE /auth/me`, `POST /families`, `GET /device/pending`
+  (2026-07-05 audit: `app.ts` ~lines 158/177/189/207/228/244/266/290/720). Extract
+  a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
+  unapplied this pass — 9 call sites is more surface than the mechanical
+  extractions above; do it with a real build to catch a subtle miss.
+- **`apps/api`** — "fetch hub, check visible, else 404" repeated verbatim 3×
+  (`GET /hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`) + once more (with an
+  extra author-gate check) inside the hub PUT. A `hubs.getVisibleHub(fid, id,
+  caller)` helper in `content/hubs.ts` would cover the 3 GET routes.
+- **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
+  with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
+  `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
+  the `kind`/columns differ slightly per path.
+- **`apps/api`/`packages/linkrules`** — `media-validation.ts` / `MediaValidation.kt`
+  two-copy duplication is **intentional** (ADR 0036 Phase 2 plans codegen-from-one-
+  source) — leave as-is; if picked up before Phase 2, the lower-risk interim step
+  is a CI parity guard, not a shared implementation.
+- **`apps/api`** — `src/generated/content.timeline.test.ts` is hand-written inside
+  the codegen-output `generated/` dir. Move next to (or merge with)
+  `src/content-validation.timeline.test.ts` before someone deletes it as stale
+  generated output. Also: the ~46 other API tests all live under `apps/api/test/`
+  — these two are the only ones beside their source; normalize the convention.
+- **`apps/api`** — `app.ts` is ~1000 lines holding all ~45 routes. Splitting into
+  per-resource route modules is still the biggest win but the biggest risk;
+  needs a real build to land safely.
+- **CLI/skill docs** — moderate (3-4x) duplication of the same explanations
+  across `SKILL.md` / `references/cli.md` / `references/content-model.md` /
+  `templates/README.md` / `USAGE`: hub timeline, block payload field table,
+  visual-enrichment/`media`, auto-linkify, and "local validation is a pre-check
+  only" are each explained in 2-4 places. Not inconsistent (the copies agree),
+  just redundant — consolidate to `cli.md` = command mechanics,
+  `content-model.md` = field shapes, `guardrails.md` = policy only (one-line
+  pointer instead of restating pre-check mechanics), `templates/README.md` =
+  short pointer + its worked walkthrough. Deferred: touches 5 files' prose,
+  worth doing as its own pass rather than folded into a code-dedup sweep.

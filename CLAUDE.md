@@ -21,10 +21,13 @@ changes require an ADR.
 ## Current stage
 
 **Bootstrapped 2026-06-18; build underway.** `backlog/now.md` is the live
-stage tracker — read it first. As of 2026-06-29: **M0 render prototype is
+stage tracker — read it first. As of 2026-07-04: **M0 render prototype is
 built + cloud-live** (Vercel + Neon, rendering on-device); **M1 auth / family
-/ device-grant is implemented** in the API; **two-way member-writes are in
-active build** (toggle / delete / hide slices). Validation round 1 verdict
+/ device-grant is implemented** in the API; **two-way member-writes are
+shipped** (checklist toggle, delete, local hide — ADR 0038–0042), alongside
+Hub Timeline (authored + on-device-derived, ADR 0045/0046) and Now-derived
+priority surfacing + Android background notifications (ADR 0043/0044).
+Validation round 1 verdict
 still stands: **CONDITIONAL — learning-lab GO, standalone-business NO-GO**
 (the AI-briefing concept is commoditized by Gemini Daily Brief / Alexa+ /
 funded verticals; build to learn, not to bet on revenue) → **building to
