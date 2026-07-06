@@ -8,6 +8,29 @@ you need the detailed narrative behind something below, not by default.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
+- **CI is RED on `main` since 2026-07-05 (blocking — first build-capable session
+  should fix this before anything else).** The "API (vitest + Postgres)" job fails
+  at its "api bundle is up to date" step: the committed Vercel function bundle
+  (`apps/api/api/index.js`) is stale vs `apps/api/src` (missing the `ff5c0fc`
+  dedup — no `parseVisibilityAudience`/`callerFrom`, still has 2 inline `bearer()`
+  defs, still has dead `repo.syncCards`). **Fix:** `cd apps/api && npm run
+  build:fn`, commit the regenerated `api/index.js`. Because this step runs before
+  `api tests` in the job, **the vitest suite (80+ tests) has NOT run against the
+  `ff5c0fc` app.ts/middleware.ts refactor** — run it too before trusting the
+  change is safe. I manually re-read the `ff5c0fc` diff line-by-line as a stopgap
+  (2026-07-06): the extractions (`callerFrom`, `parseVisibilityAudience`) are
+  behavior-preserving by inspection — same fields, same validation branches, same
+  strip-then-parse order — and `repo.syncCards` genuinely has zero remaining
+  callers. But that's not a substitute for the real test run. **This sandbox has
+  no npm/Gradle registry egress** (`registry.npmjs.org` / `raw.githubusercontent.com`
+  both blocked — "Host not in allowlist"), so I could not rebuild or run tests
+  myself; hand-editing a minified production auth bundle without the ability to
+  verify it was judged too risky to attempt. Prod (Vercel serves `api/index.js`
+  directly, no build step) is very likely still running the **pre-dedup** code —
+  functionally probably fine per the above, but should be confirmed once rebuilt.
+  Also: the merge that broke this (`cf2898a`, PR #289) apparently went in without
+  waiting on its own CI result — worth checking whether branch protection should
+  require the CI check before merge.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).

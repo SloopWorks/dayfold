@@ -1,6 +1,7 @@
-// TASK-KMP: single Gradle build for the client multiplatform module + the thin
-// Android application that depends on it. (api = TS, cli = its own Kotlin build —
-// both are sibling dirs, intentionally NOT included here.)
+// TASK-KMP: single Gradle build for the client/ui multiplatform modules, the thin
+// Android application, and the debug-drawer library modules (see include() below).
+// (api = TS, cli = its own Kotlin build — both are sibling dirs, intentionally NOT
+// included here.)
 pluginManagement {
   repositories {
     google()
