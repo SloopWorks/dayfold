@@ -18,11 +18,22 @@ from anyone else's mailbox is prohibited. Changing this posture is an ADR.
 
 ## 3. Honest privacy chips (ADR 0014)
 
-`privacy.storage` must name a boundary the schema/code actually enforces:
-- `on_device` — a copy is cached on device (use for a geo card that carries
-  coordinates, a saved snippet, etc.).
-- `location_local` — ONLY for LIVE position that never leaves the device.
-Never label a stored copy `location_local`. Never overclaim a privacy boundary.
+`privacy.storage` must name a boundary the schema/code actually enforces. Four
+values exist (the client renders each as an honest chip — label in
+parens) — use exactly one, and only where it's literally true:
+- `on_device` ("Cached on your device") — a copy is cached on device (use for
+  a geo card that carries coordinates, a saved snippet, etc.).
+- `location_local` ("Location stays on device") — ONLY for LIVE position that
+  never leaves the device. Never label a stored copy `location_local`.
+- `in_browser` ("Kept in your browser") — a web-target (`wasmJs`) scenario
+  where the value lives only in browser-local storage, never synced to the
+  server. Not applicable to today's Android/iOS/CLI-authored content — don't
+  use this until a web target actually exists.
+- `matched_on_device` ("Matched on your device") — the value was evaluated
+  against on-device state (e.g. a trigger condition matched locally), as
+  opposed to being a stored copy (`on_device`).
+Never overclaim a privacy boundary — if none of the four is literally true,
+omit `privacy.storage` rather than guessing.
 
 ## 4. Adults-only accounts (Guardrail 1 / COPPA)
 

@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-03). For product framing
+A map of the system as it actually runs today (2026-07-06). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -31,10 +31,16 @@ flowchart TB
         UI --- IosHost
     end
 
+    Shared["packages/schema + packages/linkrules\ncodegen'd content contract\n+ shared link/media vetting"]
+
     CLI -- "HTTPS: login (RFC 8628 device grant)\npush / pull / delete (JWT)" --> API
     API -- "SQL" --> DB
     Core -- "HTTPS: /auth/*, /sync (poll), /families/*\n(member writes: checklist toggle/delete/hide)" --> API
-    Core -. "local notifications\n(geofence + exact alarm,\nno push service)" .-> Devices
+    Core -. "local notifications\n(geofence + exact alarm,\nno push service)\nAndroidHost/IosHost glue" .-> AndroidHost
+    Core -. "local notifications" .-> IosHost
+    Shared -. "generates TS types for" .-> API
+    Shared -. "generates Kotlin types for\n+ srcdir'd into" .-> CLI
+    Shared -. "srcdir'd into" .-> Core
 
     classDef ext fill:#f5f5f5,stroke:#999,color:#333;
     class DB ext;
@@ -57,8 +63,8 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
 | Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache, the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
 | UI | `apps/ui` | Compose Multiplatform, depends on `:client` (ADR 0047) | Feed/hub/detail rendering, screens, theme, the CL-SNAP golden-snapshot harness; also hosts the iOS framework build target |
-| Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest, notification/geofence device glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
-| iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B): `IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler` over the same shared `commonMain` core |
+| Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
+| iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |

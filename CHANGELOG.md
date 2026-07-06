@@ -177,6 +177,28 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 - A read-only **Places** list feeds the geofence-based prompts above.
   (CLI/server-authored only at this stage — no in-app "add a place" yet.)
 
+## 2026-06-28 — Predictive back: gesture-driven card↔detail navigation
+
+### Added (client)
+- **The system back gesture now animates the card↔detail transition** (shared-element
+  morph, matching the existing tap-to-open animation) instead of a plain screen pop,
+  and **always goes up exactly one level** (detail → feed), even from a deep
+  RELATED-card chain. Android predictive-back preview (swipe-and-hold) scrubs the
+  same transition live.
+
+## 2026-06-27 — Fixed a production outage: every card write had been failing
+
+### Fixed (API)
+- **Card `PUT`s had been 500ing in prod since the M0 deploy** — a migration gap
+  left `briefing_cards` missing columns the write path already assumed existed.
+  Backfilled via `0014_card_columns_repair.sql`; also fixed `codegen.mjs` silently
+  emitting `z.any()` for structured block payloads instead of the real `oneOf`
+  validation, and rebuilt the Vercel bundle (which had drifted from source and was
+  serving stale code — the "bundle is up to date" CI gate exists because of this
+  incident).
+- `dayfold delete <id> --card` — the CLI can now remove a card directly (the
+  `--block` variant landed later, 2026-06-26–06-29 above).
+
 ## 2026-06-26 – 2026-06-29 — Two-way: members can act on shared content
 
 ### Added

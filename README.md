@@ -59,7 +59,7 @@ haven't been captured yet.
 | `apps/ui` | Compose Multiplatform UI (ADR 0047) — the feed + hub renderer + iOS framework target; depends on `:client`. |
 | `apps/androidApp` | Android host — the dogfood target. |
 | `apps/iosApp` | iOS host (SwiftUI/xcodegen) embedding the `:ui` framework — notification parity with Android (ADR 0044 Phase B). |
-| `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `delete` · `whoami`; authors content into the API (`push --type` runs local structural validation before every network call). |
+| `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `delete` · `whoami` · `update`; authors content into the API (`push --type` runs local structural validation before every network call). |
 | `packages/schema` | Generated content schema (`content.schema.json` → Kotlin/TS) — the card/hub contract. |
 | `packages/linkrules` | Shared Kotlin (`commonMain`) srcdir'd into CLI + client — link/URL vetting, the ULID minter, media validation. |
 
