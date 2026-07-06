@@ -18,7 +18,12 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `hubRef` — parent hub id (the "PART OF THIS HUB" pane).
 - `triggers[]` — relevance: `{ "when": { "at": <ts>, "alert_offset": "-PT1H" } }`
   or `{ "geo": { "lat","lng","radius_m","label" } }` (geo matched on-device).
-- `related[]` — cross-links to other cards in THIS family.
+- `related[]` — cross-links to other cards in THIS family:
+  `{ relation, targetId, targetType, title?, sub? }` — `relation` is free text
+  (e.g. `same-email | same-thread | same-hub | same-trip | attachment | contact-of`),
+  `targetId` is another card's id, `targetType` ∈ the same `type` enum as above.
+  `title`/`sub` are author-denormalized (a row renders without resolving the
+  target) — keep them in sync with the target card's own title/subtitle.
 - `relatedKicker` — section header shown above `related[]` rows (e.g. `"FROM THE
   SAME EMAIL"`).
 - `importance` — optional `0..1` hint to the on-device Priority & Ordering Engine
@@ -52,7 +57,7 @@ Per-type payload keys (the common ones):
 **Block** — required `id`, `type`, `provenance`. Body carries `sectionId`.
 - `type` ∈ `text | markdown | link | checklist | document | milestone | contact | location | budget`.
 - `text`/`markdown` use `body_md` (no payload). Others use `payload`:
-  - `link`: `{ url, label?, source? }`
+  - `link`: `{ url, label?, source?, thumbnailAlt? }`
   - `checklist`: `{ items: [{ text, done?, due?, assignee? }] }`
   - `document`: `{ ref, label?, kind? }`
   - `milestone`: `{ date, label }`
@@ -108,8 +113,9 @@ Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `ava
 
 - **Image URLs** (`heroUrl` / `thumbnailUrl` / `avatarUrl`) MUST be `https` on an allowlisted
   host — currently **`upload.wikimedia.org`** only. Anything else is rejected at author AND
-  render time (no parser-differential bypass). Always surface the chosen image to the operator
-  before pushing.
+  render time (no parser-differential bypass). **`.svg` is always rejected regardless of
+  host** — pick a raster (PNG/JPG) Wikimedia file instead. Always surface the chosen image
+  to the operator before pushing.
 - `icon` ∈ `school | luggage | medical | move | party | baby | calendar | location | link |
   document | contact | budget | travel | car | food | pet | sport | list` — a curated glyph,
   shown as the fallback tile when no image loads.

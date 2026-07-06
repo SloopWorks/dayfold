@@ -35,7 +35,7 @@ you need the detailed narrative behind something below, not by default.
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
-## Current state (as of 2026-07-03)
+## Current state (as of 2026-07-06)
 
 **Stage: M0 render prototype BUILT + cloud-live** — server (TS/Hono/Postgres
 on Vercel+Neon) · Kotlin CLI · KMP client (`apps/client` core + `apps/ui`
@@ -57,6 +57,40 @@ goldens) · `:client`/`:ui` module split (ADR 0047, faster agent inner loop).
 Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
+
+**2026-07-06 repo-maintenance pass (scheduled, not a feature slice) — found CI
+red on `main`, fixed doc drift.** Same no-npm/Gradle-registry-egress sandbox as
+the last two passes (confirmed again: `registry.npmjs.org` and
+`raw.githubusercontent.com` both blocked — "Host not in allowlist"). GitHub
+Actions run history showed the **first CI run after the 2026-07-05 merge
+(`cf2898a`/PR #289) failed** — see the pinned note at the top of this file for
+the full diagnosis and why it wasn't hand-patched. Manually re-reviewed that
+merge's `app.ts`/`middleware.ts`/`Main.kt` diff line-by-line as a stopgap; it
+reads as behavior-preserving, but the real vitest run is still owed. Fixed
+found doc drift (no code changes, so no functional risk): `docs/architecture.md`
+had the Android/iOS notification+geofence classes attributed to the host
+modules instead of `apps/client`'s `androidMain`/`iosMain` source sets, was
+missing `packages/schema`/`packages/linkrules` as diagram nodes, and had a
+self-referential notification edge; `README.md`'s CLI command table was
+missing `update`; `apps/settings.gradle.kts`'s header comment predated the
+`:ui`/debugdrawer* split. Closed further curator-skill doc gaps a fresh
+CLI-vs-skill-doc audit found: the legacy `DAYFOLD_API`/`FAMILY_ID`/
+`HOUSEHOLD_SECRET` env-auth fallback, the 0/1/2 exit-code contract, and the
+scope model (`content:*` / `hub:<id>:*`, no in-place re-scope) were all real
+and undocumented in `references/cli.md`; `references/guardrails.md`'s
+Guardrail 3 only listed 2 of the schema's 4 `privacy.storage` values (added
+`in_browser`/`matched_on_device` with their actual on-device chip labels, not
+guessed ones — pulled from `TypedCards.kt::privacyLabel`); `.svg` image
+rejection and the full `related[]` edge shape were undocumented in
+`content-model.md`. Also found + fixed 2 real CHANGELOG.md gaps: the
+2026-06-27 production outage (all card writes were 500ing since M0 — fixed by
+`572619d`) and the 2026-06-28 predictive-back gesture nav (`18d0988`) had no
+entries despite being genuinely user/reader-facing. Values/privacy spot-check
+clean (no secrets, no PII-logging patterns, no direct Gmail OAuth scope in
+code, no child-account paths — guardrails hold). Did **not** re-attempt the
+CODE DEDUP FINDINGS queue below (already ranked; still needs a build-capable
+session) to avoid adding more unverified, unbuildable source changes on top of
+an already-red CI.
 
 **2026-07-05 repo-maintenance pass (this session, scheduled/operator-requested,
 not a feature slice):** applied the small, mechanically-safe items from

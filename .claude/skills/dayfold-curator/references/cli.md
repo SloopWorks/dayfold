@@ -23,7 +23,31 @@ keychain; on a host with no keychain, `login` refuses unless
 `dayfold logout` clears the stored credential. `dayfold update` (alias
 `upgrade`) / `dayfold version` (alias `--version`, `-v`) are maintenance
 commands, not part of the authoring flow — mention them only if the operator
-asks about upgrading the CLI itself.
+asks about upgrading the CLI itself. `update` auto-checks at most once/24h;
+set `DAYFOLD_NO_UPDATE_CHECK` (any value) to disable the background check.
+
+**`(legacy)` mode / no device login at all** — the CLI also accepts a
+pre-device-grant fallback: set all three of `DAYFOLD_API`, `FAMILY_ID`, and
+`HOUSEHOLD_SECRET` as env vars and every command (`push`/`pull`/`delete`)
+works without ever running `login` — no refresh, no keychain, one shared
+per-family secret. This is what a bare `whoami` prints `(legacy)` for. It
+predates the per-device credential model and exists today for headless/CI
+scripts already wired to it — if the skill sees `(legacy)`, tell the operator
+either mode works, but device login (`dayfold login`) is the current
+recommended path for a new setup.
+
+**Scope (ADR 0029).** `whoami`'s `scope=...` is one of `content:read` /
+`content:write` (global) or `hub:<id>:read` / `hub:<id>:write` (a single hub).
+A device-granted credential's scope is fixed at login time — there is no
+in-place re-scope; a 403 from insufficient scope means the operator must
+`dayfold logout` and `dayfold login` again with broader access approved on
+the phone, not something the skill can work around.
+
+**Exit codes** (all commands): `0` = success (including `help`); `1` = the
+server rejected the request (non-200 — see Push below); `2` = local misuse
+(bad flags, an unreadable input file, or `login` refusing a keychain-less host
+without `--allow-env-key`). A `2` means fix the local invocation, not retry
+against the server.
 
 ## Read current state (Phase C, and to get ids before push)
 
