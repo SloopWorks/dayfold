@@ -225,6 +225,7 @@ fun FeedApp(
         onLoad = onLoadApprovals, onLoadMembers = onLoadMembers, onRemoveMember = onRemoveMember,
         onBack = { store.dispatch(OpenAccount) },
       )
+      Route.Invite -> SplashScreen()   // TEMP (Task 6 replaces with InviteScreen) — keeps `when` exhaustive for the qrose gate
       } }
     }
   }
