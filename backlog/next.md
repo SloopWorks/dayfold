@@ -449,7 +449,9 @@ API tests / 0 skips. Legacy household token still works.
   offline): tag-balance, 36 render-combos through `renderVals()`, all 32 `c.*`
   tokens defined w/ light/dark parity, all frame views ∈ enum. **GATE: operator
   opens the dc files + signs off → unblocks S5/S6.** A8b merged to `main`
-  2026-06-20 (PR #5, `f399583`); operator merged = sign-off.
+  2026-06-20 (PR #5, `f399583`); operator merged = sign-off. **✅ ADR 0008 sign-off
+  explicitly recorded 2026-07-07 (resolves the merge-vs-signoff ambiguity) — the
+  owner invite-mint UI (code + QR share) is cleared to build.**
 - **S2 vendor/cost gate CLEARED — ADR 0023 (operator-directed 2026-06-20):**
   Firebase **Google + Apple only, Phone-OTP deferred** → no Blaze, no SMS spend
   ceiling, no SMS-fraud/SIM-swap surface; ADR 0011 architecture intact. S2 is now
