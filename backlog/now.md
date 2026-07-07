@@ -49,7 +49,8 @@ verdict still stands: **CONDITIONAL — learning-lab GO, business NO-GO**
 business unknowns (OQ-wtp / niche / gemini) stay untouched by design.
 
 **Shipped and live on `main`:** full AUTH epic (device-grant login, Google
-sign-in, roster/devices/account) · Hub & card visual enrichment (ADR 0036) ·
+sign-in, roster/devices/account) · **owner invite-mint UI — QR + share-link,
+outstanding/revoke, cross-platform QR via qrose (2026-07-07)** · Hub & card visual enrichment (ADR 0036) ·
 Now-derived surfacing Phase A+B — priority-ranked feed + Android background
 geofence/exact-alarm local notifications (ADR 0043/0044) · iOS notification
 parity (sim-verified) · two-way member writes — checklist toggle, delete,

@@ -7,6 +7,20 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-07 — Owners can invite family members (QR + share link)
+
+### Added (client)
+- **"Invite a member" screen.** An owner opens Account → Family → Invite to mint an
+  invite as a **QR code** (in-person scan, one-time, ~15-min TTL) or a **shareable
+  link** (~72-h, up to 5 uses), with a live expiry countdown and copy-to-clipboard.
+  Outstanding invites list with **Revoke**; pending joiners approve/decline inline.
+  Backed by the existing owner-approved invite API (ADR 0011); the raw token is
+  display-only (never persisted or logged). Recipient still redeems by pasting the
+  link into Join — in-app QR scan + deep-link remain deferred (spec §96/§121). New
+  cross-platform QR rendering via qrose (KMP; zxing is JVM-only and unusable on iOS).
+  Closes the one missing surface in the invite flow (API + specs + hi-fi designs
+  already existed). ADR 0008 sign-off for the invite mockups recorded 2026-07-07.
+
 ## 2026-07-04 — Debug sample cards no longer leak into the Now feed
 
 ### Fixed (client)
