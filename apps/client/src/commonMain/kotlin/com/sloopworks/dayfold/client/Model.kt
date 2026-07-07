@@ -394,7 +394,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -494,6 +494,14 @@ data class AppState(
   val rosterBusy: Boolean = false,
   val rosterError: String? = null,
   val memberOpId: String? = null,        // member row currently approving/declining/removing
+  // owner invite-mint (Invite screen). mintedInvite carries the RAW one-time token for
+  // display only — cleared on leave (InviteDismissed), NEVER persisted to the DB.
+  val inviteMode: String = "qr",         // "qr" | "link" segmented toggle
+  val inviteBusy: Boolean = false,       // mint in flight
+  val mintedInvite: MintedInvite? = null,
+  val mintError: String? = null,         // ratelimited | forbidden | error
+  val outstandingInvites: List<Invite> = emptyList(),
+  val inviteOpId: String? = null,        // outstanding-invite row currently revoking
   val deviceListBusy: Boolean = false,
   val deviceListError: String? = null,
   val deviceOpId: String? = null,        // device row currently revoking
@@ -586,7 +594,20 @@ data object OpenDevices : Action                              // → the connect
 data class DevicesLoaded(val devices: List<DeviceCredential>) : Action  // connected devices/apps
 data class DeviceRevoked(val id: String) : Action             // revoked a credential → drop from the list
 data object ApprovalsRequested : Action
-data class ApprovalsLoaded(val pending: List<PendingMember>) : Action
+// pending = the owner-approval queue; invites = outstanding active invites (both come
+// from one GET /families/{fid}/invites). invites defaults empty so legacy single-arg
+// call sites (tests) still compile.
+data class ApprovalsLoaded(val pending: List<PendingMember>, val invites: List<Invite> = emptyList()) : Action
+// owner invite-mint (Invite screen). Mint is display-only: the raw token lives in
+// mintedInvite in-memory and is cleared on InviteDismissed — never persisted.
+data object OpenInvite : Action                               // Members → Invite (clears prior mint)
+data class InviteModeSelected(val mode: String) : Action      // "qr" | "link" segmented toggle
+data object MintRequested : Action                            // engine: mint start (busy)
+data class InviteMinted(val invite: MintedInvite) : Action    // 201 → show QR/link
+data class MintFailed(val reason: String) : Action            // ratelimited | forbidden | error
+data class InviteRevokeRequested(val id: String) : Action     // engine: revoke start (row busy)
+data class InviteRevoked(val id: String) : Action             // 204 → drop from outstanding
+data object InviteDismissed : Action                          // leave → Members; clears the token
 data class MemberResolved(val uid: String) : Action           // approved or declined → drop from the queue
 data object ApprovalsFailed : Action
 data class MemberOpRequested(val uid: String) : Action   // approve/decline/remove start
