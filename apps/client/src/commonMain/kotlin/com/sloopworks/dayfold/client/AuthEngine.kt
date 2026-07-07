@@ -138,7 +138,7 @@ class AuthEngine(
     val session = store.state.session ?: return@withLock
     store.dispatch(ApprovalsRequested)
     try {
-      store.dispatch(ApprovalsLoaded(callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }))
+      store.dispatch(ApprovalsLoaded(callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }.pending))
     } catch (e: Exception) {
       store.dispatch(ApprovalsFailed)
     }

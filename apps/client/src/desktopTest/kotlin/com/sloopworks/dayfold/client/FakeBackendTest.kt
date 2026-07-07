@@ -82,7 +82,7 @@ class FakeBackendTest {
 
   @Test fun `owner-approvals serves pending members and a pending device grant`() = runBlocking<Unit> {
     val a = auth("owner-approvals")
-    assertEquals(2, a.familyApprovals("t", "fam_fake").size)
+    assertEquals(2, a.familyApprovals("t", "fam_fake").pending.size)
     assertTrue(a.devicePending("t", "WXYZ-1234") is DeviceLookupResult.Found)
   }
 

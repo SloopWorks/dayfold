@@ -46,7 +46,12 @@ class AuthClient(
     val role: String? = null,
   )
   @Serializable private data class ConflictResp(val type: String? = null)
-  @Serializable private data class ApprovalsResp(val pending: List<PendingMember> = emptyList())
+  @Serializable private data class ApprovalsResp(val invites: List<Invite> = emptyList(), val pending: List<PendingMember> = emptyList())
+  @Serializable private data class MintReq(val mode: String, val role: String = "adult", @SerialName("max_uses") val maxUses: Int)
+  @Serializable private data class MintResp(
+    @SerialName("invite_id") val inviteId: String, val token: String, val url: String,
+    val role: String, val mode: String, @SerialName("expires_at") val expiresAt: String,
+  )
   @Serializable private data class MembersResp(val members: List<FamilyMember> = emptyList())
   @Serializable private data class CredsResp(val credentials: List<DeviceCredential> = emptyList())
   @Serializable private data class DeviceCodeReq(@SerialName("user_code") val userCode: String)
@@ -136,11 +141,39 @@ class AuthClient(
     }
   }
 
-  /** GET /families/{fid}/invites (owner-gated) → the pending-approval queue. */
-  suspend fun familyApprovals(access: String, fid: String): List<PendingMember> {
+  /** GET /families/{fid}/invites (owner-gated) → outstanding active invites + the
+   *  pending-approval queue, in ONE call (the server returns both arrays). */
+  suspend fun familyApprovals(access: String, fid: String): InviteQueue {
     val resp = http.get("$api/families/$fid/invites") { header("authorization", "Bearer $access") }
     if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "family-invites")
-    return json.decodeFromString(ApprovalsResp.serializer(), resp.bodyAsText()).pending
+    val r = json.decodeFromString(ApprovalsResp.serializer(), resp.bodyAsText())
+    return InviteQueue(r.invites, r.pending)
+  }
+
+  /**
+   * POST /families/{fid}/invites (owner) — mint an invite. `201` returns the raw
+   * token ONCE (a one-time secret: display-only, never persist/log). `qr` forces
+   * max_uses=1 server-side; `link` allows 1..10. 429 = rate-limit/cap, 403 = non-owner.
+   */
+  suspend fun mintInvite(access: String, fid: String, mode: String, maxUses: Int): MintResult {
+    val resp = http.post("$api/families/$fid/invites") {
+      header("authorization", "Bearer $access")
+      contentType(ContentType.Application.Json)
+      setBody(json.encodeToString(MintReq.serializer(), MintReq(mode = mode, maxUses = maxUses)))
+    }
+    return when (resp.status.value) {
+      201 -> json.decodeFromString(MintResp.serializer(), resp.bodyAsText())
+        .let { MintResult.Ok(MintedInvite(it.inviteId, it.token, it.url, it.role, it.mode, it.expiresAt)) }
+      429 -> MintResult.RateLimited
+      403 -> MintResult.Forbidden
+      else -> throw AuthHttpException(resp.status.value, "mint-invite")
+    }
+  }
+
+  /** DELETE /families/{fid}/invites/{id} (owner) — revoke an outstanding invite (204, sticky). */
+  suspend fun revokeInvite(access: String, fid: String, id: String) {
+    val resp = http.delete("$api/families/$fid/invites/$id") { header("authorization", "Bearer $access") }
+    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "revoke-invite")
   }
 
   /** Owner approves a pending member → their membership goes active. */
@@ -291,6 +324,29 @@ sealed interface RedeemResult {
   data object Locked : RedeemResult         // 429 — too many attempts / pending-cap full
   data object AlreadyMember : RedeemResult  // 409 — already an active member
   data object Removed : RedeemResult        // 409 — previously removed from this family
+}
+
+// An outstanding active invite (GET /families/{fid}/invites → invites[]). Owner-facing
+// row on the Invite screen; revocable. No token here (the raw token is returned only
+// once at mint and never re-fetched).
+@Serializable
+data class Invite(
+  val id: String, val role: String = "adult", val mode: String,
+  @SerialName("max_uses") val maxUses: Int = 1, @SerialName("used_count") val usedCount: Int = 0,
+  @SerialName("expires_at") val expiresAt: String, @SerialName("created_at") val createdAt: String? = null,
+)
+
+// The one-time mint result — carries the RAW token (display-only; never persisted/logged).
+data class MintedInvite(val inviteId: String, val token: String, val url: String, val role: String, val mode: String, val expiresAt: String)
+
+// GET /families/{fid}/invites → both arrays from one call.
+data class InviteQueue(val invites: List<Invite>, val pending: List<PendingMember>)
+
+// Mint outcome (server status → typed result). 401/5xx throw AuthHttpException.
+sealed interface MintResult {
+  data class Ok(val invite: MintedInvite) : MintResult
+  data object RateLimited : MintResult    // 429 — mint rate-limit or active/pending cap
+  data object Forbidden : MintResult      // 403 — caller isn't this family's owner
 }
 
 // GET /auth/whoami response. family_id = the access token's scoped family (may be
