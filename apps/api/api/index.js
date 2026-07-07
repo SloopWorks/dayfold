@@ -1539,7 +1539,7 @@ app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
 app.get("/cron/sweep", async (c) => {
   const secret = process.env.CRON_SECRET || "";
   if (!secret) return c.body(null, 404);
-  if (!constantTimeEqual(bearer2(c) ?? "", secret)) return c.body(null, 401);
+  if (!constantTimeEqual(bearer(c) ?? "", secret)) return c.body(null, 401);
   const { sweep: sweep2 } = await Promise.resolve().then(() => (init_sweep(), sweep_exports));
   return c.json(await sweep2());
 });
@@ -1551,9 +1551,21 @@ function problem(c, status, type, detail) {
   );
 }
 app.use("*", bodyLimit({ maxSize: 1024 * 1024, onError: (c) => problem(c, 413, "payload-too-large") }));
-function bearer2(c) {
-  const h = c.req.header("authorization") || "";
-  return h.startsWith("Bearer ") ? h.slice(7) : void 0;
+function callerFrom(a) {
+  return { userId: a.userId, legacy: a.legacy, cred: a.cred };
+}
+function parseVisibilityAudience(raw) {
+  if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
+    return { error: { type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] } };
+  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  let audience;
+  if (visibility === "restricted") {
+    if (raw.audience !== void 0 && (!Array.isArray(raw.audience) || raw.audience.some((x) => typeof x !== "string")))
+      return { error: { type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] } };
+    audience = Array.isArray(raw.audience) ? raw.audience : [];
+  }
+  const { visibility: _v, audience: _a, ...rest } = raw;
+  return { visibility, audience, rest };
 }
 function devAuthAllowed(_c) {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
@@ -1563,7 +1575,7 @@ function devAuthAllowed(_c) {
 }
 app.post("/auth/dev-token", async (c) => {
   if (!devAuthAllowed(c)) return c.body(null, 404);
-  if (bearer2(c) !== (process.env.DEV_AUTH_SECRET || "\0")) return c.body(null, 401);
+  if (bearer(c) !== (process.env.DEV_AUTH_SECRET || "\0")) return c.body(null, 401);
   const body = await c.req.json().catch(() => null);
   const { StubVerifier: StubVerifier2, findOrCreateUser: findOrCreateUser2 } = await Promise.resolve().then(() => (init_identity(), identity_exports));
   const idn = await new StubVerifier2().verify(body).catch(() => null);
@@ -1630,7 +1642,7 @@ app.post("/auth/refresh", async (c) => {
   return c.json({ access, refresh: out.refresh });
 });
 app.post("/auth/signout", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let cid;
   try {
@@ -1644,7 +1656,7 @@ app.post("/auth/signout", async (c) => {
   return c.body(null, 204);
 });
 app.get("/auth/whoami", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1668,7 +1680,7 @@ app.get("/auth/whoami", async (c) => {
   return c.json({ family_id, families: r.rows, grants });
 });
 app.get("/auth/me", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1684,7 +1696,7 @@ app.get("/auth/me", async (c) => {
   return c.json({ user_id: u.id, display_name: u.display_name });
 });
 app.patch("/auth/me", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1706,7 +1718,7 @@ app.patch("/auth/me", async (c) => {
   return c.json({ display_name: r.rows[0].display_name });
 });
 app.get("/auth/me/export", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1732,7 +1744,7 @@ app.get("/auth/me/export", async (c) => {
   return c.json({ exported_at: (/* @__PURE__ */ new Date()).toISOString(), user, identities, memberships, credentials });
 });
 app.get("/auth/me/credentials", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1751,7 +1763,7 @@ app.get("/auth/me/credentials", async (c) => {
   return c.json({ credentials: rows.map((r) => ({ ...r, current: r.id === cid })) });
 });
 app.delete("/auth/me/credentials/:id", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1769,7 +1781,7 @@ app.delete("/auth/me/credentials/:id", async (c) => {
   return c.body(null, 204);
 });
 app.delete("/auth/me", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -1796,7 +1808,7 @@ app.delete("/auth/me", async (c) => {
   return c.body(null, 204);
 });
 app.post("/families", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub;
   try {
@@ -1856,20 +1868,13 @@ app.put("/families/:fid/cards/:id", async (c) => {
   if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
   {
     const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
-    if (cur.rowCount && !cardVisible(cur.rows[0], { userId: a.userId, legacy: a.legacy })) return c.body(null, 404);
+    if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
   }
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
-  if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
-    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
-  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
-  let audience;
-  if (visibility === "restricted") {
-    if (raw.audience !== void 0 && (!Array.isArray(raw.audience) || raw.audience.some((x) => typeof x !== "string")))
-      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
-    audience = Array.isArray(raw.audience) ? raw.audience : [];
-  }
-  const { visibility: _v, audience: _a, ...rest } = raw;
+  const va = parseVisibilityAudience(raw);
+  if ("error" in va) return c.json(va.error, 422);
+  const { visibility, audience, rest } = va;
   let body = stripServerManaged(rest);
   body = stampProvenance(body, a.cred.id);
   const parsed = BriefingCardSchema.safeParse({ ...body, id: id3 });
@@ -1887,7 +1892,7 @@ app.get("/families/:fid/cards", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
-  return c.json(await listCards(fid, { userId: a.userId, legacy: a.legacy }));
+  return c.json(await listCards(fid, callerFrom(a)));
 });
 app.get("/families/:fid/members", async (c) => {
   const fid = c.req.param("fid");
@@ -1922,7 +1927,7 @@ app.get("/families/:fid/hubs", async (c) => {
   const grants = await resolveGrants(a.cred.id);
   const hubGrantIds = grantedHubIds(grants, "read");
   if (hubGrantIds !== null && hubGrantIds.length === 0) return c.json({ type: "forbidden" }, 403);
-  return c.json(await listHubs(fid, { userId: a.userId, legacy: a.legacy }, hubGrantIds));
+  return c.json(await listHubs(fid, callerFrom(a), hubGrantIds));
 });
 app.get("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -1930,7 +1935,7 @@ app.get("/families/:fid/hubs/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
   const hub = await getHub(fid, id3);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await allowListFor(fid, id3);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -1942,7 +1947,7 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
   const hub = await getHub(fid, id3);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await allowListFor(fid, id3);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -1954,7 +1959,7 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
   const hub = await getHub(fid, id3);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   if (!hub) return c.body(null, 404);
   const allow = await allowListFor(fid, id3);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
@@ -1971,16 +1976,9 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
-  if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
-    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] }, 422);
-  const visibility = raw.visibility === "restricted" ? "restricted" : "family";
-  let audience;
-  if (visibility === "restricted") {
-    if (raw.audience !== void 0 && (!Array.isArray(raw.audience) || raw.audience.some((x) => typeof x !== "string")))
-      return c.json({ type: "validation", issues: [{ path: ["audience"], message: "string[] of user ids" }] }, 422);
-    audience = Array.isArray(raw.audience) ? raw.audience : [];
-  }
-  const { visibility: _v, audience: _a, ...rest } = raw;
+  const va = parseVisibilityAudience(raw);
+  if ("error" in va) return c.json(va.error, 422);
+  const { visibility, audience, rest } = va;
   const parsed = HubSchema.safeParse({ ...rest, id: id3 });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   const hubMediaIssues = validateHubMedia(parsed.data.media);
@@ -1991,7 +1989,7 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   }
   const timelineIssues = hubTimelineIssues(parsed.data);
   if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const existing = await getHub(fid, id3);
   if (existing) {
     const allow = await allowListFor(fid, id3);
@@ -2032,7 +2030,7 @@ app.put("/families/:fid/sections/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
   if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
-  const gate = await hubWriteGate(fid, hubId, { userId: a.userId, legacy: a.legacy, cred: a.cred });
+  const gate = await hubWriteGate(fid, hubId, callerFrom(a));
   if (gate === "invisible") return c.body(null, 404);
   if (gate === "denied") return c.json({ type: "forbidden" }, 403);
   if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
@@ -2059,7 +2057,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
-  const caller = { userId: a.userId, legacy: a.legacy, cred: a.cred };
+  const caller = callerFrom(a);
   const hubId = await liveHubOfSection(fid, sectionId);
   if (!hubId) return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
   const gate = await hubWriteGate(fid, hubId, caller);
@@ -2105,7 +2103,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const opId = c.req.header("idempotency-key");
   if (opId && await findOp(fid, opId)) return c.body(null, 204);
   const blk = await blockForDelete(fid, id3);
@@ -2158,7 +2156,7 @@ app.post("/device/token", async (c) => {
   return c.json({ error: out.error }, 400);
 });
 app.get("/device/pending", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub, cid;
   try {
@@ -2273,7 +2271,7 @@ app.post("/families/:fid/invites", async (c) => {
   return c.json({ invite_id: inviteId, token, url: `${new URL(c.req.url).origin}/invite/${token}`, role, mode, expires_at: expires.rows[0].expires_at }, 201);
 });
 app.post("/invites:redeem", async (c) => {
-  const t = bearer2(c);
+  const t = bearer(c);
   if (!t) return c.body(null, 401);
   let sub;
   try {
@@ -2402,7 +2400,7 @@ app.get("/families/:fid/sync", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
-  const caller = { userId: a.userId, legacy: a.legacy };
+  const caller = callerFrom(a);
   const raw = c.req.query("since") ?? "";
   let su = "", st = "", si = "";
   if (raw) {
