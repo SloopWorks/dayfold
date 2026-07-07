@@ -8,29 +8,31 @@ you need the detailed narrative behind something below, not by default.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **CI is RED on `main` since 2026-07-05 (blocking — first build-capable session
-  should fix this before anything else).** The "API (vitest + Postgres)" job fails
-  at its "api bundle is up to date" step: the committed Vercel function bundle
-  (`apps/api/api/index.js`) is stale vs `apps/api/src` (missing the `ff5c0fc`
-  dedup — no `parseVisibilityAudience`/`callerFrom`, still has 2 inline `bearer()`
-  defs, still has dead `repo.syncCards`). **Fix:** `cd apps/api && npm run
-  build:fn`, commit the regenerated `api/index.js`. Because this step runs before
-  `api tests` in the job, **the vitest suite (80+ tests) has NOT run against the
-  `ff5c0fc` app.ts/middleware.ts refactor** — run it too before trusting the
-  change is safe. I manually re-read the `ff5c0fc` diff line-by-line as a stopgap
-  (2026-07-06): the extractions (`callerFrom`, `parseVisibilityAudience`) are
-  behavior-preserving by inspection — same fields, same validation branches, same
-  strip-then-parse order — and `repo.syncCards` genuinely has zero remaining
-  callers. But that's not a substitute for the real test run. **This sandbox has
-  no npm/Gradle registry egress** (`registry.npmjs.org` / `raw.githubusercontent.com`
-  both blocked — "Host not in allowlist"), so I could not rebuild or run tests
-  myself; hand-editing a minified production auth bundle without the ability to
-  verify it was judged too risky to attempt. Prod (Vercel serves `api/index.js`
-  directly, no build step) is very likely still running the **pre-dedup** code —
-  functionally probably fine per the above, but should be confirmed once rebuilt.
-  Also: the merge that broke this (`cf2898a`, PR #289) apparently went in without
-  waiting on its own CI result — worth checking whether branch protection should
-  require the CI check before merge.
+- **CI is RED on `main` since 2026-07-05 — still red 2026-07-07 (3rd
+  build-incapable sandbox pass in a row; needs either a build-capable session or
+  the operator to click the button described below).** The "API (vitest +
+  Postgres)" job fails at its "api bundle is up to date" step: the committed
+  Vercel function bundle (`apps/api/api/index.js`) is stale vs `apps/api/src`
+  (missing the `ff5c0fc` dedup — no `parseVisibilityAudience`/`callerFrom`, still
+  has 2 inline `bearer()` defs, still has dead `repo.syncCards`). Because this
+  step runs before `api tests` in the job, **the vitest suite (80+ tests) still
+  has NOT run against the `ff5c0fc` app.ts/middleware.ts refactor.** Re-confirmed
+  independently 2026-07-07 (fresh `curl`/`npm ping` against `registry.npmjs.org`
+  → 403 in this sandbox too) — this is a structural sandbox constraint, not a
+  one-off. **New fix path landed this pass:** `.github/workflows/
+  rebuild-api-bundle.yml` (`workflow_dispatch`, `contents: write`) runs the exact
+  `npm run build:fn` on GitHub's own runners (which do have registry access) and
+  commits the regenerated `api/index.js` back to whichever branch triggered it —
+  no local npm/Gradle needed. **It cannot be dispatched until this PR merges**
+  (GitHub only lists/dispatches `workflow_dispatch` workflows that already exist
+  on the default branch) — once merged, run it from the Actions tab against
+  `main` (or dispatch it on a branch, open a PR, let CI re-verify, then merge).
+  After it runs, the never-executed vitest suite finally gets to run in the same
+  CI job — treat that as the real verification, not the manual `ff5c0fc` line-by-
+  line read from the 2026-07-06 pass. Also still worth checking: the merge that
+  broke this (`cf2898a`, PR #289) apparently went in without waiting on its own CI
+  result — branch protection requiring the CI check before merge would prevent a
+  repeat.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
@@ -57,6 +59,44 @@ goldens) · `:client`/`:ui` module split (ADR 0047, faster agent inner loop).
 Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
+
+**2026-07-07 repo-maintenance pass (scheduled, not a feature slice) — added a
+CI self-heal path, closed 3 real skill/CLI-doc bugs (not doc drift — actively
+wrong instructions).** Same no-npm/Gradle-registry-egress sandbox as the prior
+three passes (re-confirmed independently: `registry.npmjs.org` 403s here too).
+Rather than re-attempt a source-code dedup pass I can't verify (CI is already
+red at the bundle-check step regardless, so a new push still wouldn't get a
+real test signal), added `.github/workflows/rebuild-api-bundle.yml` — a
+`workflow_dispatch` job that runs `npm run build:fn` on GitHub's runners
+(which have registry access unlike this sandbox) and commits the result back
+to whichever branch triggered it. **Not yet exercised** — GitHub only
+lists/dispatches `workflow_dispatch` workflows already on the default branch,
+so it can't run until this PR merges; see the pinned CI note above for the
+next step. Ran a targeted agent audit (not a full re-sweep — the 07-03/05/06
+passes already covered CLI↔skill-doc alignment broadly) specifically diffing
+CLI/skill docs against the generated schema + `app.ts`, and found 3 real bugs,
+none touched by the earlier passes: (1) `references/content-model.md` and the
+CLI's own `--help`/`USAGE` text both claimed a **card** `media` object carries
+`heroUrl`/`heroFit` — false; per the generated schema only `HubMedia` has
+those, `BriefingCardMedia` has `imageFit` instead (no hero slot at all) — an
+agent following the old doc literally would draft a card that 422s at push,
+since both are `.strict()` schemas. Fixed in both places, split into explicit
+card-vs-hub field lists. (2) The checklist block payload table (in both
+`content-model.md` and `apps/cli/templates/README.md`) omitted the
+**required** `id` field and the ADR-0038 `doneBy`/`doneAt`/`ord` fields
+entirely — an agent hand-authoring a checklist from the documented shape alone
+would fail validation (`id` required, `additionalProperties: false`) or silently
+drop member-toggle state on re-push. Fixed both tables. (3) `visibility: family
+| restricted` + `audience: [userId,...]` (ADR 0030/0038, applies to both cards
+and hubs, pre-dates all three prior passes) was undocumented anywhere in the
+skill or CLI help — an agent had no way to learn this exists. Added it to
+`content-model.md` (framed explicitly as a privacy/consent decision needing
+propose-confirm, not just a formatting option) and the CLI `USAGE` string.
+Also reviewed README/architecture.md/CHANGELOG for drift: none found beyond
+what 07-06 already fixed (no commits landed on `main` between that pass and
+this one besides its own merge, so there was no new code to drift against).
+Values/privacy spot-check clean (no secrets, no PII-logging patterns, no
+direct Gmail OAuth scope, no child-account paths).
 
 **2026-07-06 repo-maintenance pass (scheduled, not a feature slice) — found CI
 red on `main`, fixed doc drift.** Same no-npm/Gradle-registry-egress sandbox as

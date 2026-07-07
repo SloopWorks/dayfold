@@ -485,12 +485,19 @@ internal val USAGE =
     "    FAMILY_ID, and HOUSEHOLD_SECRET in the environment instead of `login` — no\n" +
     "    flag needed, the CLI falls back to these when no stored credential exists.\n" +
     "\n" +
-    "  visual enrichment (ADR 0036): hub/card `media` {heroUrl,thumbnailUrl,heroFit,\n" +
-    "    imageAlt,icon,accentColor} + block link/document thumbnailUrl + contact\n" +
-    "    avatarUrl. image URLs must be https on an ALLOWED host (upload.wikimedia.org);\n" +
-    "    icon ∈ {school,luggage,medical,move,party,baby,calendar,location,link,document,\n" +
-    "    contact,budget,travel,car,food,pet,sport,list}; accentColor #RRGGBB (decorative).\n" +
-    "    The authoring skill MUST surface the chosen image to the operator before push."
+    "  visual enrichment (ADR 0036): card `media` {thumbnailUrl,imageFit,imageAlt,icon,\n" +
+    "    accentColor} vs hub `media` {heroUrl,heroFit,thumbnailUrl,imageAlt,icon,accentColor}\n" +
+    "    (hub-only: heroUrl/heroFit — a card has no hero slot) + block link/document\n" +
+    "    thumbnailUrl + contact avatarUrl. image URLs must be https on an ALLOWED host\n" +
+    "    (upload.wikimedia.org); icon ∈ {school,luggage,medical,move,party,baby,calendar,\n" +
+    "    location,link,document,contact,budget,travel,car,food,pet,sport,list}; accentColor\n" +
+    "    #RRGGBB (decorative). The authoring skill MUST surface the chosen image to the\n" +
+    "    operator before push.\n" +
+    "\n" +
+    "  visibility (ADR 0030/0038): card/hub body may set visibility=family (default, all\n" +
+    "    members) or visibility=restricted + audience=[userId,...] (only those members can\n" +
+    "    see it; everyone else gets a uniform 404). Not locally structure-checked — a bad\n" +
+    "    value is caught server-side only."
 
 // Misuse → usage to stderr, exit 2. Explicit `help` prints to stdout + exits 0 (help
 // is not an error) — see the dispatch in main().

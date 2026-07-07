@@ -1,0 +1,37 @@
+name: Rebuild API bundle (manual)
+
+# Manual escape hatch for the "api bundle is up to date" CI gate (see ci.yml).
+# The committed apps/api/api/index.js IS the Vercel function — CI fails if a
+# fresh `npm run build:fn` doesn't match it byte-for-byte, but fixing that
+# requires npm registry access some agent sandboxes don't have. This runs the
+# same deterministic, no-secrets-needed rebuild on GitHub's runners (which do
+# have registry access) and commits the result back to whatever branch
+# triggered it, so a build-blocked agent can still land the fix.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - run: npm ci
+      - name: rebuild api bundle
+        working-directory: apps/api
+        run: npm run build:fn
+      - name: commit if changed
+        run: |
+          if git diff --quiet -- apps/api/api/index.js; then
+            echo "bundle already up to date — nothing to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add apps/api/api/index.js
+            git commit -m "chore(api): rebuild Vercel function bundle (automated, rebuild-api-bundle.yml)"
+            git push
+          fi
