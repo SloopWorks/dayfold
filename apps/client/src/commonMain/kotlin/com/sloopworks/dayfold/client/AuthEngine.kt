@@ -133,15 +133,47 @@ class AuthEngine(
     }
   }
 
-  /** Owner: load the pending-approval queue for a family. */
+  /** Owner: load the pending-approval queue + outstanding invites (one GET → both). */
   suspend fun loadApprovals(fid: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    loadApprovalsLocked(session, fid)
+  }
+
+  // No-mutex core — callable from an already-locked path (mintInvite/revokeInvite,
+  // Mutex isn't reentrant; same convention as lookupDeviceLocked).
+  private suspend fun loadApprovalsLocked(session: Session, fid: String) {
     store.dispatch(ApprovalsRequested)
     try {
-      store.dispatch(ApprovalsLoaded(callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }.pending))
+      val q = callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }
+      store.dispatch(ApprovalsLoaded(q.pending, q.invites))
     } catch (e: Exception) {
       store.dispatch(ApprovalsFailed)
     }
+  }
+
+  /** Owner: mint an invite (qr|link) → show it, then refresh outstanding. The raw
+   *  token is dispatched to state for display only — never persisted or logged. */
+  suspend fun mintInvite(fid: String, mode: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    val maxUses = if (mode == "qr") 1 else 5   // qr forced to 1 server-side; link default 5 ("0 of 5 used")
+    store.dispatch(MintRequested)
+    try {
+      when (val r = callWithRefresh(session) { authClient.mintInvite(it.access, fid, mode, maxUses) }) {
+        is MintResult.Ok -> { store.dispatch(InviteMinted(r.invite)); loadApprovalsLocked(session, fid) }
+        MintResult.RateLimited -> store.dispatch(MintFailed("ratelimited"))
+        MintResult.Forbidden -> store.dispatch(MintFailed("forbidden"))
+      }
+    } catch (e: Exception) { store.dispatch(MintFailed("error")) }
+  }
+
+  /** Owner: revoke an outstanding invite → drop it on success; reload on a guarded failure. */
+  suspend fun revokeInvite(fid: String, id: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    store.dispatch(InviteRevokeRequested(id))
+    try {
+      callWithRefresh(session) { authClient.revokeInvite(it.access, fid, id) }
+      store.dispatch(InviteRevoked(id))
+    } catch (e: Exception) { loadApprovalsLocked(session, fid) }
   }
 
   /** Owner: approve / decline a pending member → drop them from the queue on success. */

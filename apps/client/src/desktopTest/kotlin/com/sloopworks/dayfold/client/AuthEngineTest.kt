@@ -473,4 +473,80 @@ class AuthEngineTest {
     assertEquals(Route.AuthorizeDevice, store.state.route)       // resumed straight onto approve
     assertEquals("WDJF-7K2P", store.state.pendingDevice?.userCode)
   }
+
+  // ── owner invite-mint (S7) ──
+  @Test fun `mintInvite qr dispatches Minted and refreshes outstanding`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when {
+        req.url.encodedPath == "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        req.url.encodedPath == "/families/fam1/invites" && req.method.value == "POST" ->
+          respond("""{"invite_id":"i","token":"TOK","url":"https://x/invite/TOK","role":"adult","mode":"qr","expires_at":"z"}""", HttpStatusCode.Created, jsonCt)
+        req.url.encodedPath == "/families/fam1/invites" ->
+          respond("""{"invites":[{"id":"i","role":"adult","mode":"qr","max_uses":1,"used_count":0,"expires_at":"z"}],"pending":[]}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.OK)
+      }
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "qr")
+    assertEquals("TOK", store.state.mintedInvite?.token)
+    assertFalse(store.state.inviteBusy)
+    assertEquals(1, store.state.outstandingInvites.size)         // refreshed after mint
+  }
+
+  @Test fun `mintInvite 429 dispatches ratelimited`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      if (req.url.encodedPath == "/auth/whoami") respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.TooManyRequests)
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "link")
+    assertEquals("ratelimited", store.state.mintError)
+    assertFalse(store.state.inviteBusy)
+  }
+
+  @Test fun `mintInvite 403 dispatches forbidden`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      if (req.url.encodedPath == "/auth/whoami") respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.Forbidden)
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "qr")
+    assertEquals("forbidden", store.state.mintError)
+  }
+
+  @Test fun `revokeInvite drops the row from outstanding`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when {
+        req.url.encodedPath == "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        req.method.value == "DELETE" -> respond("", HttpStatusCode.NoContent)
+        else -> respond("", HttpStatusCode.OK)
+      }
+    })
+    eng.restore()
+    store.dispatch(ApprovalsLoaded(emptyList(), listOf(Invite(id = "inv1", mode = "link", expiresAt = "z"))))
+    eng.revokeInvite("fam1", "inv1")
+    assertTrue(store.state.outstandingInvites.isEmpty())
+  }
+
+  @Test fun `loadApprovals feeds both pending queue and outstanding invites`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/families/fam1/invites" -> respond(
+          """{"invites":[{"id":"inv1","role":"adult","mode":"link","max_uses":5,"used_count":0,"expires_at":"z"}],"pending":[{"uid":"u9","display_name":"Sam","role":"adult"}]}""",
+          HttpStatusCode.OK, jsonCt,
+        )
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.loadApprovals("fam1")
+    assertEquals(1, store.state.pendingApprovals.size)
+    assertEquals(1, store.state.outstandingInvites.size)
+  }
 }
