@@ -109,7 +109,7 @@ prose-style authoring is fine. `text` / `markdown` blocks are always `body_md`.
 >
 > | block       | `payload` fields (canonical = schema)                  | also accepted (client alias) |
 > |-------------|--------------------------------------------------------|------------------------------|
-> | `checklist` | **`items: [{ text, done?, due?, assignee? }]`**        | —                            |
+> | `checklist` | **`items: [{ id, text, done?, doneBy?, doneAt?, ord?, due?, assignee? }]`** — `id` required per item, reuse from `pull` on re-push (ADR 0038) | — |
 > | `link`      | **`url`**, `label?`, `source?`                          | `domain?`                    |
 > | `document`  | **`ref`** (url \| fileRef), `label?`, `kind?`           | `docRef?`                    |
 > | `contact`   | **`name`**, `role?`, `phone?`, `email?`                | —                            |

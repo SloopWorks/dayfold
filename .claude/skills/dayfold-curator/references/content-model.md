@@ -32,6 +32,7 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `not_before` / `expires_at` — show/hide window (ISO-8601).
 - `privacy.storage` — honest chip (see guardrails).
 - `provenance` — `{ "source": "claude", "at": <ISO-8601> }`.
+- `visibility` / `audience` — see **Visibility & audience** below.
 
 Per-type payload keys (the common ones):
 - `file`: `{ filename, mime, size, pages, source, modified, docRef }`
@@ -58,7 +59,12 @@ Per-type payload keys (the common ones):
 - `type` ∈ `text | markdown | link | checklist | document | milestone | contact | location | budget`.
 - `text`/`markdown` use `body_md` (no payload). Others use `payload`:
   - `link`: `{ url, label?, source?, thumbnailAlt? }`
-  - `checklist`: `{ items: [{ text, done?, due?, assignee? }] }`
+  - `checklist`: `{ items: [{ id, text, done?, doneBy?, doneAt?, ord?, due?, assignee? }] }`
+    — `id` is **required** per item (26-char ULID); `doneBy`/`doneAt`/`ord` are
+    member-write fields (ADR 0038) the server/client set on toggle. On a
+    re-push, reuse every item's `id` (and leave `doneBy`/`doneAt` as pulled) —
+    a hand-authored fresh `id` looks like a new item and drops a member's
+    prior checked/unchecked state.
   - `document`: `{ ref, label?, kind? }`
   - `milestone`: `{ date, label }`
   - `contact`: `{ name, role?, phone?, email? }`
@@ -107,8 +113,13 @@ Provenance is **authored** ("Added to this hub") — do not imply on-device deri
 
 ## Visual enrichment — `media` (ADR 0036)
 
-Optional, decorative, fail-safe (a card/hub renders fine without it). On a **card** or
-**hub**: `media: { heroUrl?, thumbnailUrl?, heroFit?, imageAlt?, icon?, accentColor? }`.
+Optional, decorative, fail-safe (a card/hub renders fine without it). **Card and hub
+`media` are DIFFERENT shapes — don't cross-apply fields, the server `.strict()`s both:**
+- **card** `media: { thumbnailUrl?, imageFit?, imageAlt?, icon?, accentColor? }` — no
+  `heroUrl`/`heroFit`; a card's only image slot is the thumbnail.
+- **hub** `media: { heroUrl?, heroFit?, thumbnailUrl?, imageAlt?, icon?, accentColor? }`
+  — hubs get the hero banner slot too (`heroFit` only applies to `heroUrl`).
+
 Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `avatarUrl`.
 
 - **Image URLs** (`heroUrl` / `thumbnailUrl` / `avatarUrl`) MUST be `https` on an allowlisted
@@ -120,7 +131,8 @@ Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `ava
   document | contact | budget | travel | car | food | pet | sport | list` — a curated glyph,
   shown as the fallback tile when no image loads.
 - `accentColor` — `#RRGGBB`, decorative only (harmonized to the light/dark theme at render).
-- `heroFit` ∈ `cover | contain`; `imageAlt` — accessibility text for the image.
+- `heroFit` (hub only) / `imageFit` (card only) ∈ `cover | contain`; `imageAlt` —
+  accessibility text for the image.
 - Lowest-risk enrichment: `icon` + `accentColor` (no URL → nothing to allowlist). See the
   worked example in `apps/cli/examples/hub-college/hub.json`.
 
@@ -130,6 +142,20 @@ Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `ava
 - **Hub block** = the durable reference body the card deep-links into.
 - A good pattern: author the hub (the dossier), then a few cards that point into it
   at the right moment ("RSVP by Thursday" card → invite section of the party hub).
+
+## Visibility & audience (ADR 0030/0038) — a privacy-relevant choice
+
+Both cards and hubs accept `visibility` ∈ `family | restricted` (default `family` —
+visible to every member). `restricted` requires `audience: [<userId>, ...]` — only
+those member ids (plus the author) can see it; anyone else gets a uniform 404 (they
+can't tell it exists). `dayfold pull`/`dayfold template hub` show the current value.
+There is no separate structural check for these two fields locally (`Validate.kt`
+doesn't vet them) — a typo'd value is caught server-side only.
+
+Treat `restricted`/`audience` as a **privacy decision, not a formatting one** — propose
+it explicitly and name exactly which members will and won't see the content (same
+propose-confirm bar as guardrail 1) before pushing anything scoped narrower than the
+whole family.
 
 ## ids
 
