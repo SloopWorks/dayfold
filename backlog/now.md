@@ -8,31 +8,26 @@ you need the detailed narrative behind something below, not by default.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **CI is RED on `main` since 2026-07-05 — still red 2026-07-07 (3rd
-  build-incapable sandbox pass in a row; needs either a build-capable session or
-  the operator to click the button described below).** The "API (vitest +
-  Postgres)" job fails at its "api bundle is up to date" step: the committed
-  Vercel function bundle (`apps/api/api/index.js`) is stale vs `apps/api/src`
-  (missing the `ff5c0fc` dedup — no `parseVisibilityAudience`/`callerFrom`, still
-  has 2 inline `bearer()` defs, still has dead `repo.syncCards`). Because this
-  step runs before `api tests` in the job, **the vitest suite (80+ tests) still
-  has NOT run against the `ff5c0fc` app.ts/middleware.ts refactor.** Re-confirmed
-  independently 2026-07-07 (fresh `curl`/`npm ping` against `registry.npmjs.org`
-  → 403 in this sandbox too) — this is a structural sandbox constraint, not a
-  one-off. **New fix path landed this pass:** `.github/workflows/
-  rebuild-api-bundle.yml` (`workflow_dispatch`, `contents: write`) runs the exact
-  `npm run build:fn` on GitHub's own runners (which do have registry access) and
-  commits the regenerated `api/index.js` back to whichever branch triggered it —
-  no local npm/Gradle needed. **It cannot be dispatched until this PR merges**
-  (GitHub only lists/dispatches `workflow_dispatch` workflows that already exist
-  on the default branch) — once merged, run it from the Actions tab against
-  `main` (or dispatch it on a branch, open a PR, let CI re-verify, then merge).
-  After it runs, the never-executed vitest suite finally gets to run in the same
-  CI job — treat that as the real verification, not the manual `ff5c0fc` line-by-
-  line read from the 2026-07-06 pass. Also still worth checking: the merge that
-  broke this (`cf2898a`, PR #289) apparently went in without waiting on its own CI
-  result — branch protection requiring the CI check before merge would prevent a
-  repeat.
+- **✅ CI is GREEN on `main` again, as of 2026-07-07 (was red since 2026-07-05).**
+  PR #291 added `.github/workflows/rebuild-api-bundle.yml` (`workflow_dispatch`,
+  `contents: write`) — a job that runs the exact `npm run build:fn` used by the
+  CI gate on GitHub's own runners (which have registry access unlike 3
+  consecutive agent sandboxes) and commits the regenerated
+  `apps/api/api/index.js` back to whichever branch/ref triggered it. Operator
+  merged #291, then ran the workflow against `main` (commit `12547e8`). **One
+  wrinkle found + worked around:** commits pushed by the default `GITHUB_TOKEN`
+  don't trigger other `push`-based workflow runs (GitHub's anti-recursion
+  guard), so `ci.yml` never auto-re-ran against `12547e8` — opened a throwaway
+  empty-commit PR (#292, `verify-ci-post-bundle-fix` → `main`, closed unmerged)
+  to force a real `pull_request`-triggered CI run. Confirmed: `codegen is up to
+  date` ✅, `api bundle is up to date` ✅ (the step that had been failing),
+  `api tests` ✅ — **the vitest suite finally ran against the `ff5c0fc`
+  app.ts/middleware.ts refactor and passed**, closing the "never actually
+  tested" gap all three prior maintenance passes flagged. `rebuild-api-bundle.yml`
+  stays in the repo as a standing tool for the next time this bundle drifts.
+  Still worth doing: the merge that broke this (`cf2898a`, PR #289) went in
+  without waiting on its own CI result — branch protection requiring the CI
+  check before merge would prevent a repeat.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
