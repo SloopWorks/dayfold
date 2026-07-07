@@ -275,6 +275,8 @@ class MainActivity : ComponentActivity() {
           onDeclineMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.declineMember(it, uid) } } },
           onLoadMembers = { lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.loadMembers(it) } } },
           onRemoveMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.removeMember(it, uid) } } },
+          onMintInvite = { mode -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
+          onRevokeInvite = { id -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
           onLoadDevices = { lifecycleScope.launch { authEngine.loadDevices() } },
           onRevokeDevice = { id -> lifecycleScope.launch { authEngine.revokeDevice(id) } },
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },
