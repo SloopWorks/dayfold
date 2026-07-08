@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Invite RSVP is now honest (reply-handoff or read-only status)
+
+### Fixed (client)
+- **An invite card's Yes/No pills no longer look tappable and do nothing.** They were a
+  static reflection of the authored RSVP with no write path (dayfold is read-only +
+  content-blind and not the RSVP system of record — ADR 0020/0016), so they read as two
+  dead buttons. Replaced with an honest affordance: when the invite carries a reply target
+  (`invite.rsvpUrl` — a web RSVP / calendar link / `mailto:` / thread URL), a single
+  **"Reply / RSVP"** button hands off to that source system; otherwise a **read-only status
+  chip** reflects the state and names its origin ("Not replied yet · from The Garcias",
+  "You're going · from your email"). dayfold never writes its own backend — the reply is
+  made where the invite lives.
+
 ## 2026-07-08 — Card detail survives leaving for a 3rd-party app (Android)
 
 ### Fixed (Android)

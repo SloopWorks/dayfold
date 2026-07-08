@@ -63,6 +63,35 @@ fun bodySummaryFor(card: Card): String? {
 
 private fun isHttp(s: String?) = s != null && (s.startsWith("http://") || s.startsWith("https://"))
 
+// Invite RSVP is a HANDOFF-OUT, never a dayfold-backend write (ADR 0020/0016; dayfold isn't the
+// RSVP system of record). An authored `rsvpUrl` reply target → open the source: mailto → Email,
+// http(s) → OpenUrl. Blank / unrecognized scheme → null (no button; fail-safe, never a bad scheme).
+fun inviteReplyAction(rsvpUrl: String?): CardAction? {
+  val u = rsvpUrl?.trim()?.ifBlank { null } ?: return null
+  return when {
+    u.startsWith("mailto:") -> CardAction.Email(u)
+    isHttp(u) -> CardAction.OpenUrl(u)
+    else -> null
+  }
+}
+
+// Read-only RSVP status shown when there's no reply target — reflects the authored state and
+// names where it came from (never a fake input). "You're going / Declined / Not replied yet"
+// (+ "· from {host}" or "· from your email").
+fun rsvpStatusLabel(rsvpState: String?, host: String?, source: String?): String {
+  val status = when (rsvpState) {
+    "yes" -> "You're going"
+    "no" -> "Declined"
+    else -> "Not replied yet"
+  }
+  val from = when {
+    !host.isNullOrBlank() -> "from $host"
+    source == "email" -> "from your email"
+    else -> null
+  }
+  return listOfNotNull(status, from).joinToString(" · ")
+}
+
 /** Primary action label + the [CardAction] it emits. Falls back to OpenDetail when
  *  the type-specific target is missing — never throws, never builds a bad scheme. */
 fun primaryActionFor(card: Card): Pair<String, CardAction> {
