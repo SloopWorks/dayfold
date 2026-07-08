@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client.cards
 
 import com.sloopworks.dayfold.client.Card
+import com.sloopworks.dayfold.client.formatMetaWhen
 
 // Pure (no Composer) detail derivations — the DETAILS meta rows + the actions row.
 // Off the recomposition hot path; unit-tested (golden-stable). Dates are shown as
@@ -25,20 +26,20 @@ fun detailMeta(card: Card): List<MetaRow> {
       p.file?.filename?.let { MetaRow("File", it) },
       p.file?.source?.let { MetaRow("Source", it) },
       sizePages(p.file?.size, p.file?.pages)?.let { MetaRow("Size", it) },
-      p.file?.modified?.let { MetaRow("Modified", it) },
+      p.file?.modified?.let { MetaRow("Modified", formatMetaWhen(it) ?: it) },
       p.file?.owner?.let { MetaRow("Owner", it) },
     )
     "link" -> listOfNotNull(
       p.link?.url?.let { MetaRow("URL", it) },
       p.link?.domain?.let { MetaRow("Site", it) },
       p.link?.let { l -> l.kind?.let { k -> MetaRow("Type", if (k == "form" && l.fieldCount != null) "Form · ${l.fieldCount} fields" else k) } },
-      p.link?.closesAt?.let { MetaRow("Closes", it) },
-      p.link?.savedAt?.let { MetaRow("Saved", it) },
+      p.link?.closesAt?.let { MetaRow("Closes", formatMetaWhen(it) ?: it) },
+      p.link?.savedAt?.let { MetaRow("Saved", formatMetaWhen(it) ?: it) },
     )
     "invite" -> listOfNotNull(
-      p.invite?.startAt?.let { MetaRow("When", it) },
+      p.invite?.startAt?.let { MetaRow("When", formatMetaWhen(it) ?: it) },
       p.invite?.place?.let { MetaRow("Where", it) },
-      p.invite?.rsvpBy?.let { MetaRow("RSVP by", it) },
+      p.invite?.rsvpBy?.let { MetaRow("RSVP by", formatMetaWhen(it) ?: it) },
       p.invite?.let { i -> i.guestCount?.let { MetaRow("Guests", listOfNotNull("$it", i.confirmedCount?.let { c -> "$c confirmed" }).joinToString(" · ")) } },
       p.invite?.notes?.let { MetaRow("Note", it) },
     )
@@ -52,14 +53,14 @@ fun detailMeta(card: Card): List<MetaRow> {
     "geo" -> listOfNotNull(
       p.geo?.address?.let { MetaRow("Address", it) },
       p.geo?.let { g -> g.etaMin?.let { MetaRow("Drive", listOfNotNull("$it min", g.distance).joinToString(" · ")) } },
-      p.geo?.leaveBy?.let { MetaRow("Leave by", it) },
+      p.geo?.leaveBy?.let { MetaRow("Leave by", formatMetaWhen(it) ?: it) },
       p.geo?.parking?.let { MetaRow("Parking", it) },
       p.geo?.travelMode?.let { MetaRow("Mode", it) },
     )
     "email" -> listOfNotNull(
       p.email?.from?.let { MetaRow("From", it) },
       p.email?.subject?.let { MetaRow("Subject", it) },
-      p.email?.date?.let { MetaRow("Date", it) },
+      p.email?.date?.let { MetaRow("Date", formatMetaWhen(it) ?: it) },
       p.email?.threadLen?.let { MetaRow("Thread", "$it messages") },
       p.email?.attachments?.takeIf { it.isNotEmpty() }?.let { MetaRow("Attachments", "${it.size}") },
     )

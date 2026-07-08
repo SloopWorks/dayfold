@@ -7,6 +7,26 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Typed cards render their body_md (was raw text / dropped)
+
+### Fixed (client)
+- **A typed Now-card (geo / invite / contact / file / link / email) with an authored
+  `body_md` now renders it properly.** Before, the typed-card layouts showed `body_md`
+  verbatim as a plain one-line summary — `**bold**` printed its asterisks, `[label](url)`
+  printed as un-tappable literal text, and multi-line bodies ran together. The working
+  markdown renderer (`rememberRenderedMarkdown`: bold/italic/lists/tables + vetted tappable
+  links) was only wired to the generic untyped `CardItem` fallback, which real (typed) cards
+  never reach. Now: the **feed row** shows a calm one-line PLAIN summary (first line of the
+  body, markdown stripped), and the **detail screen** renders the full formatted `body_md`
+  with tappable links — the detail view previously dropped `body_md` entirely. Untyped
+  briefing cards are unchanged. (No ADR — render-layer bugfix.)
+- **Card detail date/time fields now read as friendly labels instead of raw ISO.** A
+  DETAILS row (and the invite hero panel) rendered timestamps verbatim —
+  `2026-07-08T09:25:00-07:00`. They now format to the **authored wall-clock** —
+  `Jul 8, 9:25 AM` (leave-by / when / RSVP-by / closes / modified / email date); a
+  date-only value → `Jun 18`. Shown in the value's own zone (an appointment reads in
+  its local time, not the viewer's). Unparseable values pass through unchanged.
+
 ## 2026-07-08 — Authored card triggers now drive surfacing + notifications (#299)
 
 ### Added (client)
