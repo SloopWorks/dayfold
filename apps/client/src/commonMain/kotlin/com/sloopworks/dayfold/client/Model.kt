@@ -99,8 +99,11 @@ data class LinkPayload(
 data class InvitePayload(
   val eventName: String? = null, val host: String? = null, val startAt: String? = null,
   val place: String? = null, val rsvpBy: String? = null,
-  // display-of-state at M0 — no write path (ADR 0020/0016)
+  // display-of-state at M0 — no write path (ADR 0020/0016). rsvpState reflects the authored
+  // reply; rsvpUrl (optional) is a reply TARGET to hand off to (web RSVP / calendar / mailto /
+  // thread URL) — dayfold never writes its own backend, it opens the source system.
   val rsvpState: String? = null,
+  val rsvpUrl: String? = null,
   val guestCount: Long? = null, val confirmedCount: Long? = null, val notes: String? = null,
 )
 

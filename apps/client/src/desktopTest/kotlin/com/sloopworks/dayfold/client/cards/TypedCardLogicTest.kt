@@ -108,4 +108,21 @@ class TypedCardLogicTest {
     assertNull(bodySummaryFor(card("invite", Payload(invite = InvitePayload()))))
     assertNull(bodySummaryFor(card("geo", Payload(geo = GeoPayload()))))
   }
+
+  @Test fun `inviteReplyAction maps a reply target to an OS handoff, else null`() {
+    assertEquals(CardAction.Email("mailto:office@lincoln.edu"), inviteReplyAction("mailto:office@lincoln.edu"))
+    assertEquals(CardAction.OpenUrl("https://rsvp.example/x"), inviteReplyAction("https://rsvp.example/x"))
+    assertNull(inviteReplyAction(null))
+    assertNull(inviteReplyAction("  "))
+    assertNull(inviteReplyAction("javascript:boom"))   // unrecognized scheme → no action (fail-safe)
+    assertNull(inviteReplyAction("tel:+15551234"))     // not a reply channel for invites
+  }
+
+  @Test fun `rsvpStatusLabel reflects state + names the origin`() {
+    assertEquals("You're going · from The Garcias", rsvpStatusLabel("yes", "The Garcias", "email"))
+    assertEquals("Declined · from your email", rsvpStatusLabel("no", null, "email"))
+    assertEquals("Not replied yet · from your email", rsvpStatusLabel("none", null, "email"))
+    assertEquals("Not replied yet", rsvpStatusLabel(null, null, "claude"))   // no host, non-email source → status only
+    assertEquals("You're going · from Lincoln Elementary", rsvpStatusLabel("yes", "Lincoln Elementary", null))
+  }
 }

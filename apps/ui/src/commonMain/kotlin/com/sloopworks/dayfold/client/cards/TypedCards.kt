@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.Card
+import com.sloopworks.dayfold.client.InvitePayload
 import com.sloopworks.dayfold.client.sourceLabel
 import com.sloopworks.dayfold.client.theme.LocalDayfoldColors
 
@@ -182,33 +183,36 @@ private fun StandardCard(card: Card, onAction: (CardAction) -> Unit) {
   BaseCard(card, mono, onAction)
 }
 
-/** invite — coral primaryContainer bg + a DISPLAY-ONLY Yes/No row (no write path, ADR 0020/0016). */
+/** invite — coral primaryContainer bg + an honest RSVP affordance (reply-handoff when the invite
+ *  carries a reply link, else a read-only status chip; no dayfold-backend write — ADR 0020/0016). */
 @Composable
 private fun InviteCard(card: Card, onAction: (CardAction) -> Unit) {
   BaseCard(card, "!", onAction, container = MaterialTheme.colorScheme.primaryContainer, solidAccent = true) {
-    RsvpDisplayRow(card.payload?.invite?.rsvpState)
+    RsvpAffordance(card.payload?.invite, card.provenance?.source, onAction)
   }
 }
 
+/** Reply-handoff OR read-only status — replaces the old Yes/No pill toggle (which looked tappable
+ *  but did nothing). If the invite has a `rsvpUrl` reply target, a single "Reply / RSVP" button
+ *  hands off to the source system; otherwise a non-interactive status chip reflects the authored
+ *  RSVP and names its origin. dayfold never writes its own backend (ADR 0020/0016). */
 @Composable
-internal fun RsvpDisplayRow(rsvpState: String?) {
-  // Static reflection of the authored RSVP — NOT an input (M0 has no write path).
-  Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.semantics {
-    contentDescription = "RSVP status: ${rsvpState ?: "no reply yet"}"
-  }) {
-    RsvpPill("Yes", selected = rsvpState == "yes")
-    RsvpPill("No", selected = rsvpState == "no")
-  }
-}
-
-@Composable
-private fun RsvpPill(label: String, selected: Boolean) {
-  val cs = MaterialTheme.colorScheme
-  val bg = if (selected) cs.primary else cs.surfaceContainerHighest
-  val fg = if (selected) cs.onPrimary else cs.onSurfaceVariant
-  Surface(color = bg, shape = RoundedCornerShape(999.dp), modifier = Modifier.heightIn(min = 36.dp)) {
-    Text(label, color = fg, style = MaterialTheme.typography.labelLarge,
-      modifier = Modifier.widthIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp))
+internal fun RsvpAffordance(invite: InvitePayload?, source: String?, onAction: (CardAction) -> Unit) {
+  val replyAction = inviteReplyAction(invite?.rsvpUrl)
+  if (replyAction != null) {
+    OutlinedButton(onClick = { onAction(replyAction) }, modifier = Modifier.heightIn(min = 48.dp)) {
+      Text("Reply / RSVP")
+    }
+  } else {
+    val label = rsvpStatusLabel(invite?.rsvpState, invite?.host, source)
+    val cs = MaterialTheme.colorScheme
+    Surface(
+      color = cs.surfaceContainerHighest, shape = RoundedCornerShape(999.dp),
+      modifier = Modifier.heightIn(min = 36.dp).clearAndSetSemantics { contentDescription = "RSVP: $label" },
+    ) {
+      Text(label, color = cs.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    }
   }
 }
 
