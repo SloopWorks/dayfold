@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.Card
 import com.sloopworks.dayfold.client.RelatedRef
+import com.sloopworks.dayfold.client.formatMetaWhen
 import com.sloopworks.dayfold.client.rememberRenderedMarkdown
 
 // CL-6 — full-screen per-type detail (mockup designs/content/Detail-Phone.dc.html).
@@ -187,7 +188,7 @@ private fun HeroMedia(card: Card, onAction: (CardAction) -> Unit) {
     "file" -> InfoPanel(listOfNotNull(p.file?.filename, p.file?.pages?.let { "$it pages" }, p.file?.mime))
     "link" -> InfoPanel(listOfNotNull(p.link?.domain, p.link?.title, p.link?.ogDesc))
     "invite" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      InfoPanel(listOfNotNull(p.invite?.startAt, p.invite?.place, p.invite?.host))
+      InfoPanel(listOfNotNull(p.invite?.startAt?.let { formatMetaWhen(it) ?: it }, p.invite?.place, p.invite?.host))
       RsvpDisplayRow(p.invite?.rsvpState)
     }
     "contact" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -20,6 +20,12 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   body, markdown stripped), and the **detail screen** renders the full formatted `body_md`
   with tappable links — the detail view previously dropped `body_md` entirely. Untyped
   briefing cards are unchanged. (No ADR — render-layer bugfix.)
+- **Card detail date/time fields now read as friendly labels instead of raw ISO.** A
+  DETAILS row (and the invite hero panel) rendered timestamps verbatim —
+  `2026-07-08T09:25:00-07:00`. They now format to the **authored wall-clock** —
+  `Jul 8, 9:25 AM` (leave-by / when / RSVP-by / closes / modified / email date); a
+  date-only value → `Jun 18`. Shown in the value's own zone (an appointment reads in
+  its local time, not the viewer's). Unparseable values pass through unchanged.
 
 ## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
 
