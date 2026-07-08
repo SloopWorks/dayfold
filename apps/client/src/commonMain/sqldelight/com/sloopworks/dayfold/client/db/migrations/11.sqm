@@ -1,0 +1,5 @@
+-- Migration v11→v12 (issue #299): cards gain on-device trigger metadata (when/geo), mirroring
+-- hub_block.triggers. Existing rows get NULL; the CLIENT_SCHEMA_VERSION 2→3 bump forces one resync
+-- so the server backfills triggers into cached cards (the incremental cursor can't heal a
+-- since-added field — an older model dropped it via ignoreUnknownKeys and advanced past the rows).
+ALTER TABLE card ADD COLUMN triggers TEXT;
