@@ -2,7 +2,9 @@ package com.sloopworks.dayfold.client
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
@@ -61,5 +63,29 @@ class HubChecklistToggleTest {
     onNodeWithText("Couldn't save", substring = true).assertIsDisplayed()
     onNodeWithText("Retry").performClick()
     assertEquals("b_chk", retried)
+  }
+
+  @Test fun `a done item shows the toggler's first name, not the raw userId`() = runComposeUiTest {
+    val state = AppState(
+      currentHubId = "h1",
+      session = Session("a", "r", userId = "u_me"),
+      members = listOf(FamilyMember(uid = "u_pat", displayName = "Patrick Jackson")),
+      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_pat")),
+    )
+    setContent { MaterialTheme { HubDetailScreen(state) } }
+    onNodeWithText("1 done").performClick()                 // expand the folded done section
+    onNodeWithText("✓ Patrick").assertExists()
+    onAllNodesWithText("u_pat", substring = true).assertCountEquals(0)   // never the raw userId
+  }
+
+  @Test fun `a done item by an unknown member falls back to a family member`() = runComposeUiTest {
+    val state = AppState(
+      currentHubId = "h1", session = Session("a", "r", userId = "u_me"), members = emptyList(),
+      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_gone")),
+    )
+    setContent { MaterialTheme { HubDetailScreen(state) } }
+    onNodeWithText("1 done").performClick()
+    onNodeWithText("✓ a family member").assertExists()
+    onAllNodesWithText("u_gone", substring = true).assertCountEquals(0)
   }
 }

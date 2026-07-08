@@ -492,6 +492,8 @@ fun HubDetailScreen(
         // blocks (W5) are filtered out of the live sections and collected into the one
         // "Hidden for you" section below — hide is a pure VIEW split, never a deletion (D4).
         val selfId = state.session?.userId
+        // build once from the eager-loaded roster + self id; identity resolved render-side only
+        val resolveDoneBy: (String?) -> String? = { displayNameFor(it, state.members, state.session?.userId) }
         tree.sections.sortedBy { it.ord }.forEach { section ->
           val all = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
           val blocks = partitionHidden(all, state.hiddenIds).visible
@@ -512,7 +514,7 @@ fun HubDetailScreen(
               canDelete = block.createdBy != null && block.createdBy == selfId,
               onToggleItem = onToggleItem, onRetryBlock = onRetryBlock,
               onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock,
-              onCardAction = onCardAction,
+              onCardAction = onCardAction, resolveDoneBy = resolveDoneBy,
             )
           }
         }
@@ -681,6 +683,7 @@ private fun HubBlockCard(
   onDeleteBlock: (String) -> Unit = {},
   onHideBlock: (String) -> Unit = {},
   onCardAction: (CardAction) -> Unit = {},
+  resolveDoneBy: (String?) -> String? = { null },
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   var confirmDelete by remember { mutableStateOf(false) }
@@ -722,7 +725,7 @@ private fun HubBlockCard(
             blockFallsBackToBodyMd(block) -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
             else -> when (block.type) {
               "text", "markdown" -> Text(rememberRenderedMarkdown(block.bodyMd ?: ""), style = MaterialTheme.typography.bodyMedium)
-              "checklist" -> ChecklistBlock(block, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock)
+              "checklist" -> ChecklistBlock(block, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, resolveDoneBy = resolveDoneBy)
               "link", "document" -> LinkRow(block)
               "contact" -> ContactRow(block.payload, onCardAction)
               "location" -> LocationBlock(block.payload, onCardAction)
@@ -957,6 +960,7 @@ private fun ChecklistBlock(
   block: HubBlock,
   onToggleItem: (String, String, Boolean) -> Unit,
   onRetryBlock: (String) -> Unit,
+  resolveDoneBy: (String?) -> String? = { null },
 ) {
   val items = block.payload?.items ?: emptyList()
   // Interactive iff items carry stable ids (ADR 0038 CLI stamp-on-push) — only then can a
@@ -965,7 +969,9 @@ private fun ChecklistBlock(
   // claim is only honest (D4) where a real member-write boundary exists.
   val interactive = items.any { it.id != null }
   if (!interactive) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { items.forEach { ChecklistRow(it, onToggle = null) } }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      items.forEach { ChecklistRow(it, onToggle = null, resolveDoneBy = resolveDoneBy) }
+    }
     return
   }
   // The burst set lives in UI state; the DB done-triple is the source of truth. Each
@@ -988,9 +994,9 @@ private fun ChecklistBlock(
   }
 
   Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    active.forEach { item -> ChecklistRow(item, onToggle = item.id?.let { { nd -> toggle(item, nd) } }) }
+    active.forEach { item -> ChecklistRow(item, onToggle = item.id?.let { { nd -> toggle(item, nd) } }, resolveDoneBy = resolveDoneBy) }
     if (done.isNotEmpty()) {
-      DoneSection(done, collapsedOnly = ChecklistFoldView.doneCollapsedOnly(done.size), onToggle = ::toggle)
+      DoneSection(done, collapsedOnly = ChecklistFoldView.doneCollapsedOnly(done.size), onToggle = ::toggle, resolveDoneBy = resolveDoneBy)
     }
     // optimistic-write state for the whole-block PUT (the real boundary): a saving
     // hairline while pending, a calm inline Retry (never a dialog) once it's failed.
@@ -1007,7 +1013,7 @@ private fun ChecklistBlock(
 }
 
 @Composable
-private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = null) {
+private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = null, resolveDoneBy: (String?) -> String? = { null }) {
   val reduceMotion = rememberReduceMotion()
   val haptics = LocalHapticFeedback.current
   val done = item.done
@@ -1033,7 +1039,7 @@ private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = n
     ).semantics {
       stateDescription = buildString {
         append(if (done) "checked" else "not checked")
-        if (done && item.doneBy != null) append(", by ${item.doneBy}")
+        if (done && item.doneBy != null) append(", by ${resolveDoneBy(item.doneBy) ?: "a family member"}")
       }
     }
   } else Modifier.fillMaxWidth()
@@ -1064,7 +1070,7 @@ private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = n
         },
       )
       // subline: the conflict/remote byline ("✓ Mom") when done, else due · assignee.
-      val sub = if (done && item.doneBy != null) "✓ ${item.doneBy}"
+      val sub = if (done && item.doneBy != null) "✓ ${resolveDoneBy(item.doneBy) ?: "a family member"}"
         else listOfNotNull(item.due?.let { "Due $it" }, item.assignee).joinToString(" · ")
       if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall, color = onSurfaceVar)
     }
@@ -1074,7 +1080,7 @@ private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = n
 // The collapsed "N done" foldaway (Role.Button, expand/collapse). Past ~20 done it's a
 // calm count-only line (no expand). Expanded rows stay tappable so a fold can be undone.
 @Composable
-private fun DoneSection(done: List<ChecklistItem>, collapsedOnly: Boolean, onToggle: (ChecklistItem, Boolean) -> Unit) {
+private fun DoneSection(done: List<ChecklistItem>, collapsedOnly: Boolean, onToggle: (ChecklistItem, Boolean) -> Unit, resolveDoneBy: (String?) -> String? = { null }) {
   var open by remember { mutableStateOf(false) }
   Column {
     Surface(
@@ -1090,7 +1096,7 @@ private fun DoneSection(done: List<ChecklistItem>, collapsedOnly: Boolean, onTog
     }
     AnimatedVisibility(visible = open && !collapsedOnly, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
       Column(Modifier.padding(top = 4.dp)) {
-        done.forEach { item -> ChecklistRow(item, onToggle = item.id?.let { { nd -> onToggle(item, nd) } }) }
+        done.forEach { item -> ChecklistRow(item, onToggle = item.id?.let { { nd -> onToggle(item, nd) } }, resolveDoneBy = resolveDoneBy) }
       }
     }
   }
