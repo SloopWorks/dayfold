@@ -34,13 +34,15 @@ Rejected — **B, stamp `doneByName` into the payload**: bakes identity into (en
 content, muddies the content/identity separation, and shows stale names after a
 rename. Rejected — **Hybrid**: extra moving parts for a fallback the calm text handles.
 
-### 1. Roster available app-wide (the one real cost of A)
-Persist the roster into the local content DB as a small **`member` table**
-(`family_id`, `uid`, `display_name`, `updated_at`), refreshed from `GET /members` on
-sign-in + foreground sync, and projected via a reactive `membersFlow()` into the store
-— exactly like the cards/hubs bridges (ADR 0020, DB-fed reactive client). Offline,
-reactive, app-wide. (Today `loadMembers` fetches the roster only on the Members
-screen; this makes it eager + persisted.)
+### 1. Roster available app-wide (eager-load — simplified 2026-07-07)
+`state.members` (the `List<FamilyMember>` roster with `display_name`) **already exists
+in the store** — it's just only *triggered* on the Members screen today. Make it
+available app-wide by **eager-loading** it once memberships resolve
+(`AuthEngine.loadMemberships` tail, alongside the existing device/invite resumes), so
+`state.members` is populated after sign-in/restore and stays for the process lifetime.
+No new DB table or flow. (Rejected the heavier DB-persist path: its only gain is
+instant/offline names on a cold start before the first `GET /members`; for a byline the
+~1s "a family member" → resolves fallback is fine — YAGNI.)
 
 ### 2. Pure resolver (all the logic, unit-testable)
 ```
