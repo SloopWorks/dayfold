@@ -25,6 +25,20 @@ class DetailMetaTest {
     assertTrue(detailMeta(card("file", Payload(file = FilePayload(filename = "a")))).none { it.label == "Owner" })
   }
 
+  @Test fun `folded hero-only fields appear as labeled DETAILS rows (dedup)`() {
+    fun rows(type: String, payload: Payload) = detailMeta(card(type, payload)).associate { it.label to it.value }
+    assertEquals("The Garcias", rows("invite", Payload(invite = InvitePayload(host = "The Garcias")))["Host"])
+    assertEquals("Firestone Poulsbo", rows("geo", Payload(geo = GeoPayload(label = "Firestone Poulsbo")))["Place"])
+    assertEquals("Please reply by Thu", rows("email", Payload(email = EmailPayload(bodyExcerpt = "Please reply by Thu")))["Preview"])
+    val link = rows("link", Payload(link = LinkPayload(title = "Fall Soccer", ogDesc = "Register your player")))
+    assertEquals("Fall Soccer", link["Title"]); assertEquals("Register your player", link["About"])
+    assertEquals("application/pdf", rows("file", Payload(file = FilePayload(mime = "application/pdf")))["Type"])
+    val contact = rows("contact", Payload(contact = ContactPayload(company = "Jake's Rentals", role = "Party equipment")))
+    assertEquals("Jake's Rentals", contact["Company"]); assertEquals("Party equipment", contact["Role"])
+    // omitted when the field is null
+    assertTrue(detailMeta(card("invite", Payload(invite = InvitePayload(place = "Home")))).none { it.label == "Host" })
+  }
+
   @Test fun `meta covers all 6 types without NPE on sparse payloads`() {
     listOf(
       card("file", Payload(file = FilePayload())),

@@ -26,12 +26,15 @@ fun detailMeta(card: Card): List<MetaRow> {
       p.file?.filename?.let { MetaRow("File", it) },
       p.file?.source?.let { MetaRow("Source", it) },
       sizePages(p.file?.size, p.file?.pages)?.let { MetaRow("Size", it) },
+      p.file?.mime?.let { MetaRow("Type", it) },
       p.file?.modified?.let { MetaRow("Modified", formatMetaWhen(it) ?: it) },
       p.file?.owner?.let { MetaRow("Owner", it) },
     )
     "link" -> listOfNotNull(
+      p.link?.title?.let { MetaRow("Title", it) },
       p.link?.url?.let { MetaRow("URL", it) },
       p.link?.domain?.let { MetaRow("Site", it) },
+      p.link?.ogDesc?.let { MetaRow("About", it) },
       p.link?.let { l -> l.kind?.let { k -> MetaRow("Type", if (k == "form" && l.fieldCount != null) "Form · ${l.fieldCount} fields" else k) } },
       p.link?.closesAt?.let { MetaRow("Closes", formatMetaWhen(it) ?: it) },
       p.link?.savedAt?.let { MetaRow("Saved", formatMetaWhen(it) ?: it) },
@@ -39,11 +42,14 @@ fun detailMeta(card: Card): List<MetaRow> {
     "invite" -> listOfNotNull(
       p.invite?.startAt?.let { MetaRow("When", formatMetaWhen(it) ?: it) },
       p.invite?.place?.let { MetaRow("Where", it) },
+      p.invite?.host?.let { MetaRow("Host", it) },
       p.invite?.rsvpBy?.let { MetaRow("RSVP by", formatMetaWhen(it) ?: it) },
       p.invite?.let { i -> i.guestCount?.let { MetaRow("Guests", listOfNotNull("$it", i.confirmedCount?.let { c -> "$c confirmed" }).joinToString(" · ")) } },
       p.invite?.notes?.let { MetaRow("Note", it) },
     )
     "contact" -> listOfNotNull(
+      p.contact?.company?.let { MetaRow("Company", it) },
+      p.contact?.role?.let { MetaRow("Role", it) },
       p.contact?.phone?.let { MetaRow("Phone", it) },
       p.contact?.email?.let { MetaRow("Email", it) },
       p.contact?.address?.let { MetaRow("Address", it) },
@@ -51,6 +57,7 @@ fun detailMeta(card: Card): List<MetaRow> {
       p.contact?.deliveryWindow?.let { MetaRow("Window", it) },
     )
     "geo" -> listOfNotNull(
+      p.geo?.label?.let { MetaRow("Place", it) },
       p.geo?.address?.let { MetaRow("Address", it) },
       p.geo?.let { g -> g.etaMin?.let { MetaRow("Drive", listOfNotNull("$it min", g.distance).joinToString(" · ")) } },
       p.geo?.leaveBy?.let { MetaRow("Leave by", formatMetaWhen(it) ?: it) },
@@ -60,6 +67,7 @@ fun detailMeta(card: Card): List<MetaRow> {
     "email" -> listOfNotNull(
       p.email?.from?.let { MetaRow("From", it) },
       p.email?.subject?.let { MetaRow("Subject", it) },
+      p.email?.bodyExcerpt?.let { MetaRow("Preview", it) },
       p.email?.date?.let { MetaRow("Date", formatMetaWhen(it) ?: it) },
       p.email?.threadLen?.let { MetaRow("Thread", "$it messages") },
       p.email?.attachments?.takeIf { it.isNotEmpty() }?.let { MetaRow("Attachments", "${it.size}") },

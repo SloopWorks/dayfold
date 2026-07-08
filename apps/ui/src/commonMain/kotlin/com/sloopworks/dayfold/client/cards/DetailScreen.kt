@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.Card
 import com.sloopworks.dayfold.client.RelatedRef
-import com.sloopworks.dayfold.client.formatMetaWhen
 import com.sloopworks.dayfold.client.rememberRenderedMarkdown
 
 // CL-6 — full-screen per-type detail (mockup designs/content/Detail-Phone.dc.html).
@@ -74,7 +73,11 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
       contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + navBottom),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      item { HeroMedia(card, onAction) }
+      // Hero only when the type has an affordance (map / RSVP / Call·Text) — file/link/email
+      // have none, so skip the item entirely (no empty spacing gap). Facts live in DETAILS.
+      if (card.type == "invite" || card.type == "contact" || card.type == "geo") {
+        item { HeroMedia(card, onAction) }
+      }
       item { ActionsRow(detailActions(card), onAction) }
       // Authored body: the feed row shows only a one-line summary (bodySummaryFor),
       // so the full body_md — bold/lists + vetted tappable [label](url) links — is
@@ -181,47 +184,17 @@ private fun typeMonogram(card: Card): String = when (card.type) {
 
 // ── per-type hero media ───────────────────────────────────────────────────────
 
+// Hero = the type's AFFORDANCE only (no fact-restatement — every fact lives once, labeled,
+// in the DETAILS block below; see detailMeta). file/link/email have no hero affordance → the
+// detail is title → actions → body → DETAILS.
 @Composable
 private fun HeroMedia(card: Card, onAction: (CardAction) -> Unit) {
   val p = card.payload ?: return
   when (card.type) {
-    "file" -> InfoPanel(listOfNotNull(p.file?.filename, p.file?.pages?.let { "$it pages" }, p.file?.mime))
-    "link" -> InfoPanel(listOfNotNull(p.link?.domain, p.link?.title, p.link?.ogDesc))
-    "invite" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      InfoPanel(listOfNotNull(p.invite?.startAt?.let { formatMetaWhen(it) ?: it }, p.invite?.place, p.invite?.host))
-      RsvpAffordance(p.invite, card.provenance?.source, onAction)
-    }
-    "contact" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-      InfoPanel(listOfNotNull(p.contact?.name, p.contact?.role, p.contact?.company))
-      ContactReachRow(card, onAction)
-    }
-    "geo" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      MapStrip()
-      InfoPanel(listOfNotNull(p.geo?.label, p.geo?.etaMin?.let { "$it min away" }, p.geo?.address))
-    }
-    "email" -> InfoPanel(listOfNotNull(
-      p.email?.from, p.email?.bodyExcerpt,
-      p.email?.attachments?.takeIf { it.isNotEmpty() }?.let { "${it.size} attachment(s)" },
-    ))
+    "invite" -> RsvpAffordance(p.invite, card.provenance?.source, onAction)
+    "contact" -> ContactReachRow(card, onAction)
+    "geo" -> MapStrip()
     else -> {}
-  }
-}
-
-/** A neutral surface panel of lines — the M0 hero-media placeholder (no async media,
- *  no fetch). Richer per-type media (PDF thumb, real map) are CL-9/later follows. */
-@Composable
-private fun InfoPanel(lines: List<String>) {
-  if (lines.isEmpty()) return
-  Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      lines.forEachIndexed { i, line ->
-        Text(
-          line,
-          style = if (i == 0) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-          color = if (i == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
-    }
   }
 }
 
