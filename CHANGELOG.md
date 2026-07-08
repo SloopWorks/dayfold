@@ -7,6 +7,17 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Card detail no longer states the same facts twice
+
+### Fixed (client)
+- **The card detail screen showed its facts twice** — a label-less hero panel restated the
+  labeled DETAILS list below (e.g. an invite's date + place appeared in both). DETAILS is now
+  the single labeled source of facts; the hero keeps only its real affordance (the map strip,
+  the RSVP status/reply, the Call/Text row) and file/link/email drop the hero entirely
+  (title → actions → DETAILS). The few hero-only fields are folded into DETAILS so nothing is
+  lost: invite **Host**, geo **Place**, email **Preview**, link **Title**/**About**, file
+  **Type**, contact **Company**/**Role**. Less noise, everything labeled and stated once.
+
 ## 2026-07-08 — Invite RSVP is now honest (reply-handoff or read-only status)
 
 ### Fixed (client)
