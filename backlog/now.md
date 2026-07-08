@@ -32,6 +32,45 @@ you need the detailed narrative behind something below, not by default.
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
+**2026-07-08 repo-maintenance pass (scheduled, not a feature slice) — applied the
+mechanically-safe CODE DEDUP FINDINGS + closed a real card-authoring doc bug.**
+Same no-npm/Gradle-registry-egress sandbox as all five prior passes (re-confirmed:
+`registry.npmjs.org`/`raw.githubusercontent.com`/`plugins.gradle.org` all 403).
+CI verified green on `main` throughout (ci.yml, rebuild-api-bundle.yml,
+secret-scan.yml all latest-run success). Applied, relying on real CI (not local
+build) to verify: `apps/api` — `requireSession(c)` helper (`auth/middleware.ts`)
+replaces 7 identical bearer→verify→credential-check inline copies in `app.ts`;
+`hubs.getVisibleHub(fid,id,caller)` (`content/hubs.ts`) replaces 4 identical
+fetch-hub+check-visible blocks; dead `scopeAllows` import removed; a stale
+comment in `auth/scope.ts` fixed. `apps/cli` — the 4 near-identical HTTP-verb
+functions in `Main.kt` collapsed to one `httpStatus()` helper (call sites
+unchanged). Full findings ledger + what's still open (queued for a
+build-capable session): `backlog/next.md` CODE DEDUP FINDINGS. **Found + fixed
+a real "actively wrong instructions" bug** (same class as the 07-07 pass, not
+overlapping it): `content-model.md` and the CLI's own `USAGE` text both claimed
+cards accept `visibility`/`audience` fields with server-only validation — false
+for cards specifically. `Validate.kt::validateCard` STRICT-decodes against the
+generated `BriefingCard` schema, which has no `visibility`/`audience` property
+at all, so an agent authoring a card with either field gets a local hard-reject
+(`invalid card JSON: Unknown key…`) before the request ever reaches the server.
+Rewrote both to state hub-vs-card behavior separately (hubs: lenient locally,
+server-enforced; cards: not currently authorable via CLI/skill — schema gap).
+Also added the undocumented `content:delete`/`hub:<id>:delete` scope strings to
+`references/cli.md`, and filled real gaps in `content-model.md`'s per-type card
+payload field lists (`file.owner`/`sharedWith`, `link.favicon`, `contact.hours`,
+`geo.linkedEventId` — all present in the generated schema, none previously
+documented). **Closed 2 real CHANGELOG.md gaps:** the 2026-07-07 invite
+deep-links ship (ADR 0048, PR #294) had no entry, and the prior 07-07 invite
+entry's own claim that "deep-link remains deferred" had gone stale within the
+same PR — split into an accurate deep-link entry + corrected the original; the
+2026-07-08 checklist-row text-clip fix (`ac906f1`) also had no entry. Refreshed
+`CLAUDE.md`'s "Current stage" snapshot (was dated 07-04, missing the shipped
+invite-mint UI + deep-links) and `docs/architecture.md`'s Auth section (added
+the invite deep-link data flow + ADR 0048 to its decision-record list; date
+bumped 07-06→07-08). Values/privacy spot-check clean (no Gmail OAuth scopes, no
+token/secret logging patterns, no child-account paths, no committed
+secret-like files; `secret-scan.yml` green).
+
 ## Current state (as of 2026-07-06)
 
 **Stage: M0 render prototype BUILT + cloud-live** — server (TS/Hono/Postgres

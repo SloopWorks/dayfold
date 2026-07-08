@@ -36,12 +36,17 @@ scripts already wired to it — if the skill sees `(legacy)`, tell the operator
 either mode works, but device login (`dayfold login`) is the current
 recommended path for a new setup.
 
-**Scope (ADR 0029).** `whoami`'s `scope=...` is one of `content:read` /
-`content:write` (global) or `hub:<id>:read` / `hub:<id>:write` (a single hub).
-A device-granted credential's scope is fixed at login time — there is no
-in-place re-scope; a 403 from insufficient scope means the operator must
-`dayfold logout` and `dayfold login` again with broader access approved on
-the phone, not something the skill can work around.
+**Scope (ADR 0029).** `whoami`'s `scope=...` is one or more of `content:read` /
+`content:write` / `content:delete` (global) or `hub:<id>:read` / `hub:<id>:write` /
+`hub:<id>:delete` (a single hub). `delete` is its own scope, not implied by
+`write` (ADR 0038 §W4 — a stolen write-scoped token can't mass-delete); today
+every CLI/device-login credential is granted `content:{read,write,delete}`
+together, so in practice `dayfold delete` just works once `push` does — but a
+403 specifically on `delete` while `push` succeeds is a real, distinct
+possibility to recognize. A device-granted credential's scope is fixed at login
+time — there is no in-place re-scope; a 403 from insufficient scope means the
+operator must `dayfold logout` and `dayfold login` again with broader access
+approved on the phone, not something the skill can work around.
 
 **Exit codes** (all commands): `0` = success (including `help`); `1` = the
 server rejected the request (non-200 — see Push below); `2` = local misuse

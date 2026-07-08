@@ -12,6 +12,22 @@ export function bearer(c: any): string | undefined {
   return h.startsWith("Bearer ") ? h.slice(7) : undefined;
 }
 
+// Non-tenant session auth: bearer → verify access JWT → credential still live.
+// Used by the account/device-approval routes that act on the caller's own
+// identity rather than a :fid-scoped resource (those use authorizeTenant instead).
+export async function requireSession(c: any): Promise<{ sub: string; cid: string } | { status: 401 }> {
+  const t = bearer(c);
+  if (!t) return { status: 401 };
+  let sub: string, cid: string;
+  try {
+    const { verifyAccess } = await import("./tokens.ts");
+    ({ sub, cid } = await verifyAccess(t));
+  } catch { return { status: 401 }; }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return { status: 401 };
+  return { sub, cid };
+}
+
 type Ok = { cred: any; userId: string | null; role: string | null; scopes: string[]; legacy: boolean };
 type Err = { status: 401 | 403 | 404 };
 

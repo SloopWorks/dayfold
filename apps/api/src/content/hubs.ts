@@ -55,6 +55,16 @@ export async function allowListFor(familyId: string, hubId: string): Promise<Set
   return new Set(r.rows.map((x: any) => x.user_id));
 }
 
+// getHub + allowListFor + hubVisible, collapsed: the hub if it exists AND the
+// caller may see it, else null. Absent and not-visible are indistinguishable
+// on purpose (ADR 0030 uniform-404 — the caller-facing route just 404s either way).
+export async function getVisibleHub(familyId: string, id: string, caller: Caller) {
+  const hub = await getHub(familyId, id);
+  if (!hub) return null;
+  const allow = await allowListFor(familyId, id);
+  return hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId)) ? hub : null;
+}
+
 // Idempotent hub upsert + allow-list authoring, in one transaction. created_by is set
 // on first author and preserved thereafter. visibility 'family'|'restricted'; when
 // restricted, `audience` (user ids) replaces the allow-list rows.

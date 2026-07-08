@@ -10,8 +10,8 @@ import { validateHubMedia, validateCardMedia, validateBlockPayloadMedia, normali
 import * as repo from "./repo.ts";
 // Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
 // load app.ts without triggering the module-level env-guard throws in tokens.ts.
-import { authorizeTenant, bearer } from "./auth/middleware.ts";
-import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } from "./auth/scope.ts";
+import { authorizeTenant, bearer, requireSession } from "./auth/middleware.ts";
+import { requireScope, grantScopes, resolveGrants, grantedHubIds } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
@@ -195,12 +195,8 @@ app.get("/auth/whoami", async (c) => {
 
 // Profile — the caller's own display name. (Memberships live in /auth/whoami.)
 app.get("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   const u = (await q(`SELECT id, display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!u) return c.body(null, 401);
   return c.json({ user_id: u.id, display_name: u.display_name });
@@ -208,12 +204,8 @@ app.get("/auth/me", async (c) => {
 
 // Update the caller's own display name (1–80 chars after trim).
 app.patch("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   const body = await c.req.json().catch(() => null);
   const name = typeof body?.display_name === "string" ? body.display_name.trim() : null;
   if (!name || name.length < 1 || name.length > 80) return c.json({ type: "bad-display-name" }, 400);
@@ -226,12 +218,8 @@ app.patch("/auth/me", async (c) => {
 // Data export (guardrail #4 — honor data-export on request). The caller's own
 // data only; NO secrets (refresh hashes, token hashes) ever leave. Read-only.
 app.get("/auth/me/export", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   const user = (await q(`SELECT id, display_name, created_at FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!user) return c.body(null, 401);
   const identities = (await q(`SELECT provider, email_verified, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at`, [sub])).rows;
@@ -247,12 +235,8 @@ app.get("/auth/me/export", async (c) => {
 // sessions + CLI grants) with last-used metadata; `current` flags this session.
 // No secrets. Read-only.
 app.get("/auth/me/credentials", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub, cid } = sess;
   const rows = (await q(
     `SELECT id, kind, label, scopes, family_scope, last_used_at, last_used_ip, created_at
        FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST, created_at DESC`, [sub])).rows;
@@ -263,12 +247,8 @@ app.get("/auth/me/credentials", async (c) => {
 // within one request — the per-request not-revoked check gates every token tied
 // to it. Revoking the current credential signs this device out on its next call.
 app.delete("/auth/me/credentials/:id", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   const target = c.req.param("id");
   // own credentials only — never another user's (anti-IDOR)
   const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
@@ -285,12 +265,8 @@ app.delete("/auth/me/credentials/:id", async (c) => {
 // (every session/CLI dies on its next request via the not-revoked gate). A purge
 // job hard-deletes later. Apple revokeToken folds in at S2 (Apple not built yet).
 app.delete("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   // families where the caller is the SOLE active owner AND others still belong
   const blocked = await q(
     `SELECT m.family_id, f.name FROM memberships m JOIN families f ON f.id=m.family_id
@@ -487,11 +463,8 @@ app.get("/families/:fid/hubs/:id", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404); // uniform 404 on scope-miss
-  const hub = await hubs.getHub(fid, id);
-  const caller = callerFrom(a);
+  const hub = await hubs.getVisibleHub(fid, id, callerFrom(a));
   if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
   return c.json(hub);
 });
 
@@ -500,11 +473,7 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
-  const hub = await hubs.getHub(fid, id);
-  const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await hubs.getVisibleHub(fid, id, callerFrom(a)))) return c.body(null, 404);
   return c.json(await hubs.getHubTree(fid, id));   // sections/blocks inherit hub visibility (gated above)
 });
 
@@ -516,11 +485,8 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
-  const hub = await hubs.getHub(fid, id);
-  const caller = callerFrom(a);
+  const hub = await hubs.getVisibleHub(fid, id, callerFrom(a));
   if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
   return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id) });
 });
 
@@ -690,10 +656,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   // regardless of scope. Resolve the parent hub via the (possibly tombstoned) section.
   const hubId = await hubs.liveHubOfSection(fid, blk.section_id);
   if (!hubId) return c.body(null, 404);                                // parent gone → unreachable
-  const hub = await hubs.getHub(fid, hubId);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, hubId);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await hubs.getVisibleHub(fid, hubId, caller))) return c.body(null, 404);
   // content:delete is its OWN scope (not implied by content:write).
   if (!(await requireScope(a.cred.id, "content", "delete"))) return c.json({ type: "forbidden" }, 403);
   // Author-gate: a member may delete only what they authored. Loop/CLI authoring (legacy
@@ -744,12 +707,8 @@ app.post("/device/token", async (c) => {
 // `account:approve:<sub>` lockout with approve (lookup+approve = one abuse surface),
 // uniform 404 on miss/expired, never leaks device_code/user_id/credential.
 app.get("/device/pending", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const sess = await requireSession(c); if ("status" in sess) return c.body(null, sess.status);
+  const { sub } = sess;
   const { isLocked, recordFailure } = await import("./auth/ratelimit.ts");
   const { audit } = await import("./auth/audit.ts");
   const lockKey = `account:approve:${sub}`;

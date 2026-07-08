@@ -7,6 +7,17 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Checklist rows no longer clip a wrapped item's byline
+
+### Fixed (client)
+- **A long checklist item's "assignee" / "✓ doneBy" line is no longer cut off.**
+  Interactive checklist rows had a fixed 48dp height (the minimum tap-target
+  size); when an item's text wrapped to two lines, that fixed height clipped
+  the subline underneath it — only the top half of the byline was visible
+  on-device. Rows now use a 48dp *minimum* height that grows to fit wrapped
+  text, still meeting the tap-target floor for short items. Verified on-device
+  (Pixel 4a).
+
 ## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
 
 ### Fixed (client)
@@ -18,6 +29,20 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   checklist renders, not just on the Members screen. An unknown/departed member falls back to
   "a family member". `assignee` and email are untouched. Verified on-device (Pixel 4a).
 
+## 2026-07-07 — Tapping an invite link opens straight to Join (Android)
+
+### Added (client, API)
+- **Invite links are now tap-to-join on Android**, not paste-only. Opening
+  `https://family-ai-dashboard.vercel.app/invite/{token}` (from the QR/share-link
+  flow below, a text/email, or a browser) verifies as an Android App Link and
+  launches Dayfold straight into the Join outcome screen — no more copying the
+  token by hand. A browser or desktop still lands on a plain `GET /invite/:token`
+  page with paste-path instructions instead of a 404. Reuses the App Links
+  plumbing already shipped for CLI device-grant login (same domain, same
+  `assetlinks.json`, same verified cert) — no new domain, no new spend. **iOS
+  Universal Links stay deferred** (needs a provisioned Apple Developer account,
+  ADR 0023) — iOS keeps the paste path. ADR 0048.
+
 ## 2026-07-07 — Owners can invite family members (QR + share link)
 
 ### Added (client)
@@ -26,11 +51,12 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   link** (~72-h, up to 5 uses), with a live expiry countdown and copy-to-clipboard.
   Outstanding invites list with **Revoke**; pending joiners approve/decline inline.
   Backed by the existing owner-approved invite API (ADR 0011); the raw token is
-  display-only (never persisted or logged). Recipient still redeems by pasting the
-  link into Join — in-app QR scan + deep-link remain deferred (spec §96/§121). New
-  cross-platform QR rendering via qrose (KMP; zxing is JVM-only and unusable on iOS).
-  Closes the one missing surface in the invite flow (API + specs + hi-fi designs
-  already existed). ADR 0008 sign-off for the invite mockups recorded 2026-07-07.
+  display-only (never persisted or logged). Redemption itself is tap-to-join on
+  Android and paste-into-Join elsewhere (see the deep-link entry above); in-app QR
+  scan remains deferred (spec §96/§121). New cross-platform QR rendering via qrose
+  (KMP; zxing is JVM-only and unusable on iOS). Closes the one missing surface in
+  the invite flow (API + specs + hi-fi designs already existed). ADR 0008 sign-off
+  for the invite mockups recorded 2026-07-07.
 
 ## 2026-07-04 — Debug sample cards no longer leak into the Now feed
 

@@ -803,52 +803,66 @@ until the operator gates (**INB-23** / ADR 0034 G1–G5). Follow-on tasks:
 
 ---
 
-## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept + partly applied 2026-07-05)
+## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, 2026-07-08)
 
 Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify passes.
-The 2026-07-05 pass applied the small, mechanically-safe items below **by careful
-inspection** (no local Gradle/npm registry access in that sandbox either — same
-constraint as 2026-07-01; verification relies on the real CI run on push, not a
-local build). Re-verify green on `main` before trusting this list as current.
+Applied items below were done **by careful inspection** (no local Gradle/npm
+registry access in this sandbox — same constraint every pass so far; verification
+relies on the real CI run on push, not a local build). Re-verify green on `main`
+before trusting this list as current.
 
-**Applied 2026-07-05 (verify CI landed green, then delete this sub-list):**
-- `apps/api` — `bearer()` de-duplicated: sole definition now `src/auth/middleware.ts`
-  (exported), imported by `app.ts`.
-- `apps/api` — visibility/audience PUT validation extracted to
-  `parseVisibilityAudience(raw)` in `app.ts`, used by both the card and hub PUT
-  handlers.
-- `apps/api` — the post-`authorizeTenant()` caller shape extracted to
-  `callerFrom(a)` in `app.ts`, replacing all 11 inline rebuilds.
-- `apps/api` — dead `repo.syncCards` (superseded by `syncContent`, zero callers)
-  deleted from `repo.ts`.
-- `apps/cli` — the refresh-token flow extracted to `refreshAccessToken(store,
-  keychain): String` in `Main.kt`, replacing the three inlined copies in
-  `authedGet`/`authedDelete`/`push`.
-- CLI/skill doc drift closed: `timeline` added to `references/cli.md`'s type
-  list (was in code + `templates/README.md`/`content-model.md` but missing
-  there); `upgrade`/`-v` aliases documented in `USAGE` + `cli.md`; checklist
-  item id-stamping (ADR 0038) documented in `USAGE` + `cli.md` (was real
-  undocumented behavior — an agent hand-authoring checklist ids on every push
-  would silently break per-member toggle continuity); `importance` +
-  `relatedKicker` added to `content-model.md`'s BriefingCard field list.
+**Applied 2026-07-08 (verify CI landed green, then delete this sub-list):**
+- `apps/api` — the auth-route boilerplate flagged below as "still open" on
+  2026-07-05 is now extracted: `requireSession(c): {sub,cid} | {status:401}` in
+  `src/auth/middleware.ts`, replacing 7 identical inline copies in `app.ts`
+  (`GET`/`PATCH /auth/me`, `/auth/me/export`, `/auth/me/credentials` GET+DELETE,
+  `DELETE /auth/me`, `GET /device/pending`). Left alone (real behavior variants,
+  not exact dupes): `/auth/signout`, `/auth/whoami` (no credential-existence
+  check needed pre-lookup), `POST /families` (intentionally lighter — no
+  credential-revocation check; worth a human look separately, not a mechanical
+  fix).
+- `apps/api` — `hubs.getVisibleHub(familyId, id, caller)` added to
+  `content/hubs.ts` (getHub + allowListFor + hubVisible collapsed), replacing 4
+  verbatim call sites: `GET /hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`,
+  and the visibility check inside `DELETE /blocks/:id`.
+- `apps/api` — dead import `scopeAllows` removed from `app.ts` (only
+  `requireScope`/`grantScopes`/`resolveGrants`/`grantedHubIds` are used there;
+  `scopeAllows` is internal to `auth/scope.ts`).
+- `apps/api` — stale comment in `auth/scope.ts` fixed (said `delete` scope "no
+  route gates on it yet" — the W4 block-delete route has gated on it since
+  2026-06-29).
+- `apps/cli` — the 4 near-identical HTTP-verb functions (`postStatus`/
+  `putStatus`/`getStatus`/`deleteStatus`) collapsed to one `httpStatus(method,
+  url, body, token)` in `Main.kt`, with the 4 named functions now thin
+  wrappers — no call site changed.
+- CLI/skill doc drift closed (fresh audit, none of these overlap the 07-07
+  fixes): **`content-model.md`'s visibility/audience section was flatly wrong
+  for cards** — it claimed both cards and hubs accept `visibility`/`audience`
+  with server-only validation, but `Validate.kt::validateCard` STRICT-decodes
+  against the generated `BriefingCard` schema, which has no `visibility`/
+  `audience` property at all — an agent following the old doc would have every
+  such card push locally hard-rejected (`invalid card JSON: Unknown key
+  'visibility'`). Rewrote the section to state hub-vs-card behavior separately;
+  also fixed the CLI's own `USAGE` string, which had the identical wrong claim.
+  Also: `content:delete`/`hub:<id>:delete` scope strings (real, granted by
+  default alongside `content:{read,write}` at every device-login) were
+  undocumented in `references/cli.md`'s scope section — added. Also: per-type
+  card payload field lists in `content-model.md` were missing real optional
+  fields present in the generated schema — `file.owner`/`sharedWith`,
+  `link.favicon`, `contact.hours`, `geo.linkedEventId` — added; the list is now
+  exhaustive, not "the common ones."
 
 **Still open — not applied, still needs a build-capable toolchain to verify:**
-- **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
-  the revoked-credential check) is repeated ~9× across `/auth/signout`,
-  `/auth/whoami`, `GET`/`PATCH /auth/me`, `/auth/me/export`, `/auth/me/credentials`
-  (GET+DELETE), `DELETE /auth/me`, `POST /families`, `GET /device/pending`
-  (2026-07-05 audit: `app.ts` ~lines 158/177/189/207/228/244/266/290/720). Extract
-  a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
-  unapplied this pass — 9 call sites is more surface than the mechanical
-  extractions above; do it with a real build to catch a subtle miss.
-- **`apps/api`** — "fetch hub, check visible, else 404" repeated verbatim 3×
-  (`GET /hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`) + once more (with an
-  extra author-gate check) inside the hub PUT. A `hubs.getVisibleHub(fid, id,
-  caller)` helper in `content/hubs.ts` would cover the 3 GET routes.
-- **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
-  with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
-  `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
-  the `kind`/columns differ slightly per path.
+- **`apps/api`** — `/auth/dev-token` (`app.ts`, dev/test-only, gated off in
+  prod/preview) re-implements `auth/identity.ts::mintCredentialFor` almost
+  verbatim (same INSERT + `grantScopes` triple), differing only in a weaker
+  `Math.random()`-based id vs `mintCredentialFor`'s crypto-based `id("cred")`.
+  Replacing the inline block with a call to `mintCredentialFor` removes ~7
+  lines and the weaker id path — low blast radius (dev-only route) but changes
+  the generated id shape, so flag for a human glance rather than auto-apply.
+- **`apps/api`** — credential-minting is *also* near-duplicated a third time in
+  `auth/device.ts:redeem` (device-grant CLI login). Lower priority — the
+  `kind`/columns differ slightly per path.
 - **`apps/api`/`packages/linkrules`** — `media-validation.ts` / `MediaValidation.kt`
   two-copy duplication is **intentional** (ADR 0036 Phase 2 plans codegen-from-one-
   source) — leave as-is; if picked up before Phase 2, the lower-risk interim step
@@ -858,9 +872,17 @@ local build). Re-verify green on `main` before trusting this list as current.
   `src/content-validation.timeline.test.ts` before someone deletes it as stale
   generated output. Also: the ~46 other API tests all live under `apps/api/test/`
   — these two are the only ones beside their source; normalize the convention.
-- **`apps/api`** — `app.ts` is ~1000 lines holding all ~45 routes. Splitting into
+- **`apps/api`** — `app.ts` is ~1037 lines holding all ~45 routes. Splitting into
   per-resource route modules is still the biggest win but the biggest risk;
   needs a real build to land safely.
+- **`apps/cli`** — `Main.kt`'s `pull` and `delete` dispatch arms both resolve
+  auth with the identical 6-line "load creds, requireAuthSetup, Triple(api,fam,
+  tok) from device-creds-or-legacy-env" block. A `resolveAuth(): AuthCtx` helper
+  would cover both. `push`'s PUT + 401-retry (`Main.kt` ~274-294) is also a
+  fourth still-inlined copy of the refresh-on-401 pattern `authedGet`/
+  `authedDelete` already factored out — an `authedPut` mirroring those two would
+  close it. Left unapplied this pass (larger diff surface across `main()`'s
+  dispatch than the mechanical extractions above); do both with a real build.
 - **CLI/skill docs** — moderate (3-4x) duplication of the same explanations
   across `SKILL.md` / `references/cli.md` / `references/content-model.md` /
   `templates/README.md` / `USAGE`: hub timeline, block payload field table,

@@ -4,9 +4,8 @@
 // (resource, action) it needs; `requireScope` is the single place that decides.
 import { q } from "../db.ts";
 
-// `delete` is RESERVED (ADR 0038/0039) for the W4 soft-delete path — no route gates
-// on it yet (Slice 5 wires `content:delete` + the author-gate). Adding it here keeps
-// the scope vocabulary in one place so the enforcement slice is a pure wire-up.
+// `delete` (ADR 0038/0039, W4) gates the block soft-delete route — its own scope,
+// not implied by `write`, so a stolen write-scoped token can't mass-delete.
 type Action = "read" | "write" | "delete";
 
 // All grant scope strings for a credential.

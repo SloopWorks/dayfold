@@ -34,12 +34,14 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `provenance` — `{ "source": "claude", "at": <ISO-8601> }`.
 - `visibility` / `audience` — see **Visibility & audience** below.
 
-Per-type payload keys (the common ones):
-- `file`: `{ filename, mime, size, pages, source, modified, docRef }`
-- `link`: `{ url, domain, title, ogDesc, kind, fieldCount, closesAt, savedAt }`
+Per-type payload keys (all optional; every field is nullable in the generated
+schema — this list is exhaustive as of `packages/schema/kotlin-gen/Content.kt`,
+not just "the common ones"):
+- `file`: `{ filename, mime, size, pages, source, modified, docRef, owner, sharedWith }`
+- `link`: `{ url, domain, title, ogDesc, kind, fieldCount, closesAt, savedAt, favicon }`
 - `invite`: `{ eventName, host, startAt, place, rsvpBy, rsvpState, guestCount, confirmedCount, notes }`
-- `contact`: `{ name, company, role, phone, email, address, deliveryWindow, linkedEventId }`
-- `geo`: `{ label, address, lat, lng, etaMin, distance, travelMode, parking, leaveBy }`
+- `contact`: `{ name, company, role, phone, email, address, deliveryWindow, hours, linkedEventId }`
+- `geo`: `{ label, address, lat, lng, etaMin, distance, travelMode, parking, leaveBy, linkedEventId }`
 - `email`: `{ from, fromAddr, subject, date, threadLen, bodyExcerpt, attachments, labels }` (own mail only)
 
 ## Hub → Section → Block — project/event containers
@@ -145,12 +147,25 @@ Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `ava
 
 ## Visibility & audience (ADR 0030/0038) — a privacy-relevant choice
 
-Both cards and hubs accept `visibility` ∈ `family | restricted` (default `family` —
-visible to every member). `restricted` requires `audience: [<userId>, ...]` — only
-those member ids (plus the author) can see it; anyone else gets a uniform 404 (they
-can't tell it exists). `dayfold pull`/`dayfold template hub` show the current value.
-There is no separate structural check for these two fields locally (`Validate.kt`
-doesn't vet them) — a typo'd value is caught server-side only.
+The API accepts `visibility` ∈ `family | restricted` (default `family` — visible to
+every member) on both cards and hubs. `restricted` requires `audience: [<userId>, ...]`
+— only those member ids (plus the author) can see it; anyone else gets a uniform 404
+(they can't tell it exists). `dayfold pull`/`dayfold template hub` show the current
+value.
+
+**Hub pushes and card pushes are checked differently locally, and this matters:**
+- **Hubs** — `dayfold push --hub`'s local pre-check (`Validate.kt::validateHubTree`)
+  parses leniently (unknown keys pass through unvalidated), so `visibility`/`audience`
+  on a hub reach the server whether or not you get them right — a typo is caught
+  server-side only.
+- **Cards** — `dayfold push --type <t>`'s local pre-check (`Validate.kt::validateCard`)
+  **strictly** decodes against the generated `BriefingCard` schema, which currently has
+  **no `visibility`/`audience` property at all**. Putting either field in a card JSON
+  makes the CLI hard-reject the push locally with `invalid card JSON: Unknown key
+  'visibility'…` — before it ever reaches the server. **Card-level visibility/audience
+  is not currently authorable through the CLI/skill** (schema gap, not a formatting
+  rule); scope a card's visibility by putting it in a `restricted` hub instead, or by
+  authoring it directly against the API.
 
 Treat `restricted`/`audience` as a **privacy decision, not a formatting one** — propose
 it explicitly and name exactly which members will and won't see the content (same

@@ -23,47 +23,25 @@ private fun client() = HttpClient.newHttpClient()
 
 private val J = Json { ignoreUnknownKeys = true }
 
-/** POST; returns Pair<statusCode, body>. */
-private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .header("content-type", "application/json")
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .POST(HttpRequest.BodyPublishers.ofString(body))
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
+/** Shared HTTP call for the 4 verbs below; returns Pair<statusCode, body>. */
+private fun httpStatus(method: String, url: String, body: String?, token: String?): Pair<Int, String> {
+  var b = HttpRequest.newBuilder(URI.create(url))
+  if (token != null) b = b.header("authorization", "Bearer $token")
+  b = when (method) {
+    "POST" -> b.header("content-type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body!!))
+    "PUT" -> b.header("content-type", "application/json").PUT(HttpRequest.BodyPublishers.ofString(body!!))
+    "GET" -> b.GET()
+    "DELETE" -> b.DELETE()
+    else -> throw IllegalArgumentException("unsupported method $method")
+  }
+  val res = client().send(b.build(), HttpResponse.BodyHandlers.ofString())
   return Pair(res.statusCode(), res.body())
 }
 
-/** PUT; returns Pair<statusCode, body>. */
-private fun putStatus(url: String, body: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .header("content-type", "application/json")
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .PUT(HttpRequest.BodyPublishers.ofString(body))
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
-
-/** GET; returns Pair<statusCode, body>. */
-private fun getStatus(url: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .GET()
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
-
-/** DELETE; returns Pair<statusCode, body>. */
-private fun deleteStatus(url: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .DELETE()
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
+private fun postStatus(url: String, body: String, token: String?) = httpStatus("POST", url, body, token)
+private fun putStatus(url: String, body: String, token: String?) = httpStatus("PUT", url, body, token)
+private fun getStatus(url: String, token: String?) = httpStatus("GET", url, null, token)
+private fun deleteStatus(url: String, token: String?) = httpStatus("DELETE", url, null, token)
 
 private fun signout(c: Creds) {
   postStatus("${c.api}/auth/signout", "{}", c.accessToken)
@@ -494,10 +472,12 @@ internal val USAGE =
     "    #RRGGBB (decorative). The authoring skill MUST surface the chosen image to the\n" +
     "    operator before push.\n" +
     "\n" +
-    "  visibility (ADR 0030/0038): card/hub body may set visibility=family (default, all\n" +
-    "    members) or visibility=restricted + audience=[userId,...] (only those members can\n" +
-    "    see it; everyone else gets a uniform 404). Not locally structure-checked — a bad\n" +
-    "    value is caught server-side only."
+    "  visibility (ADR 0030/0038): hub body may set visibility=family (default, all members)\n" +
+    "    or visibility=restricted + audience=[userId,...] (only those members can see it;\n" +
+    "    everyone else gets a uniform 404). Hub visibility is NOT locally structure-checked —\n" +
+    "    a bad value is caught server-side only. Cards do NOT currently support\n" +
+    "    visibility/audience: --type validation strictly rejects those fields on a card\n" +
+    "    (schema gap, not a formatting rule) — scope card visibility via its hub instead."
 
 // Misuse → usage to stderr, exit 2. Explicit `help` prints to stdout + exits 0 (help
 // is not an error) — see the dispatch in main().

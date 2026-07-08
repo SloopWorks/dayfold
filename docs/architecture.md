@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-06). For product framing
+A map of the system as it actually runs today (2026-07-08). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -123,12 +123,21 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
   access is a 404 (no existence oracle), not a 403.
 - **Legacy path:** a static `HOUSEHOLD_SECRET` bearer still works on content
   routes for pre-auth-epic compatibility; new work should assume real auth.
+- **Invites:** an owner mints a QR/share-link invite (`POST /invites`); on
+  **Android**, opening the link (`…/invite/{token}`) verifies as an App Link
+  and deep-links straight into the app's Join flow (same App-Links plumbing
+  as CLI device-grant, extended to `/invite` — ADR 0048); elsewhere it lands
+  on a browser page with paste-into-Join instructions. Redemption still goes
+  through the same authenticated `POST /invites:redeem` either way — the
+  deep-link only transports the token, it doesn't widen what's authorized.
+  **iOS Universal Links deferred** pending a provisioned Apple Developer
+  account.
 
 Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 (build-order), `adr/0027` (Firebase JWKS), `adr/0029`/`0030` (scope + hub
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
-Timeline — authored + on-device-derived).
+Timeline — authored + on-device-derived), `adr/0048` (invite deep-links).
 
 ## Deploy
 
