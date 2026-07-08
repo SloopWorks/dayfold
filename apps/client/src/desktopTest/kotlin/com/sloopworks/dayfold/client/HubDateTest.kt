@@ -12,6 +12,22 @@ class HubDateTest {
     assertEquals("Friday, December 25", formatDayLabel(LocalDate(2026, 12, 25)))
   }
 
+  @Test fun formatsAuthoredTimestampsAsWallClock() {
+    // shows the AUTHORED local wall-clock (its own offset), not the viewer's tz
+    assertEquals("Jul 8, 9:25 AM", formatMetaWhen("2026-07-08T09:25:00-07:00"))
+    assertEquals("Jun 21, 3:00 PM", formatMetaWhen("2026-06-21T15:00:00-07:00"))
+    assertEquals("Jul 8, 12:00 AM", formatMetaWhen("2026-07-08T00:00:00Z"))   // midnight → 12 AM
+    assertEquals("Jul 8, 12:05 PM", formatMetaWhen("2026-07-08T12:05:00Z"))   // noon → 12 PM
+    assertEquals("Jun 18", formatMetaWhen("2026-06-18"))                       // date-only → no time
+    assertEquals("Jun 24, 7:23 AM", formatMetaWhen("2026-06-24 07:23:51.41-07")) // DB shape + fractional
+  }
+
+  @Test fun formatMetaWhenPassesThroughNullAndJunk() {
+    assertNull(formatMetaWhen(null))
+    assertNull(formatMetaWhen("   "))
+    assertEquals("someday", formatMetaWhen("someday"))   // unparseable → unchanged, never blanked
+  }
+
   // DB-shaped timestamptz → ISO the parser accepts
   @Test fun normalizesDbTimestamps() {
     assertEquals("2026-06-24T07:23:51.41-07:00", normalizeTs("2026-06-24 07:23:51.41-07"))

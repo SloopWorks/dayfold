@@ -28,9 +28,27 @@ fun kickerFor(card: Card): String = when (card.type) {
   else -> card.type?.uppercase() ?: ""
 }
 
-/** A one-line body summary derived from the payload when the card has no body_md. */
+// Collapse an authored markdown body to a calm, single-line PLAIN summary for the
+// feed. A typed card renders its full body_md richly (bold/lists/links) on the
+// DETAIL screen; the feed row must stay a one-liner, so we take the first non-blank
+// line and reduce inline markdown to its text — otherwise a multi-line body dumped
+// raw shows `**`/`[label](url)` and runs together (the typed-card body render bug).
+private val MD_LINK = Regex("""!?\[([^\]]+)]\([^)]+\)""")   // [label](url) / ![alt](url) → label
+private val MD_MARKS = Regex("""[*_`]""")                     // **bold** _em_ `code` markers
+private val MD_LEAD = Regex("""^\s*(#{1,6}|[-*]|\d+\.)\s+""") // heading / bullet / ordered marker
+private fun bodyMdSummaryLine(md: String): String? =
+  md.lineSequence().map { it.trim() }.firstOrNull { it.isNotBlank() }
+    ?.replace(MD_LINK, "$1")
+    ?.let { MD_LEAD.replace(it, "") }
+    ?.replace(MD_MARKS, "")
+    ?.trim()
+    ?.ifBlank { null }
+
+/** A one-line body summary for the feed row: the authored body_md collapsed to a
+ *  plain first line (full markdown renders on the detail screen), else derived
+ *  from the payload. */
 fun bodySummaryFor(card: Card): String? {
-  card.bodyMd?.takeIf { it.isNotBlank() }?.let { return it }
+  card.bodyMd?.takeIf { it.isNotBlank() }?.let { return bodyMdSummaryLine(it) }
   val p = card.payload ?: return null
   return when (card.type) {
     "file" -> listOfNotNull(p.file?.filename, p.file?.pages?.let { "$it pages" }).joinToString(" · ").ifBlank { null }

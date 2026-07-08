@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 /**
@@ -14,6 +15,17 @@ import kotlinx.datetime.TimeZone
 class BackgroundNotifyTest {
   private val zone = TimeZone.UTC
   private val noon = "2026-06-30T12:00:00Z"
+
+  @Test fun `planExactSchedules wakes at when-at plus offset, drops a past folded wake (issue 299)`() {
+    val cfg = NotifConfig(enabled = true)
+    val soon = Card(id = "c1", kind = "action", title = "Firestone", provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T10:00:00-07:00", alertOffset = "-PT1H"))))
+    val past = Card(id = "c2", kind = "action", title = "Gone", provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T08:15:00-07:00", alertOffset = "-PT1H")))) // wake 07:15 < now
+    val out = planExactSchedules(NotifSnapshot(cards = listOf(soon, past), config = cfg), nowIso = "2026-07-08T08:00:00-07:00")
+    assertEquals(1, out.size)
+    assertEquals(Instant.parse("2026-07-08T09:00:00-07:00"), Instant.parse(out.single().atIso))
+  }
 
   // an authored card that surfaces as a current (NOW-band) item; subjectKey = "card:c1" (no target).
   private val card = Card(id = "c1", title = "Soccer at 4pm — pack jackets", bodyMd = "Rain at kickoff", notBefore = noon, provenance = Provenance("claude"))

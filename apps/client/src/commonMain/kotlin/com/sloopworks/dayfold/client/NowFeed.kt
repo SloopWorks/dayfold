@@ -15,13 +15,18 @@ fun nowFeed(
   zone: TimeZone = TimeZone.currentSystemDefault(),
   deriveConfig: DeriveConfig = DeriveConfig(),
   rankConfig: RankConfig = RankConfig(),
+  // ADR 0049 Option A (#299): the FOREGROUND render allows any authored geo trigger to surface;
+  // the BACKGROUND notify pass passes false → only place_ref-resolved geo surfaces (a coord-only
+  // authored trigger never fires on a background wake — background geofencing stays user-curated).
+  authoredCoordGeo: Boolean = true,
 ): RankedFeed {
   // Authored lane: reuse feedCards' shipped expiry filter + ordering, then gate not_before
   // on-device (today feedCards only ORDERS by not_before — this closes OQ-notbefore-gating for the
   // authored lane; the derived lane is gated by its rule windows).
-  val authored = feedCards(state, nowIso)
-    .filter { notBeforeReached(it.notBefore, nowIso, zone) }
-    .map { cardToNowItem(it, rankConfig) }
+  val visible = feedCards(state, nowIso).filter { notBeforeReached(it.notBefore, nowIso, zone) }
+  val authored = visible.map { cardToNowItem(it, rankConfig, nowIso, zone) }
+  // Authored geo lane (#299): a visible card's geo trigger, matched on-device against live location.
+  val authoredGeo = authoredGeoItems(visible, state.nowContent.places, location, deriveConfig, placeRefOnly = !authoredCoordGeo)
 
   val derived = deriveNow(
     hubs = state.hubs,
@@ -34,7 +39,49 @@ fun nowFeed(
     config = deriveConfig,
   )
 
-  return rank(derived + authored, nowIso, location, state.surfacing, zone, rankConfig)
+  return rank(derived + authored + authoredGeo, nowIso, location, state.surfacing, zone, rankConfig)
+}
+
+// Foreground authored-geo lane (ADR 0049 Option A, #299): a visible card whose geo trigger the user
+// is within radius of surfaces as a NOW item, matched on-device (ADR 0014 — live location injected,
+// never persisted). Reuses deriveNow's geo math (haversine, radius precedence, place_ref resolve).
+// Distinct id from the time item ("authored:<id>") but the SAME subjectKey → the ranker dedups them.
+// placeRefOnly=true (background pass) skips coord-only triggers so they never fire in the background.
+internal fun authoredGeoItems(
+  cards: List<Card>,
+  places: List<Place>,
+  location: DeviceLocation?,
+  config: DeriveConfig,
+  placeRefOnly: Boolean,
+): List<NowItem> {
+  if (location == null) return emptyList()
+  val placeById = places.associateBy { it.id }
+  val out = ArrayList<NowItem>()
+  cards.forEach { card ->
+    card.triggers?.forEachIndexed { idx, t ->
+      val geo = t.geo ?: return@forEachIndexed
+      val place = geo.placeRef?.let { placeById[it] }
+      if (placeRefOnly && place == null) return@forEachIndexed   // ADR 0049 Option A: no coord-only geo in background
+      val lat = geo.lat ?: place?.lat ?: return@forEachIndexed
+      val lng = geo.lng ?: place?.lng ?: return@forEachIndexed
+      val radius = (geo.radiusM ?: place?.radiusM ?: config.geoRadiusDefaultM).toDouble()
+      val dist = haversineMeters(location.lat, location.lng, lat, lng)
+      if (dist <= radius) {
+        val label = geo.label ?: place?.label ?: "this place"
+        out += NowItem(
+          id = "authored:geo:${card.id}:$idx",
+          origin = Origin.AUTHORED, reasonKind = ReasonKind.GEO,
+          title = card.title, why = "You're near $label",
+          subjectKey = subjectKeyFor(card),
+          target = card.targetHubId?.let { DeepLinkTarget(it, card.targetSectionId, card.targetBlockId) },
+          triggerAtIso = null, weight = config.geoWeight,
+          geoActive = true, distanceM = dist,
+          authoredSource = card.provenance?.source,
+        )
+      }
+    }
+  }
+  return out
 }
 
 // ADR 0043 §2b — the subjects ACTUALLY surfaced to the user right now: the prominent bands
@@ -50,8 +97,11 @@ fun RankedFeed.visibleSubjectKeys(): Set<String> =
 // authored nudge collapses with the derived item about the same hub/block — the target earns its
 // second job as the dedup key); a target-less card keys on its own id (never merges with derived).
 // public: consumed cross-module by :ui (NowFeedScreenTest)
-fun cardToNowItem(card: Card, config: RankConfig): NowItem {
-  val subjectKey = card.targetHubId?.let { hub ->
+// subjectKey for an authored card: the deep-link target (so an authored nudge collapses with the
+// derived item about the same hub/block) else the card's own id. Shared by cardToNowItem +
+// authoredGeoItems so a card's time item and geo item dedup onto ONE subject (#299).
+internal fun subjectKeyFor(card: Card): String =
+  card.targetHubId?.let { hub ->
     buildString {
       append("hub:").append(hub)
       card.targetSectionId?.let { append("/sec:").append(it) }
@@ -59,6 +109,7 @@ fun cardToNowItem(card: Card, config: RankConfig): NowItem {
     }
   } ?: "card:${card.id}"
 
+fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone): NowItem {
   val reasonKind = when {
     card.kind == "weather" -> ReasonKind.WEATHER
     card.provenance?.source == "email" -> ReasonKind.EMAIL
@@ -66,16 +117,25 @@ fun cardToNowItem(card: Card, config: RankConfig): NowItem {
     else -> ReasonKind.EXTERNAL
   }
 
+  // Relevance anchor (#299): soonest FUTURE when-trigger with alert_offset folded in, else
+  // not_before (unchanged for trigger-less cards). A past-only trigger set → no future → not_before.
+  val now = parseInstantFlexible(nowIso, zone)
+  val whenAnchor: String? = card.triggers
+    ?.mapNotNull { t -> t.whenTrigger?.let { applyOffset(it.at, it.alertOffset, zone) } }
+    ?.filter { now == null || it > now }
+    ?.minOrNull()
+    ?.toString()
+
   return NowItem(
     id = "authored:${card.id}",
     origin = Origin.AUTHORED,
     reasonKind = reasonKind,
     title = card.title,
     why = firstNonBlankLine(card.bodyMd) ?: card.title,
-    subjectKey = subjectKey,
+    subjectKey = subjectKeyFor(card),
     target = card.targetHubId?.let { DeepLinkTarget(it, card.targetSectionId, card.targetBlockId) },
-    // not_before is the authored item's "for" instant → drives banding (now/soon/later).
-    triggerAtIso = card.notBefore,
+    // when-trigger anchor (offset-folded) drives banding + exact-schedule wake; else not_before.
+    triggerAtIso = whenAnchor ?: card.notBefore,
     // importance is clamped to the engine cap here too (defense-in-depth; rank also clamps).
     weight = card.importance?.coerceIn(0.0, config.importanceCap) ?: DEFAULT_AUTHORED_WEIGHT,
     authoredSource = card.provenance?.source,

@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 /**
@@ -18,6 +19,82 @@ class NowFeedTest {
 
   private fun state(cards: List<Card> = emptyList(), hubs: List<Hub> = emptyList(), content: NowContent = NowContent()) =
     AppState(cards = cards, hubs = hubs, nowContent = content)
+
+  // ── authored card triggers (#299) ────────────────────────────────────────────
+  private fun geoCard(id: String, geo: TriggerGeo, vararg extra: BlockTrigger) =
+    Card(id = id, kind = "action", title = "F", provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(geo = geo)) + extra.toList())
+
+  @Test fun `cardToNowItem anchors on the soonest future when-trigger, offset-folded`() {
+    val z = TimeZone.currentSystemDefault()
+    val card = Card(id = "c1", kind = "action", title = "Firestone", provenance = Provenance("claude"),
+      notBefore = "2026-07-08T09:00:00-07:00",
+      triggers = listOf(
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-01T10:00:00-07:00")),                       // past → ignored
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T10:00:00-07:00", alertOffset = "-PT1H")), // future → 09:00
+      ))
+    val item = cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z)
+    assertEquals(Instant.parse("2026-07-08T09:00:00-07:00"), Instant.parse(item.triggerAtIso!!))
+  }
+
+  @Test fun `cardToNowItem falls back to not_before when there is no future when-trigger`() {
+    val z = TimeZone.currentSystemDefault()
+    val card = Card(id = "c1", kind = "info", title = "X", provenance = Provenance("user"),
+      notBefore = "2026-07-08T09:00:00-07:00")
+    assertEquals("2026-07-08T09:00:00-07:00", cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z).triggerAtIso)
+  }
+
+  @Test fun `authoredGeoItems emits a distinct-id NOW item inside an inline-coord radius`() {
+    val card = geoCard("c1", TriggerGeo(lat = 47.7601, lng = -122.6610, radiusM = 800, label = "Firestone Poulsbo"))
+    val items = authoredGeoItems(listOf(card), emptyList(), DeviceLocation(47.7605, -122.6612), DeriveConfig(), placeRefOnly = false)
+    assertEquals(1, items.size)
+    assertEquals("authored:geo:c1:0", items[0].id)
+    assertEquals("card:c1", items[0].subjectKey)
+    assertTrue(items[0].geoActive)
+  }
+
+  @Test fun `authoredGeoItems emits nothing outside radius, null location, or null coords`() {
+    val far = geoCard("c1", TriggerGeo(lat = 47.7601, lng = -122.6610, radiusM = 100))
+    assertTrue(authoredGeoItems(listOf(far), emptyList(), DeviceLocation(48.0, -122.0), DeriveConfig(), false).isEmpty())
+    assertTrue(authoredGeoItems(listOf(far), emptyList(), null, DeriveConfig(), false).isEmpty())
+    val noCoords = geoCard("c2", TriggerGeo(label = "nowhere"))
+    assertTrue(authoredGeoItems(listOf(noCoords), emptyList(), DeviceLocation(47.76, -122.66), DeriveConfig(), false).isEmpty())
+  }
+
+  @Test fun `authoredGeoItems null radiusM falls back to the config default`() {
+    val card = geoCard("c1", TriggerGeo(lat = 47.7601, lng = -122.6610))
+    assertEquals(1, authoredGeoItems(listOf(card), emptyList(), DeviceLocation(47.7605, -122.6610), DeriveConfig(), false).size)
+  }
+
+  @Test fun `authoredGeoItems resolves place_ref coordinates`() {
+    val card = geoCard("c1", TriggerGeo(placeRef = "p1", label = "Safeway"))
+    val place = Place(id = "p1", kind = "store", label = "Safeway", lat = 47.7601, lng = -122.6610, radiusM = 800)
+    assertEquals(1, authoredGeoItems(listOf(card), listOf(place), DeviceLocation(47.7605, -122.6612), DeriveConfig(), false).size)
+  }
+
+  @Test fun `placeRefOnly gate (background) drops coord-only geo, keeps place_ref`() {
+    val coordOnly = geoCard("c1", TriggerGeo(lat = 47.7601, lng = -122.6610, radiusM = 800))
+    val viaPlace = geoCard("c2", TriggerGeo(placeRef = "p1", radiusM = 800))
+    val place = Place(id = "p1", kind = "store", label = "Safeway", lat = 47.7601, lng = -122.6610, radiusM = 800)
+    val here = DeviceLocation(47.7605, -122.6612)
+    assertEquals(listOf("authored:geo:c2:0"), authoredGeoItems(listOf(coordOnly, viaPlace), listOf(place), here, DeriveConfig(), placeRefOnly = true).map { it.id })
+    assertEquals(2, authoredGeoItems(listOf(coordOnly, viaPlace), listOf(place), here, DeriveConfig(), placeRefOnly = false).size)
+  }
+
+  @Test fun `a card with both when and geo dedups to one NOW subject`() {
+    val z = TimeZone.currentSystemDefault(); val n = "2026-07-08T08:00:00-07:00"
+    val card = Card(id = "c1", kind = "action", title = "Firestone", provenance = Provenance("claude"),
+      triggers = listOf(
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T10:00:00-07:00", alertOffset = "-PT1H")),
+        BlockTrigger(geo = TriggerGeo(lat = 47.7601, lng = -122.6610, radiusM = 800)),
+      ))
+    val here = DeviceLocation(47.7605, -122.6612)
+    val time = cardToNowItem(card, RankConfig(), n, z)
+    val geo = authoredGeoItems(listOf(card), emptyList(), here, DeriveConfig(), false)
+    assertEquals(time.subjectKey, geo.single().subjectKey)
+    val feed = rank(listOf(time) + geo, n, here, emptyMap(), z, RankConfig())
+    assertEquals(1, (feed.now + feed.soon + feed.later + feed.overflow).count { it.item.subjectKey == "card:c1" })
+  }
 
   @Test fun `derived and authored render as peers in one ranked feed`() {
     val hubs = listOf(Hub("h1", title = "Soccer", countdownTo = "2026-07-01"))   // +1 day → SOON

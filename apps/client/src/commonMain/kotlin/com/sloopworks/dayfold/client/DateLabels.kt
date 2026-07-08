@@ -2,6 +2,8 @@ package com.sloopworks.dayfold.client
 
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toLocalDateTime
@@ -53,6 +55,35 @@ fun hubWhenLabel(
     }
   }
   return countdownLabel(startAt, nowIso, tz)
+}
+
+// Friendly label for an authored timestamp in a DETAILS row / hero panel (leaveBy,
+// rsvpBy, startAt, closesAt, modified, email date). Shows the AUTHORED wall-clock —
+// e.g. leaveBy "2026-07-08T09:25:00-07:00" → "Jul 8, 9:25 AM" — so an appointment
+// reads in ITS OWN zone, not the viewer's. A time component → "Mon D, h:mm AM";
+// date-only ("2026-06-18") → "Mon D". Null/blank → null; any other shape passes
+// through unchanged (never blanks an authored value). Pure — no clock/tz needed
+// (the offset is read off the string, then dropped to show the local wall time).
+private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+private fun shortDate(d: LocalDate): String = "${MONTHS[d.month.ordinal]} ${d.day}"
+private fun clockTime(t: LocalTime): String {
+  val meridiem = if (t.hour < 12) "AM" else "PM"
+  val h12 = ((t.hour + 11) % 12) + 1                     // 0→12, 13→1, 23→11
+  return "$h12:${t.minute.toString().padStart(2, '0')} $meridiem"
+}
+fun formatMetaWhen(iso: String?): String? {
+  val raw = iso?.trim()?.ifBlank { null } ?: return null
+  // date-only "YYYY-MM-DD" first: normalizeTs would misread the day ("-18") as a tz
+  // offset, so parse it directly to a date (no time component to show).
+  if (Regex("""^\d{4}-\d{2}-\d{2}$""").matches(raw)) {
+    return runCatching { LocalDate.parse(raw) }.getOrNull()?.let { shortDate(it) } ?: raw
+  }
+  val t = normalizeTs(raw) ?: return raw
+  // read the local wall-clock: strip the trailing offset / Z (only needed for an
+  // absolute instant, not to show the authored local time).
+  val local = t.substringBefore('Z').let { Regex("([+-]\\d{2}:\\d{2})$").replace(it, "") }
+  runCatching { LocalDateTime.parse(local) }.getOrNull()?.let { return "${shortDate(it.date)}, ${clockTime(it.time)}" }
+  return iso   // unrecognized shape → the original authored string, unchanged
 }
 
 // "Today" | "Tomorrow" | "in N days" | "Yesterday" | "N days ago" | null.

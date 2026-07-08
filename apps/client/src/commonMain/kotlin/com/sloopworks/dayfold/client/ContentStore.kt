@@ -30,7 +30,7 @@ private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 00
 //       them, and incremental sync never prunes undelivered rows. reconcileSchemaVersion wipes
 //       synced content+cursor once so the next sync full-rehydrates from the server (truth). The
 //       seed source was removed (MainActivity), so this is a durable heal, not a recurring one.
-const val CLIENT_SCHEMA_VERSION: Long = 2L
+const val CLIENT_SCHEMA_VERSION: Long = 3L   // 2→3 (#299): cards now carry decoded triggers (when/geo)
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
@@ -76,6 +76,7 @@ class ContentStore(driver: SqlDriver) {
           c.related?.let { json.encodeToString(RELATED_SER, it) },
           c.relatedKicker,
           c.media?.let { json.encodeToString(CardMedia.serializer(), it) },   // ADR 0036
+          c.triggers?.let { json.encodeToString(TRIGGERS_SER, it) },          // ADR 0043/0049 (#299)
           nowIso,
         )
       }
@@ -146,6 +147,7 @@ class ContentStore(driver: SqlDriver) {
     privacy = decode(row.privacy, CardPrivacy.serializer()),
     related = decode(row.related, RELATED_SER), relatedKicker = row.related_kicker,
     media = decode(row.media, CardMedia.serializer()),   // ADR 0036
+    triggers = decode(row.triggers, TRIGGERS_SER),        // ADR 0043/0049 (#299)
   )
 
   private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(

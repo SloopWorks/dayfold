@@ -216,6 +216,17 @@ internal fun parseInstantFlexible(s: String?, zone: TimeZone): Instant? {
   return runCatching { LocalDate.parse(s!!.trim()).atStartOfDayIn(zone) }.getOrNull()
 }
 
+// Shift an authored trigger instant by its ISO-8601 alert_offset (e.g. "-PT1H" → an hour earlier),
+// folding the offset into the single relevance/notify anchor (#299). Pure. A malformed or absent
+// offset fails open to the raw instant; an unparseable `at` returns null. kotlin.time.Duration's
+// parseIsoString is the multiplatform parser (kotlinx-datetime's DateTimePeriod is the wrong,
+// calendar type here); it accepts a leading sign, so "-PT1H" yields a negative duration.
+internal fun applyOffset(atIso: String?, offsetIso: String?, zone: TimeZone): Instant? {
+  val at = parseInstantFlexible(atIso, zone) ?: return null
+  val offset = offsetIso?.let { runCatching { kotlin.time.Duration.parseIsoString(it) }.getOrNull() } ?: return at
+  return at + offset
+}
+
 // 12-hour clock time with no am/pm, e.g. 13:30 → "1:30", 15:00 → "3:00" (matches the mockup).
 internal fun clockTime(instant: Instant, zone: TimeZone): String {
   val t = instant.toLocalDateTime(zone).time

@@ -56,7 +56,8 @@ fun planBackgroundNotifications(
     nowContent = NowContent(sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places),
     surfacing = snapshot.surfacing,
   )
-  val feed = nowFeed(state, nowIso, location, zone, deriveConfig, rankConfig)
+  // ADR 0049 Option A (#299): background pass never surfaces a coord-only authored geo trigger.
+  val feed = nowFeed(state, nowIso, location, zone, deriveConfig, rankConfig, authoredCoordGeo = false)
 
   // daily-cap rollover + within-day dedup, computed by local date from the log.
   val notifiedAtIsos = snapshot.log.map { it.notifiedAtIso }
@@ -128,7 +129,7 @@ fun planExactSchedules(
     hubs = snapshot.hubs, sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places,
     nowIso = nowIso, location = null, zone = zone, config = deriveConfig,
   )
-  val authored = snapshot.cards.map { cardToNowItem(it, rankConfig) }
+  val authored = snapshot.cards.map { cardToNowItem(it, rankConfig, nowIso, zone) }
 
   // keep the soonest future trigger per subject, within the horizon.
   return (derived + authored).mapNotNull { item ->

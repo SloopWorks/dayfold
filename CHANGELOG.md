@@ -22,6 +22,43 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   the main thread off the immutable `AppState`, so no dispatch race. (Hub-detail /
   account nav across recreation is a separate follow-up.)
 
+## 2026-07-08 — Typed cards render their body_md (was raw text / dropped)
+
+### Fixed (client)
+- **A typed Now-card (geo / invite / contact / file / link / email) with an authored
+  `body_md` now renders it properly.** Before, the typed-card layouts showed `body_md`
+  verbatim as a plain one-line summary — `**bold**` printed its asterisks, `[label](url)`
+  printed as un-tappable literal text, and multi-line bodies ran together. The working
+  markdown renderer (`rememberRenderedMarkdown`: bold/italic/lists/tables + vetted tappable
+  links) was only wired to the generic untyped `CardItem` fallback, which real (typed) cards
+  never reach. Now: the **feed row** shows a calm one-line PLAIN summary (first line of the
+  body, markdown stripped), and the **detail screen** renders the full formatted `body_md`
+  with tappable links — the detail view previously dropped `body_md` entirely. Untyped
+  briefing cards are unchanged. (No ADR — render-layer bugfix.)
+- **Card detail date/time fields now read as friendly labels instead of raw ISO.** A
+  DETAILS row (and the invite hero panel) rendered timestamps verbatim —
+  `2026-07-08T09:25:00-07:00`. They now format to the **authored wall-clock** —
+  `Jul 8, 9:25 AM` (leave-by / when / RSVP-by / closes / modified / email date); a
+  date-only value → `Jun 18`. Shown in the value's own zone (an appointment reads in
+  its local time, not the viewer's). Unparseable values pass through unchanged.
+
+## 2026-07-08 — Authored card triggers now drive surfacing + notifications (#299)
+
+### Added (client)
+- **A Now-card authored with a `when` and/or `geo` trigger now acts on it.** Previously
+  the client never even decoded a `BriefingCard`'s `triggers[]` — an authored time/location
+  trigger did nothing. Now: a `when` trigger (with `alert_offset`) bands the card into
+  NOW/SOON/LATER by its lead time and arms a local notification at `at + alert_offset`
+  (background-notify opt-in required); a `geo` trigger surfaces the card as NOW when the
+  device is within radius, matched **on-device** (ADR 0014 — position never leaves). Per
+  **ADR 0049 (Option A)**, background geofencing stays user-curated — an authored geo
+  trigger fires in the background only via `place_ref` to a saved place; a coord-only
+  authored geo trigger surfaces in the foreground only. `not_before`/`expires_at` keep
+  their meaning (visibility window). Existing devices self-heal via `CLIENT_SCHEMA_VERSION`
+  2→3 (one forced resync backfills the new trigger field).
+
+## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
+
 ### Fixed (client)
 - **A ticked checklist item's byline now reads "✓ Patrick" / "✓ You"** instead of the raw
   authenticated user ID ("✓ usr_9c200a3ccfefa0752f"). The toggler's `doneBy` userId stays

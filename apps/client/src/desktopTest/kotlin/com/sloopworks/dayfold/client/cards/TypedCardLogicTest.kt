@@ -78,6 +78,24 @@ class TypedCardLogicTest {
     assertTrue(bodySummaryFor(card("link", Payload(link = LinkPayload(domain = "x.org"))))!!.contains("x.org"))
   }
 
+  // The feed row is a one-liner: a multi-line markdown body_md (rendered richly on
+  // the detail screen) must collapse to a PLAIN first line — no raw `**`, no
+  // `[label](url)` syntax, no leading bullet/heading marker (the typed-card body bug).
+  @Test fun `body summary collapses a rich markdown body to a plain first line`() {
+    val body = """
+      **Reservation 311171117** · 2014 Sienna · **Tire Replacement**
+      **Bring:** wheel-lock key, payment card.
+      [Directions](https://maps.example/x) · Call: 360-697-3372
+    """.trimIndent()
+    val s = bodySummaryFor(card("geo", Payload(geo = GeoPayload(address = "21780 Market Pl")), body = body))
+    assertEquals("Reservation 311171117 · 2014 Sienna · Tire Replacement", s)
+  }
+
+  @Test fun `body summary strips leading markers and inline links on the first line`() {
+    assertEquals("Pack the jackets", bodySummaryFor(card("geo", Payload(geo = GeoPayload()), body = "- Pack the jackets")))
+    assertEquals("See the map", bodySummaryFor(card("geo", Payload(geo = GeoPayload()), body = "## [See the map](https://maps.example/x)")))
+  }
+
   @Test fun `body summary derives the subtitle for invite, contact, geo, email`() {
     assertEquals("Maya · 8 guests", bodySummaryFor(card("invite", Payload(invite = InvitePayload(host = "Maya", guestCount = 8)))))
     assertEquals("Acme · PM", bodySummaryFor(card("contact", Payload(contact = ContactPayload(company = "Acme", role = "PM")))))
