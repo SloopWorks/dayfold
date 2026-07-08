@@ -9,6 +9,16 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-30 · 2026-07-07 · low · open — invite-approval context: include joiner location/IP?**
+  Question: in the owner's invite-approval row (`TASK-INVITE-APPROVAL-IDENTITY`), beyond
+  **name/email/verified-provider/join-time/mint-provenance** (spec `05-invite.md` §69–73,
+  shipping first), should we also show the **joiner's IP / approximate location**? This is
+  a customer-data-handling call (guardrail #3/#4) — a *person's* location is more sensitive
+  than the device-grant flow's `origin_ip`/`origin_kind` for a *device*. **Proposed default:
+  do NOT show location in v1** — ship the identity context, and if location is wanted, decide
+  separately (what's shown, coarseness city-vs-IP, and disclosure to the joiner that their
+  location is visible to the inviter). Context: `backlog/next.md#TASK-INVITE-APPROVAL-IDENTITY`.
+
 - **INB-29 · RESOLVED 2026-07-01 → BOTH GATES CLOSED; Phase B BUILT + SHIPPED to `main` (PR #260).**
   Gate B ratified 2026-06-30 (ADR 0044 Accepted); **Gate A design sign-off CLEARED 2026-06-30**
   (v2 `designs/triggers/` mockups + INB-13 §6b honesty rework) and **re-approved as-shipped
