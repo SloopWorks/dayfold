@@ -85,6 +85,16 @@ class ReducerTest {
     s = rootReducer(s, NavBack); assertEquals(emptyList(), s.detailStack)             // empty-safe
   }
 
+  @Test fun `RestoreDetailStack sets the stack verbatim, before cards load, then self-cleans on CardsLoaded`() {
+    // fresh store after an Activity recreation: no cards yet, restore the saved ids
+    var s = AppState()
+    s = rootReducer(s, RestoreDetailStack(listOf("firestone", "gone")))
+    assertEquals(listOf("firestone", "gone"), s.detailStack)   // set verbatim — NOT gated on card presence
+    // once the DB→store bridge repopulates, an id whose card didn't come back is pruned
+    s = rootReducer(s, CardsLoaded(listOf(Card("firestone", title = "Firestone"))))
+    assertEquals(listOf("firestone"), s.detailStack)           // "gone" dropped; the real detail survives
+  }
+
   @Test fun `NavToDetail to a card not in cache is a no-op (dangling related ref)`() {
     val s = AppState(cards = listOf(Card("a", title = "A")), detailStack = listOf("a"))
     val after = rootReducer(s, NavToDetail("ghost")) // target not cached

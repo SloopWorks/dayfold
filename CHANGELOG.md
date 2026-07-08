@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Card detail survives leaving for a 3rd-party app (Android)
+
+### Fixed (Android)
+- **Opening a card's detail, tapping a handoff (Navigate → Maps, Call → dialer, a
+  link), then returning now lands back on that detail — not the Now feed.** The
+  Android shell rebuilds the redux store fresh in every `onCreate`, and the detail
+  nav (`detailStack`) lived only in that in-memory store, so any Activity recreation
+  — returning from a memory-heavy 3P app, a screen rotation, process death, or the
+  "Don't keep activities" developer setting — reset the app to the feed. The shell now
+  persists the detail stack in `onSaveInstanceState` and re-dispatches it
+  (`RestoreDetailStack`) after the store is rebuilt; dangling ids self-clean when the
+  DB→store bridge repopulates (`CardsLoaded` already filters to present cards). Read on
+  the main thread off the immutable `AppState`, so no dispatch race. (Hub-detail /
+  account nav across recreation is a separate follow-up.)
+
 ## 2026-07-08 — Typed cards render their body_md (was raw text / dropped)
 
 ### Fixed (client)
