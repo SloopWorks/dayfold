@@ -226,6 +226,17 @@ class AuthEngine(
     } catch (e: Exception) { store.dispatch(RosterFailed("Couldn't load members. Try again.")) }
   }
 
+  // Eager, quiet roster load so a checklist doneBy byline resolves to a name ANYWHERE the
+  // content renders (not only after opening the Members screen). No RosterRequested/Failed
+  // noise — a failure just leaves bylines on the "a family member" fallback. No-mutex core
+  // (called from loadMemberships, which already holds the lock).
+  private suspend fun loadRosterLocked(fid: String?) {
+    val session = store.state.session ?: return
+    if (fid.isNullOrEmpty()) return
+    try { store.dispatch(RosterLoaded(callWithRefresh(session) { authClient.familyMembers(it.access, fid) })) }
+    catch (e: Exception) { /* quiet */ }
+  }
+
   /** Owner removes a member → drop from the roster on success (409 last-owner → reload). */
   suspend fun removeMember(fid: String, uid: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
@@ -344,6 +355,7 @@ class AuthEngine(
       store.dispatch(MembershipsLoaded(who.families))
       resumePendingDeviceLink()   // cold-install resume: open a link stashed pre-sign-in
       resumePendingInviteLink()   // ADR 0048: redeem an invite link stashed pre-sign-in
+      loadRosterLocked(store.state.activeFamilyId)   // eager roster for doneBy bylines
     } catch (e: AuthHttpException) {
       // 401 here = access expired AND refresh couldn't recover (revoked/expired/
       // reused) → the saved session is dead. Clear it and fall back to Sign-in so
