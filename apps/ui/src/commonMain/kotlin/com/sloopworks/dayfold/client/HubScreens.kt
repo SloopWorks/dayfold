@@ -1033,7 +1033,10 @@ private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = n
   // Whole-row 48dp hit target, Role.Checkbox + state. The actor (who toggled) rides in
   // the state description so a screen reader hears "checked by Mom".
   val rowMod = if (onToggle != null) {
-    Modifier.fillMaxWidth().height(48.dp).toggleable(    // ≥48dp hit target only where it's tappable
+    // heightIn(min=48dp), NOT a fixed height: a ≥48dp hit target for short items, but the
+    // row must GROW when the text wraps to 2 lines + a subline (assignee / "✓ doneBy") —
+    // a fixed .height(48.dp) clipped that subline (top-halves of the byline cut off).
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
       value = done, role = Role.Checkbox,
       onValueChange = { nd -> haptics.performHapticFeedback(HapticFeedbackType.LongPress); onToggle(nd) },
     ).semantics {
