@@ -7,6 +7,17 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
+
+### Fixed (client)
+- **A ticked checklist item's byline now reads "✓ Patrick" / "✓ You"** instead of the raw
+  authenticated user ID ("✓ usr_9c200a3ccfefa0752f"). The toggler's `doneBy` userId stays
+  in the (content-blind) payload; the UI resolves it to a first name **render-side** from the
+  family roster — the name never enters content, so the E2EE/content-blind posture is
+  unchanged (ADR 0015/0017). The roster is now eager-loaded so names resolve anywhere a
+  checklist renders, not just on the Members screen. An unknown/departed member falls back to
+  "a family member". `assignee` and email are untouched. Verified on-device (Pixel 4a).
+
 ## 2026-07-07 — Owners can invite family members (QR + share link)
 
 ### Added (client)
