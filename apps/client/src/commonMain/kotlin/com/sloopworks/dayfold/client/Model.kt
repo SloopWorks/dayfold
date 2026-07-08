@@ -522,6 +522,11 @@ data class CardsLoaded(val cards: List<Card>) : Action
 data class NavToDetail(val cardId: String) : Action
 data object NavBack : Action
 data object Back : Action                                     // system back → up one level (resolved by backAction)
+// Restore the detail stack after an Activity recreation (3P-app return, rotation,
+// process death, "Don't keep activities"). The store is rebuilt fresh in onCreate,
+// so the shell re-dispatches the saved ids here. Dangling ids self-clean: CardsLoaded
+// filters detailStack to cards actually present once the DB→store bridge repopulates.
+data class RestoreDetailStack(val ids: List<String>) : Action
 
 // Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer
 // is pure. OpenHubs/OpenFeed flip the bottom-nav surface; OpenHub/CloseHub drive the

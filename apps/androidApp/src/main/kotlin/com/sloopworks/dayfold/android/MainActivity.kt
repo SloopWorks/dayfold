@@ -45,6 +45,12 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
   private lateinit var authEngine: AuthEngine
   private lateinit var hubEngine: HubEngine
+  // Held as a field so onSaveInstanceState can snapshot nav state. The store is rebuilt
+  // fresh in every onCreate (its in-memory nav — detailStack — would otherwise be lost
+  // on recreation: 3P-app return, rotation, process death, "Don't keep activities").
+  private lateinit var store: org.reduxkotlin.Store<com.sloopworks.dayfold.client.AppState>
+
+  private companion object { const val KEY_DETAIL_STACK = "dayfold.detailStack" }
   // ADR 0044 Phase B — OS-permission controllers (OS-owned truth; refreshed on resume, never DB-cached).
   private val locationPermission by lazy { AndroidLocationPermissionController(applicationContext) }
   private val notificationPermission by lazy { AndroidNotificationPermissionController(applicationContext) }
@@ -104,6 +110,15 @@ class MainActivity : ComponentActivity() {
     handleNotificationIntent(intent)
   }
 
+  // Persist the detail nav across recreation. Runs on the MAIN thread; AppState +
+  // detailStack are immutable (val List) and every store.dispatch originates from a
+  // main-dispatcher coroutine, so reading store.state here can't race a reducer. Snapshot
+  // into a fresh ArrayList (Bundle requirement + defensive copy). Restore is in onCreate.
+  override fun onSaveInstanceState(outState: Bundle) {
+    super.onSaveInstanceState(outState)
+    if (::store.isInitialized) outState.putStringArrayList(KEY_DETAIL_STACK, ArrayList(store.state.detailStack))
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     // Edge-to-edge: draw behind the (transparent) status + navigation bars and let
@@ -150,7 +165,15 @@ class MainActivity : ComponentActivity() {
     val clientApi = if (isFake) "http://fake.local" else apiBase
     // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes
     // the full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
-    val store = createAppStore(debug = BuildConfig.DEBUG)
+    store = createAppStore(debug = BuildConfig.DEBUG)
+    // Restore the detail the user was on before this Activity was destroyed (3P-app
+    // return / rotation / process death / "Don't keep activities"). Dispatched now, on
+    // the main thread, BEFORE the async authEngine.restore() coroutines run — so
+    // AuthRestoring→…→CardsLoaded (which keeps only present ids) preserve it. Without
+    // this, the fresh store starts at Route.Feed with an empty stack → lands on the feed.
+    savedInstanceState?.getStringArrayList(KEY_DETAIL_STACK)?.takeIf { it.isNotEmpty() }?.let {
+      store.dispatch(com.sloopworks.dayfold.client.RestoreDetailStack(it.toList()))
+    }
     // Single process-shared store (ADR 0044 §S3) — the geofence/exact-alarm background receivers reuse
     // this same instance + driver (one WAL writer); foreground and background never open two connections.
     val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(applicationContext)

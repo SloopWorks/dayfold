@@ -45,6 +45,10 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     if (state.detailStack.lastOrNull() == action.cardId || state.cards.none { it.id == action.cardId }) state
     else state.copy(detailStack = state.detailStack + action.cardId)
   is NavBack -> state.copy(detailStack = state.detailStack.dropLast(1))
+  // Post-recreation restore: set the saved stack verbatim. Cards are usually not yet
+  // loaded here (fresh store), so we DON'T gate on card presence like NavToDetail —
+  // CardsLoaded's filter (above) drops any id whose card never comes back.
+  is RestoreDetailStack -> state.copy(detailStack = action.ids)
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
 
   // ── Hubs (ADR 0006 render · ADR 0030 visibility) ──
