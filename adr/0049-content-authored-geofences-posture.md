@@ -2,7 +2,14 @@
 
 ## Status
 
-**Proposed** 2026-07-08 (agent-drafted at the issue #299 build gate;
+**Accepted** 2026-07-08 (operator ratified in-session — chose **Option A**:
+content-authored *background* geofences are NOT adopted; background proximity stays
+**user-curated** [authored triggers reach the background only via `place_ref` to a
+saved place], while **foreground** authored-geo surfacing [on-device match,
+while-using permission, no OS geofence] and the **time** path [banding + local
+exact-alarm notify + `alert_offset`] are adopted now. ADR 0044's disclosure posture
+is unchanged; no coord-only content-authored geofences until/unless Option B is
+later ratified.). Was **Proposed** 2026-07-08 (agent-drafted at the issue #299 build gate;
 **operator-gated — HARD GUARDRAIL tier**: it decides whether *server-authored
 content* [Claude/CLI/API-pushed cards and hub blocks] may arm **background
 geofences**, which touches guardrails **#3** [restricted-scope / location-data

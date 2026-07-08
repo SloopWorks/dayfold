@@ -1,140 +1,165 @@
 # Authored BriefingCard triggers — client consumption (issue #299)
 
 **Date:** 2026-07-08
-**Status:** Design (pending review)
+**Status:** Design v2 (post 3-agent review; ADR 0049 Accepted / Option A)
 **Issue:** SloopWorks/dayfold#299
-**Related:** ADR 0043 (priority & ordering), ADR 0044 (background notify), ADR 0014 (location privacy)
+**Related:** ADR 0043 (priority & ordering), ADR 0044 (background notify), ADR 0014
+(location privacy), **ADR 0049 (content-authored geofences — Option A)**
 
-## Problem
+## Problem (corrected after review)
 
 An authored `BriefingCard`'s `triggers[]` (`when.at` + `alert_offset`, `geo`) are
-stored and decoded but **never consumed** by the client. The authored lane
-(`NowFeed.cardToNowItem`) bands + schedules off `not_before` / `expires_at` /
-`importance`; `deriveNow` evaluates triggers on **hub blocks only**; geofences are
-registered only from `Place` rows; `alert_offset` is read nowhere. So a card
-authored with a time and/or location trigger neither surfaces nor notifies on those
-triggers.
+**not even decoded** client-side, let alone consumed:
+- The client `Card` model (`Model.kt`) has **no `triggers` field**; the `card` SQL
+  table has **no `triggers` column**; `upsertCard`/`rowToCard` never touch triggers.
+  So triggers are dropped at decode (`ignoreUnknownKeys`). (Only `HubBlock` carries +
+  consumes triggers today, via `deriveNow`.)
+- Even once decoded, the authored lane (`NowFeed.cardToNowItem`) bands/schedules off
+  `not_before`; `alert_offset` is read nowhere.
 
-## Goal
+So an authored card with a time and/or location trigger neither surfaces nor notifies
+on those triggers.
 
-Make an authored card's `when` and `geo` triggers drive Now-feed surfacing/banding
-and background notifications — **without** changing what `not_before`/`expires_at`
-mean (they remain the visibility window).
+## Goal & scope
 
-Non-goals: changing the hub-block derived lane; server/API changes; new content
-schema (triggers already exist in the model); iOS geofencing (Android is the notify
-target today — iOS proximity is a later platform actual, called out below).
+Consume an authored card's `when` and `geo` triggers for Now-feed
+surfacing/banding and notifications, **without** changing what `not_before` /
+`expires_at` mean (visibility window).
+
+**Per ADR 0049 (Option A):**
+- **Time (`when`)** — adopted fully (banding + local exact-alarm notify + `alert_offset`).
+- **Geo (`geo`)** — **foreground on-device surfacing** for any authored geo trigger;
+  **background** geofencing stays **user-curated** — an authored trigger reaches the
+  background only via `place_ref` to a saved place (already geofenced via
+  `activePlaces()`). **No new geofence source, no `MainActivity` change, no per-family
+  region cap.** A coord-only authored geo trigger surfaces in the foreground only.
+
+Non-goals: hub-block derived lane (unchanged); server/API changes; content-authored
+background geofences (ADR 0049 Option B — not adopted); iOS/desktop notify parity
+(unchanged — see platform matrix).
 
 ## Core principle
 
 - `not_before` / `expires_at` = **visibility window** (unchanged).
-- `triggers[]` = **relevance signal** (banding + notify wake + geofence), decoupled
-  from visibility. A card can be visible now yet band/notify off its own trigger,
-  and vice-versa.
+- `triggers[]` = **relevance signal** (banding + notify wake + foreground geo),
+  decoupled from visibility.
 
 ## Design
 
-### 1. Time (`when`) — banding + notify
+### 0. Decode card triggers (the missing chain — from review F1)
 
-**`NowItem`** gains one optional field: `alertOffsetIso: String? = null` (an
-ISO-8601 duration like `-PT1H`). Default null → derived items and trigger-less
-authored cards are byte-identical to today.
+Cards must carry triggers before anything can consume them. Mirror the existing
+`HubBlock` trigger plumbing:
+- **`Model.kt`** — `Card` gains `val triggers: List<BlockTrigger>? = null` (reuse
+  `BlockTrigger`/`TriggerWhen`/`TriggerGeo`; the authored card wire shape is identical
+  — `when.at`/`alert_offset`, `geo.lat/lng/radius_m/label/place_ref`).
+- **`Content.sq`** — add `triggers TEXT` to the `card` table + `insertCard`/`selectCards`
+  (mirror `hub_block`'s column + `TRIGGERS_SER` usage; "synced-from-server, never written").
+- **`migrations/11.sqm`** — `ALTER TABLE card ADD COLUMN triggers TEXT;`
+- **`ContentStore.kt`** — `upsertCard` encodes `card.triggers` with the existing
+  `TRIGGERS_SER`; `rowToCard` (both card projections) decodes it.
+- **`CLIENT_SCHEMA_VERSION` 2 → 3** — a behavior-affecting synced field on already-cached
+  rows; `reconcileSchemaVersion` forces one resync so existing devices backfill triggers
+  (the #283 discipline; preserves outbox/hidden/session).
 
-**`cardToNowItem` (`NowFeed.kt`)** — resolve the time anchor:
-- If the card has one or more `when` triggers → `triggerAtIso = the soonest
-  when.at` (across all `when` triggers), and `alertOffsetIso = that trigger's
-  alert_offset`.
-- Else → `triggerAtIso = card.notBefore` (current behavior).
+### 1. Time (`when`) — banding + notify (folded anchor)
 
-`weight` (importance) unchanged.
+The `alert_offset` is **folded into the anchor** — no new `NowItem` field, no
+`planExactSchedules` change (review simplification; the 3-bucket band makes the
+band-by-event vs band-by-alert difference sub-perceptible, and folding avoids the
+horizon/`≤now`-filter bugs of a split offset).
 
-**Banding (`NowRank`)** — no change: it already bands off `triggerAtIso`. So a
-`when`-triggered card bands NOW/SOON/LATER by its **event instant** (`when.at`),
-exactly like a derived item.
+- New pure helper `applyOffset(atIso, offsetIso, zone): Instant?` — parse the RFC-3339
+  instant + the ISO-8601 duration via **`kotlin.time.Duration.parseIsoString`** (stdlib,
+  all KMP targets), add them. Wrapped in `runCatching` → malformed offset falls open to
+  the raw `at`. (`-PT1H` → `at − 1h`.)
+- **`cardToNowItem`** gains `nowIso` + `zone` params (both callers — `nowFeed` and
+  `planExactSchedules` — already have them). Anchor resolution:
+  - effective(t) = `applyOffset(t.whenTrigger.at, t.whenTrigger.alertOffset, zone)` for
+    each `when` trigger;
+  - `triggerAtIso` = the **soonest future** effective instant (> now), as ISO; **else**
+    `card.notBefore` (current behavior for trigger-less cards). *(Soonest-**future** — not
+    soonest-overall — fixes review F3: a past + future trigger must not anchor on the past
+    one.)*
+- **Banding (`NowRank`)** — unchanged; already bands off `triggerAtIso`.
+- **Notify wake (`planExactSchedules`)** — unchanged; it already arms `triggerAtIso` and
+  filters `at <= now` (a folded wake in the past is naturally **dropped**, not
+  fire-immediately — resolves the past-wake concern) and `at − now > horizon`.
 
-**Notify wake (`BackgroundNotify.planExactSchedules`)** — apply the offset:
-the wake instant for an item is `triggerAtIso + alertOffsetIso` when an offset is
-present, else `triggerAtIso`. Example: `at=10:00`, `alert_offset=-PT1H` → wake
-`09:00`. The horizon/dedup/soonest-per-subject logic is unchanged; only the instant
-each item resolves to is offset. At fire time the receiver re-runs the full pass, so
-cap/quiet/dedup still apply.
+### 2. Geo (`geo`) — foreground surfacing (Option A)
 
-**Offset parsing** — a small pure helper `applyOffset(atIso, offsetIso, zone):
-Instant?` parses the RFC-3339 instant and the ISO-8601 duration and adds them.
-Malformed offset → treat as no offset (fail-open to `at`), never crash.
+- **Foreground lane** — new pure function in `NowFeed` (e.g. `authoredGeoItems(cards,
+  places, location, nowIso, zone, config)`): for each **visible** card (passes the
+  `feedCards` not_before/expires gate) with a `geo` trigger and a live `DeviceLocation`
+  within radius, emit a NOW `NowItem` — reusing the existing `deriveNow` geo math:
+  `haversineMeters` (already `internal`), `radiusM ?: default`, and `placeRef` resolution
+  against `places` (same precedence as `NowDerive.kt:149-153`). The item gets a **distinct
+  id** `"authored:geo:${card.id}:${index}"` (review F6 — must not collide with the card's
+  time item `"authored:${card.id}"`) and the card's `subjectKey`, so `NowRank`'s
+  same-subject dedup merges the geo-NOW item with the time item (geo-active outranks a
+  far time band). Shared geo-resolve logic is factored so it isn't duplicated from
+  `deriveNow` (review simplification #4).
+- **Background** — **no code.** A `place_ref` authored trigger references a saved place
+  already in `activePlaces()` → already geofenced + already woken by the background pass,
+  which now surfaces the card via the foreground lane above (the background pass runs the
+  same `nowFeed`). A coord-only authored geo trigger arms no geofence (ADR 0049 Option A).
 
-### 2. Location (`geo`) — surfacing + geofence
+### 3. Privacy (ADR 0014 / 0049)
 
-**Surfacing (foreground, pure).** Add an authored-card geo lane to the pure feed
-build: for each visible card with a `geo` trigger and a live `DeviceLocation`, if
-within the trigger radius, emit a NOW `NowItem` (`reasonKind = geo`, `geoActive =
-true`, `distanceM` set) — mirroring `deriveNow`'s block-geo branch (haversine,
-`radiusM ?: default`). Injected live location never persists (ADR 0014). This lives
-alongside `cardToNowItem` in the authored lane (`NowFeed`), so the existing
-cross-lane dedup (`subjectKey`) merges it with the card's time/authored item.
+On-device match, live location injected + never persisted. No new network, no coord
+egress, no new permission (foreground geo uses the while-using permission the proximity
+feature already requests). The privacy chip stays **author-declared** (`card.privacy`);
+matching honesty rests on the architecture (position never leaves), not the chip — the
+spec does not claim the chip is match-coupled (review F3-privacy). Coord-only authored
+cards do **not** background-fire (ADR 0049 Option A) — a documented limitation, not a
+false promise.
 
-**Geofence (background).** The Android geofence set is today `activePlaces()`. Add a
-second source: authored-card geo triggers as regions.
-- New `ContentStore` reader `cardGeoRegions(): List<GeoRegion>` — reads the cached
-  cards, extracts each `geo` trigger's `{lat,lng,radiusM,label}`, keyed by a stable
-  region id (`card:<cardId>:geo:<index>`).
-- `MainActivity` unions `activePlaces()`-derived regions with `cardGeoRegions()` in
-  the geofence registration (both the `notifConfigFlow` arm and the
-  `nowContentFlow` re-register arm), still capped by `ANDROID_REGION_CAP` (places
-  first, then card regions, so a place is never starved by cards).
-- `BackgroundNotify` region-enter already re-runs the pass; the pass's authored geo
-  lane (above) then surfaces the matching card, and `selectNotifications` posts it.
-  No change to the notify selection itself.
+### 4. Edge cases
 
-**Privacy (ADR 0014).** Card `geo` coords are authored `on_device`; matching is
-on-device (`matched_on_device` chip stays honest). No network, no coord egress, no
-new permission beyond the existing while-using location the proximity feature
-already requests.
-
-### 3. Precedence & edge cases
-
-- A card with **both** `when` and `geo`: time anchor from `when` (soonest), plus the
-  geo lane can surface it as NOW when physically near — both map to the same
-  `subjectKey` (`card:<id>` or its hub target), so dedup keeps the stronger (geo-now
-  outranks a far-future time band via existing rank).
-- **Visibility still gates**: a card hidden by `not_before`/`expires_at` (`feedCards`
-  gate) does not surface even if a trigger matches — triggers drive *relevance*, not
-  *visibility*. (Exact-schedule wake is the one deliberate exception that already
-  bypasses the not_before gate, per the existing `planExactSchedules` doc — a future
-  timed item must be armed before it becomes visible; unchanged.)
-- **Multiple `when` triggers**: soonest future one wins (matches
-  `planExactSchedules`' soonest-per-subject).
-- **Malformed trigger** (missing at/lat/lng, bad offset): skipped, fail-open, never
-  crashes the pure pass.
+- Both `when` + `geo`: time anchor from `when` (soonest future); geo lane can surface it
+  NOW when physically near — same `subjectKey` → dedup keeps the stronger.
+- Malformed trigger (missing `at`/coords, bad offset): skipped / fail-open, never crashes
+  the pure pass.
+- Visibility still gates surfacing; the exact-schedule wake bypasses the not_before gate
+  as it already does (must arm a future timed item before it becomes visible) — unchanged.
 
 ## Components touched
 
 | File | Change |
 |---|---|
-| `client/NowDerive.kt` (`NowItem`) | add `alertOffsetIso: String? = null` |
-| `client/NowFeed.kt` | `cardToNowItem`: when-trigger anchor + offset; new authored geo-proximity lane in the feed build |
-| `client/BackgroundNotify.kt` | `planExactSchedules`: apply `alertOffsetIso` to the wake instant; new `applyOffset` helper |
-| `client/ContentStore.kt` | new `cardGeoRegions()` reader |
-| `androidApp/MainActivity.kt` | union `cardGeoRegions()` into geofence registration (both arms), cap-aware |
-| tests | `NowFeedTest`/`DeriveNowTest`/`BackgroundNotifyTest`/`ContentStoreTest` (+ snapshot if a fixture changes) |
+| `client/Model.kt` | `Card.triggers: List<BlockTrigger>? = null` |
+| `client/.../db/Content.sq` | `card` table + `insertCard`/`selectCards`: `triggers TEXT` |
+| `client/.../db/migrations/11.sqm` | `ALTER TABLE card ADD COLUMN triggers TEXT;` |
+| `client/ContentStore.kt` | `upsertCard` encode + `rowToCard` decode of `card.triggers`; `CLIENT_SCHEMA_VERSION` 2→3 |
+| `client/NowDerive.kt` | `applyOffset` helper; extract a shared geo-resolve used by both lanes (no `NowItem` field change) |
+| `client/NowFeed.kt` | `cardToNowItem`: `nowIso`/`zone` + folded when-anchor; new `authoredGeoItems` lane wired into `nowFeed` |
+| tests | `NowFeedTest`, `DeriveNowTest`, `BackgroundNotifyTest`, `ContentStoreTest`, schema-version resync test |
+| **not touched** | `MainActivity` geofence registration; no `cardGeoRegions`; no `NowItem.alertOffsetIso`; no `planExactSchedules` signature |
+
+## Platform matrix
+
+- **Android:** foreground surfacing + background notify (time exact-alarm; geo via saved-place geofence).
+- **iOS:** foreground geo lane + time banding run over the shared `:client` core; background notify parity is per ADR 0044's iOS state (unchanged here).
+- **Desktop/web:** foreground surfacing only (`DeviceLocation` null → geo lane emits nothing; no notifier). All degrade cleanly — the new code is pure commonMain; no Android type leaks.
 
 ## Testing strategy
 
-- **Pure unit (`:client`)**: time anchor selection (when vs not_before, soonest-of-N);
-  `applyOffset` (valid/negative/malformed); geo lane (inside/outside radius, no
-  location, missing coords); banding of a when-triggered card; exact-schedule wake =
-  at+offset; `cardGeoRegions` extraction + cap ordering.
-- **On-device (Pixel)**: author a card with a near-future `when` (+offset) → verify it
-  bands NOW at the offset instant and fires a notification (notifications enabled);
-  author a `geo` trigger → verify geofence registration (logcat) and region-enter
-  surfacing. "Don't keep activities" not relevant here.
-- No golden snapshot expected to change (no fixture carries authored triggers); if one
+- **Pure unit (`:client`)**: `applyOffset` (valid `-PT1H`, positive, malformed→fail-open);
+  `cardToNowItem` anchor (when-trigger vs not_before; soonest-**future** of N; folded
+  offset); banding of a when-triggered card; `planExactSchedules` wakes at at+offset and
+  drops a past folded wake; `authoredGeoItems` (inside/outside radius, no location,
+  place_ref vs inline coords, distinct id, dedup merge with time item); `ContentStore`
+  decodes `card.triggers`; schema-version 2→3 forces resync.
+- **On-device (Pixel)**: author a card with a near-future `when` (+offset) → bands NOW at
+  the offset instant + fires a notification (notifications enabled); author a `place_ref`
+  geo trigger to a saved place → region-enter surfaces it.
+- Golden snapshots: none expected to change (no fixture carries authored triggers); if one
   does, re-record both OS sets.
 
 ## Rollout / ADR
 
-No ADR change required — this realizes the trigger semantics ADR 0043/0044 already
-imply and stays within ADR 0014 (on-device matching, no egress). A one-line note may
-be added to ADR 0043's surfacing description. Ships behind the existing background-
-notify opt-in (`notifConfig.enabled`); foreground geo surfacing needs live-location
-permission the proximity feature already gates.
+Realizes ADR 0049 (Accepted, Option A) + the trigger semantics ADR 0043/0044 imply;
+within ADR 0014 (on-device, no egress). Ships behind the existing background-notify
+opt-in (`notifConfig.enabled`, default OFF) + while-using location for foreground geo.
+Preconditions stated honestly (opt-in OFF by default, permissions, Doze, quiet-hours,
+daily cap) — no delivery guarantee implied.
