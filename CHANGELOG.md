@@ -7,6 +7,20 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Typed cards render their body_md (was raw text / dropped)
+
+### Fixed (client)
+- **A typed Now-card (geo / invite / contact / file / link / email) with an authored
+  `body_md` now renders it properly.** Before, the typed-card layouts showed `body_md`
+  verbatim as a plain one-line summary — `**bold**` printed its asterisks, `[label](url)`
+  printed as un-tappable literal text, and multi-line bodies ran together. The working
+  markdown renderer (`rememberRenderedMarkdown`: bold/italic/lists/tables + vetted tappable
+  links) was only wired to the generic untyped `CardItem` fallback, which real (typed) cards
+  never reach. Now: the **feed row** shows a calm one-line PLAIN summary (first line of the
+  body, markdown stripped), and the **detail screen** renders the full formatted `body_md`
+  with tappable links — the detail view previously dropped `body_md` entirely. Untyped
+  briefing cards are unchanged. (No ADR — render-layer bugfix.)
+
 ## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
 
 ### Fixed (client)

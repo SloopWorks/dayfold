@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.Card
 import com.sloopworks.dayfold.client.RelatedRef
+import com.sloopworks.dayfold.client.rememberRenderedMarkdown
 
 // CL-6 — full-screen per-type detail (mockup designs/content/Detail-Phone.dc.html).
 // Colored hero header + per-type hero media + safe actions row + DETAILS list +
@@ -74,6 +75,13 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
     ) {
       item { HeroMedia(card, onAction) }
       item { ActionsRow(detailActions(card), onAction) }
+      // Authored body: the feed row shows only a one-line summary (bodySummaryFor),
+      // so the full body_md — bold/lists + vetted tappable [label](url) links — is
+      // rendered HERE (typed cards otherwise had no home for it). Same renderer as
+      // hub blocks + the generic CardItem.
+      card.bodyMd?.takeIf { it.isNotBlank() }?.let { body ->
+        item { Text(rememberRenderedMarkdown(body), style = MaterialTheme.typography.bodyMedium) }
+      }
       hubLinkTarget(card)?.let { (hub, focus) ->
         // cross-surface deep-link; target_block_id (when set) highlights on arrival
         item { HubLink(onOpen = { onAction(CardAction.OpenHub(hub, focus)) }) }
