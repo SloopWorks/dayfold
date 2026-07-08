@@ -202,7 +202,12 @@ class MainActivity : ComponentActivity() {
 
     syncEngine.start()
     lifecycleScope.launch { authEngine.restore() }
-    handleDeepLink(intent)   // cold-start: did a /device App Link launch us? (stash/resume tolerates restore ordering)
+    // Only process a launch deep-link on a FRESH launch. On a recreation (config change
+    // or process-death restore, savedInstanceState != null) this singleTask activity's
+    // getIntent() still returns the ORIGINAL VIEW intent — re-processing it re-fired the
+    // redeem every task-resume → a stuck "invite expired" screen. Genuine warm re-taps
+    // arrive via onNewIntent (below), which is unaffected.
+    if (savedInstanceState == null) handleDeepLink(intent)
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         syncEngine.resume()
