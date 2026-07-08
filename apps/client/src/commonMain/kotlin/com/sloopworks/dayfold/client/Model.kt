@@ -39,6 +39,9 @@ data class Card(
   val related: List<RelatedRef>? = null,
   @SerialName("related_kicker") val relatedKicker: String? = null,
   val media: CardMedia? = null,                              // ADR 0036 visual enrichment
+  // ADR 0043/0049 — on-device relevance triggers (when/geo). Synced-from-server, never written.
+  // Reuses BlockTrigger (identical wire shape); consumed by cardToNowItem + authoredGeoItems (#299).
+  val triggers: List<BlockTrigger>? = null,
 )
 
 // ADR 0036 — card visual enrichment (icon + accent on the kind chip + optional thumb).

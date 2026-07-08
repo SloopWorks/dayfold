@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 /**
@@ -17,6 +18,16 @@ class DeriveNowTest {
 
   private val zone = TimeZone.UTC
   private val now = "2026-06-30T12:00:00Z"
+
+  // ── applyOffset (#299) ───────────────────────────────────────────────────────
+  @Test fun `applyOffset shifts by an ISO-8601 duration, fails open on junk`() {
+    val z = TimeZone.currentSystemDefault()
+    assertEquals(Instant.parse("2026-07-08T09:00:00-07:00"), applyOffset("2026-07-08T10:00:00-07:00", "-PT1H", z))
+    assertEquals(Instant.parse("2026-07-08T10:30:00-07:00"), applyOffset("2026-07-08T10:00:00-07:00", "PT30M", z))
+    assertEquals(Instant.parse("2026-07-08T10:00:00-07:00"), applyOffset("2026-07-08T10:00:00-07:00", null, z))
+    assertEquals(Instant.parse("2026-07-08T10:00:00-07:00"), applyOffset("2026-07-08T10:00:00-07:00", "garbage", z))
+    assertNull(applyOffset("not-a-date", "-PT1H", z))
+  }
 
   // ── countdown ──────────────────────────────────────────────────────────────
   @Test fun `countdown emits within window with computed why`() {

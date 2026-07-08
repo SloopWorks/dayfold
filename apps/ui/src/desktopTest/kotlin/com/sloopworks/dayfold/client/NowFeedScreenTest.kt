@@ -32,7 +32,7 @@ class NowFeedScreenTest {
       caughtUp = false,
     )
     val card = Card(id = "c1", title = "Rain at soccer 4pm", provenance = Provenance("claude"))
-    val authored = RankedItem(cardToNowItem(card, RankConfig()), Band.SOON, 0.5)
+    val authored = RankedItem(cardToNowItem(card, RankConfig(), "2026-06-30T12:00:00Z", kotlinx.datetime.TimeZone.UTC), Band.SOON, 0.5)
     val merged = feed.copy(soon = feed.soon + authored)
     setContent { MaterialTheme { NowFeedList(merged, mapOf("c1" to card), onAction = {}) } }
 

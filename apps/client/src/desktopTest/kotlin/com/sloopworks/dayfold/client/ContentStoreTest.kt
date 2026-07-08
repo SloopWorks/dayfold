@@ -17,6 +17,22 @@ class ContentStoreTest {
   private fun card(id: String, title: String, nb: String? = null) =
     Card(id = id, kind = "info", title = title, provenance = Provenance("claude"), notBefore = nb)
 
+  @Test fun `applyDelta decodes a card's when + geo triggers (issue 299)`() {
+    val s = store()
+    val c = Card(
+      id = "c1", kind = "action", title = "T", provenance = Provenance("claude"),
+      triggers = listOf(
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T10:00:00-07:00", alertOffset = "-PT1H")),
+        BlockTrigger(geo = TriggerGeo(lat = 47.76, lng = -122.66, radiusM = 800, label = "Firestone")),
+      ),
+    )
+    s.applyDelta(changedCards = listOf(c), changedHubs = emptyList(), tombstones = emptyList(), nextCursor = "x", nowIso = "2026-07-08T00:00:00Z")
+    val out = s.activeCards().single { it.id == "c1" }
+    assertEquals("2026-07-08T10:00:00-07:00", out.triggers?.get(0)?.whenTrigger?.at)
+    assertEquals("-PT1H", out.triggers?.get(0)?.whenTrigger?.alertOffset)
+    assertEquals(800L, out.triggers?.get(1)?.geo?.radiusM)
+  }
+
   @Test fun `upsert + activeCards round-trip, ordered not_before-nulls-last then id`() {
     val s = store()
     s.applyDelta(
