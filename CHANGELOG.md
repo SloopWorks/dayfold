@@ -7,6 +7,14 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — "Part of this hub" shows the hub's name
+
+### Changed (client)
+- **The card-detail "PART OF THIS HUB" link now names the hub** (e.g. "Lillian → Butler ·
+  Fall 2026", ellipsized to one line) instead of a generic "Open the hub", so you can tell
+  where the deep-link goes. The name is the target hub's title, resolved from already-synced
+  state; it falls back to "Open the hub" when the hub isn't cached. No schema change.
+
 ## 2026-07-08 — Card detail no longer states the same facts twice
 
 ### Fixed (client)

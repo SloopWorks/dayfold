@@ -321,7 +321,12 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
         LocalAnimatedVisibilityScope provides this@AnimatedContent,
       ) {
         val card = id?.let { cid -> state.cards.find { it.id == cid } }
-        if (card != null) DetailScreen(card, onBack = { store.dispatch(NavBack) }, onAction = handle)
+        if (card != null) {
+          // Resolve the target hub's name so "PART OF THIS HUB" shows WHERE the deep-link goes
+          // (target_hub_id wins over hub_ref — same precedence as hubLinkTarget). Null → fallback.
+          val hubName = (card.targetHubId ?: card.hubRef)?.let { hid -> state.hubs.find { it.id == hid }?.title }
+          DetailScreen(card, hubName = hubName, onBack = { store.dispatch(NavBack) }, onAction = handle)
+        }
         else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh, onShown = onNowShown)
       }
     }

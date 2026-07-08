@@ -35,4 +35,21 @@ class DetailBodyRenderTest {
     onNodeWithText("Bring the wheel-lock key.", substring = true).assertIsDisplayed()
     onNodeWithText("Directions", substring = true).assertIsDisplayed()
   }
+
+  private val hubCard = Card(
+    id = "c2", kind = "action", title = "X", provenance = Provenance("claude"), type = "geo",
+    targetHubId = "h1", payload = Payload(geo = GeoPayload(address = "A")),
+  )
+
+  @Test fun hubLinkShowsResolvedHubName() = runComposeUiTest {
+    setContent { DayfoldTheme { DetailScreen(hubCard, hubName = "Lillian → Butler · Fall 2026", onBack = {}, onAction = {}) } }
+    onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Lillian", substring = true))
+    onNodeWithText("Lillian → Butler · Fall 2026", substring = true).assertIsDisplayed()
+  }
+
+  @Test fun hubLinkFallsBackWhenNoName() = runComposeUiTest {
+    setContent { DayfoldTheme { DetailScreen(hubCard, hubName = null, onBack = {}, onAction = {}) } }
+    onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Open the hub", substring = true))
+    onNodeWithText("Open the hub", substring = true).assertIsDisplayed()
+  }
 }
