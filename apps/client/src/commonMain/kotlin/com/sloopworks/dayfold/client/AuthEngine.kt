@@ -116,10 +116,15 @@ class AuthEngine(
 
   /** Redeem an invite token (slice-2): success = a pending membership awaiting
    *  owner approval; everything else maps to a join-result the UI renders. */
-  suspend fun redeemInvite(token: String) = mutex.withLock {
+  suspend fun redeemInvite(token: String) = mutex.withLock { redeemInviteLocked(token) }
+
+  // No-mutex core — callable from an already-locked path (the deep-link resume runs
+  // inside loadMemberships' lock; Mutex isn't reentrant — same convention as
+  // lookupDeviceLocked).
+  private suspend fun redeemInviteLocked(token: String) {
     store.dispatch(RedeemRequested(token))
     val session = store.state.session
-    if (session == null) { store.dispatch(InviteRejected("error")); return@withLock }
+    if (session == null) { store.dispatch(InviteRejected("error")); return }
     try {
       when (val res = callWithRefresh(session) { authClient.redeemInvite(it.access, token) }) {
         is RedeemResult.Pending -> store.dispatch(InviteRedeemed(res.familyName))
@@ -133,15 +138,68 @@ class AuthEngine(
     }
   }
 
-  /** Owner: load the pending-approval queue for a family. */
+  /** Deep-link (ADR 0048): an https://<app>/invite/<token> App Link. If signed in,
+   *  redeem now (→ waiting-for-approval); else stash the token and redeem once
+   *  memberships resolve (redeem is auth-first). Returns silently for non-invite URLs. */
+  suspend fun openInviteLink(raw: String) {
+    val token = parseInviteToken(raw) ?: return
+    // The redeem reducers pin route=JoinInvite so the outcome shows (even against a
+    // concurrent cold-start MembershipsLoaded→routeFor). Signed in → redeem now; else
+    // stash and redeem after sign-in resolves memberships.
+    if (store.state.session != null) redeemInvite(token)
+    else store.dispatch(InviteLinkStashed(token))
+  }
+
+  // Consume a pre-sign-in stashed invite token once memberships resolve. Called at the
+  // tail of loadMemberships (already holding the mutex — hence redeemInviteLocked).
+  private suspend fun resumePendingInviteLink() {
+    val token = store.state.pendingInviteLink ?: return
+    if (store.state.session == null) return
+    store.dispatch(InviteLinkConsumed)
+    redeemInviteLocked(token)
+  }
+
+  /** Owner: load the pending-approval queue + outstanding invites (one GET → both). */
   suspend fun loadApprovals(fid: String) = mutex.withLock {
     val session = store.state.session ?: return@withLock
+    loadApprovalsLocked(session, fid)
+  }
+
+  // No-mutex core — callable from an already-locked path (mintInvite/revokeInvite,
+  // Mutex isn't reentrant; same convention as lookupDeviceLocked).
+  private suspend fun loadApprovalsLocked(session: Session, fid: String) {
     store.dispatch(ApprovalsRequested)
     try {
-      store.dispatch(ApprovalsLoaded(callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }))
+      val q = callWithRefresh(session) { authClient.familyApprovals(it.access, fid) }
+      store.dispatch(ApprovalsLoaded(q.pending, q.invites))
     } catch (e: Exception) {
       store.dispatch(ApprovalsFailed)
     }
+  }
+
+  /** Owner: mint an invite (qr|link) → show it, then refresh outstanding. The raw
+   *  token is dispatched to state for display only — never persisted or logged. */
+  suspend fun mintInvite(fid: String, mode: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    val maxUses = if (mode == "qr") 1 else 5   // qr forced to 1 server-side; link default 5 ("0 of 5 used")
+    store.dispatch(MintRequested)
+    try {
+      when (val r = callWithRefresh(session) { authClient.mintInvite(it.access, fid, mode, maxUses) }) {
+        is MintResult.Ok -> { store.dispatch(InviteMinted(r.invite)); loadApprovalsLocked(session, fid) }
+        MintResult.RateLimited -> store.dispatch(MintFailed("ratelimited"))
+        MintResult.Forbidden -> store.dispatch(MintFailed("forbidden"))
+      }
+    } catch (e: Exception) { store.dispatch(MintFailed("error")) }
+  }
+
+  /** Owner: revoke an outstanding invite → drop it on success; reload on a guarded failure. */
+  suspend fun revokeInvite(fid: String, id: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    store.dispatch(InviteRevokeRequested(id))
+    try {
+      callWithRefresh(session) { authClient.revokeInvite(it.access, fid, id) }
+      store.dispatch(InviteRevoked(id))
+    } catch (e: Exception) { loadApprovalsLocked(session, fid) }
   }
 
   /** Owner: approve / decline a pending member → drop them from the queue on success. */
@@ -285,6 +343,7 @@ class AuthEngine(
       val who = callWithRefresh(session) { authClient.whoami(it.access) }
       store.dispatch(MembershipsLoaded(who.families))
       resumePendingDeviceLink()   // cold-install resume: open a link stashed pre-sign-in
+      resumePendingInviteLink()   // ADR 0048: redeem an invite link stashed pre-sign-in
     } catch (e: AuthHttpException) {
       // 401 here = access expired AND refresh couldn't recover (revoked/expired/
       // reused) → the saved session is dead. Clear it and fall back to Sign-in so

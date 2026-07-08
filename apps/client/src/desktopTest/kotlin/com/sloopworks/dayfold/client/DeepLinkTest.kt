@@ -36,4 +36,23 @@ class DeepLinkTest {
   @Test fun `extra chars after the code are tolerated to 8 alnum`() {
     assertEquals("WDJF-7K2P", parseDeviceCode("https://x/device?user_code=WDJF-7K2P-extra"))
   }
+
+  // ── invite deep-link (ADR 0048) ──
+  @Test fun `invite link yields the token`() {
+    assertEquals("TOK_abc123", parseInviteToken("https://family-ai-dashboard.vercel.app/invite/TOK_abc123"))
+  }
+
+  @Test fun `invite token strips query and fragment`() {
+    assertEquals("TOK_abc123", parseInviteToken("https://x/invite/TOK_abc123?ref=sms"))
+    assertEquals("TOK_abc123", parseInviteToken("https://x/invite/TOK_abc123#x"))
+  }
+
+  @Test fun `bare invite token is tolerated`() {
+    assertEquals("TOK_abc123", parseInviteToken("TOK_abc123"))
+  }
+
+  @Test fun `a non-invite URL yields no token`() {
+    assertNull(parseInviteToken("https://x/device?user_code=WDJF-7K2P"))  // never a false token
+    assertNull(parseInviteToken("https://x/invite/"))                      // empty token
+  }
 }

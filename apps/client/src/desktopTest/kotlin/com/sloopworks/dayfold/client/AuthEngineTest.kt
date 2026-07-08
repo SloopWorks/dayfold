@@ -473,4 +473,126 @@ class AuthEngineTest {
     assertEquals(Route.AuthorizeDevice, store.state.route)       // resumed straight onto approve
     assertEquals("WDJF-7K2P", store.state.pendingDevice?.userCode)
   }
+
+  // ── owner invite-mint (S7) ──
+  @Test fun `mintInvite qr dispatches Minted and refreshes outstanding`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when {
+        req.url.encodedPath == "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        req.url.encodedPath == "/families/fam1/invites" && req.method.value == "POST" ->
+          respond("""{"invite_id":"i","token":"TOK","url":"https://x/invite/TOK","role":"adult","mode":"qr","expires_at":"z"}""", HttpStatusCode.Created, jsonCt)
+        req.url.encodedPath == "/families/fam1/invites" ->
+          respond("""{"invites":[{"id":"i","role":"adult","mode":"qr","max_uses":1,"used_count":0,"expires_at":"z"}],"pending":[]}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.OK)
+      }
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "qr")
+    assertEquals("TOK", store.state.mintedInvite?.token)
+    assertFalse(store.state.inviteBusy)
+    assertEquals(1, store.state.outstandingInvites.size)         // refreshed after mint
+  }
+
+  @Test fun `mintInvite 429 dispatches ratelimited`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      if (req.url.encodedPath == "/auth/whoami") respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.TooManyRequests)
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "link")
+    assertEquals("ratelimited", store.state.mintError)
+    assertFalse(store.state.inviteBusy)
+  }
+
+  @Test fun `mintInvite 403 dispatches forbidden`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      if (req.url.encodedPath == "/auth/whoami") respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.Forbidden)
+    })
+    eng.restore()
+    eng.mintInvite("fam1", "qr")
+    assertEquals("forbidden", store.state.mintError)
+  }
+
+  @Test fun `revokeInvite drops the row from outstanding`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when {
+        req.url.encodedPath == "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        req.method.value == "DELETE" -> respond("", HttpStatusCode.NoContent)
+        else -> respond("", HttpStatusCode.OK)
+      }
+    })
+    eng.restore()
+    store.dispatch(ApprovalsLoaded(emptyList(), listOf(Invite(id = "inv1", mode = "link", expiresAt = "z"))))
+    eng.revokeInvite("fam1", "inv1")
+    assertTrue(store.state.outstandingInvites.isEmpty())
+  }
+
+  // ── invite deep-link (ADR 0048) ──
+  @Test fun `openInviteLink when signed in redeems immediately`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/invites:redeem" -> respond("""{"family_id":"fam1","family_name":"The Jacksons","role":"adult","status":"pending"}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.openInviteLink("https://x/invite/TOK_abc123")
+    assertEquals(Route.JoinInvite, store.state.route)      // routed so the outcome is visible
+    assertEquals("waiting", store.state.joinOutcome)       // redeemed → waiting-for-approval
+    assertEquals("The Jacksons", store.state.joinFamilyName)
+  }
+
+  @Test fun `openInviteLink pre-sign-in stashes then redeems on sign-in`() = runBlocking {
+    val ts = MemTokenStore(null)
+    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/dev-token" -> respond("""{"access":"a1","refresh":"r1"}""", HttpStatusCode.OK, jsonCt)
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/invites:redeem" -> respond("""{"family_id":"fam1","family_name":"The Jacksons","role":"adult","status":"pending"}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    }))
+    val eng = AuthEngine(store, client, ts, devSecret = "DEVSECRET")
+    eng.openInviteLink("https://x/invite/TOK_abc123")     // pre-sign-in → stashed
+    assertEquals("TOK_abc123", store.state.pendingInviteLink)
+    eng.signIn("google")                                  // sign-in → memberships → redeem
+    assertNull(store.state.pendingInviteLink)             // consumed
+    assertEquals(Route.JoinInvite, store.state.route)     // resumes onto the Join outcome screen
+    assertEquals("waiting", store.state.joinOutcome)
+  }
+
+  @Test fun `openInviteLink ignores a non-invite URL`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt) })
+    eng.restore()
+    eng.openInviteLink("https://x/device?user_code=WDJF-7K2P")
+    assertNull(store.state.pendingInviteLink)
+    assertNull(store.state.joinOutcome)
+  }
+
+  @Test fun `loadApprovals feeds both pending queue and outstanding invites`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/families/fam1/invites" -> respond(
+          """{"invites":[{"id":"inv1","role":"adult","mode":"link","max_uses":5,"used_count":0,"expires_at":"z"}],"pending":[{"uid":"u9","display_name":"Sam","role":"adult"}]}""",
+          HttpStatusCode.OK, jsonCt,
+        )
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.loadApprovals("fam1")
+    assertEquals(1, store.state.pendingApprovals.size)
+    assertEquals(1, store.state.outstandingInvites.size)
+  }
 }

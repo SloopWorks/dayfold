@@ -120,9 +120,12 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
 
   // ── invitee-join (S5 slice-2) ──
   is OpenJoinInvite -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = null, joinFamilyName = null)
-  is RedeemRequested -> state.copy(joinBusy = true, joinOutcome = null)
-  is InviteRedeemed -> state.copy(joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName)
-  is InviteRejected -> state.copy(joinBusy = false, joinOutcome = action.reason)
+  // route=JoinInvite pinned on the redeem path so the busy/outcome is ALWAYS visible —
+  // incl. a deep-link redeem where a concurrent restore's MembershipsLoaded→routeFor would
+  // otherwise clobber the route (ADR 0048). No-op for the paste flow (already on JoinInvite).
+  is RedeemRequested -> state.copy(route = Route.JoinInvite, joinBusy = true, joinOutcome = null)
+  is InviteRedeemed -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName)
+  is InviteRejected -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = action.reason)
   is JoinDismissed -> state.copy(
     joinBusy = false, joinOutcome = null, joinFamilyName = null,
     route = routeFor(state.session, state.families),    // exit the join flow → gate (CreateFamily/Feed)
@@ -136,7 +139,15 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DevicesLoaded -> state.copy(devices = action.devices, deviceListBusy = false, deviceListError = null, deviceOpId = null)
   is DeviceRevoked -> state.copy(devices = state.devices.filterNot { it.id == action.id }, deviceOpId = null)
   is ApprovalsRequested -> state.copy(approvalsBusy = true)
-  is ApprovalsLoaded -> state.copy(approvalsBusy = false, pendingApprovals = action.pending)
+  is ApprovalsLoaded -> state.copy(approvalsBusy = false, pendingApprovals = action.pending, outstandingInvites = action.invites)
+  is OpenInvite -> state.copy(route = Route.Invite, mintedInvite = null, mintError = null, inviteBusy = false)
+  is InviteModeSelected -> state.copy(inviteMode = action.mode, mintedInvite = null, mintError = null)
+  is MintRequested -> state.copy(inviteBusy = true, mintError = null)
+  is InviteMinted -> state.copy(inviteBusy = false, mintedInvite = action.invite)
+  is MintFailed -> state.copy(inviteBusy = false, mintError = action.reason)
+  is InviteRevokeRequested -> state.copy(inviteOpId = action.id)
+  is InviteRevoked -> state.copy(outstandingInvites = state.outstandingInvites.filterNot { it.id == action.id }, inviteOpId = null)
+  is InviteDismissed -> state.copy(route = Route.Members, mintedInvite = null, mintError = null, inviteBusy = false)
   is MemberResolved -> state.copy(pendingApprovals = state.pendingApprovals.filterNot { it.uid == action.uid }, memberOpId = null)
   is ApprovalsFailed -> state.copy(approvalsBusy = false, memberOpId = null)
   is MemberOpRequested -> state.copy(memberOpId = action.uid)
@@ -174,6 +185,8 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   )
   is DeviceLinkStashed -> state.copy(pendingDeviceLink = action.code)   // await sign-in
   is DeviceLinkConsumed -> state.copy(pendingDeviceLink = null, deviceResuming = true)  // engine looks it up → Finishing
+  is InviteLinkStashed -> state.copy(pendingInviteLink = action.token)  // await sign-in (ADR 0048)
+  is InviteLinkConsumed -> state.copy(pendingInviteLink = null)          // engine redeems it
 
   else -> state
 }

@@ -23,3 +23,18 @@ fun parseDeviceCode(input: String): String? {
   val norm = normalizeDeviceCode(candidate)                  // upper + strip non-alnum, take 8
   return if (norm.length == 8) formatUserCode(norm) else null
 }
+
+// Invite deep-link (ADR 0048): the App-Link payload is `<api-origin>/invite/<token>`
+// (token = base64url of 32 CSPRNG bytes, spec 05 §42). Extracts the token so the engine
+// can redeem it via POST /invites:redeem. A URL WITHOUT `/invite/` → null (never a false
+// token from URL text — e.g. a stray `/device` link); a bare token (no scheme/path) is
+// tolerated; a trailing ?query / #frag is stripped.
+fun parseInviteToken(input: String): String? {
+  val raw = input.trim()
+  val candidate = when {
+    "/invite/" in raw -> raw.substringAfterLast("/invite/")
+    raw.contains("://") || raw.contains("/") -> return null   // URL w/o /invite/ → no token
+    else -> raw                                               // bare token
+  }
+  return candidate.substringBefore("?").substringBefore("#").trim().ifBlank { null }
+}

@@ -45,11 +45,13 @@ fun MembersScreen(
   onLoad: () -> Unit = {},
   onLoadMembers: () -> Unit = {},
   onRemoveMember: (String) -> Unit = {},
+  onInvite: () -> Unit = {},
   onBack: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   LaunchedEffect(Unit) { onLoad(); onLoadMembers() }
   val me = state.families.firstOrNull { it.familyId == state.activeFamilyId }
+  val isOwner = me?.role == "owner"
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
     Row(
@@ -66,6 +68,21 @@ fun MembersScreen(
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp)) {
+      // Owner-only: start an invite (mint QR / share link). Only an owner can mint
+      // (server ownerGate) so hiding it for non-owners avoids a guaranteed 403.
+      if (isOwner) {
+        Row(
+          Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.primary)
+            .clickable(onClick = onInvite).padding(horizontal = 16.dp, vertical = 14.dp)
+            .semantics { contentDescription = "Invite a member" },
+          verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+          androidx.compose.material3.Icon(DayfoldIcons.ArrowForward, contentDescription = null, tint = cs.onPrimary, modifier = Modifier.size(20.dp).clearAndSetSemantics {})
+          Text("Invite a member", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = cs.onPrimary, modifier = Modifier.clearAndSetSemantics {})
+        }
+        Spacer(Modifier.height(18.dp))
+      }
+
       if (state.pendingApprovals.isNotEmpty()) {
         Label("PENDING APPROVAL · ${state.pendingApprovals.size}", cs.primary)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {

@@ -122,6 +122,41 @@ class AuthReducerTest {
     assertEquals(listOf("u8"), s.pendingApprovals.map { it.uid })   // approved/declined → dropped
   }
 
+  @Test fun `owner invite-mint slice transitions`() {
+    val mi = MintedInvite("i", "TOK", "https://x/invite/TOK", "adult", "qr", "2099-01-01T00:00:00Z")
+    // open clears any prior mint + routes
+    var s = rootReducer(AppState(route = Route.Members, mintedInvite = mi, mintError = "error"), OpenInvite)
+    assertEquals(Route.Invite, s.route); assertNull(s.mintedInvite); assertNull(s.mintError)
+    // mint request → busy, error cleared
+    s = rootReducer(s.copy(mintError = "error"), MintRequested)
+    assertTrue(s.inviteBusy); assertNull(s.mintError)
+    // minted → token stored, busy off
+    s = rootReducer(s, InviteMinted(mi))
+    assertEquals("TOK", s.mintedInvite?.token); assertFalse(s.inviteBusy)
+    // a mode switch invalidates the shown code
+    s = rootReducer(s, InviteModeSelected("link"))
+    assertEquals("link", s.inviteMode); assertNull(s.mintedInvite)
+    // failure sets error + clears busy
+    s = rootReducer(s.copy(inviteBusy = true), MintFailed("ratelimited"))
+    assertEquals("ratelimited", s.mintError); assertFalse(s.inviteBusy)
+    // dismiss clears the token + routes back to Members
+    s = rootReducer(s.copy(route = Route.Invite, mintedInvite = mi), InviteDismissed)
+    assertEquals(Route.Members, s.route); assertNull(s.mintedInvite)
+  }
+
+  @Test fun `ApprovalsLoaded feeds pending queue and outstanding invites then revoke drops a row`() {
+    var s = rootReducer(AppState(), ApprovalsLoaded(
+      listOf(PendingMember("u9", "Sam")),
+      listOf(Invite(id = "inv1", mode = "link", expiresAt = "z"), Invite(id = "inv2", mode = "qr", expiresAt = "z")),
+    ))
+    assertEquals(listOf("u9"), s.pendingApprovals.map { it.uid })
+    assertEquals(listOf("inv1", "inv2"), s.outstandingInvites.map { it.id })
+    s = rootReducer(s, InviteRevokeRequested("inv1"))
+    assertEquals("inv1", s.inviteOpId)
+    s = rootReducer(s, InviteRevoked("inv1"))
+    assertEquals(listOf("inv2"), s.outstandingInvites.map { it.id }); assertNull(s.inviteOpId)
+  }
+
   @Test fun `roster loads then a member is removed`() {
     var s = rootReducer(AppState(), RosterLoaded(listOf(FamilyMember("u1", "Pat", role = "owner"), FamilyMember("u2", "Maya"))))
     assertEquals(listOf("u1", "u2"), s.members.map { it.uid })

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -174,6 +175,38 @@ class AuthFlowUiTest {
     // remove an adult member → drops from the roster
     onNodeWithTag("remove-u2").performClick()
     waitUntil(timeoutMillis = 5_000L) { onAllNodesWithText("Maya Jackson").fetchSemanticsNodes().isEmpty() }
+  }
+
+  @Test fun owner_opensInviteAndMintsQr() = runComposeUiTest {
+    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    setContent {
+      DayfoldTheme {
+        FeedApp(
+          store,
+          onSignIn = {
+            store.dispatch(SignInSucceeded(Session("a", "r")))
+            store.dispatch(MembershipsLoaded(listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))))
+          },
+          onLoadApprovals = { store.dispatch(ApprovalsLoaded(emptyList(), emptyList())) },
+          // auto-mint on Invite entry fires this → InviteMinted → QR renders
+          onMintInvite = { mode -> store.dispatch(InviteMinted(MintedInvite("i", "TOK", "https://x/invite/TOK", "adult", mode, "2099-01-01T00:00:00Z"))) },
+        )
+      }
+    }
+    fun seen(t: String) = onAllNodesWithText(t).fetchSemanticsNodes().isNotEmpty()
+    fun seenCd(t: String) = onAllNodesWithContentDescription(t).fetchSemanticsNodes().isNotEmpty()
+
+    onNodeWithText("Continue with Google").performClick()
+    waitUntil(timeoutMillis = 5_000L) { seen("Today") }
+    onNodeWithContentDescription("Account").performClick()
+    waitUntil(timeoutMillis = 5_000L) { seen("Members & approvals") }
+    onNodeWithText("Members & approvals").performClick()
+    // owner-only invite entry (content description — the label text is cleared for a11y)
+    waitUntil(timeoutMillis = 5_000L) { seenCd("Invite a member") }
+    onNodeWithContentDescription("Invite a member").performClick()
+    waitUntil(timeoutMillis = 5_000L) { store.state.route == Route.Invite }
+    // auto-mint → InviteMinted → the QR renders
+    waitUntil(timeoutMillis = 5_000L) { seenCd("Invite QR code") }
   }
 
   @Test fun account_revokesConnectedDevice() = runComposeUiTest {

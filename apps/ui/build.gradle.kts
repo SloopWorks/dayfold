@@ -34,6 +34,10 @@ kotlin {
         implementation("io.coil-kt.coil3:coil-compose:3.2.0")
         implementation("io.coil-kt.coil3:coil-network-ktor3:3.2.0")
         implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha03")
+        // Cross-platform QR rendering (owner invite share). KMP Compose painter —
+        // publishes android/jvm/iosArm64/iosSimulatorArm64 klibs (zxing is JVM-only →
+        // unusable on iOS). Display-only; encodes the invite URL.
+        implementation("io.github.alexzhirkevich:qrose:1.1.2")
       }
     }
     val androidMain by getting {

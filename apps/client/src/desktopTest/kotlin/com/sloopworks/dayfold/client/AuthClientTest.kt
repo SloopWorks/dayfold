@@ -182,12 +182,67 @@ class AuthClientTest {
         HttpStatusCode.OK, jsonCt,
       )
     }
-    val pending = client(engine).familyApprovals("ACCESS", "fam1")
+    val q = client(engine).familyApprovals("ACCESS", "fam1")
     assertEquals("/families/fam1/invites", path)
     assertEquals("Bearer ACCESS", auth)
-    assertEquals(1, pending.size)
-    assertEquals("u9", pending[0].uid)
-    assertEquals("Sam Rivera", pending[0].displayName)
+    assertEquals(1, q.pending.size)
+    assertEquals("u9", q.pending[0].uid)
+    assertEquals("Sam Rivera", q.pending[0].displayName)
+    assertTrue(q.invites.isEmpty())
+  }
+
+  @Test fun `familyApprovals also parses outstanding active invites`() = runBlocking {
+    val engine = MockEngine {
+      respond(
+        """{"invites":[{"id":"inv1","role":"adult","mode":"link","max_uses":5,"used_count":1,
+          "expires_at":"2026-07-09T00:00:00Z","created_at":"2026-07-07T00:00:00Z"}],"pending":[]}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val q = client(engine).familyApprovals("ACCESS", "fam1")
+    assertEquals(1, q.invites.size)
+    assertEquals("link", q.invites[0].mode)
+    assertEquals(5, q.invites[0].maxUses)
+    assertEquals(1, q.invites[0].usedCount)
+  }
+
+  // ── owner-side mint / revoke ──
+  @Test fun `mintInvite posts mode+role+max_uses and parses the one-time token`() = runBlocking {
+    var path = ""; var sent = ""; var auth: String? = null
+    val engine = MockEngine { req ->
+      path = req.url.encodedPath; sent = body(req); auth = req.headers[HttpHeaders.Authorization]
+      respond(
+        """{"invite_id":"inv1","token":"TOK_ONETIME","url":"https://api.test/invite/TOK_ONETIME",
+          "role":"adult","mode":"qr","expires_at":"2026-07-07T10:15:00Z"}""",
+        HttpStatusCode.Created, jsonCt,
+      )
+    }
+    val r = client(engine).mintInvite("ACCESS", "fam1", "qr", 1)
+    assertEquals("/families/fam1/invites", path)
+    assertEquals("Bearer ACCESS", auth)
+    assertTrue(sent.contains("\"mode\":\"qr\""), "body was: $sent")
+    assertTrue(sent.contains("\"max_uses\":1"), "body was: $sent")
+    assertTrue(r is MintResult.Ok)
+    assertEquals("TOK_ONETIME", (r as MintResult.Ok).invite.token)
+    assertEquals("qr", r.invite.mode)
+  }
+
+  @Test fun `mintInvite 429 is RateLimited and 403 is Forbidden`() = runBlocking {
+    assertEquals(MintResult.RateLimited, client(MockEngine { respond("", HttpStatusCode.TooManyRequests) }).mintInvite("A", "f", "link", 5))
+    assertEquals(MintResult.Forbidden, client(MockEngine { respond("", HttpStatusCode.Forbidden) }).mintInvite("A", "f", "qr", 1))
+  }
+
+  @Test fun `mintInvite throws on 400 (bad mode)`() = runBlocking<Unit> {
+    val ex = assertFailsWith<AuthHttpException> { client(MockEngine { respond("""{"type":"bad-mode"}""", HttpStatusCode.BadRequest, jsonCt) }).mintInvite("A", "f", "nope", 1) }
+    assertEquals(400, ex.status)
+  }
+
+  @Test fun `revokeInvite deletes the invite path and accepts 204`() = runBlocking {
+    var method = ""; var path = ""
+    val engine = MockEngine { req -> method = req.method.value; path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }
+    client(engine).revokeInvite("ACCESS", "fam1", "inv1")
+    assertEquals("DELETE", method)
+    assertEquals("/families/fam1/invites/inv1", path)
   }
 
   @Test fun `approveMember posts the colon-action path and accepts 204`() = runBlocking {

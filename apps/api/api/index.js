@@ -1841,7 +1841,7 @@ app.get("/.well-known/apple-app-site-association", (c) => {
   const appID = process.env.APPLE_APP_ID || "TEAMID.com.sloopworks.dayfold";
   c.header("content-type", "application/json");
   c.header("cache-control", "public, max-age=300");
-  return c.json({ applinks: { apps: [], details: [{ appID, paths: ["/device", "/device?*"] }] } });
+  return c.json({ applinks: { apps: [], details: [{ appID, paths: ["/device", "/device?*", "/invite/*"] }] } });
 });
 app.get("/device", (c) => {
   const code = (c.req.query("user_code") || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, 9);
@@ -1855,6 +1855,22 @@ app.get("/device", (c) => {
   If it doesn't open automatically, go to <b>Connect a device</b> and enter this code:</p>
   ${code ? `<div style="font-family:ui-monospace,monospace;font-size:1.8rem;font-weight:700;letter-spacing:.12em;background:#FCEBE6;border-radius:.8rem;padding:1rem;text-align:center;margin:1rem 0">${code}</div>` : ""}
   <p style="color:#8C726B;font-size:.9rem">Only approve a device you started signing in on yourself.</p>
+</div>`);
+});
+app.get("/invite/:token", (c) => {
+  const token = (c.req.param("token") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+  c.header("content-type", "text/html; charset=utf-8");
+  c.header("cache-control", "no-store, no-transform");
+  c.header("referrer-policy", "no-referrer");
+  return c.html(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Join a family \xB7 Dayfold</title>
+<div style="font-family:system-ui,sans-serif;max-width:30rem;margin:14vh auto;padding:0 1.5rem;color:#271814">
+  <div style="font-weight:700;letter-spacing:.04em;color:#8C726B;font-size:.8rem">DAYFOLD</div>
+  <h1 style="font-size:1.6rem;margin:.4rem 0 .8rem">You're invited to a family</h1>
+  <p style="line-height:1.5;color:#5A423C">Open the Dayfold app, tap <b>Join a family</b>, and paste this code.
+  Then sign in \u2014 every join waits for the family owner's approval.</p>
+  ${token ? `<div style="font-family:ui-monospace,monospace;font-size:1.1rem;font-weight:700;word-break:break-all;background:#FCEBE6;border-radius:.8rem;padding:1rem;margin:1rem 0">${token}</div>` : ""}
+  <p style="color:#8C726B;font-size:.9rem">This invite is single-use and expires soon.</p>
 </div>`);
 });
 app.put("/families/:fid/cards/:id", async (c) => {

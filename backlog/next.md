@@ -8,6 +8,50 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
+
+**Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
+owner's approval queue showing only **`displayName ?: "Someone"`** + role — no email,
+no join time, no invite provenance. This is a **security gap, not just cosmetic**:
+spec `05-invite.md` §65–73 makes approval **identity-bound** ("decline is the low-
+friction default; approve requires the identity to match") — which only works if the
+owner can actually see who's joining. Rubber-stamping "Someone" is the device-grant
+phishing class the owner-approve model exists to prevent (§68).
+
+**Current state (verified 2026-07-07):**
+- API `GET /families/{fid}/invites` `pending[]` already returns `display_name`,
+  `provider`, `provider_uid`, `email_verified`, `role`, `invite_id`, `requested_at`
+  (`app.ts` LATERAL query) — but **not the email string**.
+- Client `PendingMember` (`AuthClient.kt`) carries `displayName/role/provider/
+  requestedAt` — **no email, no inviteId**.
+- UI renders only `displayName ?: "Someone"` in `MembersScreen.PendingRow` +
+  `InviteScreen.InvitePendingRow`; no time, provider, or provenance.
+
+**Scope (spec §69–73):**
+1. **API** — add the invitee's **email** to `pending[]` (from `user_identities`,
+   gated on `email_verified` — show verified email; else show provider + "email
+   unverified"). Keep `invite_id` (already returned) flowing through.
+2. **Client** — `PendingMember += email, inviteId`; the reducer/engine already
+   thread the queue.
+3. **UI** — the pending row shows **name → email → "via Google/Apple" → relative
+   join time** ("2 min ago"), and **mint provenance**: "you created this invite N
+   min ago" (join `invite_id` → the outstanding invite's `created_at`). Handle a
+   null `display_name` gracefully (fall back to **email/provider**, never a bare
+   "Someone"). Decline stays the visual default (§72).
+4. **Design-first (ADR 0008)** — this changes the approval-row surface → needs a
+   hi-fi mock of the richer pending row (extend the `Auth-Phone` invite/members
+   views) + operator sign-off before build.
+
+**Open decision → `operator-inbox.md` (guardrail #3/#4, customer-data):** the operator
+asked for **location** too. Showing a *joiner's* IP/approx-location to the inviter is a
+PII-handling call distinct from name/email (the device-grant flow shows `origin_ip`/
+`origin_kind` for a *device*, but a *person's* location is more sensitive). **Recommend:
+ship name/email/time/provenance first; treat location/IP as a separate gated INB**
+(what's shown, coarseness, disclosure to the joiner) rather than bundling it.
+
+Relates: ADR 0011 §Invites, spec `05-invite.md` §65–73, the shipped invite-mint UI
+(`feat/owner-invite-mint-ui`) + deep-link (ADR 0048).
+
 ## TASK-CLIENT-MODULARIZE — split `:client` into `:model` / `:ui` / `:data`
 
 **Status: PARTIALLY SUPERSEDED — see the `✅ DONE 2026-07-02` entry below.** The
@@ -449,7 +493,9 @@ API tests / 0 skips. Legacy household token still works.
   offline): tag-balance, 36 render-combos through `renderVals()`, all 32 `c.*`
   tokens defined w/ light/dark parity, all frame views ∈ enum. **GATE: operator
   opens the dc files + signs off → unblocks S5/S6.** A8b merged to `main`
-  2026-06-20 (PR #5, `f399583`); operator merged = sign-off.
+  2026-06-20 (PR #5, `f399583`); operator merged = sign-off. **✅ ADR 0008 sign-off
+  explicitly recorded 2026-07-07 (resolves the merge-vs-signoff ambiguity) — the
+  owner invite-mint UI (code + QR share) is cleared to build.**
 - **S2 vendor/cost gate CLEARED — ADR 0023 (operator-directed 2026-06-20):**
   Firebase **Google + Apple only, Phone-OTP deferred** → no Blaze, no SMS spend
   ceiling, no SMS-fraud/SIM-swap surface; ADR 0011 architecture intact. S2 is now

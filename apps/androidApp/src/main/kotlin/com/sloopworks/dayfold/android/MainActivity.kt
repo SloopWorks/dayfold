@@ -75,12 +75,14 @@ class MainActivity : ComponentActivity() {
     if (needed.isNotEmpty()) proximityPermLauncher.launch(needed.toTypedArray())
   }
 
-  // S6-D Tier 2: a verified App Link (https://<api-origin>/device?user_code=…) hands
-  // the raw URL to the engine, which parses the code and either looks it up (signed
-  // in) or stashes it to resume after sign-in. singleTask → warm taps arrive here.
+  // Verified App Links hand the raw URL to the engine, which parses it and either acts
+  // now (signed in) or stashes it to resume after sign-in. singleTask → warm taps arrive
+  // here. /invite/<token> → redeem (ADR 0048); /device?user_code=… → device-approval.
   private fun handleDeepLink(intent: Intent?) {
     val data = intent?.data?.toString() ?: return
-    lifecycleScope.launch { authEngine.openDeviceLink(data) }
+    lifecycleScope.launch {
+      if ("/invite/" in data) authEngine.openInviteLink(data) else authEngine.openDeviceLink(data)
+    }
   }
 
   // ADR 0044 Phase B — a tapped LOCAL notification relaunches us with the deep-link extras
@@ -200,7 +202,12 @@ class MainActivity : ComponentActivity() {
 
     syncEngine.start()
     lifecycleScope.launch { authEngine.restore() }
-    handleDeepLink(intent)   // cold-start: did a /device App Link launch us? (stash/resume tolerates restore ordering)
+    // Only process a launch deep-link on a FRESH launch. On a recreation (config change
+    // or process-death restore, savedInstanceState != null) this singleTask activity's
+    // getIntent() still returns the ORIGINAL VIEW intent — re-processing it re-fired the
+    // redeem every task-resume → a stuck "invite expired" screen. Genuine warm re-taps
+    // arrive via onNewIntent (below), which is unaffected.
+    if (savedInstanceState == null) handleDeepLink(intent)
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
         syncEngine.resume()
@@ -275,6 +282,8 @@ class MainActivity : ComponentActivity() {
           onDeclineMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.declineMember(it, uid) } } },
           onLoadMembers = { lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.loadMembers(it) } } },
           onRemoveMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.removeMember(it, uid) } } },
+          onMintInvite = { mode -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
+          onRevokeInvite = { id -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
           onLoadDevices = { lifecycleScope.launch { authEngine.loadDevices() } },
           onRevokeDevice = { id -> lifecycleScope.launch { authEngine.revokeDevice(id) } },
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },

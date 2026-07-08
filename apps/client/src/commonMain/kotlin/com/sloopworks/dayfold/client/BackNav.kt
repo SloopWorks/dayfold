@@ -19,6 +19,7 @@ fun backAction(state: AppState): Action? {
     Route.Hubs -> if (state.timelineDetail != null) CloseTimelineDetail else if (state.currentHubId != null) CloseHub else null
     Route.Account -> CloseAccount
     Route.Members, Route.Devices, Route.Proximity -> OpenAccount
+    Route.Invite -> InviteDismissed                             // back → Members, clears the shown token
     Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied -> CloseDeviceFlow
     Route.JoinInvite -> JoinDismissed
     Route.SignIn, Route.Loading, Route.CreateFamily, Route.AuthError -> null

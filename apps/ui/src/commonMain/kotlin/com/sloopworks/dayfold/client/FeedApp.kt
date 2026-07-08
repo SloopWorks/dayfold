@@ -79,6 +79,8 @@ fun FeedApp(
   onDeclineMember: (String) -> Unit = {},
   onLoadMembers: () -> Unit = {},
   onRemoveMember: (String) -> Unit = {},
+  onMintInvite: (String) -> Unit = {},  // owner mint (qr|link) → AuthEngine.mintInvite
+  onRevokeInvite: (String) -> Unit = {},// owner revoke an outstanding invite
   onLoadDevices: () -> Unit = {},
   onRevokeDevice: (String) -> Unit = {},
   onLookupDevice: (String) -> Unit = {},
@@ -223,8 +225,22 @@ fun FeedApp(
       Route.Members -> MembersScreen(
         state, onApprove = onApproveMember, onDecline = onDeclineMember,
         onLoad = onLoadApprovals, onLoadMembers = onLoadMembers, onRemoveMember = onRemoveMember,
+        onInvite = { store.dispatch(OpenInvite) },
         onBack = { store.dispatch(OpenAccount) },
       )
+      Route.Invite -> {
+        // One GET /families/{fid}/invites feeds BOTH the outstanding-invite list and the
+        // pending-joiner rows (reuses loadApprovals). InviteScreen owns its own clock.
+        LaunchedEffect(Unit) { onLoadApprovals() }
+        InviteScreen(
+          state,
+          onMode = { store.dispatch(InviteModeSelected(it)) },
+          onMint = onMintInvite,
+          onRevoke = onRevokeInvite,
+          onApprove = onApproveMember, onDecline = onDeclineMember,
+          onBack = { store.dispatch(InviteDismissed) },
+        )
+      }
       } }
     }
   }
