@@ -1,13 +1,20 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -23,6 +30,18 @@ class HubChecklistToggleTest {
     blocks = listOf(HubBlock(id = "b_chk", sectionId = "s1", type = "checklist", ord = 0,
       payload = BlockPayload(items = listOf(item)))),
   )
+
+  // Regression: an item whose text wraps to ≥2 lines + a subline (assignee / "✓ doneBy")
+  // must GROW the tappable row. The old fixed .height(48.dp) pinned it at 48dp and clipped
+  // the subline (top-halves cut off on-device); heightIn(min=48.dp) lets it grow. Assert the
+  // row height > 48dp — the reliable discriminator (assertIsDisplayed misses an overflow clip).
+  @Test fun aWrappingItemGrowsPastTheHitTargetSoTheSublineFits() = runComposeUiTest {
+    val long = "Email BIEA + Band Boosters thank-you and disbursement letters to the finaid office at finaid@butler.edu before Thursday"
+    val state = AppState(currentHubId = "h1", currentHubTree = treeWith(
+      ChecklistItem(id = "i1", text = long, done = false, assignee = "Patrick")))
+    setContent { MaterialTheme { Box(Modifier.width(360.dp)) { HubDetailScreen(state) } } }
+    onNode(hasText(long, substring = true) and hasClickAction()).assertHeightIsAtLeast(56.dp)
+  }
 
   @Test fun tappingAnUndoneRowReportsAToggleToDone() = runComposeUiTest {
     var toggled: Triple<String, String, Boolean>? = null
