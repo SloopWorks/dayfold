@@ -349,21 +349,28 @@ fun HubDetailScreen(
       }
       else -> {
       val listState = rememberLazyListState()
-      // deep-link arrival: scroll the focused block into view. hasCountdown/restricted
-      // must mirror the header items emitted below (the helper counts them).
+      // Slice 4 (ADR 0038, States screen): the optimistic-write status, derived off the
+      // blocks' local_state — one calm queue affordance, never a per-row alarm. Hoisted
+      // above the arrival effect because the deep-link index math counts the banner items.
+      val pendingWrites = tree.blocks.count { it.localState == "pending" }
+      val failedWrites = tree.blocks.count { it.localState == "failed" }
+      // deep-link arrival: scroll the focused block into view. The helper must mirror the
+      // LazyColumn's item construction EXACTLY — including the leading sync/queue banners and
+      // the W5 hidden-block filter (partitionHidden) the render applies — else a hidden block
+      // (or a queued write) before the target shifts the real index and the scroll overshoots.
       val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso) != null && tree.hub.status != "archived"
-      LaunchedEffect(state.hubFocusBlockId, tree) {
+      LaunchedEffect(state.hubFocusBlockId, tree, state.hiddenIds) {
+        val leadingBanners = (if (state.error != null && (pendingWrites > 0 || failedWrites > 0)) 1 else 0) +
+          (if (pendingWrites > 0) 1 else 0)
         focusedBlockItemIndex(
           tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
           // one hoisted slot when a (non-hidden) timeline card OR the "No timeline yet" nudge shows
           hasTimelineCard = (tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
             presentTimelineCard(tl, nowIso, tz) != null) || showTimelineNudge,
+          hiddenIds = state.hiddenIds,
+          precedingBanners = leadingBanners,
         )?.let { listState.animateScrollToItem(it) }
       }
-      // Slice 4 (ADR 0038, States screen): the optimistic-write status, derived off the
-      // blocks' local_state — one calm queue affordance, never a per-row alarm.
-      val pendingWrites = tree.blocks.count { it.localState == "pending" }
-      val failedWrites = tree.blocks.count { it.localState == "failed" }
       LazyColumn(
         Modifier.fillMaxSize().padding(pad),
         state = listState,
@@ -553,15 +560,23 @@ fun HubDetailScreen(
 // Item index to scroll a deep-link target into view. [focusId] is a block OR a section id
 // (blk-* / sec-* are distinct namespaces): a section deep-link resolves to that section's HEADER
 // item (so the section scrolls to the top), a block deep-link to the block's row.
-fun focusedBlockItemIndex(tree: HubTree, focusId: String?, hasCountdown: Boolean, restricted: Boolean, hasTimelineCard: Boolean = false): Int? {
+fun focusedBlockItemIndex(
+  tree: HubTree, focusId: String?, hasCountdown: Boolean, restricted: Boolean,
+  hasTimelineCard: Boolean = false,
+  hiddenIds: Set<String> = emptySet(),   // W5 hide — must match the render's partitionHidden filter
+  precedingBanners: Int = 0,             // leading sync-banner + queue-pill items (0..2) above the status header
+): Int? {
   if (focusId == null) return null
-  var idx = 1                                       // status header (always)
+  var idx = precedingBanners + 1                    // banners (0..2) then the status header (always)
   if (hasCountdown) idx += 1
   if (restricted) idx += 1
   if (hasTimelineCard) idx += 1
   for (section in tree.sections.sortedBy { it.ord }) {
-    val blocks = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
-    if (blocks.isEmpty()) continue                   // empty sections render nothing → don't count a header
+    // Mirror the render (HubDetailScreen): only VISIBLE blocks are laid out, and a section
+    // whose blocks are all hidden renders nothing (no header). Counting hidden blocks here
+    // was the bug — each hidden block before the target overshot the arrival scroll.
+    val blocks = partitionHidden(tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }, hiddenIds).visible
+    if (blocks.isEmpty()) continue                   // empty (or fully-hidden) section → no header slot
     if (section.id == focusId) return idx            // section deep-link → its header row
     idx += 1                                          // section header
     val pos = blocks.indexOfFirst { it.id == focusId }
