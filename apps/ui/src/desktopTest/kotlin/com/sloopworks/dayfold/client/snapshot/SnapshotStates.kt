@@ -161,7 +161,12 @@ object SnapshotStates {
       Stop(at = "2026-06-12", title = "Housing application submitted", assignee = "Maya", done = true),
       Stop(at = "2026-07-20", title = "Orientation completed", done = true),
       Stop(at = "2026-08-24", title = "Move-in day", major = true, sub = "Henderson Hall, room 214", assignee = "Pat + Maya",
-        attachments = listOf(Attachment(kind = "nav", label = "Map", query = "Henderson Hall"))),
+        // 3 attachments + wide assignee → exercises the FlowRow wrap (was clipped/ballooned).
+        attachments = listOf(
+          Attachment(kind = "nav", label = "Map", query = "Henderson Hall"),
+          Attachment(kind = "open", label = "Move-in checklist", ref = AttachmentRef(hubId = "college", sectionId = "sec-move")),
+          Attachment(kind = "call", label = "Residence Life", tel = "+18005551234"),
+        )),
       Stop(at = "2026-09-15", title = "Family weekend"),
       Stop(at = "2026-10-01", title = "Graduation open house", major = true),
     ),

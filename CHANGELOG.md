@@ -42,6 +42,18 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   date-only value → `Jun 18`. Shown in the value's own zone (an appointment reads in
   its local time, not the viewer's). Unparseable values pass through unchanged.
 
+## 2026-07-08 — Timeline stop attachment chips wrap instead of clipping
+
+### Fixed (client)
+- **A timeline stop with a wide assignee and multiple attachments no longer renders as a
+  giant half-empty card with cut-off chips.** On the hub roadmap, a stop's meta area
+  (source tag + assignee + attachment chips) was a single non-wrapping row; when it
+  overflowed, the trailing chip was squeezed to a sliver whose label wrapped one character
+  per line — ballooning the card height and clipping the other chips (seen on the "Aug 1
+  deadline cluster" stop: assignee "Lillian + Patrick" + 3 chips). The assignee now sits on
+  its own line and the attachment chips flow into a wrapping row (`FlowRow`), so every chip
+  stays visible and tappable and the card is only as tall as its content. Layout-only.
+
 ## 2026-07-08 — Authored card triggers now drive surfacing + notifications (#299)
 
 ### Added (client)
