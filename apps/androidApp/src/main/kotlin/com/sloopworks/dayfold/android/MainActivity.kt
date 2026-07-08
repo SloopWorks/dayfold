@@ -75,12 +75,14 @@ class MainActivity : ComponentActivity() {
     if (needed.isNotEmpty()) proximityPermLauncher.launch(needed.toTypedArray())
   }
 
-  // S6-D Tier 2: a verified App Link (https://<api-origin>/device?user_code=…) hands
-  // the raw URL to the engine, which parses the code and either looks it up (signed
-  // in) or stashes it to resume after sign-in. singleTask → warm taps arrive here.
+  // Verified App Links hand the raw URL to the engine, which parses it and either acts
+  // now (signed in) or stashes it to resume after sign-in. singleTask → warm taps arrive
+  // here. /invite/<token> → redeem (ADR 0048); /device?user_code=… → device-approval.
   private fun handleDeepLink(intent: Intent?) {
     val data = intent?.data?.toString() ?: return
-    lifecycleScope.launch { authEngine.openDeviceLink(data) }
+    lifecycleScope.launch {
+      if ("/invite/" in data) authEngine.openInviteLink(data) else authEngine.openDeviceLink(data)
+    }
   }
 
   // ADR 0044 Phase B — a tapped LOCAL notification relaunches us with the deep-link extras

@@ -116,10 +116,15 @@ class AuthEngine(
 
   /** Redeem an invite token (slice-2): success = a pending membership awaiting
    *  owner approval; everything else maps to a join-result the UI renders. */
-  suspend fun redeemInvite(token: String) = mutex.withLock {
+  suspend fun redeemInvite(token: String) = mutex.withLock { redeemInviteLocked(token) }
+
+  // No-mutex core — callable from an already-locked path (the deep-link resume runs
+  // inside loadMemberships' lock; Mutex isn't reentrant — same convention as
+  // lookupDeviceLocked).
+  private suspend fun redeemInviteLocked(token: String) {
     store.dispatch(RedeemRequested(token))
     val session = store.state.session
-    if (session == null) { store.dispatch(InviteRejected("error")); return@withLock }
+    if (session == null) { store.dispatch(InviteRejected("error")); return }
     try {
       when (val res = callWithRefresh(session) { authClient.redeemInvite(it.access, token) }) {
         is RedeemResult.Pending -> store.dispatch(InviteRedeemed(res.familyName))
@@ -131,6 +136,24 @@ class AuthEngine(
     } catch (e: Exception) {
       store.dispatch(InviteRejected("error"))            // transient 401/5xx/network → join-retry
     }
+  }
+
+  /** Deep-link (ADR 0048): an https://<app>/invite/<token> App Link. If signed in,
+   *  redeem now (→ waiting-for-approval); else stash the token and redeem once
+   *  memberships resolve (redeem is auth-first). Returns silently for non-invite URLs. */
+  suspend fun openInviteLink(raw: String) {
+    val token = parseInviteToken(raw) ?: return
+    if (store.state.session != null) redeemInvite(token)
+    else store.dispatch(InviteLinkStashed(token))
+  }
+
+  // Consume a pre-sign-in stashed invite token once memberships resolve. Called at the
+  // tail of loadMemberships (already holding the mutex).
+  private suspend fun resumePendingInviteLink() {
+    val token = store.state.pendingInviteLink ?: return
+    if (store.state.session == null) return
+    store.dispatch(InviteLinkConsumed)
+    redeemInviteLocked(token)
   }
 
   /** Owner: load the pending-approval queue + outstanding invites (one GET → both). */
@@ -317,6 +340,7 @@ class AuthEngine(
       val who = callWithRefresh(session) { authClient.whoami(it.access) }
       store.dispatch(MembershipsLoaded(who.families))
       resumePendingDeviceLink()   // cold-install resume: open a link stashed pre-sign-in
+      resumePendingInviteLink()   // ADR 0048: redeem an invite link stashed pre-sign-in
     } catch (e: AuthHttpException) {
       // 401 here = access expired AND refresh couldn't recover (revoked/expired/
       // reused) → the saved session is dead. Clear it and fall back to Sign-in so

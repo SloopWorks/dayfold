@@ -458,6 +458,9 @@ data class AppState(
   // True between consuming a stashed deep-link and the lookup resolving — the
   // Loading route then shows the "Finishing…" beat instead of the plain splash.
   val deviceResuming: Boolean = false,
+  // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
+  // once memberships resolve. Null = nothing pending.
+  val pendingInviteLink: String? = null,
   // Hubs surface (ADR 0006 render). The list + the open hub's tree. currentHubId
   // null = list, set = detail (a Hubs substate, like detailStack is for Feed).
   val hubs: List<Hub> = emptyList(),
@@ -635,6 +638,10 @@ data object CloseDeviceFlow : Action                          // exit → routeF
 // consume it once memberships resolve (engine then looks it up → AuthorizeDevice).
 data class DeviceLinkStashed(val code: String) : Action
 data object DeviceLinkConsumed : Action
+// Invite deep-link (ADR 0048): an /invite/<token> App Link tapped before sign-in →
+// stash the token, redeem once memberships resolve (redeem is auth-first, spec §41).
+data class InviteLinkStashed(val token: String) : Action
+data object InviteLinkConsumed : Action
 // Scan flow (Phase 2): the camera path into the same lookup → approve loop.
 data object OpenScan : Action                                 // EnterCode Scan tab → ScanPrimer
 data object ScanPermissionGranted : Action                    // primer Allow (granted) → ScanDevice

@@ -532,6 +532,50 @@ class AuthEngineTest {
     assertTrue(store.state.outstandingInvites.isEmpty())
   }
 
+  // ── invite deep-link (ADR 0048) ──
+  @Test fun `openInviteLink when signed in redeems immediately`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/invites:redeem" -> respond("""{"family_id":"fam1","family_name":"The Jacksons","role":"adult","status":"pending"}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.openInviteLink("https://x/invite/TOK_abc123")
+    assertEquals("waiting", store.state.joinOutcome)       // redeemed → waiting-for-approval
+    assertEquals("The Jacksons", store.state.joinFamilyName)
+  }
+
+  @Test fun `openInviteLink pre-sign-in stashes then redeems on sign-in`() = runBlocking {
+    val ts = MemTokenStore(null)
+    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/dev-token" -> respond("""{"access":"a1","refresh":"r1"}""", HttpStatusCode.OK, jsonCt)
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/invites:redeem" -> respond("""{"family_id":"fam1","family_name":"The Jacksons","role":"adult","status":"pending"}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    }))
+    val eng = AuthEngine(store, client, ts, devSecret = "DEVSECRET")
+    eng.openInviteLink("https://x/invite/TOK_abc123")     // pre-sign-in → stashed
+    assertEquals("TOK_abc123", store.state.pendingInviteLink)
+    eng.signIn("google")                                  // sign-in → memberships → redeem
+    assertNull(store.state.pendingInviteLink)             // consumed
+    assertEquals("waiting", store.state.joinOutcome)
+  }
+
+  @Test fun `openInviteLink ignores a non-invite URL`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt) })
+    eng.restore()
+    eng.openInviteLink("https://x/device?user_code=WDJF-7K2P")
+    assertNull(store.state.pendingInviteLink)
+    assertNull(store.state.joinOutcome)
+  }
+
   @Test fun `loadApprovals feeds both pending queue and outstanding invites`() = runBlocking {
     val ts = MemTokenStore(Session("ax", "rx"))
     val (eng, store) = engine(ts, handler = MockEngine { req ->

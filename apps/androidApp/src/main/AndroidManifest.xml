@@ -32,9 +32,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- S6-D Tier 2: verified App Link for the device-approval deep link.
-                 Opens https://<api-origin>/device?user_code=… straight into the app
-                 (verified against /.well-known/assetlinks.json on that origin). -->
+            <!-- Verified App Links (verified against /.well-known/assetlinks.json on
+                 that origin). /device = S6-D device-approval; /invite/ = ADR 0048
+                 invite redeem (opens straight into Join → redeem). Same host + cert
+                 + assetlinks (handle_all_urls) → one filter, two paths. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -42,6 +43,9 @@
                 <data android:scheme="https"
                     android:host="family-ai-dashboard.vercel.app"
                     android:path="/device" />
+                <data android:scheme="https"
+                    android:host="family-ai-dashboard.vercel.app"
+                    android:pathPrefix="/invite/" />
             </intent-filter>
         </activity>
 

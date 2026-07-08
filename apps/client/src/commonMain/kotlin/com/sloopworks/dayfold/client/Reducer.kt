@@ -182,6 +182,8 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   )
   is DeviceLinkStashed -> state.copy(pendingDeviceLink = action.code)   // await sign-in
   is DeviceLinkConsumed -> state.copy(pendingDeviceLink = null, deviceResuming = true)  // engine looks it up → Finishing
+  is InviteLinkStashed -> state.copy(pendingInviteLink = action.token)  // await sign-in (ADR 0048)
+  is InviteLinkConsumed -> state.copy(pendingInviteLink = null)          // engine redeems it
 
   else -> state
 }
