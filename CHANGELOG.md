@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Authored card triggers now drive surfacing + notifications (#299)
+
+### Added (client)
+- **A Now-card authored with a `when` and/or `geo` trigger now acts on it.** Previously
+  the client never even decoded a `BriefingCard`'s `triggers[]` — an authored time/location
+  trigger did nothing. Now: a `when` trigger (with `alert_offset`) bands the card into
+  NOW/SOON/LATER by its lead time and arms a local notification at `at + alert_offset`
+  (background-notify opt-in required); a `geo` trigger surfaces the card as NOW when the
+  device is within radius, matched **on-device** (ADR 0014 — position never leaves). Per
+  **ADR 0049 (Option A)**, background geofencing stays user-curated — an authored geo
+  trigger fires in the background only via `place_ref` to a saved place; a coord-only
+  authored geo trigger surfaces in the foreground only. `not_before`/`expires_at` keep
+  their meaning (visibility window). Existing devices self-heal via `CLIENT_SCHEMA_VERSION`
+  2→3 (one forced resync backfills the new trigger field).
+
 ## 2026-07-08 — Checklist "done by" shows a member's name, not a user ID
 
 ### Fixed (client)
