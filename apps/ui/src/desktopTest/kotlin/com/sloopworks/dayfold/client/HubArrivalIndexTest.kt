@@ -65,4 +65,25 @@ class HubArrivalIndexTest {
     // status(0), [empty skipped], s1hdr(1), b1(2)
     assertEquals(2, focusedBlockItemIndex(withEmpty, "b1", hasCountdown = false, restricted = false))
   }
+
+  // The bug: a W5-hidden block before the target was still counted, so the arrival scroll
+  // overshot by the number of hidden blocks. The helper must mirror the render's partitionHidden.
+  @Test fun `hidden blocks before the target shift the index down (mirror partitionHidden)`() {
+    // hide b1 → render: status(0) s1hdr(1) b2(2) s2hdr(3) b3(4). b3 was 5 without hiding.
+    assertEquals(2, focusedBlockItemIndex(tree, "b2", hasCountdown = false, restricted = false, hiddenIds = setOf("b1")))
+    assertEquals(4, focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hiddenIds = setOf("b1")))
+    // section header index also shifts: s2 header now at 3 (was 4)
+    assertEquals(3, focusedBlockItemIndex(tree, "s2", hasCountdown = false, restricted = false, hiddenIds = setOf("b1")))
+  }
+
+  @Test fun `a fully-hidden section renders no header and is not a scroll target`() {
+    // hide b3 (s2's only block) → s2 renders nothing. targeting it (or its block) → null (no scroll).
+    assertNull(focusedBlockItemIndex(tree, "s2", hasCountdown = false, restricted = false, hiddenIds = setOf("b3")))
+    assertNull(focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hiddenIds = setOf("b3")))
+  }
+
+  @Test fun `preceding sync-queue banners shift every index by their count`() {
+    val base = focusedBlockItemIndex(tree, "b1", hasCountdown = false, restricted = false)!!
+    assertEquals(base + 2, focusedBlockItemIndex(tree, "b1", hasCountdown = false, restricted = false, precedingBanners = 2))
+  }
 }

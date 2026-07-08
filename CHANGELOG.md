@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Deep-link arrival scroll lands on the right section (hidden-block fix)
+
+### Fixed (client)
+- **Tapping a deep-link into a hub now scrolls to the exact target section/block** — it was
+  overshooting past it. The arrival index helper (`focusedBlockItemIndex`) counted **all**
+  blocks, but the hub screen hides W5-hidden blocks (`partitionHidden`), so every hidden block
+  before the target inflated the computed index and the scroll landed that many items too far
+  (observed: 5 hidden blocks before "Contacts" → landed on the 5th contact, header off-screen).
+  The helper now mirrors the render exactly: it applies the same hidden-block filter (a section
+  whose blocks are all hidden renders no header) and accounts for the leading offline/queue
+  banners. A deep-link to a hidden block, or a section with nothing visible, now no-ops instead
+  of mis-scrolling.
+
 ## 2026-07-08 — Back from a hub opened via a card returns to that card
 
 ### Fixed (client)
