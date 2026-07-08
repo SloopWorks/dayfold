@@ -476,6 +476,10 @@ data class AppState(
   val currentHubId: String? = null,
   val currentHubTree: HubTree? = null,
   val hubFocusBlockId: String? = null,                        // deep-link arrival: the block to highlight
+  // True when the current hub was opened by a CROSS-SURFACE deep-link from a Feed card detail
+  // (not the Hubs list). Back then returns to that card detail (CloseHubToFeed) instead of the
+  // hub list. Set on the deep-link path, cleared on any Hubs-list entry / hub close.
+  val hubFromDetail: Boolean = false,
   val timelineDetail: TimelineScale? = null,                  // ADR 0045 — non-null = timeline detail overlay open at this scale
   // W5 hide (ADR 0038 §W5) — DB-fed set of locally-hidden entity ids (bridge writes it);
   // showHidden is the per-view "Show hidden" toggle (reset on open/close hub). Hide is
@@ -545,6 +549,8 @@ data class OpenHub(val hubId: String) : Action                // list → detail
 data class HubTreeLoaded(val tree: HubTree) : Action
 data object HubNotFound : Action                              // 404 (restricted/absent) — back to list with a note
 data object CloseHub : Action                                 // detail → list
+data object CloseHubToFeed : Action                           // detail → back to the Feed card detail it was deep-linked from
+data class SetHubReturnToDetail(val value: Boolean) : Action  // mark the current hub as opened via a card-detail deep-link
 data class SetHubFocus(val blockId: String?) : Action         // deep-link arrival: highlight a block
 data class SetHubFilter(val filter: String) : Action          // list filter chips (all|active|planning)
 // W5 hide (ADR 0038 §W5). HiddenLoaded is the DB→store bridge (sole writer of hiddenIds);

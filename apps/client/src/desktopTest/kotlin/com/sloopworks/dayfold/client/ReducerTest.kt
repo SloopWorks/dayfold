@@ -160,6 +160,21 @@ class ReducerTest {
     assertNull(closed.currentHubId); assertNull(closed.currentHubTree); assertNull(closed.hubFocusBlockId)
   }
 
+  @Test fun `cross-surface hub deep-link return — CloseHubToFeed routes to Feed, keeps the detail, clears the flag`() {
+    val s = AppState(route = Route.Hubs, currentHubId = "h1", hubFromDetail = true, detailStack = listOf("c1"))
+    val after = rootReducer(s, CloseHubToFeed)
+    assertEquals(Route.Feed, after.route)      // back on Feed → the detailStack card detail re-renders
+    assertNull(after.currentHubId)
+    assertFalse(after.hubFromDetail)
+    assertEquals(listOf("c1"), after.detailStack)   // the originating detail is preserved
+  }
+
+  @Test fun `the from-detail flag is set by SetHubReturnToDetail and cleared entering the Hubs list`() {
+    assertTrue(rootReducer(AppState(), SetHubReturnToDetail(true)).hubFromDetail)
+    assertFalse(rootReducer(AppState(hubFromDetail = true), OpenHubs).hubFromDetail)   // bottom-nav list entry clears it
+    assertFalse(rootReducer(AppState(hubFromDetail = true), CloseHub).hubFromDetail)
+  }
+
   // ADR 0030 audience sheet (who-can-see-this-hub). The non-obvious property: open AND
   // close both CLEAR currentHubAudience, so a previously-loaded audience can't flash while
   // a different hub's sheet loads. (No test referenced these transitions before.)

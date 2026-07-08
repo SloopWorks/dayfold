@@ -52,8 +52,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
 
   // ── Hubs (ADR 0006 render · ADR 0030 visibility) ──
-  is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null)
-  is OpenFeed -> state.copy(route = Route.Feed)
+  is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null, hubFromDetail = false)
+  is OpenFeed -> state.copy(route = Route.Feed, hubFromDetail = false)
+  is SetHubReturnToDetail -> state.copy(hubFromDetail = action.value)   // #299-followup: mark cross-surface deep-link origin
   // DB-fed via the SyncEngine hub bridge (one-writer-per-slice). Prunes currentHubId
   // + currentHubTree when the open hub is no longer in the DB (e.g. revocation tombstone).
   is HubsLoaded -> state.copy(
@@ -67,7 +68,10 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null)
   is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
   is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.", timelineDetail = null)
-  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null)
+  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null, hubFromDetail = false)
+  // Cross back to the Feed card detail this hub was deep-linked from: route → Feed (the detailStack
+  // card re-renders on ContentHost), and clear the hub substate + the origin flag.
+  is CloseHubToFeed -> state.copy(route = Route.Feed, currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null, hubFromDetail = false)
   is OpenTimelineDetail -> state.copy(timelineDetail = action.scale)  // ADR 0045 — open the timeline detail overlay
   is CloseTimelineDetail -> state.copy(timelineDetail = null)         // ADR 0045 — close the timeline detail overlay
   is SetHubFocus -> state.copy(hubFocusBlockId = action.blockId)

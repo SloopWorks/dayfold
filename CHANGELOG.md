@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Back from a hub opened via a card returns to that card
+
+### Fixed (client)
+- **Tapping "PART OF THIS HUB" on a card detail, then pressing back, now returns to that
+  card detail** — previously it fell through to the hub list, or (on some devices) exited
+  the app entirely. Two coupled defects: the shell back handler was disabled whenever a feed
+  detail was in the stack *regardless of route*, so on the deep-linked hub (route=Hubs, the
+  card still in `detailStack`) no handler was active → the OS back exited the app; and the
+  cross-surface jump recorded no origin, so even when handled it unwound within Hubs. The
+  deep-link now marks its origin (`hubFromDetail`); back from such a hub crosses back to Feed
+  (`CloseHubToFeed`) so the originating card detail re-renders. The hub-detail back arrow
+  behaves the same. Hubs reached normally (bottom nav → list → hub) still back to the list.
+
 ## 2026-07-08 — "Part of this hub" shows the hub's name
 
 ### Changed (client)

@@ -16,7 +16,13 @@ fun backAction(state: AppState): Action? {
   if (state.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
   return when (state.route) {
     Route.Feed -> if (state.detailStack.isNotEmpty()) NavBack else null
-    Route.Hubs -> if (state.timelineDetail != null) CloseTimelineDetail else if (state.currentHubId != null) CloseHub else null
+    Route.Hubs -> when {
+      state.timelineDetail != null -> CloseTimelineDetail
+      // a hub reached by a card-detail deep-link → back returns to that detail, not the hub list
+      state.currentHubId != null && state.hubFromDetail -> CloseHubToFeed
+      state.currentHubId != null -> CloseHub
+      else -> null
+    }
     Route.Account -> CloseAccount
     Route.Members, Route.Devices, Route.Proximity -> OpenAccount
     Route.Invite -> InviteDismissed                             // back → Members, clears the shown token
