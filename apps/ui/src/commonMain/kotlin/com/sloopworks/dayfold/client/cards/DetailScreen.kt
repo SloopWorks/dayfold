@@ -57,7 +57,7 @@ internal fun hubLinkTarget(card: Card): Pair<String, String?>? =
   (card.targetHubId ?: card.hubRef)?.takeIf { it.isNotBlank() }?.let { it to (card.targetBlockId ?: card.targetSectionId) }
 
 @Composable
-fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit) {
+fun DetailScreen(card: Card, hubName: String? = null, onBack: () -> Unit, onAction: (CardAction) -> Unit) {
   // CL-7b: the back GESTURE (Android predictive back / iOS interactive-pop) is owned by
   // ContentHost's PredictiveBackHandler (it scrubs the container-transform). The in-hero
   // arrow below still dispatches onBack() -> NavBack for the explicit tap path.
@@ -88,7 +88,7 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
       }
       hubLinkTarget(card)?.let { (hub, focus) ->
         // cross-surface deep-link; target_block_id (when set) highlights on arrival
-        item { HubLink(onOpen = { onAction(CardAction.OpenHub(hub, focus)) }) }
+        item { HubLink(hubName = hubName, onOpen = { onAction(CardAction.OpenHub(hub, focus)) }) }
       }
       detailMeta(card).takeIf { it.isNotEmpty() }?.let { rows -> item { DetailsCard(rows) } }
       card.related?.takeIf { it.isNotEmpty() }?.let { rels ->
@@ -99,9 +99,11 @@ fun DetailScreen(card: Card, onBack: () -> Unit, onAction: (CardAction) -> Unit)
   }
 }
 
-// "PART OF THIS HUB" deep-link (ADR 0006/0022) — taps cross to the hub detail.
+// "PART OF THIS HUB" deep-link (ADR 0006/0022) — taps cross to the hub detail. Shows the
+// target hub's name (resolved from state by the caller) so the user knows WHERE they'd go;
+// falls back to "Open the hub" when the hub isn't cached.
 @Composable
-private fun HubLink(onOpen: () -> Unit) {
+private fun HubLink(hubName: String?, onOpen: () -> Unit) {
   Surface(
     color = MaterialTheme.colorScheme.secondaryContainer,
     shape = RoundedCornerShape(18.dp),
@@ -111,7 +113,12 @@ private fun HubLink(onOpen: () -> Unit) {
       androidx.compose.material3.Icon(DayfoldIcons.Dashboard, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(end = 12.dp).size(22.dp))
       androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
         Text("PART OF THIS HUB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-        Text("Open the hub", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Text(
+          hubName?.takeIf { it.isNotBlank() } ?: "Open the hub",
+          style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
+          maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
       }
       androidx.compose.material3.Icon(DayfoldIcons.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
     }
