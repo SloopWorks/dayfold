@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -310,6 +312,7 @@ private fun TlNowLine(nowTimeLabel: String) {
 
 // ── Entry row ─────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)   // FlowRow (attachment chips wrap instead of clipping)
 @Composable
 private fun TlEntryRow(
     ps: PresentedStop,
@@ -485,11 +488,15 @@ private fun TlEntryRow(
                 )
             }
 
-            // Meta: (derived) per-stop source tag + assignee avatar + attachment chips
+            // Meta: (derived) per-stop source tag + assignee on their own IDENTITY line,
+            // then attachment chips in a FlowRow that WRAPS. Was one non-wrapping Row —
+            // a wide assignee + multiple chips overflowed, squeezing the trailing chip to a
+            // sliver whose label wrapped one-char-per-line (ballooned the card + clipped chips).
             val sourceTag = if (derived) tlSourceTag(stop.source) else null
             val hasAssignee = !stop.assignee.isNullOrEmpty()
             val hasAttachments = stop.attachments.isNotEmpty()
-            if (sourceTag != null || hasAssignee || hasAttachments) {
+            val hasIdentity = sourceTag != null || hasAssignee
+            if (hasIdentity) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -548,6 +555,16 @@ private fun TlEntryRow(
                             )
                         }
                     }
+                }
+            }
+            if (hasAttachments) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = if (hasIdentity) 8.dp else 11.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     stop.attachments.forEach { att ->
                         val action = att.toCardAction()
                         val (chipBg, chipFg) = tlChipColors(att.kind, cs)
