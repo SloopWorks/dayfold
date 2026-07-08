@@ -544,6 +544,7 @@ class AuthEngineTest {
     })
     eng.restore()
     eng.openInviteLink("https://x/invite/TOK_abc123")
+    assertEquals(Route.JoinInvite, store.state.route)      // routed so the outcome is visible
     assertEquals("waiting", store.state.joinOutcome)       // redeemed → waiting-for-approval
     assertEquals("The Jacksons", store.state.joinFamilyName)
   }
@@ -564,6 +565,7 @@ class AuthEngineTest {
     assertEquals("TOK_abc123", store.state.pendingInviteLink)
     eng.signIn("google")                                  // sign-in → memberships → redeem
     assertNull(store.state.pendingInviteLink)             // consumed
+    assertEquals(Route.JoinInvite, store.state.route)     // resumes onto the Join outcome screen
     assertEquals("waiting", store.state.joinOutcome)
   }
 

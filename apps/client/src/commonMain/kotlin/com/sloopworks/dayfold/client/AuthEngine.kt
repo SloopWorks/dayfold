@@ -143,12 +143,15 @@ class AuthEngine(
    *  memberships resolve (redeem is auth-first). Returns silently for non-invite URLs. */
   suspend fun openInviteLink(raw: String) {
     val token = parseInviteToken(raw) ?: return
+    // The redeem reducers pin route=JoinInvite so the outcome shows (even against a
+    // concurrent cold-start MembershipsLoaded→routeFor). Signed in → redeem now; else
+    // stash and redeem after sign-in resolves memberships.
     if (store.state.session != null) redeemInvite(token)
     else store.dispatch(InviteLinkStashed(token))
   }
 
   // Consume a pre-sign-in stashed invite token once memberships resolve. Called at the
-  // tail of loadMemberships (already holding the mutex).
+  // tail of loadMemberships (already holding the mutex — hence redeemInviteLocked).
   private suspend fun resumePendingInviteLink() {
     val token = store.state.pendingInviteLink ?: return
     if (store.state.session == null) return

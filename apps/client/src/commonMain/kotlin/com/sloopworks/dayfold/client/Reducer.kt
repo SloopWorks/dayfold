@@ -120,9 +120,12 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
 
   // ── invitee-join (S5 slice-2) ──
   is OpenJoinInvite -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = null, joinFamilyName = null)
-  is RedeemRequested -> state.copy(joinBusy = true, joinOutcome = null)
-  is InviteRedeemed -> state.copy(joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName)
-  is InviteRejected -> state.copy(joinBusy = false, joinOutcome = action.reason)
+  // route=JoinInvite pinned on the redeem path so the busy/outcome is ALWAYS visible —
+  // incl. a deep-link redeem where a concurrent restore's MembershipsLoaded→routeFor would
+  // otherwise clobber the route (ADR 0048). No-op for the paste flow (already on JoinInvite).
+  is RedeemRequested -> state.copy(route = Route.JoinInvite, joinBusy = true, joinOutcome = null)
+  is InviteRedeemed -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName)
+  is InviteRejected -> state.copy(route = Route.JoinInvite, joinBusy = false, joinOutcome = action.reason)
   is JoinDismissed -> state.copy(
     joinBusy = false, joinOutcome = null, joinFamilyName = null,
     route = routeFor(state.session, state.families),    // exit the join flow → gate (CreateFamily/Feed)
