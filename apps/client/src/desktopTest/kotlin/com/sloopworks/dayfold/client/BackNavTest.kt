@@ -9,9 +9,16 @@ import kotlin.test.assertTrue
 // Pure back-resolution: what does system-back do from each state?
 class BackNavTest {
   private fun st(route: Route, detail: List<String> = emptyList(), hub: String? = null,
-                 sheet: Boolean = false, resuming: Boolean = false) =
+                 sheet: Boolean = false, resuming: Boolean = false, fromDetail: Boolean = false) =
     AppState(route = route, detailStack = detail, currentHubId = hub,
-             audienceSheetOpen = sheet, deviceResuming = resuming)
+             audienceSheetOpen = sheet, deviceResuming = resuming, hubFromDetail = fromDetail)
+
+  @Test fun `back from a hub deep-linked from a card detail returns to the detail, not the list`() {
+    // deep-linked: route=Hubs, hub open, flagged fromDetail (detailStack still holds the card)
+    assertEquals(CloseHubToFeed, backAction(st(Route.Hubs, hub = "h1", detail = listOf("c1"), fromDetail = true)))
+    // normally opened (from the Hubs list): back → CloseHub → the list
+    assertEquals(CloseHub, backAction(st(Route.Hubs, hub = "h1", fromDetail = false)))
+  }
 
   @Test fun `feed with a detail open resolves to NavBack`() {
     assertEquals(NavBack, backAction(st(Route.Feed, detail = listOf("c1"))))

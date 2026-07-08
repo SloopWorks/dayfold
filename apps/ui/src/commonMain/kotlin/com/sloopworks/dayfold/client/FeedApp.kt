@@ -44,7 +44,13 @@ internal fun routeCardAction(
 ) {
   when (action) {
     is CardAction.OpenDetail -> store.dispatch(NavToDetail(action.cardId))
-    is CardAction.OpenHub -> { store.dispatch(OpenHubs); onOpenHub(action.hubId, action.focusBlockId) }  // cross-surface deep-link arrival
+    is CardAction.OpenHub -> {  // cross-surface deep-link arrival
+      // remember we came from a Feed card detail so back returns there (not the hub list)
+      val fromDetail = store.state.route == Route.Feed && store.state.detailStack.isNotEmpty()
+      store.dispatch(OpenHubs)
+      if (fromDetail) store.dispatch(SetHubReturnToDetail(true))
+      onOpenHub(action.hubId, action.focusBlockId)
+    }
     else -> onPlatformAction(action)
   }
 }
@@ -136,9 +142,16 @@ fun FeedApp(
     // Hub-detail back is special-cased: it must ALSO run onCloseHub() to cancel the
     // HubEngine DB tree subscription (mirrors HubsHost's on-screen arrow); every other
     // route — incl. closing the audience overlay — is pure and goes through `Back`.
-    BackHandler(enabled = appHandlesBack(state) && currentDetailCard(state) == null) {
-      if (backAction(state) == CloseHub) { onCloseHub(); store.dispatch(CloseHub) }
-      else store.dispatch(Back)
+    // ContentHost owns back ONLY when a Feed card detail is showing (route==Feed). Elsewhere —
+    // incl. a hub deep-linked from a detail (route==Hubs, detailStack still non-empty) — the shell
+    // owns it. The old guard `currentDetailCard == null` disabled the shell whenever the stack was
+    // non-empty regardless of route, so back on the deep-linked hub was unhandled → the app exited.
+    BackHandler(enabled = appHandlesBack(state) && !(state.route == Route.Feed && currentDetailCard(state) != null)) {
+      when (backAction(state)) {
+        CloseHub -> { onCloseHub(); store.dispatch(CloseHub) }
+        CloseHubToFeed -> { onCloseHub(); store.dispatch(CloseHubToFeed) }   // cancel the tree sub, then cross back
+        else -> store.dispatch(Back)
+      }
     }
     // Deep-link resume beat: after sign-in, MembershipsLoaded has already set the
     // gate route, so show "Finishing…" over it while the stashed code is looked up.
@@ -344,7 +357,8 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
   androidx.compose.foundation.layout.Box {
     if (state.currentHubId != null) {
       HubDetailScreen(
-        state, onBack = { onCloseHub(); store.dispatch(CloseHub) }, onNow = { store.dispatch(OpenFeed) },
+        // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
+        state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) }, onNow = { store.dispatch(OpenFeed) },
         onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
         onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
         onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
