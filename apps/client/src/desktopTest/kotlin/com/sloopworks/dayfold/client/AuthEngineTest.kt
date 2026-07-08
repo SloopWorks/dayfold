@@ -55,6 +55,19 @@ class AuthEngineTest {
     assertEquals("ax", store.state.session?.access)
   }
 
+  @Test fun `restore eager-loads the roster so members are available app-wide`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)   // active owner of fam1
+        "/families/fam1/members" -> respond("""{"members":[{"uid":"u1","display_name":"Pat"},{"uid":"u2","display_name":"Maya"}]}""", HttpStatusCode.OK, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    assertEquals(listOf("u1", "u2"), store.state.members.map { it.uid })   // loaded WITHOUT opening the Members screen
+  }
+
   @Test fun `restore with a dead session (401 + refresh fails) clears tokens and routes to SignIn`() = runBlocking {
     val ts = MemTokenStore(Session("ax", "rx"))
     val (eng, store) = engine(ts, handler = MockEngine { req ->
