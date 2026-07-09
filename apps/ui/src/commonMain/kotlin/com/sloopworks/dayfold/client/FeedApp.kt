@@ -11,6 +11,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -320,6 +321,10 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
   val detail = currentDetailCard(state)
   val targetKey: String? = detail?.id            // top of the detail stack (null = feed)
   val reduceMotion = rememberReduceMotion()
+  // Feed scroll position, hoisted HERE (ContentHost stays composed while a detail is open) so it
+  // survives the feed↔detail AnimatedContent swap — that swap has no SaveableStateHolder, so a
+  // list-state owned INSIDE the feed content would be discarded on exit → back lands at the top.
+  val feedListState = rememberLazyListState()
 
   // Back GESTURE (predictive back): the OS drives the window "peek" during the drag; we do
   // NOT scrub the transition ourselves. Driving AnimatedContent from a SeekableTransitionState
@@ -363,7 +368,7 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
           val hubName = (card.targetHubId ?: card.hubRef)?.let { hid -> state.hubs.find { it.id == hid }?.title }
           DetailScreen(card, hubName = hubName, onBack = { store.dispatch(NavBack) }, onAction = handle)
         }
-        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh, onShown = onNowShown)
+        else FeedScreen(state, onAction = handle, onOpenAccount = { store.dispatch(OpenAccount) }, onConnectDevice = onConnectDevice, onNavHubs = onNavHubs, onRefresh = onRefresh, onShown = onNowShown, listState = feedListState)
       }
     }
   }

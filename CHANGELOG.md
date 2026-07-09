@@ -7,6 +7,15 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Now feed keeps its scroll position when you come back from a detail
+
+### Fixed (client)
+- **Opening a card detail and pressing back now returns you to the same spot in the Now feed**,
+  instead of jumping to the top. The feed↔detail `AnimatedContent` has no `SaveableStateHolder`,
+  so the feed's list-scroll state was discarded when the detail opened and recreated fresh on
+  back. Fixed by hoisting the feed's `LazyListState` up to `ContentHost` (which stays composed
+  while a detail is open), so the scroll position survives the swap.
+
 ## 2026-07-08 — Navigation transitions (every screen change now animates)
 
 ### Added (client)
