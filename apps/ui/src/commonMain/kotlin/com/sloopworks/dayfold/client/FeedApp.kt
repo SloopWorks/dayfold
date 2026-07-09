@@ -160,10 +160,12 @@ fun FeedApp(
     when (state.route) {
       // Feed + Hubs share ONE persistent TabShell: the bottom bar stays put while the tab
       // content slides (shared-axis-X, Task 3 / ADR 0051). A card detail is a Feed substate,
-      // so it renders inside feedContent (ContentHost) — the bar persists under it too.
       Route.Feed, Route.Hubs -> TabShell(
         route = state.route,
         reduceMotion = rememberReduceMotion(),
+        // Bar hides for full-screen details (card detail, hub timeline overlay) → they morph to
+        // full screen (ADR 0050); the hub list & hub detail keep the bar (tab-level browsing).
+        barVisible = currentDetailCard(state) == null && state.timelineDetail == null,
         onNow = { store.dispatch(OpenFeed) },
         onHubs = { store.dispatch(OpenHubs); onLoadHubs() },
         feedContent = {

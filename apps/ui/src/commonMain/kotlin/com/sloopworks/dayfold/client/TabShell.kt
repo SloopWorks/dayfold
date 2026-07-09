@@ -1,7 +1,14 @@
 package com.sloopworks.dayfold.client
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -19,6 +26,7 @@ import androidx.compose.ui.unit.dp
 fun TabShell(
   route: Route,
   reduceMotion: Boolean,
+  barVisible: Boolean,
   onNow: () -> Unit,
   onHubs: () -> Unit,
   feedContent: @Composable () -> Unit,
@@ -33,6 +41,15 @@ fun TabShell(
       contentKey = { it },
       label = "tab-content",
     ) { r -> if (r == Route.Hubs) hubsContent() else feedContent() }
-    DayfoldBottomNav(hubsActive = route == Route.Hubs, onNow = onNow, onHubs = onHubs)
+    // Hide the bar for full-screen details (card detail, timeline overlay) so they morph to
+    // FULL screen (ADR 0050) instead of screen-minus-bar. Collapses toward the bottom + fades;
+    // the weighted content grows to fill. Reduced motion → instant.
+    AnimatedVisibility(
+      visible = barVisible,
+      enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
+      exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
+    ) {
+      DayfoldBottomNav(hubsActive = route == Route.Hubs, onNow = onNow, onHubs = onHubs)
+    }
   }
 }

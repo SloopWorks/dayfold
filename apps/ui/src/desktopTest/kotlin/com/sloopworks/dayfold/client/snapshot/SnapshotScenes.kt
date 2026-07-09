@@ -94,7 +94,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       // position (Task 3). reduceMotion=true → Snap, no animation frame captured.
       themed(args.theme) {
         TabShell(
-          Route.Feed, reduceMotion = true, onNow = {}, onHubs = {},
+          Route.Feed, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
           feedContent = { FeedScreen(state, now = SNAPSHOT_NOW, timeZone = TimeZone.UTC) },
           hubsContent = {},
         )
@@ -124,7 +124,9 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       val now = if (p.startsWith("timeline") || p == "derived-timeline") TIMELINE_NOW else SNAPSHOT_NOW
       themed(args.theme) {
         TabShell(
-          Route.Hubs, reduceMotion = true, onNow = {}, onHubs = {},
+          // Match production: the timeline overlay (timelineDetail != null) hides the bar
+          // (full-screen morph, ADR 0050); every other hub-detail preset keeps it.
+          Route.Hubs, reduceMotion = true, barVisible = state.timelineDetail == null, onNow = {}, onHubs = {},
           feedContent = {},
           hubsContent = { HubDetailScreen(state, now = now, timeZone = NY) },
         )
@@ -137,7 +139,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       themed(args.theme) {
         TabShell(
-          Route.Hubs, reduceMotion = true, onNow = {}, onHubs = {},
+          Route.Hubs, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
           feedContent = {},
           hubsContent = { HubListScreen(AppState(hubs = SnapshotStates.ENRICHED_HUBS), now = SNAPSHOT_NOW) },
         )
