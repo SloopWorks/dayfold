@@ -32,7 +32,7 @@ you need the detailed narrative behind something below, not by default.
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
-## Current state (as of 2026-07-06)
+## Current state (as of 2026-07-08)
 
 **Stage: M0 render prototype BUILT + cloud-live** — server (TS/Hono/Postgres
 on Vercel+Neon) · Kotlin CLI · KMP client (`apps/client` core + `apps/ui`
@@ -51,7 +51,17 @@ geofence/exact-alarm local notifications (ADR 0043/0044) · iOS notification
 parity (sim-verified) · two-way member writes — checklist toggle, delete,
 local hide (ADR 0038–0042) · Hub Timeline, authored + on-device-derived
 fallback (ADR 0045/0046) · CL-SNAP headless golden-snapshot CI gate (131
-goldens) · `:client`/`:ui` module split (ADR 0047, faster agent inner loop).
+goldens) · `:client`/`:ui` module split (ADR 0047, faster agent inner loop) ·
+**card↔detail container-transform morph fix — the `SeekableTransitionState`
+path silently dropped the `sharedBounds` morph (broken on
+androidx.compose.animation 1.11.2/1.11.3/1.12.0-alpha03); switched both
+feed↔detail + hub↔timeline to plain `AnimatedContent`, predictive-back now
+commit-animated (ADR 0050, #307, 2026-07-08)** ·
+**navigation transition system — every nav edge now animates by a central,
+future-proof taxonomy (tab=shared-axis-X over a persistent bottom bar,
+push=Z, modal=slide-up, wizard=X, gate=fade, hero=container transform);
+exhaustive `routeSpec` makes an unclassified route a compile error;
+reduced-motion aware (ADR 0051, #308, 2026-07-08)**.
 Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
