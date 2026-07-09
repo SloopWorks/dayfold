@@ -23,6 +23,7 @@ object NavMotion {
   const val HeroMs = 460
   const val FastMs = 250
   const val ReducedMs = 0
+  const val FadeThroughMs = 90   // fade-through cross-fade: outgoing duration + incoming delay
 
   // Material 3 Expressive easings.
   val Emphasized: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
@@ -56,7 +57,7 @@ fun NavAnim.toContentTransform(slidePx: Int): ContentTransform {
       fadeIn(tween(enterMs)) togetherWith
         (slideOutVertically(tween(enterMs, easing = acc)) { it } + fadeOut(tween(enterMs)))
     NavAnim.FadeThrough ->
-      fadeIn(tween(enterMs, delayMillis = 90)) togetherWith fadeOut(tween(90))
+      fadeIn(tween(enterMs, delayMillis = NavMotion.FadeThroughMs)) togetherWith fadeOut(tween(NavMotion.FadeThroughMs))
     NavAnim.Snap ->
       EnterTransition.None togetherWith ExitTransition.None
   }

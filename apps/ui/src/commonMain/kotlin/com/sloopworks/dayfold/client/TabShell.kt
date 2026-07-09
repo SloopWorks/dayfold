@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,7 +20,6 @@ import androidx.compose.ui.unit.dp
 // A Column (not a nested Scaffold) avoids double-counting the bottom system inset —
 // the content screens keep their own Scaffold(topBar); DayfoldBottomNav consumes the
 // nav-bar inset itself. Non-tab routes render OUTSIDE this shell (AppNavHost). ADR 0051.
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun TabShell(
   route: Route,

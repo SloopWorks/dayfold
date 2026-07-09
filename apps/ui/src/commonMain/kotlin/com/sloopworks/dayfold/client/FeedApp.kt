@@ -183,7 +183,7 @@ fun FeedApp(
       // content slides (shared-axis-X, Task 3 / ADR 0051). A card detail is a Feed substate,
       Route.Feed, Route.Hubs -> TabShell(
         route = route,
-        reduceMotion = rememberReduceMotion(),
+        reduceMotion = reduceMotion,
         // Bar hides for full-screen details, ROUTE-SCOPED: on Feed a card detail hides it; on Hubs
         // only the timeline overlay does (hub list + hub detail keep the bar — incl. a card-deep-
         // linked hub detail where detailStack is retained for back). They morph to full screen (ADR 0050).
