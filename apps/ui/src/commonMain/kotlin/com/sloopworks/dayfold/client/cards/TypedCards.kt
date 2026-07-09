@@ -71,10 +71,10 @@ internal fun accentColors(a: CardAccent, solid: Boolean): Pair<Color, Color> {
 /** Rounded accent tile with a short monogram (type/initials). 44dp. Decorative —
  *  the kicker chip already states the type in text, so it's hidden from a11y. */
 @Composable
-internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean) {
+internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean, modifier: Modifier = Modifier) {
   val (bg, fg) = accentColors(accent, solid)
   Surface(color = bg, shape = RoundedCornerShape(14.dp),
-    modifier = Modifier.size(44.dp).clearAndSetSemantics {}) {
+    modifier = modifier.size(44.dp).clearAndSetSemantics {}) {
     Box(contentAlignment = Alignment.Center) {
       Text(monogram, color = fg, style = MaterialTheme.typography.titleMedium)
     }
@@ -82,10 +82,10 @@ internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean) {
 }
 
 @Composable
-internal fun KickerChip(text: String, accent: CardAccent, solid: Boolean) {
+internal fun KickerChip(text: String, accent: CardAccent, solid: Boolean, modifier: Modifier = Modifier) {
   if (text.isBlank()) return
   val (bg, fg) = accentColors(accent, solid)
-  Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
+  Surface(color = bg, shape = RoundedCornerShape(8.dp), modifier = modifier) {
     Text(
       text, color = fg, style = MaterialTheme.typography.labelSmall,
       modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -123,8 +123,8 @@ internal fun PrivacyChip(storage: String?) {
 }
 
 @Composable
-private fun PrimaryActionPill(label: String, onClick: () -> Unit) {
-  FilledTonalButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) { Text(label) }
+private fun PrimaryActionPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+  FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) { Text(label) }
 }
 
 /** Base card scaffold: tap = open detail; header (tile + kicker + title), body,
@@ -139,6 +139,7 @@ private fun BaseCard(
   extra: @Composable () -> Unit = {},
 ) {
   val accent = accentFor(card.type)
+  val keys = sharedTransitionKeys(card)
   val colors = if (container != null) CardDefaults.elevatedCardColors(containerColor = container)
   else CardDefaults.elevatedCardColors()
   ElevatedCard(
@@ -149,10 +150,13 @@ private fun BaseCard(
   ) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        AccentTile(monogram, accent, solidAccent)
+        AccentTile(monogram, accent, solidAccent,
+          modifier = if (keys.tile) Modifier.cardSharedElement("tile-${card.id}") else Modifier)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          KickerChip(kickerFor(card), accent, solidAccent)
-          Text(card.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+          KickerChip(kickerFor(card), accent, solidAccent,
+            modifier = if (keys.kicker) Modifier.cardSharedElement("kicker-${card.id}") else Modifier)
+          Text(card.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = if (keys.title) Modifier.cardSharedElement("title-${card.id}") else Modifier)
         }
       }
       bodySummaryFor(card)?.let {
@@ -161,7 +165,8 @@ private fun BaseCard(
       extra()
       Row(verticalAlignment = Alignment.CenterVertically) {
         val (label, action) = primaryActionFor(card)
-        PrimaryActionPill(label) { onAction(action) }
+        PrimaryActionPill(label,
+          modifier = if (keys.button) Modifier.cardSharedElement("action-${card.id}") else Modifier) { onAction(action) }
         Spacer(Modifier.weight(1f))
         ProvenanceChip(card.provenance?.source)
       }
@@ -170,24 +175,19 @@ private fun BaseCard(
   }
 }
 
-private fun monogramOf(text: String?, fallback: String): String =
-  text?.trim()?.split(" ")?.filter { it.isNotEmpty() }?.take(2)?.joinToString("") { it.first().uppercase() }
-    ?.ifBlank { fallback } ?: fallback
-
 // ── per-type cards ────────────────────────────────────────────────────────────
 
 /** file / link / email — the standard layout (no distinct inline affordance). */
 @Composable
 private fun StandardCard(card: Card, onAction: (CardAction) -> Unit) {
-  val mono = when (card.type) { "file" -> "F"; "link" -> "L"; "email" -> "@"; else -> "•" }
-  BaseCard(card, mono, onAction)
+  BaseCard(card, cardMonogram(card), onAction)
 }
 
 /** invite — coral primaryContainer bg + an honest RSVP affordance (reply-handoff when the invite
  *  carries a reply link, else a read-only status chip; no dayfold-backend write — ADR 0020/0016). */
 @Composable
 private fun InviteCard(card: Card, onAction: (CardAction) -> Unit) {
-  BaseCard(card, "!", onAction, container = MaterialTheme.colorScheme.primaryContainer, solidAccent = true) {
+  BaseCard(card, cardMonogram(card), onAction, container = MaterialTheme.colorScheme.primaryContainer, solidAccent = true) {
     RsvpAffordance(card.payload?.invite, card.provenance?.source, onAction)
   }
 }
@@ -219,8 +219,7 @@ internal fun RsvpAffordance(invite: InvitePayload?, source: String?, onAction: (
 /** contact — avatar monogram + inline Call / Text handoffs. */
 @Composable
 private fun ContactCard(card: Card, onAction: (CardAction) -> Unit) {
-  val name = card.payload?.contact?.name
-  BaseCard(card, monogramOf(name, "C"), onAction) {
+  BaseCard(card, cardMonogram(card), onAction) {
     val phone = card.payload?.contact?.phone
     if (phone != null) {
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,7 +233,7 @@ private fun ContactCard(card: Card, onAction: (CardAction) -> Unit) {
 /** geo — stylized map strip (no SDK/key/position leak, ADR 0014) + Navigate handoff. */
 @Composable
 private fun GeoCard(card: Card, onAction: (CardAction) -> Unit) {
-  BaseCard(card, "G", onAction) { MapStrip() }
+  BaseCard(card, cardMonogram(card), onAction) { MapStrip() }
 }
 
 @Composable
