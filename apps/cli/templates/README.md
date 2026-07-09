@@ -154,32 +154,17 @@ dayfold push ebill-due blk.json --block
 dayfold pull --hub lillian-butler-2026     # confirm the rendered tree
 ```
 
-## What the local validator checks (STRUCTURAL — the server is the authority)
+## What the local validator checks
 
-It is a fast structural pre-check, **not** a full replica of the server gate
-(CL-2). It catches:
+A fast **structural** pre-check, not a full replica of the server gate — see
+`.claude/skills/dayfold-curator/references/cli.md` (Push section) for exactly
+what it does and doesn't catch, including the `kind`/`provenance.at` codegen
+asymmetry. The server (CL-2) remains the authority for format rules
+(`url()`, ISO-8601, length/int caps) and is always the final word on a 422.
 
-- `type` and `payload` appear together or not at all; the payload's single
-  variant key must equal `type`.
-- Unknown/mistyped payload fields, and wrong JSON value types (strict decode).
-- A legacy kind-only card (no `type`/`payload`) is still valid (back-compat).
+## Guardrails (binding)
 
-It does **not** check the server's format rules — `link.url` well-formedness,
-ISO-8601 `*At`/`date` fields, string length caps, integer-ness. Those still 422
-at the server, which **remains the authority** (CL-2). Two known asymmetries from
-codegen: the validator **requires** `kind` and `provenance.at` even though the
-server defaults/relaxes them — so author from `dayfold template` (the starters
-include both) rather than a bare hand-written stub.
-
-## Guardrail 3 — email content (binding)
-
-`email.bodyExcerpt` (and any sender/body content) is authored over **the
-operator's OWN mail** via the CLI / Claude reasoning. There is **no server-side
-Gmail restricted-scope read** — that line keeps M0 clear of CASA. Changing this
-posture is an ADR, not a template tweak.
-
-## Privacy chips (honesty)
-
-`privacy.storage` must name a boundary the code/schema actually enforces. A `geo`
-card that carries coordinates uses `on_device` ("a copy is cached"), **not**
-`location_local` — only *live position* stays local (ADR 0014).
+Own-mail-only email content, honest `privacy.storage` chips, propose-confirm,
+and the rest of the binding authoring rules live in one place — see
+`.claude/skills/dayfold-curator/references/guardrails.md`. Don't restate them
+here; that file is canonical.

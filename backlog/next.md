@@ -866,8 +866,20 @@ local build). Re-verify green on `main` before trusting this list as current.
   `templates/README.md` / `USAGE`: hub timeline, block payload field table,
   visual-enrichment/`media`, auto-linkify, and "local validation is a pre-check
   only" are each explained in 2-4 places. Not inconsistent (the copies agree),
-  just redundant — consolidate to `cli.md` = command mechanics,
-  `content-model.md` = field shapes, `guardrails.md` = policy only (one-line
-  pointer instead of restating pre-check mechanics), `templates/README.md` =
-  short pointer + its worked walkthrough. Deferred: touches 5 files' prose,
-  worth doing as its own pass rather than folded into a code-dedup sweep.
+  just redundant. **Partly applied 2026-07-09:** `templates/README.md`'s
+  "What the local validator checks" and its full restatements of Guardrail 3
+  (email) and privacy chips were trimmed to pointers at `references/cli.md` /
+  `references/guardrails.md` (the canonical copies) — the "known asymmetries"
+  detail moved into `cli.md`'s Push section rather than being lost. **Found +
+  fixed in passing: `templates/README.md`'s privacy-chips section was stale**
+  (only listed 2 of the schema's 4 `privacy.storage` values — a real doc bug,
+  not just duplication). **Still open:** hub-timeline field table
+  (`content-model.md` vs `templates/README.md`, the latter already has a
+  pointer + condensed version — lower priority, arguably intentional since
+  `templates/README.md` needs to stand alone for non-Claude CLI users), block
+  payload table (`content-model.md`'s is simpler; `templates/README.md`'s adds
+  the ADR-0035 "also accepted" alias column — consider merging the alias
+  column into `content-model.md` and pointing `templates/README.md` there),
+  checklist id-stamping (repeated near-verbatim in `cli.md` + `content-model.md`
+  + the `templates/README.md` table note — low priority, each copy is already
+  short).
