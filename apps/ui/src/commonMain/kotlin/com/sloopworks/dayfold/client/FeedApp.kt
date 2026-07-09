@@ -345,10 +345,10 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
       targetState = targetKey,
       contentKey = { it },
       transitionSpec = {
-        // asymmetric fade+slide (360 open / 280 close); the default AnimatedContent spec
+        // asymmetric fade+slide (NavMotion.HeroMs open / NavMotion.StandardMs close); the default AnimatedContent spec
         // adds a scaleIn that fights the shared morph, so specify it explicitly.
         val opening = targetState != null
-        val dur = if (reduceMotion) 0 else if (opening) 360 else 280
+        val dur = if (reduceMotion) NavMotion.ReducedMs else if (opening) NavMotion.HeroMs else NavMotion.StandardMs
         (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
       },
     ) { id ->

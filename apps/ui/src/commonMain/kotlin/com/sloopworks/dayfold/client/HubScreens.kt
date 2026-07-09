@@ -311,7 +311,7 @@ fun HubDetailScreen(
       contentKey = { it != null },
       transitionSpec = {
         val opening = targetState != null
-        val dur = if (reduceMotion) 0 else if (opening) 360 else 280
+        val dur = if (reduceMotion) NavMotion.ReducedMs else if (opening) NavMotion.HeroMs else NavMotion.StandardMs
         (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
       },
     ) { scale ->
