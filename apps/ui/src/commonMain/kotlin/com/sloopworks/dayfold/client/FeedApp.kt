@@ -3,9 +3,6 @@ package com.sloopworks.dayfold.client
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.core.ExperimentalTransitionApi
-import androidx.compose.animation.core.SeekableTransitionState
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -279,53 +276,41 @@ private fun SafeArea(content: @Composable () -> Unit) {
 // so BackEventCompat.swipeEdge / RTL do not change it (no edge-signed shift to invert).
 // Threading swipeEdge is a P2 prerequisite only for the deferred full-screen route anim.
 @Suppress("DEPRECATION")   // CMP 1.11.1: PredictiveBackHandler/BackEventCompat are @Deprecated (→ NavigationEvent); intentional per design D2
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class, ExperimentalTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onNowShown: (Set<String>) -> Unit = {}) {
   val detail = currentDetailCard(state)
   val targetKey: String? = detail?.id            // top of the detail stack (null = feed)
-  // Where a back POP lands: the card UNDERNEATH the top (null = feed for a 1-deep stack).
-  // Hardcoding null here would flash the feed on a nested detail→detail back.
-  val popTarget: String? = state.detailStack.getOrNull(state.detailStack.lastIndex - 1)
-  val seekable = remember { SeekableTransitionState<String?>(targetKey) }
   val reduceMotion = rememberReduceMotion()
 
-  // Redux -> animation sync for NON-gesture transitions. The gesture path drives the
-  // seekable directly and dispatches NavBack on commit; afterwards targetKey == the
-  // settled state, so this no-ops.
-  LaunchedEffect(targetKey) {
-    if (seekable.currentState != targetKey) {
-      if (reduceMotion) seekable.snapTo(targetKey)
-      else seekable.animateTo(targetKey, animationSpec = tween(if (targetKey != null) 360 else 280, easing = EmphasizedDecelerate))
-    }
-  }
-
-  // Back GESTURE: only when a detail is open. Scrub toward popTarget with the finger;
-  // commit -> NavBack, cancel -> animate back to the current detail. Reduced-motion:
-  // skip the scrub, jump to commit. The scrub is clamped < 1f so only the explicit
-  // commit animateTo finishes the morph (a front-loaded decelerate can hit 1f while the
-  // finger is still down — without the clamp the detail would visually vanish pre-commit).
+  // Back GESTURE (predictive back): the OS drives the window "peek" during the drag; we do
+  // NOT scrub the transition ourselves. Driving AnimatedContent from a SeekableTransitionState
+  // silently drops the sharedBounds container-transform (the bounds snap to target → a flat
+  // crossfade) in androidx.compose.animation 1.11.x–1.12. So we commit on release → NavBack,
+  // and the plain AnimatedContent below plays the reverse morph. Cancel = no-op (rethrow).
   PredictiveBackHandler(enabled = detail != null) { progress ->
     try {
-      progress.collect { e -> if (!reduceMotion) seekable.seekTo(decelerateProgress(e.progress).coerceAtMost(0.999f), targetState = popTarget) }
-      if (!reduceMotion) seekable.animateTo(popTarget, animationSpec = tween(280, easing = EmphasizedDecelerate))
+      progress.collect { /* OS renders the peek; the container-transform plays on commit */ }
       store.dispatch(NavBack)                    // COMMIT
     } catch (e: CancellationException) {
-      val back = detail?.id
-      if (!reduceMotion && back != null) seekable.animateTo(back, animationSpec = tween(280, easing = EmphasizedDecelerate))
-      throw e                                    // CANCEL — must rethrow
+      throw e                                    // CANCEL — no state change to undo; must rethrow
     }
   }
 
-  val transition = rememberTransition(seekable, label = "feed-detail")
+  // CL-7b container transform via a plain, state-driven AnimatedContent keyed on `targetKey`
+  // (the top of the detail stack). A SeekableTransitionState here does NOT render the
+  // sharedBounds morph (see above) — the plain API does. Tap-open, hero-arrow-back, deep
+  // pops, and predictive-back-commit all flow through `targetKey`. The card morphs into the
+  // detail via SharedTransitionLayout (key "card-$id"); reduced-motion → snap (dur 0).
   SharedTransitionLayout {
-    transition.AnimatedContent(
+    AnimatedContent(
+      targetState = targetKey,
       contentKey = { it },
       transitionSpec = {
-        // keep the original asymmetric fade+slide (360 open / 280 close); the default
-        // Transition.AnimatedContent spec adds a scaleIn that fights the shared morph.
+        // asymmetric fade+slide (360 open / 280 close); the default AnimatedContent spec
+        // adds a scaleIn that fights the shared morph, so specify it explicitly.
         val opening = targetState != null
-        val dur = if (opening) 360 else 280
+        val dur = if (reduceMotion) 0 else if (opening) 360 else 280
         (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
       },
     ) { id ->

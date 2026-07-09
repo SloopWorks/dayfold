@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Card→detail container-transform morph restored (was a flash)
+
+### Fixed (client)
+- **Tapping a Now card now morphs smoothly into its detail** (and back), instead of flashing
+  straight to the detail with no animation. The container-transform's shared-element bounds
+  never rendered: the card→detail `AnimatedContent` was driven by a `SeekableTransitionState`
+  (added for predictive-back finger-scrubbing), and driving a shared-element `AnimatedContent`
+  from a `SeekableTransitionState` silently drops the `sharedBounds` morph — the detail snaps to
+  full size and only a crossfade plays. Confirmed identical on androidx.compose.animation 1.11.2,
+  1.11.3, and 1.12.0-alpha03, so it is a Compose-API limitation, not a version bug. Switched both
+  the feed↔detail (`ContentHost`) and hub card↔timeline (`HubDetailScreen`) transitions to a plain
+  state-driven `AnimatedContent`, which renders the morph correctly. Predictive back keeps its OS
+  window "peek" and now plays the reverse morph on release (commit-animated); it no longer scrubs
+  the morph 1:1 with the finger (that scrub never actually morphed — it also crossfaded).
+
 ## 2026-07-08 — Deep-link arrival scroll lands on the right section (hidden-block fix)
 
 ### Fixed (client)
