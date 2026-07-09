@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -52,6 +55,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -124,7 +128,6 @@ fun DayfoldBottomNav(hubsActive: Boolean, onNow: () -> Unit, onHubs: () -> Unit)
 fun HubListScreen(
   state: AppState,
   onOpenHub: (String) -> Unit = {},
-  onNow: () -> Unit = {},
   onFilter: (String) -> Unit = {},
   onRetry: () -> Unit = {},
   // defaults to the live clock; snapshot renders pin it so countdown badges are date-stable
@@ -133,7 +136,8 @@ fun HubListScreen(
   val shown = state.hubs.filter { when (state.hubFilter) { "active" -> it.status == "active"; "planning" -> it.status == "planning"; else -> true } }
   Scaffold(
     topBar = { TopAppBar(title = { Text("Hubs", fontWeight = FontWeight.SemiBold) }) },
-    bottomBar = { DayfoldBottomNav(hubsActive = true, onNow = onNow, onHubs = {}) },
+    // Bottom bar now lives in TabShell; exclude the nav-bar inset so it isn't reserved twice.
+    contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
   ) { pad ->
     Column(Modifier.fillMaxSize().padding(pad)) {
       if (state.hubs.isNotEmpty()) {
@@ -257,7 +261,6 @@ private fun StatusChip(status: String) {
 fun HubDetailScreen(
   state: AppState,
   onBack: () -> Unit = {},
-  onNow: () -> Unit = {},
   onOpenAudience: () -> Unit = {},
   onRetry: () -> Unit = {},
   // Slice 4 (ADR 0038): a member toggle → (blockId, itemId, newDone); the shell routes
@@ -333,7 +336,8 @@ fun HubDetailScreen(
         },
       )
     },
-    bottomBar = { DayfoldBottomNav(hubsActive = true, onNow = onNow, onHubs = {}) },
+    // Bottom bar now lives in TabShell; exclude the nav-bar inset so it isn't reserved twice.
+    contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
   ) { pad ->
     when {
       tree == null && state.hubsBusy -> ListSkeleton(rows = 5, modifier = Modifier.fillMaxSize().padding(pad))

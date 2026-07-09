@@ -158,14 +158,27 @@ fun FeedApp(
     // Every other route is a plain, Scaffold-less screen, so wrap it once in SafeArea
     // (safeDrawing = status/nav bars + display cutout + IME) instead of touching each.
     when (state.route) {
-      Route.Feed -> ContentHost(
-        store, state, handle,
-        onConnectDevice = { store.dispatch(OpenEnterCode) },
-        onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
-        onRefresh = onRefresh,
-        onNowShown = onNowShown,
+      // Feed + Hubs share ONE persistent TabShell: the bottom bar stays put while the tab
+      // content slides (shared-axis-X, Task 3 / ADR 0051). A card detail is a Feed substate,
+      // so it renders inside feedContent (ContentHost) — the bar persists under it too.
+      Route.Feed, Route.Hubs -> TabShell(
+        route = state.route,
+        reduceMotion = rememberReduceMotion(),
+        onNow = { store.dispatch(OpenFeed) },
+        onHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+        feedContent = {
+          ContentHost(
+            store, state, handle,
+            onConnectDevice = { store.dispatch(OpenEnterCode) },
+            onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+            onRefresh = onRefresh,
+            onNowShown = onNowShown,
+          )
+        },
+        hubsContent = {
+          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
+        },
       )
-      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
       else -> SafeArea { when (state.route) {
       Route.Loading -> SplashScreen()
       // A deep-link tapped before sign-in shows the branded resume screen instead
@@ -343,7 +356,7 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
     if (state.currentHubId != null) {
       HubDetailScreen(
         // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
-        state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) }, onNow = { store.dispatch(OpenFeed) },
+        state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) },
         onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
         onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
         onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
@@ -352,7 +365,7 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
         onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
       )
     } else {
-      HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onNow = { store.dispatch(OpenFeed) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+      HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
     }
     if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
   }
