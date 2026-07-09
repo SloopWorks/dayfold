@@ -170,24 +170,19 @@ private fun BaseCard(
   }
 }
 
-private fun monogramOf(text: String?, fallback: String): String =
-  text?.trim()?.split(" ")?.filter { it.isNotEmpty() }?.take(2)?.joinToString("") { it.first().uppercase() }
-    ?.ifBlank { fallback } ?: fallback
-
 // ── per-type cards ────────────────────────────────────────────────────────────
 
 /** file / link / email — the standard layout (no distinct inline affordance). */
 @Composable
 private fun StandardCard(card: Card, onAction: (CardAction) -> Unit) {
-  val mono = when (card.type) { "file" -> "F"; "link" -> "L"; "email" -> "@"; else -> "•" }
-  BaseCard(card, mono, onAction)
+  BaseCard(card, cardMonogram(card), onAction)
 }
 
 /** invite — coral primaryContainer bg + an honest RSVP affordance (reply-handoff when the invite
  *  carries a reply link, else a read-only status chip; no dayfold-backend write — ADR 0020/0016). */
 @Composable
 private fun InviteCard(card: Card, onAction: (CardAction) -> Unit) {
-  BaseCard(card, "!", onAction, container = MaterialTheme.colorScheme.primaryContainer, solidAccent = true) {
+  BaseCard(card, cardMonogram(card), onAction, container = MaterialTheme.colorScheme.primaryContainer, solidAccent = true) {
     RsvpAffordance(card.payload?.invite, card.provenance?.source, onAction)
   }
 }
@@ -219,8 +214,7 @@ internal fun RsvpAffordance(invite: InvitePayload?, source: String?, onAction: (
 /** contact — avatar monogram + inline Call / Text handoffs. */
 @Composable
 private fun ContactCard(card: Card, onAction: (CardAction) -> Unit) {
-  val name = card.payload?.contact?.name
-  BaseCard(card, monogramOf(name, "C"), onAction) {
+  BaseCard(card, cardMonogram(card), onAction) {
     val phone = card.payload?.contact?.phone
     if (phone != null) {
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,7 +228,7 @@ private fun ContactCard(card: Card, onAction: (CardAction) -> Unit) {
 /** geo — stylized map strip (no SDK/key/position leak, ADR 0014) + Navigate handoff. */
 @Composable
 private fun GeoCard(card: Card, onAction: (CardAction) -> Unit) {
-  BaseCard(card, "G", onAction) { MapStrip() }
+  BaseCard(card, cardMonogram(card), onAction) { MapStrip() }
 }
 
 @Composable

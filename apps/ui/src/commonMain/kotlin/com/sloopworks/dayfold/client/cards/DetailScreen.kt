@@ -174,7 +174,7 @@ private fun HeroHeader(
       TextButton(onClick = { onAction(CardAction.Share(card.title)) }) { Text("Share", color = heroFg) }
     }
     Row(Modifier.padding(start = 4.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-      AccentTile(typeMonogram(card), accent, solid = true) // solid → contrasts on the container hero bg
+      AccentTile(detailMonogram(card), accent, solid = true) // solid → contrasts on the container hero bg
       KickerChip(kickerFor(card), accent, solid = true)
     }
     Text(
@@ -183,10 +183,6 @@ private fun HeroHeader(
       modifier = Modifier.padding(start = 4.dp, top = 10.dp),
     )
   }
-}
-
-private fun typeMonogram(card: Card): String = when (card.type) {
-  "file" -> "F"; "link" -> "L"; "invite" -> "!"; "contact" -> "C"; "geo" -> "G"; "email" -> "@"; else -> "•"
 }
 
 // ── per-type hero media ───────────────────────────────────────────────────────
