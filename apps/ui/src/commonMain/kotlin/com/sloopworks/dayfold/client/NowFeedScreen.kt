@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,10 +55,14 @@ fun NowFeedList(
   cardsById: Map<String, Card>,
   onAction: (CardAction) -> Unit,
   modifier: Modifier = Modifier,
+  // Hoisted so the scroll position survives the feed↔detail AnimatedContent swap (which has no
+  // SaveableStateHolder → the default internal state is discarded on exit). Owner: ContentHost.
+  listState: LazyListState = rememberLazyListState(),
 ) {
   var overflowOpen by remember { mutableStateOf(false) }
   LazyColumn(
     modifier.fillMaxSize(),
+    state = listState,
     contentPadding = PaddingValues(16.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp),
   ) {
