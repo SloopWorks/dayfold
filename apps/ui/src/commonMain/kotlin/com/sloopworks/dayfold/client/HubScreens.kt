@@ -4,10 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.core.ExperimentalTransitionApi
-import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -255,7 +252,7 @@ private fun StatusChip(status: String) {
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun HubDetailScreen(
   state: AppState,
@@ -301,21 +298,17 @@ fun HubDetailScreen(
   // AnimatedContent apply cardSharedBounds("timeline") so the card bounds morph into the detail
   // and back. Reduced motion → snapTo (no animation). System back dispatches CloseTimelineDetail
   // → state.timelineDetail = null → morph back; no gesture handler needed for correctness.
-  val seekable = remember { SeekableTransitionState<TimelineScale?>(state.timelineDetail) }
+  // Plain, state-driven AnimatedContent — NOT a SeekableTransitionState (that path drops the
+  // sharedBounds morph → a flat crossfade; see ContentHost). state.timelineDetail drives it;
+  // system back → CloseTimelineDetail → null → reverse morph. Reduced motion → snap (dur 0).
   val reduceMotion = rememberReduceMotion()
-  LaunchedEffect(state.timelineDetail, reduceMotion) {
-    if (seekable.currentState != state.timelineDetail) {
-      if (reduceMotion) seekable.snapTo(state.timelineDetail)
-      else seekable.animateTo(state.timelineDetail, animationSpec = tween(if (state.timelineDetail != null) 360 else 280, easing = EmphasizedDecelerate))
-    }
-  }
-  val transition = rememberTransition(seekable, label = "hub-timeline")
   SharedTransitionLayout {
-    transition.AnimatedContent(
+    AnimatedContent(
+      targetState = state.timelineDetail,
       contentKey = { it != null },
       transitionSpec = {
         val opening = targetState != null
-        val dur = if (opening) 360 else 280
+        val dur = if (reduceMotion) 0 else if (opening) 360 else 280
         (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
       },
     ) { scale ->
