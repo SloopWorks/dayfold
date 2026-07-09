@@ -32,6 +32,49 @@ you need the detailed narrative behind something below, not by default.
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
+## Current state (as of 2026-07-09)
+
+**2026-07-09 repo-maintenance pass (scheduled, not a feature slice) — CI/docs/
+values audit, found everything healthy; applied one doc-dedup + doc-bug fix.**
+Same no-npm/no-Gradle-registry-egress sandbox as every prior pass (re-confirmed:
+`registry.npmjs.org` 403s, `repo.maven.apache.org` proxy-403s) — so, consistent
+with 07-03 through 07-07, no functional API/CLI/client code changes were made
+(no way to compile-verify them here). **CI: confirmed GREEN** — 30 most-recent
+GitHub Actions runs on `main` (ci.yml, release-android.yml, rebuild-api-bundle.yml)
+all `success`, nothing to fix. **Docs: confirmed current** — `docs/architecture.md`
+(dated 07-06) and `README.md` still match the system (07-08's nav-transition/
+feed-scroll work was UI-motion-only, no new components/data-flow); `CHANGELOG.md`
+already had entries through the 07-08 shipped work (added by that work's own
+commits) — nothing missing. **CLI `--help` (`USAGE` in `Main.kt`): reviewed,
+already comprehensive** (all commands, exit codes, legacy auth, visual
+enrichment, visibility) — no gap found (no CLI/API/schema files changed since
+the 07-07 pass's fixes). **Applied the deferred "CLI/skill-docs duplication"
+item from `backlog/next.md`'s CODE DEDUP FINDINGS:** trimmed
+`apps/cli/templates/README.md`'s full restatements of the local-validator
+mechanics, the email guardrail, and privacy chips down to pointers at the
+canonical copies (`references/cli.md`, `references/guardrails.md`); moved the
+"known codegen asymmetries" detail (kind/provenance.at required locally) into
+`cli.md`'s Push section so it wasn't lost. **Found + fixed in passing (real bug,
+not just drift): `templates/README.md`'s privacy-chips section only listed 2 of
+the schema's 4 `privacy.storage` values** — stale relative to
+`guardrails.md`'s canonical 4-value list; an agent authoring content from that
+file alone would have missed `in_browser`/`matched_on_device`. Also clarified
+two guardrails.md headings whose "(Guardrail N)" parentheticals referenced
+CLAUDE.md's guardrail numbering, not the file's own — read as self-referential
+and ambiguous; reworded to "(mirrors CLAUDE.md guardrail N)". Reviewed
+`CLAUDE.md`/`AGENTS.md`/`processes/agent-routing.md` for agentic-context-usage
+opportunities: already lean from prior passes (scoped `agent-dev-loop.md`,
+thin `AGENTS.md` pointer, a 41-line routing table) — no changes made. Remaining
+CLI/skill-doc dedup (hub-timeline table, block-payload alias column, checklist
+id-stamping note) re-ranked in `backlog/next.md`, lower priority (each is
+already short / partly intentional for `templates/README.md`'s standalone
+readability). Did **not** re-attempt the `apps/api` code-dedup queue
+(`requireSession` helper, `hubs.getVisibleHub`, `app.ts` route-splitting) —
+still explicitly flagged in `backlog/next.md` as needing a real build to land
+safely, unchanged since 07-05. Values/privacy spot-check clean (diff is
+doc-only; no secrets, no PII, no child-account or restricted-scope-Gmail
+surface touched).
+
 ## Current state (as of 2026-07-08)
 
 **Stage: M0 render prototype BUILT + cloud-live** — server (TS/Hono/Postgres

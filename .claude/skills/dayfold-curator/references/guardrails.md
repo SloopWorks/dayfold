@@ -9,7 +9,7 @@ Draft and SHOW the JSON. Push only after the operator approves. Never run
 `dayfold push` on un-approved content. (CLAUDE.md: external actions are
 operator-gated; agents draft, operator sends.)
 
-## 2. Email content over OWN mail only (Guardrail 3)
+## 2. Email content over OWN mail only (mirrors CLAUDE.md guardrail 3)
 
 `email.bodyExcerpt` / sender / body content is authored over the OPERATOR'S OWN
 mail (their connected Gmail MCP / pasted threads). There is NO server-side
@@ -35,7 +35,7 @@ parens) — use exactly one, and only where it's literally true:
 Never overclaim a privacy boundary — if none of the four is literally true,
 omit `privacy.storage` rather than guessing.
 
-## 4. Adults-only accounts (Guardrail 1 / COPPA)
+## 4. Adults-only accounts (mirrors CLAUDE.md guardrail 1 / COPPA)
 
 Account holders are adults. Children appear ONLY as subjects inside a parent's
 own data (e.g. "Maya's party"), never as account holders or data sources. Do not

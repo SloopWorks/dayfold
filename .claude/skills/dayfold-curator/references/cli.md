@@ -93,6 +93,13 @@ dayfold push <blockId> block.json --block         # block (body carries sectionI
   `REPLACE_WITH_CARD_ID`.
 - Output: `push <resource>/<id> -> <httpStatus>`. Non-200 prints the server body
   to stderr and exits 1 — the server is the authority; fix and re-push.
+- `--type`'s check is **structural only**: `type`/`payload` present-together,
+  the payload's variant key matches `type`, unknown/mistyped fields, strict
+  decode. It does **not** check the server's format rules (`link.url`
+  well-formedness, ISO-8601 fields, length/int caps) — those still 422 at the
+  server. Two known codegen asymmetries: the validator **requires** `kind` and
+  `provenance.at` even though the server relaxes them — author from `dayfold
+  template` (both are pre-filled) rather than a bare hand-written stub.
 
 ## Delete — remove a hub, card, or block
 
