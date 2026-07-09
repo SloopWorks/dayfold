@@ -139,6 +139,7 @@ private fun BaseCard(
   extra: @Composable () -> Unit = {},
 ) {
   val accent = accentFor(card.type)
+  val keys = sharedTransitionKeys(card)
   val colors = if (container != null) CardDefaults.elevatedCardColors(containerColor = container)
   else CardDefaults.elevatedCardColors()
   ElevatedCard(
@@ -149,10 +150,13 @@ private fun BaseCard(
   ) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        AccentTile(monogram, accent, solidAccent)
+        AccentTile(monogram, accent, solidAccent,
+          modifier = if (keys.tile) Modifier.cardSharedElement("tile-${card.id}") else Modifier)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          KickerChip(kickerFor(card), accent, solidAccent)
-          Text(card.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+          KickerChip(kickerFor(card), accent, solidAccent,
+            modifier = if (keys.kicker) Modifier.cardSharedElement("kicker-${card.id}") else Modifier)
+          Text(card.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = if (keys.title) Modifier.cardSharedElement("title-${card.id}") else Modifier)
         }
       }
       bodySummaryFor(card)?.let {
@@ -161,7 +165,8 @@ private fun BaseCard(
       extra()
       Row(verticalAlignment = Alignment.CenterVertically) {
         val (label, action) = primaryActionFor(card)
-        PrimaryActionPill(label) { onAction(action) }
+        PrimaryActionPill(label,
+          modifier = if (keys.button) Modifier.cardSharedElement("action-${card.id}") else Modifier) { onAction(action) }
         Spacer(Modifier.weight(1f))
         ProvenanceChip(card.provenance?.source)
       }
