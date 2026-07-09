@@ -71,10 +71,10 @@ internal fun accentColors(a: CardAccent, solid: Boolean): Pair<Color, Color> {
 /** Rounded accent tile with a short monogram (type/initials). 44dp. Decorative —
  *  the kicker chip already states the type in text, so it's hidden from a11y. */
 @Composable
-internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean) {
+internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean, modifier: Modifier = Modifier) {
   val (bg, fg) = accentColors(accent, solid)
   Surface(color = bg, shape = RoundedCornerShape(14.dp),
-    modifier = Modifier.size(44.dp).clearAndSetSemantics {}) {
+    modifier = modifier.size(44.dp).clearAndSetSemantics {}) {
     Box(contentAlignment = Alignment.Center) {
       Text(monogram, color = fg, style = MaterialTheme.typography.titleMedium)
     }
@@ -82,10 +82,10 @@ internal fun AccentTile(monogram: String, accent: CardAccent, solid: Boolean) {
 }
 
 @Composable
-internal fun KickerChip(text: String, accent: CardAccent, solid: Boolean) {
+internal fun KickerChip(text: String, accent: CardAccent, solid: Boolean, modifier: Modifier = Modifier) {
   if (text.isBlank()) return
   val (bg, fg) = accentColors(accent, solid)
-  Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
+  Surface(color = bg, shape = RoundedCornerShape(8.dp), modifier = modifier) {
     Text(
       text, color = fg, style = MaterialTheme.typography.labelSmall,
       modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -123,8 +123,8 @@ internal fun PrivacyChip(storage: String?) {
 }
 
 @Composable
-private fun PrimaryActionPill(label: String, onClick: () -> Unit) {
-  FilledTonalButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) { Text(label) }
+private fun PrimaryActionPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+  FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) { Text(label) }
 }
 
 /** Base card scaffold: tap = open detail; header (tile + kicker + title), body,

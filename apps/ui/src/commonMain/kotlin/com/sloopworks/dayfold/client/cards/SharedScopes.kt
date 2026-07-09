@@ -31,3 +31,16 @@ fun Modifier.cardSharedBounds(id: String): Modifier {
     )
   }
 }
+
+/** Apply a shared-element (sharedBounds) under an arbitrary key when both transition scopes are
+ *  present — lets an individual element (tile / kicker / title / button) travel card→detail on top
+ *  of the container transform. No-op otherwise (snapshot-safe), same as [cardSharedBounds]. */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun Modifier.cardSharedElement(key: String): Modifier {
+  val sts = LocalSharedTransitionScope.current ?: return this
+  val avs = LocalAnimatedVisibilityScope.current ?: return this
+  return with(sts) {
+    this@cardSharedElement.sharedBounds(rememberSharedContentState(key = key), animatedVisibilityScope = avs)
+  }
+}
