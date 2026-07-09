@@ -78,7 +78,7 @@ fun DetailScreen(card: Card, hubName: String? = null, onBack: () -> Unit, onActi
       if (card.type == "invite" || card.type == "contact" || card.type == "geo") {
         item { HeroMedia(card, onAction) }
       }
-      item { ActionsRow(detailActions(card), onAction) }
+      item { ActionsRow(card, detailActions(card), onAction) }
       // Authored body: the feed row shows only a one-line summary (bodySummaryFor),
       // so the full body_md — bold/lists + vetted tappable [label](url) links — is
       // rendered HERE (typed cards otherwise had no home for it). Same renderer as
@@ -164,6 +164,7 @@ private fun HeroHeader(
   // content is inset below the bar via statusBarsPadding so Back/Share + title never
   // sit under the clock. background → statusBarsPadding → padding order matters: the
   // colour fills first, the inset shifts only the content.
+  val keys = sharedTransitionKeys(card)
   Column(Modifier.fillMaxWidth().background(heroBg).statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 18.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       TextButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back to feed" }) {
@@ -174,13 +175,16 @@ private fun HeroHeader(
       TextButton(onClick = { onAction(CardAction.Share(card.title)) }) { Text("Share", color = heroFg) }
     }
     Row(Modifier.padding(start = 4.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-      AccentTile(detailMonogram(card), accent, solid = true) // solid → contrasts on the container hero bg
-      KickerChip(kickerFor(card), accent, solid = true)
+      AccentTile(detailMonogram(card), accent, solid = true, // solid → contrasts on the container hero bg
+        modifier = if (keys.tile) Modifier.cardSharedElement("tile-${card.id}") else Modifier)
+      KickerChip(kickerFor(card), accent, solid = true,
+        modifier = if (keys.kicker) Modifier.cardSharedElement("kicker-${card.id}") else Modifier)
     }
     Text(
       card.title, color = heroFg, style = MaterialTheme.typography.headlineSmall,
       maxLines = 3, overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+      modifier = Modifier.padding(start = 4.dp, top = 10.dp)
+        .let { if (keys.title) it.cardSharedElement("title-${card.id}") else it },
     )
   }
 }
@@ -218,11 +222,16 @@ private fun ContactReachRow(card: Card, onAction: (CardAction) -> Unit) {
 // ── actions row + details + provenance/privacy ────────────────────────────────
 
 @Composable
-private fun ActionsRow(actions: List<DetailAction>, onAction: (CardAction) -> Unit) {
+private fun ActionsRow(card: Card, actions: List<DetailAction>, onAction: (CardAction) -> Unit) {
   if (actions.isEmpty()) return
+  val keys = sharedTransitionKeys(card)
   Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    actions.forEach { a ->
-      when (a.style) {
+    actions.forEachIndexed { i, a ->
+      if (i == 0 && keys.button) {
+        // the shared primary → teal tonal + shared key so it matches the card's Open pill and morphs
+        FilledTonalButton(onClick = { onAction(a.action) },
+          modifier = Modifier.heightIn48().cardSharedElement("action-${card.id}")) { Text(a.label) }
+      } else when (a.style) {
         ActionStyle.Filled -> Button(onClick = { onAction(a.action) }, modifier = Modifier.heightIn48()) { Text(a.label) }
         ActionStyle.Tonal -> FilledTonalButton(onClick = { onAction(a.action) }, modifier = Modifier.heightIn48()) { Text(a.label) }
         ActionStyle.Outlined -> OutlinedButton(onClick = { onAction(a.action) }, modifier = Modifier.heightIn48()) { Text(a.label) }
