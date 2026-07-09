@@ -11,6 +11,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -128,6 +129,11 @@ fun FeedApp(
   // MediaValidation before Coil sees them.
   remember { setupImageLoader(); 0 }
   val state by store.selectorState { it }
+  // Now-feed scroll position, hoisted to FeedApp (always composed) so it survives EVERY nav that
+  // recomposes the feed away: the feed↔detail swap AND the Feed↔Hubs tab swap AND a Feed→Account
+  // excursion. AnimatedContent has no SaveableStateHolder, so a state owned lower down (ContentHost,
+  // inside TabShell's tab AnimatedContent) is discarded on a tab switch → back would land at the top.
+  val feedListState = rememberLazyListState()
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
   // in-app nav → dispatched to the store; every other CardAction is an OS handoff
   // → the shell's PlatformActions.
@@ -198,6 +204,7 @@ fun FeedApp(
             onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
             onRefresh = onRefresh,
             onNowShown = onNowShown,
+            feedListState = feedListState,
           )
         },
         hubsContent = {
@@ -317,14 +324,12 @@ private fun SafeArea(content: @Composable () -> Unit) {
 @Suppress("DEPRECATION")   // CMP 1.11.1: PredictiveBackHandler/BackEventCompat are @Deprecated (→ NavigationEvent); intentional per design D2
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class)
 @Composable
-private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onNowShown: (Set<String>) -> Unit = {}) {
+private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAction) -> Unit, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onNowShown: (Set<String>) -> Unit = {}, feedListState: LazyListState = rememberLazyListState()) {
   val detail = currentDetailCard(state)
   val targetKey: String? = detail?.id            // top of the detail stack (null = feed)
   val reduceMotion = rememberReduceMotion()
-  // Feed scroll position, hoisted HERE (ContentHost stays composed while a detail is open) so it
-  // survives the feed↔detail AnimatedContent swap — that swap has no SaveableStateHolder, so a
-  // list-state owned INSIDE the feed content would be discarded on exit → back lands at the top.
-  val feedListState = rememberLazyListState()
+  // feedListState is hoisted to FeedApp (survives the tab swap too) and threaded in; the default
+  // keeps ContentHost usable standalone in tests. Passed to FeedScreen's Now-feed LazyColumn.
 
   // Back GESTURE (predictive back): the OS drives the window "peek" during the drag; we do
   // NOT scrub the transition ourselves. Driving AnimatedContent from a SeekableTransitionState
