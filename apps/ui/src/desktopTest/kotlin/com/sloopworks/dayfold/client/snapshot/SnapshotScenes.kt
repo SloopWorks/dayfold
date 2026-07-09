@@ -47,6 +47,7 @@ import com.sloopworks.dayfold.client.ScanDeviceScreen
 import com.sloopworks.dayfold.client.ScanPrimerScreen
 import com.sloopworks.dayfold.client.SignInScreen
 import com.sloopworks.dayfold.client.SplashScreen
+import com.sloopworks.dayfold.client.TabShell
 import com.sloopworks.dayfold.client.TimelineCard
 import com.sloopworks.dayfold.client.TimelineDetail
 import com.sloopworks.dayfold.client.TimelineScale
@@ -89,7 +90,15 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       }
       // Pinned clock/tz: the header renders "Today / <date>" from the clock — a live clock
       // makes every feed golden stale at the next date rollover (and CI runs in UTC).
-      themed(args.theme) { FeedScreen(state, now = SNAPSHOT_NOW, timeZone = TimeZone.UTC) }
+      // Wrap in TabShell so the golden shows the persistent bottom bar in its production
+      // position (Task 3). reduceMotion=true → Snap, no animation frame captured.
+      themed(args.theme) {
+        TabShell(
+          Route.Feed, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
+          feedContent = { FeedScreen(state, now = SNAPSHOT_NOW, timeZone = TimeZone.UTC) },
+          hubsContent = {},
+        )
+      }
     }
   }
 
@@ -113,7 +122,15 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       // Timeline presets pin move-in-day now (mid-day markers); the rest pin SNAPSHOT_NOW
       // so countdown badges ("in N days") are date-stable.
       val now = if (p.startsWith("timeline") || p == "derived-timeline") TIMELINE_NOW else SNAPSHOT_NOW
-      themed(args.theme) { HubDetailScreen(state, now = now, timeZone = NY) }
+      themed(args.theme) {
+        TabShell(
+          // Match production: the timeline overlay (timelineDetail != null) hides the bar
+          // (full-screen morph, ADR 0050); every other hub-detail preset keeps it.
+          Route.Hubs, reduceMotion = true, barVisible = state.timelineDetail == null, onNow = {}, onHubs = {},
+          feedContent = {},
+          hubsContent = { HubDetailScreen(state, now = now, timeZone = NY) },
+        )
+      }
     }
   }
 
@@ -121,7 +138,11 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     presets("enriched")
     render { args ->
       themed(args.theme) {
-        HubListScreen(AppState(hubs = SnapshotStates.ENRICHED_HUBS), now = SNAPSHOT_NOW)
+        TabShell(
+          Route.Hubs, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
+          feedContent = {},
+          hubsContent = { HubListScreen(AppState(hubs = SnapshotStates.ENRICHED_HUBS), now = SNAPSHOT_NOW) },
+        )
       }
     }
   }

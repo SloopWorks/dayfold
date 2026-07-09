@@ -7,6 +7,20 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-08 — Navigation transitions (every screen change now animates)
+
+### Added (client)
+- **Every navigation now animates with a consistent, meaningful motion**, instead of instant
+  cuts. Switching Now↔Hubs slides horizontally over a **persistent bottom bar** (no more
+  flicker); opening Account (and other modals) **slides up**; drilling into settings
+  (Members / Devices / Proximity / Invite) and hub list→detail **scales forward** (and reverses
+  on back); the device-link and sign-in flows slide as a **wizard**; boot/auth screens
+  **fade through**; and tapping a card still **morphs** it into its detail (unchanged). Motion is
+  **reduced-motion aware** (instant when the OS setting is on). The direction reflects what the
+  navigation means — forward vs back vs lateral vs modal — so it aids orientation. Under the hood
+  this is a single motion taxonomy applied centrally, so future screens animate correctly by
+  default (ADR 0051).
+
 ## 2026-07-08 — Card→detail container-transform morph restored (was a flash)
 
 ### Fixed (client)

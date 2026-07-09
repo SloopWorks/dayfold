@@ -20,7 +20,9 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.backhandler.PredictiveBackHandler
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.ui.loading.rememberReduceMotion
 import kotlin.coroutines.cancellation.CancellationException
 import com.sloopworks.dayfold.client.cards.CardAction
@@ -31,6 +33,11 @@ import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import org.reduxkotlin.Store
 import org.reduxkotlin.compose.selectorState
+
+// Feed & Hubs share ONE key so the persistent TabShell (bar) does not cross-fade on a tab
+// switch; the tab slide is TabShell's inner AnimatedContent. Every other route is its own key.
+private fun navGroupKey(route: Route): String =
+  if (route == Route.Feed || route == Route.Hubs) "tabs" else route.name
 
 // Route a card's CardAction: OpenDetail = in-app nav → store; everything else =
 // an OS handoff → the shell's PlatformActions. Extracted (non-Composable) so the
@@ -157,16 +164,46 @@ fun FeedApp(
     // system-bar insets) and intentionally bleed edge-to-edge → render them bare.
     // Every other route is a plain, Scaffold-less screen, so wrap it once in SafeArea
     // (safeDrawing = status/nav bars + display cutout + IME) instead of touching each.
-    when (state.route) {
-      Route.Feed -> ContentHost(
-        store, state, handle,
-        onConnectDevice = { store.dispatch(OpenEnterCode) },
-        onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
-        onRefresh = onRefresh,
-        onNowShown = onNowShown,
+    val reduceMotion = rememberReduceMotion()
+    val slidePx = with(LocalDensity.current) { 30.dp.roundToPx() }
+    AnimatedContent(
+      targetState = state.route,
+      transitionSpec = {
+        // Group Feed/Hubs so intra-tab switches don't animate at THIS layer — TabShell's
+        // inner AnimatedContent owns that shared-axis-X slide.
+        if (navGroupKey(initialState) == navGroupKey(targetState))
+          NavAnim.Snap.toContentTransform(slidePx)
+        else navAnimFor(initialState, targetState, reduceMotion).toContentTransform(slidePx)
+      },
+      contentKey = { navGroupKey(it) },
+      label = "app-nav",
+    ) { route ->
+    when (route) {
+      // Feed + Hubs share ONE persistent TabShell: the bottom bar stays put while the tab
+      // content slides (shared-axis-X, Task 3 / ADR 0051). A card detail is a Feed substate,
+      Route.Feed, Route.Hubs -> TabShell(
+        route = route,
+        reduceMotion = reduceMotion,
+        // Bar hides for full-screen details, ROUTE-SCOPED: on Feed a card detail hides it; on Hubs
+        // only the timeline overlay does (hub list + hub detail keep the bar — incl. a card-deep-
+        // linked hub detail where detailStack is retained for back). They morph to full screen (ADR 0050).
+        barVisible = if (route == Route.Feed) currentDetailCard(state) == null else state.timelineDetail == null,
+        onNow = { store.dispatch(OpenFeed) },
+        onHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+        feedContent = {
+          ContentHost(
+            store, state, handle,
+            onConnectDevice = { store.dispatch(OpenEnterCode) },
+            onNavHubs = { store.dispatch(OpenHubs); onLoadHubs() },
+            onRefresh = onRefresh,
+            onNowShown = onNowShown,
+          )
+        },
+        hubsContent = {
+          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
+        },
       )
-      Route.Hubs -> HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
-      else -> SafeArea { when (state.route) {
+      else -> SafeArea { when (route) {
       Route.Loading -> SplashScreen()
       // A deep-link tapped before sign-in shows the branded resume screen instead
       // of the plain sign-in (same providers; resumes onto AuthorizeDevice after).
@@ -253,6 +290,7 @@ fun FeedApp(
       }
       } }
     }
+    }
   }
   }
 }
@@ -307,10 +345,10 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
       targetState = targetKey,
       contentKey = { it },
       transitionSpec = {
-        // asymmetric fade+slide (360 open / 280 close); the default AnimatedContent spec
+        // asymmetric fade+slide (NavMotion.HeroMs open / NavMotion.StandardMs close); the default AnimatedContent spec
         // adds a scaleIn that fights the shared morph, so specify it explicitly.
         val opening = targetState != null
-        val dur = if (reduceMotion) 0 else if (opening) 360 else 280
+        val dur = if (reduceMotion) NavMotion.ReducedMs else if (opening) NavMotion.HeroMs else NavMotion.StandardMs
         (fadeIn(tween(dur)) + slideInVertically(tween(dur)) { h -> h / 16 }) togetherWith fadeOut(tween(dur))
       },
     ) { id ->
@@ -339,20 +377,33 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
   val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
   androidx.compose.runtime.LaunchedEffect(Unit) { if (state.hubs.isEmpty()) onLoadHubs() }
+  val reduceMotion = rememberReduceMotion()
+  val slidePx = with(LocalDensity.current) { 30.dp.roundToPx() }
   androidx.compose.foundation.layout.Box {
-    if (state.currentHubId != null) {
-      HubDetailScreen(
-        // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
-        state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) }, onNow = { store.dispatch(OpenFeed) },
-        onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
-        onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
-        onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
-        onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock,
-        onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
-        onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
-      )
-    } else {
-      HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onNow = { store.dispatch(OpenFeed) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+    AnimatedContent(
+      targetState = state.currentHubId != null,   // false = list, true = detail
+      transitionSpec = {
+        val anim = if (reduceMotion) NavAnim.Snap
+          else if (targetState) NavAnim.SharedZForward else NavAnim.SharedZBackward
+        anim.toContentTransform(slidePx)
+      },
+      contentKey = { it },
+      label = "hub-list-detail",
+    ) { showDetail ->
+      if (showDetail) {
+        HubDetailScreen(
+          // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
+          state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) },
+          onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
+          onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
+          onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
+          onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock,
+          onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
+          onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
+        )
+      } else {
+        HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+      }
     }
     if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
   }
