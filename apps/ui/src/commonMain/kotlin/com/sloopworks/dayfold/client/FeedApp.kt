@@ -377,20 +377,33 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
   val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
   androidx.compose.runtime.LaunchedEffect(Unit) { if (state.hubs.isEmpty()) onLoadHubs() }
+  val reduceMotion = rememberReduceMotion()
+  val slidePx = with(LocalDensity.current) { 30.dp.roundToPx() }
   androidx.compose.foundation.layout.Box {
-    if (state.currentHubId != null) {
-      HubDetailScreen(
-        // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
-        state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) },
-        onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
-        onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
-        onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
-        onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock,
-        onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
-        onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
-      )
-    } else {
-      HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+    AnimatedContent(
+      targetState = state.currentHubId != null,   // false = list, true = detail
+      transitionSpec = {
+        val anim = if (reduceMotion) NavAnim.Snap
+          else if (targetState) NavAnim.SharedZForward else NavAnim.SharedZBackward
+        anim.toContentTransform(slidePx)
+      },
+      contentKey = { it },
+      label = "hub-list-detail",
+    ) { showDetail ->
+      if (showDetail) {
+        HubDetailScreen(
+          // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
+          state, onBack = { onCloseHub(); store.dispatch(if (state.hubFromDetail) CloseHubToFeed else CloseHub) },
+          onOpenAudience = { state.currentHubId?.let { store.dispatch(OpenAudienceSheet); onLoadAudience(it) } },
+          onRetry = { state.currentHubId?.let { id -> onOpenHub(id, null) } },
+          onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onSyncNow,
+          onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock,
+          onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
+          onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
+        )
+      } else {
+        HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+      }
     }
     if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
   }
