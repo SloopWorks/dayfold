@@ -90,11 +90,17 @@ Proximity = **pushes**; device-link + sign-in = **wizard** axis-X.
   1. `reduceMotion` → `Snap`
   2. `from == to` → `Snap` (no self-transition)
   3. both `Tab` → `SharedXForward` if `tabIndex(to) > tabIndex(from)` else `SharedXBackward`
-  4. `to`=Modal & `from`≠Modal → `ModalEnter`; `from`=Modal & `to`≠Modal → `ModalExit`
-  5. either endpoint `Gate` → `FadeThrough`
-  6. either endpoint `Wizard` → `SharedXForward` if `tier(to) >= tier(from)` else `SharedXBackward`
+  4. `to`=Modal & `tier(to) > tier(from)` → `ModalEnter` (open a modal over a shallower base)
+  5. `from`=Modal & `tier(to) < tier(from)` → `ModalExit` (close modal back to base)
+     — **tier-gated** so a push *deeper from* a modal (e.g. Account→Members) is NOT read as an exit
+  6. either endpoint `Gate` → `FadeThrough`
+  7. either endpoint `Wizard` → `SharedXForward` if `tier(to) >= tier(from)` else `SharedXBackward`
      (covers wizard↔wizard **and** wizard entry/exit — one rule, no special-case)
-  7. else (Push/Pop) → `SharedZForward` if `tier(to) > tier(from)` else `SharedZBackward`
+  8. else (Push/Pop) → `SharedZForward` if `tier(to) > tier(from)` else `SharedZBackward`
+
+  Worked edges: Feed→Account=`ModalEnter`, Account→Feed=`ModalExit`,
+  Account→Members=`SharedZForward` (rule 8, not exit), Members→Account=`SharedZBackward`,
+  Feed→EnterCode=`SharedXForward`, EnterCode→Feed=`SharedXBackward`, Loading→Feed=`FadeThrough`.
 
 ### 2. `NavMotion.kt` — tokens + Compose mapping
 
