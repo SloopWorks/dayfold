@@ -163,9 +163,10 @@ fun FeedApp(
       Route.Feed, Route.Hubs -> TabShell(
         route = state.route,
         reduceMotion = rememberReduceMotion(),
-        // Bar hides for full-screen details (card detail, hub timeline overlay) → they morph to
-        // full screen (ADR 0050); the hub list & hub detail keep the bar (tab-level browsing).
-        barVisible = currentDetailCard(state) == null && state.timelineDetail == null,
+        // Bar hides for full-screen details, ROUTE-SCOPED: on Feed a card detail hides it; on Hubs
+        // only the timeline overlay does (hub list + hub detail keep the bar — incl. a card-deep-
+        // linked hub detail where detailStack is retained for back). They morph to full screen (ADR 0050).
+        barVisible = if (state.route == Route.Feed) currentDetailCard(state) == null else state.timelineDetail == null,
         onNow = { store.dispatch(OpenFeed) },
         onHubs = { store.dispatch(OpenHubs); onLoadHubs() },
         feedContent = {
