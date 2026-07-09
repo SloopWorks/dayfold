@@ -104,7 +104,16 @@ commit-animated (ADR 0050, #307, 2026-07-08)** ·
 future-proof taxonomy (tab=shared-axis-X over a persistent bottom bar,
 push=Z, modal=slide-up, wizard=X, gate=fade, hero=container transform);
 exhaustive `routeSpec` makes an unclassified route a compile error;
-reduced-motion aware (ADR 0051, #308, 2026-07-08)**.
+reduced-motion aware (ADR 0051, #308, 2026-07-08)** ·
+**Now-feed scroll preservation — returning from a card detail, and switching
+Hubs↔Now / Now→Account→Now, keeps the feed scroll position (Compose
+`AnimatedContent` has no `SaveableStateHolder`, so the `LazyListState` was
+discarded on swap; hoisted to `FeedApp`, always composed) (#309/#312,
+2026-07-09)** · **card→detail shared-element morph — accent tile, kicker,
+title, and the (now same-teal) primary Open button travel into the detail
+instead of cross-fading; content-equality-gated (`sharedTransitionKeys`) so it's
+correct across all card types + self-scaling to future ones, degrading to
+cross-fade where content differs (#310, 2026-07-09)**.
 Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
