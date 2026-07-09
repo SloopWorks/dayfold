@@ -108,8 +108,8 @@ reduced-motion aware (ADR 0051, #308, 2026-07-08)** ·
 **Now-feed scroll preservation — returning from a card detail, and switching
 Hubs↔Now / Now→Account→Now, keeps the feed scroll position (Compose
 `AnimatedContent` has no `SaveableStateHolder`, so the `LazyListState` was
-discarded on swap; hoisted to `FeedApp`, always composed) (#309/#312,
-2026-07-09)** · **card→detail shared-element morph — accent tile, kicker,
+discarded on swap; hoisted to `FeedApp`, always composed) — feed AND Hubs list
+(#309/#312/#313, 2026-07-09)** · **card→detail shared-element morph — accent tile, kicker,
 title, and the (now same-teal) primary Open button travel into the detail
 instead of cross-fading; content-equality-gated (`sharedTransitionKeys`) so it's
 correct across all card types + self-scaling to future ones, degrading to
