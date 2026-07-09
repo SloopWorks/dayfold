@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -132,6 +133,9 @@ fun HubListScreen(
   onRetry: () -> Unit = {},
   // defaults to the live clock; snapshot renders pin it so countdown badges are date-stable
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
+  // Hoisted to FeedApp so the hub-list scroll survives the Hubs↔Now tab swap + a hub-detail open
+  // (both recompose this away, and AnimatedContent has no SaveableStateHolder). Default = standalone/test.
+  hubListState: LazyListState = rememberLazyListState(),
 ) {
   val shown = state.hubs.filter { when (state.hubFilter) { "active" -> it.status == "active"; "planning" -> it.status == "planning"; else -> true } }
   Scaffold(
@@ -166,6 +170,7 @@ fun HubListScreen(
           }
         else -> LazyColumn(
           Modifier.fillMaxSize(),
+          state = hubListState,
           contentPadding = PaddingValues(16.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

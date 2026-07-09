@@ -7,7 +7,7 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
-## 2026-07-09 — Now feed keeps its scroll position across a Hubs↔Now tab switch
+## 2026-07-09 — Feed AND Hubs lists keep their scroll position across tab switches
 
 ### Fixed (client)
 - **Switching to Hubs and back to Now (and Now→Account→Now) now returns you to the same spot
@@ -15,6 +15,9 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   `LazyListState` was owned by `ContentHost`, which the tab-level `AnimatedContent` (no
   `SaveableStateHolder`) discards when it swaps to Hubs. Hoisted the state up to `FeedApp` (always
   composed), so it survives every navigation that recomposes the feed away.
+- **The Hubs list now keeps its scroll position too** (same fix): its `LazyListState`, owned by
+  `HubListScreen`, is hoisted to `FeedApp`, so a Hubs↔Now tab switch, a Hubs→Account excursion,
+  or opening/closing a hub detail returns to the same spot instead of the top.
 
 ## 2026-07-09 — Card→detail morph now connects the shared header + Open button
 

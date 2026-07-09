@@ -134,6 +134,9 @@ fun FeedApp(
   // excursion. AnimatedContent has no SaveableStateHolder, so a state owned lower down (ContentHost,
   // inside TabShell's tab AnimatedContent) is discarded on a tab switch → back would land at the top.
   val feedListState = rememberLazyListState()
+  // Same for the Hubs list (see feedListState): hoisted so the hub-list scroll survives the
+  // Hubs↔Now tab swap, a Hubs→Account excursion, and opening a hub detail.
+  val hubListState = rememberLazyListState()
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
   // in-app nav → dispatched to the store; every other CardAction is an OS handoff
   // → the shell's PlatformActions.
@@ -208,7 +211,7 @@ fun FeedApp(
           )
         },
         hubsContent = {
-          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle)
+          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle, hubListState = hubListState)
         },
       )
       else -> SafeArea { when (route) {
@@ -382,7 +385,7 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
 // Hubs surface host (ADR 0006): list ↔ detail substate driven by currentHubId.
 // A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
 @Composable
-private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onCardAction: (CardAction) -> Unit = {}) {
+private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onCardAction: (CardAction) -> Unit = {}, hubListState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
   val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
@@ -412,7 +415,7 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
           onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
         )
       } else {
-        HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs)
+        HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs, hubListState = hubListState)
       }
     }
     if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
