@@ -7,6 +7,18 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-09 — Card→detail morph now connects the shared header + Open button
+
+### Changed (client)
+- **Tapping a Now card now morphs the elements it shares with the detail** — the accent tile,
+  kicker chip, title, and the primary **Open** button visibly *travel* into their detail
+  positions (on top of the existing card→detail container transform), instead of cross-fading.
+  The Open button is now the **same teal** in the card and the detail, so it reads as one button
+  that moved. This is **content-gated**: an element only travels when it's identical in both
+  places — so a type without a single shared primary action (invitation, contact), or a
+  contact's name-initials tile vs the detail's type glyph, gracefully cross-fades as before,
+  and future content types get the shared-element treatment automatically for whatever matches.
+
 ## 2026-07-08 — Now feed keeps its scroll position when you come back from a detail
 
 ### Fixed (client)
