@@ -2,10 +2,13 @@
 
 ## Status
 
-**Proposed** 2026-07-09 (agent-drafted from a cold-start investigation). Operator-gated:
-it changes cold-start auth/render behavior and briefly renders already-on-device cached
-content before the network confirms the session — an ADR-0011/0020-class boundary. Not
-yet ratified; not built.
+**Accepted** 2026-07-09 (operator ratified in-session — "approved and continue"; INB-31,
+Gate B). Both gates cleared for build: the optimistic-render posture (§4) and the DB-table
+cache home (§1) are ratified; the offline-indicator design (Gate A) is a light in-flow
+affordance, not a new screen. Was **Proposed** 2026-07-09 (agent-drafted from a cold-start
+investigation; operator-gated because it changes cold-start auth/render behavior and briefly
+renders already-on-device cached content before the network confirms the session — an
+ADR-0011/0020-class boundary).
 
 Statuses: Proposed | Accepted | Superseded | Deprecated.
 
@@ -178,3 +181,28 @@ membership cache must honor).
 - **Decision to confirm at ratification:** membership-cache home — DB table (recommended,
   §1) vs. `TokenStore` (rejected-alt A). Flagged because it's a small architecture choice
   with a long tail (where does "the user's own family list" live on-device?).
+
+## Build (as-shipped 2026-07-09)
+
+Built + green this session (branch `feat/cold-start-db-first-route`; `:client` 507 / `:ui`
+479 tests, 0 failures; iOS + Android compile). Two clarifications vs. the Decision text, both
+strictly simpler and behaviorally identical:
+
+- **No new `MembershipsRestored(session, families)` action.** The atomic route is achieved by
+  dispatching the existing **`MembershipsLoaded(cached)`** immediately after `SessionRestored`,
+  in the same synchronous `restore()` body — so `routeFor` already sees the session when it runs
+  over the cached families. The C1 race the ADR guards against was only ever about a *second
+  async source* (the `SyncEngine` DB bridge); two sequential same-thread dispatches from one
+  engine are not a race. Single-writer of `state.families` is preserved (still only
+  `MembershipsLoaded`/`FamilyCreated`).
+- **No-cache path stays fully synchronous.** `restore()` only backgrounds the reconcile when a
+  cache exists; with an empty cache it `await`s `whoami` inline exactly as before (nothing to
+  show ⇒ network-gated is honest, and every pre-0052 auth test is unchanged). The injected
+  `scope` + `internal reconcileJob` exist for the cached path (and let tests join the reconcile).
+- **Gate A (offline indicator) deferred as planned.** The network-fail-with-cache path stays on
+  `Feed` (no `AuthError`); the quiet "offline / last updated…" affordance is not yet built —
+  the existing in-feed sync-status surfaces cover connectivity for now. Tracked as a follow.
+- **Pre-existing debt surfaced:** `verifyCommonMainContentDbMigration` fails on `main` too
+  (stale `1.db`/`2.db` snapshots vs the `card` ALTERs) and is not in the CI gate — so device
+  **upgrade** migrations (incl. this `12.sqm`) are unverified in CI. The fresh-schema path is
+  covered (`ContentStoreMembershipTest` on a real driver). Logged in `context/open-questions.md`.

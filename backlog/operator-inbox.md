@@ -9,6 +9,8 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-31 · RESOLVED 2026-07-09 — operator ratified ("approved and continue"); ADR 0052 Accepted + BUILT + green** on branch `feat/cold-start-db-first-route` (`:client` 507 / `:ui` 479 tests, 0 fail; iOS+Android compile). Both gates cleared (optimistic-render §4 + DB-table cache home). Gate A offline indicator deferred as a follow (network-fail-with-cache stays on Feed; existing sync-status surfaces cover connectivity). Surfaced a pre-existing CI gap → `OQ-migration-verify` in open-questions. Original ask below.
+
 - **INB-31 · 2026-07-09 · med · open — ratify ADR 0052: DB-first cold-start route gate?**
   Investigation confirmed the operator-observed cold-start splash (dayfold icon + spinner)
   **waits on the network**: content is offline-first + correct (ADR 0020), but the top-level
