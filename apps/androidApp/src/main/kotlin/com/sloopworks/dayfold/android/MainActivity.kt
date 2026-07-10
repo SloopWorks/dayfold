@@ -324,6 +324,10 @@ class MainActivity : ComponentActivity() {
           onOpenHub = { id, block -> lifecycleScope.launch { hubEngine.openHub(id, block) } },
           onCloseHub = { lifecycleScope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
           onLoadAudience = { id -> lifecycleScope.launch { hubEngine.loadAudience(id) } },
+          // ADR 0053 DC5 — People sheet management ops
+          onSetHubRole = { hubId, uid, role -> lifecycleScope.launch { hubEngine.setParticipant(hubId, uid, role) } },
+          onRemoveHubParticipant = { hubId, uid -> lifecycleScope.launch { hubEngine.removeParticipant(hubId, uid) } },
+          onSetHubVisibility = { hubId, visibility -> lifecycleScope.launch { hubEngine.setVisibility(hubId, visibility) } },
           onToggleItem = { blockId, itemId, done -> lifecycleScope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
           onRetryBlock = { blockId -> lifecycleScope.launch { hubEngine.retryBlock(blockId) } },
           // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.

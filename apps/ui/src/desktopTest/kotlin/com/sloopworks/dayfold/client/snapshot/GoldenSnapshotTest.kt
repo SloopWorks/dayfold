@@ -75,6 +75,10 @@ class GoldenSnapshotTest {
   @Test fun hubListEnriched() = golden("hub-list", "enriched")
   @Test fun hubListEnrichedDark() = golden("hub-list", "enriched", theme = "dark")
 
+  // ── hub people (ADR 0053 DC5) ─────────────────────────────────────────────
+  @Test fun hubPeopleManager() = golden("hub-people", "manager")
+  @Test fun hubPeopleManagerDark() = golden("hub-people", "manager", theme = "dark")
+
   // ── auth / onboarding ─────────────────────────────────────────────────────
   @Test fun authSignIn() = golden("auth", "signin")
   @Test fun authSignInDark() = golden("auth", "signin", theme = "dark")

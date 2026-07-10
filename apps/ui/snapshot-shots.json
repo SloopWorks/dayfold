@@ -434,6 +434,17 @@
    "preset": "enriched"
   },
   {
+   "id": "hub-people-manager-dark",
+   "scene": "hub-people",
+   "preset": "manager",
+   "theme": "dark"
+  },
+  {
+   "id": "hub-people-manager",
+   "scene": "hub-people",
+   "preset": "manager"
+  },
+  {
    "id": "join-entry",
    "scene": "join",
    "preset": "entry"
