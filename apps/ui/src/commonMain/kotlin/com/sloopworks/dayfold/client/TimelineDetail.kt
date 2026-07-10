@@ -21,6 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,6 +82,10 @@ fun TimelineDetail(
     val active = if (both) selectedScale else scale
     val presented = remember(tl, active, nowIso, tz) { presentTimelineDetail(tl, active, nowIso, tz) }
     val cs = MaterialTheme.colorScheme
+    // Edge-to-edge (MainActivity.enableEdgeToEdge): this is a full-screen substate hosted BARE
+    // in the Feed/Hubs tab branch (no shared SafeArea, and the tab bar is hidden here), so it must
+    // own its own insets — mirrors DetailScreen (statusBarsPadding on the header, navBars on the list).
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Column(
         modifier = Modifier
@@ -97,7 +105,7 @@ fun TimelineDetail(
         // ── Feed ─────────────────────────────────────────────────────────────
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 18.dp + navBottom),
         ) {
             var flatIdx = 0
             presented.groups.forEachIndexed { groupIdx, group ->
@@ -160,7 +168,11 @@ private fun TlDetailHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // background → statusBarsPadding → padding: the header tint fills behind the status bar,
+            // but the back arrow + title sit BELOW it (never under the clock). Order matters — same
+            // as DetailScreen's hero header.
             .background(cs.surfaceContainer)
+            .statusBarsPadding()
             .padding(horizontal = 18.dp)
             .padding(top = 14.dp, bottom = 16.dp),
     ) {
