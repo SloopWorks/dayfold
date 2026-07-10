@@ -519,6 +519,14 @@ data class AppState(
   val deviceListError: String? = null,
   val deviceOpId: String? = null,        // device row currently revoking
   val audienceError: String? = null,
+  // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
+  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId but the update is
+  // OPTIMISTIC (AvatarUpdated applies the new value immediately, no network wait) —
+  // it's non-null only while a PATCH is settling, cleared by either terminal action.
+  val myDisplayName: String? = null,
+  val myAvatarColor: String? = null,
+  val myAvatarRef: String? = null,
+  val avatarOpId: String? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -637,6 +645,15 @@ data class DeviceOpRequested(val id: String) : Action    // revoke start
 data object DevicesRequested : Action
 data class DevicesFailed(val message: String) : Action
 data class AudienceFailed(val message: String) : Action
+// own profile (task 4, GET/PATCH /auth/me). ProfileLoaded is a quiet DB-less
+// bridge (like loadRosterLocked) — dispatched after restore/sign-in resolves
+// memberships; a failure there is swallowed (no *Failed action) so it can never
+// wedge the route gate. AvatarUpdated is OPTIMISTIC: dispatched immediately with
+// the picked value (before the PATCH lands), so the UI never blocks on network;
+// AvatarUpdateFailed only clears the busy marker — it does NOT revert the value.
+data class ProfileLoaded(val profile: MeProfile) : Action
+data class AvatarUpdated(val avatarColor: String?, val avatarRef: String?) : Action
+data object AvatarUpdateFailed : Action
 // CLI/device approval (S6-D). The engine drives the *Requested/*Loaded/*Failed
 // effect-trigger pattern (like approvals/join); the reducer stays pure.
 data object OpenEnterCode : Action                             // → EnterCode (clears the device fields)

@@ -7,6 +7,7 @@ import com.sloopworks.dayfold.client.Hub
 import com.sloopworks.dayfold.client.HubAudience
 import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubTree
+import com.sloopworks.dayfold.client.MeProfile
 import com.sloopworks.dayfold.client.PendingDevice
 import com.sloopworks.dayfold.client.PendingMember
 import com.sloopworks.dayfold.client.Session
@@ -56,6 +57,9 @@ data class FakeBackendData(
   val pendingDevice: PendingDevice? = null,
   val audiences: Map<String, HubAudience> = emptyMap(),
   val newFamilyId: String = "fam_fake_new",
+  /** GET/PATCH /auth/me — the caller's own profile (task 4). Both routes serve this
+   *  same canned value (the fake router is stateless — a PATCH doesn't persist). */
+  val me: MeProfile = MeProfile(userId = "fake-user", displayName = "Pat", avatarColor = "teal", avatarRef = "avatar:fox-01"),
   /** Override the /sync status to model an error path (e.g. 500). 200 = serve `sync`. */
   val syncStatus: Int = 200,
   /** Artificial per-request delay (debug-only) so loading states are observable. */
@@ -69,6 +73,9 @@ data class FakeBackendData(
 @Serializable private data class MembersOut(val members: List<FamilyMember>)
 @Serializable private data class InvitesOut(val pending: List<PendingMember>)
 @Serializable private data class CredsOut(val credentials: List<DeviceCredential>)
+@Serializable private data class MeOut(
+  val user_id: String, val display_name: String?, val avatar_color: String?, val avatar_ref: String?,
+)
 
 class FakeBackend(
   val data: FakeBackendData,
@@ -92,6 +99,8 @@ class FakeBackend(
         return ok(TokenOut.serializer(), TokenOut(data.session.access, data.session.refresh))
       "/auth/signout" -> return noContent
       "/auth/whoami" -> return ok(WhoamiResponse.serializer(), data.whoami)
+      // GET/PATCH share one canned profile (stateless router — a PATCH doesn't persist).
+      "/auth/me" -> return ok(MeOut.serializer(), MeOut(data.me.userId, data.me.displayName, data.me.avatarColor, data.me.avatarRef))
       "/auth/me/credentials" -> return ok(CredsOut.serializer(), CredsOut(data.devices))
       "/device/pending" ->
         return data.pendingDevice?.let { ok(PendingDevice.serializer(), it) }

@@ -328,6 +328,58 @@ class AuthClientTest {
     assertEquals(404, ex.status)
   }
 
+  // ── own profile (task 4) ──
+  @Test fun `getMe parses the profile with the bearer`() = runBlocking {
+    var path = ""; var auth: String? = null
+    val engine = MockEngine { req ->
+      path = req.url.encodedPath; auth = req.headers[HttpHeaders.Authorization]
+      respond(
+        """{"user_id":"u1","display_name":"Leo","avatar_color":"teal","avatar_ref":"avatar:fox-01"}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val me = client(engine).getMe("ACCESS")
+    assertEquals("/auth/me", path)
+    assertEquals("Bearer ACCESS", auth)
+    assertEquals(MeProfile("u1", "Leo", "teal", "avatar:fox-01"), me)
+  }
+
+  @Test fun `getMe throws on 401`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("", HttpStatusCode.Unauthorized) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).getMe("A") }
+    assertEquals(401, ex.status)
+  }
+
+  @Test fun `updateAvatar PATCHes both keys (null clears) and parses the response`() = runBlocking {
+    var method = ""; var path = ""; var sent = ""
+    val engine = MockEngine { req ->
+      method = req.method.value; path = req.url.encodedPath; sent = body(req)
+      respond("""{"display_name":"Leo","avatar_color":"coral","avatar_ref":"avatar:sun-01"}""", HttpStatusCode.OK, jsonCt)
+    }
+    val me = client(engine).updateAvatar("ACCESS", "coral", "avatar:sun-01")
+    assertEquals("PATCH", method)
+    assertEquals("/auth/me", path)
+    assertTrue(sent.contains("\"avatar_color\":\"coral\""), "body was: $sent")
+    assertTrue(sent.contains("\"avatar_ref\":\"avatar:sun-01\""), "body was: $sent")
+    assertEquals("coral", me.avatarColor)
+    assertEquals("avatar:sun-01", me.avatarRef)
+    assertEquals("", me.userId)   // PATCH's response omits user_id
+  }
+
+  @Test fun `updateAvatar sends explicit null to clear a field`() = runBlocking {
+    var sent = ""
+    val engine = MockEngine { req -> sent = body(req); respond("""{"display_name":null,"avatar_color":null,"avatar_ref":null}""", HttpStatusCode.OK, jsonCt) }
+    client(engine).updateAvatar("ACCESS", null, null)
+    assertTrue(sent.contains("\"avatar_color\":null"), "body was: $sent")
+    assertTrue(sent.contains("\"avatar_ref\":null"), "body was: $sent")
+  }
+
+  @Test fun `updateAvatar throws on 400 (bad avatar)`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("""{"type":"bad-avatar"}""", HttpStatusCode.BadRequest, jsonCt) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).updateAvatar("A", "x".repeat(99), null) }
+    assertEquals(400, ex.status)
+  }
+
   // ── CLI/device approval (S6-D) ──
   @Test fun `devicePending 200 parses the grant incl origin_kind with the bearer + query`() = runBlocking {
     var path = ""; var query = ""; var auth: String? = null

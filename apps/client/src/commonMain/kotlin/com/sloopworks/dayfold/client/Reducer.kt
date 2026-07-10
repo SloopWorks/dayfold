@@ -165,6 +165,16 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DevicesRequested -> state.copy(deviceListBusy = true, deviceListError = null)
   is DevicesFailed -> state.copy(deviceListBusy = false, deviceListError = action.message, deviceOpId = null)
   is AudienceFailed -> state.copy(audienceError = action.message)
+  // own profile (task 4) — ProfileLoaded is a full replace (DB/server is truth,
+  // like RosterLoaded); AvatarUpdated applies the optimistic value immediately;
+  // both terminal actions clear avatarOpId (mirrors memberOpId/deviceOpId).
+  is ProfileLoaded -> state.copy(
+    myDisplayName = action.profile.displayName,
+    myAvatarColor = action.profile.avatarColor,
+    myAvatarRef = action.profile.avatarRef,
+  )
+  is AvatarUpdated -> state.copy(myAvatarColor = action.avatarColor, myAvatarRef = action.avatarRef, avatarOpId = null)
+  is AvatarUpdateFailed -> state.copy(avatarOpId = null)
 
   // ── CLI/device approval (S6-D) ──
   is OpenEnterCode -> state.copy(
