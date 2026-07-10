@@ -103,6 +103,52 @@ class HubEngine(
     } catch (e: Exception) { store.dispatch(AudienceFailed("Couldn't load who can see this. Try again.")) }
   }
 
+  // ADR 0053 DC4 — participant/visibility management (the People sheet, DC5 builds
+  // the UI on top). All three ops share one shape: mutate, then RELOAD the audience
+  // on success (server is truth — no separate optimistic apply/reconcile needed,
+  // the reload's HubAudienceLoaded is itself the "updated" dispatch) or dispatch
+  // HubManageFailed on error. Mirrors loadAudience's mutex/callWithRefresh pattern.
+
+  /** Owner/co_owner sets a member's allow-list role (viewer|contributor|co_owner). */
+  suspend fun setParticipant(hubId: String, uid: String, role: String) = mutex.withLock {
+    val fid = fid(); val s = session()
+    if (fid == null || s == null) return@withLock
+    try {
+      callWithRefresh(s) { hubClient.setParticipant(it.access, fid, hubId, uid, role) }
+      reloadAudienceLocked(fid, hubId)
+    } catch (e: Exception) { store.dispatch(HubManageFailed("Couldn't update that person's access. Try again.")) }
+  }
+
+  /** Owner/co_owner drops a member's allow-list row (author's row is immutable). */
+  suspend fun removeParticipant(hubId: String, uid: String) = mutex.withLock {
+    val fid = fid(); val s = session()
+    if (fid == null || s == null) return@withLock
+    try {
+      callWithRefresh(s) { hubClient.removeParticipant(it.access, fid, hubId, uid) }
+      reloadAudienceLocked(fid, hubId)
+    } catch (e: Exception) { store.dispatch(HubManageFailed("Couldn't remove that person. Try again.")) }
+  }
+
+  /** Owner/co_owner flips the hub's visibility (family<->restricted). */
+  suspend fun setVisibility(hubId: String, visibility: String) = mutex.withLock {
+    val fid = fid(); val s = session()
+    if (fid == null || s == null) return@withLock
+    try {
+      callWithRefresh(s) { hubClient.setVisibility(it.access, fid, hubId, visibility) }
+      reloadAudienceLocked(fid, hubId)
+    } catch (e: Exception) { store.dispatch(HubManageFailed("Couldn't update who can see this. Try again.")) }
+  }
+
+  // Re-fetch + dispatch the audience after a successful mutation. Re-reads the
+  // session from the store (not the caller's captured `s`) — the mutation above may
+  // have rotated it (401 → callWithRefresh persisted + dispatched SessionRotated),
+  // and the rotating refresh token is single-use, so replaying the pre-rotation
+  // session here would spuriously 401-then-fail the reload.
+  private suspend fun reloadAudienceLocked(fid: String, hubId: String) {
+    val s = session() ?: return
+    store.dispatch(HubAudienceLoaded(callWithRefresh(s) { hubClient.audience(it.access, fid, hubId) }))
+  }
+
   // Refresh-and-retry on 401 (mirrors AuthEngine.callWithRefresh): the access token
   // is 5m, so a single rotate + persist + dispatch + retry recovers transparently.
   private suspend fun <T> callWithRefresh(session: Session, block: suspend (Session) -> T): T =

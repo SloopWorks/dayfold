@@ -297,6 +297,107 @@ class HubEngineTest {
     assertEquals("b1", op.targetId)
   }
 
+  // ── participant/visibility management (ADR 0053 DC4) ─────────────────────────
+  // Each op mutates then RELOADS the audience — a successful setParticipant dispatches
+  // a fresh HubAudienceLoaded (the "reload/updated" action), not a bespoke one.
+
+  @Test fun `setParticipant PUTs the role then reloads the audience`() = runBlocking<Unit> {
+    val store = readyStore()
+    var putBody: String? = null; var putCalls = 0; var audienceCalls = 0
+    val e = engine(store, MockEngine { req ->
+      when {
+        req.url.encodedPath == "/families/fam1/hubs/h1/participants/u2" && req.method.value == "PUT" -> {
+          putCalls++
+          putBody = (req.body as io.ktor.http.content.TextContent).text
+          respond("{}", HttpStatusCode.OK, jsonCt)
+        }
+        req.url.encodedPath == "/families/fam1/hubs/h1/audience" -> {
+          audienceCalls++
+          respond(
+            """{"visibility":"family","can_manage":true,"members":[{"uid":"u2","display_name":"Jordan","role":"adult","permitted":true,"participation_role":"contributor"}]}""",
+            HttpStatusCode.OK, jsonCt,
+          )
+        }
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    e.setParticipant("h1", "u2", "contributor")
+    assertEquals(1, putCalls)
+    assertEquals("""{"role":"contributor"}""", putBody)
+    assertEquals(1, audienceCalls)                          // reload fired on success
+    assertEquals("contributor", store.state.currentHubAudience?.members?.single()?.participationRole)
+    assertEquals(true, store.state.currentHubAudience?.canManage)
+    assertNull(store.state.audienceError)
+  }
+
+  @Test fun `setParticipant on failure dispatches HubManageFailed and skips the reload`() = runBlocking<Unit> {
+    val store = readyStore()
+    var audienceCalls = 0
+    val e = engine(store, MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/families/fam1/hubs/h1/participants/u2" -> respond("nope", HttpStatusCode.Forbidden)
+        "/families/fam1/hubs/h1/audience" -> { audienceCalls++; respond("", HttpStatusCode.NotFound) }
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    e.setParticipant("h1", "u2", "co_owner")
+    assertEquals(0, audienceCalls)                          // mutation failed before any reload
+    assertNull(store.state.currentHubAudience)
+    assertEquals("Couldn't update that person's access. Try again.", store.state.audienceError)
+  }
+
+  @Test fun `removeParticipant DELETEs then reloads the audience`() = runBlocking<Unit> {
+    val store = readyStore()
+    var delCalls = 0; var audienceCalls = 0
+    val e = engine(store, MockEngine { req ->
+      when {
+        req.url.encodedPath == "/families/fam1/hubs/h1/participants/u2" && req.method.value == "DELETE" -> {
+          delCalls++; respond("", HttpStatusCode.NoContent)
+        }
+        req.url.encodedPath == "/families/fam1/hubs/h1/audience" -> {
+          audienceCalls++
+          respond("""{"visibility":"family","members":[]}""", HttpStatusCode.OK, jsonCt)
+        }
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    e.removeParticipant("h1", "u2")
+    assertEquals(1, delCalls)
+    assertEquals(1, audienceCalls)
+    assertTrue(store.state.currentHubAudience?.members?.isEmpty() == true)
+  }
+
+  @Test fun `setVisibility PUTs the visibility then reloads the audience`() = runBlocking<Unit> {
+    val store = readyStore()
+    var putBody: String? = null; var audienceCalls = 0
+    val e = engine(store, MockEngine { req ->
+      when {
+        req.url.encodedPath == "/families/fam1/hubs/h1/visibility" && req.method.value == "PUT" -> {
+          putBody = (req.body as io.ktor.http.content.TextContent).text
+          respond("{}", HttpStatusCode.OK, jsonCt)
+        }
+        req.url.encodedPath == "/families/fam1/hubs/h1/audience" -> {
+          audienceCalls++
+          respond("""{"visibility":"restricted","members":[]}""", HttpStatusCode.OK, jsonCt)
+        }
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    e.setVisibility("h1", "restricted")
+    assertEquals("""{"visibility":"restricted"}""", putBody)
+    assertEquals(1, audienceCalls)
+    assertEquals("restricted", store.state.currentHubAudience?.visibility)
+  }
+
+  @Test fun `setVisibility with no session is a no-op`() = runBlocking<Unit> {
+    val store = createAppStore(debug = false)              // no session/family
+    var hit = false
+    val e = engine(store, MockEngine { hit = true; respond("", HttpStatusCode.NotFound) })
+    e.setVisibility("h1", "family")
+    assertEquals(false, hit)
+    assertNull(store.state.currentHubAudience)
+  }
+
   @Test fun `retryBlock re-arms a block parked failed back to pending`() = runBlocking<Unit> {
     val store = readyStore()
     val cs = freshContentStore(); seedChecklist(cs)

@@ -124,6 +124,15 @@ class FakeBackend(
           return treeFor(tail[1])?.let { ok(HubTree.serializer(), it) } ?: FakeResponse(404, "")
         tail.size == 3 && tail[0] == "hubs" && tail[2] == "audience" ->
           return ok(HubAudience.serializer(), audienceFor(tail[1]))
+        // PUT/DELETE …/hubs/{id}/participants/{uid} (ADR 0053 DC2/DC4) — the fake
+        // router is stateless (like /auth/me PATCH), so these just ack; the
+        // subsequent audience reload re-serves audienceFor()'s canned roster. PUT
+        // acks 200 (the real route returns the upserted row json — HubClient only
+        // checks status, so an empty object is enough); DELETE acks 204 like the API.
+        tail.size == 4 && tail[0] == "hubs" && tail[2] == "participants" && method == "PUT" -> return FakeResponse(200, "{}")
+        tail.size == 4 && tail[0] == "hubs" && tail[2] == "participants" && method == "DELETE" -> return FakeResponse(204, "")
+        // PUT …/hubs/{id}/visibility (ADR 0053 DC2/DC4) — same stateless 200 ack.
+        tail.size == 3 && tail[0] == "hubs" && tail[2] == "visibility" && method == "PUT" -> return FakeResponse(200, "{}")
         tail == listOf("members") && method == "GET" ->
           return ok(MembersOut.serializer(), MembersOut(data.members))
         tail == listOf("invites") ->
@@ -146,15 +155,20 @@ class FakeBackend(
     return HubTree(hub = hub, sections = sections, blocks = blocks)
   }
 
-  // Scenario-supplied audience, else a permissive default (everyone sees it).
+  // Scenario-supplied audience, else a permissive default (everyone sees it, and the
+  // caller can manage it — matches the "everyone permitted" posture of this default).
+  // participationRole stays null (no explicit allow-list row) in the default; a
+  // scenario that needs ADR 0053 role chips/gating supplies data.audiences[hubId]
+  // directly with real participation_role/can_manage values.
   private fun audienceFor(hubId: String): HubAudience =
     data.audiences[hubId] ?: HubAudience(
       visibility = "family",
       members = data.members.map {
         HubAudienceMember(
           uid = it.uid, displayName = it.displayName, avatarColor = it.avatarColor,
-          avatarRef = it.avatarRef, role = it.role, permitted = true,
+          avatarRef = it.avatarRef, role = it.role, permitted = true, participationRole = null,
         )
       },
+      canManage = true,
     )
 }

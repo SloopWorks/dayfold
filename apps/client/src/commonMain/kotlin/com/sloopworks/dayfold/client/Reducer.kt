@@ -165,6 +165,9 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DevicesRequested -> state.copy(deviceListBusy = true, deviceListError = null)
   is DevicesFailed -> state.copy(deviceListBusy = false, deviceListError = action.message, deviceOpId = null)
   is AudienceFailed -> state.copy(audienceError = action.message)
+  // ADR 0053 DC4 — a setParticipant/removeParticipant/setVisibility failure surfaces
+  // on the same audienceError slot the sheet already renders (mirrors AudienceFailed).
+  is HubManageFailed -> state.copy(audienceError = action.message)
   // own profile (task 4) — ProfileLoaded is a full replace (DB/server is truth,
   // like RosterLoaded), and also clears avatarOpId/avatarError (mirrors RosterLoaded
   // clearing memberOpId — a background reload should never leave a stuck busy/error).

@@ -89,4 +89,73 @@ class HubClientTest {
     val ex = assertFailsWith<AuthHttpException> { client(engine).audience("ax", "fam1", "h1") }
     assertEquals(401, ex.status)
   }
+
+  @Test fun `audience parses participation_role and can_manage`() = runBlocking {
+    val engine = MockEngine {
+      respond(
+        """{"visibility":"restricted","can_manage":true,"members":[
+          {"uid":"u1","display_name":"Pat","role":"owner","permitted":true,"participation_role":"co_owner"},
+          {"uid":"u2","display_name":"Jordan","role":"adult","permitted":false}]}""", HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val aud = client(engine).audience("ax", "fam1", "h1")
+    assertEquals(true, aud.canManage)
+    assertEquals("co_owner", aud.members.first { it.uid == "u1" }.participationRole)
+    assertNull(aud.members.first { it.uid == "u2" }.participationRole)
+  }
+
+  // ── participant/visibility mutation (ADR 0053 DC2/DC4) ────────────────────────
+
+  @Test fun `setParticipant issues PUT participants{uid} with a role body`() = runBlocking {
+    var method: String? = null; var path: String? = null; var body: String? = null; var auth: String? = null
+    val engine = MockEngine { req ->
+      method = req.method.value; path = req.url.encodedPath; auth = req.headers[HttpHeaders.Authorization]
+      body = (req.body as io.ktor.http.content.TextContent).text
+      respond("{}", HttpStatusCode.OK, jsonCt)
+    }
+    client(engine).setParticipant("ax", "fam1", "h1", "u2", "contributor")
+    assertEquals("PUT", method)
+    assertEquals("/families/fam1/hubs/h1/participants/u2", path)
+    assertEquals("Bearer ax", auth)
+    assertEquals("""{"role":"contributor"}""", body)
+  }
+
+  @Test fun `setParticipant throws AuthHttpException on a non-200`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("nope", HttpStatusCode.Forbidden) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).setParticipant("ax", "fam1", "h1", "u2", "viewer") }
+    assertEquals(403, ex.status)
+  }
+
+  @Test fun `removeParticipant issues DELETE participants{uid}`() = runBlocking {
+    var method: String? = null; var path: String? = null
+    val engine = MockEngine { req -> method = req.method.value; path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }
+    client(engine).removeParticipant("ax", "fam1", "h1", "u2")
+    assertEquals("DELETE", method)
+    assertEquals("/families/fam1/hubs/h1/participants/u2", path)
+  }
+
+  @Test fun `removeParticipant throws AuthHttpException on a non-2xx`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("nope", HttpStatusCode.Unauthorized) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).removeParticipant("ax", "fam1", "h1", "u2") }
+    assertEquals(401, ex.status)
+  }
+
+  @Test fun `setVisibility issues PUT visibility with a visibility body`() = runBlocking {
+    var method: String? = null; var path: String? = null; var body: String? = null
+    val engine = MockEngine { req ->
+      method = req.method.value; path = req.url.encodedPath
+      body = (req.body as io.ktor.http.content.TextContent).text
+      respond("{}", HttpStatusCode.OK, jsonCt)
+    }
+    client(engine).setVisibility("ax", "fam1", "h1", "restricted")
+    assertEquals("PUT", method)
+    assertEquals("/families/fam1/hubs/h1/visibility", path)
+    assertEquals("""{"visibility":"restricted"}""", body)
+  }
+
+  @Test fun `setVisibility throws AuthHttpException on a non-200`() = runBlocking<Unit> {
+    val engine = MockEngine { respond("nope", HttpStatusCode.Unauthorized) }
+    val ex = assertFailsWith<AuthHttpException> { client(engine).setVisibility("ax", "fam1", "h1", "family") }
+    assertEquals(401, ex.status)
+  }
 }

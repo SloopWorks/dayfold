@@ -1,9 +1,15 @@
 package com.sloopworks.dayfold.client
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -38,7 +44,45 @@ class HubClient(
       else -> throw AuthHttpException(resp.status.value, "hub-tree")  // 401 → engine refresh-and-retry
     }
   }
+
+  // ── participant/visibility management (ADR 0053 DC2/DC4) ─────────────────────
+  // Gated server-side to the hub author/co_owner (canManageHub) — a 403 here means
+  // the caller isn't a manager; HubEngine surfaces it via HubManageFailed like any
+  // other non-2xx. The response bodies (the upserted allow-list row / updated hub
+  // row) aren't modeled here — the caller reloads the audience for the fresh roster
+  // (server is truth), so only the status matters.
+
+  /** PUT .../participants/:uid {role} — upsert one member's allow-list role. */
+  suspend fun setParticipant(access: String, fid: String, hubId: String, uid: String, role: String) {
+    val resp = http.put("$api/families/$fid/hubs/$hubId/participants/$uid") {
+      header("authorization", "Bearer $access")
+      contentType(ContentType.Application.Json)
+      setBody(json.encodeToString(SetParticipantReq.serializer(), SetParticipantReq(role)))
+    }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-set-participant")
+  }
+
+  /** DELETE .../participants/:uid — drop one member's allow-list row. */
+  suspend fun removeParticipant(access: String, fid: String, hubId: String, uid: String) {
+    val resp = http.delete("$api/families/$fid/hubs/$hubId/participants/$uid") {
+      header("authorization", "Bearer $access")
+    }
+    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "hub-remove-participant")
+  }
+
+  /** PUT .../visibility {visibility} — flip family<->restricted. */
+  suspend fun setVisibility(access: String, fid: String, hubId: String, visibility: String) {
+    val resp = http.put("$api/families/$fid/hubs/$hubId/visibility") {
+      header("authorization", "Bearer $access")
+      contentType(ContentType.Application.Json)
+      setBody(json.encodeToString(SetVisibilityReq.serializer(), SetVisibilityReq(visibility)))
+    }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-set-visibility")
+  }
 }
+
+@Serializable private data class SetParticipantReq(val role: String)
+@Serializable private data class SetVisibilityReq(val visibility: String)
 
 sealed interface HubTreeResult {
   data class Loaded(val tree: HubTree) : HubTreeResult

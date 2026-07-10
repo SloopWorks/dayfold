@@ -373,12 +373,20 @@ data class HubAudienceMember(
   @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val permitted: Boolean = false,
+  // ADR 0053 DC1/DC2 — this member's allow-list role on the hub (viewer|contributor|
+  // co_owner), null when the member has no explicit row (author's implicit co_owner
+  // status is surfaced by the server as "co_owner" here too — see hubs.hubAudience).
+  @SerialName("participation_role") val participationRole: String? = null,
 )
 
 @Serializable
 data class HubAudience(
   val visibility: String = "family",
   val members: List<HubAudienceMember> = emptyList(),
+  // ADR 0053 DC2 — may the CALLER manage this hub's participants/visibility (author,
+  // an existing co_owner, or legacy)? Server-computed (hubs.canManageHub) so the
+  // People sheet (DC5) can show/hide management controls without a second round-trip.
+  @SerialName("can_manage") val canManage: Boolean = false,
 )
 
 // ── AUTH-S5: client identity + session (ADR 0011/0021/0023) ──────────────────
@@ -584,6 +592,12 @@ data class NotificationPermissionLoaded(val state: NotificationPermission) : Act
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceLoaded(val audience: HubAudience) : Action
 data object CloseAudienceSheet : Action
+// ADR 0053 DC4 — participant/visibility management (the People sheet, DC5). Each op
+// (HubEngine.setParticipant/removeParticipant/setVisibility) reloads the audience on
+// success — dispatching HubAudienceLoaded again (no separate "updated" action needed,
+// the sheet re-renders off the fresh roster/can_manage/visibility). HubManageFailed
+// mirrors AudienceFailed for the one failure case shared by all three ops.
+data class HubManageFailed(val message: String) : Action
 // ADR 0045 — timeline detail overlay (substate within the hub detail, not a Route)
 data class OpenTimelineDetail(val scale: TimelineScale) : Action
 data object CloseTimelineDetail : Action
