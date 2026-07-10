@@ -191,6 +191,20 @@ class AuthClientTest {
     assertTrue(q.invites.isEmpty())
   }
 
+  @Test fun `familyApprovals parses avatar_color and avatar_ref on pending members`() = runBlocking {
+    val engine = MockEngine {
+      respond(
+        """{"invites":[],"pending":[
+          {"uid":"u9","display_name":"Sam Rivera","avatar_color":"teal","avatar_ref":"avatar:fox-01",
+           "role":"adult","provider":"google","requested_at":"2026-06-21T10:00:00Z"}]}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val q = client(engine).familyApprovals("ACCESS", "fam1")
+    assertEquals("teal", q.pending[0].avatarColor)
+    assertEquals("avatar:fox-01", q.pending[0].avatarRef)
+  }
+
   @Test fun `familyApprovals also parses outstanding active invites`() = runBlocking {
     val engine = MockEngine {
       respond(
@@ -280,6 +294,22 @@ class AuthClientTest {
     assertEquals(2, m.size)
     assertEquals("owner", m[0].role)
     assertEquals("Maya", m[1].displayName)
+  }
+
+  @Test fun `familyMembers parses avatar_color and avatar_ref`() = runBlocking {
+    val engine = MockEngine {
+      respond(
+        """{"members":[
+          {"uid":"u1","display_name":"Leo","avatar_color":"teal","avatar_ref":"avatar:fox-01","role":"adult","status":"active"},
+          {"uid":"u2","display_name":"Maya","role":"adult","status":"active"}]}""",
+        HttpStatusCode.OK, jsonCt,
+      )
+    }
+    val m = client(engine).familyMembers("ACCESS", "fam1")
+    assertEquals("teal", m[0].avatarColor)
+    assertEquals("avatar:fox-01", m[0].avatarRef)
+    assertNull(m[1].avatarColor)   // older/undecorated payload still parses (nullable default)
+    assertNull(m[1].avatarRef)
   }
 
   @Test fun `removeMember deletes and accepts 204`() = runBlocking {

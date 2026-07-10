@@ -369,6 +369,8 @@ data class HubTree(
 data class HubAudienceMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val permitted: Boolean = false,
 )

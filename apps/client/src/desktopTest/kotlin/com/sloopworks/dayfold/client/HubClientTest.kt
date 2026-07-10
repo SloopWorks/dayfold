@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class HubClientTest {
@@ -55,6 +56,19 @@ class HubClientTest {
     assertEquals("restricted", aud.visibility)
     assertEquals(true, aud.members.first { it.uid == "u1" }.permitted)
     assertEquals(false, aud.members.first { it.uid == "u2" }.permitted)
+  }
+
+  @Test fun `audience parses avatar_color and avatar_ref`() = runBlocking {
+    val engine = MockEngine {
+      respond(
+        """{"visibility":"family","members":[
+          {"uid":"u1","display_name":"Pat","avatar_color":"teal","avatar_ref":"avatar:fox-01","role":"owner","permitted":true},
+          {"uid":"u2","display_name":"Jordan","role":"adult","permitted":false}]}""", HttpStatusCode.OK, jsonCt)
+    }
+    val aud = client(engine).audience("ax", "fam1", "h1")
+    assertEquals("teal", aud.members.first { it.uid == "u1" }.avatarColor)
+    assertEquals("avatar:fox-01", aud.members.first { it.uid == "u1" }.avatarRef)
+    assertNull(aud.members.first { it.uid == "u2" }.avatarColor)
   }
 
   @Test fun `hubTree 404 → NotFound (restricted or deleted, omit-don't-403)`() = runBlocking {

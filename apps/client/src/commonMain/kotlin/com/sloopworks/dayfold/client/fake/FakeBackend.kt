@@ -150,6 +150,11 @@ class FakeBackend(
   private fun audienceFor(hubId: String): HubAudience =
     data.audiences[hubId] ?: HubAudience(
       visibility = "family",
-      members = data.members.map { HubAudienceMember(it.uid, it.displayName, it.role, permitted = true) },
+      members = data.members.map {
+        HubAudienceMember(
+          uid = it.uid, displayName = it.displayName, avatarColor = it.avatarColor,
+          avatarRef = it.avatarRef, role = it.role, permitted = true,
+        )
+      },
     )
 }

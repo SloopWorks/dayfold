@@ -338,6 +338,8 @@ data class MeProfile(val userId: String, val displayName: String?, val avatarCol
 data class FamilyMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val status: String = "active",
   @SerialName("joined_at") val joinedAt: String? = null,
@@ -348,6 +350,8 @@ data class FamilyMember(
 data class PendingMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val provider: String? = null,
   @SerialName("requested_at") val requestedAt: String? = null,
