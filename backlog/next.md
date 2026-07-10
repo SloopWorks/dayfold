@@ -73,6 +73,32 @@ sharding, which stays orthogonal and gets *easier* after this cut.
 Module-topology change → worth a small Proposed ADR when it lands
 (extends ADR 0047's pattern).
 
+**R8 — model-tiering for agent builds + the reducer-codegen experiment
+(2026-07-10 operator-requested brainstorm; evidence in
+`research/redux-extreme-state-2026-07-agent-outputs/06-llm-tiering-evidence.md`).**
+Fact-backed: LLM failure concentrates on non-locality/hidden-state/ambiguity
+(ClassEval: GPT-4 85%→37% when functions share state), not structural
+complexity; small models match frontier on isolated patterned code
+(Qwen-7B ≈ GPT-4 on HumanEval; Haiku 4.5 = 73.3% SWE-bench Verified at
+$1/$5 per MTok); test-driven repair loops gain most for weak models
+(+16–30 pts); routing/cascades are proven (FrugalGPT ≤98% cost cut).
+Correction: argue "pure-*style* in mainstream Kotlin," NOT "functional
+languages are easier" (Haskell/OCaml are empirically LLM-hostile — corpus
+scarcity). **Policy sketch:** `:state` reducers/selectors/tests → cheap
+tier + verifier loop; mechanical `:ui` bindings/goldens → cheap-to-mid;
+engines/effects/concurrency → frontier; state-shape/taxonomy/ADRs →
+frontier + operator. R2 sharding + R7 module cut disproportionately help
+the cheap tier (long flat files degrade small models most — RULER
+15–30% loss 4K→128K). Prefer generate→compile/test→bounded-repair over
+grammar-constrained decoding (measured 3.6–8.2× constraint tax on small
+models; kotlinc exhaustiveness is the free post-hoc verifier).
+**Experiment (learning-lab-shaped, no published equivalent exists):**
+same reducer-slice tasks run at Haiku vs Sonnet vs frontier tier with the
+existing `:client` test suite + goldens as judge; measure pass rate,
+iterations-to-green, cost-per-merged-change. Feeds both the north-star
+learning goal and redux-kotlin's (currently unquantified) agent-ready
+positioning.
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
