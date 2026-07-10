@@ -2,7 +2,8 @@
 
 ## Status
 
-**Proposed** 2026-07-10 (agent-drafted; operator-gated, not built). Companion to
+**Accepted** 2026-07-10 (operator-directed in-session — "ADR 0053 is accepted";
+agent-drafted, operator-ratified). Immutable — supersede, do not edit. Companion to
 the hi-fi design signed off under **ADR 0008** (`designs/Account-ACL.dc.html`,
 `designs/DESIGN-BRIEF-account-profile-acl.md`). **Extends — does not supersede —
 ADR 0030** (Per-Member Hub & Card Visibility, immutable). Composes with **ADR
