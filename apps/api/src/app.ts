@@ -552,7 +552,70 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
-  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id) });
+  // can_manage (ADR 0053 DC2): lets the client show/hide participant-management
+  // controls (add/set-role/remove, visibility toggle) without a second round-trip.
+  const canManage = await hubs.canManageHub(fid, id, caller);
+  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id), can_manage: canManage });
+});
+
+const PARTICIPANT_ROLES = new Set(["viewer", "contributor", "co_owner"]);
+const HUB_VISIBILITIES = new Set(["family", "restricted"]);
+
+// ADR 0053 DC2: incremental participant management (add/set-role/remove one member
+// on a hub's allow-list) — distinct from the full-replace PUT /hubs/:id upsert.
+// Gated to the hub author or an existing co_owner (canManageHub); the author's row
+// is immutable (permanent implicit co_owner). Uniform 404 on an absent/invisible hub
+// (no existence oracle), matching the audience route above.
+app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  const raw = await c.req.json().catch(() => null);
+  const role = raw?.role;
+  if (typeof role !== "string" || !PARTICIPANT_ROLES.has(role))
+    return c.json({ type: "validation", issues: [{ path: ["role"], message: "role must be one of viewer|contributor|co_owner" }] }, 400);
+  return c.json(await hubs.setParticipant(fid, id, uid, role as hubs.ParticipantRole), 200);
+});
+
+app.delete("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  return c.body(null, (await hubs.removeParticipant(fid, id, uid)) ? 204 : 404);
+});
+
+// ADR 0053 DC2: family<->restricted visibility toggle, same author/co_owner gate as
+// the participant routes above (kept separate from PUT /hubs/:id so a manager can
+// flip visibility without re-supplying the whole hub body / clobbering the allow-list).
+app.put("/families/:fid/hubs/:id/visibility", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  const raw = await c.req.json().catch(() => null);
+  const visibility = raw?.visibility;
+  if (typeof visibility !== "string" || !HUB_VISIBILITIES.has(visibility))
+    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "visibility must be family|restricted" }] }, 400);
+  return c.json(await hubs.setHubVisibility(fid, id, visibility as "family" | "restricted"), 200);
 });
 
 app.put("/families/:fid/hubs/:id", async (c) => {
