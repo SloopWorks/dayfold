@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 
 // AUTH-S5 Slice A — the account/profile surface (Dayfold, from Settings-Phone
 // `profile`). Hosts sign-out (the slice-1 follow). Reached from the Feed top bar
@@ -97,10 +98,7 @@ fun AccountScreen(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
       ) {
-        Box(
-          Modifier.size(48.dp).clip(RoundedCornerShape(50)).background(cs.primaryContainer),
-          contentAlignment = Alignment.Center,
-        ) { Text("Y", style = MaterialTheme.typography.titleMedium, color = cs.onPrimaryContainer) }
+        DayfoldAvatar(name = "You", size = 48.dp)
         Column(Modifier.weight(1f)) {
           Text("You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
           Text(

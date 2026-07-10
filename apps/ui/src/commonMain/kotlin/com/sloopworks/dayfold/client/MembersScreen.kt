@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 import com.sloopworks.dayfold.client.ui.loading.ErrorRetry
 import com.sloopworks.dayfold.client.ui.loading.ListSkeleton
 import com.sloopworks.dayfold.client.ui.loading.RowBusy
@@ -117,7 +118,7 @@ private fun MemberRow(m: FamilyMember, isOwner: Boolean, busy: Boolean, anyBusy:
     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer).padding(13.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
   ) {
-    Avatar((m.displayName ?: "?").take(1).uppercase(), cs.primaryContainer, cs.onPrimaryContainer)
+    DayfoldAvatar(name = m.displayName ?: "?", size = 40.dp)
     Column(Modifier.weight(1f)) {
       Text(m.displayName ?: "Member", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
       Text(m.role.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
@@ -143,7 +144,7 @@ private fun PendingRow(p: PendingMember, busy: Boolean, anyBusy: Boolean, onAppr
       .border(1.5.dp, cs.primaryContainer, RoundedCornerShape(16.dp)).padding(13.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
   ) {
-    Avatar((p.displayName ?: "?").take(1).uppercase(), cs.tertiaryContainer, cs.onTertiaryContainer)
+    DayfoldAvatar(name = p.displayName ?: "?", size = 40.dp)
     Column(Modifier.weight(1f)) {
       Text(p.displayName ?: "Someone", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
       Text("Invited as ${p.role}", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
@@ -164,13 +165,6 @@ private fun PendingRow(p: PendingMember, busy: Boolean, anyBusy: Boolean, onAppr
         contentAlignment = Alignment.Center,
       ) { Text("✓", color = cs.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {}) }
     }
-  }
-}
-
-@Composable
-private fun Avatar(initial: String, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color) {
-  Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(bg), contentAlignment = Alignment.Center) {
-    Text(initial, style = MaterialTheme.typography.titleMedium, color = fg)
   }
 }
 

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.datetime.toLocalDateTime
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.cards.TypedCardItem
+import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 
 // M0 feed-only render: the briefing-card list from redux state. Shared
@@ -80,18 +81,9 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
       },
       actions = {
         // account entry — monogram avatar → AccountScreen (sign-out lives there).
-        // Icon-only → label it "Account"; the "Y" monogram is decorative.
-        Box(
-          Modifier.padding(end = 12.dp).size(34.dp).clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onOpenAccount)
-            .semantics { contentDescription = "Account" },
-          contentAlignment = Alignment.Center,
-        ) {
-          Text(
-            "Y", style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.clearAndSetSemantics {},
-          )
+        // Icon-only → label it "Account"; the monogram itself is decorative.
+        Box(Modifier.padding(end = 12.dp).clip(RoundedCornerShape(50)).clickable(onClick = onOpenAccount)) {
+          DayfoldAvatar(name = "You", size = 34.dp, contentDescription = "Account")
         }
       },
     )
