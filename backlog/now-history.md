@@ -7,6 +7,125 @@ first; come here only when you need the detailed narrative behind a shipped
 feature or an older decision. Entries are in the order they were written
 (newest-first for the main log, with a few older bootstrap-era sections at the
 end) — each is self-dated, so use the dates to orient rather than position.
+**Repo-maintenance-pass paragraphs for 2026-07-03/05/06/07 were moved here
+from `backlog/now.md` on 2026-07-10** (verbatim, that file only keeps the
+most recent pass going forward — see its 2026-07-10 entry for why).
+
+**2026-07-07 repo-maintenance pass (scheduled, not a feature slice) — added a
+CI self-heal path, closed 3 real skill/CLI-doc bugs (not doc drift — actively
+wrong instructions).** Same no-npm/Gradle-registry-egress sandbox as the prior
+three passes (re-confirmed independently: `registry.npmjs.org` 403s here too).
+Rather than re-attempt a source-code dedup pass I can't verify (CI is already
+red at the bundle-check step regardless, so a new push still wouldn't get a
+real test signal), added `.github/workflows/rebuild-api-bundle.yml` — a
+`workflow_dispatch` job that runs `npm run build:fn` on GitHub's runners
+(which have registry access unlike this sandbox) and commits the result back
+to whichever branch triggered it. **Not yet exercised** — GitHub only
+lists/dispatches `workflow_dispatch` workflows already on the default branch,
+so it can't run until this PR merges; see the pinned CI note above for the
+next step. Ran a targeted agent audit (not a full re-sweep — the 07-03/05/06
+passes already covered CLI↔skill-doc alignment broadly) specifically diffing
+CLI/skill docs against the generated schema + `app.ts`, and found 3 real bugs,
+none touched by the earlier passes: (1) `references/content-model.md` and the
+CLI's own `--help`/`USAGE` text both claimed a **card** `media` object carries
+`heroUrl`/`heroFit` — false; per the generated schema only `HubMedia` has
+those, `BriefingCardMedia` has `imageFit` instead (no hero slot at all) — an
+agent following the old doc literally would draft a card that 422s at push,
+since both are `.strict()` schemas. Fixed in both places, split into explicit
+card-vs-hub field lists. (2) The checklist block payload table (in both
+`content-model.md` and `apps/cli/templates/README.md`) omitted the
+**required** `id` field and the ADR-0038 `doneBy`/`doneAt`/`ord` fields
+entirely — an agent hand-authoring a checklist from the documented shape alone
+would fail validation (`id` required, `additionalProperties: false`) or silently
+drop member-toggle state on re-push. Fixed both tables. (3) `visibility: family
+| restricted` + `audience: [userId,...]` (ADR 0030/0038, applies to both cards
+and hubs, pre-dates all three prior passes) was undocumented anywhere in the
+skill or CLI help — an agent had no way to learn this exists. Added it to
+`content-model.md` (framed explicitly as a privacy/consent decision needing
+propose-confirm, not just a formatting option) and the CLI `USAGE` string.
+Also reviewed README/architecture.md/CHANGELOG for drift: none found beyond
+what 07-06 already fixed (no commits landed on `main` between that pass and
+this one besides its own merge, so there was no new code to drift against).
+Values/privacy spot-check clean (no secrets, no PII-logging patterns, no
+direct Gmail OAuth scope, no child-account paths).
+
+**2026-07-06 repo-maintenance pass (scheduled, not a feature slice) — found CI
+red on `main`, fixed doc drift.** Same no-npm/Gradle-registry-egress sandbox as
+the last two passes (confirmed again: `registry.npmjs.org` and
+`raw.githubusercontent.com` both blocked — "Host not in allowlist"). GitHub
+Actions run history showed the **first CI run after the 2026-07-05 merge
+(`cf2898a`/PR #289) failed** — see the pinned note at the top of this file for
+the full diagnosis and why it wasn't hand-patched. Manually re-reviewed that
+merge's `app.ts`/`middleware.ts`/`Main.kt` diff line-by-line as a stopgap; it
+reads as behavior-preserving, but the real vitest run is still owed. Fixed
+found doc drift (no code changes, so no functional risk): `docs/architecture.md`
+had the Android/iOS notification+geofence classes attributed to the host
+modules instead of `apps/client`'s `androidMain`/`iosMain` source sets, was
+missing `packages/schema`/`packages/linkrules` as diagram nodes, and had a
+self-referential notification edge; `README.md`'s CLI command table was
+missing `update`; `apps/settings.gradle.kts`'s header comment predated the
+`:ui`/debugdrawer* split. Closed further curator-skill doc gaps a fresh
+CLI-vs-skill-doc audit found: the legacy `DAYFOLD_API`/`FAMILY_ID`/
+`HOUSEHOLD_SECRET` env-auth fallback, the 0/1/2 exit-code contract, and the
+scope model (`content:*` / `hub:<id>:*`, no in-place re-scope) were all real
+and undocumented in `references/cli.md`; `references/guardrails.md`'s
+Guardrail 3 only listed 2 of the schema's 4 `privacy.storage` values (added
+`in_browser`/`matched_on_device` with their actual on-device chip labels, not
+guessed ones — pulled from `TypedCards.kt::privacyLabel`); `.svg` image
+rejection and the full `related[]` edge shape were undocumented in
+`content-model.md`. Also found + fixed 2 real CHANGELOG.md gaps: the
+2026-06-27 production outage (all card writes were 500ing since M0 — fixed by
+`572619d`) and the 2026-06-28 predictive-back gesture nav (`18d0988`) had no
+entries despite being genuinely user/reader-facing. Values/privacy spot-check
+clean (no secrets, no PII-logging patterns, no direct Gmail OAuth scope in
+code, no child-account paths — guardrails hold). Did **not** re-attempt the
+CODE DEDUP FINDINGS queue below (already ranked; still needs a build-capable
+session) to avoid adding more unverified, unbuildable source changes on top of
+an already-red CI.
+
+**2026-07-05 repo-maintenance pass (this session, scheduled/operator-requested,
+not a feature slice):** applied the small, mechanically-safe items from
+`backlog/next.md`'s CODE DEDUP FINDINGS by careful inspection (same no-registry-
+access sandbox constraint as 2026-07-03; relies on the real CI run, not a local
+build, to compile-verify): deduped `bearer()` (`apps/api`), extracted
+`parseVisibilityAudience()` and `callerFrom()` in `app.ts` (removes ~11 inline
+rebuilds + one copy-pasted validation block), deleted dead `repo.syncCards`,
+and extracted `refreshAccessToken()` in the CLI's `Main.kt` (was inlined 3×).
+Closed further CLI/skill doc drift the CI-health + CLI-agent audits found:
+`timeline` was missing from `references/cli.md`'s type list (present in code
+and two other docs), `upgrade`/`-v` aliases were undocumented, and checklist
+item id-stamping (ADR 0038) — real, behavior-affecting, and previously
+undocumented anywhere — is now called out in `USAGE` + `cli.md`; added
+`importance`/`relatedKicker` to `content-model.md`'s field list. Refreshed
+`CLAUDE.md`'s "Current stage" snapshot (was dated 2026-06-29, claimed two-way
+member-writes were "in active build" when they'd since shipped — see
+CHANGELOG). CI workflows independently audited (via GitHub Actions run
+history, not local): all 6 green on `main`, no breakage found. Values/privacy
+spot-check clean. Remaining dedup findings (auth-route boilerplate, a
+hub-visibility-fetch helper, `app.ts`'s size, CLI-doc consolidation) re-ranked
+in `backlog/next.md` for a build-capable environment — see that file.
+
+**2026-07-03 repo-maintenance pass (operator-requested, not a
+feature slice):** removed 21MB of orphaned generated-dashboard binaries
+(`apps/client/.rk-snapshots/`, stray pre-`:ui`-split output, unreferenced by
+CI); refreshed `README.md`/`docs/architecture.md`/`CLAUDE.md` for the
+`apps/ui`+`apps/iosApp` split and iOS's shipped-sim status; added a root
+`AGENTS.md` (thin pointer to `CLAUDE.md`, resolves the ADR 0013 §6
+commitment); closed CLI-`--help`/skill-doc gaps (legacy env-auth path, exit
+codes, credential storage location, `login`/`logout`/`update`/`version` were
+undocumented in the curator skill's `cli.md`); reconciled two stale/
+self-contradicting entries in `backlog/next.md`; split this file. CI verified
+green throughout (no breakage); values/privacy spot-check clean (no secrets,
+no PII logging, code matches the documented Gmail/child-account/location
+guardrails — see `SECURITY.md` + `CLAUDE.md` guardrails). Sandbox had no
+outbound access to the npm/Gradle registries, so no functional/logic code
+changes were made (docs + one binary-file deletion only) — see the newly
+ranked entries in `backlog/next.md`'s CODE DEDUP FINDINGS for what's queued
+for a build-capable environment. Note: an earlier 2026-07-02 pass on a
+different, never-merged branch (`claude/upbeat-fermat-r4mggb`) covered
+similar ground; its useful content already shipped separately via `be45de6`
+(PR #276) — see `backlog/now-history.md` if you land on that branch and need
+to know it's superseded.
 
 **Status update (2026-07-02): repo maintenance pass** (simplification +
 agentic-dev optimization, operator-requested, not a feature slice). CI

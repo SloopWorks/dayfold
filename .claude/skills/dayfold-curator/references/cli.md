@@ -97,9 +97,15 @@ dayfold push <blockId> block.json --block         # block (body carries sectionI
   the payload's variant key matches `type`, unknown/mistyped fields, strict
   decode. It does **not** check the server's format rules (`link.url`
   well-formedness, ISO-8601 fields, length/int caps) — those still 422 at the
-  server. Two known codegen asymmetries: the validator **requires** `kind` and
+  server. Known codegen asymmetries: the validator **requires** `kind` and
   `provenance.at` even though the server relaxes them — author from `dayfold
-  template` (both are pre-filled) rather than a bare hand-written stub.
+  template` (both are pre-filled) rather than a bare hand-written stub. Also:
+  a **card's** `visibility`/`audience` (ADR 0030/0038) are real, server-accepted
+  fields — but they live outside the generated content schema (access control,
+  not content), so `--type`'s strict decode rejects them as an unknown key.
+  Push a `restricted`/`audience`-scoped card **without `--type`** (drops to the
+  lenient JSON-structural path); hub-tree pushes are unaffected
+  (`validateHubTree` is already lenient-structural).
 
 ## Delete — remove a hub, card, or block
 
