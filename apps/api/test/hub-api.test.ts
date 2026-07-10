@@ -195,8 +195,44 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Private", visibility: "family" })).status).toBe(404);
     expect((await getJson(fid, "hubs/s6", bob.token)).status).toBe(404);   // unchanged: still restricted, still hidden from bob
 
-    // once the author adds bob to the allow-list, bob MAY rewrite it
+    // once the author adds bob to the allow-list, bob is now visible/permitted BUT
+    // still only a plain viewer (upsertHub's audience rows default role='viewer',
+    // migration 0018) — a same-visibility, same-audience rewrite (title-only edit)
+    // is plain authoring and still allowed for him...
     await put(fid, "hubs/s6", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
-    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Open", visibility: "family" })).status).toBe(200);
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Still private", visibility: "restricted", audience: [o.userId, bob.userId] })).status).toBe(200);
+    // ...but a viewer flipping visibility (or rewriting the audience) is a MANAGEMENT
+    // action (ADR 0053 item 5: only author/co_owner may manage participants or flip
+    // visibility) — a plain viewer must be rejected, not allowed through just because
+    // they're on the allow-list. (Regression coverage for the hole where this route's
+    // `permitted()` gate let ANY allow-listed member, including a viewer, flip
+    // visibility/audience; DC2's dedicated PUT .../visibility and
+    // .../participants/:uid routes were correctly gated by canManageHub, but this
+    // legacy full-upsert route was never reconciled.)
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Open", visibility: "family" })).status).toBe(403);
+  });
+
+  it("PUT /hubs/:id: a viewer cannot flip visibility or rewrite the audience; a co_owner can", async () => {
+    const o = await ownerOf("s7-owner");
+    const bob = await memberOf("s7-bob", o.familyId);
+    const carol = await memberOf("s7-carol", o.familyId);
+    const fid = o.familyId;
+    await q(`INSERT INTO credential_grants(credential_id, scope)
+             SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [bob.userId]);
+    await q(`INSERT INTO credential_grants(credential_id, scope)
+             SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [carol.userId]);
+    // owner authors a family-visible hub, then grants bob 'viewer' and carol 'co_owner'
+    await put(fid, "hubs/s7", o.token, { type: "medical", title: "Open", visibility: "family" });
+    await app.request(`/families/${fid}/hubs/s7/participants/${bob.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "viewer" }) });
+    await app.request(`/families/${fid}/hubs/s7/participants/${carol.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "co_owner" }) });
+
+    // bob (viewer) tries to flip it to restricted, locking others out → 403, and the
+    // hub must be UNCHANGED (still family-visible) — the write must not have applied.
+    expect((await put(fid, "hubs/s7", bob.token, { type: "medical", title: "Open", visibility: "restricted", audience: [bob.userId] })).status).toBe(403);
+    expect((await getJson(fid, "hubs/s7", o.token)).body.visibility).toBe("family");
+
+    // carol (co_owner) may flip the same hub to restricted.
+    expect((await put(fid, "hubs/s7", carol.token, { type: "medical", title: "Open", visibility: "restricted", audience: [o.userId, carol.userId] })).status).toBe(200);
+    expect((await getJson(fid, "hubs/s7", o.token)).body.visibility).toBe("restricted");
   });
 });

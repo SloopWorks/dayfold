@@ -658,6 +658,19 @@ app.put("/families/:fid/hubs/:id", async (c) => {
     // an existing hub. A fresh hub's author is the caller → allowed.
     if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
       return c.json({ type: "forbidden" }, 403);
+    // ADR 0053 item 5: a PUT that actually CHANGES visibility or the audience allow-
+    // list is a MANAGEMENT action, not plain authoring — require canManageHub
+    // (author/co_owner/legacy), same gate as the dedicated .../visibility and
+    // .../participants/:uid routes. Without this, `permitted()` above (any allow-
+    // listed member, including a plain 'viewer') would let a viewer flip a restricted
+    // hub to family or rewrite the allow-list to lock others out. A no-op PUT (title/
+    // body edit that leaves visibility + audience unchanged) is NOT a management
+    // action and stays open to any writer, so this check only fires on an actual
+    // change.
+    const newAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
+    const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
+    if ((visibility !== existing.visibility || audienceChanged) && !(await hubs.canManageHub(fid, id, caller)))
+      return c.json({ type: "forbidden" }, 403);
   }
   return c.json(await hubs.upsertHub(fid, id, parsed.data, caller, visibility, audience), 200);
 });
