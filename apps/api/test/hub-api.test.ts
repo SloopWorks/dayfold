@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql","0018_resource_visibility_role.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -102,6 +102,18 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     const bobRow = aud.body.members.find((m: any) => m.uid === bob.userId);
     expect(bobRow.avatar_ref).toBeNull();
     expect(bobRow.avatar_color).toBeNull();
+    // participation_role (ADR 0053 DC1): author is co_owner regardless of resource_visibility.role;
+    // bob's explicit allow-list row defaults to 'viewer' until bumped — seed 'contributor' directly
+    // (DC1 has no management API yet, so the test writes the column straight).
+    expect(ownerRow.participation_role).toBe("co_owner");
+    expect(bobRow.participation_role).toBe("viewer");
+    await q(`UPDATE resource_visibility SET role='contributor' WHERE family_id=$1 AND hub_id='r' AND user_id=$2`, [o.familyId, bob.userId]);
+    const aud2 = await getJson(o.familyId, "hubs/r/audience", o.token);
+    const bobRow2 = aud2.body.members.find((m: any) => m.uid === bob.userId);
+    expect(bobRow2.participation_role).toBe("contributor");
+    // eve has no allow-list row at all → participation_role is null (and not permitted anyway)
+    const eveRow = aud.body.members.find((m: any) => m.uid === eve.userId);
+    expect(eveRow.participation_role).toBeNull();
     // eve (not permitted) cannot even enumerate the audience → uniform 404
     expect((await getJson(o.familyId, "hubs/r/audience", eve.token)).status).toBe(404);
 

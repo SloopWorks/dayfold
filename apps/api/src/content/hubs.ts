@@ -149,6 +149,7 @@ export async function getHubTree(familyId: string, hubId: string) {
 export async function hubAudience(familyId: string, hubId: string) {
   const r = await q(
     `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role,
+            CASE WHEN m.user_id = h.created_by THEN 'co_owner' ELSE rv2.role END AS participation_role,
             (h.visibility = 'family'
              OR m.user_id = h.created_by
              OR EXISTS (SELECT 1 FROM resource_visibility rv
@@ -156,6 +157,7 @@ export async function hubAudience(familyId: string, hubId: string) {
        FROM memberships m
        JOIN users u ON u.id = m.user_id
        JOIN hubs h ON h.family_id=$1 AND h.id=$2
+       LEFT JOIN resource_visibility rv2 ON rv2.family_id=$1 AND rv2.hub_id=$2 AND rv2.user_id=m.user_id
       WHERE m.family_id=$1 AND m.status='active'
       ORDER BY (m.role='owner') DESC, u.display_name, m.user_id`,
     [familyId, hubId]);
