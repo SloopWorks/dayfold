@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #C0381E; } a:hover { color: #87200B; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes shimmer { 0%,100% { opacity:0.55; } 50% { opacity:1; } }
+  .acl-scroll::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+<div data-screen-label="{{ screenLabel }}" style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">signal_cellular_off</span></sc-if>
+      <sc-if value="{{ online }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE — chosen fun avatar in the account header ============ -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+    <div class="acl-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Profile</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:8px;">
+          <div style="position:relative;margin-bottom:12px;">
+            <span style="width:96px;height:96px;border-radius:999px;background:{{ maya.avBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:46px;color:{{ maya.avFg }};">local_florist</span></span>
+            <span style="position:absolute;bottom:-2px;right:-2px;width:32px;height:32px;border-radius:999px;background:{{ c.primary }};border:3px solid {{ c.surface }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ c.onPrimary }};">edit</span></span>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onPrimaryContainer }};background:{{ c.primaryContainer }};border-radius:999px;padding:8px 16px;margin-bottom:8px;"><span class="msr" style="font-size:17px;">face</span>Change avatar</span>
+          <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};text-align:center;max-width:32ch;line-height:1.45;">Shows everywhere — the family roster, hubs and your edits.</div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin:14px 2px 7px;">DISPLAY NAME</div>
+        <div style="height:56px;border-radius:16px;background:{{ c.surfaceContainer }};border:2px solid {{ c.primary }};display:flex;align-items:center;padding:0 16px;margin-bottom:22px;">
+          <span style="flex:1;font-family:'Outfit';font-weight:500;font-size:17px;color:{{ c.onSurface }};">Maya Jackson</span>
+          <span class="msr" style="font-size:20px;color:{{ c.primary }};">edit</span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">verified_user</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Role</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Set by your family — read-only</div></div>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:4px 10px;border-radius:8px;">ADULT</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">passkey</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign-in methods</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Google</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">logout</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Sign out</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ AVATAR PICKER SHEET (monogram / fun panes) ============ -->
+  <sc-if value="{{ isAvatarSheet }}" hint-placeholder-val="{{ false }}">
+    <!-- dimmed profile behind -->
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.55;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 12px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Profile</span></div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;"><span style="width:96px;height:96px;border-radius:999px;background:{{ c.surfaceContainerHigh }};"></span></div>
+      <div style="height:56px;border-radius:16px;background:{{ c.surfaceContainer }};margin-bottom:12px;"></div>
+      <div style="height:120px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 14px;">Your avatar</h2>
+      <!-- SegmentedButton: Monogram · Fun avatars · Photo (disabled) -->
+      <div style="display:flex;border:1px solid {{ c.outline }};border-radius:999px;overflow:hidden;margin-bottom:16px;">
+        <sc-for list="{{ avSegs }}" as="s" hint-placeholder-count="3">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 0;background:{{ s.bg }};color:{{ s.fg }};opacity:{{ s.op }};border-right:1px solid {{ s.border }};">
+            <sc-if value="{{ s.check }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:16px;">check</span></sc-if>
+            <sc-if value="{{ s.locked }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:15px;">lock</span></sc-if>
+            <span style="font-family:'Figtree';font-size:13px;font-weight:500;">{{ s.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- MONOGRAM pane -->
+      <sc-if value="{{ isAvMono }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:6px;">
+          <span style="width:80px;height:80px;border-radius:999px;background:{{ monoSel }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:32px;color:#FFFFFF;margin-bottom:18px;">M</span>
+          <div style="display:flex;gap:13px;margin-bottom:16px;">
+            <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ s.color }};display:flex;align-items:center;justify-content:center;border:3px solid {{ s.ring }};box-shadow:0 0 0 2px {{ s.gap }} inset;">
+                <sc-if value="{{ s.selected }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:18px;color:#FFFFFF;">check</span></sc-if>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;background:{{ c.surfaceContainer }};border-radius:13px;padding:11px 13px;margin-bottom:16px;">
+          <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Your monogram is the default — and the fallback everywhere if no avatar is set. Never a blank.</span>
+        </div>
+      </sc-if>
+
+      <!-- FUN AVATARS pane -->
+      <sc-if value="{{ isAvFun }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:18px;padding:12px 16px;margin-bottom:14px;">
+          <span style="width:56px;height:56px;border-radius:999px;background:{{ maya.avBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ maya.avFg }};">local_florist</span></span>
+          <div><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Flower</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Screen readers hear "Flower avatar"</div></div>
+        </div>
+        <div style="margin-bottom:4px;">
+          <sc-for list="{{ funGroups }}" as="g" hint-placeholder-count="4">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};margin:6px 2px 7px;">{{ g.label }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+              <sc-for list="{{ g.items }}" as="a" hint-placeholder-count="6">
+                <div style="width:48px;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                  <span style="width:44px;height:44px;border-radius:999px;background:{{ a.bg }};display:flex;align-items:center;justify-content:center;border:3px solid {{ a.ring }};position:relative;">
+                    <span class="msr fill" style="font-size:22px;color:{{ a.fg }};">{{ a.icon }}</span>
+                    <sc-if value="{{ a.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;bottom:-3px;right:-3px;width:17px;height:17px;border-radius:999px;background:{{ c.primary }};border:2px solid {{ c.surfaceContainerLow }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:11px;color:{{ c.onPrimary }};">check</span></span></sc-if>
+                  </span>
+                  <span style="font-family:'Figtree';font-size:10px;color:{{ c.onSurfaceVar }};">{{ a.name }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- explicit save -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.primary }};padding:11px 16px;">Cancel</span>
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:999px;padding:11px 26px;">Save</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY ROSTER (owner / adult) ============ -->
+  <sc-if value="{{ isRoster }}" hint-placeholder-val="{{ false }}">
+    <div class="acl-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 10px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The Jacksons · 4 members</div></div>
+      </div>
+      <div style="padding:2px 18px 26px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:6px 4px 9px;">MEMBERS</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">
+          <sc-for list="{{ roster }}" as="m" hint-placeholder-count="4">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 15px;display:flex;align-items:center;gap:12px;">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ m.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+                <sc-if value="{{ m.avIsIcon }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:21px;color:{{ m.avFg }};">{{ m.avGlyph }}</span></sc-if>
+                <sc-if value="{{ m.avIsMono }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ m.avFg }};">{{ m.avGlyph }}</span></sc-if>
+              </span>
+              <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ m.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.sub }}</div></div>
+              <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ m.roleFg }};background:{{ m.roleBg }};padding:4px 10px;border-radius:8px;flex:0 0 auto;">{{ m.role }}</span>
+              <sc-if value="{{ m.more }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">more_vert</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ isRosterOwner }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:16px;border:1.5px dashed {{ c.outline }};margin-bottom:11px;"><span class="msr" style="font-size:20px;color:{{ c.primary }};">person_add</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.primary }};">Invite a member</span></div>
+          <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px;margin-bottom:18px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">swap_horiz</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Transfer ownership</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isRosterAdult }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;margin-bottom:18px;">
+            <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Roles are set by the family owner. Avatars are each member's own choice.</span>
+          </div>
+        </sc-if>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Leave family</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ HUB HEADER — avatars in situ ============ -->
+  <sc-if value="{{ isHubHeader }}" hint-placeholder-val="{{ false }}">
+    <div class="acl-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">more_vert</span>
+      </div>
+      <div style="padding:4px 20px 12px;">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+          <span style="width:54px;height:54px;border-radius:17px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ c.onTertiaryContainer }};">medical_services</span></span>
+          <div>
+            <div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Dad's knee surgery</span><span class="msr fill" style="font-size:16px;color:{{ c.lockFg }};">lock</span></div>
+            <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">Recovery · day 4</div>
+          </div>
+        </div>
+        <!-- participant avatar-stack AssistChip → opens People sheet -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="display:inline-flex;align-items:center;gap:8px;border:1px solid {{ c.outlineVar }};background:{{ c.surface }};border-radius:999px;padding:5px 12px 5px 6px;">
+            <span style="display:flex;">
+              <sc-for list="{{ stack }}" as="p" hint-placeholder-count="3">
+                <span style="width:26px;height:26px;border-radius:999px;background:{{ p.avBg }};border:2px solid {{ c.surface }};display:flex;align-items:center;justify-content:center;margin-left:{{ p.ml }};">
+                  <sc-if value="{{ p.avIsIcon }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:13px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+                  <sc-if value="{{ p.avIsMono }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Outfit';font-weight:600;font-size:10px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+                </span>
+              </sc-for>
+            </span>
+            <span style="font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};">3 people</span>
+            <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.lockChipFg }};background:{{ c.lockChipBg }};border-radius:999px;padding:6px 12px;"><span class="msr fill" style="font-size:14px;">lock</span>Restricted</span>
+        </div>
+      </div>
+      <div style="padding:6px 18px 26px;display:flex;flex-direction:column;gap:12px;">
+        <!-- to-do card with contributor byline avatars -->
+        <div style="background:{{ c.cardBg }};border-radius:18px;padding:6px 4px;box-shadow:{{ c.cardShadow }};">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};padding:10px 16px 4px;">RECOVERY CHECKLIST</div>
+          <div style="display:flex;align-items:center;gap:14px;padding:11px 14px;">
+            <span style="width:22px;height:22px;border-radius:7px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr" style="font-size:16px;color:{{ c.onPrimary }};">check</span></span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:500;font-size:14.5px;color:{{ c.onSurfaceVar }};text-decoration:line-through;">Pick up prescriptions</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                <span style="width:17px;height:17px;border-radius:999px;background:{{ leo.avBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:10px;color:{{ leo.avFg }};">eco</span></span>
+                <span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Leo · just now</span>
+              </div>
+            </div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:11px 14px;">
+            <span style="width:22px;height:22px;border-radius:7px;border:2px solid {{ c.outline }};flex:0 0 auto;"></span>
+            <div style="flex:1;font-family:'Figtree';font-weight:500;font-size:14.5px;color:{{ c.onSurface }};">Ice + elevation before bed</div>
+          </div>
+        </div>
+        <!-- authored card with byline -->
+        <div style="background:{{ c.cardBg }};border-radius:18px;padding:16px;box-shadow:{{ c.cardShadow }};">
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-bottom:4px;">PT appointment — Tue 3:00</div>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin-bottom:12px;">Bring the brace and the referral letter.</div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="width:20px;height:20px;border-radius:999px;background:{{ maya.avBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:12px;color:{{ maya.avFg }};">local_florist</span></span>
+            <span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Maya · 2h ago</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:2px 6px 0;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Bylines fall back to the monogram when no avatar is set — never a blank.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ HUB BACKDROP (dimmed, shared by all people sheets) ============ -->
+  <sc-if value="{{ showHubBackdrop }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 20px;opacity:0.55;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px 12px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span class="msr" style="font-size:24px;color:{{ c.onSurface }};">more_vert</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+        <span style="width:54px;height:54px;border-radius:17px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ c.onTertiaryContainer }};">medical_services</span></span>
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Dad's knee surgery</span><span class="msr fill" style="font-size:16px;color:{{ c.lockFg }};">lock</span></div>
+          <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">Recovery · day 4</div>
+        </div>
+      </div>
+      <div style="height:110px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:12px;"></div>
+      <div style="height:90px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+  </sc-if>
+
+  <!-- ============ PEOPLE SHEET — owner / first-restricted / offline (variant A) ============ -->
+  <sc-if value="{{ isSheetA }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <div style="margin-bottom:14px;">
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 2px;">People in this hub</h2>
+        <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Dad's knee surgery</div>
+      </div>
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:11px;background:{{ c.surfaceContainerHigh }};border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">cloud_off</span>
+          <span style="font-family:'Figtree';font-size:13px;line-height:1.4;color:{{ c.onSurface }};"><b>You're offline.</b> Showing the last synced copy.</span>
+        </div>
+      </sc-if>
+      <!-- visibility SegmentedButton -->
+      <div style="opacity:{{ ctlOp }};">
+        <div style="display:flex;border:1px solid {{ c.outline }};border-radius:999px;overflow:hidden;margin-bottom:8px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 0;color:{{ c.onSurface }};border-right:1px solid {{ c.outline }};"><span class="msr" style="font-size:16px;">diversity_3</span><span style="font-family:'Figtree';font-size:13px;font-weight:500;">Family</span></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 0;background:{{ c.secondaryContainer }};color:{{ c.onSecondaryContainer }};"><span class="msr" style="font-size:16px;">check</span><span style="font-family:'Figtree';font-size:13px;font-weight:500;">Restricted</span></div>
+        </div>
+      </div>
+      <div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};margin:0 4px 16px;">Only the people below can open this hub.</div>
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:7px;margin:-8px 4px 14px;"><span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">lock</span><span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You're offline — reconnect to change this.</span></div>
+      </sc-if>
+      <!-- people label + last-synced meta -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 9px;">
+        <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">PEOPLE</span>
+        <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:14px;">history</span>Updated · 2h ago</span></sc-if>
+      </div>
+      <!-- owner row — pinned, locked -->
+      <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <span style="width:40px;height:40px;border-radius:999px;background:{{ maya.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr fill" style="font-size:21px;color:{{ maya.avFg }};">local_florist</span></span>
+        <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Maya Jackson <span style="font-weight:400;color:{{ c.onSurfaceVar }};">· you</span></div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Created this hub · always has access</div></div>
+        <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;flex:0 0 auto;">OWNER</span>
+        <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">lock</span>
+      </div>
+      <!-- participant rows with role dropdowns -->
+      <sc-if value="{{ showParticipants }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:8px;opacity:{{ ctlOp }};">
+          <sc-for list="{{ hubPeople }}" as="p" hint-placeholder-count="2">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:11px 12px 11px 14px;display:flex;align-items:center;gap:11px;">
+              <span style="width:40px;height:40px;border-radius:999px;background:{{ p.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+                <sc-if value="{{ p.avIsIcon }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:21px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+                <sc-if value="{{ p.avIsMono }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+              </span>
+              <div style="flex:1;min-width:0;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ p.name }}</div>
+              <span style="display:inline-flex;align-items:center;gap:2px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};border:1px solid {{ c.outlineVar }};border-radius:10px;padding:6px 4px 6px 11px;flex:0 0 auto;">{{ p.role }}<span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">arrow_drop_down</span></span>
+              <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">close</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <!-- first-restricted empty state -->
+      <sc-if value="{{ isFirstRestricted }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 20px 10px;">
+          <span style="width:54px;height:54px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><span class="msr" style="font-size:26px;color:{{ c.onSurfaceVar }};">group_add</span></span>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};margin-bottom:4px;">It's just you here</div>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};max-width:30ch;">Add people so the right family members can see this hub.</div>
+        </div>
+      </sc-if>
+      <!-- inline role explainer entry -->
+      <div style="display:flex;align-items:center;gap:9px;padding:13px 6px 3px;opacity:{{ ctlOp }};">
+        <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">help</span>
+        <span style="flex:1;font-family:'Figtree';font-size:13px;font-weight:500;color:{{ c.onSurfaceVar }};">What can each role do?</span>
+        <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">expand_more</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:999px;background:{{ c.primaryContainer }};margin-top:12px;opacity:{{ ctlOp }};"><span class="msr" style="font-size:20px;color:{{ c.onPrimaryContainer }};">person_add</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onPrimaryContainer }};">Add people</span></div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PEOPLE SHEET — contributor (read-only list) ============ -->
+  <sc-if value="{{ isSheetContrib }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <div style="margin-bottom:12px;">
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 2px;">People in this hub</h2>
+        <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Dad's knee surgery</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:{{ c.lockChipBg }};border-radius:13px;padding:11px 13px;margin-bottom:16px;">
+        <span class="msr fill" style="font-size:17px;color:{{ c.lockChipFg }};">lock</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:{{ c.lockChipFg }};"><b>Restricted</b> — only the people below can see this hub.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <sc-for list="{{ peopleRead }}" as="p" hint-placeholder-count="3">
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:999px;background:{{ p.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+              <sc-if value="{{ p.avIsIcon }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:21px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+              <sc-if value="{{ p.avIsMono }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+            </span>
+            <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ p.name }}<sc-if value="{{ p.you }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:{{ c.onSurfaceVar }};"> · you</span></sc-if></div></div>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ p.roleFg }};background:{{ p.roleBg }};padding:4px 10px;border-radius:8px;flex:0 0 auto;">{{ p.role }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:16px 6px 2px;">
+        <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Only the hub owner or a co-owner can manage people.</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PEOPLE SHEET — viewer (minimal) ============ -->
+  <sc-if value="{{ isSheetViewer }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 14px;">People in this hub</h2>
+      <div style="display:flex;align-items:center;gap:14px;background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;margin-bottom:14px;">
+        <span style="display:flex;">
+          <sc-for list="{{ stackBig }}" as="p" hint-placeholder-count="3">
+            <span style="width:38px;height:38px;border-radius:999px;background:{{ p.avBg }};border:2.5px solid {{ c.surfaceContainer }};display:flex;align-items:center;justify-content:center;margin-left:{{ p.ml }};">
+              <sc-if value="{{ p.avIsIcon }}" hint-placeholder-val="{{ false }}"><span class="msr fill" style="font-size:19px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+              <sc-if value="{{ p.avIsMono }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ p.avFg }};">{{ p.avGlyph }}</span></sc-if>
+            </span>
+          </sc-for>
+        </span>
+        <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurface }};">Maya <span style="color:{{ c.onSurfaceVar }};">(owner)</span>, Leo and you can see this hub.</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+        <span class="msr fill" style="font-size:17px;color:{{ c.lockFg }};margin-top:1px;">lock</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">This hub is restricted. The hub owner manages who's here.</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ FAMILY → RESTRICTED CONFIRM SHEET ============ -->
+  <sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <div style="width:56px;height:56px;border-radius:18px;background:{{ c.lockChipBg }};display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><span class="msr fill" style="font-size:28px;color:{{ c.lockChipFg }};">lock</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 6px;">Restrict this hub?</h2>
+      <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Only the people you've named will see it. Everyone else in the family loses access:</p>
+      <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <span style="width:40px;height:40px;border-radius:999px;background:{{ pat.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ pat.avFg }};">P</span></span>
+        <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Family owner · not on the list</div></div>
+        <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.error }};">Loses access</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:0 4px;margin-bottom:20px;">
+        <span class="msr" style="font-size:18px;color:{{ c.secondary }};margin-top:1px;">sync</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">They'll simply stop seeing this hub on their next sync — nothing is announced.</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.primary }};padding:11px 16px;">Cancel</span>
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:999px;padding:11px 24px;">Restrict</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ADD PEOPLE SHEET ============ -->
+  <sc-if value="{{ isAddPeople }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <div style="margin-bottom:14px;">
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 2px;">Add people</h2>
+        <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Dad's knee surgery · new people start as viewers</div>
+      </div>
+      <div style="background:{{ c.surfaceContainer }};border:1.5px solid {{ c.primary }};border-radius:16px;padding:11px 12px 11px 14px;display:flex;align-items:center;gap:11px;margin-bottom:10px;">
+        <span style="width:40px;height:40px;border-radius:999px;background:{{ pat.avBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ pat.avFg }};">P</span></span>
+        <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Pat Jackson</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Family owner — added like anyone else</div></div>
+        <span style="display:inline-flex;align-items:center;gap:2px;font-family:'Figtree';font-size:12.5px;font-weight:600;color:{{ c.onSurface }};border:1px solid {{ c.outlineVar }};border-radius:10px;padding:6px 4px 6px 11px;flex:0 0 auto;">Viewer<span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">arrow_drop_down</span></span>
+        <span style="width:22px;height:22px;border-radius:7px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr" style="font-size:16px;color:{{ c.onPrimary }};">check</span></span>
+      </div>
+      <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};margin:0 4px 18px;">Everyone else in the family is already in this hub.</div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.primary }};padding:11px 16px;">Cancel</span>
+        <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:999px;padding:11px 24px;">Add 1 person</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ROLE EXPLAINER SHEET ============ -->
+  <sc-if value="{{ isExplainer }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.25);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 4px;">Roles in this hub</h2>
+      <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Three levels, plain and simple — tap one for more.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+          <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 14px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="width:36px;height:36px;border-radius:11px;background:{{ r.iconBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr" style="font-size:19px;color:{{ r.iconFg }};">{{ r.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ r.name }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ r.line }}</div></div>
+              <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">{{ r.chev }}</span>
+            </div>
+            <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+              <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:10px 2px 2px 48px;">{{ r.detail }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+        <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">verified_user</span>
+        <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">The person who created the hub is its owner — always has full control, can't be removed.</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ NO ACCESS — restricted hub, viewer is the FAMILY OWNER ============ -->
+  <sc-if value="{{ isNoAccess }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 40px 80px;">
+        <span style="width:76px;height:76px;border-radius:999px;background:{{ c.lockChipBg }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr fill" style="font-size:36px;color:{{ c.lockChipFg }};">lock</span></span>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">You don't have access to this hub</h2>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 26px;max-width:30ch;">It's restricted to the people its owner chose. They can add you.</p>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 15px;max-width:300px;text-align:left;">
+          <span class="msr" style="font-size:18px;color:{{ c.secondary }};margin-top:1px;">shield_lock</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Privacy works the same for everyone — being the family owner doesn't open restricted hubs.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:7;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;avatar-monogram&quot;,&quot;avatar-fun&quot;,&quot;roster-owner&quot;,&quot;roster-adult&quot;,&quot;hub-header&quot;,&quot;hub-people-owner&quot;,&quot;hub-people-contributor&quot;,&quot;hub-people-viewer&quot;,&quot;visibility-confirm&quot;,&quot;add-people&quot;,&quot;role-explainer&quot;,&quot;no-access&quot;,&quot;first-restricted&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;hub-people-owner&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'profile';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA', surfaceContainerHighest:'#EDD9D2',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      error:'#BA1A1A', errorContainer:'#FFDAD6', onErrorContainer:'#410002',
+      scrim:'rgba(39,24,20,0.42)', skeleton:'#F0DFDA',
+      lockFg:'#8C6A60', lockChipBg:'#F2E0DA', lockChipFg:'#5A423C',
+      cardBg:'#FFFFFF', cardShadow:'0 1px 3px rgba(39,24,20,0.08)',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322D',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      error:'#FFB4AB', errorContainer:'#93000A', onErrorContainer:'#FFDAD6',
+      scrim:'rgba(0,0,0,0.55)', skeleton:'#322824',
+      lockFg:'#BFA79E', lockChipBg:'#3B2E29', lockChipFg:'#E4CCC4',
+      cardBg:'#271D1A', cardShadow:'none',
+    };
+    const c = mode === 'dark' ? dark : light;
+
+    // avatar tint pairs — keyed to the existing avatar_color ramp (invent no tokens)
+    const tintsLight = [
+      { bg:'#FFDAD2', fg:'#5A1100' }, // coral
+      { bg:'#9DF2E4', fg:'#00201C' }, // teal
+      { bg:'#ECDCFF', fg:'#23005C' }, // violet
+      { bg:'#D5E3FF', fg:'#001B3C' }, // blue
+      { bg:'#FFD8E8', fg:'#390726' }, // magenta
+      { bg:'#EDE398', fg:'#241A00' }, // olive
+    ];
+    const tintsDark = [
+      { bg:'#9A2A12', fg:'#FFDAD2' },
+      { bg:'#005048', fg:'#9DF2E4' },
+      { bg:'#4C2092', fg:'#ECDCFF' },
+      { bg:'#274777', fg:'#D5E3FF' },
+      { bg:'#7B2F58', fg:'#FFD8E8' },
+      { bg:'#5C4300', fg:'#EDE398' },
+    ];
+    const tint = (i) => (mode === 'dark' ? tintsDark : tintsLight)[i];
+    const av = (isIcon, glyph, i) => ({ avIsIcon:isIcon, avIsMono:!isIcon, avGlyph:glyph, avBg:tint(i).bg, avFg:tint(i).fg });
+
+    const pat  = av(false, 'P', 0);
+    const maya = av(true, 'local_florist', 2);
+    const leo  = av(true, 'eco', 1);
+    const sam  = av(false, 'S', 3);
+
+    // segmented for avatar picker
+    const funPane = view === 'avatar-fun';
+    const seg = (label, sel, locked) => ({
+      label, check: sel, locked: !!locked,
+      bg: sel ? c.secondaryContainer : 'transparent',
+      fg: sel ? c.onSecondaryContainer : c.onSurface,
+      op: locked ? 0.45 : 1,
+      border: c.outline,
+    });
+    const avSegs = [
+      seg('Monogram', !funPane, false),
+      seg('Fun avatars', funPane, false),
+      { ...seg('Photo', false, true), border:'transparent' },
+    ];
+
+    // monogram swatches (avatar_color)
+    const swatchColors = ['#C0381E','#00796F','#6438AE','#1D6FB8','#A1356E','#7A5900'];
+    const swatches = swatchColors.map((color, i) => ({
+      color, selected: i === 2,
+      ring: i === 2 ? c.onSurface : 'transparent',
+      gap: i === 2 ? c.surfaceContainerLow : 'transparent',
+    }));
+    const monoSel = swatchColors[2];
+
+    // bundled fun-avatar set (~21) — calm creatures / nature / sky / water & shapes
+    const F = (icon, name, t, sel) => ({ icon, name, sel: !!sel, bg:tint(t).bg, fg:tint(t).fg, ring: sel ? c.primary : 'transparent' });
+    const funGroups = [
+      { label:'CREATURES', items:[ F('pets','Paw',0), F('cruelty_free','Bunny',4), F('hive','Hive',5) ] },
+      { label:'NATURE', items:[ F('eco','Leaf',1), F('forest','Forest',1), F('local_florist','Flower',2,true), F('filter_vintage','Bloom',4), F('spa','Calm',1), F('landscape','Peaks',3) ] },
+      { label:'SKY', items:[ F('wb_sunny','Sun',5), F('bedtime','Moon',2), F('star','Star',5), F('cloud','Cloud',3), F('air','Breeze',3), F('bolt','Spark',0) ] },
+      { label:'WATER & SHAPES', items:[ F('water_drop','Drop',3), F('waves','Waves',1), F('anchor','Anchor',3), F('favorite','Heart',0), F('hexagon','Hex',2), F('diamond','Gem',4) ] },
+    ];
+
+    // family roster — mixed monogram + fun avatars, quiet role chips
+    const roleOwner = { role:'OWNER', roleFg:c.onSecondaryContainer, roleBg:c.secondaryContainer };
+    const roleAdult = { role:'ADULT', roleFg:c.onSurfaceVar, roleBg:c.surfaceContainerHigh };
+    const asAdult = view === 'roster-adult';
+    const roster = [
+      { ...pat, name:'Pat Jackson', sub: asAdult ? 'Joined Jun 2026' : 'You · joined Jun 2026', ...roleOwner, more:false },
+      { ...maya, name:'Maya Jackson', sub: asAdult ? 'You · joined Jun 2026' : 'Joined Jun 2026', ...roleAdult, more:!asAdult },
+      { ...leo, name:'Leo Rivera', sub:'Joined Jun 2026', ...roleAdult, more:!asAdult },
+      { ...sam, name:'Sam Rivera', sub:'Joined Jul 2026', ...roleAdult, more:!asAdult },
+    ];
+
+    // hub participants (hub owner = Maya; Pat, the family owner, is NOT on it)
+    const hubPeople = view === 'first-restricted' ? [] : [
+      { ...leo, name:'Leo Rivera', role:'Contributor' },
+      { ...sam, name:'Sam Rivera', role:'Viewer' },
+    ];
+    const peopleRead = [
+      { ...maya, name:'Maya Jackson', you:false, role:'OWNER', roleFg:c.onSecondaryContainer, roleBg:c.secondaryContainer },
+      { ...leo, name:'Leo Rivera', you: view === 'hub-people-contributor', role:'CONTRIBUTOR', roleFg:c.onSurfaceVar, roleBg:c.surfaceContainerHigh },
+      { ...sam, name:'Sam Rivera', you:false, role:'VIEWER', roleFg:c.onSurfaceVar, roleBg:c.surfaceContainerHigh },
+    ];
+    const withMl = (list) => list.map((p, i) => ({ ...p, ml: i === 0 ? '0' : '-8px' }));
+    const stack = withMl([maya, leo, sam]);
+    const stackBig = withMl([maya, leo, sam]);
+
+    const roles = [
+      { name:'Viewer', icon:'visibility', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar, line:'Can open this hub and see its cards.', chev:'expand_more', expanded:false },
+      { name:'Contributor', icon:'edit', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer, line:'Everything a viewer can, plus add and edit content.', chev:'expand_less', expanded:true,
+        detail:'Their changes appear with their name and avatar — "Leo · just now" — never a notification.' },
+      { name:'Co-owner', icon:'manage_accounts', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer, line:'Everything a contributor can, plus manage who\'s here.', chev:'expand_more', expanded:false },
+    ];
+
+    const isOffline = view === 'offline';
+    const sheetAViews = ['hub-people-owner','first-restricted','offline'];
+    const backdropViews = [...sheetAViews,'hub-people-contributor','hub-people-viewer','visibility-confirm','add-people','role-explainer'];
+
+    return {
+      c, pat, maya, leo, sam,
+      screenLabel: 'Account-ACL · ' + view + ' · ' + mode,
+      online: !isOffline,
+      isOffline,
+      isProfile: view === 'profile',
+      isAvatarSheet: view === 'avatar-monogram' || view === 'avatar-fun',
+      isAvMono: view === 'avatar-monogram',
+      isAvFun: funPane,
+      isRoster: view === 'roster-owner' || view === 'roster-adult',
+      isRosterOwner: view === 'roster-owner',
+      isRosterAdult: asAdult,
+      isHubHeader: view === 'hub-header',
+      showHubBackdrop: backdropViews.includes(view),
+      isSheetA: sheetAViews.includes(view),
+      isSheetContrib: view === 'hub-people-contributor',
+      isSheetViewer: view === 'hub-people-viewer',
+      isConfirm: view === 'visibility-confirm',
+      isAddPeople: view === 'add-people',
+      isExplainer: view === 'role-explainer',
+      isNoAccess: view === 'no-access',
+      isFirstRestricted: view === 'first-restricted',
+      showParticipants: view !== 'first-restricted' && sheetAViews.includes(view),
+      ctlOp: isOffline ? 0.5 : 1,
+      avSegs, swatches, monoSel, funGroups, roster, hubPeople, peopleRead, stack, stackBig, roles,
+    };
+  }
+}
+</script>
+</body>
+</html>
