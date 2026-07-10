@@ -182,7 +182,7 @@ class ContentStore(driver: SqlDriver) {
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
    *  blocks + cursor so a later sign-in re-syncs clean. */
   fun wipe() {
-    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing(); q.wipeNotifConfig(); q.wipeNotificationLog() }
+    q.transaction { q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing(); q.wipeNotifConfig(); q.wipeNotificationLog(); q.wipeMembership() }
   }
 
   /** ADR 0040 §3 — stale-cursor full-resync wipe. Clears the SYNCED content + the cursor so the
@@ -197,8 +197,26 @@ class ContentStore(driver: SqlDriver) {
 
   // The synced-content deletes shared by [wipeForResync] and [reconcileSchemaVersion]. NOT
   // transactional itself — callers wrap it (so a wipe + version-stamp commit atomically).
+  // NOTE (ADR 0052): the `membership` cache is deliberately NOT wiped here — it is not synced
+  // content a content-schema bump can malform, so it must survive reconcileSchemaVersion (else
+  // every schema bump reverts cold start to network-gated). It IS cleared by the full [wipe]
+  // (tenancy revocation) — the same boundary as cards.
   private fun wipeSyncedContent() {
     q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces()
+  }
+
+  // ── Membership cache (ADR 0052) — last-known family list for the DB-first cold-start route
+  // gate. Read once at cold start (AuthEngine.restore); replaced on every whoami. AuthEngine
+  // reaches these through seam lambdas so it keeps no ContentStore dependency.
+  fun cachedMemberships(): List<FamilyMembership> =
+    q.allMemberships().executeAsList().map { FamilyMembership(it.family_id, it.name, it.role, it.status) }
+
+  /** Replace the whole cached family list (whoami returns the full set — replace, don't merge). */
+  fun replaceMemberships(families: List<FamilyMembership>) {
+    q.transaction {
+      q.wipeMembership()
+      families.forEach { q.upsertMembership(it.familyId, it.name, it.role, it.status) }
+    }
   }
 
   /** Issue #283 — heal rows an older content-model wrote. If the cache was last synced under an

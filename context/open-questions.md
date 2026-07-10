@@ -4,6 +4,18 @@ Unresolved items that block or shape ADRs, specs, or the roadmap. Move
 resolved items to the bottom with their resolution + date. Seeded at
 bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
+## Build / infra
+
+- **OQ-migration-verify:** `verifyCommonMainContentDbMigration` (SQLDelight `verifyMigrations`)
+  fails on `main` — the committed `1.db`/`2.db` schema snapshots are stale relative to the
+  `card` table's later ALTERs (7.sqm importance, 11.sqm triggers) — and the task is **not in the
+  CI gate** (`ci.yml` runs `build` + `:client:desktopTest :ui:desktopTest` + `:androidApp:assembleDebug`,
+  none of which trigger it). Consequence: on-device **upgrade** migrations (every `N.sqm`, incl.
+  ADR 0052's `12.sqm`) are unverified — only the fresh-install `Schema.create` path is tested.
+  Surfaced 2026-07-09 during the ADR 0052 build. Fix = refresh the `.db` snapshots (or regen from
+  migrations) + add `verifySqlDelightMigration` to the CI gate. Low urgency (additive migrations
+  are low-risk) but it's a latent correctness gap for the whole app, not just 0052.
+
 ## Blocking (gate validation → build)
 
 - **OQ-license:** How should Dayfold be licensed & published? **Researched

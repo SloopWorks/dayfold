@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-09 — Cold start no longer waits on the network to render (ADR 0052)
+
+### Changed (client)
+- **Reopening Dayfold after the OS reclaimed it (cold start) now paints your dashboard from
+  the on-device cache immediately, instead of showing the logo + spinner while it waits on a
+  network `whoami`.** The top-level route gate used to clear only after a network round-trip
+  because your family list lived only in memory; it's now cached in the local database and read
+  at launch, so the splash resolves from disk (milliseconds, no network). The session is still
+  re-confirmed in the background: if it was revoked you're signed out and the cache cleared; if
+  you're just offline you keep the cached dashboard instead of hitting a "Couldn't reach Dayfold"
+  error. First launch after install (nothing cached yet) is unchanged. Content data flow was
+  already offline-first (ADR 0020) — this extends it to the auth/route gate.
+
 ## 2026-07-09 — Feed AND Hubs lists keep their scroll position across tab switches
 
 ### Fixed (client)

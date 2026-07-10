@@ -1,5 +1,10 @@
 package com.sloopworks.dayfold.client
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.reduxkotlin.Store
@@ -39,8 +44,20 @@ class AuthEngine(
   // must be cleared too or the bridge re-projects stale tenant data. Default no-op
   // for tests / entrypoints that don't own a cache. Mirrors SyncEngine's 403/404 path.
   private val clearCache: () -> Unit = {},
+  // ADR 0052 — DB-first cold-start route gate. The membership cache seam (AuthEngine keeps NO
+  // ContentStore dependency, so its tests stay DB-free — same pattern as clearCache): read the
+  // last-known family list at cold start to route optimistically, persist it on every whoami.
+  private val loadCachedMemberships: () -> List<FamilyMembership> = { emptyList() },
+  private val saveMemberships: (List<FamilyMembership>) -> Unit = {},
+  // Own scope for the background whoami reconcile (mirrors SyncEngine) — so restore() can route
+  // off the local cache and confirm over the network WITHOUT blocking. Injected in tests to join.
+  private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
   private val mutex = Mutex()
+
+  // The in-flight background reconcile launched by restore() on the optimistic (cached) path.
+  // internal so tests can join it deterministically; entrypoints ignore it (fire-and-forget).
+  internal var reconcileJob: Job? = null
 
   /** Cold-start: restore a saved session (if any) and resolve memberships. */
   suspend fun restore() = mutex.withLock {
@@ -51,7 +68,25 @@ class AuthEngine(
       return@withLock
     }
     store.dispatch(SessionRestored(saved))     // → Loading
-    loadMemberships(saved)                      // 401 → refresh-and-retry
+    val cached = loadCachedMemberships()       // ADR 0052 — DB-first route gate
+    if (cached.isNotEmpty()) {
+      // Route off the LOCAL cache now (no network), then confirm over the network in the
+      // background. routeFor sees the session (dispatched just above) + the cached families
+      // together — a single atomic MembershipsLoaded, no second async source to race it.
+      store.dispatch(MembershipsLoaded(cached))          // → Feed, off a local read
+      reconcileJob = scope.launch { reconcile(saved) }   // background whoami confirm (hadCache=true)
+    } else {
+      // No cache (fresh install / post-wipe): nothing to show, so stay network-gated exactly as
+      // before — await whoami inline; the splash is honest until it resolves. 401 → refresh-and-retry.
+      loadMembershipsLocked(saved, hadCache = false)
+    }
+  }
+
+  // Background whoami confirmation for the optimistic (cached) path (ADR 0052 §3). Takes the mutex
+  // INSIDE the launched job — never held across restore() — so a concurrent signIn/op isn't blocked
+  // by the network round-trip. On failure with a cache already on screen it leaves the Feed intact.
+  private suspend fun reconcile(session: Session) = mutex.withLock {
+    loadMembershipsLocked(session, hadCache = true)
   }
 
   /** Sign in: real Firebase ID token if the platform yields one, else dev-token. */
@@ -66,7 +101,7 @@ class AuthEngine(
       }
       tokenStore.save(session)
       store.dispatch(SignInSucceeded(session))
-      loadMemberships(session)
+      loadMembershipsLocked(session, hadCache = false)   // fresh sign-in: no optimistic cache
     } catch (e: Exception) {
       store.dispatch(SignInFailed(e.message ?: "Sign-in failed"))
     }
@@ -119,7 +154,7 @@ class AuthEngine(
   suspend fun redeemInvite(token: String) = mutex.withLock { redeemInviteLocked(token) }
 
   // No-mutex core — callable from an already-locked path (the deep-link resume runs
-  // inside loadMemberships' lock; Mutex isn't reentrant — same convention as
+  // inside loadMembershipsLocked's lock; Mutex isn't reentrant — same convention as
   // lookupDeviceLocked).
   private suspend fun redeemInviteLocked(token: String) {
     store.dispatch(RedeemRequested(token))
@@ -151,7 +186,7 @@ class AuthEngine(
   }
 
   // Consume a pre-sign-in stashed invite token once memberships resolve. Called at the
-  // tail of loadMemberships (already holding the mutex — hence redeemInviteLocked).
+  // tail of loadMembershipsLocked (already holding the mutex — hence redeemInviteLocked).
   private suspend fun resumePendingInviteLink() {
     val token = store.state.pendingInviteLink ?: return
     if (store.state.session == null) return
@@ -229,7 +264,7 @@ class AuthEngine(
   // Eager, quiet roster load so a checklist doneBy byline resolves to a name ANYWHERE the
   // content renders (not only after opening the Members screen). No RosterRequested/Failed
   // noise — a failure just leaves bylines on the "a family member" fallback. No-mutex core
-  // (called from loadMemberships, which already holds the lock).
+  // (called from loadMembershipsLocked, which already holds the lock).
   private suspend fun loadRosterLocked(fid: String?) {
     val session = store.state.session ?: return
     if (fid.isNullOrEmpty()) return
@@ -305,7 +340,7 @@ class AuthEngine(
   }
 
   // If a deep-link code was stashed before sign-in, consume it and open the approve
-  // screen now. Called at the tail of loadMemberships (already holding the mutex).
+  // screen now. Called at the tail of loadMembershipsLocked (already holding the mutex).
   private suspend fun resumePendingDeviceLink() {
     val code = store.state.pendingDeviceLink ?: return
     if (store.state.session == null) return
@@ -349,10 +384,15 @@ class AuthEngine(
 
   // ── internals ──
 
-  private suspend fun loadMemberships(session: Session) {
+  // [hadCache] (ADR 0052): true when a cached Feed is already on screen (the optimistic cold-start
+  // path). It only changes the error terminal — a reachable-but-erroring/unreachable server must
+  // NOT strand the user on AuthError when a usable cached view is already showing; AuthError is
+  // reserved for the no-cache case (nothing to show). The 401 dead-session path is unconditional.
+  private suspend fun loadMembershipsLocked(session: Session, hadCache: Boolean) {
     try {
       val who = callWithRefresh(session) { authClient.whoami(it.access) }
       store.dispatch(MembershipsLoaded(who.families))
+      saveMemberships(who.families)   // ADR 0052 — persist the fresh list for the next cold start
       resumePendingDeviceLink()   // cold-install resume: open a link stashed pre-sign-in
       resumePendingInviteLink()   // ADR 0048: redeem an invite link stashed pre-sign-in
       loadRosterLocked(store.state.activeFamilyId)   // eager roster for doneBy bylines
@@ -362,14 +402,16 @@ class AuthEngine(
       // the spinner never wedges. Other statuses = a reachable-but-erroring server.
       if (e.status == 401) {
         tokenStore.clear()
-        clearCache()             // dead session = same data boundary as logout — drop the cache
+        clearCache()             // dead session = same data boundary as logout — drop the cache (incl. memberships)
         store.dispatch(SessionExpired)
-      } else {
+      } else if (!hadCache) {
         store.dispatch(RestoreFailed("Dayfold had a problem (HTTP ${e.status}). Tap retry."))
       }
+      // else: cached Feed already showing → stay on it (ADR 0052 §3), reconcile again on next poll/foreground.
     } catch (e: Exception) {
-      // Network/unknown → keep the session, offer Retry (don't strand on Loading).
-      store.dispatch(RestoreFailed("Couldn't reach Dayfold. Check your connection and retry."))
+      // Network/unknown → keep the session; offer Retry only when there's nothing cached to show.
+      if (!hadCache) store.dispatch(RestoreFailed("Couldn't reach Dayfold. Check your connection and retry."))
+      // else: stay on the cached Feed.
     }
   }
 

@@ -1,0 +1,12 @@
+-- Migration v12→v13 (ADR 0052): add the membership cache — last-known family list so the
+-- cold-start route gate resolves from the DB instead of waiting on a network whoami.
+-- Local cache of the caller's OWN family list (not synced tenant content). Existing devices
+-- get an empty table → their first post-upgrade cold start is still network-gated (nothing
+-- cached yet), then every subsequent one resolves locally. No CLIENT_SCHEMA_VERSION bump:
+-- this is not synced content, so no resync is needed. Additive.
+CREATE TABLE membership (
+  family_id TEXT NOT NULL PRIMARY KEY,
+  name      TEXT NOT NULL DEFAULT '',
+  role      TEXT NOT NULL DEFAULT 'adult',
+  status    TEXT NOT NULL DEFAULT 'active'
+);

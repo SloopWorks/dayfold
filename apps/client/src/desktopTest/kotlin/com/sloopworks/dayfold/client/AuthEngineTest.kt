@@ -27,11 +27,19 @@ class AuthEngineTest {
   private fun engine(
     ts: MemTokenStore,
     devSecret: String? = "DEVSECRET",
+    cached: List<FamilyMembership> = emptyList(),                       // ADR 0052 — seeded membership cache
+    savedMemberships: MutableList<List<FamilyMembership>> = mutableListOf(),  // captures saveMemberships calls
+    onClearCache: () -> Unit = {},                                      // captures clearCache invocation
     handler: MockEngine,
   ): Pair<AuthEngine, org.reduxkotlin.Store<AppState>> {
     val store = createAppStore(debug = false)
     val client = AuthClient("https://api.test", HttpClient(handler))
-    return AuthEngine(store, client, ts, devSecret = devSecret) to store
+    return AuthEngine(
+      store, client, ts, devSecret = devSecret,
+      clearCache = onClearCache,
+      loadCachedMemberships = { cached },
+      saveMemberships = { savedMemberships.add(it) },
+    ) to store
   }
 
   private fun whoami(families: String) =
@@ -96,6 +104,64 @@ class AuthEngineTest {
     assertEquals(Route.AuthError, store.state.route)                      // not Loading, not SignIn
     assertEquals(Session("ax", "rx"), store.state.session)               // session kept for Retry
     assertEquals(Session("ax", "rx"), ts.session)                        // not cleared
+  }
+
+  // ── ADR 0052: DB-first cold-start route gate ─────────────────────────────────
+  private val activeFam = FamilyMembership("fam1", "The Jacksons", "owner", "active")
+
+  @Test fun `restore with cached memberships routes to Feed off the local cache, not the network`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    // whoami 500s — so a Feed route can ONLY have come from the cache, and a 500 WITH a cache
+    // present must NOT strand the user on AuthError (the pre-0052 behavior).
+    val (eng, store) = engine(ts, cached = listOf(activeFam),
+      handler = MockEngine { respond("", HttpStatusCode.InternalServerError) })
+    eng.restore()
+    assertEquals(Route.Feed, store.state.route)                 // routed synchronously off the DB cache
+    assertEquals("fam1", store.state.activeFamilyId)
+    eng.reconcileJob?.join()                                    // let the background whoami (500) finish
+    assertEquals(Route.Feed, store.state.route)                 // 500 + cache → STAYS on Feed, no AuthError
+    assertEquals(Session("ax", "rx"), store.state.session)      // session kept
+  }
+
+  @Test fun `reconcile overwrites the cached memberships with the whoami result and persists them`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val saved = mutableListOf<List<FamilyMembership>>()
+    val (eng, store) = engine(ts,
+      cached = listOf(FamilyMembership("stale", "Stale Fam", "adult", "active")),
+      savedMemberships = saved,
+      handler = MockEngine { req ->
+        when (req.url.encodedPath) {
+          "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)   // fresh truth: fam1
+          "/families/fam1/members" -> respond("""{"members":[]}""", HttpStatusCode.OK, jsonCt)
+          else -> respond("", HttpStatusCode.NotFound)
+        }
+      })
+    eng.restore()
+    assertEquals("stale", store.state.activeFamilyId)           // optimistic (cache) first
+    eng.reconcileJob?.join()
+    assertEquals(listOf("fam1"), store.state.families.map { it.familyId })   // overwritten by whoami
+    assertEquals(listOf("fam1"), saved.last().map { it.familyId })           // persisted for next cold start
+    assertEquals(Route.Feed, store.state.route)
+  }
+
+  @Test fun `reconcile with a dead session clears the token and cache and routes to SignIn`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    var cleared = false
+    val (eng, store) = engine(ts, cached = listOf(activeFam), onClearCache = { cleared = true },
+      handler = MockEngine { req ->
+        when (req.url.encodedPath) {
+          "/auth/whoami" -> respond("", HttpStatusCode.Unauthorized)   // access dead
+          "/auth/refresh" -> respond("", HttpStatusCode.Unauthorized)  // …refresh can't recover
+          else -> respond("", HttpStatusCode.NotFound)
+        }
+      })
+    eng.restore()
+    assertEquals(Route.Feed, store.state.route)                 // optimistic first
+    eng.reconcileJob?.join()
+    assertEquals(Route.SignIn, store.state.route)               // revocation wins on reconcile
+    assertNull(store.state.session)
+    assertNull(ts.session)                                      // dead token cleared
+    assertTrue(cleared, "clearCache (incl. the membership cache) must fire on a dead session")
   }
 
   @Test fun `sign-in success persists the session and routes by memberships`() = runBlocking {

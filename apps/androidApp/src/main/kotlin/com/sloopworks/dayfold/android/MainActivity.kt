@@ -209,6 +209,11 @@ class MainActivity : ComponentActivity() {
       // identity's cards+hubs never bleed into the next (the DB→store bridge would
       // otherwise re-project them). Same wipe the fake-mode switch + ADR 0030 use.
       clearCache = { cs.wipe() },
+      // ADR 0052 — DB-first cold-start route gate: cache/read the family list so the splash
+      // resolves from the DB instead of waiting on a network whoami (process-death is the
+      // common case on Android — the store is rebuilt fresh here, DB cache is the only continuity).
+      loadCachedMemberships = { cs.cachedMemberships() },
+      saveMemberships = { cs.replaceMemberships(it) },
     )
     val legacyFam = BuildConfig.FAMILY_ID; val legacySecret = BuildConfig.HOUSEHOLD_SECRET
     val syncEngine = SyncEngine(

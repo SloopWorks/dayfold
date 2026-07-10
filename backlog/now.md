@@ -34,6 +34,20 @@ you need the detailed narrative behind something below, not by default.
 
 ## Current state (as of 2026-07-09)
 
+**2026-07-09 — DB-first cold-start route gate SHIPPED (ADR 0052 Accepted + built; branch
+`feat/cold-start-db-first-route`).** Fixes the operator-observed logo+spinner on cold start:
+content was already offline-first (ADR 0020) but the top-level route gate cleared only after a
+network `whoami` because memberships lived only in memory. Now cached in a SQLDelight local-only
+`membership` table (migration `12.sqm`; wiped on tenancy revocation, preserved across the
+content-schema heal), read at launch → `restore()` routes to `Feed` off the local read and
+reconciles `whoami` in the background (success overwrites+persists; 401 → clear+SignIn;
+offline-with-cache → stay on Feed, no AuthError). No-cache path unchanged (network-gated).
+Green: `:client` 507 / `:ui` 479 tests, 0 fail; iOS+Android compile. **Follow-ups:** Gate A
+offline/"last updated" indicator (deferred — design nod then build); `OQ-migration-verify`
+(pre-existing: SQLDelight migration-verify fails on main + isn't in CI → device upgrades
+unverified). Not yet merged to `main`; not yet confirmed on-device (the operator-facing
+two-launch cold-start check).
+
 **2026-07-09 repo-maintenance pass (scheduled, not a feature slice) — CI/docs/
 values audit, found everything healthy; applied one doc-dedup + doc-bug fix.**
 Same no-npm/no-Gradle-registry-egress sandbox as every prior pass (re-confirmed:

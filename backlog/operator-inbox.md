@@ -9,6 +9,23 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-31 · RESOLVED 2026-07-09 — operator ratified ("approved and continue"); ADR 0052 Accepted + BUILT + green** on branch `feat/cold-start-db-first-route` (`:client` 507 / `:ui` 479 tests, 0 fail; iOS+Android compile). Both gates cleared (optimistic-render §4 + DB-table cache home). Gate A offline indicator deferred as a follow (network-fail-with-cache stays on Feed; existing sync-status surfaces cover connectivity). Surfaced a pre-existing CI gap → `OQ-migration-verify` in open-questions. Original ask below.
+
+- **INB-31 · 2026-07-09 · med · open — ratify ADR 0052: DB-first cold-start route gate?**
+  Investigation confirmed the operator-observed cold-start splash (dayfold icon + spinner)
+  **waits on the network**: content is offline-first + correct (ADR 0020), but the top-level
+  route gate clears only after a network `whoami` because memberships are never persisted
+  locally. **Proposed fix (ADR 0052, Proposed):** cache last-known memberships in a SQLDelight
+  local-only table, route straight to `Feed` on cold start when token + cache exist, and
+  reconcile `whoami` in the background. **Two operator gates:** (Gate B) ratify the bounded
+  **optimistic-render posture** — one `whoami` round-trip renders already-on-device own-family
+  cached content before the session is re-confirmed (same boundary the content cache already
+  accepts); (decision) membership-cache home = **DB table (recommended)** vs. `TokenStore`.
+  Plus **Gate A** (ADR 0008): the one new affordance is a quiet offline/"last updated"
+  indicator on the network-fail path — wants a small design nod before build. **Proposed
+  default: accept §4 + DB-table home; design the offline indicator, then build.** Context:
+  `adr/0052-cold-start-db-first-route-gate.md`. Branch: `feat/cold-start-db-first-route`.
+
 - **INB-30 · 2026-07-07 · low · open — invite-approval context: include joiner location/IP?**
   Question: in the owner's invite-approval row (`TASK-INVITE-APPROVAL-IDENTITY`), beyond
   **name/email/verified-provider/join-time/mint-provenance** (spec `05-invite.md` §69–73,
