@@ -201,12 +201,17 @@ app.get("/auth/me", async (c) => {
   catch { return c.body(null, 401); }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const u = (await q(`SELECT id, display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  const u = (await q(`SELECT id, display_name, avatar_color, avatar_ref FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!u) return c.body(null, 401);
-  return c.json({ user_id: u.id, display_name: u.display_name });
+  return c.json({ user_id: u.id, display_name: u.display_name, avatar_color: u.avatar_color, avatar_ref: u.avatar_ref });
 });
 
-// Update the caller's own display name (1–80 chars after trim).
+// Update the caller's own profile: display_name (1–80 chars after trim), and/or
+// avatar_color (string ≤32) / avatar_ref (bundled avatar id — ADR 0036 posture,
+// no external fetch / object-storage key, just `avatar:<slug>`). Each field is
+// optional; PATCH updates only the keys present in the body. `null` for
+// avatar_color/avatar_ref clears it — distinct from omitting the key, hence the
+// `"x" in body` presence check rather than `body.x !== undefined`.
 app.patch("/auth/me", async (c) => {
   const t = bearer(c); if (!t) return c.body(null, 401);
   let sub: string, cid: string;
@@ -215,12 +220,31 @@ app.patch("/auth/me", async (c) => {
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
   const body = await c.req.json().catch(() => null);
-  const name = typeof body?.display_name === "string" ? body.display_name.trim() : null;
-  if (!name || name.length < 1 || name.length > 80) return c.json({ type: "bad-display-name" }, 400);
+
+  const hasName = typeof body?.display_name === "string";
+  const name = hasName ? body.display_name.trim() : null;
+  if (hasName && (!name || name.length < 1 || name.length > 80)) return c.json({ type: "bad-display-name" }, 400);
+
+  const AVATAR_RE = /^avatar:[a-z0-9-]{1,40}$/;
+  const hasRef = "avatar_ref" in (body ?? {});
+  const ref = body?.avatar_ref ?? null; // null clears
+  if (hasRef && ref !== null && !(typeof ref === "string" && AVATAR_RE.test(ref)))
+    return c.json({ type: "bad-avatar" }, 400);
+  const hasColor = "avatar_color" in (body ?? {});
+  const color = body?.avatar_color ?? null; // null clears
+  if (hasColor && color !== null && !(typeof color === "string" && color.length <= 32))
+    return c.json({ type: "bad-avatar" }, 400);
+
+  const sets: string[] = ["updated_at=now()"]; const vals: any[] = []; let i = 1;
+  if (hasName)  { sets.push(`display_name=$${i++}`); vals.push(name); }
+  if (hasRef)   { sets.push(`avatar_ref=$${i++}`);   vals.push(ref); }
+  if (hasColor) { sets.push(`avatar_color=$${i++}`); vals.push(color); }
+  vals.push(sub);
   const r = await q(
-    `UPDATE users SET display_name=$1, updated_at=now() WHERE id=$2 AND deleted_at IS NULL RETURNING display_name`, [name, sub]);
+    `UPDATE users SET ${sets.join(", ")} WHERE id=$${i} AND deleted_at IS NULL
+     RETURNING display_name, avatar_color, avatar_ref`, vals);
   if (r.rowCount === 0) return c.body(null, 401);
-  return c.json({ display_name: r.rows[0].display_name });
+  return c.json(r.rows[0]);
 });
 
 // Data export (guardrail #4 — honor data-export on request). The caller's own
