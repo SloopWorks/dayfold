@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.AccountScreen
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.AvatarPickerContent
 import com.sloopworks.dayfold.client.AuthorizeDeviceScreen
 import com.sloopworks.dayfold.client.CapReachedState
 import com.sloopworks.dayfold.client.CreateFamilyScreen
@@ -180,6 +181,23 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       themed(args.theme) {
         AccountScreen(SnapshotStates.ACCOUNT_STATE, signOutBusy = presetName(args.input) == "signout-busy")
+      }
+    }
+  }
+
+  // Delta A / Task 5 — the picker's inner content (see AvatarPickerContent's doc comment for
+  // why the ModalBottomSheet wrapper itself isn't scened: a headless single-frame render never
+  // paints a Dialog's separate compose scene).
+  scene("avatar-picker") {
+    defaults { height = 460 }
+    presets("monogram", "fun")
+    render { args ->
+      themedSurface(args.theme) {
+        when (presetName(args.input)) {
+          "monogram" -> AvatarPickerContent(currentColor = "teal", currentRef = null, onSave = { _, _ -> })
+          "fun" -> AvatarPickerContent(currentColor = null, currentRef = "avatar:fox-01", onSave = { _, _ -> })
+          else -> error("unknown avatar-picker preset")
+        }
       }
     }
   }

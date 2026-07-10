@@ -65,6 +65,22 @@
    "preset": "splash"
   },
   {
+   "id": "avatar-picker-fun",
+   "scene": "avatar-picker",
+   "preset": "fun"
+  },
+  {
+   "id": "avatar-picker-monogram-dark",
+   "scene": "avatar-picker",
+   "preset": "monogram",
+   "theme": "dark"
+  },
+  {
+   "id": "avatar-picker-monogram",
+   "scene": "avatar-picker",
+   "preset": "monogram"
+  },
+  {
    "id": "detail-contact-dark",
    "scene": "detail",
    "preset": "contact",

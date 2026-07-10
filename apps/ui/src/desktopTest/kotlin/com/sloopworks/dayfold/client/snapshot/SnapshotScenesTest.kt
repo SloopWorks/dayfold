@@ -10,7 +10,7 @@ class SnapshotScenesTest {
     assertEquals(
       setOf(
         "feed", "hub-detail", "hub-list", "detail",
-        "auth", "account", "join", "members", "devices", "device-approval", "scan",
+        "auth", "account", "avatar-picker", "join", "members", "devices", "device-approval", "scan",
         "notif", "privacy", "places", "proximity", "permission", "offline-banner", "kit",
         "timeline-card", "timeline-detail",
       ),

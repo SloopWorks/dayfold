@@ -93,6 +93,7 @@ fun FeedApp(
   onRemoveMember: (String) -> Unit = {},
   onMintInvite: (String) -> Unit = {},  // owner mint (qr|link) → AuthEngine.mintInvite
   onRevokeInvite: (String) -> Unit = {},// owner revoke an outstanding invite
+  onUpdateAvatar: (String?, String?) -> Unit = { _, _ -> },  // Delta A / Task 5 — AccountScreen sheet Save → AuthEngine.updateAvatar
   onLoadDevices: () -> Unit = {},
   onRevokeDevice: (String) -> Unit = {},
   onLookupDevice: (String) -> Unit = {},
@@ -268,6 +269,7 @@ fun FeedApp(
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
         onOpenProximity = { store.dispatch(OpenProximity) },
+        onUpdateAvatar = onUpdateAvatar,
       )
       Route.Proximity -> ProximitySettingsHost(
         config = state.notifConfig,

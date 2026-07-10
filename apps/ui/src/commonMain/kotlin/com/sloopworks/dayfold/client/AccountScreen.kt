@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -52,6 +53,7 @@ fun AccountScreen(
   onOpenMembers: () -> Unit = {},
   onOpenDevices: () -> Unit = {},
   onOpenProximity: () -> Unit = {},   // ADR 0044 Phase B — device-local background-proximity settings
+  onUpdateAvatar: (String?, String?) -> Unit = { _, _ -> },  // Delta A / Task 5 — sheet Save → AuthEngine.updateAvatar
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
@@ -60,6 +62,17 @@ fun AccountScreen(
   // every ephemeral dialog). Signing out is reversible but deliberate; a one-tap
   // guard avoids an accidental session clear.
   var confirmSignOut by remember { mutableStateOf(false) }
+  // Delta A / Task 5 — the avatar picker sheet, opened from the profile card's avatar.
+  var avatarPickerOpen by remember { mutableStateOf(false) }
+
+  if (avatarPickerOpen) {
+    AvatarPickerSheet(
+      currentColor = state.myAvatarColor,
+      currentRef = state.myAvatarRef,
+      onSave = { color, ref -> avatarPickerOpen = false; onUpdateAvatar(color, ref) },
+      onDismiss = { avatarPickerOpen = false },
+    )
+  }
 
   if (confirmSignOut) {
     AlertDialog(
@@ -92,19 +105,38 @@ fun AccountScreen(
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp)) {
-      // profile card
+      // profile card — the avatar is a tappable affordance (opens the picker sheet); a
+      // pending save (avatarOpId busy) mirrors the sign-out row's spinner-over-control pattern.
       Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(cs.surfaceContainer).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
       ) {
-        DayfoldAvatar(name = "You", size = 48.dp)
+        Box(
+          Modifier.clip(CircleShape).clickable(enabled = state.avatarOpId == null) { avatarPickerOpen = true }
+            .semantics { contentDescription = "Change avatar" },
+          contentAlignment = Alignment.Center,
+        ) {
+          DayfoldAvatar(
+            name = state.myDisplayName ?: "You", size = 48.dp,
+            avatarColorKey = state.myAvatarColor, avatarRef = state.myAvatarRef,
+          )
+          if (state.avatarOpId != null) {
+            androidx.compose.material3.CircularProgressIndicator(
+              strokeWidth = 2.dp, color = cs.onSurface, modifier = Modifier.size(20.dp),
+            )
+          }
+        }
         Column(Modifier.weight(1f)) {
-          Text("You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(state.myDisplayName ?: "You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
           Text(
             if (active != null) "$role · ${active.name}" else role,
             style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
           )
+          val avatarError = state.avatarError
+          if (avatarError != null) {
+            Text(avatarError, style = MaterialTheme.typography.bodySmall, color = cs.error)
+          }
         }
       }
 
