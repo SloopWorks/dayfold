@@ -49,35 +49,61 @@ saved token + cached memberships exist, and run `whoami` in the background to re
 The network becomes a *confirmation*, not a *gate*. Pure client; the content-blind server
 (ADR 0015) is untouched — no schema change, no new server route, no new write path.
 
-1. **Persist memberships locally — SQLDelight local-only table.** Add a `membership`
-   table to `Content.sq` alongside the existing local-only tables (`hidden`,
-   `surfacing_state`, `notif_config`) — reuses the `DriverFactory` + migration pipeline
-   (ADR 0033), needs zero new per-platform code (vs. extending `TokenStore`, which would
-   touch three platform impls). It is a *cache of the user's own family list*, not synced
-   content — write it whenever `MembershipsLoaded` lands; clear it on the same boundary the
-   content cache clears (logout / dead-session / 403-404, per `clearCache`).
+1. **Persist memberships locally — SQLDelight local-only table, read through a seam.**
+   Add a `membership` table to `Content.sq` alongside the existing local-only tables
+   (`hidden`, `surfacing_state`, `notif_config`) — reuses the `DriverFactory` + migration
+   pipeline (ADR 0033), needs zero new per-platform code (vs. extending `TokenStore`, which
+   would touch three platform impls). It is a *cache of the user's own family list*, not
+   synced content. **`AuthEngine` must not gain a `ContentStore` dependency** — it
+   deliberately depends on no DB so its tests use an in-memory `TokenStore` and a
+   `clearCache` lambda (`AuthEngine.kt:41`). Add two seam lambdas mirroring `clearCache`:
+   `loadCachedMemberships: () -> List<FamilyMembership>` and
+   `saveMemberships: (List<FamilyMembership>) -> Unit`. Persist on every `MembershipsLoaded`;
+   clear on **every** cache-wipe boundary (see §3 + Consequences: both the auth-401 path and
+   the sync-403/404 tenancy-revocation path, ADR 0030).
 
-2. **Cold-start sequence becomes:**
-   - `SyncEngine.start()` bridges DB→store (unchanged) — now also emits cached memberships.
-   - `AuthEngine.restore()`: read token. No token → `SignIn` (unchanged). Token **+ cached
-     memberships** → dispatch a `MembershipsRestored` and route via `routeFor` **straight
-     to `Route.Feed`** (cached content already rendering underneath). Token but **no**
-     cached memberships (first launch after a fresh install / cleared cache) → hold
-     `Route.Loading` and network-gate exactly as today — nothing to show, so the splash is
-     honest.
-   - `whoami` then runs in the background and reconciles (see §3).
+2. **Cold-start route decision is atomic and lives entirely in `AuthEngine.restore()` —
+   `SyncEngine` is not involved.** `state.families` keeps a **single writer** (auth actions
+   only); memberships are NOT flow-bridged like content slices, because `routeFor(session,
+   families)` needs both inputs *together* and a second async source (the `SyncEngine` DB
+   bridge on `Dispatchers.Default`) would race `SessionRestored` and produce a transient
+   wrong route. Sequence:
+   - `SyncEngine.start()` bridges content DB→store (unchanged — cards/hubs only).
+   - `AuthEngine.restore()`: `tokenStore.load()`. No token → `SignIn` (unchanged). Token
+     present → **synchronously** (a one-shot suspend query via `loadCachedMemberships`, not a
+     flow) read the cached memberships, then dispatch **one atomic action**
+     `MembershipsRestored(session, families)`. Its reducer sets `session`, `families`,
+     `activeFamilyId`, and `route = routeFor(session, families)` in a single transition →
+     **straight to `Route.Feed`** when an active membership is cached. Token but **empty**
+     cache (fresh install / post-wipe) → hold `Route.Loading` and network-gate exactly as
+     today — nothing to show, so the splash is honest.
+   - `AuthEngine` then reconciles `whoami` **in the background** (see §3).
 
-3. **Reconciliation semantics (`loadMemberships` after an optimistic Feed):**
+3. **Background reconcile — `AuthEngine` needs a scope; must not block or hold the mutex.**
+   Today `restore()` awaits `whoami` inline under `mutex.withLock`, and the entrypoint runs
+   `syncEngine.resume()` only after `restore()` returns (`Main.kt:59-61`). For an optimistic
+   route, `restore()` must return **after** the local `MembershipsRestored` dispatch and kick
+   the `whoami` reconcile as fire-and-forget. `AuthEngine` therefore gains its **own
+   `CoroutineScope`** (mirror `SyncEngine.kt:25`); the reconcile takes the `mutex` *inside*
+   the launched job, never across the whole `restore()`. Reconcile outcomes:
    - **Success** → `MembershipsLoaded` overwrites `state.families` + re-runs `routeFor`
-     (may downgrade to `CreateFamily` if the server says no active membership remains, or
-     stay on `Feed`). Also re-persists the fresh list.
+     (may downgrade to `CreateFamily`/`SignIn` if the server says no active membership
+     remains, or stay on `Feed`). Re-persists the fresh list via `saveMemberships`.
    - **401 after refresh fails** (revoked/expired) → `SessionExpired` → clear token **and
-     cache** (incl. the membership cache) → `SignIn`. Unchanged boundary.
+     cache incl. the membership cache** → `SignIn`. Unchanged boundary.
    - **Network / 5xx** → **stay on `Route.Feed` with the cached view** (do *not* fall to
-     `AuthError`). `AuthError` is reserved for the case where there is **nothing cached to
-     show** (token but empty membership cache). Surface a quiet, non-blocking "offline /
-     last updated…" affordance instead of stranding the user. *(This is the one new UX
-     surface — see Open / Gate A.)*
+     `AuthError`). `AuthError` is reserved for the token-but-empty-cache case (nothing to
+     show). Surface a quiet, non-blocking "offline / last updated…" affordance. *(The one
+     new UX surface — see Open / Gate A.)*
+   - **Second detector (accepted, must converge).** Because the route is now `Feed`,
+     `syncEngine.resume()` fires `syncNow()` against the **cached `activeFamilyId`**
+     (`SyncClient.familyId` reads store state). A removed tenant therefore gets a 403/404 on
+     the *sync* path → `onSyncHttpError` → `contentStore.wipe()` + sign-out (ADR 0030 P0-2,
+     `SyncEngine.kt:206-208`) — a revocation detector that **races** the `whoami` reconcile.
+     This is a robustness *positive* (two independent detectors) **provided both converge on
+     the same terminal**: `SignIn` + a fully wiped cache **including the `membership`
+     table**. Wiring the membership-cache wipe into `contentStore.wipe()` (not only the auth
+     path) is a correctness requirement, not a nicety.
 
 4. **Accepted risk — brief optimistic render before confirmation.** For one `whoami`
    round-trip, a cold start renders already-on-device cached content (the user's own family
@@ -91,20 +117,36 @@ The network becomes a *confirmation*, not a *gate*. Pure client; the content-bli
 
 ## Consequences
 
-**Positive.** Cold start collapses to warm-start behavior: instant paint of cached content,
-no network wait, no splash on the common path. The offline-first posture (ADR 0020) is
+**Positive.** Cold start collapses to warm-start behavior: first paint of cached content
+after a **local** token+membership read (milliseconds, zero network round-trip) instead of
+after a `whoami`. The splash still renders on frame 1 (initial `route = Route.Loading`) but
+flips to `Feed` off a local read, not a network response — so no perceptible spinner on the
+common path. The offline-first posture (ADR 0020) is
 finally honored end-to-end — auth stops being the one network gate in front of local data.
 Offline cold start now shows the last-known dashboard instead of an `AuthError` dead end.
 Pure client, no server/schema/write-path change (dumb-server invariant holds).
 
 **Costs / risks.** The optimistic-render window in §4 (bounded, accepted). One new table +
-migration (ADR 0033 process). New branch in `loadMemberships` error handling (network-fail
-→ stay vs. `AuthError`) widens the auth test matrix — needs cold-start tests for: token +
-cache → Feed; token + no cache → Loading→whoami; whoami-network-fail-with-cache → stay on
-Feed; whoami-401 → clear + SignIn; whoami says membership revoked → downgrade route. A
-membership cache is one more thing to invalidate correctly — a stale cache that outlives a
-real revocation is the failure mode to test hardest (mitigated by clearing on the exact
-`clearCache` boundary).
+migration (ADR 0033 process). `AuthEngine` gains a `CoroutineScope` + two persistence seams
+(§1, §3) — a small structural change to a previously scope-free engine; the reconcile must
+take `mutex` inside the launched job, never across `restore()`, or a concurrent `signIn`
+could deadlock/serialize badly. New branch in reconcile error handling (network-fail → stay
+vs. `AuthError`) widens the auth test matrix — needs cold-start tests for: token + cache →
+Feed (atomic, single dispatch); token + no cache → Loading→whoami; whoami-network-fail-with-
+cache → stay on Feed; whoami-401 → clear + SignIn + membership-cache wiped; whoami says
+membership revoked → downgrade route; **race test — `syncNow` 403/404 and `whoami` 401 both
+fire → converge on SignIn + fully-wiped cache (incl. `membership`), no matter which wins.**
+A stale membership cache that outlives a real revocation is the failure mode to test
+hardest — mitigated by wiping it on **both** the auth-401 and the sync-403/404 boundaries
+(a single `membership`-inclusive `contentStore.wipe()`).
+
+**Schema-heal interaction (decide before build).** `SyncEngine.start()` →
+`reconcileSchemaVersion()` **wipes synced content + cursor** when `CLIENT_SCHEMA_VERSION` is
+behind (`SyncEngine.kt:49-53`). The `membership` cache should **survive** that heal — it is
+not tenant content a model change can malform, and wiping it would silently revert every
+schema-bumping app update to a network-gated cold start. So the heal must target content
+tables only, not `membership` (whereas a tenancy-revocation `wipe()` *does* clear it — §3).
+Two distinct wipe scopes, deliberately.
 
 **Rejected alternatives.**
 - **(A) Persist memberships in `TokenStore`** (travel with the session) — conceptually
