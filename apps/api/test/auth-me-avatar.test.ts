@@ -80,4 +80,13 @@ describe("GET/PATCH /auth/me avatar", () => {
     expect(pj.avatar_ref).toBe("avatar:owl-02");
     expect(pj.avatar_color).toBe("coral");
   });
+
+  it("treats a non-object JSON body (e.g. a bare number) as an empty patch, not a 500", async () => {
+    const t = await token("avatar-user-6");
+    const r = await app.request("/auth/me", { method: "PATCH", headers: auth(t), body: JSON.stringify(42) });
+    expect(r.status).toBe(200);
+    const rj = await r.json();
+    expect(rj.avatar_ref).toBeNull();
+    expect(rj.avatar_color).toBeNull();
+  });
 });

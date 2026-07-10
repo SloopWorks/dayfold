@@ -219,18 +219,25 @@ app.patch("/auth/me", async (c) => {
   catch { return c.body(null, 401); }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const body = await c.req.json().catch(() => null);
+  const parsed = await c.req.json().catch(() => null);
+  // A non-object (or null) parsed body — e.g. raw JSON `42` or `"x"` — must not
+  // reach the `in` operator below (throws TypeError on primitives). Treat it as
+  // an empty patch: no fields present, nothing updated.
+  const body: Record<string, unknown> =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
 
   const hasName = typeof body?.display_name === "string";
-  const name = hasName ? body.display_name.trim() : null;
+  const name = hasName ? (body.display_name as string).trim() : null;
   if (hasName && (!name || name.length < 1 || name.length > 80)) return c.json({ type: "bad-display-name" }, 400);
 
   const AVATAR_RE = /^avatar:[a-z0-9-]{1,40}$/;
-  const hasRef = "avatar_ref" in (body ?? {});
+  const hasRef = "avatar_ref" in body;
   const ref = body?.avatar_ref ?? null; // null clears
   if (hasRef && ref !== null && !(typeof ref === "string" && AVATAR_RE.test(ref)))
     return c.json({ type: "bad-avatar" }, 400);
-  const hasColor = "avatar_color" in (body ?? {});
+  const hasColor = "avatar_color" in body;
   const color = body?.avatar_color ?? null; // null clears
   if (hasColor && color !== null && !(typeof color === "string" && color.length <= 32))
     return c.json({ type: "bad-avatar" }, 400);
