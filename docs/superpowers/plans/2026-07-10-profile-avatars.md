@@ -114,7 +114,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.abs
 
 data class AvatarSwatch(val key: String, val bg: Color, val fg: Color)
 data class AvatarStyle(val initials: String, val bg: Color, val fg: Color)
@@ -124,7 +123,7 @@ fun avatarStyle(seed: String, avatarColorKey: String?, swatches: List<AvatarSwat
     .mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("")
     .ifEmpty { "?" }
   val sw = swatches.firstOrNull { it.key == avatarColorKey }
-    ?: swatches[abs(seed.hashCode()) % swatches.size]
+    ?: swatches[((seed.hashCode().toLong() and 0x7fffffffL) % swatches.size).toInt()]
   return AvatarStyle(initials, sw.bg, sw.fg)
 }
 
