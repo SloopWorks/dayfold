@@ -48,23 +48,24 @@ at the edge" as the way to build offline-first, multi-device apps
 https://doc.replicache.dev/concepts/how-it-works]; Linear's sync engine is
 adjacent (a persisted intent-transaction queue, though over a mutable MobX
 graph rather than derived state)
-[fact:https://github.com/wzhudev/reverse-linear-sync-engine]. H2 is
-confirmed with a specific answer: **five loading primitives + one
-read-state type** (§4.2). **H3 is supported in mechanism but unmeasured in
-outcome** [assumption]: the per-interface test collapse (§4.2) and the
-determinism dividend (§4.3) are real mechanisms, but no memo contains a
-measured test-time reduction — and NoRedInk's ~1:1 production-to-test LOC
-ratio (211,835 vs 200,586) shows the paradigm does not automatically make
-test *volume* small [fact:https://juliu.is/elm-at-noredink/]; the claim is
-that verification per unit of confidence gets cheaper, not that less test
-code gets written.
+[fact:https://github.com/wzhudev/reverse-linear-sync-engine]. H4's mapping
+is worked in §4.4. H2 is confirmed with a specific answer: **five loading
+primitives + one read-state type** (§4.2).
 
-**H5 is refuted in its literal form** — primarily on the
-frequency/ephemerality axis, with a second intent-vs-delta qualification
-(§4.3). Every mature practitioner community independently drew the same
-line: *durable intent* belongs in the store; *high-frequency ephemeral
-signals* (keystrokes, scroll, drag frames, live sensor/location) must stay
-out and enter only as settled results (§4.3, §5.1). Twitter Lite measured
+**H3 is supported in mechanism, unmeasured in outcome** [assumption]. The
+per-interface test collapse (§4.2) and the determinism dividend (§4.3) are
+real mechanisms, but no memo measures an actual test-time reduction.
+NoRedInk's ~1:1 production-to-test LOC ratio
+[fact:https://juliu.is/elm-at-noredink/, figures in §4.1] shows the
+paradigm does not shrink test *volume*; the claim is cheaper verification
+per unit of confidence, not less test code.
+
+**H5 is refuted in its literal form.** Every mature practitioner community
+independently drew the same line: *durable intent* belongs in the store;
+*high-frequency ephemeral signals* (keystrokes, scroll, drag frames, live
+sensor/location) must stay out and enter only as settled results — with a
+second, softer qualification that logs should carry intent, not
+intermediate deltas (both in §4.3, §5.1). Twitter Lite measured
 the cost of ignoring this: moving per-keystroke composer state out of the
 global store "reduced overhead by over 50%"
 [fact:https://medium.com/@paularmstrong/twitter-lite-and-high-performance-react-progressive-web-apps-at-scale-d28a00e780a3].
@@ -83,6 +84,9 @@ known fix (sharding, layered selectors, batching, snapshot+tail-replay,
 compaction), and with those fixes the paradigm itself scales into the
 thousands of action types (§5–§7). The refined thesis — the version worth
 holding — is in §7.
+
+Dayfold-specific grounding: §3. Dayfold-specific recommendations: §8
+(R1–R6).
 
 ## 3. Grounding: where dayfold stands today
 
@@ -204,10 +208,9 @@ transport); pull-refresh = Query revalidate; checklist-toggle/delete =
 Mutation + Outbox; headless notification pass = Query (sync snapshot);
 auth flows = Mutations (plus reads like whoami, i.e. Queries, in the same
 engine). **Nothing in the app required a sixth primitive** — dayfold reads
-as a confirming instance [analysis over memo 4 §5 — the six-paradigm
-inventory is memo 4's fact; this 6→5 mapping is this report's own work,
-and two of the mappings (poll-loop as "Subscription over a poll
-transport"; auth flows as Mutations+Queries) stretch the definitions].
+as a confirming instance [this report's analysis over memo 4 §5; two
+mappings — poll-loop as Subscription-over-poll-transport, auth flows as
+Mutations+Queries — stretch the definitions].
 
 The practical consequence: since every feature's loading is an instance of
 five interfaces, correctness arguments and tests are *per-interface*, not
@@ -217,7 +220,7 @@ is the concrete mechanism behind H3's "reduces test time" claim
 [assumption, supported by fast-check's model-based-testing design
 [fact:https://fast-check.dev/docs/advanced/model-based-testing/]].
 
-### 4.3 H5 is client-side event sourcing — the sync-engine wave validates it, with two boundaries
+### 4.3 H5's *disciplined* form is client-side event sourcing — validated, with two boundaries
 
 "Every data change is an action with represented state" is precisely event
 sourcing with the store as a materialized view (memo 3). Backend ES
@@ -282,13 +285,13 @@ the same property exploited four ways [assumption, well-grounded].
 
 ### 4.4 H4 confirmed: the hexagonal mapping is direct
 
-Cockburn's ports-and-adapters, Bernhardt's functional-core/imperative-shell,
-and Elm's managed effects (Cmd/Sub) read as the same design at three levels
-of strictness [fact for each pattern's content:
-https://alistair.cockburn.us/hexagonal-architecture,
-https://www.destroyallsoftware.com/talks/boundaries,
-https://guide.elm-lang.org/effects/; the identity claim is this report's
-synthesis [assumption]]. In redux terms: **reducers +
+Cockburn's ports-and-adapters
+[fact:https://alistair.cockburn.us/hexagonal-architecture], Bernhardt's
+functional-core/imperative-shell
+[fact:https://www.destroyallsoftware.com/talks/boundaries], and Elm's
+managed effects (Cmd/Sub) [fact:https://guide.elm-lang.org/effects/] read
+as one design at three levels of strictness — that identity claim is this
+report's synthesis [assumption]. In redux terms: **reducers +
 selectors are the functional core; middleware/effects are the adapters;
 each of the five loading primitives is a port.** The test-harness-as-adapter
 point is Cockburn's original motivation and is dayfold's lived experience:
@@ -326,9 +329,9 @@ failure modes, per axis (memo 2 for all platform mechanics):
   notification must fit in what measure/layout/draw leaves over
   [fact:https://developer.android.com/topic/performance/vitals/render].
 - **Event cascades**: actions that trigger effects that dispatch more
-  actions can starve the UI unless the queue is scheduled (re-frame's FSM
-  queue with `:flush-dom` animation-frame pauses is the worked solution
-  [fact:https://github.com/day8/re-frame/blob/master/src/re_frame/router.cljc]).
+  actions can starve the UI unless the queue is scheduled
+  [fact:https://github.com/day8/re-frame/blob/master/src/re_frame/router.cljc]
+  (fix: §6 row 3).
 
 ### 5.2 Rendering (the other half of "UI = f(state)")
 
@@ -342,8 +345,7 @@ failure modes, per axis (memo 2 for all platform mechanics):
   property-level tracking — which a monolithic `var state: AppState`
   re-defeats [fact:https://fatbobman.com/en/posts/mastering-observation/].
   The general law: **O(subscribers notified) must scale with the delta, not
-  with the store** — re-frame's layer-2/layer-3 DAG is the reference
-  design [fact:https://day8.github.io/re-frame/subscriptions/].
+  with the store** (fix: §6 row 2; the DAG design is in §4.1).
 
 ### 5.3 Memory & GC
 
@@ -381,9 +383,8 @@ failure modes, per axis (memo 2 for all platform mechanics):
   [fact:https://forums.swift.org/t/large-increase-in-compilation-time-in-swift-5-6-on-enums-with-associated-values/56115].
   TCA's *documented* compile pains are the macro-era ~8× build regression
   and type-check timeouts on large views; "a flat giant action enum is the
-  type-checker's worst case" is an extrapolation [estimate]. isowords'
-  86-module split is the mitigation in the wild
-  [fact:https://github.com/pointfreeco/isowords].
+  type-checker's worst case" is an extrapolation [estimate] (fix: §6 rows
+  4–6).
 - **Web/Wasm**: many distinct action *shapes* make generic
   `action.payload` reads megamorphic in V8 (optimizer gives up >4 shapes)
   [fact:memo 2 §3] — a uniform action envelope (`{type, payload, meta}`)
@@ -404,10 +405,8 @@ failure modes, per axis (memo 2 for all platform mechanics):
   10⁴-subtype sealed hierarchy puts enumeration cost on the *interactive*
   path (every completion popup, every exhaustiveness inspection) is an
   extrapolation from it [estimate].
-- The human variant of the same failure: the TCA retrospective's
-  "Xcode had problems scrolling through it" reducer, and no encapsulation
-  between 8 teams sharing one action tree
-  [fact:https://rodschmidt.com/posts/composable-architecture-experience/].
+- Human variant of the same failure: the TCA retrospective's unscrollable
+  root reducer and zero encapsulation across 8 teams (§4.1).
 
 ### 5.6 Backend & contract
 
@@ -474,13 +473,12 @@ Its load-bearing components, each evidence-backed above:
    "would replaying this in six months mean anything?" If no, Tier 2.
 2. **Sharded, hierarchical typed actions.** Per-feature sealed
    sub-hierarchies (~tens of actions each), composed at a root interface;
-   per-feature reducers; feature modules as compile-time boundaries once
-   count/team-size warrants. The flat 500-case ceiling is a shape problem;
-   sharding removes it.
+   per-feature reducers; feature modules once count/team-size warrants
+   (§6 rows 4–6).
 3. **Layered subscription DAG.** Narrow, memoized, value-equality
-   selectors; derivation cost scales with the delta, not the store.
-   Recomposition/re-render counts are a *CI-guardable* metric because UI
-   = f(state) makes them deterministic.
+   selectors; derivation cost scales with the delta, not the store (§6
+   row 2). Recomposition/re-render counts are a *CI-guardable* metric
+   because UI = f(state) makes them deterministic.
 4. **Five loading ports.** Query, Mutation, Subscription, Pagination,
    Outbox — implemented once each as adapters, instantiated per feature,
    property-tested per-interface. New features add *instances*, not
@@ -492,7 +490,7 @@ Its load-bearing components, each evidence-backed above:
    tasks, CLI, server-side rendering of the same logic).
 6. **Snapshot + tail + compaction** for anything persisted; pending-window
    logs where a server is authoritative; versioned schemas with upcasting
-   from day one of persistence.
+   from day one of persistence (§6 rows 9–10).
 7. **Backend symmetry.** The same grammar spans the wire: client Tier-1
    actions are commands to the backend; accepted ones become events; sync
    deltas are the backend's actions dispatched into the client. One schema
@@ -527,9 +525,8 @@ Its load-bearing components, each evidence-backed above:
 - **Ceremony floor**: every durable interaction is an action + reducer
   case + selector touchpoint (~3× the code sites of a mutable-MVVM
   one-liner) — mitigated by codegen/slices, never to zero [estimate].
-- **Schema gravity**: persisted actions are forever; upcasting and
-  versioning discipline start the day the outbox ships (for dayfold:
-  already shipped) [fact:memo 4].
+- **Schema gravity**: persisted action schemas are forever (§5.6) — and
+  dayfold has already crossed that line (R5).
 - **The discipline itself is the risk**: every documented blow-up (TCA
   retrospective, Twitter composer, DevTools crashes) is a team letting
   one of the two tier/shape rules slip. The architecture does not fail
@@ -563,8 +560,11 @@ threshold** instead of discovering them as regressions:
 - **R3 (write it down).** Promote the implicit tier rule to a written
   convention (one paragraph in `processes/agent-dev-loop.md`): durable
   intent → store; high-frequency/ephemeral → platform-local, commit on
-  settle; new exceptions need a stated reason. Agents build to written
-  rules; this one is currently only enforced by example [fact:memo 4 §3].
+  settle; new exceptions need a stated reason. Record R2's sharding
+  threshold in the same paragraph — that's where agents actually look, so
+  the trigger becomes self-executing instead of buried in this report.
+  Agents build to written rules; this one is currently only enforced by
+  example [fact:memo 4 §3].
 - **R4 (name the ports).** The five loading primitives already exist in
   the engines but anonymously, with refresh-on-401 duplicated 4×.
   When next touching the engines, extract the port interfaces (Query /
@@ -582,9 +582,9 @@ threshold** instead of discovering them as regressions:
 None of these change product scope, pricing, data handling, or platform
 choices — they are architecture practice within ADR 0013's existing
 decision, so no new ADR is required *until* R2's sharding actually lands
-(a Proposed ADR then would record the thresholds and the two-tier rule as
-durable convention) [assumption re: ADR-class boundary — flag to operator
-if disagreed].
+(a Proposed ADR then would ratify R3's written paragraph — thresholds +
+two-tier rule — as durable convention rather than restating it)
+[assumption re: ADR-class boundary — flag to operator if disagreed].
 
 ## 9. Open questions
 
@@ -624,10 +624,18 @@ Per `CLAUDE.md` process rules (two rounds before acceptance):
   module count pinned at 86 from the README (memo 1's 91 was wrong, left
   uncorrected in the archived memo per never-silently-edit); outbox op
   count fixed (two types, not one); recomposition-CI-guard spec citation
-  corrected to `specs/prototype/01-architecture.md:145`; several
-  fact→estimate/assumption label demotions (V8 envelope mitigation, IDE
-  10⁴ extrapolation, TCA enum compile-pain attribution, upgrade-replay
-  inference, Cmd/Sub↔ports identity, R2 thresholds); Linear softened out
-  of the "derived state" triad.
-- **Round 2 (optimization/simplification), 2026-07-10:** *recorded below
-  after review.*
+  corrected to `specs/prototype/01-architecture.md:145`; plus 10 P2
+  corrections, mostly fact→estimate/assumption label demotions, and Linear
+  softened out of the "derived state" triad.
+- **Round 2 (optimization/simplification), 2026-07-10:**
+  ACCEPT-WITH-FIXES — 14 findings (6 P1, 8 P2), all applied: §5/§6
+  division of labor cleaned (solutions now live only in the §6 matrix,
+  §5 cross-refs them); duplicate TCA quote and H5 double-statement
+  removed; H3 verdict de-run-on'd; §2 gained forward pointers to §3/§8
+  (agent-context ergonomics); R2's sharding threshold given a home in
+  R3's written convention so the trigger is where agents look; the
+  future-ADR relationship to R3 clarified (ratifies, not restates);
+  hedge-bracket readability fixes in §4.2/§4.4; §4.3 heading aligned
+  with §2's verdict; §7 items cross-ref §6 rows instead of restating
+  them. Reviewer's length verdict: beyond these cuts the report is
+  genuinely tight.
