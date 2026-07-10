@@ -41,10 +41,10 @@ fun DayfoldAvatar(
   val sem = Modifier.semantics {
     if (contentDescription != null) this.contentDescription = contentDescription
   }
-  val fun_ = FunAvatars.resolve(avatarRef)   // Task 2; null-safe: returns null until Task 2 lands
+  val fun_ = FunAvatars.resolve(avatarRef)
   Box(modifier.size(size).clip(CircleShape).then(sem), contentAlignment = Alignment.Center) {
     if (fun_ != null) {
-      FunAvatarImage(fun_, size)             // Task 2
+      FunAvatarImage(fun_, size)
     } else {
       val s = avatarStyle(name, avatarColorKey, swatches)
       Box(Modifier.size(size).clip(CircleShape).background(s.bg))
@@ -53,8 +53,3 @@ fun DayfoldAvatar(
     }
   }
 }
-
-// --- Temporary Task-2 scaffolding: keep until fun-avatar drawable resolution lands. ---
-internal object FunAvatars { fun resolve(ref: String?): FunAvatar? = null }
-internal class FunAvatar
-@Composable internal fun FunAvatarImage(a: FunAvatar, size: Dp) {}
