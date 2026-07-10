@@ -295,18 +295,24 @@ class AuthEngine(
 
   /**
    * Update the caller's own avatar (color + bundled avatar ref; `null` clears a
-   * field). Optimistic: the new value applies to state immediately — the picker
-   * (task 5) never waits on the PATCH round-trip. On failure the optimistic value
-   * is left in place (no revert; a background reload could reconcile later) and
-   * only avatarOpId is cleared.
+   * field). Optimistic: the picked value applies to state immediately (mirrors
+   * MemberOpRequested/DeviceOpRequested) — the picker (task 5) never waits on the
+   * PATCH round-trip, and avatarOpId is busy for the lifetime of the request so an
+   * in-flight indicator can render. On success the SERVER-returned value replaces
+   * the optimistic one (server is truth). On failure the optimistic value is
+   * REVERTED to what it was before this call (mirrors removeMember/revokeDevice's
+   * reconcile-on-failure) and avatarError is set (mirrors rosterError/devicesError).
    */
   suspend fun updateAvatar(avatarColor: String?, avatarRef: String?) = mutex.withLock {
     val session = store.state.session ?: return@withLock
-    store.dispatch(AvatarUpdated(avatarColor, avatarRef))
+    val prevAvatarColor = store.state.myAvatarColor
+    val prevAvatarRef = store.state.myAvatarRef
+    store.dispatch(AvatarOpRequested(avatarColor, avatarRef))
     try {
-      callWithRefresh(session) { authClient.updateAvatar(it.access, avatarColor, avatarRef) }
+      val profile = callWithRefresh(session) { authClient.updateAvatar(it.access, avatarColor, avatarRef) }
+      store.dispatch(AvatarUpdated(profile.avatarColor, profile.avatarRef))
     } catch (e: Exception) {
-      store.dispatch(AvatarUpdateFailed)
+      store.dispatch(AvatarUpdateFailed(prevAvatarColor, prevAvatarRef, "Couldn't save your avatar. Try again."))
     }
   }
 

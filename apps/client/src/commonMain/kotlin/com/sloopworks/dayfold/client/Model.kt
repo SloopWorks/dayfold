@@ -520,13 +520,17 @@ data class AppState(
   val deviceOpId: String? = null,        // device row currently revoking
   val audienceError: String? = null,
   // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
-  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId but the update is
-  // OPTIMISTIC (AvatarUpdated applies the new value immediately, no network wait) —
-  // it's non-null only while a PATCH is settling, cleared by either terminal action.
+  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId — non-null only
+  // while a PATCH is in flight, cleared by either terminal action. The update IS
+  // optimistic (AvatarOpRequested applies the picked value immediately, no network
+  // wait) but the optimistic value is REVERTED on failure (mirrors removeMember's
+  // reconcile-on-failure) and avatarError surfaces the failure (mirrors
+  // rosterError/devicesError).
   val myDisplayName: String? = null,
   val myAvatarColor: String? = null,
   val myAvatarRef: String? = null,
   val avatarOpId: String? = null,
+  val avatarError: String? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -648,12 +652,18 @@ data class AudienceFailed(val message: String) : Action
 // own profile (task 4, GET/PATCH /auth/me). ProfileLoaded is a quiet DB-less
 // bridge (like loadRosterLocked) — dispatched after restore/sign-in resolves
 // memberships; a failure there is swallowed (no *Failed action) so it can never
-// wedge the route gate. AvatarUpdated is OPTIMISTIC: dispatched immediately with
-// the picked value (before the PATCH lands), so the UI never blocks on network;
-// AvatarUpdateFailed only clears the busy marker — it does NOT revert the value.
+// wedge the route gate. AvatarOpRequested is OPTIMISTIC (mirrors MemberOpRequested/
+// DeviceOpRequested): dispatched immediately with the picked value (before the PATCH
+// lands) — applies the value AND marks avatarOpId busy, so the UI never blocks on
+// network but a Task-5 picker can show an in-flight indicator. AvatarUpdated is the
+// SUCCESS terminal: applies the SERVER-RETURNED value (not the picked one — the
+// server is truth) and clears avatarOpId. AvatarUpdateFailed is the FAILURE terminal:
+// reverts to the previous (pre-optimistic) value, clears avatarOpId, and sets
+// avatarError (mirrors rosterError/devicesError).
 data class ProfileLoaded(val profile: MeProfile) : Action
+data class AvatarOpRequested(val avatarColor: String?, val avatarRef: String?) : Action
 data class AvatarUpdated(val avatarColor: String?, val avatarRef: String?) : Action
-data object AvatarUpdateFailed : Action
+data class AvatarUpdateFailed(val prevAvatarColor: String?, val prevAvatarRef: String?, val message: String) : Action
 // CLI/device approval (S6-D). The engine drives the *Requested/*Loaded/*Failed
 // effect-trigger pattern (like approvals/join); the reducer stays pure.
 data object OpenEnterCode : Action                             // → EnterCode (clears the device fields)
