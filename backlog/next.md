@@ -31,6 +31,26 @@ Actionable ones, in predicted-regression order:
 - R2 fires at its threshold (Action count is 99 today); R6 is watch-only
   (wasm bundle size before web target; K/N GC if dispatch rates rise).
 
+**R6 concretized (2026-07-10 operator-requested K/N-GC brainstorm; facts in
+`research/redux-extreme-state-2026-07-agent-outputs/05-kn-gc-tuning-factcheck.md`):**
+K/N GC is non-generational and none is planned, but the practical
+mitigations are cheap and ordered. When touching iOS perf:
+(1) *tripwire first* — `kotlin.native.binary.enableSafepointSignposts=true`
++ Instruments (`org.kotlinlang.native.runtime`/`safepoint`) and/or
+`GC.lastGCInfo` pause logging; budget: pauses <2ms, <1 collection/s under
+scroll; (2) `kotlin.native.binary.gc=cms` (one line; PMCS is the 2.3.x
+default; CMS is default from Kotlin 2.4.0 — JetBrains measured worst-p25
+pause 1.7ms→0.4ms on Compose-iOS LazyGrid); (3) `appStateTracking=enabled`
+(no timer-GC while backgrounded — fits a calm app); (4) if measured churn:
+identity-stabilization at the DB→store bridges (reuse content-equal
+instances — also restores `===` for Compose skipping, compounds R1) and
+batch the 6 bridge notifications post-sync; (5) persistent collections
+(`PersistentMap` by id) for large content slices — mind the stdlib-operator
+degradation trap (kotlinx.collections.immutable #64), use `mutate {}`.
+redux-kotlin-side levers (operator maintains it): reuse/batch enhancers,
+granular per-cell store, and a per-action allocation-budget test using
+`GCInfo` memory-pool stats (GC analogue of the recomposition CI guard).
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
