@@ -565,7 +565,11 @@ const HUB_VISIBILITIES = new Set(["family", "restricted"]);
 // on a hub's allow-list) — distinct from the full-replace PUT /hubs/:id upsert.
 // Gated to the hub author or an existing co_owner (canManageHub); the author's row
 // is immutable (permanent implicit co_owner). Uniform 404 on an absent/invisible hub
-// (no existence oracle), matching the audience route above.
+// (no existence oracle), matching the audience route above. Also requires ADR 0029
+// `hub:${id}` write scope on the credential (same check as PUT /hubs/:id below) —
+// canManageHub decides WHO among the family may manage; requireScope independently
+// gates WHAT the presented credential is authorized to do, so a narrowly-scoped
+// credential (e.g. a read-only device grant) tied to an author/co_owner can't mutate.
 app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
   const a = await authorizeTenant(c, fid);
@@ -575,6 +579,7 @@ app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
   const raw = await c.req.json().catch(() => null);
@@ -593,14 +598,16 @@ app.delete("/families/:fid/hubs/:id/participants/:uid", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
   return c.body(null, (await hubs.removeParticipant(fid, id, uid)) ? 204 : 404);
 });
 
-// ADR 0053 DC2: family<->restricted visibility toggle, same author/co_owner gate as
-// the participant routes above (kept separate from PUT /hubs/:id so a manager can
-// flip visibility without re-supplying the whole hub body / clobbering the allow-list).
+// ADR 0053 DC2: family<->restricted visibility toggle, same author/co_owner gate
+// (canManageHub) + ADR 0029 `hub:${id}` write-scope gate as the participant routes
+// above (kept separate from PUT /hubs/:id so a manager can flip visibility without
+// re-supplying the whole hub body / clobbering the allow-list).
 app.put("/families/:fid/hubs/:id/visibility", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
@@ -610,6 +617,7 @@ app.put("/families/:fid/hubs/:id/visibility", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
   const visibility = raw?.visibility;

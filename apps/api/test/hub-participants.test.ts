@@ -37,6 +37,17 @@ async function memberOf(uid: string, familyId: string) {
   await q(`INSERT INTO memberships(user_id,family_id,role,status) VALUES ($1,$2,'adult','active')`, [me.user_id, familyId]);
   return { token: t as string, userId: me.user_id as string };
 }
+// A 2nd family member seeded directly with memberships.role='owner' (mirrors the
+// direct-insert pattern in test/invites.test.ts ~L451) WITHOUT going through the
+// hub-authoring flow — this member is a family admin only, never the hub's author
+// and never granted co_owner on any hub. Used to prove the ADR 0030/0053 invariant
+// that family `owner` role alone does NOT bypass canManageHub.
+async function ownerRoleMemberOf(uid: string, familyId: string) {
+  const t = (await (await app.request("/auth/dev-token", { method: "POST", headers: dev, body: JSON.stringify({ provider: "dev", provider_uid: uid }) })).json()).access;
+  const me = await (await app.request("/auth/me", { headers: { authorization: `Bearer ${t}` } })).json();
+  await q(`INSERT INTO memberships(user_id,family_id,role,status,joined_at) VALUES ($1,$2,'owner','active',now())`, [me.user_id, familyId]);
+  return { token: t as string, userId: me.user_id as string };
+}
 const authH = (tok: string) => ({ "content-type": "application/json", authorization: `Bearer ${tok}` });
 const put = (fid: string, path: string, tok: string, body: any) =>
   app.request(`/families/${fid}/${path}`, { method: "PUT", headers: authH(tok), body: JSON.stringify(body) });
@@ -165,5 +176,49 @@ describe("hub participant-management API (ADR 0053 DC2)", () => {
     // nonexistent hub id entirely is also 404.
     r = await put(o.familyId, "hubs/nope/participants/" + carl.userId, o.token, { role: "viewer" });
     expect(r.status).toBe(404);
+  });
+
+  it("a family owner who did NOT author the hub and is not a co_owner is denied management — no owner-role bypass (ADR 0030/0053)", async () => {
+    const author = await ownerOf("hp-o6");
+    // 2nd owner-role member of the SAME family — a family admin only, purely by
+    // virtue of memberships.role='owner'. Not the hub author, never made co_owner.
+    const owner2 = await ownerRoleMemberOf("hp-owner2-6", author.familyId);
+    expect((await put(author.familyId, "hubs/hp6", author.token, { type: "party-event", title: "Party" })).status).toBe(200);
+
+    let r = await put(author.familyId, "hubs/hp6/participants/" + owner2.userId, owner2.token, { role: "viewer" });
+    expect(r.status).toBe(403);
+    r = await del(author.familyId, "hubs/hp6/participants/" + owner2.userId, owner2.token);
+    expect(r.status).toBe(403);
+    r = await put(author.familyId, "hubs/hp6/visibility", owner2.token, { visibility: "restricted" });
+    expect(r.status).toBe(403);
+  });
+
+  it("a credential lacking write scope cannot mutate participants/visibility, even for the hub author (ADR 0029 credential-scope gate)", async () => {
+    const o = await ownerOf("hp-o7");
+    const bob = await memberOf("hp-bob7", o.familyId);
+    expect((await put(o.familyId, "hubs/hp7", o.token, { type: "party-event", title: "Party" })).status).toBe(200);
+    // Seed bob as a real participant (full-scope token) so the scope-gated attempts
+    // below exercise a genuine row, not a nonexistent uid masked by a FK error.
+    expect((await put(o.familyId, "hubs/hp7/participants/" + bob.userId, o.token, { role: "viewer" })).status).toBe(200);
+
+    // A read-only credential for the SAME user (the hub author) — simulates a
+    // scoped-down device grant (e.g. a read-only device). canManageHub alone would
+    // allow (author), so requireScope must independently deny.
+    const credId = "cred_ro_" + Math.random().toString(16).slice(2);
+    await q(`INSERT INTO credentials(id,user_id,kind,scopes,family_scope) VALUES ($1,$2,'cli','{content:read}',$3)`, [credId, o.userId, o.familyId]);
+    await q(`INSERT INTO credential_grants(credential_id,scope) VALUES ($1,'content:read')`, [credId]);
+    const { mintAccess } = await import("../src/auth/tokens.ts");
+    const roToken = await mintAccess({ sub: o.userId, cid: credId });
+
+    let r = await put(o.familyId, "hubs/hp7/participants/" + bob.userId, roToken, { role: "contributor" });
+    expect(r.status).toBe(403);
+    r = await del(o.familyId, "hubs/hp7/participants/" + bob.userId, roToken);
+    expect(r.status).toBe(403);
+    r = await put(o.familyId, "hubs/hp7/visibility", roToken, { visibility: "restricted" });
+    expect(r.status).toBe(403);
+
+    // Sanity: the full-scope author token (content:read/write/delete) still works.
+    r = await put(o.familyId, "hubs/hp7/visibility", o.token, { visibility: "restricted" });
+    expect(r.status).toBe(200);
   });
 });
