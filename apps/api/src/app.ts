@@ -474,7 +474,7 @@ app.get("/families/:fid/members", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   const rows = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role, m.status, m.joined_at
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role, m.status, m.joined_at
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.family_id = $1 AND m.status = 'active'
       ORDER BY (m.role = 'owner') DESC, m.joined_at`,
@@ -978,7 +978,7 @@ app.get("/families/:fid/invites", async (c) => {
   // S2) would fan out across a plain LEFT JOIN — pick a single deterministic
   // identity (earliest) via LATERAL so the approval queue shows each person once.
   const pending = await q(
-    `SELECT m.user_id AS uid, u.display_name, ui.provider, ui.provider_uid, ui.email_verified,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, ui.provider, ui.provider_uid, ui.email_verified,
             m.role, m.invite_id, m.created_at AS requested_at
        FROM memberships m JOIN users u ON u.id=m.user_id
        LEFT JOIN LATERAL (

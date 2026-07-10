@@ -78,6 +78,12 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     const o = await ownerOf("aud-owner");
     const bob = await memberOf("aud-bob", o.familyId);
     const eve = await memberOf("aud-eve", o.familyId);
+    // owner sets an avatar — should flow through the audience roster too
+    await app.request("/auth/me", {
+      method: "PATCH",
+      headers: authH(o.token),
+      body: JSON.stringify({ avatar_ref: "avatar:fox-01", avatar_color: "teal" }),
+    });
     // restricted hub authored by the owner, allow-listing bob (NOT eve)
     await put(o.familyId, "hubs/r", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [bob.userId] });
 
@@ -89,6 +95,13 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect(by(o.userId)).toBe(true);    // author
     expect(by(bob.userId)).toBe(true);  // allow-listed
     expect(by(eve.userId)).toBe(false); // not permitted (and owner-not-auto-permitted holds for non-owner authors too)
+    // avatar fields projected onto the audience row (nullable — bob never set one)
+    const ownerRow = aud.body.members.find((m: any) => m.uid === o.userId);
+    expect(ownerRow.avatar_ref).toBe("avatar:fox-01");
+    expect(ownerRow.avatar_color).toBe("teal");
+    const bobRow = aud.body.members.find((m: any) => m.uid === bob.userId);
+    expect(bobRow.avatar_ref).toBeNull();
+    expect(bobRow.avatar_color).toBeNull();
     // eve (not permitted) cannot even enumerate the audience → uniform 404
     expect((await getJson(o.familyId, "hubs/r/audience", eve.token)).status).toBe(404);
 

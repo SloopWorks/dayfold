@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0017_user_avatar.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -24,7 +24,8 @@ const dev = { "content-type":"application/json", authorization:"Bearer dev" };
 async function ownerOf(uid: string) {
   const t = (await (await app.request("/auth/dev-token",{method:"POST",headers:dev,body:JSON.stringify({provider:"dev",provider_uid:uid})})).json()).access;
   const fam = await (await app.request("/families",{method:"POST",headers:{...dev,authorization:`Bearer ${t}`},body:JSON.stringify({name:uid})})).json();
-  return { token: t, familyId: fam.familyId };
+  const me = await (await app.request("/auth/me", { headers: { authorization: `Bearer ${t}` } })).json();
+  return { token: t, familyId: fam.familyId, userId: me.user_id as string };
 }
 
 describe("GET /families/:fid/members", () => {
@@ -37,6 +38,23 @@ describe("GET /families/:fid/members", () => {
     expect(b.members[0].uid).toBeTruthy();
     expect(b.members[0].role).toBe("owner");
     expect(b.members[0].status).toBe("active");
+    // no avatar set yet — fields present but null (nullable, additive)
+    expect(b.members[0].avatar_color).toBeNull();
+    expect(b.members[0].avatar_ref).toBeNull();
+  });
+
+  it("roster rows carry avatar fields once set via PATCH /auth/me", async () => {
+    const o = await ownerOf("rosteravatar");
+    await app.request("/auth/me", {
+      method: "PATCH",
+      headers: { ...dev, authorization: `Bearer ${o.token}` },
+      body: JSON.stringify({ avatar_ref: "avatar:fox-01", avatar_color: "teal" }),
+    });
+    const r = await app.request(`/families/${o.familyId}/members`, { headers: { ...dev, authorization: `Bearer ${o.token}` } });
+    const b = await r.json();
+    const me = b.members.find((m: any) => m.uid === o.userId);
+    expect(me.avatar_ref).toBe("avatar:fox-01");
+    expect(me.avatar_color).toBe("teal");
   });
 
   it("404s for a non-member (tenant isolation, no leak)", async () => {

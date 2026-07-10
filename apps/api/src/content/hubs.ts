@@ -148,7 +148,7 @@ export async function getHubTree(familyId: string, hubId: string) {
 // (option A) — they show permitted=false unless author/allow-listed.
 export async function hubAudience(familyId: string, hubId: string) {
   const r = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role,
             (h.visibility = 'family'
              OR m.user_id = h.created_by
              OR EXISTS (SELECT 1 FROM resource_visibility rv
