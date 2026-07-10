@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql","0018_resource_visibility_role.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -63,6 +63,10 @@ describe("W4 delete — content:delete scope + author-gate (ADR 0038 §W4)", () 
     const o = await ownerOf("del-owner2");
     const bob = await memberOf("del-bob", o.familyId);
     const sec = await hubWithSection(o, "hShared", "sShared");
+    // ADR 0053 item 4 (DC3): a plain member can no longer write hub content by
+    // visibility alone — grant bob 'contributor' so he can author the block this
+    // test needs (the test's point is the DELETE author-gate, not the write-gate).
+    await q(`INSERT INTO resource_visibility(family_id,hub_id,user_id,role) VALUES ($1,'hShared',$2,'contributor')`, [o.familyId, bob.userId]);
     expect((await putBlock(o.familyId, "bBob", bob.token, sec)).status).toBe(200);   // bob authors it
     expect((await delBlock(o.familyId, "bBob", o.token)).status).toBe(403);          // owner can't delete it
   });

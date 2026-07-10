@@ -55,6 +55,33 @@ export async function allowListFor(familyId: string, hubId: string): Promise<Set
   return new Set(r.rows.map((x: any) => x.user_id));
 }
 
+// A single user's participation_role on a hub's allow-list (ADR 0053 item 4's write
+// gate needs the CALLER's role, not the whole roster). null = no row (never granted a
+// role — the pre-DC2 default; NOT the same as 'viewer', but hubWritableByMember treats
+// both as non-writable so the distinction doesn't matter to the caller).
+export async function roleFor(familyId: string, hubId: string, userId: string): Promise<string | null> {
+  const r = await q(
+    `SELECT role FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id=$3`,
+    [familyId, hubId, userId]);
+  return r.rows[0]?.role ?? null;
+}
+
+// ADR 0053 item 4 — the member-write gate: may `caller` write CONTENT (sections/
+// blocks) parented by this hub? Author OR a participation role of contributor/
+// co_owner OR legacy (M0 operator, write-exempt). A plain viewer (or a member with
+// no allow-list row at all — `role` null) may NOT write. Mirrors hubVisible's
+// null-safety: a non-legacy NULL-user credential can't match a loop-authored
+// (created_by NULL) hub via the author branch (P0-2 — no NULL-vs-NULL god-mode).
+export function hubWritableByMember(
+  hub: { created_by?: string | null },
+  caller: { userId: string | null; legacy: boolean },
+  role: string | null,
+): boolean {
+  if (caller.legacy) return true;
+  if (caller.userId && hub.created_by && caller.userId === hub.created_by) return true;
+  return role === "contributor" || role === "co_owner";
+}
+
 // Idempotent hub upsert + allow-list authoring, in one transaction. created_by is set
 // on first author and preserved thereafter. visibility 'family'|'restricted'; when
 // restricted, `audience` (user ids) replaces the allow-list rows.
