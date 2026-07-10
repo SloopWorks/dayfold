@@ -87,6 +87,29 @@ setSchemaVersion:
 INSERT INTO sync_meta(id, client_schema_version) VALUES (0, ?)
 ON CONFLICT(id) DO UPDATE SET client_schema_version=excluded.client_schema_version;
 
+-- ── Membership cache (ADR 0052) — last-known family list, so the cold-start route gate
+-- resolves from the DB instead of waiting on a network whoami. This is a cache of the
+-- caller's OWN family list (not synced tenant content), written on every whoami and read
+-- once at cold start. It is wiped on tenancy revocation (wipe(), same boundary as cards)
+-- but PRESERVED across reconcileSchemaVersion (it is not a synced model a content-schema
+-- bump can malform — see ContentStore.wipeSyncedContent, which deliberately omits it).
+CREATE TABLE membership (
+  family_id TEXT NOT NULL PRIMARY KEY,
+  name      TEXT NOT NULL DEFAULT '',
+  role      TEXT NOT NULL DEFAULT 'adult',   -- owner | adult
+  status    TEXT NOT NULL DEFAULT 'active'   -- active | pending
+);
+
+allMemberships:
+SELECT family_id, name, role, status FROM membership;
+
+upsertMembership:
+INSERT INTO membership(family_id, name, role, status) VALUES (?, ?, ?, ?)
+ON CONFLICT(family_id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status;
+
+wipeMembership:
+DELETE FROM membership;
+
 -- ── Hubs (ADR 0006 render). Mirrors the server `hubs` table: business cols +
 -- deleted flag for soft-deletes from the hub-sync delta. No JSON cols in PR1.
 -- Schema v2 (added via migration 1.sqm for existing device DBs).

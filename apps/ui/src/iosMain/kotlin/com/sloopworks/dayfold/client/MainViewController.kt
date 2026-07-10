@@ -26,7 +26,9 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
   // reuse this exact instance/driver; two connections would race the WAL writer).
   val cs = remember { IosContentStoreHolder.get() }
   // Data-boundary: drop the local cache on logout / dead session (see AuthEngine.clearCache).
-  val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null, clearCache = { cs.wipe() }) }
+  // ADR 0052 — loadCachedMemberships/saveMemberships back the DB-first cold-start route gate.
+  val authEngine = remember { AuthEngine(store, AuthClient(""), tokenStore, devSecret = null, clearCache = { cs.wipe() },
+    loadCachedMemberships = { cs.cachedMemberships() }, saveMemberships = { cs.replaceMemberships(it) }) }
   val syncEngine = remember {
     SyncEngine(
       store, cs,

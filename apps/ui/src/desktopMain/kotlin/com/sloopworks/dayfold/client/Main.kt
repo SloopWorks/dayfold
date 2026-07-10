@@ -34,7 +34,11 @@ fun main() = application {
     AuthEngine(store, AuthClient(clientApi, http), tokenStore,
       devSecret = if (isFake) "fake" else System.getenv("DEV_AUTH_SECRET"),
       // Data-boundary: wipe the local cache on logout / dead session (see AuthEngine.clearCache).
-      clearCache = { cs.wipe() })
+      clearCache = { cs.wipe() },
+      // ADR 0052 — DB-first cold-start route gate: cache/read the family list so the splash
+      // resolves from the DB instead of waiting on a network whoami.
+      loadCachedMemberships = { cs.cachedMemberships() },
+      saveMemberships = { cs.replaceMemberships(it) })
   }
   val syncEngine = remember {
     val legacyFam = System.getenv("FAMILY_ID"); val legacySecret = System.getenv("HOUSEHOLD_SECRET")
