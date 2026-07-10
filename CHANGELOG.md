@@ -7,6 +7,17 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-09 — Timeline detail no longer draws under the status bar
+
+### Fixed (client)
+- **The full-screen timeline ("roadmap" / "All milestones") view now sits below the status bar**
+  — its back arrow and title were drawing up into the clock. Root cause: the app is edge-to-edge
+  and this screen is a bare full-screen substate hosted inside the Hubs tab branch (which,
+  unlike the shared `SafeArea` wrapper other routes use, is intentionally edge-to-edge — each
+  surface owns its inset). It was the one such surface that applied neither a `Scaffold` nor an
+  explicit inset. Made `TimelineDetail` own its insets like the Feed card detail does
+  (`statusBarsPadding` on the header, navigation-bar padding on the list).
+
 ## 2026-07-09 — Cold start no longer waits on the network to render (ADR 0052)
 
 ### Changed (client)
