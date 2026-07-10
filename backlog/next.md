@@ -51,6 +51,28 @@ redux-kotlin-side levers (operator maintains it): reuse/batch enhancers,
 granular per-cell store, and a per-action allocation-budget test using
 `GCInfo` memory-pool stats (GC analogue of the recomposition CI guard).
 
+**R7 — `:state` module extraction (2026-07-10 operator-requested brainstorm).**
+Extract a pure `:state` module (AppState + Action + reducers + selectors +
+the 5 port *interfaces* + pure planners like `OutboxSender.classify`/
+`BackgroundNotify` planning) from `:client`, leaving `:client` as the
+adapter module (engines, SyncClient, ContentStore/SQLDelight = port
+implementations). **Do it together with R4 — same surgery.** What it buys
+(in order): (1) hexagonal boundary becomes compiler-enforced — zero-dep
+module means reducers physically can't do I/O (high value for
+agent-operated builds); (2) fast pure-verification loop — add a plain
+**JVM test target** so reducer/selector/property tests compile ~2k LOC
+with no Android/iOS toolchain (same rationale as ADR 0047, one level
+deeper); (3) new consumers: server-side reuse of `nowFeed`/notification
+planning (same-function push consistency), **wasmJs web preview without
+the client-DB async migration** (SQLDelight stays in `:client`), CLI/`rk`
+tooling; (4) `explicitApi()` + `apiCheck` makes action/state changes
+visible API diffs (feeds R5). Honest caveat, per the research §5.5: this
+does NOT shrink the add-an-action recompile blast radius (dependents'
+exhaustive `when`s still recompile) — that fix is R2's per-feature
+sharding, which stays orthogonal and gets *easier* after this cut.
+Module-topology change → worth a small Proposed ADR when it lands
+(extends ADR 0047's pattern).
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
