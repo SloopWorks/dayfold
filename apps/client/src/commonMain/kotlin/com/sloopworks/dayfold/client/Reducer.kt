@@ -182,10 +182,15 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
     myAvatarRef = action.profile.avatarRef,
     avatarOpId = null,
     avatarError = null,
+    nameOpId = null,
+    nameError = null,
   )
   is AvatarOpRequested -> state.copy(myAvatarColor = action.avatarColor, myAvatarRef = action.avatarRef, avatarOpId = "pending", avatarError = null)
   is AvatarUpdated -> state.copy(myAvatarColor = action.avatarColor, myAvatarRef = action.avatarRef, avatarOpId = null, avatarError = null)
   is AvatarUpdateFailed -> state.copy(myAvatarColor = action.prevAvatarColor, myAvatarRef = action.prevAvatarRef, avatarOpId = null, avatarError = action.message)
+  is NameOpRequested -> state.copy(myDisplayName = action.displayName, nameOpId = "pending", nameError = null)
+  is NameUpdated -> state.copy(myDisplayName = action.displayName, nameOpId = null, nameError = null)
+  is NameUpdateFailed -> state.copy(myDisplayName = action.prevDisplayName, nameOpId = null, nameError = action.message)
 
   // ── CLI/device approval (S6-D) ──
   is OpenEnterCode -> state.copy(

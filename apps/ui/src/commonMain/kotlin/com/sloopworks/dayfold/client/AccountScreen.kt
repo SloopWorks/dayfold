@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +55,7 @@ fun AccountScreen(
   onOpenDevices: () -> Unit = {},
   onOpenProximity: () -> Unit = {},   // ADR 0044 Phase B — device-local background-proximity settings
   onUpdateAvatar: (String?, String?) -> Unit = { _, _ -> },  // Delta A / Task 5 — sheet Save → AuthEngine.updateAvatar
+  onUpdateName: (String) -> Unit = {},                        // profile name edit → AuthEngine.updateDisplayName
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
@@ -64,6 +66,8 @@ fun AccountScreen(
   var confirmSignOut by remember { mutableStateOf(false) }
   // Delta A / Task 5 — the avatar picker sheet, opened from the profile card's avatar.
   var avatarPickerOpen by remember { mutableStateOf(false) }
+  // Profile name edit — opened from the profile card's name (pencil affordance).
+  var editingName by remember { mutableStateOf(false) }
 
   if (avatarPickerOpen) {
     AvatarPickerSheet(
@@ -71,6 +75,33 @@ fun AccountScreen(
       currentRef = state.myAvatarRef,
       onSave = { color, ref -> avatarPickerOpen = false; onUpdateAvatar(color, ref) },
       onDismiss = { avatarPickerOpen = false },
+    )
+  }
+
+  if (editingName) {
+    // remember(...) re-seeds the draft with the current name each time the dialog opens.
+    var draft by remember { mutableStateOf(state.myDisplayName ?: "") }
+    val trimmed = draft.trim()
+    val valid = trimmed.isNotEmpty() && trimmed.length <= 80   // matches the server's 1–80 rule
+    AlertDialog(
+      onDismissRequest = { editingName = false },
+      title = { Text("Your name", style = MaterialTheme.typography.titleLarge) },
+      text = {
+        OutlinedTextField(
+          value = draft, onValueChange = { draft = it }, singleLine = true,
+          label = { Text("Display name") }, isError = draft.isNotEmpty() && !valid,
+          modifier = Modifier.testTag("name-field"),
+        )
+      },
+      confirmButton = {
+        TextButton(
+          enabled = valid,
+          onClick = { editingName = false; onUpdateName(trimmed) },
+          modifier = Modifier.testTag("save-name"),
+        ) { Text("Save") }
+      },
+      dismissButton = { TextButton(onClick = { editingName = false }) { Text("Cancel") } },
+      containerColor = cs.surfaceContainerHigh,
     )
   }
 
@@ -128,11 +159,24 @@ fun AccountScreen(
           }
         }
         Column(Modifier.weight(1f)) {
-          Text(state.myDisplayName ?: "You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          // Tappable name → the edit dialog. The pencil is decorative; the row carries the a11y label.
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { editingName = true }
+              .semantics { contentDescription = "Edit name" },
+          ) {
+            Text(state.myDisplayName ?: "You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+            Text("✎", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics {})
+          }
           Text(
             if (active != null) "$role · ${active.name}" else role,
             style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
           )
+          val nameError = state.nameError
+          if (nameError != null) {
+            Text(nameError, style = MaterialTheme.typography.bodySmall, color = cs.error)
+          }
           val avatarError = state.avatarError
           if (avatarError != null) {
             Text(avatarError, style = MaterialTheme.typography.bodySmall, color = cs.error)

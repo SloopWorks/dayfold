@@ -404,6 +404,19 @@ class AuthClientTest {
     assertTrue(sent.contains("\"avatar_ref\":null"), "body was: $sent")
   }
 
+  @Test fun `updateDisplayName PATCHes display_name and parses the response`() = runBlocking {
+    var method = ""; var path = ""; var sent = ""
+    val engine = MockEngine { req ->
+      method = req.method.value; path = req.url.encodedPath; sent = body(req)
+      respond("""{"display_name":"Zoe"}""", HttpStatusCode.OK, jsonCt)
+    }
+    val me = client(engine).updateDisplayName("ACCESS", "Zoe")
+    assertEquals("PATCH", method)
+    assertEquals("/auth/me", path)
+    assertTrue(sent.contains("\"display_name\":\"Zoe\""), "body was: $sent")
+    assertEquals("Zoe", me.displayName)
+  }
+
   @Test fun `updateAvatar throws on 400 (bad avatar)`() = runBlocking<Unit> {
     val engine = MockEngine { respond("""{"type":"bad-avatar"}""", HttpStatusCode.BadRequest, jsonCt) }
     val ex = assertFailsWith<AuthHttpException> { client(engine).updateAvatar("A", "x".repeat(99), null) }

@@ -547,6 +547,10 @@ data class AppState(
   val myAvatarRef: String? = null,
   val avatarOpId: String? = null,
   val avatarError: String? = null,
+  // Display-name edit (mirrors avatarOpId/avatarError): nameOpId non-null while the PATCH is
+  // in flight; nameError surfaces a failed rename (reverted).
+  val nameOpId: String? = null,
+  val nameError: String? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -686,6 +690,12 @@ data class ProfileLoaded(val profile: MeProfile) : Action
 data class AvatarOpRequested(val avatarColor: String?, val avatarRef: String?) : Action
 data class AvatarUpdated(val avatarColor: String?, val avatarRef: String?) : Action
 data class AvatarUpdateFailed(val prevAvatarColor: String?, val prevAvatarRef: String?, val message: String) : Action
+// Display-name edit (mirrors the Avatar* trio): NameOpRequested applies the new name optimistically
+// + marks nameOpId busy; NameUpdated confirms with the server value; NameUpdateFailed reverts to the
+// previous name + sets nameError.
+data class NameOpRequested(val displayName: String?) : Action
+data class NameUpdated(val displayName: String?) : Action
+data class NameUpdateFailed(val prevDisplayName: String?, val message: String) : Action
 // CLI/device approval (S6-D). The engine drives the *Requested/*Loaded/*Failed
 // effect-trigger pattern (like approvals/join); the reducer stays pure.
 data object OpenEnterCode : Action                             // → EnterCode (clears the device fields)

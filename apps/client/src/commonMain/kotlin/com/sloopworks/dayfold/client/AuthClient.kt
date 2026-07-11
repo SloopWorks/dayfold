@@ -67,6 +67,7 @@ class AuthClient(
     fun toModel() = MeProfile(userId = user_id ?: "", displayName = display_name, avatarColor = avatar_color, avatarRef = avatar_ref)
   }
   @Serializable private data class UpdateAvatarReq(val avatar_color: String?, val avatar_ref: String?)
+  @Serializable private data class UpdateNameReq(val display_name: String)
 
   /** POST /auth/dev-token (Bearer DEV_AUTH_SECRET) → a real backend session. Dev/test only. */
   suspend fun devToken(provider: String, providerUid: String, devSecret: String): Session {
@@ -243,6 +244,17 @@ class AuthClient(
       setBody(json.encodeToString(UpdateAvatarReq.serializer(), UpdateAvatarReq(avatarColor, avatarRef)))
     }
     if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "update-avatar")
+    return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
+  }
+
+  /** PATCH /auth/me — update the caller's own display name (server trims + validates 1–80). */
+  suspend fun updateDisplayName(access: String, name: String): MeProfile {
+    val resp = http.patch("$api/auth/me") {
+      header("authorization", "Bearer $access")
+      contentType(ContentType.Application.Json)
+      setBody(json.encodeToString(UpdateNameReq.serializer(), UpdateNameReq(name)))
+    }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "update-name")
     return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
   }
 

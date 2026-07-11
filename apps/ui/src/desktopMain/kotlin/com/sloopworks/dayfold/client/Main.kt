@@ -84,6 +84,7 @@ fun main() = application {
       onMintInvite = { mode -> scope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
       onRevokeInvite = { id -> scope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
       onUpdateAvatar = { color, ref -> scope.launch { authEngine.updateAvatar(color, ref) } },
+      onUpdateName = { name -> scope.launch { authEngine.updateDisplayName(name) } },
       onLoadDevices = { scope.launch { authEngine.loadDevices() } },
       onRevokeDevice = { id -> scope.launch { authEngine.revokeDevice(id) } },
       onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
