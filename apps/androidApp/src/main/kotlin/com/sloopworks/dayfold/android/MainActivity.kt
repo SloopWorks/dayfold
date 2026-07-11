@@ -313,6 +313,7 @@ class MainActivity : ComponentActivity() {
           onMintInvite = { mode -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
           onRevokeInvite = { id -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
           onUpdateAvatar = { color, ref -> lifecycleScope.launch { authEngine.updateAvatar(color, ref) } },
+          onUpdateName = { name -> lifecycleScope.launch { authEngine.updateDisplayName(name) } },
           onLoadDevices = { lifecycleScope.launch { authEngine.loadDevices() } },
           onRevokeDevice = { id -> lifecycleScope.launch { authEngine.revokeDevice(id) } },
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },

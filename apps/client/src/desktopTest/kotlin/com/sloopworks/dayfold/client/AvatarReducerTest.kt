@@ -69,4 +69,36 @@ class AvatarReducerTest {
     assertNull(s.avatarOpId)
     assertEquals("Couldn't save your avatar. Try again.", s.avatarError)
   }
+
+  // ── display-name edit (mirrors the Avatar* trio) ──────────────────────────
+  @Test fun `NameOpRequested applies the new name optimistically and marks nameOpId busy`() {
+    val s = rootReducer(AppState(myDisplayName = "Leo", nameOpId = null), NameOpRequested("Zoe"))
+    assertEquals("Zoe", s.myDisplayName)
+    assertEquals("pending", s.nameOpId)
+    assertNull(s.nameError)
+  }
+
+  @Test fun `NameUpdated (success) applies the server value and clears nameOpId`() {
+    val s = rootReducer(AppState(myDisplayName = "Zoe", nameOpId = "pending"), NameUpdated("Zoe"))
+    assertEquals("Zoe", s.myDisplayName)
+    assertNull(s.nameOpId)
+    assertNull(s.nameError)
+  }
+
+  @Test fun `NameUpdateFailed reverts to the previous name, clears nameOpId, and sets nameError`() {
+    val midFlight = AppState(myDisplayName = "Zoe", nameOpId = "pending")
+    val s = rootReducer(midFlight, NameUpdateFailed("Leo", "Couldn't save your name. Try again."))
+    assertEquals("Leo", s.myDisplayName)
+    assertNull(s.nameOpId)
+    assertEquals("Couldn't save your name. Try again.", s.nameError)
+  }
+
+  @Test fun `ProfileLoaded also clears a stale nameOpId + nameError`() {
+    val s = rootReducer(
+      AppState(nameOpId = "pending", nameError = "Couldn't save your name. Try again."),
+      ProfileLoaded(MeProfile("U1", "Leo", null, null)),
+    )
+    assertNull(s.nameOpId)
+    assertNull(s.nameError)
+  }
 }

@@ -316,6 +316,19 @@ class AuthEngine(
     }
   }
 
+  /** Update the caller's own display name — optimistic + reconcile-on-failure (mirrors updateAvatar). */
+  suspend fun updateDisplayName(name: String) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    val prevName = store.state.myDisplayName
+    store.dispatch(NameOpRequested(name))
+    try {
+      val profile = callWithRefresh(session) { authClient.updateDisplayName(it.access, name) }
+      store.dispatch(NameUpdated(profile.displayName))
+    } catch (e: Exception) {
+      store.dispatch(NameUpdateFailed(prevName, "Couldn't save your name. Try again."))
+    }
+  }
+
   /** Load the caller's connected devices/apps. */
   suspend fun loadDevices() = mutex.withLock {
     val session = store.state.session ?: return@withLock
