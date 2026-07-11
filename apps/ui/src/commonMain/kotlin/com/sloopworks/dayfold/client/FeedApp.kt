@@ -110,12 +110,11 @@ fun FeedApp(
   onCloseHub: () -> Unit = {},          // detail → list: cancel the DB tree subscription (HubEngine.closeHub)
   onLoadAudience: (String) -> Unit = {},// "who can see" sheet → load the audience (HubEngine.loadAudience)
   // ADR 0053 DC5 — the People management sheet (owner/co-owner only, HubEngine.setParticipant/
-  // removeParticipant/setVisibility). onOpenAddPeople is a stub — the "Add people" member-picker
-  // sub-flow (designs/Account-ACL-Phone.dc.html view=add-people) is a DC5 follow-up, not yet built.
+  // removeParticipant/setVisibility). "Add people" is handled inside HubPeopleSheet via the same
+  // onSetHubRole callback (setParticipant is an upsert → add == set role "viewer").
   onSetHubRole: (hubId: String, uid: String, role: String) -> Unit = { _, _, _ -> },
   onRemoveHubParticipant: (hubId: String, uid: String) -> Unit = { _, _ -> },
   onSetHubVisibility: (hubId: String, visibility: String) -> Unit = { _, _ -> },
-  onOpenAddPeople: () -> Unit = {},
   // Slice 4 (ADR 0038): member checklist writes. onToggleItem(blockId,itemId,done) →
   // HubEngine.toggleItem → ContentStore.enqueueBlockToggle; onRetryBlock re-queues a
   // block parked 'failed'. Default no-ops keep screens snapshot-testable in isolation.
@@ -220,7 +219,7 @@ fun FeedApp(
         },
         hubsContent = {
           HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle, hubListState = hubListState,
-            onSetHubRole = onSetHubRole, onRemoveHubParticipant = onRemoveHubParticipant, onSetHubVisibility = onSetHubVisibility, onOpenAddPeople = onOpenAddPeople)
+            onSetHubRole = onSetHubRole, onRemoveHubParticipant = onRemoveHubParticipant, onSetHubVisibility = onSetHubVisibility)
         },
       )
       else -> SafeArea { when (route) {
@@ -400,7 +399,6 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
   onSetHubRole: (String, String, String) -> Unit = { _, _, _ -> },
   onRemoveHubParticipant: (String, String) -> Unit = { _, _ -> },
   onSetHubVisibility: (String, String) -> Unit = { _, _ -> },
-  onOpenAddPeople: () -> Unit = {},
 ) {
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
@@ -445,7 +443,6 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
           onSetRole = { uid, role -> state.currentHubId?.let { onSetHubRole(it, uid, role) } },
           onRemove = { uid -> state.currentHubId?.let { onRemoveHubParticipant(it, uid) } },
           onSetVisibility = { vis -> state.currentHubId?.let { onSetHubVisibility(it, vis) } },
-          onAddPeople = onOpenAddPeople,
           onDismiss = { store.dispatch(CloseAudienceSheet) },
           // ADR 0053 DC5 code-review fix — surface a failed role/remove/visibility write
           // (HubEngine dispatches HubManageFailed onto this same slot) instead of silently
