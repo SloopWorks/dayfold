@@ -15,6 +15,21 @@ dependencyResolutionManagement {
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    // SWIP bug reporter + SloopWorks design tokens (private GitHub Packages).
+    // Local dev: gpr.user/gpr.token in ~/.gradle/gradle.properties (read:packages PAT).
+    // CI: SLOOPWORKS_PACKAGES_TOKEN secret.
+    listOf(
+      "https://maven.pkg.github.com/SloopWorks/swip",
+      "https://maven.pkg.github.com/SloopWorks/sloopworks-ui",
+    ).forEach { pkgUrl ->
+      maven {
+        url = uri(pkgUrl)
+        credentials {
+          username = System.getenv("GITHUB_ACTOR") ?: providers.gradleProperty("gpr.user").orNull ?: ""
+          password = System.getenv("SLOOPWORKS_PACKAGES_TOKEN") ?: providers.gradleProperty("gpr.token").orNull ?: ""
+        }
+      }
+    }
   }
 }
 
