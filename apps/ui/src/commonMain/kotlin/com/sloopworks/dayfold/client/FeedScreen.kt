@@ -80,10 +80,17 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         }
       },
       actions = {
-        // account entry — monogram avatar → AccountScreen (sign-out lives there).
-        // Icon-only → label it "Account"; the monogram itself is decorative.
+        // account entry — the caller's own avatar → AccountScreen (sign-out lives there).
+        // Reads the profile from the store (db→store via AuthEngine.getMe→ProfileLoaded, then
+        // AvatarOpRequested/AvatarUpdated) so a changed avatar reflects here reactively — NOT a
+        // hardcoded "You" monogram. Falls back to the display-name/"You" monogram when unset.
+        // Labeled "Account" for a11y; the avatar image/initials themselves are decorative.
         Box(Modifier.padding(end = 12.dp).clip(RoundedCornerShape(50)).clickable(onClick = onOpenAccount)) {
-          DayfoldAvatar(name = "You", size = 34.dp, contentDescription = "Account")
+          DayfoldAvatar(
+            name = state.myDisplayName ?: "You", size = 34.dp,
+            avatarColorKey = state.myAvatarColor, avatarRef = state.myAvatarRef,
+            contentDescription = "Account",
+          )
         }
       },
     )

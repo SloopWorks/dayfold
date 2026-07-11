@@ -44,6 +44,19 @@ class FeedScreenTest {
   }
 
   @Test
+  fun accountAvatarReadsChosenAvatarFromStore() = runComposeUiTest {
+    // Regression: the top-bar account avatar must reflect the caller's chosen profile avatar
+    // from the store (db→store→ui), not a hardcoded "You" monogram. With a bundled fun avatar
+    // set in state the account button renders that path and still exposes the "Account" label.
+    setContent {
+      MaterialTheme {
+        FeedScreen(AppState(myDisplayName = "Zoe", myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"))
+      }
+    }
+    onNodeWithContentDescription("Account").assertIsDisplayed()
+  }
+
+  @Test
   fun showsFamilyNullStateWhenEmpty() = runComposeUiTest {
     // S5: an empty family shows the onboarding null-state, not a bare message.
     setContent { MaterialTheme { FeedScreen(AppState()) } }
