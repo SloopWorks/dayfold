@@ -11,7 +11,7 @@ import * as repo from "./repo.ts";
 // Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
 // load app.ts without triggering the module-level env-guard throws in tokens.ts.
 import { authorizeTenant, bearer } from "./auth/middleware.ts";
-import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds } from "./auth/scope.ts";
+import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds, hubGrantsFor } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
@@ -926,16 +926,37 @@ app.post("/families/:fid/device/approve", async (c) => {
   const lockKey = `account:approve:${g.sub}`;
   if (await isLocked(lockKey)) { await audit("device.lockout", { actorUserId: g.sub }); return c.body(null, 429); }
   const body = await c.req.json().catch(() => null);
-  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  if (typeof body !== "object" || body === null || !body.user_code) return c.json({ type: "bad-request" }, 400);
+  // ADR 0029 T2: optional per-hub scope selection. Absent/"full" ⇒ granted_scopes
+  // stays NULL (blanket default, byte-identical to pre-scoping behavior). "hubs" ⇒
+  // validate each hub id (charset + this-family existence) and store the exact
+  // read+write grant set — bound as a parameter, never string-built (hub ids are
+  // free text and could contain `,{}"\` that would corrupt/inject a literal array).
+  const mode = body.scope;
+  let grantedScopes: string[] | null = null;
+  if (mode === "hubs") {
+    const hubs: unknown = body.hubs;
+    if (!Array.isArray(hubs) || hubs.length === 0) return c.json({ type: "bad-scope" }, 400);
+    for (const h of hubs) {
+      if (typeof h !== "string") return c.json({ type: "bad-scope" }, 400);
+      const e = idError(h);
+      if (e) return c.json(e, 422);
+      const exists = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2`, [fid, h]);
+      if (!exists || exists.rowCount === 0) return c.json({ type: "bad-scope" }, 400);
+    }
+    grantedScopes = hubGrantsFor(hubs as string[]);
+  } else if (mode !== undefined && mode !== "full") {
+    return c.json({ type: "bad-scope" }, 400);
+  }
   const r = await q(
-    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now()
+    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now(), granted_scopes=$4
      WHERE user_code=$3 AND status='pending' AND expires_at > now() RETURNING device_code`,
-    [g.sub, fid, body.user_code],
+    [g.sub, fid, body.user_code, grantedScopes],
   );
   if (r.rowCount !== 1) { await recordFailure(lockKey, 900, 5, 900); return c.body(null, 404); } // uniform
   await resetFailures(lockKey);
   const { clientIp } = await import("./auth/ratelimit.ts");
-  await audit("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp(c) } });
+  await audit("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp(c), scope: mode ?? "full" } });
   return c.body(null, 204);
 });
 
