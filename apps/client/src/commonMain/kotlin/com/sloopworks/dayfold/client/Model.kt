@@ -377,6 +377,12 @@ data class HubAudienceMember(
   // co_owner), null when the member has no explicit row (author's implicit co_owner
   // status is surfaced by the server as "co_owner" here too — see hubs.hubAudience).
   @SerialName("participation_role") val participationRole: String? = null,
+  // ADR 0053 DC5 code-review fix — explicit flag for the TRUE hub author (uid ==
+  // hubs.created_by), server-computed (hubs.hubAudience). Distinct from
+  // participationRole's synthesized "co_owner": a later explicit co-owner also carries
+  // participationRole == "co_owner" but isAuthor stays false. The client uses this (not
+  // "first co_owner in list order") to pin the permanent, locked Owner row.
+  @SerialName("is_author") val isAuthor: Boolean = false,
 )
 
 @Serializable

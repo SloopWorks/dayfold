@@ -157,18 +157,25 @@ class FakeBackend(
 
   // Scenario-supplied audience, else a permissive default (everyone sees it, and the
   // caller can manage it — matches the "everyone permitted" posture of this default).
-  // participationRole stays null (no explicit allow-list row) in the default; a
-  // scenario that needs ADR 0053 role chips/gating supplies data.audiences[hubId]
-  // directly with real participation_role/can_manage values.
-  private fun audienceFor(hubId: String): HubAudience =
-    data.audiences[hubId] ?: HubAudience(
+  // participationRole stays null for non-authors (no explicit allow-list row) in the
+  // default; a scenario that needs ADR 0053 role chips/gating supplies data.audiences[hubId]
+  // directly with real participation_role/can_manage values. The hub's author (if any —
+  // legacy/operator-created hubs have no createdBy) mirrors the server's hubAudience():
+  // participationRole synthesized "co_owner" + isAuthor=true (DC5 code-review fix — this
+  // is the flag HubPeopleSheet pins the locked Owner row on, not "first co_owner").
+  private fun audienceFor(hubId: String): HubAudience {
+    val createdBy = data.sync.changes.hubs.firstOrNull { it.id == hubId }?.createdBy
+    return data.audiences[hubId] ?: HubAudience(
       visibility = "family",
       members = data.members.map {
+        val isAuthor = createdBy != null && it.uid == createdBy
         HubAudienceMember(
           uid = it.uid, displayName = it.displayName, avatarColor = it.avatarColor,
-          avatarRef = it.avatarRef, role = it.role, permitted = true, participationRole = null,
+          avatarRef = it.avatarRef, role = it.role, permitted = true,
+          participationRole = if (isAuthor) "co_owner" else null, isAuthor = isAuthor,
         )
       },
       canManage = true,
     )
+  }
 }

@@ -177,6 +177,7 @@ export async function hubAudience(familyId: string, hubId: string) {
   const r = await q(
     `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role,
             CASE WHEN m.user_id = h.created_by THEN 'co_owner' ELSE rv2.role END AS participation_role,
+            (m.user_id = h.created_by) AS is_author,
             (h.visibility = 'family'
              OR m.user_id = h.created_by
              OR EXISTS (SELECT 1 FROM resource_visibility rv

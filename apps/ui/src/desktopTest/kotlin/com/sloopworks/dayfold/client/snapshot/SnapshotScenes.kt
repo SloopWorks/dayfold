@@ -216,7 +216,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
           visibility = "restricted",
           canManage = true,
           members = listOf(
-            HubAudienceMember(uid = "u_maya", displayName = "Maya Jackson", role = "adult", permitted = true, participationRole = "co_owner"),
+            HubAudienceMember(uid = "u_maya", displayName = "Maya Jackson", role = "adult", permitted = true, participationRole = "co_owner", isAuthor = true),
             HubAudienceMember(uid = "u_leo", displayName = "Leo Jackson", role = "child", permitted = true, participationRole = "viewer", avatarRef = "avatar:leaf-01"),
             HubAudienceMember(uid = "u_sam", displayName = "Sam Rivera", role = "adult", permitted = true, participationRole = "contributor"),
           ),

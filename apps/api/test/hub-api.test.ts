@@ -103,17 +103,27 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect(bobRow.avatar_ref).toBeNull();
     expect(bobRow.avatar_color).toBeNull();
     // participation_role (ADR 0053 DC1): author is co_owner regardless of resource_visibility.role;
-    // bob's explicit allow-list row defaults to 'viewer' until bumped — seed 'contributor' directly
+    // bob's explicit allow-list row defaults to 'viewer' until bumped — seed 'co_owner' directly
     // (DC1 has no management API yet, so the test writes the column straight).
     expect(ownerRow.participation_role).toBe("co_owner");
     expect(bobRow.participation_role).toBe("viewer");
-    await q(`UPDATE resource_visibility SET role='contributor' WHERE family_id=$1 AND hub_id='r' AND user_id=$2`, [o.familyId, bob.userId]);
+    // is_author (DC5 code-review fix): an explicit flag for the TRUE hub author, distinct
+    // from participation_role's synthesized "co_owner" (which bob would also carry if
+    // bumped to co_owner below) — the client needs this to pin the real author's row
+    // instead of the fragile "first co_owner in list order" heuristic.
+    expect(ownerRow.is_author).toBe(true);
+    expect(bobRow.is_author).toBe(false);
+    await q(`UPDATE resource_visibility SET role='co_owner' WHERE family_id=$1 AND hub_id='r' AND user_id=$2`, [o.familyId, bob.userId]);
     const aud2 = await getJson(o.familyId, "hubs/r/audience", o.token);
     const bobRow2 = aud2.body.members.find((m: any) => m.uid === bob.userId);
-    expect(bobRow2.participation_role).toBe("contributor");
+    // bob is now ALSO participation_role=co_owner (an explicit co-owner), but is_author
+    // stays false — this is exactly the case the pinned-owner heuristic used to get wrong.
+    expect(bobRow2.participation_role).toBe("co_owner");
+    expect(bobRow2.is_author).toBe(false);
     // eve has no allow-list row at all → participation_role is null (and not permitted anyway)
     const eveRow = aud.body.members.find((m: any) => m.uid === eve.userId);
     expect(eveRow.participation_role).toBeNull();
+    expect(eveRow.is_author).toBe(false);
     // eve (not permitted) cannot even enumerate the audience → uniform 404
     expect((await getJson(o.familyId, "hubs/r/audience", eve.token)).status).toBe(404);
 

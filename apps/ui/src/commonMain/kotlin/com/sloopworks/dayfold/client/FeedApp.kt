@@ -447,6 +447,10 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
           onSetVisibility = { vis -> state.currentHubId?.let { onSetHubVisibility(it, vis) } },
           onAddPeople = onOpenAddPeople,
           onDismiss = { store.dispatch(CloseAudienceSheet) },
+          // ADR 0053 DC5 code-review fix — surface a failed role/remove/visibility write
+          // (HubEngine dispatches HubManageFailed onto this same slot) instead of silently
+          // dropping it; the sheet stays pure, this is just an input string.
+          errorMessage = state.audienceError,
         )
       } else {
         WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay

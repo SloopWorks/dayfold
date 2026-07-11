@@ -47,13 +47,15 @@ import com.sloopworks.dayfold.client.ui.FunAvatars
 // wires the callbacks to HubEngine.setParticipant/removeParticipant/setVisibility; this
 // composable never touches the store or the engine.
 //
-// KNOWN LIMITATION (documented, not silently dropped): the API's audience payload has no
-// explicit isAuthor flag — hubAudience() (apps/api/src/content/hubs.ts) synthesizes
-// participation_role="co_owner" for BOTH the implicit hub author (no allow-list row) AND any
-// explicit co-owner added later via setParticipant, and its ORDER BY is family-role-based (NOT
-// authorship). We pin the FIRST co_owner row in list order as the locked "Owner" row — correct
-// for the common case (one implicit author, zero-or-later co-owners) but cannot distinguish the
-// true author from an earlier-sorted explicit co-owner if the family ever has more than one.
+// Owner-row identification (DC5 code-review fix): the locked "Owner" row is pinned via the
+// server-computed HubAudienceMember.isAuthor flag (uid == hubs.created_by, see hubs.hubAudience
+// in apps/api/src/content/hubs.ts) — NOT "first co_owner in list order". A non-author co_owner
+// (added later via this sheet) is a normal, editable/removable participant row.
+//
+// Write-failure surfacing (DC5 code-review fix): [errorMessage] is a plain input string — the
+// sheet stays pure (no store/engine access) — HubsHost passes state.audienceError, which
+// HubEngine.setParticipant/removeParticipant/setVisibility populate via HubManageFailed on a
+// failed write (network error, or e.g. a 400 rejecting an author-immutable edit).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HubPeopleSheet(
@@ -63,10 +65,11 @@ fun HubPeopleSheet(
   onSetVisibility: (visibility: String) -> Unit,
   onAddPeople: () -> Unit,
   onDismiss: () -> Unit,
+  errorMessage: String? = null,
 ) {
   val sheetState = rememberModalBottomSheetState()
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-    HubPeopleContent(audience, onSetRole, onRemove, onSetVisibility, onAddPeople)
+    HubPeopleContent(audience, onSetRole, onRemove, onSetVisibility, onAddPeople, errorMessage)
   }
 }
 
@@ -79,9 +82,10 @@ fun HubPeopleContent(
   onRemove: (uid: String) -> Unit,
   onSetVisibility: (visibility: String) -> Unit,
   onAddPeople: () -> Unit,
+  errorMessage: String? = null,
 ) {
   val cs = MaterialTheme.colorScheme
-  val pinnedUid = audience.members.firstOrNull { it.participationRole == "co_owner" }?.uid
+  val pinnedUid = audience.members.firstOrNull { it.isAuthor }?.uid
   val owner = audience.members.firstOrNull { it.uid == pinnedUid }
   val participants = audience.members.filter { it.permitted && it.uid != pinnedUid }
   // Confirm-pending target visibility; non-null while the who-loses-access dialog is up.
@@ -92,6 +96,18 @@ fun HubPeopleContent(
   // rows/the Add-people button past the visible bounds and performClick() throws.
   Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Text("People in this hub", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+    // Inline write-failure banner (mirrors WhoCanSeeSheet/ErrorRetry's error-container
+    // treatment, but inline — a failed role/remove/visibility op must not blow away the
+    // roster the manager is mid-edit on).
+    if (errorMessage != null) {
+      Surface(color = cs.errorContainer, shape = RoundedCornerShape(12.dp)) {
+        Text(
+          errorMessage, style = MaterialTheme.typography.bodySmall, color = cs.onErrorContainer,
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+      }
+    }
 
     // Family/Restricted visibility toggle. Loosening (restricted→family) applies immediately;
     // tightening (family→restricted) opens the who-loses-access confirm first (ADR 0030).
