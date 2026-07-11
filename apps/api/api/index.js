@@ -91,6 +91,7 @@ var scope_exports = {};
 __export(scope_exports, {
   grantScopes: () => grantScopes,
   grantedHubIds: () => grantedHubIds,
+  hubGrantsFor: () => hubGrantsFor,
   requireScope: () => requireScope,
   resolveGrants: () => resolveGrants,
   scopeAllows: () => scopeAllows
@@ -111,6 +112,9 @@ function grantedHubIds(grants, action) {
   if (grants.includes(`content:${action}`)) return null;
   const prefix = "hub:", suffix = `:${action}`;
   return grants.filter((g) => g.startsWith(prefix) && g.endsWith(suffix) && g.length > prefix.length + suffix.length).map((g) => g.slice(prefix.length, g.length - suffix.length));
+}
+function hubGrantsFor(hubIds) {
+  return hubIds.flatMap((id3) => [`hub:${id3}:read`, `hub:${id3}:write`]);
 }
 async function grantScopes(credId2, scopes, client) {
   const exec = client ? (t, p) => client.query(t, p) : (t, p) => q(t, p);
@@ -568,22 +572,23 @@ async function redeem(device_code, mintAccess2, issueRefresh2) {
     await client.query("BEGIN");
     const cas = await client.query(
       `UPDATE device_authorizations SET status='consumed' WHERE device_code=$1 AND status='approved'
-       RETURNING user_id, family_id, origin_ua`,
+       RETURNING user_id, family_id, origin_ua, granted_scopes`,
       [device_code]
     );
     if (cas.rowCount !== 1) {
       await client.query("COMMIT");
       return { error: "expired_token" };
     }
-    const { user_id, family_id, origin_ua } = cas.rows[0];
+    const { user_id, family_id, origin_ua, granted_scopes } = cas.rows[0];
+    const scopes = granted_scopes ?? ["content:read", "content:write", "content:delete"];
     const cid = credId();
     await client.query(
       `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
-       VALUES ($1,$2,$3,'cli','{content:read,content:write,content:delete}', 'dayfold-cli '||left(coalesce($4,''),64))`,
-      [cid, user_id, family_id, origin_ua]
+       VALUES ($1,$2,$3,'cli',$4, 'dayfold-cli '||left(coalesce($5,''),64))`,
+      [cid, user_id, family_id, scopes, origin_ua]
     );
     const { grantScopes: grantScopes2 } = await Promise.resolve().then(() => (init_scope(), scope_exports));
-    await grantScopes2(cid, ["content:read", "content:write", "content:delete"], client);
+    await grantScopes2(cid, scopes, client);
     const refresh = await issueRefresh2(cid, client);
     await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
     await client.query("COMMIT");
@@ -2371,7 +2376,7 @@ async function ownerGate(c, fid) {
   if ("status" in a) return { status: a.status };
   if (a.role !== "owner") return { status: 403 };
   if (a.cred.kind !== "app") return { status: 403 };
-  return { sub: a.userId };
+  return { sub: a.userId, caller: callerFrom(a) };
 }
 app.post("/families/:fid/device/approve", async (c) => {
   const fid = c.req.param("fid");
@@ -2385,11 +2390,30 @@ app.post("/families/:fid/device/approve", async (c) => {
     return c.body(null, 429);
   }
   const body = await c.req.json().catch(() => null);
-  if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
+  if (typeof body !== "object" || body === null || !body.user_code) return c.json({ type: "bad-request" }, 400);
+  const mode = body.scope;
+  let grantedScopes = null;
+  if (mode === "hubs") {
+    const hubIds = body.hubs;
+    if (!Array.isArray(hubIds) || hubIds.length === 0) return c.json({ type: "bad-scope" }, 400);
+    for (const h of hubIds) {
+      if (typeof h !== "string") return c.json({ type: "bad-scope" }, 400);
+      const e = idError(h);
+      if (e) return c.json(e, 422);
+      const hub = await getHub(fid, h);
+      if (!hub) return c.json({ type: "bad-scope" }, 400);
+      const allow = await allowListFor(fid, h);
+      if (!hubVisible(hub, g.caller, () => !!g.caller.userId && allow.has(g.caller.userId)))
+        return c.json({ type: "bad-scope" }, 400);
+    }
+    grantedScopes = hubGrantsFor(hubIds);
+  } else if (mode !== void 0 && mode !== "full") {
+    return c.json({ type: "bad-scope" }, 400);
+  }
   const r = await q(
-    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now()
+    `UPDATE device_authorizations SET status='approved', user_id=$1, family_id=$2, approved_at=now(), granted_scopes=$4
      WHERE user_code=$3 AND status='pending' AND expires_at > now() RETURNING device_code`,
-    [g.sub, fid, body.user_code]
+    [g.sub, fid, body.user_code, grantedScopes]
   );
   if (r.rowCount !== 1) {
     await recordFailure2(lockKey, 900, 5, 900);
@@ -2397,7 +2421,7 @@ app.post("/families/:fid/device/approve", async (c) => {
   }
   await resetFailures2(lockKey);
   const { clientIp: clientIp2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-  await audit2("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp2(c) } });
+  await audit2("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp2(c), scope: mode ?? "full" } });
   return c.body(null, 204);
 });
 app.post("/families/:fid/device/deny", async (c) => {
