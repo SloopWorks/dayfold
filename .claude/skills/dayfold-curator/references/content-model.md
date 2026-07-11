@@ -149,8 +149,12 @@ Both cards and hubs accept `visibility` ∈ `family | restricted` (default `fami
 visible to every member). `restricted` requires `audience: [<userId>, ...]` — only
 those member ids (plus the author) can see it; anyone else gets a uniform 404 (they
 can't tell it exists). `dayfold pull`/`dayfold template hub` show the current value.
-There is no separate structural check for these two fields locally (`Validate.kt`
-doesn't vet them) — a typo'd value is caught server-side only.
+These two fields are access control, not content — they live outside the generated
+content schema, are read directly off the raw request body server-side, and a
+typo'd value is caught server-side only. **On a card, this means `--type`'s local
+validation will reject them as an unknown field** (it strict-decodes against the
+generated schema type) — push a `restricted`/`audience`-scoped card without
+`--type`; see `references/cli.md`'s Push section. Hub-tree pushes are unaffected.
 
 Treat `restricted`/`audience` as a **privacy decision, not a formatting one** — propose
 it explicitly and name exactly which members will and won't see the content (same

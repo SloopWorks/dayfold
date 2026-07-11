@@ -497,7 +497,9 @@ internal val USAGE =
     "  visibility (ADR 0030/0038): card/hub body may set visibility=family (default, all\n" +
     "    members) or visibility=restricted + audience=[userId,...] (only those members can\n" +
     "    see it; everyone else gets a uniform 404). Not locally structure-checked — a bad\n" +
-    "    value is caught server-side only."
+    "    value is caught server-side only. On a CARD, these two fields are outside the\n" +
+    "    generated schema (access control, not content) — pushing with --type will REJECT\n" +
+    "    them as unknown fields; push a restricted/audience card without --type."
 
 // Misuse → usage to stderr, exit 2. Explicit `help` prints to stdout + exits 0 (help
 // is not an error) — see the dispatch in main().

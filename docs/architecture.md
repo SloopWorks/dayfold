@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-06). For product framing
+A map of the system as it actually runs today (2026-07-10). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -61,7 +61,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility`, `device_authorizations`, `invites`, `refresh_tokens` |
 | CLI | `apps/cli` | Kotlin, hand-rolled `java.net.http.HttpClient` (no framework) | `login` (device grant + OS keychain) / `push` / `pull` / `delete` / `template` / `whoami` / `update` — the authoring surface for operators and AI loops |
 | Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
-| Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache, the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
+| Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache (incl. a local-only cached-membership table for the DB-first cold-start route gate, ADR 0052), the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
 | UI | `apps/ui` | Compose Multiplatform, depends on `:client` (ADR 0047) | Feed/hub/detail rendering, screens, theme, the CL-SNAP golden-snapshot harness; also hosts the iOS framework build target |
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
@@ -106,6 +106,15 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    decide whether to fire a **local** notification (geofence enter or exact
    alarm) — quiet-hours + daily-cap device-local config, never synced. There is
    no push service (no FCM/APNs) and no server involvement in this path.
+7. **Cold start (ADR 0052).** The top-level route gate is DB-first, mirroring
+   content: family memberships are cached in a local-only SQLDelight
+   `membership` table (alongside `hidden`/`surfacing_state`/`notif_config`) and
+   read synchronously in `AuthEngine.restore()`. A saved token + cached
+   membership routes straight to `Route.Feed` from disk — no network wait — and
+   `whoami` reconciles in the background (success overwrites+persists; 401
+   signs out and clears the cache; offline keeps the cached dashboard instead
+   of an error). First launch after install, with nothing cached, is unchanged
+   (network-gated). Warm start is unaffected (no splash, route already `Feed`).
 
 ## Auth
 
@@ -128,7 +137,8 @@ Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 (build-order), `adr/0027` (Firebase JWKS), `adr/0029`/`0030` (scope + hub
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
-Timeline — authored + on-device-derived).
+Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
+route gate).
 
 ## Deploy
 
