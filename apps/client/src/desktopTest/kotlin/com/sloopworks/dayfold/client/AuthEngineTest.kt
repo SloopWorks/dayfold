@@ -6,6 +6,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -126,18 +127,29 @@ class AuthEngineTest {
   @Test fun `reconcile overwrites the cached memberships with the whoami result and persists them`() = runBlocking {
     val ts = MemTokenStore(Session("ax", "rx"))
     val saved = mutableListOf<List<FamilyMembership>>()
+    // HERMETICITY GATE: restore() launches reconcile() on a REAL background scope
+    // (Dispatchers.Default), so without this the background whoami races the
+    // "optimistic first" assertion below — the assertion wins on a fast machine and
+    // loses on a loaded CI runner (observed: PR #323, AuthEngineTest.kt:126).
+    // Holding the whoami response until the optimistic state is asserted makes the
+    // ordering deterministic without a sleep.
+    val whoamiGate = CompletableDeferred<Unit>()
     val (eng, store) = engine(ts,
       cached = listOf(FamilyMembership("stale", "Stale Fam", "adult", "active")),
       savedMemberships = saved,
       handler = MockEngine { req ->
         when (req.url.encodedPath) {
-          "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)   // fresh truth: fam1
+          "/auth/whoami" -> {
+            whoamiGate.await()
+            respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)   // fresh truth: fam1
+          }
           "/families/fam1/members" -> respond("""{"members":[]}""", HttpStatusCode.OK, jsonCt)
           else -> respond("", HttpStatusCode.NotFound)
         }
       })
     eng.restore()
     assertEquals("stale", store.state.activeFamilyId)           // optimistic (cache) first
+    whoamiGate.complete(Unit)                                   // …now let the background whoami land
     eng.reconcileJob?.join()
     assertEquals(listOf("fam1"), store.state.families.map { it.familyId })   // overwritten by whoami
     assertEquals(listOf("fam1"), saved.last().map { it.familyId })           // persisted for next cold start
@@ -147,16 +159,23 @@ class AuthEngineTest {
   @Test fun `reconcile with a dead session clears the token and cache and routes to SignIn`() = runBlocking {
     val ts = MemTokenStore(Session("ax", "rx"))
     var cleared = false
+    // Same hermeticity gate as above: the 401 reconcile would otherwise be free to route
+    // to SignIn before the "optimistic first" assertion runs.
+    val whoamiGate = CompletableDeferred<Unit>()
     val (eng, store) = engine(ts, cached = listOf(activeFam), onClearCache = { cleared = true },
       handler = MockEngine { req ->
         when (req.url.encodedPath) {
-          "/auth/whoami" -> respond("", HttpStatusCode.Unauthorized)   // access dead
+          "/auth/whoami" -> {
+            whoamiGate.await()
+            respond("", HttpStatusCode.Unauthorized)                   // access dead
+          }
           "/auth/refresh" -> respond("", HttpStatusCode.Unauthorized)  // …refresh can't recover
           else -> respond("", HttpStatusCode.NotFound)
         }
       })
     eng.restore()
     assertEquals(Route.Feed, store.state.route)                 // optimistic first
+    whoamiGate.complete(Unit)
     eng.reconcileJob?.join()
     assertEquals(Route.SignIn, store.state.route)               // revocation wins on reconcile
     assertNull(store.state.session)
