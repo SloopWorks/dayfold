@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql","0018_resource_visibility_role.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -58,12 +58,18 @@ describe("member write visibility-on-write matrix (ADR 0038 §6.2 / 0030)", () =
     const ownSec = await hubWithSection(o, "hubOwn", "secOwn");
     expect((await putBlock(o.familyId, "bOwn", o.token, ownSec, [{ id: "i1", text: "x" }])).status).toBe(200);
 
-    // family: a member writes into a family-visible hub
+    // family: a member writes into a family-visible hub. ADR 0053 item 4/7 (DC3):
+    // family visibility grants READ to all, NOT write — bob needs an explicit
+    // contributor role to write here (visibility alone is no longer enough).
     const famSec = await hubWithSection(o, "hubFam", "secFam");
+    await q(`INSERT INTO resource_visibility(family_id,hub_id,user_id,role) VALUES ($1,'hubFam',$2,'contributor')`, [o.familyId, bob.userId]);
     expect((await putBlock(o.familyId, "bFam", bob.token, famSec, [{ id: "i1", text: "x" }])).status).toBe(200);
 
-    // restricted-visible: bob is in the hub audience → can write
+    // restricted-visible: bob is in the hub audience → can write. Being on the
+    // allow-list alone defaults to 'viewer' (read-only); DC3 requires bumping him
+    // to contributor to actually write.
     const visSec = await hubWithSection(o, "hubVis", "secVis", { visibility: "restricted", audience: [bob.userId] });
+    await q(`UPDATE resource_visibility SET role='contributor' WHERE family_id=$1 AND hub_id='hubVis' AND user_id=$2`, [o.familyId, bob.userId]);
     expect((await putBlock(o.familyId, "bVis", bob.token, visSec, [{ id: "i1", text: "x" }])).status).toBe(200);
 
     // restricted-invisible: bob is NOT in the audience → uniform 404 (not 403, no oracle)
@@ -92,6 +98,9 @@ describe("410-on-tombstone (ADR 0038 §6.3 — no member resurrection)", () => {
     const o = await ownerOf("mw-tomb");
     const bob = await memberOf("mw-tomb-bob", o.familyId);
     const sec = await hubWithSection(o, "hubTomb", "secTomb");
+    // DC3: family visibility no longer implies write — grant bob contributor so he
+    // can author the block this tombstone-resurrection test needs.
+    await q(`INSERT INTO resource_visibility(family_id,hub_id,user_id,role) VALUES ($1,'hubTomb',$2,'contributor')`, [o.familyId, bob.userId]);
     expect((await putBlock(o.familyId, "zblk", bob.token, sec, [{ id: "i1", text: "x" }])).status).toBe(200);
     // the loop deletes the block (simulate the tombstone the W4 path will create)
     await q(`UPDATE blocks SET deleted_at=now() WHERE family_id=$1 AND id=$2`, [o.familyId, "zblk"]);

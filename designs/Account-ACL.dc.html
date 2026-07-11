@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #7A2615; } a:hover { color: #C0381E; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;">
+
+  <div style="margin-bottom:30px;max-width:940px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Account avatars · hub people &amp; roles</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Avatars &amp; hub people</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 16px;max-width:92ch;">Three deltas on the signed-off Settings + Hubs surfaces. <b>A — profile avatars:</b> monogram stays the default and universal fallback; a bundled, tasteful <b>fun-avatar set</b> sits in between (avatar_ref = bundled id, no upload, no external fetch — the ADR 0036 posture); photo is a visible, disabled M-next slot. <b>B — roster:</b> chosen avatars + quiet Owner/Adult role chips, owner and adult views. <b>C — hub People (net-new core):</b> the ADR 0030 allow-list made explicit and delegable — Family/Restricted toggle with a who-loses-access confirm, three plain-language roles (Viewer · Contributor · Co-owner) with an inline explainer, add/role/remove controls, and the owner/contributor/viewer/no-access capability boundaries. <b>D — avatars in situ:</b> hub-header stack + contributor bylines. Two-tier by design — no permission matrix. Names map 1:1 to Compose M3 · token parity with the design system.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;padding:5px 11px;border-radius:999px;">M1</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#4C2092;background:#EFE4FB;padding:5px 11px;border-radius:999px;">M-next</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#1A4540;background:#D8F5EE;padding:5px 11px;border-radius:999px;">M1 + M-next</span>
+    </div>
+    <!-- companion ADR flag -->
+    <div style="display:flex;align-items:flex-start;gap:12px;background:#FFF3E2;border:1px solid #EDD3AC;border-radius:18px;padding:16px 18px;max-width:920px;">
+      <span class="msr" style="font-size:22px;color:#8A5A00;margin-top:1px;">gavel</span>
+      <div style="font-family:'Figtree';font-size:13px;line-height:1.55;color:#5C4318;"><b>Companion ADR required (not blocking these mockups):</b> per-hub roles (Contributor / Co-owner) and delegated participant management extend ADR 0030, which is immutable. A successor ADR must ratify the three-tier hub role, that Contributor holds <code style="font-family:monospace;background:#F7E7CC;padding:1px 5px;border-radius:5px;font-size:11.5px;">hub:&lt;id&gt;:write</code>, that a Co-owner may manage the allow-list, and that the <b>family-owner-not-auto-permitted</b> privacy rule still holds. The operator opens it alongside sign-off (ADR 0008 gates any build).</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:40px;align-items:flex-start;">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="8">
+      <div style="flex:none;">
+        <div style="margin-bottom:14px;max-width:390px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
+            <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:#271814;">{{ f.title }}</span>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ f.msColor }};background:{{ f.msBg }};border-radius:999px;padding:3px 9px;">{{ f.ms }}</span>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.modeColor }};background:{{ f.modeBg }};border-radius:999px;padding:3px 9px;">{{ f.modeLabel }}</span>
+          </div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:#8C726B;">{{ f.note }}</div>
+        </div>
+        <dc-import name="Account-ACL-Phone" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const ms = {
+      'M1':          { msColor:'#7A2615', msBg:'#FCEBE6' },
+      'M-next':      { msColor:'#4C2092', msBg:'#EFE4FB' },
+      'M1 + M-next': { msColor:'#1A4540', msBg:'#D8F5EE' },
+    };
+    const L = { mode:'light', modeLabel:'Light', modeColor:'#5A423C', modeBg:'#F3E0DA' };
+    const D = { mode:'dark', modeLabel:'Dark', modeColor:'#D3BBFF', modeBg:'#2A1F3D' };
+    const defs = [
+      ['Profile — chosen avatar','profile','M1','Delta A. Account header wears the fun avatar; "Change avatar" opens the picker. Monogram remains the fallback everywhere.'],
+      ['Avatar picker — Monogram','avatar-monogram','M1','ModalBottomSheet from Profile "Edit". SegmentedButton Monogram · Fun avatars · Photo (disabled, "later"). avatar_color grid, live preview, explicit Save.'],
+      ['Avatar picker — Fun avatars','avatar-fun','M1','21 bundled avatars (avatar_ref = bundled id, e.g. avatar:flower-01 — no upload, no external fetch, ADR 0036 posture). Ring + check selected; visible names double as screen-reader labels. Tasteful-bar brand gate: warm and geometric, never a sticker sheet.'],
+      ['Family roster — owner','roster-owner','M1','Delta B. Mixed monogram + fun avatars; quiet Owner/Adult Badge per row — read-only, role change stays in the transfer-ownership flow.'],
+      ['Family roster — adult','roster-adult','M1','Same roster, owner-only actions hidden (invite / transfer / per-member menu).'],
+      ['Hub header — avatars in situ','hub-header','M1','Delta D. Participant avatar-stack AssistChip (taps into People), restricted pill, and contributor bylines with avatars ("Leo · just now"). Everything degrades to monogram.'],
+      ['Hub People — owner / co-owner','hub-people-owner','M1 + M-next','Delta C core. Family/Restricted SegmentedButton, pinned non-removable owner row, per-person role DropdownMenu + remove, inline role explainer, Add people. Allow-list (Viewer) is M1; Contributor/Co-owner tiers are M-next.'],
+      ['Hub People — contributor','hub-people-contributor','M-next','Capability boundary made visible: the same list, read-only — no toggle, no dropdowns, no remove. "Only the hub owner or a co-owner can manage people."'],
+      ['Hub People — viewer','hub-people-viewer','M1','Minimal read-only stack — knows who\'s here, nothing to manage.'],
+      ['Family → Restricted — confirm','visibility-confirm','M1','Names exactly who loses access (Pat — the family owner, not on the list) + the ADR 0030 revocation line as reassurance: "they\'ll stop seeing it on their next sync."'],
+      ['Add people','add-people','M1','Member picker of family not yet on the hub; each defaults to Viewer with a role DropdownMenu. The family owner is addable like anyone else.'],
+      ['Role explainer','role-explainer','M-next','One plain line per role, tap-to-expand — the "simplified, not overwhelming" requirement. No matrix, no capability checkboxes.'],
+      ['No access — family owner','no-access','M1','Load-bearing: the viewer here IS the family owner. Not auto-permitted, cannot self-add, no request-access CTA at MVP — the privacy differentiator, stated calmly in-product.'],
+      ['First restricted — empty','first-restricted','M1','Hub just flipped to Restricted with only the author on it: warm "It\'s just you here" prompt into Add people.'],
+      ['Offline','offline','M1','Membership/visibility mutations are security-class: disabled with "reconnect to change this"; the list still shows with "Updated · 2h ago" (ADR 0020). Avatar picking stays local; its Save shows the same posture.'],
+    ];
+    const frames = [];
+    defs.forEach(([title, view, milestone, note]) => {
+      frames.push({ title, view, ms:milestone, ...ms[milestone], ...L, note });
+      frames.push({ title, view, ms:milestone, ...ms[milestone], ...D, note });
+    });
+    return { frames };
+  }
+}
+</script>
+</body>
+</html>

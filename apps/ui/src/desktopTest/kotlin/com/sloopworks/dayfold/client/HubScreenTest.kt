@@ -90,6 +90,19 @@ class HubScreenTest {
     onNodeWithText("The family owner isn't added automatically.", substring = true).assertIsDisplayed()
   }
 
+  // Profile avatars (P1b Task 3): an audience member carrying a fun avatarRef renders the
+  // fun avatar (a11y name from FunAvatars), not the monogram fallback.
+  @Test fun whoCanSeeSheetRendersFunAvatarForAudienceMember() = runComposeUiTest {
+    val state = AppState(
+      audienceSheetOpen = true,
+      currentHubAudience = HubAudience(visibility = "restricted", members = listOf(
+        HubAudienceMember(uid = "u1", displayName = "Leah Leaf", role = "owner", permitted = true, avatarRef = "avatar:leaf-01"),
+      )),
+    )
+    setContent { MaterialTheme { WhoCanSeeSheet(state) } }
+    onNodeWithContentDescription("Leaf avatar").assertIsDisplayed()
+  }
+
   @Test fun detailShowsNotFoundNoteOnRestrictedMiss() = runComposeUiTest {
     val state = AppState(currentHubId = "hX", currentHubTree = null, hubError = "That hub is no longer available.")
     setContent { MaterialTheme { HubDetailScreen(state) } }

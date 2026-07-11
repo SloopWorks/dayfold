@@ -38,7 +38,8 @@ object FakeScenarios {
   private fun membership(status: String = "active", name: String = "The Fake Family") =
     FamilyMembership(familyId = FAM, name = name, role = "owner", status = status)
 
-  private val owner = FamilyMember(uid = "u_owner", displayName = "Pat (you)", role = "owner",
+  private val owner = FamilyMember(uid = "u_owner", displayName = "Pat (you)",
+    avatarColor = "teal", avatarRef = "avatar:fox-01", role = "owner",
     status = "active", joinedAt = "2026-01-04T12:00:00Z")
   private val partner = FamilyMember(uid = "u_partner", displayName = "Sam", role = "adult",
     status = "active", joinedAt = "2026-02-10T12:00:00Z")
@@ -216,13 +217,15 @@ object FakeScenarios {
 
   private val busyAudiences = mapOf(
     "h_party" to HubAudience("family", listOf(
-      HubAudienceMember("u_owner", "Pat (you)", "owner", permitted = true),
-      HubAudienceMember("u_partner", "Sam", "adult", permitted = true),
+      HubAudienceMember(uid = "u_owner", displayName = "Pat (you)", avatarColor = owner.avatarColor,
+        avatarRef = owner.avatarRef, role = "owner", permitted = true),
+      HubAudienceMember(uid = "u_partner", displayName = "Sam", role = "adult", permitted = true),
     )),
     // Restricted: only the author sees it (ADR 0030 — the 🔒 treatment).
     "h_medical" to HubAudience("restricted", listOf(
-      HubAudienceMember("u_owner", "Pat (you)", "owner", permitted = true),
-      HubAudienceMember("u_partner", "Sam", "adult", permitted = false),
+      HubAudienceMember(uid = "u_owner", displayName = "Pat (you)", avatarColor = owner.avatarColor,
+        avatarRef = owner.avatarRef, role = "owner", permitted = true),
+      HubAudienceMember(uid = "u_partner", displayName = "Sam", role = "adult", permitted = false),
     )),
   )
 

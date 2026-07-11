@@ -96,6 +96,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.sloopworks.dayfold.client.ui.DayfoldAvatar
+import com.sloopworks.dayfold.client.ui.FunAvatars
 import com.sloopworks.dayfold.client.ui.loading.ErrorRetry
 import com.sloopworks.dayfold.client.ui.loading.ListSkeleton
 import com.sloopworks.dayfold.client.ui.loading.rememberReduceMotion
@@ -631,10 +633,11 @@ fun WhoCanSeeSheet(state: AppState, onClose: () -> Unit = {}, onRetryAudience: (
 @Composable
 private fun AudienceRow(m: HubAudienceMember, isYou: Boolean) {
   Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-    val initials = (m.displayName ?: "?").split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("")
-    Box(Modifier.size(42.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-      Text(initials, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-    }
+    DayfoldAvatar(
+      name = m.displayName ?: "?", size = 42.dp,
+      avatarColorKey = m.avatarColor, avatarRef = m.avatarRef,
+      contentDescription = FunAvatars.resolve(m.avatarRef)?.name,
+    )
     Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
       Text((m.displayName ?: "Member") + if (isYou) " · You" else "", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
       Text(m.role.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

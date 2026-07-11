@@ -144,6 +144,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onRemoveMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.removeMember(it, uid) } } },
     onMintInvite = { mode -> scope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
     onRevokeInvite = { id -> scope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
+    onUpdateAvatar = { color, ref -> scope.launch { authEngine.updateAvatar(color, ref) } },
     onLoadDevices = { scope.launch { authEngine.loadDevices() } },
     onRevokeDevice = { id -> scope.launch { authEngine.revokeDevice(id) } },
     onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
@@ -155,6 +156,9 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     onOpenHub = { id, block -> scope.launch { hubEngine.openHub(id, block) } },
     onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
     onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
+    onSetHubRole = { hubId, uid, role -> scope.launch { hubEngine.setParticipant(hubId, uid, role) } },
+    onRemoveHubParticipant = { hubId, uid -> scope.launch { hubEngine.removeParticipant(hubId, uid) } },
+    onSetHubVisibility = { hubId, visibility -> scope.launch { hubEngine.setVisibility(hubId, visibility) } },
     onToggleItem = { blockId, itemId, done -> scope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
     onRetryBlock = { blockId -> scope.launch { hubEngine.retryBlock(blockId) } },
     // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.

@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -55,6 +56,17 @@ class AuthClient(
   @Serializable private data class MembersResp(val members: List<FamilyMember> = emptyList())
   @Serializable private data class CredsResp(val credentials: List<DeviceCredential> = emptyList())
   @Serializable private data class DeviceCodeReq(@SerialName("user_code") val userCode: String)
+  // GET /auth/me → user_id + display_name + avatar_color + avatar_ref (task 3's wire
+  // shape). PATCH /auth/me returns the same three profile fields WITHOUT user_id
+  // (the caller already knows who they are) — hence user_id nullable + toModel()
+  // defaulting it, since only getMe's response carries it.
+  @Serializable private data class MeDto(
+    val user_id: String? = null, val display_name: String? = null,
+    val avatar_color: String? = null, val avatar_ref: String? = null,
+  ) {
+    fun toModel() = MeProfile(userId = user_id ?: "", displayName = display_name, avatarColor = avatar_color, avatarRef = avatar_ref)
+  }
+  @Serializable private data class UpdateAvatarReq(val avatar_color: String?, val avatar_ref: String?)
 
   /** POST /auth/dev-token (Bearer DEV_AUTH_SECRET) → a real backend session. Dev/test only. */
   suspend fun devToken(provider: String, providerUid: String, devSecret: String): Session {
@@ -214,6 +226,26 @@ class AuthClient(
     if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "revoke-credential")
   }
 
+  /** GET /auth/me — the caller's own profile (name + avatar). Loaded on restore
+   *  (AuthEngine) so the account surface renders without a separate round-trip. */
+  suspend fun getMe(access: String): MeProfile {
+    val resp = http.get("$api/auth/me") { header("authorization", "Bearer $access") }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "me")
+    return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
+  }
+
+  /** PATCH /auth/me — update the caller's avatar. Both keys always sent (a `null`
+   *  value clears that field server-side, distinct from omitting the key). */
+  suspend fun updateAvatar(access: String, avatarColor: String?, avatarRef: String?): MeProfile {
+    val resp = http.patch("$api/auth/me") {
+      header("authorization", "Bearer $access")
+      contentType(ContentType.Application.Json)
+      setBody(json.encodeToString(UpdateAvatarReq.serializer(), UpdateAvatarReq(avatarColor, avatarRef)))
+    }
+    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "update-avatar")
+    return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
+  }
+
   // ── CLI/device approval (S6-D, ADR 0011 §6/7) ──
   // 401 always THROWS (so AuthEngine.callWithRefresh rotates + retries); every
   // other non-2xx is a TYPED result the engine maps to an action. 403 ≠ 404:
@@ -295,11 +327,19 @@ data class DeviceCredential(
   val current: Boolean = false,
 )
 
+// The caller's own profile (GET/PATCH /auth/me). userId is "" when the response
+// didn't carry one (PATCH's response omits it — the caller already knows who they
+// are); displayName/avatarColor/avatarRef are all optional/nullable (unset =
+// no display name yet / default avatar, "null" from the wire clears explicitly).
+data class MeProfile(val userId: String, val displayName: String?, val avatarColor: String?, val avatarRef: String?)
+
 // An active member of a family (GET /families/{fid}/members → members[]).
 @Serializable
 data class FamilyMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val status: String = "active",
   @SerialName("joined_at") val joinedAt: String? = null,
@@ -310,6 +350,8 @@ data class FamilyMember(
 data class PendingMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val provider: String? = null,
   @SerialName("requested_at") val requestedAt: String? = null,

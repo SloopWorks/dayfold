@@ -369,14 +369,30 @@ data class HubTree(
 data class HubAudienceMember(
   val uid: String,
   @SerialName("display_name") val displayName: String? = null,
+  @SerialName("avatar_color") val avatarColor: String? = null,
+  @SerialName("avatar_ref") val avatarRef: String? = null,
   val role: String = "adult",
   val permitted: Boolean = false,
+  // ADR 0053 DC1/DC2 — this member's allow-list role on the hub (viewer|contributor|
+  // co_owner), null when the member has no explicit row (author's implicit co_owner
+  // status is surfaced by the server as "co_owner" here too — see hubs.hubAudience).
+  @SerialName("participation_role") val participationRole: String? = null,
+  // ADR 0053 DC5 code-review fix — explicit flag for the TRUE hub author (uid ==
+  // hubs.created_by), server-computed (hubs.hubAudience). Distinct from
+  // participationRole's synthesized "co_owner": a later explicit co-owner also carries
+  // participationRole == "co_owner" but isAuthor stays false. The client uses this (not
+  // "first co_owner in list order") to pin the permanent, locked Owner row.
+  @SerialName("is_author") val isAuthor: Boolean = false,
 )
 
 @Serializable
 data class HubAudience(
   val visibility: String = "family",
   val members: List<HubAudienceMember> = emptyList(),
+  // ADR 0053 DC2 — may the CALLER manage this hub's participants/visibility (author,
+  // an existing co_owner, or legacy)? Server-computed (hubs.canManageHub) so the
+  // People sheet (DC5) can show/hide management controls without a second round-trip.
+  @SerialName("can_manage") val canManage: Boolean = false,
 )
 
 // ── AUTH-S5: client identity + session (ADR 0011/0021/0023) ──────────────────
@@ -519,6 +535,18 @@ data class AppState(
   val deviceListError: String? = null,
   val deviceOpId: String? = null,        // device row currently revoking
   val audienceError: String? = null,
+  // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
+  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId — non-null only
+  // while a PATCH is in flight, cleared by either terminal action. The update IS
+  // optimistic (AvatarOpRequested applies the picked value immediately, no network
+  // wait) but the optimistic value is REVERTED on failure (mirrors removeMember's
+  // reconcile-on-failure) and avatarError surfaces the failure (mirrors
+  // rosterError/devicesError).
+  val myDisplayName: String? = null,
+  val myAvatarColor: String? = null,
+  val myAvatarRef: String? = null,
+  val avatarOpId: String? = null,
+  val avatarError: String? = null,
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -570,6 +598,12 @@ data class NotificationPermissionLoaded(val state: NotificationPermission) : Act
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceLoaded(val audience: HubAudience) : Action
 data object CloseAudienceSheet : Action
+// ADR 0053 DC4 — participant/visibility management (the People sheet, DC5). Each op
+// (HubEngine.setParticipant/removeParticipant/setVisibility) reloads the audience on
+// success — dispatching HubAudienceLoaded again (no separate "updated" action needed,
+// the sheet re-renders off the fresh roster/can_manage/visibility). HubManageFailed
+// mirrors AudienceFailed for the one failure case shared by all three ops.
+data class HubManageFailed(val message: String) : Action
 // ADR 0045 — timeline detail overlay (substate within the hub detail, not a Route)
 data class OpenTimelineDetail(val scale: TimelineScale) : Action
 data object CloseTimelineDetail : Action
@@ -637,6 +671,21 @@ data class DeviceOpRequested(val id: String) : Action    // revoke start
 data object DevicesRequested : Action
 data class DevicesFailed(val message: String) : Action
 data class AudienceFailed(val message: String) : Action
+// own profile (task 4, GET/PATCH /auth/me). ProfileLoaded is a quiet DB-less
+// bridge (like loadRosterLocked) — dispatched after restore/sign-in resolves
+// memberships; a failure there is swallowed (no *Failed action) so it can never
+// wedge the route gate. AvatarOpRequested is OPTIMISTIC (mirrors MemberOpRequested/
+// DeviceOpRequested): dispatched immediately with the picked value (before the PATCH
+// lands) — applies the value AND marks avatarOpId busy, so the UI never blocks on
+// network but a Task-5 picker can show an in-flight indicator. AvatarUpdated is the
+// SUCCESS terminal: applies the SERVER-RETURNED value (not the picked one — the
+// server is truth) and clears avatarOpId. AvatarUpdateFailed is the FAILURE terminal:
+// reverts to the previous (pre-optimistic) value, clears avatarOpId, and sets
+// avatarError (mirrors rosterError/devicesError).
+data class ProfileLoaded(val profile: MeProfile) : Action
+data class AvatarOpRequested(val avatarColor: String?, val avatarRef: String?) : Action
+data class AvatarUpdated(val avatarColor: String?, val avatarRef: String?) : Action
+data class AvatarUpdateFailed(val prevAvatarColor: String?, val prevAvatarRef: String?, val message: String) : Action
 // CLI/device approval (S6-D). The engine drives the *Requested/*Loaded/*Failed
 // effect-trigger pattern (like approvals/join); the reducer stays pure.
 data object OpenEnterCode : Action                             // → EnterCode (clears the device fields)

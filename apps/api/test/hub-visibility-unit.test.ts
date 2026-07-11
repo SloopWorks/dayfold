@@ -4,7 +4,7 @@
 // is richer than cardVisible — it also grants the AUTHOR (created_by) and a resource_visibility
 // ALLOW-LIST — so those branches + their null edges are pinned here.
 import { describe, it, expect } from "vitest";
-import { hubVisible } from "../src/content/hubs.ts";
+import { hubVisible, hubWritableByMember } from "../src/content/hubs.ts";
 
 const legacy = { userId: null, legacy: true };
 const author = { userId: "u1", legacy: false };
@@ -48,5 +48,40 @@ describe("hubVisible", () => {
 
   it("undefined visibility → family-visible — DEFENSIVE only; the DB column is NOT NULL DEFAULT 'family'", () => {
     expect(hubVisible({}, member)).toBe(true);
+  });
+});
+
+// ADR 0053 item 4 — the member-write gate: author OR resource_visibility.role ∈
+// {contributor, co_owner} OR legacy (M0, write-exempt). A plain viewer (or a member
+// with no allow-list row — role null) may NOT write.
+describe("hubWritableByMember", () => {
+  const hub = { created_by: "u1" };
+
+  it("the author may write, regardless of role (even null/no row)", () => {
+    expect(hubWritableByMember(hub, author, null)).toBe(true);
+  });
+
+  it("a contributor may write", () => {
+    expect(hubWritableByMember(hub, member, "contributor")).toBe(true);
+  });
+
+  it("a co_owner may write", () => {
+    expect(hubWritableByMember(hub, member, "co_owner")).toBe(true);
+  });
+
+  it("a plain viewer may NOT write", () => {
+    expect(hubWritableByMember(hub, member, "viewer")).toBe(false);
+  });
+
+  it("a member with no allow-list row at all (role null) on a restricted hub may NOT write", () => {
+    expect(hubWritableByMember(hub, member, null)).toBe(false);
+  });
+
+  it("legacy (M0) may always write, regardless of role", () => {
+    expect(hubWritableByMember(hub, legacy, null)).toBe(true);
+  });
+
+  it("a non-legacy NULL-user credential cannot match a loop-authored (created_by NULL) hub via the author branch (P0-2)", () => {
+    expect(hubWritableByMember({ created_by: null }, nullUser, null)).toBe(false);
   });
 });

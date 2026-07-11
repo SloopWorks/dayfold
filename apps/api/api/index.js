@@ -1308,6 +1308,18 @@ async function allowListFor(familyId, hubId) {
   const r = await q(`SELECT user_id FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, hubId]);
   return new Set(r.rows.map((x) => x.user_id));
 }
+async function roleFor(familyId, hubId, userId) {
+  const r = await q(
+    `SELECT role FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id=$3`,
+    [familyId, hubId, userId]
+  );
+  return r.rows[0]?.role ?? null;
+}
+function hubWritableByMember(hub, caller, role) {
+  if (caller.legacy) return true;
+  if (caller.userId && hub.created_by && caller.userId === hub.created_by) return true;
+  return role === "contributor" || role === "co_owner";
+}
 async function upsertHub(familyId, id3, b, caller, visibility, audience) {
   const client = await pool.connect();
   try {
@@ -1337,11 +1349,16 @@ async function upsertHub(familyId, id3, b, caller, visibility, audience) {
         J2(b.timeline)
       ]
     );
-    await client.query(`DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id3]);
-    if (visibility === "restricted") {
-      for (const uid of audience ?? [])
-        await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id3, uid]);
-    }
+    const targetAudience = visibility === "restricted" ? new Set(audience ?? []) : /* @__PURE__ */ new Set();
+    const cur = await client.query(`SELECT user_id FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id3]);
+    const toRemove = cur.rows.map((x) => x.user_id).filter((uid) => !targetAudience.has(uid));
+    if (toRemove.length)
+      await client.query(
+        `DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id = ANY($3)`,
+        [familyId, id3, toRemove]
+      );
+    for (const uid of targetAudience)
+      await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id3, uid]);
     await client.query("COMMIT");
     return r.rows[0];
   } catch (e) {
@@ -1403,7 +1420,9 @@ async function getHubTree(familyId, hubId) {
 }
 async function hubAudience(familyId, hubId) {
   const r = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role,
+            CASE WHEN m.user_id = h.created_by THEN 'co_owner' ELSE rv2.role END AS participation_role,
+            (m.user_id = h.created_by) AS is_author,
             (h.visibility = 'family'
              OR m.user_id = h.created_by
              OR EXISTS (SELECT 1 FROM resource_visibility rv
@@ -1411,11 +1430,52 @@ async function hubAudience(familyId, hubId) {
        FROM memberships m
        JOIN users u ON u.id = m.user_id
        JOIN hubs h ON h.family_id=$1 AND h.id=$2
+       LEFT JOIN resource_visibility rv2 ON rv2.family_id=$1 AND rv2.hub_id=$2 AND rv2.user_id=m.user_id
       WHERE m.family_id=$1 AND m.status='active'
       ORDER BY (m.role='owner') DESC, u.display_name, m.user_id`,
     [familyId, hubId]
   );
   return r.rows;
+}
+async function canManageHub(familyId, hubId, caller) {
+  if (caller.legacy) return true;
+  if (!caller.userId) return false;
+  const r = await q(
+    `SELECT 1 FROM hubs h
+      WHERE h.family_id=$1 AND h.id=$2 AND h.deleted_at IS NULL
+        AND (h.created_by=$3
+             OR EXISTS (SELECT 1 FROM resource_visibility rv
+                         WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3 AND rv.role='co_owner'))`,
+    [familyId, hubId, caller.userId]
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+async function setParticipant(familyId, hubId, uid, role) {
+  const r = await q(
+    `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
+     RETURNING *`,
+    [familyId, hubId, uid, role]
+  );
+  return r.rows[0];
+}
+async function removeParticipant(familyId, hubId, uid) {
+  const r = await q(
+    `DELETE FROM resource_visibility rv
+      WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
+        AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
+      RETURNING 1`,
+    [familyId, hubId, uid]
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+async function setHubVisibility(familyId, hubId, visibility) {
+  const r = await q(
+    `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
+    [familyId, hubId, visibility]
+  );
+  return r.rows[0] ?? null;
 }
 async function liveHubOfSection(familyId, sectionId) {
   const r = await q(
@@ -1506,6 +1566,9 @@ async function hubWriteGate(familyId, hubId, caller) {
   );
   if (!visible) return "invisible";
   if (!await requireScope(caller.cred.id, `hub:${hubId}`, "write")) return "denied";
+  const isAuthor = !!caller.userId && !!hub.created_by && caller.userId === hub.created_by;
+  const role = !caller.legacy && !isAuthor && caller.userId ? await roleFor(familyId, hubId, caller.userId) : null;
+  if (!hubWritableByMember(hub, { userId: caller.userId, legacy: caller.legacy }, role)) return "denied";
   return "ok";
 }
 
@@ -1557,7 +1620,9 @@ function callerFrom(a) {
 function parseVisibilityAudience(raw) {
   if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
     return { error: { type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] } };
+  const visibilityProvided = raw.visibility !== void 0;
   const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  const audienceProvided = raw.audience !== void 0;
   let audience;
   if (visibility === "restricted") {
     if (raw.audience !== void 0 && (!Array.isArray(raw.audience) || raw.audience.some((x) => typeof x !== "string")))
@@ -1565,7 +1630,7 @@ function parseVisibilityAudience(raw) {
     audience = Array.isArray(raw.audience) ? raw.audience : [];
   }
   const { visibility: _v, audience: _a, ...rest } = raw;
-  return { visibility, audience, rest };
+  return { visibility, audience, rest, visibilityProvided, audienceProvided };
 }
 function devAuthAllowed(_c) {
   if (process.env.ENABLE_DEV_AUTH !== "1") return false;
@@ -1691,9 +1756,9 @@ app.get("/auth/me", async (c) => {
   }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const u = (await q(`SELECT id, display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  const u = (await q(`SELECT id, display_name, avatar_color, avatar_ref FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!u) return c.body(null, 401);
-  return c.json({ user_id: u.id, display_name: u.display_name });
+  return c.json({ user_id: u.id, display_name: u.display_name, avatar_color: u.avatar_color, avatar_ref: u.avatar_ref });
 });
 app.patch("/auth/me", async (c) => {
   const t = bearer(c);
@@ -1707,15 +1772,43 @@ app.patch("/auth/me", async (c) => {
   }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const body = await c.req.json().catch(() => null);
-  const name = typeof body?.display_name === "string" ? body.display_name.trim() : null;
-  if (!name || name.length < 1 || name.length > 80) return c.json({ type: "bad-display-name" }, 400);
+  const parsed = await c.req.json().catch(() => null);
+  const body = parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  const hasName = typeof body?.display_name === "string";
+  const name = hasName ? body.display_name.trim() : null;
+  if (hasName && (!name || name.length < 1 || name.length > 80)) return c.json({ type: "bad-display-name" }, 400);
+  const AVATAR_RE = /^avatar:[a-z0-9-]{1,40}$/;
+  const hasRef = "avatar_ref" in body;
+  const ref = body?.avatar_ref ?? null;
+  if (hasRef && ref !== null && !(typeof ref === "string" && AVATAR_RE.test(ref)))
+    return c.json({ type: "bad-avatar" }, 400);
+  const hasColor = "avatar_color" in body;
+  const color = body?.avatar_color ?? null;
+  if (hasColor && color !== null && !(typeof color === "string" && color.length <= 32))
+    return c.json({ type: "bad-avatar" }, 400);
+  const sets = ["updated_at=now()"];
+  const vals = [];
+  let i = 1;
+  if (hasName) {
+    sets.push(`display_name=$${i++}`);
+    vals.push(name);
+  }
+  if (hasRef) {
+    sets.push(`avatar_ref=$${i++}`);
+    vals.push(ref);
+  }
+  if (hasColor) {
+    sets.push(`avatar_color=$${i++}`);
+    vals.push(color);
+  }
+  vals.push(sub);
   const r = await q(
-    `UPDATE users SET display_name=$1, updated_at=now() WHERE id=$2 AND deleted_at IS NULL RETURNING display_name`,
-    [name, sub]
+    `UPDATE users SET ${sets.join(", ")} WHERE id=$${i} AND deleted_at IS NULL
+     RETURNING display_name, avatar_color, avatar_ref`,
+    vals
   );
   if (r.rowCount === 0) return c.body(null, 401);
-  return c.json({ display_name: r.rows[0].display_name });
+  return c.json(r.rows[0]);
 });
 app.get("/auth/me/export", async (c) => {
   const t = bearer(c);
@@ -1915,7 +2008,7 @@ app.get("/families/:fid/members", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   const rows = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role, m.status, m.joined_at
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role, m.status, m.joined_at
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.family_id = $1 AND m.status = 'active'
       ORDER BY (m.role = 'owner') DESC, m.joined_at`,
@@ -1979,7 +2072,59 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await allowListFor(fid, id3);
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
-  return c.json({ visibility: hub.visibility, members: await hubAudience(fid, id3) });
+  const canManage = await canManageHub(fid, id3, caller);
+  return c.json({ visibility: hub.visibility, members: await hubAudience(fid, id3), can_manage: canManage });
+});
+var PARTICIPANT_ROLES = /* @__PURE__ */ new Set(["viewer", "contributor", "co_owner"]);
+var HUB_VISIBILITIES = /* @__PURE__ */ new Set(["family", "restricted"]);
+app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id3 = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await getHub(fid, id3);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await allowListFor(fid, id3);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
+  if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  const raw = await c.req.json().catch(() => null);
+  const role = raw?.role;
+  if (typeof role !== "string" || !PARTICIPANT_ROLES.has(role))
+    return c.json({ type: "validation", issues: [{ path: ["role"], message: "role must be one of viewer|contributor|co_owner" }] }, 400);
+  return c.json(await setParticipant(fid, id3, uid, role), 200);
+});
+app.delete("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id3 = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await getHub(fid, id3);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await allowListFor(fid, id3);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
+  if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  return c.body(null, await removeParticipant(fid, id3, uid) ? 204 : 404);
+});
+app.put("/families/:fid/hubs/:id/visibility", async (c) => {
+  const fid = c.req.param("fid"), id3 = c.req.param("id");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await getHub(fid, id3);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await allowListFor(fid, id3);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
+  if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
+  const raw = await c.req.json().catch(() => null);
+  const visibility = raw?.visibility;
+  if (typeof visibility !== "string" || !HUB_VISIBILITIES.has(visibility))
+    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "visibility must be family|restricted" }] }, 400);
+  return c.json(await setHubVisibility(fid, id3, visibility), 200);
 });
 app.put("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -1994,7 +2139,8 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
-  const { visibility, audience, rest } = va;
+  let { visibility, audience } = va;
+  const { rest, visibilityProvided, audienceProvided } = va;
   const parsed = HubSchema.safeParse({ ...rest, id: id3 });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   const hubMediaIssues = validateHubMedia(parsed.data.media);
@@ -2010,8 +2156,14 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (existing) {
     const allow = await allowListFor(fid, id3);
     const permitted = () => !!caller.userId && allow.has(caller.userId);
+    if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
+    if (visibility === "restricted" && !audienceProvided) audience = [...allow];
     if (!hubVisible(existing, caller, permitted)) return c.body(null, 404);
     if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+      return c.json({ type: "forbidden" }, 403);
+    const newAudience = visibility === "restricted" ? new Set(audience ?? []) : /* @__PURE__ */ new Set();
+    const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
+    if ((visibility !== existing.visibility || audienceChanged) && !await canManageHub(fid, id3, caller))
       return c.json({ type: "forbidden" }, 403);
   }
   return c.json(await upsertHub(fid, id3, parsed.data, caller, visibility, audience), 200);
@@ -2399,7 +2551,7 @@ app.get("/families/:fid/invites", async (c) => {
   if ("status" in g) return c.body(null, g.status);
   const invites = await q(`SELECT id, role, mode, max_uses, used_count, expires_at, created_at FROM invites WHERE family_id=$1 AND status='active' AND expires_at>now() ORDER BY created_at DESC`, [fid]);
   const pending = await q(
-    `SELECT m.user_id AS uid, u.display_name, ui.provider, ui.provider_uid, ui.email_verified,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, ui.provider, ui.provider_uid, ui.email_verified,
             m.role, m.invite_id, m.created_at AS requested_at
        FROM memberships m JOIN users u ON u.id=m.user_id
        LEFT JOIN LATERAL (

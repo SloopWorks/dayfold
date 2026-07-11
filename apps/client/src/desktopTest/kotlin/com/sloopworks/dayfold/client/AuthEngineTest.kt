@@ -401,6 +401,38 @@ class AuthEngineTest {
     assertEquals(listOf("c1"), store.state.devices.map { it.id })
   }
 
+  // ── own avatar (task 4 fix — optimistic op-start + revert-on-failure) ──
+  @Test fun `updateAvatar applies the server-returned value on success and clears avatarOpId`() = runBlocking {
+    val store = createAppStore(
+      AppState(session = Session("a", "r"), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      debug = false,
+    )
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
+      if (req.url.encodedPath == "/auth/me")
+        respond("""{"display_name":"Pat","avatar_color":"coral","avatar_ref":"avatar:sun-01"}""", HttpStatusCode.OK, jsonCt)
+      else respond("", HttpStatusCode.NotFound)
+    }))
+    AuthEngine(store, client, MemTokenStore(Session("a", "r"))).updateAvatar("coral", "avatar:sun-01")
+    assertEquals("coral", store.state.myAvatarColor)
+    assertEquals("avatar:sun-01", store.state.myAvatarRef)
+    assertNull(store.state.avatarOpId)
+    assertNull(store.state.avatarError)
+  }
+
+  @Test fun `updateAvatar reverts to the previous value and sets avatarError on failure`() = runBlocking {
+    val store = createAppStore(
+      AppState(session = Session("a", "r"), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      debug = false,
+    )
+    val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.BadRequest) }))
+    AuthEngine(store, client, MemTokenStore(Session("a", "r"))).updateAvatar("coral", "avatar:sun-01")
+    // reverted — the failed PATCH must not leave the picked value showing
+    assertEquals("teal", store.state.myAvatarColor)
+    assertEquals("avatar:fox-01", store.state.myAvatarRef)
+    assertNull(store.state.avatarOpId)
+    assertTrue(store.state.avatarError != null, "expected avatarError to be set on failure")
+  }
+
   // ── CLI/device approval (S6-D) ── runBlocking<Unit> per the agent-dev-loop JUnit gotcha.
   @Test fun `lookupDevice happy path loads the grant and routes to AuthorizeDevice`() = runBlocking<Unit> {
     val store = createAppStore(AppState(session = Session("a", "r"), route = Route.EnterCode), debug = false)

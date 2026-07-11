@@ -55,6 +55,33 @@ export async function allowListFor(familyId: string, hubId: string): Promise<Set
   return new Set(r.rows.map((x: any) => x.user_id));
 }
 
+// A single user's participation_role on a hub's allow-list (ADR 0053 item 4's write
+// gate needs the CALLER's role, not the whole roster). null = no row (never granted a
+// role — the pre-DC2 default; NOT the same as 'viewer', but hubWritableByMember treats
+// both as non-writable so the distinction doesn't matter to the caller).
+export async function roleFor(familyId: string, hubId: string, userId: string): Promise<string | null> {
+  const r = await q(
+    `SELECT role FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id=$3`,
+    [familyId, hubId, userId]);
+  return r.rows[0]?.role ?? null;
+}
+
+// ADR 0053 item 4 — the member-write gate: may `caller` write CONTENT (sections/
+// blocks) parented by this hub? Author OR a participation role of contributor/
+// co_owner OR legacy (M0 operator, write-exempt). A plain viewer (or a member with
+// no allow-list row at all — `role` null) may NOT write. Mirrors hubVisible's
+// null-safety: a non-legacy NULL-user credential can't match a loop-authored
+// (created_by NULL) hub via the author branch (P0-2 — no NULL-vs-NULL god-mode).
+export function hubWritableByMember(
+  hub: { created_by?: string | null },
+  caller: { userId: string | null; legacy: boolean },
+  role: string | null,
+): boolean {
+  if (caller.legacy) return true;
+  if (caller.userId && hub.created_by && caller.userId === hub.created_by) return true;
+  return role === "contributor" || role === "co_owner";
+}
+
 // Idempotent hub upsert + allow-list authoring, in one transaction. created_by is set
 // on first author and preserved thereafter. visibility 'family'|'restricted'; when
 // restricted, `audience` (user ids) replaces the allow-list rows.
@@ -78,12 +105,22 @@ export async function upsertHub(
       [id, familyId, b.type, b.title, b.status ?? "active",
        b.start_at ?? null, b.end_at ?? null, b.countdown_to ?? null, visibility, caller.userId, J(b.media), J(b.timeline)],
     );
-    // Replace the allow-list when restricted; clear it when family.
-    await client.query(`DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id]);
-    if (visibility === "restricted") {
-      for (const uid of audience ?? [])
-        await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
-    }
+    // Reconcile the allow-list to the target audience WITHOUT resetting survivors'
+    // `role` (ADR 0053 DC2/DC3 fix — was a blind DELETE-all + reinsert, which reset
+    // every remaining member's role to the column default 'viewer' on EVERY rewrite,
+    // silently undoing grants made through the DC2 participant-management route).
+    // Only remove uids that fell OUT of the target audience; only insert uids that
+    // are newly added (role defaults to 'viewer' via the column default); leave
+    // surviving rows — and their role — untouched.
+    const targetAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
+    const cur = await client.query(`SELECT user_id FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id]);
+    const toRemove = cur.rows.map((x: any) => x.user_id).filter((uid: string) => !targetAudience.has(uid));
+    if (toRemove.length)
+      await client.query(
+        `DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id = ANY($3)`,
+        [familyId, id, toRemove]);
+    for (const uid of targetAudience)
+      await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
     await client.query("COMMIT");
     return r.rows[0];
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
@@ -148,7 +185,9 @@ export async function getHubTree(familyId: string, hubId: string) {
 // (option A) — they show permitted=false unless author/allow-listed.
 export async function hubAudience(familyId: string, hubId: string) {
   const r = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role,
+            CASE WHEN m.user_id = h.created_by THEN 'co_owner' ELSE rv2.role END AS participation_role,
+            (m.user_id = h.created_by) AS is_author,
             (h.visibility = 'family'
              OR m.user_id = h.created_by
              OR EXISTS (SELECT 1 FROM resource_visibility rv
@@ -156,10 +195,67 @@ export async function hubAudience(familyId: string, hubId: string) {
        FROM memberships m
        JOIN users u ON u.id = m.user_id
        JOIN hubs h ON h.family_id=$1 AND h.id=$2
+       LEFT JOIN resource_visibility rv2 ON rv2.family_id=$1 AND rv2.hub_id=$2 AND rv2.user_id=m.user_id
       WHERE m.family_id=$1 AND m.status='active'
       ORDER BY (m.role='owner') DESC, u.display_name, m.user_id`,
     [familyId, hubId]);
   return r.rows;
+}
+
+// ADR 0053 DC2: may `caller` manage this hub's participant roster / visibility?
+// Author (created_by) OR an existing co_owner row OR legacy (M0 operator) — family
+// `owner` is NOT auto-permitted (mirrors the ADR 0030 §7 "owner is not an override"
+// stance already applied to hub audience/authorship elsewhere in this file).
+export async function canManageHub(familyId: string, hubId: string, caller: Caller): Promise<boolean> {
+  if (caller.legacy) return true;
+  if (!caller.userId) return false;
+  const r = await q(
+    `SELECT 1 FROM hubs h
+      WHERE h.family_id=$1 AND h.id=$2 AND h.deleted_at IS NULL
+        AND (h.created_by=$3
+             OR EXISTS (SELECT 1 FROM resource_visibility rv
+                         WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3 AND rv.role='co_owner'))`,
+    [familyId, hubId, caller.userId]);
+  return (r.rowCount ?? 0) > 0;
+}
+
+export type ParticipantRole = "viewer" | "contributor" | "co_owner";
+
+// Upsert a single participant's role on the hub's allow-list. The 0018 trigger
+// (AFTER INSERT OR UPDATE OR DELETE) touches hubs.updated_at so the change
+// re-surfaces via keyset sync. Caller (the route) must already have rejected
+// uid === hub.created_by (author is a permanent implicit co_owner, not a row here).
+export async function setParticipant(familyId: string, hubId: string, uid: string, role: ParticipantRole) {
+  const r = await q(
+    `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
+     RETURNING *`,
+    [familyId, hubId, uid, role]);
+  return r.rows[0];
+}
+
+// Remove a participant's allow-list row. `uid<>created_by` is a belt-and-suspenders
+// guard (the route already rejects the author before calling this) — never let the
+// author's implicit co-ownership be revoked via this path.
+export async function removeParticipant(familyId: string, hubId: string, uid: string): Promise<boolean> {
+  const r = await q(
+    `DELETE FROM resource_visibility rv
+      WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
+        AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
+      RETURNING 1`,
+    [familyId, hubId, uid]);
+  return (r.rowCount ?? 0) > 0;
+}
+
+// Flip a hub's visibility (family<->restricted) without touching the allow-list rows
+// (DC2: incremental participant management, distinct from upsertHub's full-replace).
+// The 0011 fan-out trigger re-touches the section/block subtree on this UPDATE.
+export async function setHubVisibility(familyId: string, hubId: string, visibility: "family" | "restricted") {
+  const r = await q(
+    `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
+    [familyId, hubId, visibility]);
+  return r.rows[0] ?? null;
 }
 
 // Returns the parent hub id for a section if it exists and is live, else null.

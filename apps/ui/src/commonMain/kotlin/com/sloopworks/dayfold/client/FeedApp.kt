@@ -93,6 +93,7 @@ fun FeedApp(
   onRemoveMember: (String) -> Unit = {},
   onMintInvite: (String) -> Unit = {},  // owner mint (qr|link) → AuthEngine.mintInvite
   onRevokeInvite: (String) -> Unit = {},// owner revoke an outstanding invite
+  onUpdateAvatar: (String?, String?) -> Unit = { _, _ -> },  // Delta A / Task 5 — AccountScreen sheet Save → AuthEngine.updateAvatar
   onLoadDevices: () -> Unit = {},
   onRevokeDevice: (String) -> Unit = {},
   onLookupDevice: (String) -> Unit = {},
@@ -108,6 +109,13 @@ fun FeedApp(
   onOpenHub: (String, String?) -> Unit = { _, _ -> },  // tap/deep-link a hub → load tree (+ focus block)
   onCloseHub: () -> Unit = {},          // detail → list: cancel the DB tree subscription (HubEngine.closeHub)
   onLoadAudience: (String) -> Unit = {},// "who can see" sheet → load the audience (HubEngine.loadAudience)
+  // ADR 0053 DC5 — the People management sheet (owner/co-owner only, HubEngine.setParticipant/
+  // removeParticipant/setVisibility). onOpenAddPeople is a stub — the "Add people" member-picker
+  // sub-flow (designs/Account-ACL-Phone.dc.html view=add-people) is a DC5 follow-up, not yet built.
+  onSetHubRole: (hubId: String, uid: String, role: String) -> Unit = { _, _, _ -> },
+  onRemoveHubParticipant: (hubId: String, uid: String) -> Unit = { _, _ -> },
+  onSetHubVisibility: (hubId: String, visibility: String) -> Unit = { _, _ -> },
+  onOpenAddPeople: () -> Unit = {},
   // Slice 4 (ADR 0038): member checklist writes. onToggleItem(blockId,itemId,done) →
   // HubEngine.toggleItem → ContentStore.enqueueBlockToggle; onRetryBlock re-queues a
   // block parked 'failed'. Default no-ops keep screens snapshot-testable in isolation.
@@ -211,7 +219,8 @@ fun FeedApp(
           )
         },
         hubsContent = {
-          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle, hubListState = hubListState)
+          HubsHost(store, state, onLoadHubs = onLoadHubs, onOpenHub = onOpenHub, onCloseHub = onCloseHub, onLoadAudience = onLoadAudience, onToggleItem = onToggleItem, onRetryBlock = onRetryBlock, onSyncNow = onRefresh, onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock, onUnhideBlock = onUnhideBlock, onCardAction = handle, hubListState = hubListState,
+            onSetHubRole = onSetHubRole, onRemoveHubParticipant = onRemoveHubParticipant, onSetHubVisibility = onSetHubVisibility, onOpenAddPeople = onOpenAddPeople)
         },
       )
       else -> SafeArea { when (route) {
@@ -268,6 +277,7 @@ fun FeedApp(
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
         onOpenProximity = { store.dispatch(OpenProximity) },
+        onUpdateAvatar = onUpdateAvatar,
       )
       Route.Proximity -> ProximitySettingsHost(
         config = state.notifConfig,
@@ -385,7 +395,13 @@ private fun ContentHost(store: Store<AppState>, state: AppState, handle: (CardAc
 // Hubs surface host (ADR 0006): list ↔ detail substate driven by currentHubId.
 // A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
 @Composable
-private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onCardAction: (CardAction) -> Unit = {}, hubListState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> Unit, onOpenHub: (String, String?) -> Unit, onCloseHub: () -> Unit = {}, onLoadAudience: (String) -> Unit, onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> }, onRetryBlock: (String) -> Unit = {}, onSyncNow: () -> Unit = {}, onDeleteBlock: (String) -> Unit = {}, onHideBlock: (String) -> Unit = {}, onUnhideBlock: (String) -> Unit = {}, onCardAction: (CardAction) -> Unit = {}, hubListState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
+  // ADR 0053 DC5 — People sheet management ops (owner/co-owner-gated server-side too).
+  onSetHubRole: (String, String, String) -> Unit = { _, _, _ -> },
+  onRemoveHubParticipant: (String, String) -> Unit = { _, _ -> },
+  onSetHubVisibility: (String, String) -> Unit = { _, _ -> },
+  onOpenAddPeople: () -> Unit = {},
+) {
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
   val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
   val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
@@ -418,6 +434,27 @@ private fun HubsHost(store: Store<AppState>, state: AppState, onLoadHubs: () -> 
         HubListScreen(state, onOpenHub = { onOpenHub(it, null) }, onFilter = { store.dispatch(SetHubFilter(it)) }, onRetry = onLoadHubs, hubListState = hubListState)
       }
     }
-    if (state.audienceSheetOpen) WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
+    // ADR 0053 DC5: once the audience loads, an owner/co-owner (canManage) gets the full
+    // People management sheet; everyone else (incl. while aud is still loading/erroring)
+    // keeps the existing read-only WhoCanSeeSheet — unchanged.
+    val aud = state.currentHubAudience
+    if (state.audienceSheetOpen) {
+      if (aud != null && aud.canManage) {
+        HubPeopleSheet(
+          audience = aud,
+          onSetRole = { uid, role -> state.currentHubId?.let { onSetHubRole(it, uid, role) } },
+          onRemove = { uid -> state.currentHubId?.let { onRemoveHubParticipant(it, uid) } },
+          onSetVisibility = { vis -> state.currentHubId?.let { onSetHubVisibility(it, vis) } },
+          onAddPeople = onOpenAddPeople,
+          onDismiss = { store.dispatch(CloseAudienceSheet) },
+          // ADR 0053 DC5 code-review fix — surface a failed role/remove/visibility write
+          // (HubEngine dispatches HubManageFailed onto this same slot) instead of silently
+          // dropping it; the sheet stays pure, this is just an input string.
+          errorMessage = state.audienceError,
+        )
+      } else {
+        WhoCanSeeSheet(state, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = { state.currentHubId?.let { onLoadAudience(it) } })  // overlay
+      }
+    }
   }
 }

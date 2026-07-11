@@ -57,10 +57,22 @@ function callerFrom(a: { userId: string | null; legacy: boolean; cred: any }) {
 // the strict schema parse. Returns a 422 issue payload on bad input.
 function parseVisibilityAudience(raw: any):
   | { error: { type: string; issues: { path: string[]; message: string }[] } }
-  | { visibility: "family" | "restricted"; audience: string[] | undefined; rest: any } {
+  | {
+      visibility: "family" | "restricted"; audience: string[] | undefined; rest: any;
+      // Did the CALLER explicitly send this field, vs. it being defaulted here?
+      // (DC-final security fix: the legacy hub PUT route uses these to decide
+      // whether an omitted field should default (new hub) or PRESERVE the stored
+      // value (existing hub) — an omitted `visibility` must not silently declassify
+      // a restricted hub to family, and an omitted `audience` must not silently
+      // empty the allow-list. Cards (the other caller of this fn) ignore these
+      // flags and keep today's default-on-omit behavior.
+      visibilityProvided: boolean; audienceProvided: boolean;
+    } {
   if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
     return { error: { type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] } };
+  const visibilityProvided = raw.visibility !== undefined;
   const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  const audienceProvided = raw.audience !== undefined;
   let audience: string[] | undefined;
   if (visibility === "restricted") {
     if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
@@ -68,7 +80,7 @@ function parseVisibilityAudience(raw: any):
     audience = Array.isArray(raw.audience) ? raw.audience : [];
   }
   const { visibility: _v, audience: _a, ...rest } = raw;
-  return { visibility, audience, rest };
+  return { visibility, audience, rest, visibilityProvided, audienceProvided };
 }
 
 // Content scope is gated by `requireScope` (ADR 0029, src/auth/scope.ts): resolved
@@ -201,12 +213,17 @@ app.get("/auth/me", async (c) => {
   catch { return c.body(null, 401); }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const u = (await q(`SELECT id, display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
+  const u = (await q(`SELECT id, display_name, avatar_color, avatar_ref FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!u) return c.body(null, 401);
-  return c.json({ user_id: u.id, display_name: u.display_name });
+  return c.json({ user_id: u.id, display_name: u.display_name, avatar_color: u.avatar_color, avatar_ref: u.avatar_ref });
 });
 
-// Update the caller's own display name (1–80 chars after trim).
+// Update the caller's own profile: display_name (1–80 chars after trim), and/or
+// avatar_color (string ≤32) / avatar_ref (bundled avatar id — ADR 0036 posture,
+// no external fetch / object-storage key, just `avatar:<slug>`). Each field is
+// optional; PATCH updates only the keys present in the body. `null` for
+// avatar_color/avatar_ref clears it — distinct from omitting the key, hence the
+// `"x" in body` presence check rather than `body.x !== undefined`.
 app.patch("/auth/me", async (c) => {
   const t = bearer(c); if (!t) return c.body(null, 401);
   let sub: string, cid: string;
@@ -214,13 +231,39 @@ app.patch("/auth/me", async (c) => {
   catch { return c.body(null, 401); }
   const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
   if (!cred || cred.rowCount === 0) return c.body(null, 401);
-  const body = await c.req.json().catch(() => null);
-  const name = typeof body?.display_name === "string" ? body.display_name.trim() : null;
-  if (!name || name.length < 1 || name.length > 80) return c.json({ type: "bad-display-name" }, 400);
+  const parsed = await c.req.json().catch(() => null);
+  // A non-object (or null) parsed body — e.g. raw JSON `42` or `"x"` — must not
+  // reach the `in` operator below (throws TypeError on primitives). Treat it as
+  // an empty patch: no fields present, nothing updated.
+  const body: Record<string, unknown> =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+
+  const hasName = typeof body?.display_name === "string";
+  const name = hasName ? (body.display_name as string).trim() : null;
+  if (hasName && (!name || name.length < 1 || name.length > 80)) return c.json({ type: "bad-display-name" }, 400);
+
+  const AVATAR_RE = /^avatar:[a-z0-9-]{1,40}$/;
+  const hasRef = "avatar_ref" in body;
+  const ref = body?.avatar_ref ?? null; // null clears
+  if (hasRef && ref !== null && !(typeof ref === "string" && AVATAR_RE.test(ref)))
+    return c.json({ type: "bad-avatar" }, 400);
+  const hasColor = "avatar_color" in body;
+  const color = body?.avatar_color ?? null; // null clears
+  if (hasColor && color !== null && !(typeof color === "string" && color.length <= 32))
+    return c.json({ type: "bad-avatar" }, 400);
+
+  const sets: string[] = ["updated_at=now()"]; const vals: any[] = []; let i = 1;
+  if (hasName)  { sets.push(`display_name=$${i++}`); vals.push(name); }
+  if (hasRef)   { sets.push(`avatar_ref=$${i++}`);   vals.push(ref); }
+  if (hasColor) { sets.push(`avatar_color=$${i++}`); vals.push(color); }
+  vals.push(sub);
   const r = await q(
-    `UPDATE users SET display_name=$1, updated_at=now() WHERE id=$2 AND deleted_at IS NULL RETURNING display_name`, [name, sub]);
+    `UPDATE users SET ${sets.join(", ")} WHERE id=$${i} AND deleted_at IS NULL
+     RETURNING display_name, avatar_color, avatar_ref`, vals);
   if (r.rowCount === 0) return c.body(null, 401);
-  return c.json({ display_name: r.rows[0].display_name });
+  return c.json(r.rows[0]);
 });
 
 // Data export (guardrail #4 — honor data-export on request). The caller's own
@@ -443,7 +486,7 @@ app.get("/families/:fid/members", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   const rows = await q(
-    `SELECT m.user_id AS uid, u.display_name, m.role, m.status, m.joined_at
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, m.role, m.status, m.joined_at
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.family_id = $1 AND m.status = 'active'
       ORDER BY (m.role = 'owner') DESC, m.joined_at`,
@@ -521,7 +564,78 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   if (!hub) return c.body(null, 404);
   const allow = await hubs.allowListFor(fid, id);
   if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
-  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id) });
+  // can_manage (ADR 0053 DC2): lets the client show/hide participant-management
+  // controls (add/set-role/remove, visibility toggle) without a second round-trip.
+  const canManage = await hubs.canManageHub(fid, id, caller);
+  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id), can_manage: canManage });
+});
+
+const PARTICIPANT_ROLES = new Set(["viewer", "contributor", "co_owner"]);
+const HUB_VISIBILITIES = new Set(["family", "restricted"]);
+
+// ADR 0053 DC2: incremental participant management (add/set-role/remove one member
+// on a hub's allow-list) — distinct from the full-replace PUT /hubs/:id upsert.
+// Gated to the hub author or an existing co_owner (canManageHub); the author's row
+// is immutable (permanent implicit co_owner). Uniform 404 on an absent/invisible hub
+// (no existence oracle), matching the audience route above. Also requires ADR 0029
+// `hub:${id}` write scope on the credential (same check as PUT /hubs/:id below) —
+// canManageHub decides WHO among the family may manage; requireScope independently
+// gates WHAT the presented credential is authorized to do, so a narrowly-scoped
+// credential (e.g. a read-only device grant) tied to an author/co_owner can't mutate.
+app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  const raw = await c.req.json().catch(() => null);
+  const role = raw?.role;
+  if (typeof role !== "string" || !PARTICIPANT_ROLES.has(role))
+    return c.json({ type: "validation", issues: [{ path: ["role"], message: "role must be one of viewer|contributor|co_owner" }] }, 400);
+  return c.json(await hubs.setParticipant(fid, id, uid, role as hubs.ParticipantRole), 200);
+});
+
+app.delete("/families/:fid/hubs/:id/participants/:uid", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
+  return c.body(null, (await hubs.removeParticipant(fid, id, uid)) ? 204 : 404);
+});
+
+// ADR 0053 DC2: family<->restricted visibility toggle, same author/co_owner gate
+// (canManageHub) + ADR 0029 `hub:${id}` write-scope gate as the participant routes
+// above (kept separate from PUT /hubs/:id so a manager can flip visibility without
+// re-supplying the whole hub body / clobbering the allow-list).
+app.put("/families/:fid/hubs/:id/visibility", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  const hub = await hubs.getHub(fid, id);
+  const caller = callerFrom(a);
+  if (!hub) return c.body(null, 404);
+  const allow = await hubs.allowListFor(fid, id);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
+  if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
+  const raw = await c.req.json().catch(() => null);
+  const visibility = raw?.visibility;
+  if (typeof visibility !== "string" || !HUB_VISIBILITIES.has(visibility))
+    return c.json({ type: "validation", issues: [{ path: ["visibility"], message: "visibility must be family|restricted" }] }, 400);
+  return c.json(await hubs.setHubVisibility(fid, id, visibility as "family" | "restricted"), 200);
 });
 
 app.put("/families/:fid/hubs/:id", async (c) => {
@@ -535,7 +649,8 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   // visibility + allow-list authoring (outside the strict hub schema).
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
-  const { visibility, audience, rest } = va;
+  let { visibility, audience } = va;
+  const { rest, visibilityProvided, audienceProvided } = va;
   const parsed = HubSchema.safeParse({ ...rest, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   // ADR 0036: hardened image-URL + curated-icon + accent validation.
@@ -549,12 +664,33 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (existing) {
     const allow = await hubs.allowListFor(fid, id);
     const permitted = () => !!caller.userId && allow.has(caller.userId);
+    // DC-final security fix: a legacy re-authoring PUT that OMITS visibility/audience
+    // (routine content-only re-push — e.g. `dayfold push <id> --hub`) must PRESERVE
+    // the stored visibility + allow-list, not silently declassify a restricted hub to
+    // family (parseVisibilityAudience's create-time default). Only an EXPLICIT
+    // visibility/audience in the body may change them — a brand-new hub (no
+    // `existing`) still gets today's create-time defaults.
+    if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
+    if (visibility === "restricted" && !audienceProvided) audience = [...allow];
     // Visibility-on-write (ADR 0038): a restricted hub the caller can't see is a uniform
     // 404 (no existence oracle) — takes precedence over the 403 author-gate below.
     if (!hubs.hubVisible(existing, caller, permitted)) return c.body(null, 404);
     // ADR 0030 §6: only the author / an already-permitted member / legacy may rewrite
     // an existing hub. A fresh hub's author is the caller → allowed.
     if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+      return c.json({ type: "forbidden" }, 403);
+    // ADR 0053 item 5: a PUT that actually CHANGES visibility or the audience allow-
+    // list is a MANAGEMENT action, not plain authoring — require canManageHub
+    // (author/co_owner/legacy), same gate as the dedicated .../visibility and
+    // .../participants/:uid routes. Without this, `permitted()` above (any allow-
+    // listed member, including a plain 'viewer') would let a viewer flip a restricted
+    // hub to family or rewrite the allow-list to lock others out. A no-op PUT (title/
+    // body edit that leaves visibility + audience unchanged) is NOT a management
+    // action and stays open to any writer, so this check only fires on an actual
+    // change.
+    const newAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
+    const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
+    if ((visibility !== existing.visibility || audienceChanged) && !(await hubs.canManageHub(fid, id, caller)))
       return c.json({ type: "forbidden" }, 403);
   }
   return c.json(await hubs.upsertHub(fid, id, parsed.data, caller, visibility, audience), 200);
@@ -947,7 +1083,7 @@ app.get("/families/:fid/invites", async (c) => {
   // S2) would fan out across a plain LEFT JOIN — pick a single deterministic
   // identity (earliest) via LATERAL so the approval queue shows each person once.
   const pending = await q(
-    `SELECT m.user_id AS uid, u.display_name, ui.provider, ui.provider_uid, ui.email_verified,
+    `SELECT m.user_id AS uid, u.display_name, u.avatar_color, u.avatar_ref, ui.provider, ui.provider_uid, ui.email_verified,
             m.role, m.invite_id, m.created_at AS requested_at
        FROM memberships m JOIN users u ON u.id=m.user_id
        LEFT JOIN LATERAL (

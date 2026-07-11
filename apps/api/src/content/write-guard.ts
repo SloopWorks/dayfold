@@ -58,8 +58,10 @@ export async function blockState(familyId: string, id: string): Promise<BlockSta
 //   "invisible" — the hub is LIVE but restricted & the caller isn't permitted → 404
 //                 (no existence oracle; ADR 0038 visibility-on-write refines ADR 0030's
 //                 write-path response from 403→404 for the can't-see case).
-//   "denied"    — the hub is VISIBLE but the credential's scope denies the write → 403.
-//   "ok"        — visible + scoped.
+//   "denied"    — the hub is VISIBLE but the credential's scope denies the write, OR
+//                 the caller's per-hub MEMBER ROLE doesn't permit it (ADR 0053 item 4:
+//                 author OR resource_visibility.role ∈ {contributor,co_owner}) → 403.
+//   "ok"        — visible + scoped + role-permitted.
 export type HubGate = "ok" | "absent" | "invisible" | "denied";
 
 export async function hubWriteGate(familyId: string, hubId: string, caller: Caller): Promise<HubGate> {
@@ -73,5 +75,15 @@ export async function hubWriteGate(familyId: string, hubId: string, caller: Call
   );
   if (!visible) return "invisible";
   if (!(await requireScope(caller.cred.id, `hub:${hubId}`, "write"))) return "denied";
+  // ADR 0053 item 4: credential scope alone is no longer sufficient — the caller's
+  // per-hub member role must also permit the write. legacy/author short-circuit
+  // hubWritableByMember without needing a role lookup; only resolve the DB role for a
+  // genuine non-author member (avoids an unnecessary resource_visibility query on the
+  // hot author/legacy path).
+  const isAuthor = !!caller.userId && !!hub.created_by && caller.userId === hub.created_by;
+  const role = !caller.legacy && !isAuthor && caller.userId
+    ? await hubs.roleFor(familyId, hubId, caller.userId)
+    : null;
+  if (!hubs.hubWritableByMember(hub, { userId: caller.userId, legacy: caller.legacy }, role)) return "denied";
   return "ok";
 }

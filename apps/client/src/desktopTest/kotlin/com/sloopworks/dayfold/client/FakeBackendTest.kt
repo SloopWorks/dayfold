@@ -80,6 +80,15 @@ class FakeBackendTest {
     assertEquals("fam_fake_new", a.createFamily("t", "New Fam"))
   }
 
+  @Test fun `GET and PATCH auth me both serve the canned profile`() = runBlocking<Unit> {
+    val a = auth("busy-family")
+    val got = a.getMe("t")
+    assertEquals("Pat", got.displayName)
+    assertEquals("teal", got.avatarColor)
+    val patched = a.updateAvatar("t", "coral", "avatar:sun-01")
+    assertEquals("Pat", patched.displayName)   // router is stateless — canned value, not an echo
+  }
+
   @Test fun `owner-approvals serves pending members and a pending device grant`() = runBlocking<Unit> {
     val a = auth("owner-approvals")
     assertEquals(2, a.familyApprovals("t", "fam_fake").pending.size)

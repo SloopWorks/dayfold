@@ -165,6 +165,27 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DevicesRequested -> state.copy(deviceListBusy = true, deviceListError = null)
   is DevicesFailed -> state.copy(deviceListBusy = false, deviceListError = action.message, deviceOpId = null)
   is AudienceFailed -> state.copy(audienceError = action.message)
+  // ADR 0053 DC4 — a setParticipant/removeParticipant/setVisibility failure surfaces
+  // on the same audienceError slot the sheet already renders (mirrors AudienceFailed).
+  is HubManageFailed -> state.copy(audienceError = action.message)
+  // own profile (task 4) — ProfileLoaded is a full replace (DB/server is truth,
+  // like RosterLoaded), and also clears avatarOpId/avatarError (mirrors RosterLoaded
+  // clearing memberOpId — a background reload should never leave a stuck busy/error).
+  // AvatarOpRequested applies the picked value optimistically AND marks avatarOpId
+  // busy (mirrors MemberOpRequested/DeviceOpRequested). AvatarUpdated (success)
+  // applies the SERVER-returned value and clears the busy/error state. AvatarUpdateFailed
+  // reverts to the previous value, clears the busy marker, and sets avatarError
+  // (mirrors rosterError/devicesError).
+  is ProfileLoaded -> state.copy(
+    myDisplayName = action.profile.displayName,
+    myAvatarColor = action.profile.avatarColor,
+    myAvatarRef = action.profile.avatarRef,
+    avatarOpId = null,
+    avatarError = null,
+  )
+  is AvatarOpRequested -> state.copy(myAvatarColor = action.avatarColor, myAvatarRef = action.avatarRef, avatarOpId = "pending", avatarError = null)
+  is AvatarUpdated -> state.copy(myAvatarColor = action.avatarColor, myAvatarRef = action.avatarRef, avatarOpId = null, avatarError = null)
+  is AvatarUpdateFailed -> state.copy(myAvatarColor = action.prevAvatarColor, myAvatarRef = action.prevAvatarRef, avatarOpId = null, avatarError = action.message)
 
   // ── CLI/device approval (S6-D) ──
   is OpenEnterCode -> state.copy(

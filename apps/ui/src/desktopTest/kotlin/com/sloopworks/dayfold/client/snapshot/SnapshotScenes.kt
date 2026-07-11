@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.AccountScreen
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.AvatarPickerContent
 import com.sloopworks.dayfold.client.AuthorizeDeviceScreen
 import com.sloopworks.dayfold.client.CapReachedState
 import com.sloopworks.dayfold.client.CreateFamilyScreen
@@ -26,8 +27,11 @@ import com.sloopworks.dayfold.client.DevicesScreen
 import com.sloopworks.dayfold.client.EnterCodeScreen
 import com.sloopworks.dayfold.client.FamilyNullState
 import com.sloopworks.dayfold.client.FeedScreen
+import com.sloopworks.dayfold.client.HubAudience
+import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubDetailScreen
 import com.sloopworks.dayfold.client.HubListScreen
+import com.sloopworks.dayfold.client.HubPeopleContent
 import com.sloopworks.dayfold.client.JoinInviteScreen
 import com.sloopworks.dayfold.client.LocationPermission
 import com.sloopworks.dayfold.client.MatchedOnDeviceChip
@@ -180,6 +184,44 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       themed(args.theme) {
         AccountScreen(SnapshotStates.ACCOUNT_STATE, signOutBusy = presetName(args.input) == "signout-busy")
+      }
+    }
+  }
+
+  // Delta A / Task 5 — the picker's inner content (see AvatarPickerContent's doc comment for
+  // why the ModalBottomSheet wrapper itself isn't scened: a headless single-frame render never
+  // paints a Dialog's separate compose scene).
+  scene("avatar-picker") {
+    defaults { height = 460 }
+    presets("monogram", "fun")
+    render { args ->
+      themedSurface(args.theme) {
+        when (presetName(args.input)) {
+          "monogram" -> AvatarPickerContent(currentColor = "teal", currentRef = null, onSave = { _, _ -> })
+          "fun" -> AvatarPickerContent(currentColor = null, currentRef = "avatar:fox-01", onSave = { _, _ -> })
+          else -> error("unknown avatar-picker preset")
+        }
+      }
+    }
+  }
+
+  // ADR 0053 DC5 — the manager People sheet content (see HubPeopleContent's doc comment
+  // for why the ModalBottomSheet wrapper itself isn't scened, mirrors AvatarPickerContent).
+  scene("hub-people") {
+    defaults { height = 380 }
+    presets("manager")
+    render { args ->
+      themedSurface(args.theme) {
+        val audience = HubAudience(
+          visibility = "restricted",
+          canManage = true,
+          members = listOf(
+            HubAudienceMember(uid = "u_maya", displayName = "Maya Jackson", role = "adult", permitted = true, participationRole = "co_owner", isAuthor = true),
+            HubAudienceMember(uid = "u_leo", displayName = "Leo Jackson", role = "child", permitted = true, participationRole = "viewer", avatarRef = "avatar:leaf-01"),
+            HubAudienceMember(uid = "u_sam", displayName = "Sam Rivera", role = "adult", permitted = true, participationRole = "contributor"),
+          ),
+        )
+        HubPeopleContent(audience, onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {})
       }
     }
   }

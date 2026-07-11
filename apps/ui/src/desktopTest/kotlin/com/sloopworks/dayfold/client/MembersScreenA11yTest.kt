@@ -34,4 +34,19 @@ class MembersScreenA11yTest {
     onNodeWithTag("approve-u9").performClick()
     assertEquals("u9", approved)
   }
+
+  // Profile avatars (P1b Task 3): a roster member carrying a fun avatarRef renders the
+  // fun avatar (a11y name from FunAvatars), not the monogram fallback.
+  @Test fun memberWithFunAvatarShowsIt() = runComposeUiTest {
+    val state = AppState(members = listOf(FamilyMember(uid = "u1", displayName = "Fiona Fox", avatarRef = "avatar:fox-01")))
+    setContent { MaterialTheme { MembersScreen(state) } }
+    onNodeWithContentDescription("Fox avatar").assertIsDisplayed()
+  }
+
+  // Same for a pending (awaiting-approval) member.
+  @Test fun pendingMemberWithFunAvatarShowsIt() = runComposeUiTest {
+    val state = AppState(pendingApprovals = listOf(PendingMember(uid = "u9", displayName = "Sam Rivera", avatarRef = "avatar:sun-01")))
+    setContent { MaterialTheme { MembersScreen(state) } }
+    onNodeWithContentDescription("Sun avatar").assertIsDisplayed()
+  }
 }

@@ -4,6 +4,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.sloopworks.dayfold.client.ui.AvatarSwatch
 
 // Dayfold brand palette (ADR 0022 D5) — exact tokens from designs/Brand.dc.html.
 // Warm terracotta/coral primary, teal secondary, violet tertiary, on a warm
@@ -77,6 +78,7 @@ data class DayfoldExtendedColors(
   val mapBackground: Color,
   val mapLine: Color,
   val mapRoad: Color,
+  val avatarSwatches: List<AvatarSwatch>,
 )
 
 val DayfoldLightExtended = DayfoldExtendedColors(
@@ -88,6 +90,14 @@ val DayfoldLightExtended = DayfoldExtendedColors(
   mapBackground = Color(0xFFEAE0DB),
   mapLine = Color(0xFFDBCBC4),
   mapRoad = Color(0xFFCDB9B1),
+  avatarSwatches = listOf(
+    AvatarSwatch("coral", Color(0xFFFFDAD4), Color(0xFF7A2615)),
+    AvatarSwatch("teal", Color(0xFFCDE9E4), Color(0xFF12433C)),
+    AvatarSwatch("violet", Color(0xFFE9DDFB), Color(0xFF3A2260)),
+    AvatarSwatch("amber", Color(0xFFF7E2B8), Color(0xFF5C4400)),
+    AvatarSwatch("sage", Color(0xFFD9E9CC), Color(0xFF33461F)),
+    AvatarSwatch("rose", Color(0xFFF6D9E4), Color(0xFF6A2440)),
+  ),
 )
 
 val DayfoldDarkExtended = DayfoldExtendedColors(
@@ -99,6 +109,15 @@ val DayfoldDarkExtended = DayfoldExtendedColors(
   mapBackground = Color(0xFF231A16),
   mapLine = Color(0xFF322824),
   mapRoad = Color(0xFF3D332E),
+  // Same keys as light; darker bg / lighter fg (swapped tones from the light swatch).
+  avatarSwatches = listOf(
+    AvatarSwatch("coral", Color(0xFF7A2615), Color(0xFFFFDAD4)),
+    AvatarSwatch("teal", Color(0xFF12433C), Color(0xFFCDE9E4)),
+    AvatarSwatch("violet", Color(0xFF3A2260), Color(0xFFE9DDFB)),
+    AvatarSwatch("amber", Color(0xFF5C4400), Color(0xFFF7E2B8)),
+    AvatarSwatch("sage", Color(0xFF33461F), Color(0xFFD9E9CC)),
+    AvatarSwatch("rose", Color(0xFF6A2440), Color(0xFFF6D9E4)),
+  ),
 )
 
 // Read with LocalDayfoldColors.current inside DayfoldTheme; defaults to light.

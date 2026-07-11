@@ -7,6 +7,7 @@ import com.sloopworks.dayfold.client.Hub
 import com.sloopworks.dayfold.client.HubAudience
 import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubTree
+import com.sloopworks.dayfold.client.MeProfile
 import com.sloopworks.dayfold.client.PendingDevice
 import com.sloopworks.dayfold.client.PendingMember
 import com.sloopworks.dayfold.client.Session
@@ -56,6 +57,9 @@ data class FakeBackendData(
   val pendingDevice: PendingDevice? = null,
   val audiences: Map<String, HubAudience> = emptyMap(),
   val newFamilyId: String = "fam_fake_new",
+  /** GET/PATCH /auth/me — the caller's own profile (task 4). Both routes serve this
+   *  same canned value (the fake router is stateless — a PATCH doesn't persist). */
+  val me: MeProfile = MeProfile(userId = "fake-user", displayName = "Pat", avatarColor = "teal", avatarRef = "avatar:fox-01"),
   /** Override the /sync status to model an error path (e.g. 500). 200 = serve `sync`. */
   val syncStatus: Int = 200,
   /** Artificial per-request delay (debug-only) so loading states are observable. */
@@ -69,6 +73,9 @@ data class FakeBackendData(
 @Serializable private data class MembersOut(val members: List<FamilyMember>)
 @Serializable private data class InvitesOut(val pending: List<PendingMember>)
 @Serializable private data class CredsOut(val credentials: List<DeviceCredential>)
+@Serializable private data class MeOut(
+  val user_id: String, val display_name: String?, val avatar_color: String?, val avatar_ref: String?,
+)
 
 class FakeBackend(
   val data: FakeBackendData,
@@ -92,6 +99,8 @@ class FakeBackend(
         return ok(TokenOut.serializer(), TokenOut(data.session.access, data.session.refresh))
       "/auth/signout" -> return noContent
       "/auth/whoami" -> return ok(WhoamiResponse.serializer(), data.whoami)
+      // GET/PATCH share one canned profile (stateless router — a PATCH doesn't persist).
+      "/auth/me" -> return ok(MeOut.serializer(), MeOut(data.me.userId, data.me.displayName, data.me.avatarColor, data.me.avatarRef))
       "/auth/me/credentials" -> return ok(CredsOut.serializer(), CredsOut(data.devices))
       "/device/pending" ->
         return data.pendingDevice?.let { ok(PendingDevice.serializer(), it) }
@@ -115,6 +124,15 @@ class FakeBackend(
           return treeFor(tail[1])?.let { ok(HubTree.serializer(), it) } ?: FakeResponse(404, "")
         tail.size == 3 && tail[0] == "hubs" && tail[2] == "audience" ->
           return ok(HubAudience.serializer(), audienceFor(tail[1]))
+        // PUT/DELETE …/hubs/{id}/participants/{uid} (ADR 0053 DC2/DC4) — the fake
+        // router is stateless (like /auth/me PATCH), so these just ack; the
+        // subsequent audience reload re-serves audienceFor()'s canned roster. PUT
+        // acks 200 (the real route returns the upserted row json — HubClient only
+        // checks status, so an empty object is enough); DELETE acks 204 like the API.
+        tail.size == 4 && tail[0] == "hubs" && tail[2] == "participants" && method == "PUT" -> return FakeResponse(200, "{}")
+        tail.size == 4 && tail[0] == "hubs" && tail[2] == "participants" && method == "DELETE" -> return FakeResponse(204, "")
+        // PUT …/hubs/{id}/visibility (ADR 0053 DC2/DC4) — same stateless 200 ack.
+        tail.size == 3 && tail[0] == "hubs" && tail[2] == "visibility" && method == "PUT" -> return FakeResponse(200, "{}")
         tail == listOf("members") && method == "GET" ->
           return ok(MembersOut.serializer(), MembersOut(data.members))
         tail == listOf("invites") ->
@@ -137,10 +155,27 @@ class FakeBackend(
     return HubTree(hub = hub, sections = sections, blocks = blocks)
   }
 
-  // Scenario-supplied audience, else a permissive default (everyone sees it).
-  private fun audienceFor(hubId: String): HubAudience =
-    data.audiences[hubId] ?: HubAudience(
+  // Scenario-supplied audience, else a permissive default (everyone sees it, and the
+  // caller can manage it — matches the "everyone permitted" posture of this default).
+  // participationRole stays null for non-authors (no explicit allow-list row) in the
+  // default; a scenario that needs ADR 0053 role chips/gating supplies data.audiences[hubId]
+  // directly with real participation_role/can_manage values. The hub's author (if any —
+  // legacy/operator-created hubs have no createdBy) mirrors the server's hubAudience():
+  // participationRole synthesized "co_owner" + isAuthor=true (DC5 code-review fix — this
+  // is the flag HubPeopleSheet pins the locked Owner row on, not "first co_owner").
+  private fun audienceFor(hubId: String): HubAudience {
+    val createdBy = data.sync.changes.hubs.firstOrNull { it.id == hubId }?.createdBy
+    return data.audiences[hubId] ?: HubAudience(
       visibility = "family",
-      members = data.members.map { HubAudienceMember(it.uid, it.displayName, it.role, permitted = true) },
+      members = data.members.map {
+        val isAuthor = createdBy != null && it.uid == createdBy
+        HubAudienceMember(
+          uid = it.uid, displayName = it.displayName, avatarColor = it.avatarColor,
+          avatarRef = it.avatarRef, role = it.role, permitted = true,
+          participationRole = if (isAuthor) "co_owner" else null, isAuthor = isAuthor,
+        )
+      },
+      canManage = true,
     )
+  }
 }

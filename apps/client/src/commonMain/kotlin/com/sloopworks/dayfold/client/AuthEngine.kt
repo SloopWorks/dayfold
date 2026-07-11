@@ -284,6 +284,38 @@ class AuthEngine(
     }
   }
 
+  // Eager, quiet own-profile load (name + avatar) — same posture as loadRosterLocked:
+  // no *Requested/*Failed noise, a failure just leaves my* fields at their prior
+  // value (defaults on cold start) so a flaky GET /auth/me can never wedge the
+  // restore/route flow. No-mutex core (called from loadMembershipsLocked, already locked).
+  private suspend fun loadProfileLocked(session: Session) {
+    try { store.dispatch(ProfileLoaded(callWithRefresh(session) { authClient.getMe(it.access) })) }
+    catch (e: Exception) { /* quiet */ }
+  }
+
+  /**
+   * Update the caller's own avatar (color + bundled avatar ref; `null` clears a
+   * field). Optimistic: the picked value applies to state immediately (mirrors
+   * MemberOpRequested/DeviceOpRequested) — the picker (task 5) never waits on the
+   * PATCH round-trip, and avatarOpId is busy for the lifetime of the request so an
+   * in-flight indicator can render. On success the SERVER-returned value replaces
+   * the optimistic one (server is truth). On failure the optimistic value is
+   * REVERTED to what it was before this call (mirrors removeMember/revokeDevice's
+   * reconcile-on-failure) and avatarError is set (mirrors rosterError/devicesError).
+   */
+  suspend fun updateAvatar(avatarColor: String?, avatarRef: String?) = mutex.withLock {
+    val session = store.state.session ?: return@withLock
+    val prevAvatarColor = store.state.myAvatarColor
+    val prevAvatarRef = store.state.myAvatarRef
+    store.dispatch(AvatarOpRequested(avatarColor, avatarRef))
+    try {
+      val profile = callWithRefresh(session) { authClient.updateAvatar(it.access, avatarColor, avatarRef) }
+      store.dispatch(AvatarUpdated(profile.avatarColor, profile.avatarRef))
+    } catch (e: Exception) {
+      store.dispatch(AvatarUpdateFailed(prevAvatarColor, prevAvatarRef, "Couldn't save your avatar. Try again."))
+    }
+  }
+
   /** Load the caller's connected devices/apps. */
   suspend fun loadDevices() = mutex.withLock {
     val session = store.state.session ?: return@withLock
@@ -396,6 +428,7 @@ class AuthEngine(
       resumePendingDeviceLink()   // cold-install resume: open a link stashed pre-sign-in
       resumePendingInviteLink()   // ADR 0048: redeem an invite link stashed pre-sign-in
       loadRosterLocked(store.state.activeFamilyId)   // eager roster for doneBy bylines
+      loadProfileLocked(session)                     // eager own-profile (name + avatar)
     } catch (e: AuthHttpException) {
       // 401 here = access expired AND refresh couldn't recover (revoked/expired/
       // reused) → the saved session is dead. Clear it and fall back to Sign-in so

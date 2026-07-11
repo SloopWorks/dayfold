@@ -15,7 +15,7 @@ const { app } = await import("../src/app.ts");
 
 beforeAll(async () => {
   await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql"])
+  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0006_typed_content.sql","0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql","0016_hub_timeline.sql","0017_user_avatar.sql","0018_resource_visibility_role.sql"])
     await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
 });
 afterAll(async () => { await pool.end(); });
@@ -78,6 +78,12 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     const o = await ownerOf("aud-owner");
     const bob = await memberOf("aud-bob", o.familyId);
     const eve = await memberOf("aud-eve", o.familyId);
+    // owner sets an avatar — should flow through the audience roster too
+    await app.request("/auth/me", {
+      method: "PATCH",
+      headers: authH(o.token),
+      body: JSON.stringify({ avatar_ref: "avatar:fox-01", avatar_color: "teal" }),
+    });
     // restricted hub authored by the owner, allow-listing bob (NOT eve)
     await put(o.familyId, "hubs/r", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [bob.userId] });
 
@@ -89,6 +95,35 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect(by(o.userId)).toBe(true);    // author
     expect(by(bob.userId)).toBe(true);  // allow-listed
     expect(by(eve.userId)).toBe(false); // not permitted (and owner-not-auto-permitted holds for non-owner authors too)
+    // avatar fields projected onto the audience row (nullable — bob never set one)
+    const ownerRow = aud.body.members.find((m: any) => m.uid === o.userId);
+    expect(ownerRow.avatar_ref).toBe("avatar:fox-01");
+    expect(ownerRow.avatar_color).toBe("teal");
+    const bobRow = aud.body.members.find((m: any) => m.uid === bob.userId);
+    expect(bobRow.avatar_ref).toBeNull();
+    expect(bobRow.avatar_color).toBeNull();
+    // participation_role (ADR 0053 DC1): author is co_owner regardless of resource_visibility.role;
+    // bob's explicit allow-list row defaults to 'viewer' until bumped — seed 'co_owner' directly
+    // (DC1 has no management API yet, so the test writes the column straight).
+    expect(ownerRow.participation_role).toBe("co_owner");
+    expect(bobRow.participation_role).toBe("viewer");
+    // is_author (DC5 code-review fix): an explicit flag for the TRUE hub author, distinct
+    // from participation_role's synthesized "co_owner" (which bob would also carry if
+    // bumped to co_owner below) — the client needs this to pin the real author's row
+    // instead of the fragile "first co_owner in list order" heuristic.
+    expect(ownerRow.is_author).toBe(true);
+    expect(bobRow.is_author).toBe(false);
+    await q(`UPDATE resource_visibility SET role='co_owner' WHERE family_id=$1 AND hub_id='r' AND user_id=$2`, [o.familyId, bob.userId]);
+    const aud2 = await getJson(o.familyId, "hubs/r/audience", o.token);
+    const bobRow2 = aud2.body.members.find((m: any) => m.uid === bob.userId);
+    // bob is now ALSO participation_role=co_owner (an explicit co-owner), but is_author
+    // stays false — this is exactly the case the pinned-owner heuristic used to get wrong.
+    expect(bobRow2.participation_role).toBe("co_owner");
+    expect(bobRow2.is_author).toBe(false);
+    // eve has no allow-list row at all → participation_role is null (and not permitted anyway)
+    const eveRow = aud.body.members.find((m: any) => m.uid === eve.userId);
+    expect(eveRow.participation_role).toBeNull();
+    expect(eveRow.is_author).toBe(false);
     // eve (not permitted) cannot even enumerate the audience → uniform 404
     expect((await getJson(o.familyId, "hubs/r/audience", eve.token)).status).toBe(404);
 
@@ -170,8 +205,97 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Private", visibility: "family" })).status).toBe(404);
     expect((await getJson(fid, "hubs/s6", bob.token)).status).toBe(404);   // unchanged: still restricted, still hidden from bob
 
-    // once the author adds bob to the allow-list, bob MAY rewrite it
+    // once the author adds bob to the allow-list, bob is now visible/permitted BUT
+    // still only a plain viewer (upsertHub's audience rows default role='viewer',
+    // migration 0018) — a same-visibility, same-audience rewrite (title-only edit)
+    // is plain authoring and still allowed for him...
     await put(fid, "hubs/s6", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
-    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Open", visibility: "family" })).status).toBe(200);
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Still private", visibility: "restricted", audience: [o.userId, bob.userId] })).status).toBe(200);
+    // ...but a viewer flipping visibility (or rewriting the audience) is a MANAGEMENT
+    // action (ADR 0053 item 5: only author/co_owner may manage participants or flip
+    // visibility) — a plain viewer must be rejected, not allowed through just because
+    // they're on the allow-list. (Regression coverage for the hole where this route's
+    // `permitted()` gate let ANY allow-listed member, including a viewer, flip
+    // visibility/audience; DC2's dedicated PUT .../visibility and
+    // .../participants/:uid routes were correctly gated by canManageHub, but this
+    // legacy full-upsert route was never reconciled.)
+    expect((await put(fid, "hubs/s6", bob.token, { type: "medical", title: "Open", visibility: "family" })).status).toBe(403);
+  });
+
+  it("PUT /hubs/:id: a viewer cannot flip visibility or rewrite the audience; a co_owner can", async () => {
+    const o = await ownerOf("s7-owner");
+    const bob = await memberOf("s7-bob", o.familyId);
+    const carol = await memberOf("s7-carol", o.familyId);
+    const fid = o.familyId;
+    await q(`INSERT INTO credential_grants(credential_id, scope)
+             SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [bob.userId]);
+    await q(`INSERT INTO credential_grants(credential_id, scope)
+             SELECT id, 'content:write' FROM credentials WHERE user_id=$1 ON CONFLICT DO NOTHING`, [carol.userId]);
+    // owner authors a family-visible hub, then grants bob 'viewer' and carol 'co_owner'
+    await put(fid, "hubs/s7", o.token, { type: "medical", title: "Open", visibility: "family" });
+    await app.request(`/families/${fid}/hubs/s7/participants/${bob.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "viewer" }) });
+    await app.request(`/families/${fid}/hubs/s7/participants/${carol.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "co_owner" }) });
+
+    // bob (viewer) tries to flip it to restricted, locking others out → 403, and the
+    // hub must be UNCHANGED (still family-visible) — the write must not have applied.
+    expect((await put(fid, "hubs/s7", bob.token, { type: "medical", title: "Open", visibility: "restricted", audience: [bob.userId] })).status).toBe(403);
+    expect((await getJson(fid, "hubs/s7", o.token)).body.visibility).toBe("family");
+
+    // carol (co_owner) may flip the same hub to restricted.
+    expect((await put(fid, "hubs/s7", carol.token, { type: "medical", title: "Open", visibility: "restricted", audience: [o.userId, carol.userId] })).status).toBe(200);
+    expect((await getJson(fid, "hubs/s7", o.token)).body.visibility).toBe("restricted");
+  });
+
+  it("legacy PUT /hubs/:id re-authoring must NOT wipe a member's participation role (ADR 0053 DC2 grants survive the legacy authoring path)", async () => {
+    const o = await ownerOf("dc-role-owner");
+    const bob = await memberOf("dc-role-bob", o.familyId);
+    const fid = o.familyId;
+
+    // owner authors a restricted hub allow-listing bob, then promotes bob to
+    // 'contributor' via the DC2 management route.
+    await put(fid, "hubs/rp", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
+    await app.request(`/families/${fid}/hubs/rp/participants/${bob.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "contributor" }) });
+    const before = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(before.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+
+    // the author does a legit re-push through the LEGACY full-upsert route (e.g. the
+    // CLI's `dayfold push --hub`), restating the SAME visibility + audience (content-
+    // only change in spirit — title edit). Today's blind DELETE+reinsert resets
+    // bob's role to the column default 'viewer' — that's the bug under test.
+    expect((await put(fid, "hubs/rp", o.token, { type: "medical", title: "Private v2", visibility: "restricted", audience: [o.userId, bob.userId] })).status).toBe(200);
+
+    const after = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(after.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+
+    // bob himself (now a contributor, allow-listed) can also re-push hub content
+    // through the legacy route WITHOUT restating visibility/audience at all — this
+    // must succeed (not 403) and must not disturb his own role.
+    expect((await put(fid, "hubs/rp", bob.token, { type: "medical", title: "Private v3" })).status).toBe(200);
+    const after2 = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(after2.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+  });
+
+  it("legacy PUT /hubs/:id content-only re-push (visibility/audience OMITTED) must NOT silently declassify a restricted hub", async () => {
+    const o = await ownerOf("dc-declass-owner");
+    const bob = await memberOf("dc-declass-bob", o.familyId);
+    const fid = o.familyId;
+
+    await put(fid, "hubs/rp2", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
+    expect((await getJson(fid, "hubs/rp2", o.token)).body.visibility).toBe("restricted");
+
+    // a routine content-only re-push that does NOT restate visibility/audience at
+    // all (e.g. a CLI push of just the hub's title/content fields). Today's
+    // parseVisibilityAudience defaults an omitted visibility to "family", and
+    // upsertHub then clears the allow-list — silent declassification.
+    expect((await put(fid, "hubs/rp2", o.token, { type: "medical", title: "Private v2" })).status).toBe(200);
+
+    const hub = await getJson(fid, "hubs/rp2", o.token);
+    expect(hub.body.visibility).toBe("restricted");   // NOT silently flipped to "family"
+
+    // allow-list intact: bob is still permitted (not booted by an implicit empty
+    // audience), and a non-audience member is still shut out.
+    const aud = await getJson(fid, "hubs/rp2/audience", o.token);
+    expect(aud.body.members.find((m: any) => m.uid === bob.userId).permitted).toBe(true);
+    expect((await getJson(fid, "hubs/rp2", bob.token)).status).toBe(200);
   });
 });
