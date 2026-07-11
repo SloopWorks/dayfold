@@ -8,6 +8,72 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-SWIP-BUGREPORT-FOLLOWUPS — dayfold ↔ swip integration improvements
+
+**Added 2026-07-11 (operator, after the first on-device smoke).** The swip bug
+reporter is wired into debug builds (ADR 0054, PRs #320 + #321, swip 0.1.1):
+shake/edge-tab → capture → annotate → review → on-device lane, with the redux
+timeline recorder, the allowlist slice registry + sanitizer, and the mandatory
+leak test. Release carries zero swip bytes. These are the gaps found by actually
+using it — none block the dogfood loop.
+
+**1. Scrubber replays state, not pixels (the operator-visible one).**
+The C10 time-travel viewport renders a **slice inspector** (`route`, `syncing`,
+`cardsCount`, `detailStack`, `hubFilter` as text), not the real Compose UI. Two
+stacked reasons, and the second is a hard limit:
+- Dayfold supplies the `scrubberContent` lambda; today it renders `ReplayedState`
+  (`androidApp/src/debug/.../BugReporterGlue.kt`). Swip renders whatever the host
+  passes — its own demo scene passes a real screen — so this part is a choice.
+- **The journal cannot rebuild the screen.** The registry deliberately never
+  records card/hub content (privacy floor, ADR 0054 / swip docs 12 §6), so a
+  replayed `AppState` has `cards = []`. Rendering `FeedApp` over it would paint an
+  empty feed at every seek — a *lie* about what the user saw. `cardsCount` exists
+  precisely so a report can say "there were 14 cards" without shipping the 14.
+
+  **Options (operator picked: punt):**
+  - **A. Inspector** — today. Honest, cheap, no fidelity.
+  - **B. Route-level UI replay (~30 lines).** Render the real screen for each
+    `route`/`detailStack`/`hubFilter` at each seek with empty content. `:ui`
+    already has pure state-driven screens (the snapshot suite renders
+    `HubListScreen(AppState(hubs = …))` etc.), so the pure-presentation rule swip
+    requires is satisfiable. Honest but hollow.
+  - **C. Full-fidelity replay.** Requires registering `cards` in the slice
+    registry → card content lands in every bug report → **blows the privacy floor
+    and the leak test; needs a superseding ADR.** *Operator direction: prove C on
+    a throwaway host first — the **redux-kotlin task-flow sample app** is the right
+    testing ground (no real user data, so the privacy floor is a non-issue there).
+    Do NOT prototype C against dayfold state.*
+  - **D. Screenshot-anchored** — already shipped: the SCREENSHOT part *is* the
+    rendered UI; the scrubber is the state track beside it.
+
+**2. Inset fix is unverified on-device.** swip 0.1.1's
+`windowInsetsPadding(WindowInsets.safeDrawing)` fix (CANCEL/DONE were under the
+status bar, untappable) is verified only by compile + desktop goldens —
+`safeDrawing` is **zero on desktop**, so the goldens prove nothing about the phone.
+Confirm on the Pixel; if a surface is still clipped, the remaining offenders are
+the sheets' own edges, not the overlay layer.
+
+**3. No upload path.** Reports sit in the on-device lane
+(`noBackupFilesDir/swip-reports`, 3 pending / 15 MB / 7-day TTL) — the swip
+gateway is its Phase 1. Until then, pull them with
+`adb shell run-as com.sloopworks.dayfold ls no_backup/swip-reports`. Revisit when
+swip ships the gateway (ADR 0054 Revisit Trigger).
+
+**4. Anonymous identity + no dogfood channel.** `identity = (null, null)`,
+`channel = "debug"`, `internalChannel = { true }` — there's no swip identity stack
+in dayfold and no non-debug internal build. A real dogfood channel (quick-fire
+surface for internal-but-release builds) needs channel wiring; also gated on the
+ADR 0054 Revisit Trigger.
+
+**5. iOS is unwired.** `iosApp` consumes the `:ui` framework; swip's iOS bug
+reporter (`IosShake`/`IosScreenshot`/`IosReportDir` exist) lands with dayfold's iOS
+reporter pass.
+
+**6. `:swip-wiring` needs GH Packages creds to build.** Any `./gradlew` run that
+touches it needs `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties` (or
+`SLOOPWORKS_PACKAGES_TOKEN` env). CI has the secret. Documented in
+`processes/agent-dev-loop.md`.
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
