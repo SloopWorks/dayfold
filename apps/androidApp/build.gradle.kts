@@ -117,6 +117,17 @@ dependencies {
   // FakeBackend.kt mirror, which returns null/empty and imports no ktor-mock).
   debugImplementation("io.ktor:ktor-client-mock:3.5.0")
 
+  // SWIP bug reporter (debug builds ONLY — release APK carries zero swip bytes;
+  // src/release holds inert mirrors of the wiring functions). GitHub Packages —
+  // see settings.gradle.kts for credentials.
+  debugImplementation(project(":swip-wiring"))
+  debugImplementation("works.sloop.swip:swip-bugreport:0.1.0")
+  debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.0")
+  debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.0")
+  // swip-bugreport declares okio as `implementation` but ReportLane's public ctor
+  // takes okio types — consumer must supply it (SWIP follow-up: make it `api`).
+  debugImplementation("com.squareup.okio:okio:3.9.1")
+
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)
   implementation("androidx.compose.material3:material3")

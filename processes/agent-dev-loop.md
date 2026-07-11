@@ -154,9 +154,15 @@ models (so field names are correct by construction).
 ```
 cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest   # 440 tests: logic/data/reducers
 cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 329 tests: Compose snapshots + UI (incl. CL-SNAP golden suite)
+cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugreport slice registry + MANDATORY sanitizer leak test (ADR 0054)
 ```
 - **`:client` tests:** reducer/selector/sync/engine unit tests — Compose-free. Run when editing logic, reducers, engines, data clients, store, ContentStore.
 - **`:ui` tests:** Compose snapshot tests + UI behavior tests. Run when editing composables, theme, entry points.
+- **`:swip-wiring` tests:** the product-owned PII leak test over the swip redux
+  timeline recorder (salted real AppState). Run when touching the slice registry
+  or sanitizer in `apps/swip-wiring/`. Resolving `works.sloop.swip:*` needs GitHub
+  Packages credentials: `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties`
+  (read:packages PAT) or `SLOOPWORKS_PACKAGES_TOKEN` env (CI secret).
 - Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Post-merge of CL-SNAP (#277): 440 + 329 = 769 (CL-SNAP's 18 snapshot tests relocated to `:ui`).
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
