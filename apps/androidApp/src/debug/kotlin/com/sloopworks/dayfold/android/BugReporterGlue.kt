@@ -5,12 +5,23 @@ import android.hardware.SensorManager
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.ClientLog
 import com.sloopworks.dayfold.swip.dayfoldRecorder
+import com.sloopworks.dayfold.swip.dayfoldSlices
 import java.lang.ref.WeakReference
 import java.util.Locale
 import java.util.UUID
@@ -36,7 +47,9 @@ import works.sloop.swip.bugreport.platform.AndroidShakeSource
 import works.sloop.swip.bugreport.ui.BugReporterController
 import works.sloop.swip.bugreport.ui.BugReporterOverlay
 import works.sloop.swip.bugreport.ui.EntryStyle
+import works.sloop.swip.bugreport.ui.scrub.ScrubberOverlay
 import works.sloop.swip.rk.recorder.ReduxTimelineRecorder
+import works.sloop.swip.rk.recorder.ScrubberEngine
 
 // Debug variant: the real swip bug reporter (shake/edge-tab → capture → annotate →
 // review → on-device report lane; no upload — gateway is SWIP Phase 1). Mirrors the
@@ -126,7 +139,7 @@ fun bugReporterInstall(activity: ComponentActivity) {
   })
 }
 
-/** Wraps app content in the reporter overlay (edge tab entry + review/annotate sheets). */
+/** Wraps app content in the reporter overlay (edge tab entry + review/annotate/scrub sheets). */
 @Composable
 fun BugReporterWrapped(content: @Composable () -> Unit) {
   val controller = BugReporterHolder.controller
@@ -134,7 +147,42 @@ fun BugReporterWrapped(content: @Composable () -> Unit) {
     content()
     return
   }
-  BugReporterOverlay(controller, dark = isSystemInDarkTheme(), showEntryPoint = true, entry = EntryStyle.EdgeTab) {
+  BugReporterOverlay(
+    controller,
+    dark = isSystemInDarkTheme(),
+    showEntryPoint = true,
+    entry = EntryStyle.EdgeTab,
+    // C10 time travel: swip owns the journal + transport bar; the HOST owns the state
+    // type, so it builds the typed engine (our SliceSpecs rehydrate the journal into a
+    // real AppState) and renders the replay content. The content MUST be pure
+    // presentation — replaying past states through an effectful composable would
+    // re-fire its effects — so this is a read-only slice inspector, not FeedApp.
+    scrubberContent = { journalJson, onClose ->
+      val engine = remember(journalJson) {
+        ScrubberEngine(journalJson, AppState(), dayfoldSlices())
+      }
+      ScrubberOverlay(engine = engine, onClose = onClose) { state -> ReplayedState(state) }
+    },
+  ) {
     content()
+  }
+}
+
+/** Pure render of the replayed AppState — only the slices the recorder journals. */
+@Composable
+private fun ReplayedState(state: AppState) {
+  Column(
+    Modifier.fillMaxSize().padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    for ((label, value) in listOf(
+      "route" to state.route.name,
+      "syncing" to state.syncing.toString(),
+      "cards" to state.cards.size.toString(),
+      "detailStack" to state.detailStack.toString(),
+      "hubFilter" to state.hubFilter,
+    )) {
+      Text("$label = $value", fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+    }
   }
 }
