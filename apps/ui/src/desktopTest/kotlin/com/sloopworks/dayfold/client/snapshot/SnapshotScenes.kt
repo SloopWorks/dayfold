@@ -221,7 +221,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
             HubAudienceMember(uid = "u_sam", displayName = "Sam Rivera", role = "adult", permitted = true, participationRole = "contributor"),
           ),
         )
-        HubPeopleContent(audience, onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {})
+        HubPeopleContent(audience, onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {})
       }
     }
   }

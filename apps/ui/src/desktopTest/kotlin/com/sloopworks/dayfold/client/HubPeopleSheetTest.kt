@@ -32,6 +32,9 @@ class HubPeopleSheetTest {
   // author, but isAuthor=false — this is exactly the case the old "first co_owner"
   // heuristic could mislabel.
   private val riley = HubAudienceMember(uid = "u_riley", displayName = "Riley", role = "adult", permitted = true, participationRole = "co_owner", isAuthor = false)
+  // A family member NOT on this restricted hub (permitted=false, no role) — the Add-people
+  // picker offers exactly these.
+  private val dana = HubAudienceMember(uid = "u_dana", displayName = "Dana", role = "adult", permitted = false, participationRole = null)
 
   @Test fun managerSeesRoleDropdownAndPickingContributorEmitsSetRole() = runComposeUiTest {
     var setRole: Pair<String, String>? = null
@@ -40,7 +43,7 @@ class HubPeopleSheetTest {
         HubPeopleSheet(
           audience = audience(owner, jordan),
           onSetRole = { uid, role -> setRole = uid to role },
-          onRemove = {}, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onRemove = {}, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
@@ -54,7 +57,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
@@ -70,7 +73,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = { removed = it }, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = { removed = it }, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
@@ -78,18 +81,37 @@ class HubPeopleSheetTest {
     assertEquals("u_jordan", removed)
   }
 
-  @Test fun addPeopleAffordanceCallsOnAddPeople() = runComposeUiTest {
-    var called = false
+  // Add-people picker: a not-yet-permitted family member (permitted=false) is offered under
+  // "Add people"; tapping Add emits onSetRole(uid, "viewer") — HubEngine.setParticipant upserts.
+  @Test fun addPeoplePickerAddsNonPermittedMemberAsViewer() = runComposeUiTest {
+    var setRole: Pair<String, String>? = null
     setContent {
       MaterialTheme {
         HubPeopleSheet(
-          audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = { called = true }, onDismiss = {},
+          audience = audience(owner, jordan, dana),   // dana: permitted=false, not on the hub
+          onSetRole = { uid, role -> setRole = uid to role },
+          onRemove = {}, onSetVisibility = {}, onDismiss = {},
+        )
+      }
+    }
+    onNodeWithText("Add people").performClick()          // open the picker
+    onNodeWithContentDescription("Add Dana").performClick()
+    assertEquals("u_dana" to "viewer", setRole)
+  }
+
+  // When every active member is already permitted (e.g. a family-visible hub), the picker
+  // shows the empty state instead of a member list.
+  @Test fun addPeoplePickerShowsEmptyStateWhenEveryoneAlreadyHasAccess() = runComposeUiTest {
+    setContent {
+      MaterialTheme {
+        HubPeopleSheet(
+          audience = audience(owner, jordan),           // both permitted → nobody to add
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
     onNodeWithText("Add people").performClick()
-    assertEquals(true, called)
+    onNodeWithText("already has access", substring = true).assertIsDisplayed()
   }
 
   @Test fun flippingFamilyToRestrictedConfirmsBeforeCallingOnSetVisibility() = runComposeUiTest {
@@ -98,7 +120,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan, visibility = "family"),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = { visibility = it }, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = { visibility = it }, onDismiss = {},
         )
       }
     }
@@ -115,7 +137,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan, visibility = "restricted"),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = { visibility = it }, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = { visibility = it }, onDismiss = {},
         )
       }
     }
@@ -128,7 +150,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
@@ -171,7 +193,7 @@ class HubPeopleSheetTest {
         HubPeopleSheet(
           audience = audience(riley, owner, jordan),   // riley (non-author co_owner) FIRST
           onSetRole = { uid, role -> setRole = uid to role },
-          onRemove = { removed = it }, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onRemove = { removed = it }, onSetVisibility = {}, onDismiss = {},
         )
       }
     }
@@ -197,7 +219,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onDismiss = {},
           errorMessage = "Couldn't remove that person. Try again.",
         )
       }
@@ -210,7 +232,7 @@ class HubPeopleSheetTest {
       MaterialTheme {
         HubPeopleSheet(
           audience = audience(owner, jordan),
-          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onAddPeople = {}, onDismiss = {},
+          onSetRole = { _, _ -> }, onRemove = {}, onSetVisibility = {}, onDismiss = {},
           errorMessage = null,
         )
       }

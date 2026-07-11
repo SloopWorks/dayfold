@@ -52,6 +52,13 @@ import com.sloopworks.dayfold.client.ui.FunAvatars
 // in apps/api/src/content/hubs.ts) — NOT "first co_owner in list order". A non-author co_owner
 // (added later via this sheet) is a normal, editable/removable participant row.
 //
+// Add people (feat/hub-add-people): the picker lists active family members who are NOT yet
+// permitted on the hub (audience carries the full active roster with a per-member `permitted`
+// flag; a restricted hub's non-audience members are `permitted=false`). Adding reuses the
+// SAME onSetRole callback — HubEngine.setParticipant is an upsert (INSERT ... ON CONFLICT DO
+// UPDATE), so "add as Viewer" == onSetRole(uid, "viewer"). No separate engine op / API. On a
+// family-visible hub everyone is already permitted, so the picker shows the empty state.
+//
 // Write-failure surfacing (DC5 code-review fix): [errorMessage] is a plain input string — the
 // sheet stays pure (no store/engine access) — HubsHost passes state.audienceError, which
 // HubEngine.setParticipant/removeParticipant/setVisibility populate via HubManageFailed on a
@@ -63,13 +70,12 @@ fun HubPeopleSheet(
   onSetRole: (uid: String, role: String) -> Unit,
   onRemove: (uid: String) -> Unit,
   onSetVisibility: (visibility: String) -> Unit,
-  onAddPeople: () -> Unit,
   onDismiss: () -> Unit,
   errorMessage: String? = null,
 ) {
   val sheetState = rememberModalBottomSheetState()
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-    HubPeopleContent(audience, onSetRole, onRemove, onSetVisibility, onAddPeople, errorMessage)
+    HubPeopleContent(audience, onSetRole, onRemove, onSetVisibility, errorMessage)
   }
 }
 
@@ -81,7 +87,6 @@ fun HubPeopleContent(
   onSetRole: (uid: String, role: String) -> Unit,
   onRemove: (uid: String) -> Unit,
   onSetVisibility: (visibility: String) -> Unit,
-  onAddPeople: () -> Unit,
   errorMessage: String? = null,
 ) {
   val cs = MaterialTheme.colorScheme
@@ -90,6 +95,11 @@ fun HubPeopleContent(
   val participants = audience.members.filter { it.permitted && it.uid != pinnedUid }
   // Confirm-pending target visibility; non-null while the who-loses-access dialog is up.
   var pendingVisibility by remember { mutableStateOf<String?>(null) }
+  // Add-people picker: local mode flag + optimistic set of just-added uids (so a member
+  // disappears from the pick list immediately, before the audience reload lands).
+  var addingPeople by remember { mutableStateOf(false) }
+  var addedUids by remember { mutableStateOf(setOf<String>()) }
+  val addable = audience.members.filter { !it.permitted && it.uid != pinnedUid && it.uid !in addedUids }
 
   // Compact layout intentional (mirrors AvatarPickerContent): the sheet must fit a headless
   // test's default 1024x768 virtual window (no scroll wired) — a tall column pushes later
@@ -109,32 +119,49 @@ fun HubPeopleContent(
       }
     }
 
-    // Family/Restricted visibility toggle. Loosening (restricted→family) applies immediately;
-    // tightening (family→restricted) opens the who-loses-access confirm first (ADR 0030).
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-      SegmentedButton(
-        selected = audience.visibility == "family",
-        onClick = { if (audience.visibility != "family") onSetVisibility("family") },
-        shape = SegmentedButtonDefaults.itemShape(0, 2),
-      ) { Text("Family") }
-      SegmentedButton(
-        selected = audience.visibility == "restricted",
-        onClick = { if (audience.visibility != "restricted") pendingVisibility = "restricted" },
-        shape = SegmentedButtonDefaults.itemShape(1, 2),
-      ) { Text("Restricted") }
+    if (addingPeople) {
+      // ── Add-people picker ──────────────────────────────────────────────────
+      Text("Add someone to this hub", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+      if (addable.isEmpty()) {
+        Text(
+          "Everyone in your family already has access to this hub.",
+          style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+        )
+      } else {
+        addable.forEach { m ->
+          AddableRow(m, onAdd = { onSetRole(m.uid, "viewer"); addedUids = addedUids + m.uid })
+        }
+      }
+      Button(onClick = { addingPeople = false }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+    } else {
+      // ── Manage current participants ────────────────────────────────────────
+      // Family/Restricted visibility toggle. Loosening (restricted→family) applies immediately;
+      // tightening (family→restricted) opens the who-loses-access confirm first (ADR 0030).
+      SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        SegmentedButton(
+          selected = audience.visibility == "family",
+          onClick = { if (audience.visibility != "family") onSetVisibility("family") },
+          shape = SegmentedButtonDefaults.itemShape(0, 2),
+        ) { Text("Family") }
+        SegmentedButton(
+          selected = audience.visibility == "restricted",
+          onClick = { if (audience.visibility != "restricted") pendingVisibility = "restricted" },
+          shape = SegmentedButtonDefaults.itemShape(1, 2),
+        ) { Text("Restricted") }
+      }
+
+      owner?.let { OwnerRow(it) }
+      participants.forEach { m -> ParticipantRow(m, onSetRole = onSetRole, onRemove = onRemove) }
+
+      // Inline role explainer — one line, no separate matrix/sheet (M-next gets the tap-to-
+      // expand role-explainer sheet; this is the always-visible plain-language summary).
+      Text(
+        "Viewer sees this hub. Contributor can also add to it. Co-owner can also manage people.",
+        style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
+      )
+
+      Button(onClick = { addedUids = emptySet(); addingPeople = true }, modifier = Modifier.fillMaxWidth()) { Text("Add people") }
     }
-
-    owner?.let { OwnerRow(it) }
-    participants.forEach { m -> ParticipantRow(m, onSetRole = onSetRole, onRemove = onRemove) }
-
-    // Inline role explainer — one line, no separate matrix/sheet (M-next gets the tap-to-
-    // expand role-explainer sheet; this is the always-visible plain-language summary).
-    Text(
-      "Viewer sees this hub. Contributor can also add to it. Co-owner can also manage people.",
-      style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
-    )
-
-    Button(onClick = onAddPeople, modifier = Modifier.fillMaxWidth()) { Text("Add people") }
   }
 
   if (pendingVisibility != null) {
@@ -234,6 +261,34 @@ private fun ParticipantRow(m: HubAudienceMember, onSetRole: (String, String) -> 
         .semantics { contentDescription = "Remove ${m.displayName ?: "member"}" },
       contentAlignment = Alignment.Center,
     ) { Text("✕", color = cs.error, style = MaterialTheme.typography.labelLarge, modifier = Modifier.clearAndSetSemantics {}) }
+  }
+}
+
+// A pickable (not-yet-permitted) family member in the Add-people list: avatar + name + Add.
+@Composable
+private fun AddableRow(m: HubAudienceMember, onAdd: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer).padding(horizontal = 14.dp, vertical = 9.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp),
+  ) {
+    DayfoldAvatar(
+      name = m.displayName ?: "?", size = 40.dp,
+      avatarColorKey = m.avatarColor, avatarRef = m.avatarRef,
+      contentDescription = FunAvatars.resolve(m.avatarRef)?.name,
+    )
+    Text(m.displayName ?: "Member", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = cs.onSurface, modifier = Modifier.weight(1f))
+    Surface(
+      color = cs.primaryContainer, shape = RoundedCornerShape(10.dp),
+      modifier = Modifier.testTag("add-${m.uid}")
+        .clickable(onClickLabel = "Add ${m.displayName ?: "member"}") { onAdd() }
+        .semantics { contentDescription = "Add ${m.displayName ?: "member"}" },
+    ) {
+      Text(
+        "Add", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = cs.onPrimaryContainer,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp).clearAndSetSemantics {},
+      )
+    }
   }
 }
 
