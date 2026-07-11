@@ -105,12 +105,22 @@ export async function upsertHub(
       [id, familyId, b.type, b.title, b.status ?? "active",
        b.start_at ?? null, b.end_at ?? null, b.countdown_to ?? null, visibility, caller.userId, J(b.media), J(b.timeline)],
     );
-    // Replace the allow-list when restricted; clear it when family.
-    await client.query(`DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id]);
-    if (visibility === "restricted") {
-      for (const uid of audience ?? [])
-        await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
-    }
+    // Reconcile the allow-list to the target audience WITHOUT resetting survivors'
+    // `role` (ADR 0053 DC2/DC3 fix — was a blind DELETE-all + reinsert, which reset
+    // every remaining member's role to the column default 'viewer' on EVERY rewrite,
+    // silently undoing grants made through the DC2 participant-management route).
+    // Only remove uids that fell OUT of the target audience; only insert uids that
+    // are newly added (role defaults to 'viewer' via the column default); leave
+    // surviving rows — and their role — untouched.
+    const targetAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
+    const cur = await client.query(`SELECT user_id FROM resource_visibility WHERE family_id=$1 AND hub_id=$2`, [familyId, id]);
+    const toRemove = cur.rows.map((x: any) => x.user_id).filter((uid: string) => !targetAudience.has(uid));
+    if (toRemove.length)
+      await client.query(
+        `DELETE FROM resource_visibility WHERE family_id=$1 AND hub_id=$2 AND user_id = ANY($3)`,
+        [familyId, id, toRemove]);
+    for (const uid of targetAudience)
+      await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
     await client.query("COMMIT");
     return r.rows[0];
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }

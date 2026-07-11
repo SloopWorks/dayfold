@@ -245,4 +245,57 @@ describe("hub content API (ADR 0006/0029/0030)", () => {
     expect((await put(fid, "hubs/s7", carol.token, { type: "medical", title: "Open", visibility: "restricted", audience: [o.userId, carol.userId] })).status).toBe(200);
     expect((await getJson(fid, "hubs/s7", o.token)).body.visibility).toBe("restricted");
   });
+
+  it("legacy PUT /hubs/:id re-authoring must NOT wipe a member's participation role (ADR 0053 DC2 grants survive the legacy authoring path)", async () => {
+    const o = await ownerOf("dc-role-owner");
+    const bob = await memberOf("dc-role-bob", o.familyId);
+    const fid = o.familyId;
+
+    // owner authors a restricted hub allow-listing bob, then promotes bob to
+    // 'contributor' via the DC2 management route.
+    await put(fid, "hubs/rp", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
+    await app.request(`/families/${fid}/hubs/rp/participants/${bob.userId}`, { method: "PUT", headers: authH(o.token), body: JSON.stringify({ role: "contributor" }) });
+    const before = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(before.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+
+    // the author does a legit re-push through the LEGACY full-upsert route (e.g. the
+    // CLI's `dayfold push --hub`), restating the SAME visibility + audience (content-
+    // only change in spirit — title edit). Today's blind DELETE+reinsert resets
+    // bob's role to the column default 'viewer' — that's the bug under test.
+    expect((await put(fid, "hubs/rp", o.token, { type: "medical", title: "Private v2", visibility: "restricted", audience: [o.userId, bob.userId] })).status).toBe(200);
+
+    const after = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(after.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+
+    // bob himself (now a contributor, allow-listed) can also re-push hub content
+    // through the legacy route WITHOUT restating visibility/audience at all — this
+    // must succeed (not 403) and must not disturb his own role.
+    expect((await put(fid, "hubs/rp", bob.token, { type: "medical", title: "Private v3" })).status).toBe(200);
+    const after2 = await getJson(fid, "hubs/rp/audience", o.token);
+    expect(after2.body.members.find((m: any) => m.uid === bob.userId).participation_role).toBe("contributor");
+  });
+
+  it("legacy PUT /hubs/:id content-only re-push (visibility/audience OMITTED) must NOT silently declassify a restricted hub", async () => {
+    const o = await ownerOf("dc-declass-owner");
+    const bob = await memberOf("dc-declass-bob", o.familyId);
+    const fid = o.familyId;
+
+    await put(fid, "hubs/rp2", o.token, { type: "medical", title: "Private", visibility: "restricted", audience: [o.userId, bob.userId] });
+    expect((await getJson(fid, "hubs/rp2", o.token)).body.visibility).toBe("restricted");
+
+    // a routine content-only re-push that does NOT restate visibility/audience at
+    // all (e.g. a CLI push of just the hub's title/content fields). Today's
+    // parseVisibilityAudience defaults an omitted visibility to "family", and
+    // upsertHub then clears the allow-list — silent declassification.
+    expect((await put(fid, "hubs/rp2", o.token, { type: "medical", title: "Private v2" })).status).toBe(200);
+
+    const hub = await getJson(fid, "hubs/rp2", o.token);
+    expect(hub.body.visibility).toBe("restricted");   // NOT silently flipped to "family"
+
+    // allow-list intact: bob is still permitted (not booted by an implicit empty
+    // audience), and a non-audience member is still shut out.
+    const aud = await getJson(fid, "hubs/rp2/audience", o.token);
+    expect(aud.body.members.find((m: any) => m.uid === bob.userId).permitted).toBe(true);
+    expect((await getJson(fid, "hubs/rp2", bob.token)).status).toBe(200);
+  });
 });

@@ -57,10 +57,22 @@ function callerFrom(a: { userId: string | null; legacy: boolean; cred: any }) {
 // the strict schema parse. Returns a 422 issue payload on bad input.
 function parseVisibilityAudience(raw: any):
   | { error: { type: string; issues: { path: string[]; message: string }[] } }
-  | { visibility: "family" | "restricted"; audience: string[] | undefined; rest: any } {
+  | {
+      visibility: "family" | "restricted"; audience: string[] | undefined; rest: any;
+      // Did the CALLER explicitly send this field, vs. it being defaulted here?
+      // (DC-final security fix: the legacy hub PUT route uses these to decide
+      // whether an omitted field should default (new hub) or PRESERVE the stored
+      // value (existing hub) — an omitted `visibility` must not silently declassify
+      // a restricted hub to family, and an omitted `audience` must not silently
+      // empty the allow-list. Cards (the other caller of this fn) ignore these
+      // flags and keep today's default-on-omit behavior.
+      visibilityProvided: boolean; audienceProvided: boolean;
+    } {
   if (raw.visibility !== undefined && raw.visibility !== "family" && raw.visibility !== "restricted")
     return { error: { type: "validation", issues: [{ path: ["visibility"], message: "family|restricted" }] } };
+  const visibilityProvided = raw.visibility !== undefined;
   const visibility = raw.visibility === "restricted" ? "restricted" : "family";
+  const audienceProvided = raw.audience !== undefined;
   let audience: string[] | undefined;
   if (visibility === "restricted") {
     if (raw.audience !== undefined && (!Array.isArray(raw.audience) || raw.audience.some((x: any) => typeof x !== "string")))
@@ -68,7 +80,7 @@ function parseVisibilityAudience(raw: any):
     audience = Array.isArray(raw.audience) ? raw.audience : [];
   }
   const { visibility: _v, audience: _a, ...rest } = raw;
-  return { visibility, audience, rest };
+  return { visibility, audience, rest, visibilityProvided, audienceProvided };
 }
 
 // Content scope is gated by `requireScope` (ADR 0029, src/auth/scope.ts): resolved
@@ -637,7 +649,8 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   // visibility + allow-list authoring (outside the strict hub schema).
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
-  const { visibility, audience, rest } = va;
+  let { visibility, audience } = va;
+  const { rest, visibilityProvided, audienceProvided } = va;
   const parsed = HubSchema.safeParse({ ...rest, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
   // ADR 0036: hardened image-URL + curated-icon + accent validation.
@@ -651,6 +664,14 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   if (existing) {
     const allow = await hubs.allowListFor(fid, id);
     const permitted = () => !!caller.userId && allow.has(caller.userId);
+    // DC-final security fix: a legacy re-authoring PUT that OMITS visibility/audience
+    // (routine content-only re-push — e.g. `dayfold push <id> --hub`) must PRESERVE
+    // the stored visibility + allow-list, not silently declassify a restricted hub to
+    // family (parseVisibilityAudience's create-time default). Only an EXPLICIT
+    // visibility/audience in the body may change them — a brand-new hub (no
+    // `existing`) still gets today's create-time defaults.
+    if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
+    if (visibility === "restricted" && !audienceProvided) audience = [...allow];
     // Visibility-on-write (ADR 0038): a restricted hub the caller can't see is a uniform
     // 404 (no existence oracle) — takes precedence over the 403 author-gate below.
     if (!hubs.hubVisible(existing, caller, permitted)) return c.body(null, 404);
