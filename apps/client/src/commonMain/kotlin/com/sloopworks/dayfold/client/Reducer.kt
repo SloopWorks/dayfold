@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import org.reduxkotlin.Store
+import org.reduxkotlin.StoreEnhancer
 import org.reduxkotlin.applyMiddleware
 import org.reduxkotlin.compose
 import org.reduxkotlin.middleware
@@ -236,9 +237,17 @@ private val actionLog = middleware<AppState> { store, next, action ->
 // `debug=true` composes the redux-kotlin-devtools `devTools()` enhancer (records
 // to DevToolsHub → in-app drawer) WITH the text action-log middleware. Release
 // passes debug=false (neither).
-fun createAppStore(initial: AppState = AppState(), debug: Boolean = true): Store<AppState> =
+// `extraEnhancer` (optional) composes RIGHTMOST = innermost — the slot debug
+// tooling like the swip timeline recorder requires (sees every dispatch, wraps
+// the raw store). Null → exactly the previous behavior. :client stays swip-free;
+// the androidApp debug variant supplies the enhancer.
+fun createAppStore(initial: AppState = AppState(), debug: Boolean = true, extraEnhancer: StoreEnhancer<AppState>? = null): Store<AppState> =
   if (debug) createConcurrentStore(
     ::rootReducer, initial,
-    enhancer = compose(devTools(DevToolsConfig(instanceId = "family-ai", name = "Family AI")), applyMiddleware(actionLog)),
+    enhancer = compose(listOfNotNull(
+      devTools(DevToolsConfig(instanceId = "family-ai", name = "Family AI")),
+      applyMiddleware(actionLog),
+      extraEnhancer, // rightmost = innermost — the recorder's required slot
+    )),
   )
-  else createConcurrentStore(::rootReducer, initial)
+  else createConcurrentStore(::rootReducer, initial, enhancer = extraEnhancer)
