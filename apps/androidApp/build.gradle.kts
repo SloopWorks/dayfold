@@ -120,6 +120,7 @@ dependencies {
   // SWIP bug reporter (debug builds ONLY — release APK carries zero swip bytes;
   // src/release holds inert mirrors of the wiring functions). GitHub Packages —
   // see settings.gradle.kts for credentials.
+  debugImplementation(project(":swip-wiring"))
   debugImplementation("works.sloop.swip:swip-bugreport:0.1.0")
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.0")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.0")

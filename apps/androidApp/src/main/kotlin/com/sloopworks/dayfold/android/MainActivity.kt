@@ -150,6 +150,10 @@ class MainActivity : ComponentActivity() {
     // drawer's Logs panel — DebugLog feeds the installed LogBuffer in debug, no-op
     // in release. Without this the Logs panel is empty (nothing fed the buffer).
     com.sloopworks.dayfold.client.ClientLog.sink = { tag, msg -> DebugLog.i(tag, msg) }
+    // SWIP bug reporter (debug builds only; inert mirror in release). Installed AFTER
+    // the ClientLog.sink assignment above — the debug glue wraps that sink to feed the
+    // breadcrumb ring while keeping the drawer's Logs panel fed.
+    bugReporterInstall(this)
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)
@@ -165,7 +169,9 @@ class MainActivity : ComponentActivity() {
     val clientApi = if (isFake) "http://fake.local" else apiBase
     // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes
     // the full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
-    store = createAppStore(debug = BuildConfig.DEBUG)
+    // extraEnhancer (innermost): the swip redux timeline recorder in debug; null in
+    // release (the inert mirror) → identical to before.
+    store = createAppStore(debug = BuildConfig.DEBUG, extraEnhancer = bugReporterEnhancer())
     // Restore the detail the user was on before this Activity was destroyed (3P-app
     // return / rotation / process death / "Don't keep activities"). Dispatched now, on
     // the main thread, BEFORE the async authEngine.restore() coroutines run — so
@@ -292,6 +298,9 @@ class MainActivity : ComponentActivity() {
       // SloopWorks debug drawer: a floating bubble (debug) opens AppInfo / Backend-
       // switch / Logs / Redux DevTools panels. Pure passthrough in release (no-op).
       DebugDrawerHost {
+        // Bug reporter overlay (edge tab + review/annotate sheets) wraps the app
+        // content INSIDE the drawer host; pure passthrough in release.
+        BugReporterWrapped {
         FeedApp(
           store,
           onPlatformAction = actions::perform,
@@ -342,6 +351,7 @@ class MainActivity : ComponentActivity() {
             if (cfg.enabled) requestProximityPermissions()
           },
         )
+        }
       }
     }
   }
