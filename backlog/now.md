@@ -32,6 +32,46 @@ you need the detailed narrative behind something below, not by default.
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
+## Current state (as of 2026-07-11)
+
+**Shipped since the 07-09 snapshot:** ADR 0052 (DB-first cold-start route gate) merged;
+**ADR 0053 — per-hub participation roles (Viewer/Contributor/Co-owner) + delegated hub
+management, accepted + built 2026-07-10** (profile avatars, top-bar avatar reactivity,
+in-app hub People "Add people" picker, PRs #316/#317/#318); profile display-name edit
+(#319); **ADR 0054 — SWIP debug-build bug reporter (shake→capture→annotate→review),
+Proposed/accept-on-merge, code merged** (`apps/swip-wiring`, #320/#321, also wires the
+C10 hub-timeline scrubber). CI confirmed green throughout (30 most-recent Actions runs
+on `main`, all `success`).
+
+**2026-07-11 repo-maintenance pass (scheduled, not a feature slice) — closed a real
+CLI/skill-doc gap, refreshed 3 days of doc drift, split `operator-inbox.md`.** Same
+no-npm/no-Gradle-registry-egress sandbox as every prior pass (re-confirmed:
+`registry.npmjs.org` and `repo.maven.apache.org` both 403) — no functional API/CLI/
+client code changes made, consistent with that constraint; a code-dedup sweep found
+nothing safe enough to apply blind (see `backlog/next.md`'s CODE DEDUP FINDINGS —
+the `hubs.getVisibleHub` duplication grew 3×→8× with ADR 0053's new routes, re-ranked
+higher; a `HubPeopleSheet.kt` Compose-row dedup candidate added). **Real bug found and
+fixed (not just drift):** ADR 0053 shipped per-hub **roles**, but no CLI/skill doc
+anywhere told an agent that a member added to a hub's `audience` via the CLI lands as
+**read-only Viewer** — the CLI has no way to grant Contributor/Co-owner (app-UI only).
+An agent could tell the operator "I added Maya to the hub" in a way that implied edit
+access when it doesn't exist. Fixed in `references/content-model.md`'s visibility
+section (explicit warning + wording guidance). Also closed: `docs/architecture.md` was
+dated 07-06 and missing the new `apps/swip-wiring` module entirely (added to the
+Components table + Data-flow/Auth ADR citations); `README.md`'s Repository table
+missing the same row; `CHANGELOG.md` had zero entries past 07-09 despite 3 user-visible
+features landing (avatars/hub-People/roles, display-name edit, debug bug-reporter) —
+added. `CLAUDE.md`'s "Current stage" snapshot was still dated 07-04 (predating ADR
+0052/0053/0054 entirely) — refreshed. **Split `backlog/operator-inbox.md`** (508 → ~65
+lines) into open-items-only + `backlog/operator-inbox-history.md` for full resolved
+narrative, mirroring the `now.md`/`now-history.md` split from 07-03 — this file is
+unconditionally mandatory reading for loop/planning sessions, so the ~20 lines of
+bootstrap-era (06-18) resolved history and several long RESOLVED paragraphs were pure
+context cost with zero remaining decision value. Added a `designs/` row to `CLAUDE.md`'s
+Directory Map table (existed, was referenced twice in Process rules, wasn't in the
+table). Values/privacy spot-check clean (diff is docs-only; no secrets, no PII, no
+child-account or restricted-scope-Gmail surface touched).
+
 ## Current state (as of 2026-07-09)
 
 **2026-07-09 — DB-first cold-start route gate SHIPPED (ADR 0052 Accepted + built; branch

@@ -157,6 +157,17 @@ it explicitly and name exactly which members will and won't see the content (sam
 propose-confirm bar as guardrail 1) before pushing anything scoped narrower than the
 whole family.
 
+**Hub roles (ADR 0053) — CLI-authored audience members are read-only.** A hub's
+`audience[]` now carries a per-member **role** — `viewer` / `contributor` / `co_owner` —
+that controls who may *edit* the hub (member-write features: checklist toggles, notes,
+etc.), not just who may *see* it. The CLI has **no field or flag to set this role**:
+every member you add to `audience` via `push`/`template hub` is granted `viewer` (the
+DB column default) — read-only — regardless of what you tell the operator. Granting
+`contributor`/`co_owner` requires the in-app People sheet (Hub → People → Add people).
+**Don't describe a CLI-authored audience addition as "giving X edit access" or "X can now
+update this hub"** — say "X can now see this hub" and note that write access needs the
+app if the operator asks for it.
+
 ## ids
 
 26-char Crockford base32 ULIDs (`^[0-9A-HJKMNP-TV-Z]{26}$`). New content → new id;

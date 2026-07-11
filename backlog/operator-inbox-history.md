@@ -1,0 +1,487 @@
+# Operator Inbox — History
+
+Full resolved/answered narrative for every inbox item, split out of
+`backlog/operator-inbox.md` 2026-07-11 (was 508 lines; mirrors the
+`now.md` → `now-history.md` split of 2026-07-03) to keep the mandatory-
+reading file to open items + a one-line pointer per resolved item. Read
+this file when you need the detailed reasoning/context behind a past
+decision, not by default.
+
+---
+
+- **INB-31 · RESOLVED 2026-07-09 — operator ratified ("approved and continue"); ADR 0052 Accepted + BUILT + green** on branch `feat/cold-start-db-first-route` (`:client` 507 / `:ui` 479 tests, 0 fail; iOS+Android compile). Both gates cleared (optimistic-render §4 + DB-table cache home). Gate A offline indicator deferred as a follow (network-fail-with-cache stays on Feed; existing sync-status surfaces cover connectivity). Surfaced a pre-existing CI gap → `OQ-migration-verify` in open-questions. Original ask below.
+
+- **INB-31 · 2026-07-09 · med · open — ratify ADR 0052: DB-first cold-start route gate?**
+  Investigation confirmed the operator-observed cold-start splash (dayfold icon + spinner)
+  **waits on the network**: content is offline-first + correct (ADR 0020), but the top-level
+  route gate clears only after a network `whoami` because memberships are never persisted
+  locally. **Proposed fix (ADR 0052, Proposed):** cache last-known memberships in a SQLDelight
+  local-only table, route straight to `Feed` on cold start when token + cache exist, and
+  reconcile `whoami` in the background. **Two operator gates:** (Gate B) ratify the bounded
+  **optimistic-render posture** — one `whoami` round-trip renders already-on-device own-family
+  cached content before the session is re-confirmed (same boundary the content cache already
+  accepts); (decision) membership-cache home = **DB table (recommended)** vs. `TokenStore`.
+  Plus **Gate A** (ADR 0008): the one new affordance is a quiet offline/"last updated"
+  indicator on the network-fail path — wants a small design nod before build. **Proposed
+  default: accept §4 + DB-table home; design the offline indicator, then build.** Context:
+  `adr/0052-cold-start-db-first-route-gate.md`. Branch: `feat/cold-start-db-first-route`.
+
+- **INB-29 · RESOLVED 2026-07-01 → BOTH GATES CLOSED; Phase B BUILT + SHIPPED to `main` (PR #260).**
+  Gate B ratified 2026-06-30 (ADR 0044 Accepted); **Gate A design sign-off CLEARED 2026-06-30**
+  (v2 `designs/triggers/` mockups + INB-13 §6b honesty rework) and **re-approved as-shipped
+  2026-07-01** (operator reviewed the built notification/permission surfaces: "I approve").
+  Shipped local-only Android Phase B (background pass, local notifier, geofence + alarm scheduling,
+  quiet-hours + daily-cap, permission ladder, offline states; default-OFF/opt-in). **Carried open
+  (not blocking):** iOS parity (needs Xcode); the **activity** trigger stays DEFERRED (operator
+  2026-07-01); public-ship Play/App-Store background-location declaration + disclosure review.
+  Prior partial-answer + gate-stop write-up below (historical).
+
+- **INB-29 · PARTIALLY ANSWERED 2026-06-30 → Gate B RATIFIED (ADR 0044 Accepted); Gate A =
+  design prompt delivered (sign-off still pending); carryover pulled forward.** Operator
+  in-session: (1) **Gate B** — "Accept ADR 0044 as written" → ADR 0044 flipped Proposed →
+  Accepted (background-location posture ratified). (2) **Gate A** — operator asked for a
+  Claude Design prompt framing the feature as **opt-in**; delivered as
+  `designs/DESIGN-BRIEF-triggers-v2-phase-b.md` (self-contained; folds in the INB-13 §6b
+  fix-list + the opt-in posture). Mockups + **operator sign-off still required** before any
+  Phase-B implementation surface (geofence / local-notif / permission) builds — Gate A stays
+  open until then. (3) **Carryover** — "build it now": the ungated render-driven record-shown
+  EFFECT is being built on the Phase-B branch independently of the gates. **Phase-B
+  implementation (geofence/notification/permission) remains BLOCKED on Gate A sign-off.**
+  Original (the gate-stop write-up) below.
+
+- **INB-29 · 2026-06-30 · med · open — Now derived surfacing PHASE B is gated; the
+  build loop STOPPED at the gate (no implementation code written).** Phase B = background
+  geofence (on-device, live position never leaves) + **LOCAL** notifications (Android
+  `NotificationManager` / iOS `UNUserNotificationCenter`; **no FCM/APNs**, no server change)
+  firing the SAME Phase-A engine's top-K under a daily cap + quiet-hours. ADR 0043 §2b made the
+  engine shared, so most Phase-B code is platform glue — but Phase B is **operator-gated on TWO
+  things, and NEITHER is met**, so per the build discipline I stopped and am asking instead of
+  deciding in the loop:
+  1. **Gate A — ADR 0008 design-first (NOT met).** The Phase-B surface (the "Always"
+     background-location primer, the LOCAL notification + lock-screen treatment, the offline /
+     geo=on states) lives in the `triggers/` brief. Only a **first-pass** exists (`designs/Family
+     AI dashboard design brief/designs/triggers/`), and **INB-13 is still open**: the 3-agent
+     review flagged a **P0 HONESTY bug** ("saved place coords never leave the device" is FALSE
+     per ADR 0014 — only *live position* stays local) + a v2 fix-list (`designs/DESIGN-BRIEF-
+     triggers.md §6b`). §6b was never handed to Claude Design; there is **no operator sign-off**
+     for the Phase-B surface (contrast INB-28, which signed off `designs/now-derived/` for Phase
+     A *and explicitly* excluded background location / notifications / new permission as Phase B).
+     **Proposed default:** hand §6b (INB-13) to Claude Design → produce the v2 Phase-B mockups →
+     operator signs off. (Visual taste = operator; I can drive the design pass on your word.)
+  2. **Gate B — background-location posture (NOT ratified).** Requesting the **"Always"**
+     permission + the customer-disclosure review is a privacy-posture change (HARD GUARDRAIL
+     #3 restricted-scope/location + #4 customer-relationship). ADR 0014 §4/§6 reserved "Always"
+     as an opt-in upgrade in "a later milestone"; INB-28 deferred it by name. Drafted as **ADR
+     0044 (Proposed)** — `adr/0044-phase-b-background-location-and-local-notification-posture.md`
+     — extends ADR 0043 Phase B + concretizes ADR 0014: "Always" opt-in/reversible/never-up-front,
+     geofence nearest-N (iOS 20-region cap, ADR 0028), LOCAL notifications only (no push vendor →
+     **no spend, no FCM/APNs**), quiet-hours + daily-cap as **device-local never-synced** config
+     (ADR 0024), `rank()` stays pure, server untouched (dumb-server invariant, ADR 0039 §7).
+     **Proposed default:** accept ADR 0044 as written (flip Proposed → Accepted); confirm ADR
+     0043's Phase-B phasing still holds (local notifications, no FCM/APNs).
+  - **Separable / ungated now:** the Phase-A carryover — wiring the render-driven **record-shown
+    EFFECT** (action→effect→DB→`surfacingFlow` bridge, debounced) so anti-nag decay's `last_shown`
+    clock starts — is foreground-only, no new permission/surface, over the already-signed-off
+    `designs/now-derived/` feed. **It can proceed independently of both gates if you want it
+    pulled forward** (an explicit user *dismiss control*, if it needs a new affordance, would
+    still want a mockup). Say the word and I'll build just that slice while the gates close.
+  - Recorded as **operator-gated, decided-by-you** (gate A = design taste + ADR 0008 sign-off;
+    gate B = HARD GUARDRAIL #3/#4 privacy posture). Nothing builds until you ratify. Urgency med
+    — the engine is already built, so Phase B is mostly glue once the gates close.
+
+- **INB-28 · ANSWERED 2026-06-30 → ADR 0043 ACCEPTED + now-derived designs SIGNED OFF.**
+  Operator ratified in-session (both gates, before the Phase A build loop): (1) **ADR 0043**
+  (Now derived+authored two-lane model + on-device Priority & Ordering Engine) flipped
+  **Proposed → Accepted** — status header updated, `decisions-index.md` row added (was missing).
+  (2) **`designs/now-derived/`** hi-fi mockups (the ADR 0008 gate the design brief names) **signed
+  off as-is** — merged feed / geo-active / busy-overflow / dedup / softened / caught-up / deep-link,
+  light + dark. Build proceeds: **Phase A only** (foreground in-feed; NO background location /
+  notifications / new permission — that's Phase B, operator-gated). Server stays content-blind —
+  derived items are CLIENT-ONLY (no `content.schema.json` entry, no `/sync` rows, no write
+  endpoint); the only schema touch is wiring already-present block `triggers[]` + `places` through
+  to the client + a bounded `importance` on the authored card. Branch:
+  `claude/now-derived-surfacing-phase-a-*`.
+
+- **INB-26 · ANSWERED 2026-06-29 → Two-way ENGINE bundle ratified.** Operator
+  (in-session): (1) **W3 free-text + CONSTITUTION** = accept (ADR 0041 amendment
+  applied → 0041/0042 Accepted; W3 EXPERIMENTAL/flagged); (2) **W3 AI-loop placement**
+  = key-holder-only (default); (3) **Object store** = **Cloudflare R2** (confirmed);
+  (4) **W2 authoring scope** = members author into existing visible hubs only
+  (loop-never-edits-member-blocks + server-enforced audience-intersection); (5) **W5
+  hide** = per-member self-scoped, **local-only first**; (6) **W3 cost constants** =
+  Sonnet default, batch-per-family-per-cadence, per-family daily cap. ADRs 0039/0040
+  → Accepted; 0041/0042 → Accepted. Original below.
+- **INB-26 · 2026-06-28 · med · open — Two-way ENGINE generalization (W1–W5): six
+  operator decisions.** A **6-specialist panel** (system design · data modeling ·
+  privacy/E2EE · security/ACL · mobile/KMP · performance) pressure-tested
+  generalizing the to-do primitive (INB-25/ADR 0038) into a full two-way engine for
+  five future features: **W1** member updates media (hero images), **W2** members
+  author content (notes/todos/links), **W3** free-form "add context" → async AI
+  integration, **W4** delete, **W5** hide. Design + audit trail:
+  `specs/two-way-engine-and-content-management-design.md`. The engine generalizes
+  cleanly (one typed-op outbox → `/mutations`; two channels — direct content-deltas
+  vs a key-holder **intents** path for W3; delete=tombstone, hide=per-member). It
+  also surfaced **forward-compat residuals** (the client inbound decoders are
+  already lenient — `ignoreUnknownKeys=true` — so additive fields do *not* break old
+  clients; the narrower work is keeping `.strict()` on the *authoring/validate* path
+  only [never on opaque relay], an unknown-`type` renderer placeholder, and a
+  missing Kotlin codegen drift guard — land before W1–W5 add many fields) and several
+  authz must-fixes. **Six things need
+  you** (proposed defaults in **bold**; nothing builds before you ratify, and client
+  surfaces still need ADR 0008 mockups):
+  1. **W3 free-text vs structured (scope + CONSTITUTION).** Open free-form context
+     trips ADR 0016 §4's reserved free-text line → needs a constitution amendment.
+     **Default: ship W3 structured/template-bounded ("add this to hub X") until you
+     choose to amend.**
+  2. **W3 AI-loop placement (E2EE posture / guardrail #3).** A *hosted* Claude routine
+     can't decrypt without breaking E2EE + triggers third-party-LLM disclosure.
+     **Default: key-holder-only (operator machine → controlled host); hosted path
+     reserved + ADR-gated.**
+  3. **Object storage vendor (vendor + spend).** Member photos = the first binary
+     Dayfold stores → needs an object store. **Default: Cloudflare R2 (zero egress;
+     ~$0 at family scale) over Vercel Blob (egress-billed).**
+  4. **W2 authoring scope (scope + ACL).** **Default: members author into existing
+     visible hubs only (defer member-created hubs); accept the
+     loop-never-edits-member-blocks invariant + server-enforced audience-intersection
+     (un-defers ADR 0030's deferred posture).**
+  5. **W5 hide model (values/privacy).** **Default: per-member, self-scoped,
+     local-only first; promote to a per-member server channel later with
+     grain-dependent storage (resource-grain cleartext table, item-grain
+     in-ciphertext).**
+  6. **W3 cost constants (spend/pricing-class).** **Default: Sonnet by default,
+     batch pending intents per-family per-cadence, per-family daily submission cap.**
+  - These spawn an **ADR set** (generalized-engine ADR; member-authoring authz;
+    member-media ADR 0036 Phase-2; ADR 0016 intents activation + constitution gate;
+    ADR 0015/0025/0020 amendments; the schema-evolution ruleset). Recorded as
+    **operator-gated** (#1/#2/#3/#6 are constitution/E2EE/spend; #4/#5 scope/values)
+    — drafted, awaiting your direction before any ADR flips Proposed→Accepted.
+
+- **INB-25 · ANSWERED 2026-06-29 → ADR 0038 accepted; member scope = global
+  `content:write`.** Operator ratified the primitive: **accept ADR 0038 as written**
+  + member app credentials get **global `content:write`** with the visibility filter
+  as the human boundary (read-only-member revisited only if a real case appears). The
+  agent-leaning calls stand (todo-only first; strict-LWW no done-wins; wall-clock+actor
+  stamp). ADR 0038 → Accepted. Original below.
+- **INB-25 · 2026-06-27 · med · open — Two-way collaborative content (interactive
+  to-do): accept ADR 0038 + pick the member write-scope.** A 4-agent brainstorm +
+  2 adversarial rounds designed Dayfold's **first two-way data-flow** primitive
+  (members tap to-do items done; edits converge across devices). Design + audit
+  trail: `specs/two-way-collaborative-content-design.md`; Proposed **ADR 0038**.
+  Headline calls (all reviewed): a **content-delta** primitive **beside** ADR 0016
+  `intents` (a checkbox needs no AI reasoning); **client-side per-item LWW over a
+  server-opaque relay** — the only design that survives the M1 E2EE flip without a
+  re-model; the **one load-bearing M0 schema reservation = a stable ULID `id` on
+  checklist items** (today id-less, so concurrent toggles clobber); **whole-block
+  PUT + `If-Match`→412 + `op_id` idempotency**; **toggle-only** first slice. The
+  review also surfaced **two latent security defects** to fix the moment members can
+  write (visibility-on-write + block-resurrection-on-write) — built into slice 2.
+  **Two things need you:**
+  1. **Accept/amend ADR 0038** (ADR-class — automation-autonomy + customer-data
+     write path + E2EE posture + scope). **Proposed default: accept as written.**
+  2. **Member write-scope (values/scope):** member app credentials get **global
+     `content:write`** with the visibility filter as the human boundary
+     (**recommended** — simplest, calm; per-hub credential scoping was for
+     least-privilege *automation* tokens) **vs** keep **per-hub member scoping** to
+     allow a future **read-only member** role (e.g. an eldercare hub a member may
+     see but not edit). **Proposed default: global `content:write`; revisit
+     read-only-member if a real case appears.**
+  - Recorded as **agent-leaning, decided-with-record unless you object** (pulled
+    off the hard gate by the simplification round): **todo-only first** (mirror to
+    budget `paid` when budget goes two-way — a cheap additive copy); **strict-LWW,
+    no done-wins**; **wall-clock+actor stamp, HLC reserved**. Say the word to put
+    any on the gate.
+  - Build is **blocked** on (1)+(2) and, for the client UI, on an **ADR 0008 hi-fi
+    mockup + sign-off** (new interactive surface). Urgency med — this is the
+    primitive every later two-way mini-feature inherits, so worth a careful read.
+
+- **INB-24 · ANSWERED 2026-06-26 → Hub/card visual-enrichment BUILD gates CLEARED.**
+  Operator (in-session): (1) **ADR 0008 hi-fi signoff = "Approve as-is"** on the
+  imported `designs/hub-card-enrichment/` mockup (Enrichment + Hub-Enrichment-Phone +
+  support.js) — clears the design-first gate for the enrichment surfaces. (2)
+  **ADR 0036 = "Accept — Wikimedia-only start"** → flipped Proposed→Accepted;
+  Phase-1 image-URL allowlist = exactly `upload.wikimedia.org`; hardened shared
+  validator (https-only, reject userinfo/punycode/alt-port/suffix/SVG) server+client+CLI;
+  client→third-party IP/usage leak accepted as explicitly-temporary (Phase 2 self-host
+  kills it). Build proceeds: schema+codegen → migration 0012 → validator → Coil3 render →
+  CLI/skill → tests. Spec: `specs/hub-card-visual-enrichment-design.md`.
+
+- **INB-23 · ANSWERED 2026-06-26 → ADR 0034 ACCEPTED.** Operator "inb 23 approved" →
+  ADR 0034 flipped Proposed→Accepted; **G5 posture ratified** (all tracks→prod Vercel
+  API, real sign-in AUTH-S3, never bake `HOUSEHOLD_SECRET`/`DEV_AUTH_SECRET`). The
+  remaining **G1–G4 are one-time operator setup actions** to switch the (merged, inert)
+  pipeline live — recommended order G1+G3 first (keystore + Play account) so merges
+  auto-ship to `internal`, then G2 (real Firebase) before relying on Google sign-in, G4
+  before a real beta. Runbook: `processes/mobile-release.md`. Original below.
+
+  **Mobile release pipeline: one-time store gates
+  (ADR 0034).** The 3-track Android pipeline is built + merged
+  (`release-android.yml` + signing/versioning + a CI compile smoke) and **inert until**
+  these operator-only gates are done (secrets / accounts / spend / store listing).
+  Runbook: `processes/mobile-release.md`. **Proposed default: do G1+G3 first** (keystore +
+  Play account) so merges auto-ship to the `internal` track; defer G4 until closer to a
+  real beta.
+  - **G1** generate the upload keystore (+ opt into Play App Signing) → 4 secrets.
+  - **G2** real Firebase `google-services.json` → `GOOGLE_SERVICES_JSON_BASE64` (else
+    Google sign-in is dead in store builds).
+  - **G3** Play Console + service account ($25 one-time — **spend**); first AAB uploaded
+    by hand → `PLAY_SERVICE_ACCOUNT_JSON`.
+  - **G4** store listing + **data-safety form** (intersects children's-data / restricted-
+    scope guardrails — review carefully).
+  - **G5** confirm: all tracks → prod Vercel API (no staging), real sign-in (AUTH-S3),
+    **never bake `HOUSEHOLD_SECRET`/`DEV_AUTH_SECRET`** into a store build.
+  - Also **accept/flip ADR 0034** (Proposed → Accepted) — platform/vendor + external
+    publishing + spend, so it's operator-gated.
+
+- **INB-22 · ANSWERED 2026-06-24 → SIGNED OFF (ADR 0008 hub-visibility delta).**
+  Operator signed off the per-member visibility treatment on the Hubs surface
+  (`designs/Family AI dashboard design brief/designs/Hubs-Visibility.dc.html`):
+  restricted-hub list marker + audience, the detail visibility chip + honesty chip,
+  and the "Who can see this hub" sheet (author always permitted, **owner NOT
+  auto-permitted** per ADR 0030 option A; "removing someone hides it on next sync").
+  Reuses the signed-off Dayfold M3 tokens verbatim; light + dark. **This closes the
+  last hub-render design gap** — the Hubs phone surface (INB-15/16) + content
+  adaptive two-pane (INB-20) + this visibility delta are now all signed off, so the
+  ADR 0008 gate for hub render is **cleared**. Enforcement already built (ADR
+  0029/0030, PRs #34/#35). Original: author the ADR-0030 visibility delta the
+  2026-06-19 hub mockups predated.
+
+- **INB-21 · ANSWERED 2026-06-23 → ADR 0030 ACCEPTED.** (1) Accepted; (2)
+  owner-visibility default = **A (owner NOT auto-permitted)**; (3) card-vs-hub
+  posture = **A (author-trusted at MVP)**. Both match the ADR as written → accepted
+  unchanged; status flipped to Accepted, index + open-questions reconciled,
+  `[pending-ratify]` cleared. Build (content-API + CLI-verbs slice) carries:
+  hub `visibility`/`created_by` + hubs-only `resource_visibility` + the
+  `→hubs.updated_at` touch-trigger + `briefing_cards.visibility`/`audience[]` +
+  the read-path filter + visibility-aware `/sync` (two revocation paths) + client
+  cache-wipe on tenancy 401/404. Original below.
+  **Accept ADR 0030 (per-member visibility) +
+  pick the owner-visibility default.** Schema/scope review produced: **ADR 0030**
+  (`adr/0030-per-member-hub-and-card-visibility.md`, Proposed), the consolidated
+  **scope & access spec** (`specs/domain-model/scope-and-access-model.md`), and
+  the **MVP feature boundary** (`specs/mvp-feature-boundary.md`). Your in-session
+  answers are baked in: per-hub visibility IN at MVP; Hub→Now emission stays manual
+  (Claude skill authors imminent-item cards); retention = soft-delete + manual
+  hard-purge tool. **Two things need you:** (1) **Accept/amend ADR 0030** (it's
+  ADR-class — scope + access posture; agents draft, you accept). (2) **Pick the
+  owner-visibility default (values-shaped, OQ-owner-visibility-default):** owner
+  **NOT** auto-permitted on `restricted` content (proposed — protects co-parent/
+  eldercare privacy; owner reads only by authoring or being allow-listed) **vs**
+  owner-sees-all (transparent household). One-line filter difference; gates ADR
+  0030 → Accepted. **Proposed default:** accept ADR 0030 as written (owner NOT
+  auto-permitted). **(3) Ratify the round-2 posture change `[pending-ratify]`:**
+  card-level visibility was simplified — cards no longer inherit/materialize hub
+  visibility; the trusted skill stamps a flat `audience[]` on the ephemeral cards
+  it emits, so "a card can't out-expose its hub" is **author-trusted at MVP, not
+  server-enforced** (re-adding server enforcement is the documented Revisit Trigger
+  when multi-author/in-app authoring lands). Correct for a single-operator dogfood;
+  flagged because it's a real posture move. **Both adversarial review rounds are
+  done** (round-1 correctness fixed two P0 sync-revocation holes + author-identity;
+  round-2 cut the card machinery, `resource_type` polymorphism, card `created_by`,
+  and downgraded the purge tool to operator-SQL-deferred). Remaining build:
+  content-API + CLI-verbs slice lands hub render + ADR 0029 scopes + ADR 0030 hub
+  visibility + the touch-trigger + visibility-aware `/sync` together.
+
+- **INB-20 · ANSWERED 2026-06-22 → SIGNED OFF + scope accepted + spike OK'd.**
+  Operator: (1) adaptive visuals approved; (2) added scope accepted — CL-NAV +
+  the CL-1/5/6/8/10 deltas + the `hubRef`/parent-membership field on the content
+  item; (3) `material3-adaptive` / `adaptive-navigation-suite` 1.9.3-availability
+  spike authorized (runs before CL-NAV commits; fallback if not published for
+  Compose-MP 1.9.3). ADR 0008 adaptive gate CLEARED. Original:
+  **Sign off the adaptive two-pane design +
+  confirm its added scope.** The CL-10 design pass is **delivered + imported**
+  (`designs/content/adaptive/` — Breakpoints, Detail-Pane(+View), States,
+  Nav-Continuity). It resolves the ADR 0008 adaptive gate (pending your sign-off)
+  but **adds scope** the epic now reflects: (a) a **second transition motion**
+  (shared-axis fade-through for in-pane card-switching, on top of CL-7's container
+  transform); (b) a **selected-card state** in the list pane (→ CL-5); (c) a
+  **third "supporting" pane** at expanded showing the **parent Hub + siblings** →
+  needs a **`hubRef` on the content item** (→ CL-1/CL-8) and relocates RELATED out
+  of the detail at expanded (→ CL-6); (d) **size-class-aware detail** (→ CL-6);
+  (e) a new **CL-NAV** shell task + **new adaptive Compose deps** (`material3-
+  adaptive` / `adaptive-navigation-suite`) whose **1.9.3 availability needs a
+  spike**. Honesty/M0 constraints preserved (RSVP display-only, on-device privacy
+  copy). **Proposed default:** sign off the adaptive mockups; accept the added
+  scope (CL-NAV + the CL-1/5/6/8/10 deltas in the epic). Visual taste = operator;
+  the schema/dep deltas are agent-buildable once accepted.
+
+- **INB-19 · ANSWERED 2026-06-22 → PARTIAL: (1) rk RATIFIED + (2) PINNED
+  alpha02 (operator). (3) publish `redux-kotlin-snapshot` + Homebrew-tap
+  symlink fix STILL PENDING — both operator-only (external action on the
+  operator's own packages; agents draft-not-send).** Recorded as
+  **ADR-0019-realized** (no new ADR; tooling/maintenance class). Urgency
+  reframed low→**med**: the "before CL-5/6/7 commit" gate is overtaken —
+  those merged *without* the golden harness (current = hand-rolled
+  `FeedSnapshotTest`, no diff). Real next consumer = **CL-NAV/CL-10
+  adaptive** (resize/hinge/pane reflow = visual-regression-sensitive) →
+  **hold CL-NAV/CL-10 build until the harness lands.** Agent-buildable once
+  (3) ships: `:client:snapshotUi` scene registry + CI golden job (stub
+  prepared). Original below.
+  **Ratify `rk` as the client dev+CI snapshot/
+  devtools toolchain + pin.** The redux-kotlin CLI is now published (Homebrew
+  `reduxkotlin/tap/rk` **1.0.0-alpha02**, unified devtools+snapshot). Incorporated
+  into `processes/agent-dev-loop.md` + epic task **CL-SNAP** (rk snapshot golden-
+  diff CI + rk devtools bridge) — this realizes ADR 0019's deferred golden-diff +
+  CLI items. **Two caveats:** (a) it's **alpha** → pin like the redux-kotlin alpha
+  bet; (b) `redux-kotlin-snapshot` (the app-side scene dep) is **not yet on Maven
+  Central** per the docs — you own reduxkotlin, so confirm/publish the coordinate
+  before CL-5/6/7 commit to it. **Also: the Homebrew formula symlink is broken**
+  (keg `bin/` empty; binary at `…/libexec/Contents/MacOS/rk`; formula points at
+  `libexec/rk.app/…`) — worth a fix in `reduxkotlin/homebrew-tap`. **Proposed
+  default:** ratify rk as the toolchain, pin alpha02, publish `redux-kotlin-
+  snapshot`. Tooling/maintenance = mild ADR-class; note as ADR-0019-realized.
+
+- **INB-15 · ANSWERED 2026-06-19 → ADR 0022 ACCEPTED; D2 = extend in place.**
+  Accepted the typed content library / fold gesture / Dayfold theme. **D2 fork =
+  extend `briefing_cards` (type+payload+detail cols)**; unify into `content_item`
+  deferred to M1 (migrate with E2EE). Build tasks unblocked; index updated to
+  Accepted.
+
+- **INB-16 · ANSWERED 2026-06-19 → Phone mockups SIGNED OFF; adaptive queued.**
+  `Content-Library`, `Detail-Phone`, `Tap-To-Detail`, `Brand` approved → ADR 0008
+  gate cleared for phone surfaces (CL-0…CL-7 may build). **Queued:** a Claude-
+  Design pass for the adaptive two-pane detail (CL-10 stays blocked on it).
+
+- **INB-17 · ANSWERED 2026-06-19 → "Dayfold" confirmed** as the product name
+  (repo slug stays `family-ai-dashboard`). CL-0 theme + brand copy proceed under
+  Dayfold. Product-naming decision recorded; fold into ADR 0022 D5 on accept.
+
+- **INB-18 · ANSWERED 2026-06-19 → M0 ships ALL 6 content types.** Operator
+  widened the review's recommended 2-type (file+invite) slice for full-surface
+  coverage sooner. Build order stays CL-0→CL-1(spike, 6 payloads)→CL-2(extend)→
+  CL-4→CL-5(6 cards)→CL-6→CL-7(base transition); CL-3/8/9-realmaps/10 deferred.
+
+- **INB-9 · ANSWERED 2026-06-18 → TypeScript on Vercel** (ADR 0018). CLI/client stay Kotlin; types codegen from schema; Postgres via pooler. **Last P0 gate cleared.**
+
+- **INB-9 (orig) · Ratify API host = TypeScript/Vercel.**
+  Spec-build loop (architecture review) recommends the backend API in
+  **TypeScript on Vercel** (preserves the ADR 0012 preview→promote→rollback
+  deploy-autonomy rail; a JVM API needs a container host + standing cost vs
+  the <$50/mo cap). **CLI stays Kotlin**; types codegen'd from the JSON
+  schema. Platform choice = ADR-class. **Proposed default:** ratify at C3 as
+  an ADR. Confirm or pick Kotlin/JVM + Cloud Run instead.
+
+- **INB-11 · SUPERSEDED 2026-06-19 → use `1.0.0-alpha01` (the latest).** The
+  operator **owns/maintains reduxkotlin** and will keep it updated, so the
+  alpha-churn risk that drove the 0.6.2 default doesn't apply. New directive:
+  **leverage the latest APIs** (`concurrentStore`, devtools, the reduxkotlin
+  CLI, screenshot tooling) and architect the clients as **`f(store.state) →
+  UI`** — the store is the single state source. Verified: both Kotlin modules
+  build + test + render on the Pixel on alpha01. (Was: 2026-06-18 → 0.6.2.)
+- **INB-10 · ANSWERED 2026-06-18 → M0 = PLAINTEXT** (live E2EE = M1 option, gated by ADR 0017). Schema freeze unblocked.
+- *(review decisions 2026-06-18: M0 = briefing-feed-only [Hubs→next slice]; planning-loop ritual suspended for the solo M0 build — keep spec-gate + inbox + multi-agent reviews.)*
+
+- **INB-11 (orig) · redux-kotlin: alpha01 or 0.6.2 stable?**
+  You chose `1.0.0-alpha1` (ADR 0013). Verified: it exists (exact
+  `1.0.0-alpha01`, all modules, KMP), but it's ~1-day-old (pub 2026-06-17) with
+  two alpha01-only modules. **Proposed default:** build P3 on **`0.6.2` stable**
+  (hand-written root reducer + `selectorState`/`select{}`) and adopt alpha01
+  behind a feature flag once it matures — no hard block either way, and code
+  calls `fieldState` (not `fieldStateOf`). Confirm stable-default / insist on
+  alpha01.
+
+- **INB-10 · RESOLVED 2026-06-18 → M0 = PLAINTEXT; live E2E = M1 option gated by ADR 0017 (see ANSWERED INB-10 above). Original prompt:**
+  Investigation (`research/e2e-encryption-investigation.md`) verdict:
+  **CONDITIONAL GO** — the dumb-store architecture makes E2EE nearly free;
+  encrypt at M0, distribute keys at M1 (per-member X25519 wrap mapping onto
+  owner-approve). **Why high/now:** it changes the **M0 schema** (content
+  columns become ciphertext, drop the server FTS index) — cheap to lock before
+  real data, expensive to retrofit. Trade-off: loses server-side search;
+  **lost keys = lost data** (recovery = OS keychain + owner-mediated re-grant +
+  owner recovery phrase, no server escrow — this is **values-shaped, your
+  call**). **Proposed default:** accept ADR 0015 → next loop iterations adjust
+  02/05/06/08 specs for the encrypted column split. Accept / amend recovery
+  posture / defer.
+
+- **INB-15 · 2026-06-19 · med · open — reduxkotlin 1.0 feedback (you maintain it).**
+  Findings from wiring `1.0.0-alpha01` into the app →
+  `research/reduxkotlin-1.0-feedback.md`. Headline **P0: `redux-kotlin-compose`
+  doesn't pull `redux-kotlin-granular` transitively** (GMM variant misses it,
+  though the POM declares it) → `FieldStateKt` (selectorState/fieldState) fails
+  to load → bare "unresolved reference". Also: compose needs Kotlin ≥2.3.x while
+  core/threadsafe read from 2.2.x; selectorState/fieldState are extensions
+  (top-level call = "unresolved"); and `concurrentStore`/CLI aren't on Maven Central yet. **DevTools IS published
+  (1.0.0-alpha01) — now wired + verified on-device (ADR 0019).** Doc has the
+  full list + severities for 1.0.0; `DevTools.md` text predates the publish.
+
+- **INB-14 · DONE 2026-06-19 → Android SDK + Pixel 10 Pro + emulators working; G1a met on-device (feed renders from cloud). iOS shell still needs your Mac. (Was: P3 device-render shell.)**
+  The client CORE is built + tested (redux-kotlin 0.6.2 store + /sync reducer,
+  5 tests green). What remains to literally "see the feed on your phone" needs
+  hardware agents can't supply:
+  1. **Android:** the Android SDK + an emulator/device to build & run the
+     Compose app (agent can install the SDK; *seeing* it needs a device or your
+     OK to run an emulator).
+  2. **iOS:** your **Mac + Xcode + Apple Developer** account (P-1) — agents
+     can't build/sign iOS.
+  The loop will next add a **Compose Desktop** preview of the same feed (builds
+  headlessly, no SDK) to prove the render path while the phone targets wait on
+  you. Tell me: install the Android SDK + run an emulator now, or hold for your
+  device?
+
+- **INB-13 · CLOSED 2026-07-01 (via INB-29 / ADR 0044 Gate A) — trigger designs v2 done + signed off.**
+  The §6b fix-list (P0 honesty rework — false "saved-place coords never leave" removed, honest
+  two-part promise in place — + the M3-Expressive signatures, offline screen, geo-labeling) was
+  taken through Claude Design, signed off, and shipped in the Phase-B surfaces on `main` (PR #260).
+  Original (the v2-pass request) below.
+
+- **INB-13 · 2026-06-18 · med · open — Trigger designs need a v2 pass (Claude Design).**
+  The new trigger/place/notification mockups are complete (14.5/15) + calm, but
+  the 3-agent review found a **P0 honesty bug**: the Places/affordance copy says
+  saved place coords "never leave the device" — false per ADR 0014 (they're
+  encrypted server-side family content; only *live position* stays local). Fix
+  list is in `designs/DESIGN-BRIEF-triggers.md §6b` (privacy copy + the four
+  M3-Expressive signatures + offline screen + geo=M1 labeling). **Hand §6b back
+  to Claude Design before the trigger surface (M1) gates (ADR 0008).** Schema
+  side (`Place.kind`) already fixed.
+
+- **INB-12 · DONE 2026-06-19 → Vercel + Neon created; M0 API deployed live at `family-ai-dashboard.vercel.app` (verified). (Was: P-1 operator bootstrap.)**
+  The build loop is running; these account/auth steps only you can do (ADR
+  0012 — agents can provision *within* an authed account, but not create the
+  account/billing/domain):
+  1. **Vercel** — create/auth the project + org (for the MCP deploy rail).
+  2. **Postgres** — create a **Neon** (or Supabase) project + billing; put the
+     pooled connection string into Vercel's secret store. (Neon serverless
+     driver, per ADR 0018.)
+  3. **Domain** `api.<host>` DNS (operator-owned) — optional at first (use the
+     `*.vercel.app` URL to start).
+  4. **Apple** Developer account + a **Mac** (for the iOS client — see INB-14).
+  **The deploy config now exists** (`apps/api/vercel.json` + `api/index.ts` Hono
+  handler; `pg` talks to Neon's **transaction-pooler** endpoint, no driver
+  swap). Once you do the above, deploy is ~3 steps:
+  - `npm i -g vercel && vercel link` (in `apps/api`), set env **DATABASE_URL** =
+    the Neon **pooled** connection string, **HOUSEHOLD_SECRET** + **HOUSEHOLD_
+    CREDENTIAL_ID** (from `node scripts/provision.mjs` run against the Neon DB
+    after applying `migrations/0001_m0_init.sql`).
+  - `vercel deploy` (preview) → smoke-test `PUT/GET /sync` → `vercel promote`.
+  - point the CLI/client `DAYFOLD_API` at the deploy URL.
+  *(First-deploy unknown to verify: Vercel bundling the `.ts`-extension imports —
+  if it balks, add a tiny build step; the app itself is fully CI-tested.)*
+  Reply when Vercel + Neon exist and the loop wires/verifies the live deploy.
+
+- **INB-3 · 2026-06-18 · med · open — Cheapest kill-checks (you, ~2 hrs).**
+  Before/while building: (a) run Gemini Daily Brief's school-email→family-
+  digest flow yourself; (b) use Maple+ a bit and name what it can't do for a
+  niche. These most cheaply move the verdict (KS-6 / OQ-niche). **Operator
+  action — cannot be agent-run.** Report findings into A1.
+
+## Answered
+
+- **INB-8 · answered 2026-06-18** — Ratify ADR 0007 + 0006. **→ Accepted
+  both** (sweep). Prototype scope locked.
+- **INB-7 · answered 2026-06-18** — ADR 0006 (Event Hubs). **→ Accepted.**
+  Design cleared to become binding spec at C1b.
+- **INB-6 · answered 2026-06-18** — ADR 0005 (14+ minor accounts).
+  **→ Direction ratified, ADR stays Proposed pending counsel** on the
+  age-gate mechanism + Maryland Kids Code DPIA trigger (legal = never
+  agent-decided, guardrail #1). Adults-only remains in force until counsel
+  confirms.
+- **INB-5 · answered 2026-06-18** — Loop start. **→ Confirmed**, but the
+  immediate next item is now **A8 (hi-fi mockups, ADR 0008)**, which gates
+  A3. Loop iteration 1 = A8.
+- **INB-4 · answered 2026-06-18** — Pricing direction. **→ Acknowledged;
+  deferred to B6** (lean annual ~$39-59/yr when set).
+- **INB-2 · answered 2026-06-18** — MVP scope guardrails. **→ Ratified**
+  (adults-only / no-Gmail-OAuth / plain deep-links; ADR 0004 + 0007).
+- **INB-1 · answered 2026-06-18** — Validation verdict & direction.
+  **→ Accepted:** proceed building the dogfood prototype as a learning
+  artifact; business path stays NO-GO until a flip-condition/niche is
+  evidenced.

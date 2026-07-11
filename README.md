@@ -62,6 +62,7 @@ haven't been captured yet.
 | `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `delete` · `whoami` · `update`; authors content into the API (`push --type` runs local structural validation before every network call). |
 | `packages/schema` | Generated content schema (`content.schema.json` → Kotlin/TS) — the card/hub contract. |
 | `packages/linkrules` | Shared Kotlin (`commonMain`) srcdir'd into CLI + client — link/URL vetting, the ULID minter, media validation. |
+| `apps/swip-wiring` | Debug-build-only bug reporter wiring (ADR 0054) — shake → capture → annotate → review; zero footprint in release builds. |
 
 - **Build & run the apps:** `processes/agent-dev-loop.md` (fixed toolchain + the cheap
   feedback loop) and `specs/prototype/00-build-spec-plan.md` (the live M0).

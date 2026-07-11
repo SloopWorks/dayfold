@@ -21,12 +21,17 @@ changes require an ADR.
 ## Current stage
 
 **Bootstrapped 2026-06-18; build underway.** `backlog/now.md` is the live
-stage tracker — read it first. As of 2026-07-04: **M0 render prototype is
+stage tracker — read it first. As of 2026-07-11: **M0 render prototype is
 built + cloud-live** (Vercel + Neon, rendering on-device); **M1 auth / family
 / device-grant is implemented** in the API; **two-way member-writes are
 shipped** (checklist toggle, delete, local hide — ADR 0038–0042), alongside
-Hub Timeline (authored + on-device-derived, ADR 0045/0046) and Now-derived
-priority surfacing + Android background notifications (ADR 0043/0044).
+Hub Timeline (authored + on-device-derived, ADR 0045/0046), Now-derived
+priority surfacing + Android background notifications (ADR 0043/0044),
+DB-first cold-start routing (ADR 0052), and per-hub participation roles +
+profile avatars + in-app hub People management (ADR 0053; **the CLI still
+only grants read-only Viewer access — Contributor/Co-owner is app-UI-only**).
+A debug-build-only bug reporter (ADR 0054, `apps/swip-wiring`) ships zero
+bytes in release builds.
 Validation round 1 verdict
 still stands: **CONDITIONAL — learning-lab GO, standalone-business NO-GO**
 (the AI-briefing concept is commoditized by Gemini Daily Brief / Alexa+ /
@@ -65,6 +70,7 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 | `research/` | Research reports with citations; validation reviews | Evidence (dated snapshots, never silently edited) |
 | `roadmap/` | Execution plan, milestone definitions (post-spec) | Source of truth for execution |
 | `specs/` | PRD, architecture, pricing model (post-validation) | Source of truth |
+| `designs/` | Hi-fi UI/UX mockups (ADR 0008 design-first gate) | Source of truth once operator-signed-off |
 | `processes/` | Planning loop, agent routing, research workflow, fleet patterns, loop journal | Source of truth for process |
 | `backlog/` | `now.md` / `next.md` / `later.md` / `operator-inbox.md` | Working state |
 | `docs/architecture.md` | System diagram, components, data flow, auth, deploy — descriptive, not a design doc | Source of truth for "how it's wired" |

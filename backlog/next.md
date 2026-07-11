@@ -841,10 +841,18 @@ local build). Re-verify green on `main` before trusting this list as current.
   a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
   unapplied this pass — 9 call sites is more surface than the mechanical
   extractions above; do it with a real build to catch a subtle miss.
-- **`apps/api`** — "fetch hub, check visible, else 404" repeated verbatim 3×
-  (`GET /hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`) + once more (with an
-  extra author-gate check) inside the hub PUT. A `hubs.getVisibleHub(fid, id,
-  caller)` helper in `content/hubs.ts` would cover the 3 GET routes.
+- **`apps/api`** — "fetch hub, check visible, else 404" **grew from 3× to 8×**
+  (2026-07-11 re-audit, after ADR 0053 landed): `GET /hubs/:id`, `/hubs/:id/tree`,
+  `/hubs/:id/audience`, the hub PUT (extra author-gate check), the new
+  `PUT`/`DELETE .../hubs/:id/participants/:uid` and `PUT .../hubs/:id/visibility`
+  routes (two of which also add `requireScope`+`canManageHub` on top), and the
+  section-delete route (`app.ts` ~lines 533/546/562/589/608/627/665/831). A
+  `hubs.getVisibleHub(fid, id, caller)` helper in `content/hubs.ts` now pays off
+  more than when first flagged — raise priority. Small adjacent win once that
+  helper exists: `participants/:uid` PUT and DELETE both repeat `if (uid ===
+  hub.created_by) return c.json({ type: "author-immutable" }, 400)` right after
+  the same `requireScope`+`canManageHub` pair — fold the author-immutable check
+  into the same helper call rather than extracting it separately.
 - **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
   with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
   `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
@@ -861,6 +869,17 @@ local build). Re-verify green on `main` before trusting this list as current.
 - **`apps/api`** — `app.ts` is ~1000 lines holding all ~45 routes. Splitting into
   per-resource route modules is still the biggest win but the biggest risk;
   needs a real build to land safely.
+- **`apps/ui`** — `HubPeopleSheet.kt` (new, ADR 0053) — `OwnerRow`/`ParticipantRow`/
+  `AddableRow` (~lines 201-293) each rebuild the same avatar-row scaffold
+  (rounded-16dp surface-container row + `DayfoldAvatar` + name `Text`), differing
+  only in padding (11dp/9dp/9dp) and trailing content. A `MemberRow` composable
+  taking a trailing-content slot would collapse this, but it's a visual refactor
+  that needs snapshot-render verification, not a blind extraction — leave for a
+  build-capable session.
+- **`apps/client`** — `AuthEngine.kt:468-478` and `HubEngine.kt:154-163` carry a
+  verbatim-identical private `callWithRefresh(session, block)` retry-on-401
+  helper (10 lines; pre-dates this batch, from the Hub Timeline PR #269 — noted
+  here for completeness, not newly introduced). Low priority.
 - **CLI/skill docs** — moderate (3-4x) duplication of the same explanations
   across `SKILL.md` / `references/cli.md` / `references/content-model.md` /
   `templates/README.md` / `USAGE`: hub timeline, block payload field table,

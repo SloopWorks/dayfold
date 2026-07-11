@@ -7,6 +7,38 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-10 — Debug-build bug reports (shake → capture → annotate → review, ADR 0054)
+
+### Added (dev tooling)
+- **Shake a debug build to file a bug report**: captures a screenshot + a sanitized snapshot
+  of recent app state, lets you annotate it, then review before it's saved — a faster loop
+  than describing a repro by hand. Debug builds only; compiles to a no-op in release (no
+  footprint in the app you ship). New `:swip-wiring` module; a CI leak-test gate guards the
+  state sanitizer so captured reports can't carry secrets/PII. Also wires the C10 hub-timeline
+  scrubber into this build (0.1.1).
+
+## 2026-07-10 — Profile avatars + in-app hub People management (ADR 0053)
+
+### Added (client/API)
+- **Pick an avatar for your profile** (Account → Change avatar): a monogram tint or one of
+  6 bundled fun-avatars. It now shows in the top-bar account button, the member roster, and
+  hub audience lists.
+- **Manage who's on a restricted hub, from the app**: a hub owner or co-owner can add family
+  members via Hub → People → Add people, and assign a per-hub role — **Viewer** (see only),
+  **Contributor** (can edit), or **Co-owner** (can also manage People) — without going
+  through the CLI. Members added to a hub's audience via the CLI still default to Viewer;
+  granting write access requires this in-app picker.
+
+### Fixed (client)
+- Top-bar account avatar now updates immediately after you change it (previously stuck on
+  the generic "You" monogram until restart).
+
+## 2026-07-10 — Edit your display name (Account screen)
+
+### Added (client)
+- **Account → your display name is now editable** (tap the pencil, 1–80 characters, Save) —
+  previously read-only, set only at sign-up.
+
 ## 2026-07-09 — Timeline detail no longer draws under the status bar
 
 ### Fixed (client)

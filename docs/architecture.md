@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-06). For product framing
+A map of the system as it actually runs today (2026-07-11). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -66,6 +66,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
+| Bug reporter wiring | `apps/swip-wiring` | Kotlin Multiplatform module, wires the published `works.sloop.swip:*` SDK (GitHub Packages) into `:androidApp` debug builds only (ADR 0054) | Shake-to-capture bug reports (screenshot + sanitized redux-state snapshot + annotate + review); owns the privacy allowlist/sanitizer + a CI leak-test gate (`:swip-wiring:desktopTest`); release builds carry zero swip bytes (separate `src/release` no-op source set) |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
 
@@ -100,6 +101,14 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    `If-Match`/Idempotency-Key → drain on reconnect), not the read-only sync
    path. Author-gated (`created_by`), scoped to `content:write` /
    `content:delete`.
+5b. **Per-hub roles + delegated management (ADR 0053).** Each `resource_visibility`
+   row (the ADR 0030 hub allow-list) now also carries a `role` ∈
+   `viewer | contributor | co_owner`: Viewer = read-only (the default — every
+   member the CLI adds to a hub's `audience` lands here); Contributor can drive
+   the member-write path above; Co-owner can also add/remove people and flip a
+   hub's visibility, via an in-app People sheet (Hub → People). The hub author
+   is a permanent implicit Co-owner. This is app-UI-only today — the CLI has no
+   role-setting verb.
 6. **Background notifications (ADR 0044, Phase B).** On Android, a background
    pass re-runs the *same* `rank()`/notification-selection code the foreground
    feed uses, over the on-device cache plus live (never-persisted) location, to
@@ -128,7 +137,9 @@ Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 (build-order), `adr/0027` (Firebase JWKS), `adr/0029`/`0030` (scope + hub
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
-Timeline — authored + on-device-derived).
+Timeline — authored + on-device-derived), `adr/0053` (per-hub participation
+roles + delegated hub management), `adr/0054` (SWIP debug-build bug reporter —
+Proposed, accept-on-merge; code already merged to `main`).
 
 ## Deploy
 
