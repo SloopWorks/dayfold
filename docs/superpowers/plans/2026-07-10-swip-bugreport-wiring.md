@@ -15,9 +15,9 @@
 - Maven consumption: dayfold has NO credentials plumbing today. Add TWO repo blocks (swip + sloopworks-ui packages) to `apps/settings.gradle.kts` `dependencyResolutionManagement`, credentials `System.getenv("SLOOPWORKS_PACKAGES_TOKEN") ?: providers.gradleProperty("gpr.token").orNull ?: ""` / user `GITHUB_ACTOR ?: gpr.user ?: ""` (matches swip's convention). Local dev uses `~/.gradle/gradle.properties` `gpr.user`/`gpr.token`; CI needs the `SLOOPWORKS_PACKAGES_TOKEN` repo secret in DAYFOLD (user action — the PR body must call it out; ci.yml env additions ship in this plan so CI goes green the moment the secret exists).
 - Variant split rules: `src/main` NEVER imports `works.sloop.swip.*`; per-variant function pairs mirror `DebugDrawerPlugins.kt` exactly (same package `com.sloopworks.dayfold.android`, same signatures both variants). Release wiring = pass-through/no-op; release APK gains zero swip bytes (`debugImplementation` only).
 - Recorder wiring rules (swip docs/10+12, binding): enhancer passed at store CONSTRUCTION, rightmost/innermost in `compose(...)`; dormant until `activate()`; NO sanitizer → recorder refuses to start; product-owned salted-fixture leak test is MANDATORY before enabling (docs/12 §6) — it lives in `:swip-wiring` desktopTest and joins dayfold CI's test line.
-- Slice registry policy (privacy floor): ONLY low-risk slices are registered — `route` (enum name), `syncing` (Boolean), `detailStack` (card ids, pseudonymous), `cardsCount` (derived Int, NOT card content), `hubFilter` (String, user-typed — sanitizer truncates to 32 chars). NEVER registered: `session`, `mintedInvite`, `members`, `pendingApprovals`, `families`, `devices`, `pendingDevice`, `myDisplayName`, `cards` content, `error`/`authError` strings (may embed server messages). The registry is the first fence; `DayfoldStateSanitizer` is the second (drops any value containing a JWT-shaped `eyJ` prefix or `@` — defense in depth); the leak test is the gate.
+- Slice registry policy (privacy floor): ONLY low-risk slices are registered — `route` (enum name), `syncing` (Boolean), `detailStack` (card ids, pseudonymous), `cardsCount` (derived Int, NOT card content), `hubFilter` (String — REALITY CHECK: it's filter CHIPS `all|active|planning` (Model.kt:491), not user-typed text; recorded as a low-risk enum-ish string; the 32-char truncation stays as declared defense-in-depth only). NEVER registered: `session`, `mintedInvite`, `members`, `pendingApprovals`, `families`, `devices`, `pendingDevice`, `myDisplayName`, `cards` content, `error`/`authError` strings (may embed server messages). The registry is the first fence; `DayfoldStateSanitizer` is the second (drops any value containing a JWT-shaped `eyJ` prefix or `@` — defense in depth); the leak test is the gate.
 - Consent posture: debug builds only, gate = `BuildConfig.DEBUG`, `internalChannel = { true }` (dayfold debug builds are internal by definition — ADR-0021 layer 2); identity = `(null, null)` ANONYMOUS (no swip identity stack in dayfold yet); no upload (no gateway) — reports land in the lane on device, visible via `pending()`.
-- Acceptance gates: `:client:desktopTest` + `:ui:desktopTest` + `:swip-wiring:desktopTest` green; `:androidApp:assembleDebug` builds; `:androidApp:assembleRelease`... release CI job needs no secret (swip deps are debugImplementation — verify release classpath clean). Emulator run = manual user step (PR body includes a 5-line smoke script).
+- Acceptance gates: `:client:desktopTest` + `:ui:desktopTest` + `:swip-wiring:desktopTest` green; `:androidApp:assembleDebug` builds; `:androidApp:assembleRelease` as a LOCAL gate (dayfold CI has no release job; release-android.yml is tag-gated) — verifies the release classpath carries zero swip bytes. Emulator run = manual user step (PR body includes a 5-line smoke script).
 
 ---
 
@@ -88,7 +88,7 @@ class CreateAppStoreEnhancerTest {
     for (debug in listOf(true, false)) {
       seen = 0
       val store = createAppStore(debug = debug, extraEnhancer = counting)
-      store.dispatch(SetRoute(Route.Feed))
+      store.dispatch(OpenFeed) // data object, Reducer.kt:56 → route = Route.Feed (initial is Route.Loading)
       assertTrue(seen >= 1, "debug=$debug")  // >=1: devtools may re-dispatch internals
       assertEquals(Route.Feed, store.state.route)
     }
@@ -96,14 +96,26 @@ class CreateAppStoreEnhancerTest {
 
   @Test fun null_extra_enhancer_is_todays_behavior() {
     val store = createAppStore(debug = false)
-    store.dispatch(SetRoute(Route.Feed))
+    store.dispatch(OpenFeed)
     assertEquals(Route.Feed, store.state.route)
   }
 }
 ```
-(Adapt the action: use a real dayfold action that sets `route` — read Reducer.kt for the actual `SetRoute`-equivalent action name and its reducer arm; if none exists this simple, pick any action with an assertable state effect and adjust both asserts.)
 
-- [ ] **Step 2: fail** (`cd apps && ./gradlew :client:desktopTest --console=plain`). **Step 3: implement** (compose the nullable enhancer; import stays `org.reduxkotlin.*` — already a :client dep). **Step 4: pass + full `:client:desktopTest` green. Step 5: Commit** — `client: createAppStore optional extraEnhancer (innermost slot) for debug tooling`.
+- [ ] **Step 2: fail** (`cd apps && ./gradlew :client:desktopTest --console=plain`). **Step 3: implement** (verified shapes — `compose` has a `List` overload; `enhancer` must be NAMED in the non-debug branch, `createConcurrentStore` has `notificationContext`/`onError` params before it):
+
+```kotlin
+fun createAppStore(initial: AppState = AppState(), debug: Boolean = true, extraEnhancer: StoreEnhancer<AppState>? = null): Store<AppState> =
+  if (debug) createConcurrentStore(
+    ::rootReducer, initial,
+    enhancer = compose(listOfNotNull(
+      devTools(DevToolsConfig(instanceId = "family-ai", name = "Family AI")),
+      applyMiddleware(actionLog),
+      extraEnhancer, // rightmost = innermost — the recorder's required slot
+    )),
+  )
+  else createConcurrentStore(::rootReducer, initial, enhancer = extraEnhancer)
+``` **Step 4: pass + full `:client:desktopTest` green. Step 5: Commit** — `client: createAppStore optional extraEnhancer (innermost slot) for debug tooling`.
 
 ---
 
@@ -111,7 +123,7 @@ class CreateAppStoreEnhancerTest {
 
 **Files:**
 - Modify: `apps/settings.gradle.kts` (`include(":swip-wiring")`)
-- Create: `apps/swip-wiring/build.gradle.kts` (KMP: androidTarget + jvm("desktop"); commonMain deps: `api(project(":client"))`, `api("works.sloop.swip:swip-rk-recorder:0.1.0")`; desktopTest: kotlin("test"), coroutines-test)
+- Create: `apps/swip-wiring/build.gradle.kts` — KMP: androidTarget + jvm("desktop"); plugins `org.jetbrains.kotlin.multiplatform` + `com.android.library` (AGP 9 requires it with androidTarget) with `android { namespace = "com.sloopworks.dayfold.swip"; compileSdk = 37; defaultConfig { minSdk = 33 } }`; commonMain deps: `api(project(":client"))`, `api("works.sloop.swip:swip-rk-recorder:0.1.0")`; desktopTest: kotlin("test"), coroutines-test
 - Create: `apps/swip-wiring/src/commonMain/kotlin/com/sloopworks/dayfold/swip/DayfoldRecording.kt`
 - Test: `apps/swip-wiring/src/desktopTest/kotlin/com/sloopworks/dayfold/swip/DayfoldLeakTest.kt`
 
@@ -142,7 +154,7 @@ class DayfoldLeakTest {
   private val salted = AppState(
     session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted"),
     myDisplayName = "Salted Q. User",
-    hubFilter = "salted-search someone@example.com padding-padding-padding",
+    hubFilter = "salted-search someone@example.com padding-padding-padding", // synthetic: real values are chip literals; salt proves the fence anyway
     detailStack = listOf("card_salt_1"),
   )
 
@@ -210,11 +222,40 @@ val dayfoldSanitizer = StateSanitizer { slice, value ->
 - Create: `apps/androidApp/src/debug/kotlin/com/sloopworks/dayfold/android/BugReporterGlue.kt`
 - Create: `apps/androidApp/src/release/kotlin/com/sloopworks/dayfold/android/BugReporterGlue.kt` (inert mirror)
 - Modify: `apps/androidApp/src/main/kotlin/com/sloopworks/dayfold/android/MainActivity.kt` (store creation line 168 + setContent block line 291 + a shake lifecycle hook)
-- Modify: `apps/androidApp/build.gradle.kts` (deps already added Task 1; nothing else expected)
+- Modify: `apps/androidApp/build.gradle.kts` — ADD `debugImplementation(project(":swip-wiring"))` AND `debugImplementation("com.squareup.okio:okio:3.9.1")` (swip-bugreport declares okio as `implementation`, but ReportLane's public ctor takes okio types — consumer must supply it. SWIP follow-up noted in the PR body: okio should be `api` in swip-bugreport, ship with 0.1.1)
 
 **Interfaces (BOTH variants define, signatures identical — the `debugDrawerPlugins` idiom):**
 - `fun bugReporterEnhancer(): StoreEnhancer<AppState>?` — debug: builds the singleton recorder (`dayfoldRecorder(...)` from `:swip-wiring`, `Clock { System.currentTimeMillis() }`, `CoroutineScope(SupervisorJob() + Dispatchers.Default)`, appVersion = BuildConfig.VERSION_NAME) and returns its enhancer; release: `null`.
-- `fun bugReporterInstall(activity: ComponentActivity)` — debug: builds `SloopBugReports` (facade config: gate `{ BuildConfig.DEBUG }`, ids = `ReportIdGenerator { "rpt_" + java.util.UUID.randomUUID().toString().replace("-", "").take(20) }`, context block from Build.MODEL etc., identity `(null to null)`, configState `(null to emptyMap())`, sources = `CaptureSources(screenshot = AndroidScreenshotProvider { activity }, breadcrumbs = <ring fed from ClientLog.sink chain — wrap the existing sink: keep DebugLog forwarding AND append "tag: msg" into a 32-deep ArrayDeque>, timeline = recorder)`, lane = `ReportLane(FileSystem.SYSTEM, androidReportDir(activity.applicationContext), ...)`), the `BugReporterController(facade, scope, internalChannel = { true })`, `AndroidShakeSource(sensorManager, ShakeDetector { controller.open(ReportType.BUG, trigger = "shake") })`; `recorder.activate()`; registers activity lifecycle observer: shake source `start()` on RESUME / `stop()` on PAUSE; release: no-op.
+- `fun bugReporterInstall(activity: ComponentActivity)` — debug (exact signatures, reviewer-verified):
+```kotlin
+BugReportsConfig(
+  gate = ReportGate { BuildConfig.DEBUG },
+  ids = ReportIdGenerator { "rpt_" + java.util.UUID.randomUUID().toString().replace("-", "").take(20) },
+  context = { ContextBlock(
+    appVersion = BuildConfig.VERSION_NAME, osName = "android",
+    osVersion = android.os.Build.VERSION.RELEASE, device = android.os.Build.MODEL,
+    locale = java.util.Locale.getDefault().toLanguageTag(), channel = "debug",
+  ) },
+  identity = { null to null },
+  configState = { null to emptyMap() },
+  sources = CaptureSources(
+    // WeakReference — the holder is a singleton; capturing the Activity directly
+    // would leak it and stale after rotation:
+    screenshot = AndroidScreenshotProvider { BugReporterHolder.currentActivity?.get() },
+    breadcrumbs = <32-deep ArrayDeque ring fed by WRAPPING ClientLog.sink — keep the
+      existing DebugLog forwarding AND append "tag: msg"; install AFTER MainActivity's
+      sink assignment (line ~152)>,
+    timeline = recorder,
+  ),
+  lane = ReportLane(
+    fs = FileSystem.SYSTEM,
+    dir = androidReportDir(activity.applicationContext),
+    clock = Clock { System.currentTimeMillis() },
+    health = SdkHealthCounter { }, // no-op — no swip telemetry stack in dayfold yet
+  ),
+)
+```
+plus `BugReporterHolder.currentActivity = WeakReference(activity)` on every install; `BugReporterController(facade, scope, internalChannel = { true })`; `AndroidShakeSource(sensorManager, ShakeDetector { controller.open(ReportType.BUG, trigger = "shake") })` (ShakeDetector ctor = `(config = ShakeConfig(), onShake)`); `recorder.activate()`; lifecycle observer: shake `start()` on RESUME / `stop()` on PAUSE (stop() already resets the detector); release: no-op.
 - `@Composable fun BugReporterWrapped(content: @Composable () -> Unit)` — debug: `BugReporterOverlay(controller, dark = isSystemInDarkTheme(), showEntryPoint = true, entry = EntryStyle.EdgeTab) { content() }`; release: `content()`.
 
 **Steps:**
