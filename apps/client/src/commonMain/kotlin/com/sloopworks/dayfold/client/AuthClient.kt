@@ -56,6 +56,14 @@ class AuthClient(
   @Serializable private data class MembersResp(val members: List<FamilyMember> = emptyList())
   @Serializable private data class CredsResp(val credentials: List<DeviceCredential> = emptyList())
   @Serializable private data class DeviceCodeReq(@SerialName("user_code") val userCode: String)
+  // ADR 0029 T3 — optional per-hub scope on approve. Only sent when hubIds is
+  // non-null/non-empty; scope/hubs omitted entirely otherwise (DeviceCodeReq
+  // above, byte-identical to pre-scoping).
+  @Serializable private data class DeviceApproveScopedReq(
+    @SerialName("user_code") val userCode: String,
+    val scope: String,
+    val hubs: List<String>,
+  )
   // GET /auth/me → user_id + display_name + avatar_color + avatar_ref (task 3's wire
   // shape). PATCH /auth/me returns the same three profile fields WITHOUT user_id
   // (the caller already knows who they are) — hence user_id nullable + toModel()
@@ -276,12 +284,20 @@ class AuthClient(
     }
   }
 
-  /** POST /families/{fid}/device/approve {user_code} (owner) → grant the device access. */
-  suspend fun deviceApprove(access: String, fid: String, userCode: String): DeviceActionResult {
+  /**
+   * POST /families/{fid}/device/approve {user_code} (owner) → grant the device access.
+   * [hubIds] null/omitted = full/blanket grant, the current body (unchanged). Non-null
+   * + non-empty = per-hub scope selection (ADR 0029 T3): body adds
+   * `{scope:"hubs",hubs:[...]}` and the redeemed token gets only hub:<id>:read|write.
+   */
+  suspend fun deviceApprove(access: String, fid: String, userCode: String, hubIds: List<String>? = null): DeviceActionResult {
     val resp = http.post("$api/families/$fid/device/approve") {
       header("authorization", "Bearer $access")
       contentType(ContentType.Application.Json)
-      setBody(json.encodeToString(DeviceCodeReq.serializer(), DeviceCodeReq(userCode)))
+      setBody(
+        if (hubIds.isNullOrEmpty()) json.encodeToString(DeviceCodeReq.serializer(), DeviceCodeReq(userCode))
+        else json.encodeToString(DeviceApproveScopedReq.serializer(), DeviceApproveScopedReq(userCode, "hubs", hubIds)),
+      )
     }
     return when (resp.status.value) {
       in 200..204 -> DeviceActionResult.Ok
