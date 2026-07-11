@@ -41,6 +41,11 @@ export function grantedHubIds(grants: string[], action: Action): string[] | null
     .map((g) => g.slice(prefix.length, g.length - suffix.length));
 }
 
+// Materialize a hub-id list into read+write grant strings (ADR 0029 resource scopes).
+export function hubGrantsFor(hubIds: string[]): string[] {
+  return hubIds.flatMap((id) => [`hub:${id}:read`, `hub:${id}:write`]);
+}
+
 // Write grant rows at credential-mint time. Accepts an optional pg client so it can
 // run inside the device-redeem transaction. Idempotent.
 export async function grantScopes(

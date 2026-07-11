@@ -58,18 +58,21 @@ export async function redeem(device_code: string, mintAccess: (a:{sub:string;cid
     await client.query("BEGIN");
     const cas = await client.query(
       `UPDATE device_authorizations SET status='consumed' WHERE device_code=$1 AND status='approved'
-       RETURNING user_id, family_id, origin_ua`, [device_code]);
+       RETURNING user_id, family_id, origin_ua, granted_scopes`, [device_code]);
     if (cas.rowCount !== 1) { await client.query("COMMIT"); return { error: "expired_token" }; }
-    const { user_id, family_id, origin_ua } = cas.rows[0];
+    const { user_id, family_id, origin_ua, granted_scopes } = cas.rows[0];
+    // ADR 0029: an approval that stored a restricted grant set mints exactly that;
+    // NULL (unscoped/legacy approval) falls back to the blanket content grant.
+    const scopes: string[] = granted_scopes ?? ["content:read", "content:write", "content:delete"];
     const cid = credId();
     await client.query(
       `INSERT INTO credentials(id,user_id,family_scope,kind,scopes,label)
-       VALUES ($1,$2,$3,'cli','{content:read,content:write,content:delete}', 'dayfold-cli '||left(coalesce($4,''),64))`,
-      [cid, user_id, family_id, origin_ua],
+       VALUES ($1,$2,$3,'cli',$4, 'dayfold-cli '||left(coalesce($5,''),64))`,
+      [cid, user_id, family_id, scopes, origin_ua],
     );
-    const { grantScopes } = await import("./scope.ts");          // ADR 0029 grant rows (interim default)
-    // content:delete (W4): the CLI/loop authoring path can delete (author-gate exempts it).
-    await grantScopes(cid, ["content:read", "content:write", "content:delete"], client);
+    const { grantScopes } = await import("./scope.ts");          // ADR 0029 grant rows
+    // content:delete (W4): the blanket CLI/loop authoring path can delete (author-gate exempts it).
+    await grantScopes(cid, scopes, client);
     const refresh = await issueRefresh(cid, client);
     await client.query(`UPDATE device_authorizations SET credential_id=$1 WHERE device_code=$2`, [cid, device_code]);
     await client.query("COMMIT");
