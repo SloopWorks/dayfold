@@ -935,16 +935,16 @@ app.post("/families/:fid/device/approve", async (c) => {
   const mode = body.scope;
   let grantedScopes: string[] | null = null;
   if (mode === "hubs") {
-    const hubs: unknown = body.hubs;
-    if (!Array.isArray(hubs) || hubs.length === 0) return c.json({ type: "bad-scope" }, 400);
-    for (const h of hubs) {
+    const hubIds: unknown = body.hubs;
+    if (!Array.isArray(hubIds) || hubIds.length === 0) return c.json({ type: "bad-scope" }, 400);
+    for (const h of hubIds) {
       if (typeof h !== "string") return c.json({ type: "bad-scope" }, 400);
       const e = idError(h);
       if (e) return c.json(e, 422);
-      const exists = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2`, [fid, h]);
+      const exists = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, h]);
       if (!exists || exists.rowCount === 0) return c.json({ type: "bad-scope" }, 400);
     }
-    grantedScopes = hubGrantsFor(hubs as string[]);
+    grantedScopes = hubGrantsFor(hubIds as string[]);
   } else if (mode !== undefined && mode !== "full") {
     return c.json({ type: "bad-scope" }, 400);
   }
