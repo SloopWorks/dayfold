@@ -8,6 +8,97 @@ Populated at bootstrap and by loop close-outs.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-REDUX-SCALE-LEVERS — act on the redux-extreme research (R1–R6)
+
+**Added 2026-07-10.** `research/2026-07-10-redux-extreme-state-architecture.md`
+(adversarially reviewed, 2 rounds) analyzed "everything is an action / UI =
+f(state)" at 10³–10⁴-action scale and produced 6 dayfold recommendations.
+Actionable ones, in predicted-regression order:
+
+- **R1 (cheap, soon):** narrow `selectorState`/`fieldState` bindings for hot
+  screens + the spec'd-but-unbuilt recomposition-count CI guard
+  (`specs/prototype/01-architecture.md:145`); the whole-state subscription at
+  `FeedApp.kt:131` is the top predicted first regression. Needs a
+  build-capable session; measure before/after (OQ in report §9).
+- **R3 (doc-only, any session):** write the two-tier rule (durable intent →
+  store; high-frequency/ephemeral → platform-local, commit on settle) + R2's
+  sharding threshold (~150–200 action subtypes / ~400-line reducer → shard
+  per-feature) into `processes/agent-dev-loop.md`.
+- **R4 (opportunistic):** when next touching the engines, extract the 5
+  loading-port interfaces + the shared refresh-on-401 adapter (duplicated 4×).
+- **R5 (small, build-capable):** version + upcast-on-read for persisted outbox
+  op payloads (2 op types today — `ContentStore.kt:259,276`).
+- R2 fires at its threshold (Action count is 99 today); R6 is watch-only
+  (wasm bundle size before web target; K/N GC if dispatch rates rise).
+
+**R6 concretized (2026-07-10 operator-requested K/N-GC brainstorm; facts in
+`research/redux-extreme-state-2026-07-agent-outputs/05-kn-gc-tuning-factcheck.md`):**
+K/N GC is non-generational and none is planned, but the practical
+mitigations are cheap and ordered. When touching iOS perf:
+(1) *tripwire first* — `kotlin.native.binary.enableSafepointSignposts=true`
++ Instruments (`org.kotlinlang.native.runtime`/`safepoint`) and/or
+`GC.lastGCInfo` pause logging; budget: pauses <2ms, <1 collection/s under
+scroll; (2) `kotlin.native.binary.gc=cms` (one line; PMCS is the 2.3.x
+default; CMS is default from Kotlin 2.4.0 — JetBrains measured worst-p25
+pause 1.7ms→0.4ms on Compose-iOS LazyGrid); (3) `appStateTracking=enabled`
+(no timer-GC while backgrounded — fits a calm app); (4) if measured churn:
+identity-stabilization at the DB→store bridges (reuse content-equal
+instances — also restores `===` for Compose skipping, compounds R1) and
+batch the 6 bridge notifications post-sync; (5) persistent collections
+(`PersistentMap` by id) for large content slices — mind the stdlib-operator
+degradation trap (kotlinx.collections.immutable #64), use `mutate {}`.
+redux-kotlin-side levers (operator maintains it): reuse/batch enhancers,
+granular per-cell store, and a per-action allocation-budget test using
+`GCInfo` memory-pool stats (GC analogue of the recomposition CI guard).
+
+**R7 — `:state` module extraction (2026-07-10 operator-requested brainstorm).**
+Extract a pure `:state` module (AppState + Action + reducers + selectors +
+the 5 port *interfaces* + pure planners like `OutboxSender.classify`/
+`BackgroundNotify` planning) from `:client`, leaving `:client` as the
+adapter module (engines, SyncClient, ContentStore/SQLDelight = port
+implementations). **Do it together with R4 — same surgery.** What it buys
+(in order): (1) hexagonal boundary becomes compiler-enforced — zero-dep
+module means reducers physically can't do I/O (high value for
+agent-operated builds); (2) fast pure-verification loop — add a plain
+**JVM test target** so reducer/selector/property tests compile ~2k LOC
+with no Android/iOS toolchain (same rationale as ADR 0047, one level
+deeper); (3) new consumers: server-side reuse of `nowFeed`/notification
+planning (same-function push consistency), **wasmJs web preview without
+the client-DB async migration** (SQLDelight stays in `:client`), CLI/`rk`
+tooling; (4) `explicitApi()` + `apiCheck` makes action/state changes
+visible API diffs (feeds R5). Honest caveat, per the research §5.5: this
+does NOT shrink the add-an-action recompile blast radius (dependents'
+exhaustive `when`s still recompile) — that fix is R2's per-feature
+sharding, which stays orthogonal and gets *easier* after this cut.
+Module-topology change → worth a small Proposed ADR when it lands
+(extends ADR 0047's pattern).
+
+**R8 — model-tiering for agent builds + the reducer-codegen experiment
+(2026-07-10 operator-requested brainstorm; evidence in
+`research/redux-extreme-state-2026-07-agent-outputs/06-llm-tiering-evidence.md`).**
+Fact-backed: LLM failure concentrates on non-locality/hidden-state/ambiguity
+(ClassEval: GPT-4 85%→37% when functions share state), not structural
+complexity; small models match frontier on isolated patterned code
+(Qwen-7B ≈ GPT-4 on HumanEval; Haiku 4.5 = 73.3% SWE-bench Verified at
+$1/$5 per MTok); test-driven repair loops gain most for weak models
+(+16–30 pts); routing/cascades are proven (FrugalGPT ≤98% cost cut).
+Correction: argue "pure-*style* in mainstream Kotlin," NOT "functional
+languages are easier" (Haskell/OCaml are empirically LLM-hostile — corpus
+scarcity). **Policy sketch:** `:state` reducers/selectors/tests → cheap
+tier + verifier loop; mechanical `:ui` bindings/goldens → cheap-to-mid;
+engines/effects/concurrency → frontier; state-shape/taxonomy/ADRs →
+frontier + operator. R2 sharding + R7 module cut disproportionately help
+the cheap tier (long flat files degrade small models most — RULER
+15–30% loss 4K→128K). Prefer generate→compile/test→bounded-repair over
+grammar-constrained decoding (measured 3.6–8.2× constraint tax on small
+models; kotlinc exhaustiveness is the free post-hoc verifier).
+**Experiment (learning-lab-shaped, no published equivalent exists):**
+same reducer-slice tasks run at Haiku vs Sonnet vs frontier tier with the
+existing `:client` test suite + goldens as judge; measure pass rate,
+iterations-to-green, cost-per-merged-change. Feeds both the north-star
+learning goal and redux-kotlin's (currently unquantified) agent-ready
+positioning.
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
