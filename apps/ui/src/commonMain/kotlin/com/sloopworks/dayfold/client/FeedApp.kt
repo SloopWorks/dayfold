@@ -98,7 +98,7 @@ fun FeedApp(
   onLoadDevices: () -> Unit = {},
   onRevokeDevice: (String) -> Unit = {},
   onLookupDevice: (String) -> Unit = {},
-  onApproveDevice: (String) -> Unit = {},
+  onApproveDevice: (fid: String, hubIds: List<String>?) -> Unit = { _, _ -> },
   onDenyDevice: (String) -> Unit = {},
   onOpenAppSettings: () -> Unit = {},   // Tier 2: deep-link to the OS app-settings (camera permission)
   onRefresh: () -> Unit = {},           // feed pull/retry → syncEngine.syncNow()

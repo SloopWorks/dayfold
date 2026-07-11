@@ -270,7 +270,7 @@ class AuthFlowUiTest {
   // would be serious. These tags (device-approve/deny/cancel) had no behavioral test.
   @Test fun approveGrantsToTheSelectedOwnerFamily() = runComposeUiTest {
     var approvedFid: String? = null
-    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential"), onApprove = { approvedFid = it }) } }
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential"), onApprove = { fid, _ -> approvedFid = fid }) } }
     onNodeWithTag("device-approve").performClick()
     assertEquals("fam1", approvedFid)   // grants to the selected owner family, not e.g. the user_code
   }
@@ -313,11 +313,50 @@ class AuthFlowUiTest {
       route = Route.AuthorizeDevice,
       pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
     )
-    setContent { DayfoldTheme { AuthorizeDeviceScreen(twoOwner, onApprove = { approvedFid = it }) } }
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(twoOwner, onApprove = { fid, _ -> approvedFid = fid }) } }
     onNodeWithTag("device-family-selector").performClick()      // open the picker
     onNodeWithTag("device-family-fam2").performClick()          // choose the OTHER family
     onNodeWithTag("device-approve").performClick()
     assertEquals("fam2", approvedFid)                           // grant routes to the chosen family, not the default
+  }
+
+  // Per-hub scope picker (ADR 0029 T4): Full access is the default (approve emits a
+  // null scope = blanket grant, back-compat with pre-scope clients); switching to
+  // "Only these hubs" requires picking ≥1 hub before Approve is even tappable — the
+  // API's 400 on an empty hub list is a backstop, not the UX guard (T3 review note).
+  private fun authorizeStateWithHubs(hubs: List<Hub>) = AppState(
+    session = Session("a", "r"),
+    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+    activeFamilyId = "fam1",
+    route = Route.AuthorizeDevice,
+    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
+    hubs = hubs,
+  )
+
+  @Test fun approveDefaultsToFullAccessScope() = runComposeUiTest {
+    var scope: List<String>? = listOf("sentinel")   // a no-op onApprove would leave this non-null, not false-pass
+    setContent {
+      DayfoldTheme { AuthorizeDeviceScreen(authorizeStateWithHubs(listOf(Hub(id = "H1", title = "College"))), onApprove = { _, s -> scope = s }) }
+    }
+    onNodeWithTag("device-approve").performClick()
+    assertEquals(null, scope)   // Full access, untouched → null (blanket), not emptyList()
+  }
+
+  @Test fun approveInHubsModeEmitsTheSelectedHub() = runComposeUiTest {
+    var scope: List<String>? = null
+    setContent {
+      DayfoldTheme { AuthorizeDeviceScreen(authorizeStateWithHubs(listOf(Hub(id = "H1", title = "College"))), onApprove = { _, s -> scope = s }) }
+    }
+    onNodeWithText("Only these hubs").performClick()
+    onNodeWithTag("device-scope-hub-H1").performClick()
+    onNodeWithTag("device-approve").performClick()
+    assertEquals(listOf("H1"), scope)
+  }
+
+  @Test fun approveDisabledInHubsModeWithNoHubSelected() = runComposeUiTest {
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeStateWithHubs(listOf(Hub(id = "H1", title = "College")))) } }
+    onNodeWithText("Only these hubs").performClick()
+    onNodeWithTag("device-approve").assertIsNotEnabled()
   }
 
   // Manual code entry (the path the scan escapes lead to). device-code-field +
