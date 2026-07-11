@@ -18,9 +18,10 @@ kotlin {
     val commonMain by getting {
       dependencies {
         api(project(":client"))
-        api("works.sloop.swip:swip-rk-recorder:0.1.0")
+        // 0.1.1 exposes okio + coroutines-core as `api` (their types leak through
+        // ReportLane / ReduxTimelineRecorder ctors), so consumers no longer redeclare them.
+        api("works.sloop.swip:swip-rk-recorder:0.1.1")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
       }
     }
     val desktopTest by getting {

@@ -121,12 +121,12 @@ dependencies {
   // src/release holds inert mirrors of the wiring functions). GitHub Packages —
   // see settings.gradle.kts for credentials.
   debugImplementation(project(":swip-wiring"))
-  debugImplementation("works.sloop.swip:swip-bugreport:0.1.0")
-  debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.0")
-  debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.0")
-  // swip-bugreport declares okio as `implementation` but ReportLane's public ctor
-  // takes okio types — consumer must supply it (SWIP follow-up: make it `api`).
-  debugImplementation("com.squareup.okio:okio:3.9.1")
+  debugImplementation("works.sloop.swip:swip-bugreport:0.1.1")
+  debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
+  debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
+  // 0.1.1 fixes: window insets on the reporter chrome, and okio/coroutines-core are
+  // now `api` (their types leak through ReportLane / ReduxTimelineRecorder ctors), so
+  // no consumer-side redeclaration is needed.
 
   val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
   implementation(composeBom)
