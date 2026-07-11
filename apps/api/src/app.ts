@@ -914,7 +914,7 @@ async function ownerGate(c: any, fid: string) {
   if ("status" in a) return { status: a.status };
   if (a.role !== "owner") return { status: 403 };
   if (a.cred.kind !== "app") return { status: 403 }; // [C2] reject cli/content-only
-  return { sub: a.userId as string };
+  return { sub: a.userId as string, caller: callerFrom(a) };
 }
 
 app.post("/families/:fid/device/approve", async (c) => {
@@ -932,6 +932,12 @@ app.post("/families/:fid/device/approve", async (c) => {
   // validate each hub id (charset + this-family existence) and store the exact
   // read+write grant set — bound as a parameter, never string-built (hub ids are
   // free text and could contain `,{}"\` that would corrupt/inject a literal array).
+  // ADR 0030: a hub can be `visibility='restricted'` with an allow-list that
+  // excludes even the approving owner (owner-role is not auto-permitted — see
+  // hubVisible). Scoping a device credential to a hub the approver can't see
+  // would issue a credential with MORE authority than the human granting it, so
+  // every requested hub is re-checked with the exact same hubVisible/allowListFor
+  // gate the read routes use (grep callerFrom/hubVisible( above), not a new check.
   const mode = body.scope;
   let grantedScopes: string[] | null = null;
   if (mode === "hubs") {
@@ -941,8 +947,11 @@ app.post("/families/:fid/device/approve", async (c) => {
       if (typeof h !== "string") return c.json({ type: "bad-scope" }, 400);
       const e = idError(h);
       if (e) return c.json(e, 422);
-      const exists = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, h]);
-      if (!exists || exists.rowCount === 0) return c.json({ type: "bad-scope" }, 400);
+      const hub = await hubs.getHub(fid, h);
+      if (!hub) return c.json({ type: "bad-scope" }, 400);
+      const allow = await hubs.allowListFor(fid, h);
+      if (!hubs.hubVisible(hub, g.caller, () => !!g.caller.userId && allow.has(g.caller.userId)))
+        return c.json({ type: "bad-scope" }, 400);
     }
     grantedScopes = hubGrantsFor(hubIds as string[]);
   } else if (mode !== undefined && mode !== "full") {

@@ -105,6 +105,27 @@ describe("device/approve accepts + validates a per-hub scope selection (ADR 0029
     expect(res2.status).toBe(400);
   });
 
+  it("restricted hub the approving owner cannot see -> 400 bad-scope (ADR 0030: owner-role is not auto-permitted)", async () => {
+    const owner = await ownerOf("scopeOwner7");
+    const ownerUserId = (await q(`SELECT user_id FROM memberships WHERE family_id=$1 AND role='owner'`, [owner.familyId])).rows[0].user_id;
+    await q(`INSERT INTO users(id) VALUES ('scopeOwner7Author') ON CONFLICT DO NOTHING`);
+    // Same-family, restricted, authored by someone else; the approving owner is NOT
+    // on the allow-list and is NOT the author, so hubVisible must reject it even
+    // though the plain family_id/id/deleted_at check (the old, insufficient guard)
+    // would have passed.
+    await q(
+      `INSERT INTO hubs(id, family_id, type, title, visibility, created_by) VALUES ('H7', $1, 'other', 'Hub 7', 'restricted', 'scopeOwner7Author')`,
+      [owner.familyId],
+    );
+    const a = await (await authorize()).json();
+    const res = await approveWith(owner.familyId, owner.token, { user_code: a.user_code, scope: "hubs", hubs: ["H7"] });
+    expect(res.status).toBe(400);
+    expect((await res.json()).type).toBe("bad-scope");
+    const row = (await q(`SELECT status, granted_scopes FROM device_authorizations WHERE device_code=$1`, [a.device_code])).rows[0];
+    expect(row.status).toBe("pending"); // rejected before the UPDATE — not silently approved with a trimmed grant
+    expect(ownerUserId).toBeTruthy(); // sanity: we actually resolved a distinct owner id
+  });
+
   it("{scope:hubs, hubs:[]} -> 400 bad-scope", async () => {
     const owner = await ownerOf("scopeOwner3");
     const a = await (await authorize()).json();

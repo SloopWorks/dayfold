@@ -56,9 +56,10 @@ class AuthClient(
   @Serializable private data class MembersResp(val members: List<FamilyMember> = emptyList())
   @Serializable private data class CredsResp(val credentials: List<DeviceCredential> = emptyList())
   @Serializable private data class DeviceCodeReq(@SerialName("user_code") val userCode: String)
-  // ADR 0029 T3 — optional per-hub scope on approve. Only sent when hubIds is
-  // non-null/non-empty; scope/hubs omitted entirely otherwise (DeviceCodeReq
-  // above, byte-identical to pre-scoping).
+  // ADR 0029 T3 — optional per-hub scope on approve. Sent whenever hubIds is
+  // non-null (even an empty list — that must fail loudly via the server's 400,
+  // never silently widen to blanket); scope/hubs omitted entirely only when
+  // hubIds is null (DeviceCodeReq above, byte-identical to pre-scoping).
   @Serializable private data class DeviceApproveScopedReq(
     @SerialName("user_code") val userCode: String,
     val scope: String,
@@ -295,7 +296,11 @@ class AuthClient(
       header("authorization", "Bearer $access")
       contentType(ContentType.Application.Json)
       setBody(
-        if (hubIds.isNullOrEmpty()) json.encodeToString(DeviceCodeReq.serializer(), DeviceCodeReq(userCode))
+        // null = blanket (full access). A non-null list — even empty — must NOT
+        // silently collapse into blanket: that would be a silent authority
+        // escalation. Send it scoped; the server fail-safes an empty array to 400
+        // rather than granting anything.
+        if (hubIds == null) json.encodeToString(DeviceCodeReq.serializer(), DeviceCodeReq(userCode))
         else json.encodeToString(DeviceApproveScopedReq.serializer(), DeviceApproveScopedReq(userCode, "hubs", hubIds)),
       )
     }

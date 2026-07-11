@@ -501,6 +501,17 @@ class AuthClientTest {
     assertEquals("""{"user_code":"WDJF-7K2P"}""", sent)
   }
 
+  // Regression: hubIds = emptyList() must NOT collapse into the blanket body — only
+  // hubIds == null is blanket. An explicit empty selection is a caller bug (the UI
+  // gates ≥1 hub) and must fail loudly via the server's scoped-empty-array 400, not
+  // silently grant full access.
+  @Test fun `deviceApprove with an explicit empty hubIds list sends scoped body, not blanket`() = runBlocking {
+    var sent = ""
+    val ok = MockEngine { req -> sent = body(req); respond("", HttpStatusCode.NoContent) }
+    assertEquals(DeviceActionResult.Ok, client(ok).deviceApprove("ACCESS", "fam1", "WDJF-7K2P", hubIds = emptyList()))
+    assertEquals("""{"user_code":"WDJF-7K2P","scope":"hubs","hubs":[]}""", sent)
+  }
+
   @Test fun `deviceDeny treats 204 and 404 both as Ok (gone == denied)`() = runBlocking {
     var path = ""
     val ok = MockEngine { req -> path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }
