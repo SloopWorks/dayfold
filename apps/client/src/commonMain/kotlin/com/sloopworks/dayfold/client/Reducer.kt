@@ -233,7 +233,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
 private val actionLog = middleware<AppState> { store, next, action ->
   val r = next(action)
   val s = store.state
-  ClientLog.log("redux", "${action::class.simpleName} → cards=${s.cards.size} syncing=${s.syncing} error=${s.error}")
+  Log.d("redux") { "${action::class.simpleName} → cards=${s.cards.size} syncing=${s.syncing} error=${s.error}" }
   r
 }
 

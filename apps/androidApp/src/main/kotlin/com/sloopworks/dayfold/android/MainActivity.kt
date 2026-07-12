@@ -149,9 +149,21 @@ class MainActivity : ComponentActivity() {
     // Bridge the client's logs (redux action log + [sync] refresh path) into the
     // drawer's Logs panel — DebugLog feeds the installed LogBuffer in debug, no-op
     // in release. Without this the Logs panel is empty (nothing fed the buffer).
-    com.sloopworks.dayfold.client.ClientLog.sink = { tag, msg -> DebugLog.i(tag, msg) }
+    // NOTE: interim sink — B2 replaces this with the full SloopLogging binding.
+    com.sloopworks.dayfold.client.Log.sink = { level, tag, msg, _, _ ->
+      DebugLog.record(
+        when (level) {
+          com.sloopworks.dayfold.client.Log.LogLevel.DEBUG -> com.sloopworks.debugdrawer.log.LogLevel.D
+          com.sloopworks.dayfold.client.Log.LogLevel.INFO -> com.sloopworks.debugdrawer.log.LogLevel.I
+          com.sloopworks.dayfold.client.Log.LogLevel.WARN -> com.sloopworks.debugdrawer.log.LogLevel.W
+          com.sloopworks.dayfold.client.Log.LogLevel.ERROR -> com.sloopworks.debugdrawer.log.LogLevel.E
+        },
+        tag,
+        msg,
+      )
+    }
     // SWIP bug reporter (debug builds only; inert mirror in release). Installed AFTER
-    // the ClientLog.sink assignment above — the debug glue wraps that sink to feed the
+    // the Log.sink assignment above — the debug glue wraps that sink to feed the
     // breadcrumb ring while keeping the drawer's Logs panel fed.
     bugReporterInstall(this)
     // API base routes through the drawer's backend override (falls back to the
