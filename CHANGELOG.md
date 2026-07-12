@@ -7,6 +7,17 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-12 — Leveled, scrubbed on-device logging (debug builds)
+
+### Added (internal)
+- A leveled `Log` front-door (debug/info/warn/error) in `:client`, bound to
+  the SWIP `SloopLogging` runtime in debug builds only (console + in-app
+  devtools drawer); release builds are unaffected — no swip bytes, `println`
+  fallback floored at WARN+. The PII scrubber runs ahead of every writer; the
+  bug-reporter breadcrumb ring (ADR 0054) is now scrubbed the same way, closing
+  a leak where it previously captured raw, pre-scrub text. Seeded modest
+  lifecycle logging (sign-in, sync, hub, and Now-surfacing milestones). (ADR 0056)
+
 ## 2026-07-11 — Product analytics in dogfood builds (PostHog, debug-only)
 
 ### Added (internal)

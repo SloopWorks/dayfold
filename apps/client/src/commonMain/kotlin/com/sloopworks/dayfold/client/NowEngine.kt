@@ -65,6 +65,7 @@ class NowEngine(
     if (pending.isEmpty()) return@withLock
     val now = nowProvider()
     val surfacing = store.state.surfacing
+    Log.d("now") { "surfacing computed count=${pending.size}" }
     pending.forEach { key ->
       // write-if-new: skip subjects whose clock is already running (state fast-path; the SQL
       // DO NOTHING is the authoritative backstop). Starting it once is the whole point — see SQL.
@@ -76,6 +77,7 @@ class NowEngine(
 
   /** Dismiss a subject — omitted from future ranking (rank() filters dismissed). LOCAL-ONLY. */
   fun dismiss(subjectKey: String) {
+    Log.d("now") { "subject dismissed" }
     scope.launch { contentStore.recordDismissed(subjectKey, nowProvider()) }
   }
 

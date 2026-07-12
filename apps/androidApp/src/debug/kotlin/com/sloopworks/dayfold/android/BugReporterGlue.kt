@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.sloopworks.dayfold.client.AppState
-import com.sloopworks.dayfold.client.ClientLog
+import com.sloopworks.dayfold.client.Log
 import com.sloopworks.dayfold.swip.dayfoldRecorder
 import com.sloopworks.dayfold.swip.dayfoldSlices
 import java.lang.ref.WeakReference
@@ -65,7 +65,7 @@ private object BugReporterHolder {
   }
   var controller: BugReporterController? = null
 
-  /** 32-deep breadcrumb ring fed by wrapping ClientLog.sink. Guarded by itself. */
+  /** 32-deep breadcrumb ring fed by wrapping Log.sink. Guarded by itself. */
   val crumbs = ArrayDeque<String>()
   var crumbsWired = false
 }
@@ -78,16 +78,16 @@ fun bugReporterInstall(activity: ComponentActivity) {
   val holder = BugReporterHolder
   holder.currentActivity = WeakReference(activity)
 
-  // Breadcrumbs: wrap the existing ClientLog.sink ONCE (keep the DebugLog forwarding
+  // Breadcrumbs: wrap the existing Log.sink ONCE (keep the DebugLog forwarding
   // MainActivity installed) and append "tag: msg" into the ring. Installed after the
   // MainActivity sink assignment, so `prior` is the drawer bridge.
   if (!holder.crumbsWired) {
     holder.crumbsWired = true
-    val prior = ClientLog.sink
-    ClientLog.sink = { tag, msg ->
-      prior?.invoke(tag, msg)
+    val prior = Log.sink
+    Log.sink = { l, t, m, c, e ->
+      prior?.invoke(l, t, m, c, e)
       synchronized(holder.crumbs) {
-        holder.crumbs.addLast("$tag: $msg")
+        holder.crumbs.addLast("$t: ${works.sloop.swip.logging.scrubString(m)}")
         while (holder.crumbs.size > 32) holder.crumbs.removeFirst()
       }
     }

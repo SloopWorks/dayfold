@@ -71,6 +71,7 @@ class HubEngine(
   // then subscribes to hubTreeFlow(hubId) — dispatching HubTreeLoaded whenever the DB emits
   // a non-null tree. Prior tree subscription is cancelled on each new openHub call.
   suspend fun openHub(hubId: String, focusBlockId: String? = null) = mutex.withLock {
+    Log.i("hub") { "hub opened id=$hubId" }
     store.dispatch(OpenHub(hubId))              // list → detail (busy); clears focus
     // deep-link arrival: set the focus block now (OpenHub cleared it; HubTreeLoaded
     // won't touch it) so the highlight is in place when the DB tree arrives.
@@ -136,7 +137,11 @@ class HubEngine(
     try {
       callWithRefresh(s) { hubClient.setVisibility(it.access, fid, hubId, visibility) }
       reloadAudienceLocked(fid, hubId)
-    } catch (e: Exception) { store.dispatch(HubManageFailed("Couldn't update who can see this. Try again.")) }
+      Log.i("hub") { "visibility updated" }
+    } catch (e: Exception) {
+      Log.w("hub", e) { "visibility update failed" }
+      store.dispatch(HubManageFailed("Couldn't update who can see this. Try again."))
+    }
   }
 
   // Re-fetch + dispatch the audience after a successful mutation. Re-reads the

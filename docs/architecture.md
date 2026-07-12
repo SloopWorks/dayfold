@@ -67,6 +67,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
 | SWIP wiring | `apps/swip-wiring` | KMP library consuming the published SWIP SDK (`works.sloop.swip:*`) | The SWIP privacy floor + the seam that keeps `:client` SWIP-free: the bug-reporter slice registry + `dayfoldSanitizer` (ADR 0054) and the analytics mapper table + `NoOpErrors` (ADR 0055), plus the mandatory salted-PII leak test (`:swip-wiring:desktopTest`, a CI gate). Consumed `debugImplementation`-only by `:androidApp` (debug/internal builds) |
+| Logging | `Log` front-door in `:client` (`com.sloopworks.dayfold.client.Log`, ADR 0056), bound to SWIP `SloopLogging` in `:androidApp`'s debug glue | `:client` = SWIP-free leveled facade; `swip-logging:0.1.1` debug-only | Leveled (debug/info/warn/error) engine milestone logging → console + devtools drawer, debug builds only; PII-scrubbed ahead of every writer, on-device only, zero swip bytes in release |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
 
@@ -166,6 +167,18 @@ count-only).
   operator + counsel) before the first tagged release.
 - **Android:** `release-android.yml` is the Play-track release pipeline,
   gated on secrets.
+
+## Logging
+
+`:client` exposes a leveled `Log` front-door (debug/info/warn/error, lazy
+inline messages) that stays SWIP-free by design (ADR 0056) — an unbound
+`sink` falls back to `println` so bare `:client`/`desktopTest` still print.
+`:androidApp`'s **debug** build binds `Log.sink` to the SWIP `SloopLogging`
+runtime (console + the in-app devtools drawer writer); the release variant
+never links swip. SloopLogging's PII scrubber runs ahead of every writer —
+callers pass ids/counts/enums/outcomes, never raw tokens/emails/names — and
+the same scrub now also runs on the ADR-0054 bug-reporter's breadcrumb ring.
+Everything stays on-device; there is no log-upload path. See ADR 0056.
 
 ## What's out of scope today
 
