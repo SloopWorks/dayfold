@@ -393,12 +393,16 @@ class AuthEngine(
     lookupDeviceLocked(code)
   }
 
-  /** Owner approves the pending device against [fid] → DeviceApproved / expired / failed. */
-  suspend fun approveDevice(fid: String, code: String) = mutex.withLock {
+  /**
+   * Owner approves the pending device against [fid] → DeviceApproved / expired / failed.
+   * [hubIds] null = full/blanket grant (existing behavior); non-null + non-empty =
+   * per-hub scope selection (ADR 0029 T3), threaded straight to AuthClient.
+   */
+  suspend fun approveDevice(fid: String, code: String, hubIds: List<String>? = null) = mutex.withLock {
     val session = store.state.session ?: return@withLock
     store.dispatch(ApproveDeviceRequested)
     try {
-      when (callWithRefresh(session) { authClient.deviceApprove(it.access, fid, code) }) {
+      when (callWithRefresh(session) { authClient.deviceApprove(it.access, fid, code, hubIds) }) {
         DeviceActionResult.Ok -> store.dispatch(DeviceApproved)
         DeviceActionResult.Expired -> store.dispatch(DeviceApproveExpired)
         DeviceActionResult.Locked -> store.dispatch(DeviceOpFailed("Too many tries — wait about 15 minutes."))

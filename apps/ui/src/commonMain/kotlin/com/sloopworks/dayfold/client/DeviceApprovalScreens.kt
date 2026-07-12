@@ -21,7 +21,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -208,11 +212,17 @@ fun EnterCodeScreen(
   }
 }
 
+// Per-hub scope picker (ADR 0029 T4): Full = blanket grant (hubIds null, back-compat
+// default); Hubs = per-hub content scope (hubIds = the checked set, non-empty enforced
+// by canApprove below — not just the API's 400).
+private enum class DeviceScopeMode { Full, Hubs }
+
 // ── Authorize device (RFC 8628 — owner approve/deny) ──
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthorizeDeviceScreen(
   state: AppState,
-  onApprove: (String) -> Unit = {},
+  onApprove: (fid: String, hubIds: List<String>?) -> Unit = { _, _ -> },
   onDeny: (String) -> Unit = {},
   onCancel: () -> Unit = {},
 ) {
@@ -223,7 +233,10 @@ fun AuthorizeDeviceScreen(
     mutableStateOf(state.activeFamilyId?.takeIf { id -> owners.any { it.familyId == id } } ?: owners.firstOrNull()?.familyId)
   }
   var pickerOpen by remember { mutableStateOf(false) }
-  val canApprove = device != null && selectedFid != null && !state.deviceBusy
+  var scopeMode by remember { mutableStateOf(DeviceScopeMode.Full) }
+  var selectedHubIds by remember { mutableStateOf(emptySet<String>()) }
+  val canApprove = device != null && selectedFid != null && !state.deviceBusy &&
+    (scopeMode == DeviceScopeMode.Full || selectedHubIds.isNotEmpty())
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
     // top bar: close · title · spacer
@@ -285,8 +298,54 @@ fun AuthorizeDeviceScreen(
           sub = device?.originUa?.takeIf { it.isNotBlank() } ?: "No device details reported",
         )
         RowDivider()
-        // scope row — informational interim per ADR 0029 (per-hub selection rides the content slice)
-        DetailRow(glyph = "⚷", title = "Full content access", sub = "Read & write · can't manage members or kids' info")
+        // scope picker (ADR 0029 T4) — Full access (blanket, hubIds=null) vs Only these
+        // hubs (per-hub content scope). Full is the default so a device approved without
+        // touching this control keeps today's behavior.
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("⚷", style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
+            Text("Access", style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
+          }
+          Spacer(Modifier.height(10.dp))
+          val scopeOptions = listOf(DeviceScopeMode.Full to "Full access", DeviceScopeMode.Hubs to "Only these hubs")
+          SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("device-scope-toggle")) {
+            scopeOptions.forEachIndexed { i, (mode, label) ->
+              SegmentedButton(
+                selected = scopeMode == mode,
+                onClick = { scopeMode = mode },
+                shape = SegmentedButtonDefaults.itemShape(i, scopeOptions.size),
+              ) { Text(label) }
+            }
+          }
+          when {
+            scopeMode == DeviceScopeMode.Full -> {
+              Spacer(Modifier.height(8.dp))
+              Text(
+                "Read & write · can't manage members or kids' info",
+                style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+              )
+            }
+            state.hubs.isEmpty() -> {
+              Spacer(Modifier.height(8.dp))
+              Text("No hubs yet — create one first.", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            }
+            else -> {
+              Spacer(Modifier.height(4.dp))
+              state.hubs.forEach { hub ->
+                val checked = hub.id in selectedHubIds
+                Row(
+                  Modifier.fillMaxWidth()
+                    .clickable { selectedHubIds = if (checked) selectedHubIds - hub.id else selectedHubIds + hub.id }
+                    .testTag("device-scope-hub-${hub.id}").padding(vertical = 9.dp),
+                  verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                  Text(if (checked) "●" else "○", style = MaterialTheme.typography.titleMedium, color = if (checked) cs.primary else cs.onSurfaceVariant)
+                  Text(hub.title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+                }
+              }
+            }
+          }
+        }
         RowDivider()
         // owner-family selector — static when exactly one (S2); a picker when many
         when {
@@ -333,7 +392,7 @@ fun AuthorizeDeviceScreen(
         PillButton(
           "Approve", container = cs.primary, content = cs.onPrimary, enabled = canApprove, busy = state.deviceBusy,
           modifier = Modifier.weight(1.2f).testTag("device-approve"),
-          onClick = { selectedFid?.let { onApprove(it) } },
+          onClick = { selectedFid?.let { fid -> onApprove(fid, if (scopeMode == DeviceScopeMode.Full) null else selectedHubIds.toList()) } },
         )
       }
       Spacer(Modifier.height(12.dp))

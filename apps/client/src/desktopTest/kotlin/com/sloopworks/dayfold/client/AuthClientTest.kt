@@ -482,6 +482,36 @@ class AuthClientTest {
     assertEquals(401, ex.status)
   }
 
+  // ADR 0029 T3 — deviceApprove carries an optional per-hub scope. hubIds present
+  // → {scope:"hubs",hubs:[...]} alongside user_code; hubIds null/omitted → the
+  // CURRENT body (user_code only, byte-identical to pre-scoping behavior).
+  @Test fun `deviceApprove with hubIds sends scope=hubs and the hub list`() = runBlocking {
+    var sent = ""
+    val ok = MockEngine { req -> sent = body(req); respond("", HttpStatusCode.NoContent) }
+    assertEquals(DeviceActionResult.Ok, client(ok).deviceApprove("ACCESS", "fam1", "WDJF-7K2P", hubIds = listOf("H1")))
+    assertTrue(sent.contains("\"user_code\":\"WDJF-7K2P\""), "body was: $sent")
+    assertTrue(sent.contains("\"scope\":\"hubs\""), "body was: $sent")
+    assertTrue(sent.contains("\"hubs\":[\"H1\"]"), "body was: $sent")
+  }
+
+  @Test fun `deviceApprove with no hubIds sends the current (blanket) body unchanged`() = runBlocking {
+    var sent = ""
+    val ok = MockEngine { req -> sent = body(req); respond("", HttpStatusCode.NoContent) }
+    assertEquals(DeviceActionResult.Ok, client(ok).deviceApprove("ACCESS", "fam1", "WDJF-7K2P"))
+    assertEquals("""{"user_code":"WDJF-7K2P"}""", sent)
+  }
+
+  // Regression: hubIds = emptyList() must NOT collapse into the blanket body — only
+  // hubIds == null is blanket. An explicit empty selection is a caller bug (the UI
+  // gates ≥1 hub) and must fail loudly via the server's scoped-empty-array 400, not
+  // silently grant full access.
+  @Test fun `deviceApprove with an explicit empty hubIds list sends scoped body, not blanket`() = runBlocking {
+    var sent = ""
+    val ok = MockEngine { req -> sent = body(req); respond("", HttpStatusCode.NoContent) }
+    assertEquals(DeviceActionResult.Ok, client(ok).deviceApprove("ACCESS", "fam1", "WDJF-7K2P", hubIds = emptyList()))
+    assertEquals("""{"user_code":"WDJF-7K2P","scope":"hubs","hubs":[]}""", sent)
+  }
+
   @Test fun `deviceDeny treats 204 and 404 both as Ok (gone == denied)`() = runBlocking {
     var path = ""
     val ok = MockEngine { req -> path = req.url.encodedPath; respond("", HttpStatusCode.NoContent) }

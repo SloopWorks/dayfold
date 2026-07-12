@@ -326,7 +326,7 @@ class MainActivity : ComponentActivity() {
           onLoadDevices = { lifecycleScope.launch { authEngine.loadDevices() } },
           onRevokeDevice = { id -> lifecycleScope.launch { authEngine.revokeDevice(id) } },
           onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },
-          onApproveDevice = { fid -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
+          onApproveDevice = { fid, hubIds -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch, hubIds) } },
           onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
           onRefresh = { lifecycleScope.launch { syncEngine.syncNow() } },
           onNowShown = { keys -> nowEngine.noteShown(keys) },               // ADR 0043 §2b — start the anti-nag clock
