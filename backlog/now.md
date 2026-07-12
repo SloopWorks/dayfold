@@ -11,8 +11,9 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-10 (latest run,
-  #692, `success`). Was red 2026-07-05→07-07; PR #291 added
+- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-12 (latest `ci.yml`
+  run on head `581fbdb`, `success`; all other workflows green or correctly
+  idle for their trigger). Was red 2026-07-05→07-07; PR #291 added
   `.github/workflows/rebuild-api-bundle.yml` (`workflow_dispatch`,
   `contents: write`) as a standing self-heal tool for the next time the
   committed API bundle drifts from source — see `backlog/now-history.md`
@@ -59,70 +60,65 @@ Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
 
-**2026-07-10 repo-maintenance pass (scheduled, not a feature slice) — one
-real CLI/skill-doc bug found + fixed, one architecture-doc gap closed,
-`now.md` itself pruned.** Same no-npm/no-Gradle-registry-egress sandbox as
-every prior pass (re-confirmed: `registry.npmjs.org` and
-`repo.maven.apache.org` both 403 via the proxy) — so, consistent with every
-pass since 07-03, no *logic* changes were made to `apps/api`/`apps/cli` (no
-way to compile-verify them here); the **still-open `apps/api` code-dedup
-queue** (`requireSession` helper, `hubs.getVisibleHub`, `app.ts`
-route-splitting — see `backlog/next.md`) stays deferred to a build-capable
-environment for the same reason as the last 5 passes. **CI: confirmed GREEN
-live via the GitHub Actions API** (latest run on `main`, #692, `success`;
-spot-checked the last 15 runs across `ci.yml`/`release-android.yml`/
-`secret-scan.yml`, all green) — nothing to fix. Added one operator action
-that had fallen through the cracks: **enable branch protection on `main`
-requiring the CI check before merge** (the 07-05 outage landed without
-waiting on its own CI result; see Operator actions below).
-**Found + fixed a real bug (agent-blocking, not just drift):** a spot-check
-diffing `apps/cli`'s `Main.kt` `USAGE`, `.claude/skills/dayfold-curator/`
-(`references/cli.md`, `references/content-model.md`) against the generated
-schema found that a **card's** `visibility`/`audience` (ADR 0030/0038) — real,
-server-accepted fields, documented in all three places as freely settable —
-are **not** part of the generated `BriefingCard` schema (they're access
-control, read off the raw request body server-side, not content). The CLI's
-opt-in `--type` local pre-check strict-decodes a card against that generated
-type, so an agent that (a) follows the docs' own recommendation to always use
-`--type`, and (b) authors a `restricted`/`audience`-scoped card, gets a local
-"unknown field" rejection instead of a working push — the exact "docs read as
-correct, following them literally breaks" class of bug the 07-06/07-07 passes
-also found and fixed. Documented the real behavior (push a scoped card
-*without* `--type`) in all three places — `USAGE`, `cli.md`, `content-model.md`
-— including a one-line, string-literal-only `Main.kt` change (no logic
-touched). Hub-tree pushes are unaffected (already lenient-structural).
-**Found + fixed a real `docs/architecture.md` gap:** no commits touched
-`apps/api`/`packages/schema` since the 07-09 pass (verified via `git log`),
-but the **DB-first cold-start route gate (ADR 0052)** merged to `main` *after*
-that pass's cutoff (2026-07-10T00:47 UTC) and was a real data-flow change (a
-new local-only `membership` cache table + a background auth-reconciliation
-path) the Data-flow section had no mention of. Added a numbered data-flow
-step + updated the Client-core component row + ADR cross-reference list;
-bumped the file's "as of" date. `README.md` and `CHANGELOG.md` were already
-current (shipping commits update `CHANGELOG.md` themselves; `README.md`'s
-repo table/screenshots didn't need a change). **Simplified this file:**
-`backlog/now.md` had grown to 283 lines by re-stacking every repo-maintenance
-pass's full paragraph under one old header instead of pruning to history,
-working against its own stated "kept short on purpose" design
-(self-inflicted context-usage cost, on-topic for this pass's "optimize for
-agentic development" ask) — moved the 2026-07-03/05/06/07 maintenance-pass
-paragraphs into `backlog/now-history.md` (verbatim, nothing lost) and
-collapsed the two stacked "Current state" headers into one (now.md:
-283→~140 lines). Reviewed `CLAUDE.md`/`AGENTS.md`/`processes/agent-routing.md`/
-`processes/agent-dev-loop.md` again with fresh eyes for agentic-context-usage
-opportunities beyond the now.md fix above: still lean (each already scopes
-itself — e.g. `agent-dev-loop.md`'s Compose/KMP section is skippable for
-CLI-/API-only work, `AGENTS.md` is a 27-line pointer) — no further changes
-made. Remaining CLI/skill-doc dedup (hub-timeline table, block-payload alias
-column, checklist id-stamping note repeated across `SKILL.md`/`references/
-cli.md`/`references/content-model.md`/`templates/README.md`/`USAGE`) left
-as-is per 07-09's judgment — each copy is short and partly intentional for
-`templates/README.md`'s standalone readability. Values/privacy spot-check
-clean: this pass's diff is docs + one CLI help-text string (`docs/
-architecture.md`, `backlog/now.md`, `backlog/now-history.md`, `.claude/
-skills/dayfold-curator/references/{cli,content-model}.md`, `apps/cli/.../
-Main.kt` USAGE only) — no secrets, no PII, no child-account or
-restricted-scope-Gmail surface touched.
+**2026-07-12 repo-maintenance pass (scheduled, broader mandate — simplify,
+optimize-for-agents, doc/CI/values review) — one real `docs/architecture.md`
+gap closed, `backlog/next.md` split for context-cost the same way `now.md`
+was, one missing `CHANGELOG.md` entry added.** Same no-npm/no-Gradle-registry-
+egress sandbox as every prior pass (re-confirmed again: `registry.npmjs.org`
+403, `repo.maven.apache.org` CONNECT-tunnel 403) — so, consistent with every
+pass since 07-03, **no logic changes were made to `apps/api`/`apps/cli`**; the
+still-open `apps/api` code-dedup queue (`requireSession` helper,
+`hubs.getVisibleHub`, `app.ts` route-splitting — `backlog/next.md`) stays
+deferred to a build-capable environment. **CI: confirmed GREEN** (GitHub
+Actions API: latest `ci.yml` run on `main` success, head `581fbdb`; spot-
+checked `release-android.yml`/`migrate.yml`/`rebuild-api-bundle.yml`/
+`release-cli-edge.yml`/`secret-scan.yml` — all green or correctly no-run for
+their trigger; `release-cli.yml` has zero runs because no `cli-v*` tag has
+been cut yet, expected per ADR 0031's still-open license gate) — nothing to
+fix. **Found + fixed a real `docs/architecture.md` gap:** the latest commit
+(581fbdb, PR #325, scoped CLI/device tokens per ADR 0029 — an owner can now
+grant a device/CLI login "Full access" or scope it to specific hubs) shipped
+2026-07-11, after the doc's "as of 2026-07-10" cutoff, and the doc's Auth
+section still described device-grant as always-blanket; also missing
+`credential_grants` from the DB component row and the `requireScope` central
+gate. Added a scoped-grants paragraph, the missing table row, and (separately,
+pre-existing gap) an `apps/swip-wiring` component row + diagram node — that
+debug-only bug-reporter module (ADR 0054, PRs #320/#321/#323) had no
+architecture-doc mention at all. Bumped the "as of" date. **Verified CLI-help
++ skill docs are NOT stale for the same PR** (dispatched a dedicated audit):
+`8f30017` (the *previous* pass, same day as #325) had already added the
+scope model to `references/cli.md` and `whoami`'s USAGE text pre-emptively —
+confirmed against the shipped API/scope.ts behavior, no gap found; the CLI
+has no in-place re-scope path (logout/login only) and that's documented
+accurately. **Added the missing `CHANGELOG.md` entry** for PR #325 (a real
+API-surface/product-behavior change per this repo's own changelog rule —
+had no entry). **Simplified `backlog/next.md`** (951→~715 lines, mirroring
+the `now.md`/`now-history.md` split): moved the fully-shipped CONTENT LIBRARY
+epic (CL-0…CL-9, CL-PLAT, closed 2026-06-21) and the completed `:client`/`:ui`
+module-split narrative to a new `backlog/next-history.md`, leaving short
+pointers + the genuinely-still-open items (CL-10 blocked, the `:model`/`:data`
+further split) in place; also deleted the "Applied 2026-07-05" code-dedup
+sub-list per its own standing instruction ("verify CI landed green, then
+delete" — now re-confirmed twice since). **Deliberately left the AUTH section
+(S1–S6, ~215 lines) alone** despite it reading as largely stale against
+`main` (several "OPEN PR"/"GATED" items it lists look shipped, going by
+recent commit subjects like #316-#319) — reclassifying done-vs-open there
+needs code verification this pass didn't have budget to do safely; flagged
+in `next.md` itself for a follow-up pass. **CLI-flag/skill-doc completeness**
+(item 3 of this pass's mandate) re-checked fresh: every `Main.kt` subcommand/
+flag has a documented counterpart in `references/cli.md`/`templates/
+README.md` — no gap found. **`README.md`/`AGENTS.md`/`CLAUDE.md`** spot-
+checked: still current and lean (AGENTS.md 27 lines, README has screenshots +
+an accurate repo table) — no changes needed. **Code simplification /
+dedup of `apps/api`/`apps/cli` (item 1 of this pass's mandate) was NOT
+attempted** for the same compile-verification reason as the last 6 passes —
+see the still-open code-dedup queue in `backlog/next.md` for the specific,
+already-catalogued opportunities a build-capable session should pick up.
+Values/privacy spot-check clean: this pass's diff is docs-only (`docs/
+architecture.md`, `CHANGELOG.md`, `backlog/now.md`, `backlog/now-history.md`,
+`backlog/next.md`, `backlog/next-history.md`) — no secrets, no PII, no
+child-account or restricted-scope-Gmail surface touched, no code logic
+changed.
 
 ## Design-first gate (ADR 0008) — status
 

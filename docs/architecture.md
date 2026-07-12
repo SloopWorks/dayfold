@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-10). For product framing
+A map of the system as it actually runs today (2026-07-12). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -29,6 +29,8 @@ flowchart TB
         UI -- "depends on" --> Core
         UI --- AndroidHost
         UI --- IosHost
+        Swip["apps/swip-wiring\n(debug builds only)\nshake/edge-tab bug capture"]
+        Swip -. "debug-only" .-> AndroidHost
     end
 
     Shared["packages/schema + packages/linkrules\ncodegen'd content contract\n+ shared link/media vetting"]
@@ -58,7 +60,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Component | Path | Stack | Role |
 |---|---|---|---|
 | Content API | `apps/api` | TypeScript, Hono, `pg`, Zod, deployed on Vercel | Auth (mint/verify tokens, device grant, Firebase verify), family/membership CRUD, hub/card/section/block CRUD with visibility + author-gate enforcement, `/sync` cursor feed, cron sweep (tombstone GC) |
-| Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility`, `device_authorizations`, `invites`, `refresh_tokens` |
+| Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, `credential_grants` (resource-qualified scopes, ADR 0029), hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility`, `device_authorizations`, `invites`, `refresh_tokens` |
 | CLI | `apps/cli` | Kotlin, hand-rolled `java.net.http.HttpClient` (no framework) | `login` (device grant + OS keychain) / `push` / `pull` / `delete` / `template` / `whoami` / `update` — the authoring surface for operators and AI loops |
 | Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
 | Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache (incl. a local-only cached-membership table for the DB-first cold-start route gate, ADR 0052), the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
@@ -66,6 +68,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
+| Bug reporter | `apps/swip-wiring` | Compose-MP library module, wires the third-party `swip` bug-reporter (ADR 0054) | Debug-build-only shake/edge-tab → capture → annotate → review flow; redux timeline recorder over an allowlisted slice registry + sanitizer (privacy floor: no card/hub content recorded); release builds carry zero swip bytes |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
 
@@ -128,6 +131,16 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
   CLI prints a code, the family owner approves it in the app, the CLI polls and
   lazily mints a token. Refresh tokens live in the OS keychain (headless/CI
   fallback: a 0600 file via `--allow-env-key`).
+- **Scoped grants (ADR 0029):** at approval time the owner picks "Full access"
+  (blanket `content:{read,write,delete}`, the back-compat default when
+  `granted_scopes` is NULL) or "only these hubs" (per-hub `hub:<id>:read`/
+  `write` rows written to `credential_grants`, computed by `hubGrantsFor()` and
+  gated by the same hub-visibility check other hub routes use, ADR 0030 — an
+  owner can't scope a credential to a hub they can't themselves see). Scope is
+  fixed at login; a credential that hits a 403 has no in-place re-scope path,
+  only `logout`+`login` for a fresh (possibly broader) grant. Every content
+  route checks scope through one central `requireScope`/`scopeAllows` gate
+  (`apps/api/src/auth/scope.ts`).
 - **Tenancy:** every content route is scoped to a `familyId`; cross-family
   access is a 404 (no existence oracle), not a 403.
 - **Legacy path:** a static `HOUSEHOLD_SECRET` bearer still works on content

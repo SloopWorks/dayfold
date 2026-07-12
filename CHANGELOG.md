@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-11 — Scoped CLI/device tokens: grant a login to specific hubs instead of the whole family (ADR 0029)
+
+### Added (api, client)
+- **When an owner approves a CLI or device login in the app, they can now choose "Full access" or "Only these
+  hubs"** instead of every approval implicitly granting blanket read/write/delete across the whole family. Picking
+  specific hubs mints a credential that can only touch those hubs — useful for a CLI/automation credential that
+  should only ever author into one hub (e.g. a "groceries" AI loop) rather than holding keys to everything. Full
+  access stays the default and is unaffected. A credential can only be scoped to hubs the *approving owner* can
+  themselves see (a restricted hub the owner isn't on the audience for can't be handed out, even scoped) — see
+  ADR 0030. Scope is fixed for the life of a login; hitting a 403 on something out of scope means logging out and
+  back in with a broader grant, not a live re-scope.
+- No change for existing credentials or anyone who keeps picking "Full access" — this is additive and back-compatible.
+
 ## 2026-07-09 — Timeline detail no longer draws under the status bar
 
 ### Fixed (client)
