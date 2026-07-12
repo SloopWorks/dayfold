@@ -950,7 +950,19 @@ local build). Re-verify green on `main` before trusting this list as current.
   + the `templates/README.md` table note — low priority, each copy is already
   short).
 
-## SWIP analytics — event delivery is best-effort and non-durable (found 2026-07-12)
+## ~~SWIP analytics — event delivery is best-effort and non-durable~~ — RESOLVED 2026-07-12
+
+**Fixed** (dayfold `feat/swip-background-flush-persistence` + swip-core 0.1.7):
+flush-on-background wired via `ProcessLifecycleOwner` (persist-then-send inside
+Android's post-`onStop` window), `SqlDelightPersistentQueue` wired as `persistence`
+(main-process-guarded), and swip-core now calls `recover()` on init — it never did,
+which made the persistent queue **write-only**. Verified on device: airplane-mode
+send failure left 2 batches `PENDING` on disk; after relaunch they recovered and
+sent (`sent … ok`), zero drops. **WorkManager deliberately NOT used** — INVARIANT 14
+forbids scheduled wakeups, and once the queue is durable it buys little (unsent
+events drain on next launch rather than being lost). Original report below.
+
+### Original report (found 2026-07-12)
 
 Surfaced while root-causing "no events in PostHog". Independent of the
 kotlinx-datetime bug (below) — these remain true even once events flow.

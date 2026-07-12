@@ -4,6 +4,9 @@ package com.sloopworks.dayfold.android
 
 import android.app.Application
 import android.os.SystemClock
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.createAppStore
 import com.sloopworks.dayfold.swip.NoOpErrors
@@ -11,6 +14,7 @@ import com.sloopworks.dayfold.swip.dayfoldMappers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.reduxkotlin.Store
 import org.reduxkotlin.StoreEnhancer
 import org.reduxkotlin.applyMiddleware
@@ -19,11 +23,16 @@ import works.sloop.swip.CollectionMode
 import works.sloop.swip.ConsentDecision
 import works.sloop.swip.ConsentScope
 import works.sloop.swip.SwipInstance
+import works.sloop.swip.db.SwipDb
 import works.sloop.swip.lifecycle.SwipLifecycle
 import works.sloop.swip.lifecycle.SwipLifecycleHandle
 import works.sloop.swip.platform.AndroidSwipStorage
 import works.sloop.swip.platform.HttpUrlConnectionPoster
+import works.sloop.swip.platform.isMainProcess
+import works.sloop.swip.platform.swipDbDriver
 import works.sloop.swip.pipeline.PostHogTransport
+import works.sloop.swip.pipeline.SqlDelightPersistentQueue
+import works.sloop.swip.pipeline.persistenceForProcess
 import works.sloop.swip.rk.ReplayGuard
 import works.sloop.swip.rk.asSloopAnalytics
 import works.sloop.swip.rk.swipMiddleware
@@ -42,6 +51,7 @@ internal object SwipAnalyticsHolder {
   val mappers = dayfoldMappers()
   var lifecycle: SwipLifecycleHandle? = null
   var lastScreen: String? = null
+  var bgFlushInstalled = false
   var debugSink: works.sloop.swip.debug.RingDebugSink? = null
 }
 
@@ -65,6 +75,15 @@ fun swipInit(app: Application) {
       monotonicNowMs = { SystemClock.elapsedRealtime() },
       random = { Random.nextDouble() },
       initialMode = CollectionMode.FULL,
+      // Durable queue (docs/02). Without it the pipeline is memory-only: anything not
+      // flushed before the process dies is lost. Batches persist to SQLite (WAL), and
+      // Swip.init recovers un-acked ones on next launch so they drain on the next flush.
+      // persistenceForProcess enforces the main-process-only guard — a second writer on
+      // swip.db is forbidden; non-main processes run memory-only.
+      persistence = persistenceForProcess(
+        isMainProcess(app),
+        SqlDelightPersistentQueue(SwipDb(swipDbDriver(app))),
+      ),
     ).copy(debugSink = SwipInspectorGlue.debugSink()),
     SwipAnalyticsHolder.scope,
   )
@@ -105,10 +124,35 @@ fun swipLifecycleInstall(app: Application, store: Store<AppState>) {
   val storage = SwipAnalyticsHolder.storage ?: return
   val handle = SwipAnalyticsHolder.lifecycle
     ?: SwipLifecycle.install(app, requireSwip().analytics, storage).also { SwipAnalyticsHolder.lifecycle = it }
+  installBackgroundFlush()
   fun report() {
     val name = store.state.route.name
     if (name != SwipAnalyticsHolder.lastScreen) { SwipAnalyticsHolder.lastScreen = name; handle.screen(name) }
   }
   report()                       // initial screen (no-op if unchanged since last recreation)
   store.subscribe { report() }   // dedup on route change
+}
+
+/**
+ * Flush on background — BackgroundFlusher semantics (docs/02), no scheduled wakeups
+ * (INVARIANT 14). Without this, buffered events only ship on the 30s ticker or at 30
+ * queued events, so backgrounding the app stranded whatever was pending.
+ *
+ * `flush()` forms batches, persists them, then makes ONE send attempt inside the brief
+ * window Android leaves the process alive after onStop. If the OS kills us mid-send the
+ * batches stay on disk (PersistentQueue above) and `Swip.init` recovers them on the next
+ * launch — so nothing is lost, it just ships late. Deliberately NOT WorkManager: a
+ * scheduled wakeup would violate INVARIANT 14 and buys little once the queue is durable.
+ *
+ * Installed once per process (this runs again on Activity recreation); registered AFTER
+ * SwipLifecycle's observer so its persist-on-background runs before our send attempt.
+ */
+private fun installBackgroundFlush() {
+  if (SwipAnalyticsHolder.bgFlushInstalled) return
+  SwipAnalyticsHolder.bgFlushInstalled = true
+  ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+    override fun onStop(owner: LifecycleOwner) {
+      SwipAnalyticsHolder.scope.launch { requireSwip().analytics.flush() }
+    }
+  })
 }
