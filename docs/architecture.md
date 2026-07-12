@@ -160,7 +160,7 @@ route gate).
 ## Logging
 
 `:client` exposes a leveled `Log` front-door (debug/info/warn/error, lazy
-inline messages) that stays SWIP-free by design (ADR 0047) — an unbound
+inline messages) that stays SWIP-free by design (ADR 0056) — an unbound
 `sink` falls back to `println` so bare `:client`/`desktopTest` still print.
 `:androidApp`'s **debug** build binds `Log.sink` to the SWIP `SloopLogging`
 runtime (console + the in-app devtools drawer writer); the release variant
