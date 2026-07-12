@@ -46,7 +46,14 @@ the same two forces ADR 0054/0055 already resolved:
    The `RingDebugSink` is created **once** in the debug glue holder and
    shared between plugin registration (`sink.entries`) and `Swip.init
    (debugSink = sink)`, so the plugin renders exactly what the engine fed
-   the sink.
+   the sink. **`schema-dayfold` was co-bumped 0.1.2 → 0.1.3**: adding
+   `logging`/`debugSink` to `SwipPlatformDeps` in swip-core 0.1.3 changed its
+   primary-constructor JVM descriptor, so `schema-dayfold` 0.1.2's generated
+   `platformDeps()` (compiled against 0.1.2) hit a runtime `NoSuchMethodError`
+   under 0.1.3 — a binary (not source) incompatibility the compile gate
+   could not catch, only the on-device smoke did. Fix: republish
+   `schema-dayfold` 0.1.3 rebuilt against swip-core 0.1.3 (source unchanged)
+   and pin it in `:swip-wiring`.
 3. **Install-gate: an allowlist on `BuildConfig.DEBUG`**, not a `!=` prod
    blocklist — a blocklist would silently light up in beta, which ships to
    real users. Carries a `// TODO: gate on channel ∈ {dev,ci} once a real
