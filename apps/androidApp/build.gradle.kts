@@ -124,6 +124,7 @@ dependencies {
   debugImplementation("works.sloop.swip:swip-bugreport:0.1.1")
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
+  debugImplementation("works.sloop.swip:swip-logging:0.1.1")
   // 0.1.1 fixes: window insets on the reporter chrome, and okio/coroutines-core are
   // now `api` (their types leak through ReportLane / ReduxTimelineRecorder ctors), so
   // no consumer-side redeclaration is needed.

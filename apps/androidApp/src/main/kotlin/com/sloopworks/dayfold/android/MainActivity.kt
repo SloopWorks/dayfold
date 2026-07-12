@@ -34,7 +34,6 @@ import com.sloopworks.debugdrawer.BuildInfo
 import com.sloopworks.debugdrawer.DebugDrawer
 import com.sloopworks.debugdrawer.DebugDrawerConfig
 import com.sloopworks.debugdrawer.DebugDrawerHost
-import com.sloopworks.debugdrawer.log.DebugLog
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -146,25 +145,12 @@ class MainActivity : ComponentActivity() {
       ),
       applicationContext,
     )
-    // Bridge the client's logs (redux action log + [sync] refresh path) into the
-    // drawer's Logs panel — DebugLog feeds the installed LogBuffer in debug, no-op
-    // in release. Without this the Logs panel is empty (nothing fed the buffer).
-    // NOTE: interim sink — B2 replaces this with the full SloopLogging binding.
-    com.sloopworks.dayfold.client.Log.sink = { level, tag, msg, _, _ ->
-      DebugLog.record(
-        when (level) {
-          com.sloopworks.dayfold.client.Log.LogLevel.DEBUG -> com.sloopworks.debugdrawer.log.LogLevel.D
-          com.sloopworks.dayfold.client.Log.LogLevel.INFO -> com.sloopworks.debugdrawer.log.LogLevel.I
-          com.sloopworks.dayfold.client.Log.LogLevel.WARN -> com.sloopworks.debugdrawer.log.LogLevel.W
-          com.sloopworks.dayfold.client.Log.LogLevel.ERROR -> com.sloopworks.debugdrawer.log.LogLevel.E
-        },
-        tag,
-        msg,
-      )
-    }
+    // Bind SloopLogging (console + debug-drawer writers) behind Log.sink — debug only;
+    // release installLogging() is a no-op, leaving Log on its println fallback.
+    installLogging(BuildConfig.DEBUG)
     // SWIP bug reporter (debug builds only; inert mirror in release). Installed AFTER
-    // the Log.sink assignment above — the debug glue wraps that sink to feed the
-    // breadcrumb ring while keeping the drawer's Logs panel fed.
+    // installLogging() above — the bug-reporter wraps the SloopLogging-bound sink to
+    // feed the breadcrumb ring while still forwarding to console + drawer.
     bugReporterInstall(this)
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
