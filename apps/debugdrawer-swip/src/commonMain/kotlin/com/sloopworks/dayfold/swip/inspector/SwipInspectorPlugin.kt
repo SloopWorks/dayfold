@@ -47,9 +47,11 @@ object NoOpSecureWindow : SecureWindow { override fun set() {}; override fun cle
 
 /**
  * SWIP capture inspector — "LogsPanel over RingDebugSink.entries". Flat live timeline,
- * type/dropped filter, tap→detail with mask-by-default reveal. While a detail's values are
- * revealed the host window is FLAG_SECURE'd (via [secure]) so raw PII can't land in a
- * screenshot / dogfood bug bundle (the bug reporter captures via PixelCopy, which honors it).
+ * type/dropped filter, tap→detail with mask-by-default reveal. The host window is FLAG_SECURE'd
+ * (via [secure]) for the detail dialog's whole open lifetime — set before the row's tap opens the
+ * dialog (so the dialog's window inherits the flag at creation) and cleared on dismiss — so raw
+ * PII can't land in a screenshot / dogfood bug bundle (the bug reporter captures via PixelCopy,
+ * which honors it).
  */
 @OptIn(ExperimentalSwipDebugApi::class)
 class SwipInspectorPlugin(
@@ -75,7 +77,7 @@ class SwipInspectorPlugin(
         }
       } else {
         LazyColumn(Modifier.fillMaxSize()) {
-          items(shown, key = { it.seq }) { e -> SwipRow(e, colors) { detail = e } }
+          items(shown, key = { it.seq }) { e -> SwipRow(e, colors) { secure.set(); detail = e } }
         }
       }
     }
@@ -129,11 +131,9 @@ private fun DetailDialog(entry: DebugEntry, colors: DrawerColors, scope: DebugSc
   val lines = remember(entry.seq) { detailLines(entry.rec) }
   val hasSensitive = remember(entry.seq) { lines.any { it.sensitive } }
 
-  // Secure the window whenever sensitive values are on screen unmasked; always clear on dispose.
-  DisposableEffect(revealed) {
-    if (revealed && hasSensitive) secure.set() else secure.clear()
-    onDispose { secure.clear() }
-  }
+  // Window is secured by the caller before this dialog opens (so the dialog's own window
+  // inherits FLAG_SECURE at creation); clear it once the dialog leaves composition.
+  DisposableEffect(Unit) { onDispose { secure.clear() } }
 
   AlertDialog(
     onDismissRequest = onDismiss,

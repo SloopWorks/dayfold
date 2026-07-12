@@ -58,15 +58,18 @@ the same two forces ADR 0054/0055 already resolved:
    `privacy_class`** on `DebugRecord` in v1 — that needs a field→class
    codegen map SWIP doesn't emit yet — so v1 masks indiscriminately rather
    than trying to guess which fields are safe.
-5. **Capture isolation via `FLAG_SECURE`, not a bug-reporter change.** While
-   any value is revealed, the host sets `FLAG_SECURE` on the Activity window
-   (a `SecureWindow` seam — `{ fun set(); fun clear() }` — provided by the
-   host, which owns the Activity, keeping the plugin module itself
-   Android-window-free at the type level); it clears on dismiss / last
-   value re-masked. The ADR-0054 bug reporter already captures via
-   `PixelCopy` on the Activity window, and `PixelCopy` **honors
-   `FLAG_SECURE`** — so a revealed value is blanked in both the OS
-   screenshot and the dogfood bug bundle for free.
+5. **Capture isolation via `FLAG_SECURE`, not a bug-reporter change.** The
+   host sets `FLAG_SECURE` on the Activity window for the detail dialog's
+   whole open lifetime — before the row tap opens the dialog, so the
+   dialog's own window inherits the flag at creation, and cleared on
+   dismiss (a `SecureWindow` seam — `{ fun set(); fun clear() }` — provided
+   by the host, which owns the Activity, keeping the plugin module itself
+   Android-window-free at the type level). Values are still masked-by-
+   default until reveal-on-tap. The ADR-0054 bug reporter already captures
+   via `PixelCopy` on the Activity window, and `PixelCopy` **honors
+   `FLAG_SECURE`** — so the dialog is blanked in both the OS screenshot and
+   the dogfood bug bundle for free, without a race on the reveal-toggle's
+   transition frame.
 6. **Scope: flat live timeline, Android debug only, v1.** Deferred:
    per-event journey folding (grouping by `eventId`), per-`privacy_class`
    chips, free-text search, iOS/desktop parity.
