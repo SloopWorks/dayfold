@@ -949,3 +949,42 @@ local build). Re-verify green on `main` before trusting this list as current.
   checklist id-stamping (repeated near-verbatim in `cli.md` + `content-model.md`
   + the `templates/README.md` table note — low priority, each copy is already
   short).
+
+## SWIP analytics — event delivery is best-effort and non-durable (found 2026-07-12)
+
+Surfaced while root-causing "no events in PostHog". Independent of the
+kotlinx-datetime bug (below) — these remain true even once events flow.
+
+- **No flush on background.** `swip-lifecycle` emits `app_backgrounded` but
+  never calls `flush()`. Closing/backgrounding the app does not ship what is
+  buffered.
+- **No persistent queue.** Dayfold's `swipInit` passes no `persistence`
+  (`PersistentQueue == null`), so the pipeline queue is **memory-only**:
+  anything not yet flushed when the process dies is lost forever. swip-core
+  supports a `PersistentQueue` (and an `InMemoryPersistentQueue`) — Dayfold
+  just doesn't wire one.
+- Net: the only delivery triggers are a **30s interval ticker** and
+  **`flushAtEvents = 30`**. On a phone that is frequently backgrounded/killed
+  this will silently drop a large fraction of events.
+
+**Do:** wire flush-on-background (via the lifecycle handle) + a real
+`PersistentQueue` (SQLDelight on device), then re-verify with the SWIP
+inspector (`Batched` → `Sent` rows).
+
+## SWIP platform — `SwipAnalytics.track()` swallows Throwable silently (found 2026-07-12)
+
+`track()` wraps its whole body in `catch (_: Throwable) { }` (INVARIANT-13,
+"instrumentation never crashes the product") with **no counter and no debug
+record**. But it emits `DebugRecord.Enqueued` *before* constructing
+`PipelineEvent`. So when construction throws, the event is reported as
+**Enqueued** in the debug inspector and then **destroyed** — no drop, no
+flush-failure, no log.
+
+This turned a 100%-data-loss bug (the kotlinx-datetime `Instant` skew) into an
+invisible one: the inspector actively *lied* (`Enqueued` for every event) while
+`queued 0 / fail 0 / drop 0`. Not crashing the product is right; being silent
+is not.
+
+**Do (SWIP-side):** on catch, increment a counter surfaced in
+`HealthSnapshot` and emit a `DebugRecord` (e.g. `TrackFailed`/`Dropped` with an
+`INTERNAL_ERROR` reason) so the failure is visible in the inspector.

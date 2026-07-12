@@ -16,6 +16,8 @@ import org.reduxkotlin.StoreEnhancer
 import org.reduxkotlin.applyMiddleware
 import org.reduxkotlin.compose
 import works.sloop.swip.CollectionMode
+import works.sloop.swip.ConsentDecision
+import works.sloop.swip.ConsentScope
 import works.sloop.swip.SwipInstance
 import works.sloop.swip.lifecycle.SwipLifecycle
 import works.sloop.swip.lifecycle.SwipLifecycleHandle
@@ -65,6 +67,14 @@ fun swipInit(app: Application) {
       initialMode = CollectionMode.FULL,
     ).copy(debugSink = SwipInspectorGlue.debugSink()),
     SwipAnalyticsHolder.scope,
+  )
+  // CollectionMode and per-scope consent are ORTHOGONAL in swip-core: initialMode=FULL alone
+  // leaves every event parked in the pipeline's pre-consent buffer (scope defaults to UNKNOWN)
+  // → enqueued but never batched/sent. ADR 0055 ratified product analytics for the operator's
+  // own dogfood household, so grant ANALYTICS consent here to actually ship events. Debug-only
+  // glue (release is inert); widening to real users stays a future ADR + real consent surface.
+  SwipAnalyticsHolder.swip?.analytics?.setConsent(
+    mapOf(ConsentScope.ANALYTICS to ConsentDecision.GRANTED),
   )
 }
 
