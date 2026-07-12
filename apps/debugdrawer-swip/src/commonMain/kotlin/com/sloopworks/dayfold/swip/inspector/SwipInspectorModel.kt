@@ -27,7 +27,9 @@ fun rowLabel(rec: DebugRecord): String = when (rec) {
   is DebugRecord.Sent -> "sent ${rec.batchId} · ${rec.status} · ${rec.count}"
   is DebugRecord.SendFailed -> "send failed ${rec.batchId} · attempt ${rec.attempt}"
   is DebugRecord.Purged -> "purged · ${rec.reason}"
-  is DebugRecord.HealthSnapshot -> "health · queued ${rec.queued}"
+  is DebugRecord.HealthSnapshot ->
+    "health · q${rec.queued} fail${rec.flushFailures} store${rec.storageErrors} " +
+      "drop c${rec.dropsConsentDenied}/o${rec.dropsOverflow}/d${rec.dropsDeadLetter}"
   is DebugRecord.ModeChanged -> "mode ${rec.from} → ${rec.to}"
   is DebugRecord.ConsentChanged -> "consent changed"
   is DebugRecord.IdentityChanged -> "identity · ${rec.kind}"
