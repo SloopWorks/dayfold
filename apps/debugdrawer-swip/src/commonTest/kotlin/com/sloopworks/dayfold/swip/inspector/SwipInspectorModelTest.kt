@@ -46,4 +46,29 @@ class SwipInspectorModelTest {
     assertEquals(true, rowLabel(enq).contains("account_signed_in"))
     assertEquals(true, rowLabel(dropped).contains("hub_opened") && rowLabel(dropped).contains("MODE"))
   }
+
+  @Test
+  fun detailLines_mark_props_and_ids_sensitive() {
+    val lines = detailLines(enq)
+    val distinct = lines.first { it.label == "distinctId" }
+    val schema = lines.first { it.label == "schema" }
+    assertEquals(true, distinct.sensitive)
+    assertEquals(false, schema.sensitive)
+  }
+
+  @Test
+  fun renderValue_masks_sensitive_until_revealed() {
+    val line = DetailLine(label = "distinctId", value = "d1", sensitive = true)
+    assertEquals(MASK, renderValue(line, revealed = false))
+    assertEquals("d1", renderValue(line, revealed = true))
+    val plain = DetailLine(label = "schema", value = "account_signed_in", sensitive = false)
+    assertEquals("account_signed_in", renderValue(plain, revealed = false))
+  }
+
+  @Test
+  fun copyText_masks_when_not_revealed() {
+    assertEquals(false, copyText(enq, revealed = false).contains("d1"))
+    assertEquals(true, copyText(enq, revealed = true).contains("d1"))
+    assertEquals(true, copyText(enq, revealed = false).contains("account_signed_in")) // schema not sensitive
+  }
 }
