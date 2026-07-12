@@ -52,6 +52,11 @@ android {
   }
 
   buildTypes {
+    getByName("debug") {
+      // SWIP analytics (debug-only — never on the release classpath/APK).
+      buildConfigField("String", "POSTHOG_PROJECT_KEY", "\"${System.getenv("POSTHOG_PROJECT_KEY") ?: ""}\"")
+      buildConfigField("String", "POSTHOG_HOST", "\"${System.getenv("POSTHOG_HOST") ?: "https://eu.i.posthog.com"}\"")
+    }
     getByName("release") {
       // Sign only when the keystore env is present (CI); unsigned otherwise so local
       // `bundleRelease` still works. Play App Signing holds the real app key; this is

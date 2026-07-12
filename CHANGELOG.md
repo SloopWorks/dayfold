@@ -13,10 +13,23 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 - A leveled `Log` front-door (debug/info/warn/error) in `:client`, bound to
   the SWIP `SloopLogging` runtime in debug builds only (console + in-app
   devtools drawer); release builds are unaffected — no swip bytes, `println`
-  fallback. The PII scrubber runs ahead of every writer; the bug-reporter
-  breadcrumb ring (ADR 0054) is now scrubbed the same way, closing a leak
-  where it previously captured raw, pre-scrub text. Seeded modest lifecycle
-  logging (sign-in, sync, hub, and Now-surfacing milestones). (ADR 0056)
+  fallback floored at WARN+. The PII scrubber runs ahead of every writer; the
+  bug-reporter breadcrumb ring (ADR 0054) is now scrubbed the same way, closing
+  a leak where it previously captured raw, pre-scrub text. Seeded modest
+  lifecycle logging (sign-in, sync, hub, and Now-surfacing milestones). (ADR 0056)
+
+## 2026-07-11 — Product analytics in dogfood builds (PostHog, debug-only)
+
+### Added (internal)
+- **Debug/dogfood Android builds now send basic product analytics to PostHog
+  (EU region)** — sign-in, family created, invite redeemed/rejected, hub
+  opened, card opened, sync failed, plus app foreground/background and screen
+  views. The public release build ships **zero analytics code or keys** (ADR
+  0055). Events are **count-only**: no names, no ids, no free-text, no
+  location (server-side geoip is disabled), and no account identity is ever
+  attached to the analytics id. Scoped to the operator's own dogfooded
+  household for now; sending analytics from real users' builds needs its own
+  future decision plus a privacy-policy update.
 
 ## 2026-07-09 — Timeline detail no longer draws under the status bar
 

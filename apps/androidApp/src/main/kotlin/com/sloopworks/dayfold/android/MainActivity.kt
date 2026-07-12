@@ -152,6 +152,9 @@ class MainActivity : ComponentActivity() {
     // installLogging() above — the bug-reporter wraps the SloopLogging-bound sink to
     // feed the breadcrumb ring while still forwarding to console + drawer.
     bugReporterInstall(this)
+    // SWIP analytics runtime (debug builds only; inert mirror in release, ADR 0055). Must
+    // run BEFORE store creation — debugStoreEnhancer() below reads the swip instance.
+    swipInit(application)
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)
@@ -169,7 +172,7 @@ class MainActivity : ComponentActivity() {
     // the full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
     // extraEnhancer (innermost): the swip redux timeline recorder in debug; null in
     // release (the inert mirror) → identical to before.
-    store = createAppStore(debug = BuildConfig.DEBUG, extraEnhancer = bugReporterEnhancer())
+    store = createAppStore(debug = BuildConfig.DEBUG, extraEnhancer = debugStoreEnhancer())
     // Restore the detail the user was on before this Activity was destroyed (3P-app
     // return / rotation / process death / "Don't keep activities"). Dispatched now, on
     // the main thread, BEFORE the async authEngine.restore() coroutines run — so
@@ -178,6 +181,9 @@ class MainActivity : ComponentActivity() {
     savedInstanceState?.getStringArrayList(KEY_DETAIL_STACK)?.takeIf { it.isNotEmpty() }?.let {
       store.dispatch(com.sloopworks.dayfold.client.RestoreDetailStack(it.toList()))
     }
+    // SWIP lifecycle: foreground/background + route-driven screen_view (debug only; inert
+    // in release). Store is fully constructed above — safe to subscribe now.
+    swipLifecycleInstall(application, store)
     // Single process-shared store (ADR 0044 §S3) — the geofence/exact-alarm background receivers reuse
     // this same instance + driver (one WAL writer); foreground and background never open two connections.
     val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(applicationContext)
