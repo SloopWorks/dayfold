@@ -131,6 +131,9 @@ dependencies {
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
   debugImplementation("works.sloop.swip:swip-logging:0.1.1")
+  // ProcessLifecycleOwner for the SWIP background-flush hook. swip-lifecycle depends on it
+  // but as `implementation`, so it isn't on our compile classpath — declare it explicitly.
+  debugImplementation("androidx.lifecycle:lifecycle-process:2.9.4")
   // RingDebugSink (SWIP inspector's capture sink) is referenced directly by the host glue
   // (SwipAnalyticsGlue/SwipInspectorGlue) — :debugdrawer-swip depends on it as `implementation`
   // (intentionally not `api`), so androidApp needs its own direct debugImplementation too.
