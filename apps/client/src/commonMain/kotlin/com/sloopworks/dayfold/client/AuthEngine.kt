@@ -101,8 +101,10 @@ class AuthEngine(
       }
       tokenStore.save(session)
       store.dispatch(SignInSucceeded(session))
+      Log.i("auth") { "sign-in succeeded provider=$provider" }
       loadMembershipsLocked(session, hadCache = false)   // fresh sign-in: no optimistic cache
     } catch (e: Exception) {
+      Log.w("auth", e) { "sign-in failed provider=$provider" }
       store.dispatch(SignInFailed(e.message ?: "Sign-in failed"))
     }
   }
@@ -133,6 +135,7 @@ class AuthEngine(
     try {
       val fid = callWithRefresh(session) { authClient.createFamily(it.access, name) }
       store.dispatch(FamilyCreated(fid, name))
+      Log.i("auth") { "family created fid=$fid" }
     } catch (e: Exception) {
       store.dispatch(AuthOpFailed(e.message ?: "Couldn't create the family"))
     }
@@ -162,13 +165,14 @@ class AuthEngine(
     if (session == null) { store.dispatch(InviteRejected("error")); return }
     try {
       when (val res = callWithRefresh(session) { authClient.redeemInvite(it.access, token) }) {
-        is RedeemResult.Pending -> store.dispatch(InviteRedeemed(res.familyName))
+        is RedeemResult.Pending -> { Log.i("auth") { "invite redeemed" }; store.dispatch(InviteRedeemed(res.familyName)) }
         RedeemResult.Expired -> store.dispatch(InviteRejected("expired"))
         RedeemResult.Locked -> store.dispatch(InviteRejected("locked"))
         RedeemResult.AlreadyMember -> store.dispatch(InviteRejected("already"))
         RedeemResult.Removed -> store.dispatch(InviteRejected("removed"))
       }
     } catch (e: Exception) {
+      Log.w("auth", e) { "invite redeem failed" }
       store.dispatch(InviteRejected("error"))            // transient 401/5xx/network → join-retry
     }
   }

@@ -101,6 +101,7 @@ class SyncEngine(
     try {
       drain()
       drainOutbox()        // ADR 0038 — push local member writes after pulling fresh remote
+      Log.i("sync") { "sync succeeded" }
       store.dispatch(SyncSucceeded)
     } catch (e: SyncHttpException) {
       // 401 = the 5-min access token expired (or is stale). Refresh it and retry

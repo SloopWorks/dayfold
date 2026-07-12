@@ -87,7 +87,7 @@ fun bugReporterInstall(activity: ComponentActivity) {
     Log.sink = { l, t, m, c, e ->
       prior?.invoke(l, t, m, c, e)
       synchronized(holder.crumbs) {
-        holder.crumbs.addLast("$t: $m")
+        holder.crumbs.addLast("$t: ${works.sloop.swip.logging.scrubString(m)}")
         while (holder.crumbs.size > 32) holder.crumbs.removeFirst()
       }
     }

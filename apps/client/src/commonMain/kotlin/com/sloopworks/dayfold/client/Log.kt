@@ -3,7 +3,7 @@ package com.sloopworks.dayfold.client
 import kotlin.concurrent.Volatile // multiplatform @Volatile (bare resolves to kotlin.jvm → fails on K/Native)
 
 /**
- * Leveled logging front-door for :client — SWIP-free by design (ADR 0047). A host binds
+ * Leveled logging front-door for :client — SWIP-free by design (ADR 0056). A host binds
  * [sink] to the SWIP SloopLogging runtime (see :swip-wiring); unbound → stdout fallback so
  * bare :client / desktopTest / pre-init still print. Lazy inline [message] → below-threshold
  * calls build no string. [context] is evaluated eagerly → use at INFO+ only, not hot paths.
