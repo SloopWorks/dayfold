@@ -36,7 +36,12 @@ must stay swip-free, and the release APK must carry zero swip bytes.
   from ADR 0054): a console writer + the in-app devtools drawer writer.
   `src/release` carries no such wiring — release keeps the `println`
   fallback, zero swip bytes, same enforcement shape as ADR 0054's
-  `assembleRelease` classpath gate.
+  `assembleRelease` classpath gate. Release's `installLogging` floors
+  `Log.minLevel` at `WARN` so the unbound front-door doesn't ship at its
+  `DEBUG` default; the tradeoff (below) is that this `println` fallback is
+  **unscrubbed** — the PII scrubber lives inside SloopLogging, which release
+  never binds — so release-build call sites must not pass raw PII, relying
+  on call-site discipline rather than the scrubber as a backstop.
 - **The PII scrubber runs inside SloopLogging, ahead of every writer** — the
   scrub boundary is the log call itself, not each writer. Callers pass ids/
   counts/enums/outcomes, never raw session tokens, emails, or names; the
@@ -87,6 +92,11 @@ Negative:
 - Level control has no remote/operator lever yet — a misbehaving device stays
   at whatever `Log.minLevel` ships with the build until the `SloopConfig`
   seam lands.
+- **Release logging is WARN+ via the unscrubbed `println` fallback, not a
+  scrubbed writer.** SloopLogging (and its scrubber) is debug-only wiring;
+  release has zero swip bytes by design, so there is no scrub boundary in a
+  release build — only the `WARN` floor plus call-site no-PII discipline.
+  Release logs are on-device-only (logcat), but they are not scrubbed.
 
 ## Follow-ups (deferred, not built at B5)
 

@@ -206,6 +206,13 @@ off in release. No PII (schema + classified props, same discipline as the mapper
   R8/ProGuard can't strip below-floor calls; the inlined message-building code ships
   dead-but-present (trivial code-size, **zero heap** — gate short-circuits). Keeping
   runtime control is worth it; a stripped variant would kill live level control.
+- **Release has no SloopLogging runtime bound** (zero swip bytes, above) → `Log.sink`
+  is null and every WARN+/ERROR line falls through to the front-door's own `println`
+  fallback, which runs **before** the scrub boundary and is therefore **unscrubbed**.
+  Release's `installLogging` floors `Log.minLevel = WARN` so at least DEBUG/INFO
+  volume doesn't ship; the scrubber itself is debug-only wiring. The control in
+  release is call-site discipline (ids/counts/enums, never raw tokens/emails/names),
+  not the scrubber — see Privacy below.
 - `sanitizeError` calls `stackTraceToString()` (large alloc) — WARN/ERROR only
   (rare); never capture stacks on `DEBUG` lines.
 
@@ -217,6 +224,11 @@ off in release. No PII (schema + classified props, same discipline as the mapper
   strictly stronger than the old `dayfoldSanitizer` (`eyJ`/`@`) and applied to *every*
   emitted line, not just breadcrumbs. Call-site discipline (log ids/counts/enums, not
   names/tokens verbatim) is defense-in-depth.
+- **This scrubber is debug-only.** It lives inside SloopLogging, and release never
+  binds `Log.sink` (zero swip bytes) — so a release build has no scrub boundary at
+  all. Release logs are `WARN`+ via the front-door's own `println` fallback,
+  **unscrubbed**, on-device (logcat) only. Do not claim release logs are scrubbed;
+  the only control there is call-site no-PII discipline plus the `WARN` floor.
 - Extend the salted-PII leak test to the scrubber + breadcrumb-writer path.
 
 ## "Right level, not noisy" convention

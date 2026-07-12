@@ -1,3 +1,5 @@
 package com.sloopworks.dayfold.android
-// Release: logging stays on the :client Log println fallback (WARN+). No swip bytes.
-fun installLogging(debug: Boolean) {}
+import com.sloopworks.dayfold.client.Log
+// Release: no SWIP logging runtime — Log stays on its println fallback, floored at WARN+
+// (on-device only; unscrubbed at the front-door, so call sites must not log raw PII).
+fun installLogging(debug: Boolean) { Log.minLevel = Log.LogLevel.WARN }
