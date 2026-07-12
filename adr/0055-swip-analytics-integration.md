@@ -28,7 +28,7 @@ companion: `works.sloop.swip:{swip-core,schema-dayfold}:0.1.2`.
    swip-analytics bytes** (inert `src/release` glue, verified `javap` shows
    no `works/sloop/swip` refs). Widening to release for real users is a
    **future ADR** gated on a privacy-policy disclosure + a consent surface
-   wired to `CollectionMode` (hard guardrail #4).
+   wired to `CollectionMode` (hard guardrail #3/#4).
 3. **Count-only slice 1 — 8 events:** `account_signed_in`, `signed_out`,
    `family_created`, `invite_redeemed`, `invite_rejected` (single `reason`
    closed-enum field), `hub_opened`, `card_opened`, `sync_failed` — plus the
