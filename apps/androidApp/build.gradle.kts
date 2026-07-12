@@ -110,6 +110,7 @@ dependencies {
   // redux panel pulls redux-kotlin-devtools-inapp transitively (debug-only).
   debugImplementation(project(":debugdrawer"))
   debugImplementation(project(":debugdrawer-redux"))
+  debugImplementation(project(":debugdrawer-swip"))
   releaseImplementation(project(":debugdrawer-noop"))
 
   // The shell now wires the HTTP client explicitly (to inject the fake backend), so
@@ -130,6 +131,10 @@ dependencies {
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
   debugImplementation("works.sloop.swip:swip-logging:0.1.1")
+  // RingDebugSink (SWIP inspector's capture sink) is referenced directly by the host glue
+  // (SwipAnalyticsGlue/SwipInspectorGlue) — :debugdrawer-swip depends on it as `implementation`
+  // (intentionally not `api`), so androidApp needs its own direct debugImplementation too.
+  debugImplementation("works.sloop.swip:swip-debug:0.1.0")
   // 0.1.1 fixes: window insets on the reporter chrome, and okio/coroutines-core are
   // now `api` (their types leak through ReportLane / ReduxTimelineRecorder ctors), so
   // no consumer-side redeclaration is needed.

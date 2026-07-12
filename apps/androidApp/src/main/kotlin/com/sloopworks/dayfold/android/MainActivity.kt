@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
           Backend("prod", "Production", "https://family-ai-dashboard.vercel.app"),
           Backend("emulator", "Local API (10.0.2.2)", "http://10.0.2.2:8799"),
         ) + fakeBackends(),   // debug: fake-backend scenarios (empty in release)
-        plugins = debugDrawerPlugins(),   // redux DevTools panel in debug; none in release
+        plugins = debugDrawerPlugins(this),   // redux DevTools + SWIP inspector in debug; none in release
       ),
       applicationContext,
     )

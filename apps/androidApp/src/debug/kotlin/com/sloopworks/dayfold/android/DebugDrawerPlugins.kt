@@ -1,11 +1,15 @@
 package com.sloopworks.dayfold.android
 
+import androidx.activity.ComponentActivity
 import com.sloopworks.debugdrawer.DebugPlugin
 import com.sloopworks.debugdrawer.redux.ReduxDevToolsDebugPlugin
+import com.sloopworks.dayfold.swip.inspector.SwipInspectorPlugin
 
-// Debug variant only: the redux DevTools inspector embedded as a drawer panel. This
-// is the one debug-only plugin (it depends on :debugdrawer-redux, wired
-// debugImplementation), so it lives in src/debug — release never references it.
-// The AppInfo / Backend-switch / Logs panels are built-ins added by the drawer host
-// from DebugDrawerConfig, so they need no entry here.
-fun debugDrawerPlugins(): List<DebugPlugin> = listOf(ReduxDevToolsDebugPlugin())
+// Debug variant only: redux DevTools + (when the gated capture sink is installed) the SWIP
+// inspector. Both are debug-only modules wired debugImplementation → release never references them.
+fun debugDrawerPlugins(activity: ComponentActivity): List<DebugPlugin> = buildList {
+  add(ReduxDevToolsDebugPlugin())
+  SwipInspectorGlue.debugSink()?.let { sink ->
+    add(SwipInspectorPlugin(sink.entries, SwipInspectorGlue.secureWindow(activity)))
+  }
+}
