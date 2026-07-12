@@ -78,6 +78,10 @@ jobs:
       # undetected (see #225). Pure grep — fails fast before the gradle build.
       - name: expect/actual parity (incl. iOS)
         run: bash scripts/check-expect-actual.sh
+      # Parity with SWIP's `no-direct-console` eslint rule: client Kotlin must log
+      # via com.sloopworks.dayfold.client.Log, not raw println/android.util.Log.
+      - name: no-direct-console gate
+        run: bash scripts/check-no-direct-console.sh
       # TASK-KMP consolidated :client into the single apps/ Gradle build —
       # apps/client no longer has its own wrapper. Run the module task from apps/.
       # ADR 0047 split the Compose UI + render/snapshot tests into :ui — run both
