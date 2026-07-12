@@ -31,7 +31,7 @@ fun dayfoldMappers(): SwipActionMappers = swipMappers {
   map<SignedOut> { SignedOutEvent }
   map<FamilyCreated> { FamilyCreatedEvent }           // drop name + id
   map<InviteRedeemed> { InviteRedeemedEvent }         // drop familyName
-  map<InviteRejected> { InviteRejectedEvent(inviteReason(it.reason)) }  // reason is a `none` enum
+  map<InviteRejected> { InviteRejectedEvent(inviteReason(it.reason)) }  // reason is a closed enum
   map<OpenHub> { HubOpened }                          // drop hubId (count-only)
   map<NavToDetail> { CardOpened }                     // drop cardId (count-only)
   map<SyncFailed> { SyncFailedEvent }                 // drop free-text message
