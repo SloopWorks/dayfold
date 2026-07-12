@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-10). For product framing
+A map of the system as it actually runs today (2026-07-11). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -115,6 +115,15 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    signs out and clears the cache; offline keeps the cached dashboard instead
    of an error). First launch after install, with nothing cached, is unchanged
    (network-gated). Warm start is unaffected (no splash, route already `Feed`).
+8. **Product analytics (ADR 0055, debug builds only).** A dispatched redux
+   action passes through a `:swip-wiring` mapper table (the tracking spec —
+   unmapped actions emit nothing), then `swipMiddleware` (composed into the
+   single debug-only `createAppStore(extraEnhancer)` slot alongside the ADR
+   0054 bug recorder), then the SWIP pipeline, to PostHog EU. Count-only
+   8-event slice 1, no PII, geoip disabled at the transport, analytics id
+   never linked to an account (`identify()` is never called). `:client`
+   imports no `works.sloop.swip`; the release APK carries zero analytics
+   bytes (inert `src/release` glue, same idiom as the bug recorder).
 
 ## Auth
 
@@ -138,7 +147,8 @@ Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
 Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
-route gate).
+route gate), `adr/0055` (SWIP product analytics — debug-only, PostHog EU,
+count-only).
 
 ## Deploy
 
