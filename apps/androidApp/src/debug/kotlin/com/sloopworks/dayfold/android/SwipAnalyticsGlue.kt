@@ -1,3 +1,5 @@
+@file:OptIn(works.sloop.swip.ExperimentalSwipDebugApi::class)
+
 package com.sloopworks.dayfold.android
 
 import android.app.Application
@@ -29,13 +31,16 @@ import kotlin.random.Random
 // Debug/internal-only analytics (ADR 0055): live PostHog EU transport, count-only mapper
 // table, composed into the SAME innermost store slot as the bug-reporter recorder. Release
 // holds an inert same-signature mirror → zero swip-analytics bytes in the public APK.
-private object SwipAnalyticsHolder {
+// internal (not private): SwipInspectorGlue.kt (Task 4) shares this holder's scope +
+// debugSink field to build ONE RingDebugSink for both Swip.init and plugin registration.
+internal object SwipAnalyticsHolder {
   val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   var swip: SwipInstance? = null
   var storage: AndroidSwipStorage? = null
   val mappers = dayfoldMappers()
   var lifecycle: SwipLifecycleHandle? = null
   var lastScreen: String? = null
+  var debugSink: works.sloop.swip.debug.RingDebugSink? = null
 }
 
 private fun requireSwip(): SwipInstance =
@@ -58,7 +63,7 @@ fun swipInit(app: Application) {
       monotonicNowMs = { SystemClock.elapsedRealtime() },
       random = { Random.nextDouble() },
       initialMode = CollectionMode.FULL,
-    ),
+    ).copy(debugSink = SwipInspectorGlue.debugSink()),
     SwipAnalyticsHolder.scope,
   )
 }

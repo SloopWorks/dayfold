@@ -61,6 +61,15 @@ Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
 
+**In review, not yet on `main` (2026-07-12):** leveled/scrubbed on-device
+logging (`Log` front-door, SWIP `swip-logging` bound debug-only, ADR 0056)
+and a SWIP debug-drawer **inspector panel** — live analytics timeline,
+mask-by-default with `FLAG_SECURE` reveal isolation, debug-only, zero
+release footprint (ADR 0057, `feat/swip-inspector-plugin`); regression gate
+(`:debugdrawer-swip:desktopTest`, `:androidApp:compile{Debug,Release}Kotlin`,
+`:swip-wiring:desktopTest`) green. Mandatory on-device smoke test still
+pending (operator, physical device).
+
 **2026-07-10 repo-maintenance pass (scheduled, not a feature slice) — one
 real CLI/skill-doc bug found + fixed, one architecture-doc gap closed,
 `now.md` itself pruned.** Same no-npm/no-Gradle-registry-egress sandbox as

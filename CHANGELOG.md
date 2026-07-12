@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-12 — SWIP debug-drawer inspector panel (debug-only)
+
+### Added (internal)
+- **A new "SWIP" panel in the on-device debug drawer** shows a live,
+  newest-first timeline of everything the analytics engine enqueues, sends,
+  batches, or drops — no more PostHog-dashboard round-trip to see what an
+  event carried. Debug builds only; the public release build carries zero
+  extra bytes for it (ADR 0057). Every value and identifier is masked
+  (`••••`) by default with tap-to-reveal, and revealing a value blanks the
+  Android screenshot and dogfood bug-report capture (`FLAG_SECURE`) so
+  raw data can't leak through either path. Memory-only — the panel never
+  transmits anything itself.
+
 ## 2026-07-12 — Leveled, scrubbed on-device logging (debug builds)
 
 ### Added (internal)
