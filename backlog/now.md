@@ -54,7 +54,9 @@ gated so it's correct across all card types (#310) ·
 now paints from the on-device cache instead of the logo+spinner while
 waiting on a network `whoami`; session reconciles in the background (ADR
 0052, #314, 2026-07-09)** · **timeline detail no longer draws under the
-status bar (#315, 2026-07-09)**.
+status bar (#315, 2026-07-09)** · **SWIP product analytics wired — debug-only,
+PostHog EU, count-only 8-event slice, geoip-off, never-identify (ADR 0055,
+consuming swip-core/schema-dayfold 0.1.2, 2026-07-11)**.
 Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).

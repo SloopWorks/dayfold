@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-11 — Product analytics in dogfood builds (PostHog, debug-only)
+
+### Added (internal)
+- **Debug/dogfood Android builds now send basic product analytics to PostHog
+  (EU region)** — sign-in, family created, invite redeemed/rejected, hub
+  opened, card opened, sync failed, plus app foreground/background and screen
+  views. The public release build ships **zero analytics code or keys** (ADR
+  0055). Events are **count-only**: no names, no ids, no free-text, no
+  location (server-side geoip is disabled), and no account identity is ever
+  attached to the analytics id. Scoped to the operator's own dogfooded
+  household for now; sending analytics from real users' builds needs its own
+  future decision plus a privacy-policy update.
+
 ## 2026-07-09 — Timeline detail no longer draws under the status bar
 
 ### Fixed (client)

@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-10). For product framing
+A map of the system as it actually runs today (2026-07-11). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -66,6 +66,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
+| SWIP wiring | `apps/swip-wiring` | KMP library consuming the published SWIP SDK (`works.sloop.swip:*`) | The SWIP privacy floor + the seam that keeps `:client` SWIP-free: the bug-reporter slice registry + `dayfoldSanitizer` (ADR 0054) and the analytics mapper table + `NoOpErrors` (ADR 0055), plus the mandatory salted-PII leak test (`:swip-wiring:desktopTest`, a CI gate). Consumed `debugImplementation`-only by `:androidApp` (debug/internal builds) |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
 
@@ -115,6 +116,15 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    signs out and clears the cache; offline keeps the cached dashboard instead
    of an error). First launch after install, with nothing cached, is unchanged
    (network-gated). Warm start is unaffected (no splash, route already `Feed`).
+8. **Product analytics (ADR 0055, debug builds only).** A dispatched redux
+   action passes through a `:swip-wiring` mapper table (the tracking spec —
+   unmapped actions emit nothing), then `swipMiddleware` (composed into the
+   single debug-only `createAppStore(extraEnhancer)` slot alongside the ADR
+   0054 bug recorder), then the SWIP pipeline, to PostHog EU. Count-only
+   8-event slice 1, no PII, geoip disabled at the transport, analytics id
+   never linked to an account (`identify()` is never called). `:client`
+   imports no `works.sloop.swip`; the release APK carries zero analytics
+   bytes (inert `src/release` glue, same idiom as the bug recorder).
 
 ## Auth
 
@@ -138,7 +148,8 @@ Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
 Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
-route gate).
+route gate), `adr/0055` (SWIP product analytics — debug-only, PostHog EU,
+count-only).
 
 ## Deploy
 
