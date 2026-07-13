@@ -166,6 +166,40 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   to decrypt W3 context (operator machine → controlled host). A **hosted** Claude
   routine breaks E2EE + triggers guardrail-#3 disclosure — reserved/ADR-gated, never
   default. → §4-W3 / INB-26 #2.
+- **OQ-ondevice-k2** *(NEW 2026-07-13, operator question — E2EE posture / architecture)*:
+  the key-holder tiers are named **K1** (operator machine) → **K3** (controlled host) →
+  **K4** (hosted, reserved) — **there is no K2**, yet *the member's own phone is already a
+  key-holder* (at M1 it holds the FCK + decrypted content, ADR 0015 §5). An **on-device
+  LLM** is exactly that missing tier: zero recurring spend, zero E2EE compromise, and it
+  makes ADR 0042's honesty chip ("Processed by Claude on your device") literally true.
+  **Assessed 2026-07-13 → NO-GO today, slot reserved.** Gemini Nano / ML Kit GenAI is
+  **capability-blocked, not policy-blocked**: <4k input / ≤256 output tokens, **no JSON
+  schema, no tool calling, no multi-turn, foreground-only** (kills the ADR 0044 background
+  surface), EN+KO only, ~4–5% of Android devices, and **"output varies by device"** — which
+  breaks the **shared multi-member family briefing**, our one defensible wedge (two parents
+  would read different text from identical content). Small-model long-context reasoning —
+  precisely the briefing-authoring job — measures at **19–25% MRCR@128k**. The incumbent
+  (`NowDerive.kt`/`NowRank.kt`: pure, deterministic, 131 golden snapshots) wins on every
+  axis. **Revisit trigger:** Nano 4 ships structured output + tool calling (Google-promised
+  "during the preview period"). Even then K2's honest scope is **bounded, single-record,
+  schema-constrained, no-network** work only — never briefing authoring, and never W3-with-
+  research (ADR 0042 §4 forbids device-side outbound fetch). **Hard trap recorded:**
+  **Firebase AI Logic hybrid inference silently falls back to cloud Gemini** — if on-device
+  inference is ever built it must call **ML Kit directly, never Firebase** (one wrong enum
+  routes family content to a hosted LLM → ADR 0015 + guardrail #3 violation). Composes
+  `OQ-w3-loop-placement` (above — this is its unnamed fourth option). →
+  `research/2026-07-13-on-device-llm-assessment.md`.
+- **OQ-ondevice-embeddings** *(NEW 2026-07-13, spun out of the on-device-LLM assessment)*:
+  **ADR 0015 §3 explicitly sacrifices server-side FTS** (`tsvector`/GIN over `body_md`) to
+  E2EE and accepts **"client-side search only"** as the cost. An on-device **embedding**
+  model (NOT an LLM) fills that hole and beats an LLM on every axis that failed above: no
+  input/output token cap, no hallucination, no schema-compliance problem, tens of MB not
+  2.5 GB, deterministic-enough, we ship + pin the model ourselves (so no device-variance),
+  and it runs well on exactly the runtimes that are *bad* at LLMs (ONNX Runtime, LiteRT).
+  **This is the best on-device-AI opportunity in Dayfold — and it isn't an agent.**
+  Not yet load-bearing (only bites when E2EE flips at M1); needs its own investigation
+  (model choice, index shape, KMP seam, recall at family-data volume). →
+  `research/2026-07-13-on-device-llm-assessment.md` §5.
 - **OQ-objectstore-vendor** *(vendor + spend)*: member media = the first binary
   Dayfold stores → object store needed. **Cloudflare R2 (zero egress)** vs all-Vercel
   (Blob, egress-billed). → §4-W1 / INB-26 #3. ADR 0036 Phase-2.
