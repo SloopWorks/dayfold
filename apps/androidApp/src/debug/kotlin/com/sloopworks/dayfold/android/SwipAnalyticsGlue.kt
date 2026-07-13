@@ -65,7 +65,14 @@ fun swipInit(app: Application) {
   if (SwipAnalyticsHolder.swip != null) return
   val storage = AndroidSwipStorage(app).also { SwipAnalyticsHolder.storage = it }
   SwipAnalyticsHolder.swip = works.sloop.swip.Swip.init(
-    DayfoldSwip.androidProd(),
+    // channel "dev", not the generated androidProd() "prod": the config-debug override gate is
+    // `deps.debuggable && channel ∈ {dev, ci}`, so a prod-channel debug build leaves
+    // SwipInstance.configDebug null and the config panel inert (there is no androidDev() in the
+    // generated registry yet). This file is the DEBUG source set only — release keeps the inert
+    // mirror and never reaches this code. Consequence: debug events now carry internal=true
+    // (SwipInitConfig computes `internal = channel != "prod"`), i.e. dogfood traffic stops
+    // counting as real prod traffic in PostHog — which is what it always should have been.
+    DayfoldSwip.androidProd().copy(channel = "dev"),
     DayfoldSwip.platformDeps(
       transport = PostHogTransport(BuildConfig.POSTHOG_PROJECT_KEY, BuildConfig.POSTHOG_HOST, HttpUrlConnectionPoster()),
       storage = storage,
@@ -84,7 +91,10 @@ fun swipInit(app: Application) {
         isMainProcess(app),
         SqlDelightPersistentQueue(SwipDb(swipDbDriver(app))),
       ),
-    ).copy(debugSink = SwipInspectorGlue.debugSink()),
+      // debuggable: swip-core ships as a RELEASE aar, so its own BuildConfig.DEBUG is
+      // permanently false and it cannot see the consumer's build type — the host must hand it
+      // over or the override gate stays shut in every debug build.
+    ).copy(debugSink = SwipInspectorGlue.debugSink(), debuggable = BuildConfig.DEBUG),
     SwipAnalyticsHolder.scope,
   )
   // CollectionMode and per-scope consent are ORTHOGONAL in swip-core: initialMode=FULL alone
@@ -96,6 +106,13 @@ fun swipInit(app: Application) {
     mapOf(ConsentScope.ANALYTICS to ConsentDecision.GRANTED),
   )
 }
+
+/**
+ * The config-debug seam for the drawer's Config panel. Non-null ONLY in a debuggable dev/ci
+ * build (swip computes the gate at composition); null closes the panel entirely — the host
+ * registers it with `listOfNotNull`, so there is no in-panel gate to get wrong.
+ */
+fun swipConfigDebug(): works.sloop.swip.config.SwipConfigDebug? = SwipAnalyticsHolder.swip?.configDebug
 
 /** The ONE enhancer MainActivity passes to createAppStore: recorder (outer) ∘ analytics middleware. */
 fun debugStoreEnhancer(): StoreEnhancer<AppState>? = compose(

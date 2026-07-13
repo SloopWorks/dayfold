@@ -14,6 +14,9 @@ fun categoryOf(rec: DebugRecord): SwipFilter = when (rec) {
   else -> SwipFilter.STATE
 }
 
+// ConfigAssignment lands here as STATE (above): it records that a config read produced a
+// real exposure — the counterpart to the config panel, which reads without exposing.
+
 @OptIn(ExperimentalSwipDebugApi::class)
 fun swipFilter(entries: List<DebugEntry>, filter: SwipFilter): List<DebugEntry> =
   if (filter == SwipFilter.ALL) entries else entries.filter { categoryOf(it.rec) == filter }
@@ -36,6 +39,7 @@ fun rowLabel(rec: DebugRecord): String = when (rec) {
   is DebugRecord.SessionRotated -> "session rotated · ${rec.reason}"
   is DebugRecord.FlushInvoked -> "flush" + if (rec.manual) " (manual)" else ""
   is DebugRecord.ChannelInfo -> "channel ${rec.channel} · ${rec.transportKind}"
+  is DebugRecord.ConfigAssignment -> "config ${rec.key} = ${rec.variant} · ${rec.reason}"
 }
 
 const val MASK = "••••"
@@ -97,6 +101,12 @@ fun detailLines(rec: DebugRecord): List<DetailLine> = buildList {
       add(DetailLine("channel", rec.channel, sensitive = false))
       add(DetailLine("internal", rec.internal.toString(), sensitive = false))
       add(DetailLine("transportKind", rec.transportKind, sensitive = false))
+    }
+    is DebugRecord.ConfigAssignment -> {
+      add(DetailLine("key", rec.key, sensitive = false))
+      add(DetailLine("variant", rec.variant, sensitive = false))
+      add(DetailLine("reason", rec.reason, sensitive = false))
+      add(DetailLine("revision", rec.revision, sensitive = false))
     }
   }
 }

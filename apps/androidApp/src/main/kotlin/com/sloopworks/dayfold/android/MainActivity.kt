@@ -128,6 +128,13 @@ class MainActivity : ComponentActivity() {
     // icons stay legible in both themes). Inset *padding* is applied in shared UI
     // (FeedApp safe-area wrapper + DetailScreen hero), not here.
     enableEdgeToEdge()
+    // SWIP analytics runtime (debug builds only; inert mirror in release, ADR 0055). Must run
+    // BEFORE store creation (debugStoreEnhancer() below reads the swip instance) AND before
+    // DebugDrawer.install: debugDrawerPlugins() registers the Config panel only when the swip
+    // instance hands out the config-debug seam, which doesn't exist until init has run. Depends
+    // on nothing the drawer/logging/bug-reporter install (it builds its own transport + sink),
+    // and is idempotent.
+    swipInit(application)
     // SloopWorks debug drawer (debug builds only; a no-op facade in release). Install
     // BEFORE any HTTP client is built so backendUrl() can reflect a chosen override.
     DebugDrawer.install(
@@ -152,9 +159,6 @@ class MainActivity : ComponentActivity() {
     // installLogging() above — the bug-reporter wraps the SloopLogging-bound sink to
     // feed the breadcrumb ring while still forwarding to console + drawer.
     bugReporterInstall(this)
-    // SWIP analytics runtime (debug builds only; inert mirror in release, ADR 0055). Must
-    // run BEFORE store creation — debugStoreEnhancer() below reads the swip instance.
-    swipInit(application)
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)

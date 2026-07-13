@@ -25,6 +25,10 @@ kotlin {
       dependencies {
         implementation(project(":debugdrawer"))
         implementation("works.sloop.swip:swip-debug:0.1.0")
+        // Config-debug seam (SwipConfigDebug) — SNAPSHOT until swip PR #56 publishes;
+        // `api` so the host can name SwipConfigDebug when constructing SwipConfigPlugin.
+        api("works.sloop.swip:swip-core:0.1.9-SNAPSHOT")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
         implementation(compose.runtime)
         implementation(compose.foundation)
         implementation(compose.material3)
@@ -33,8 +37,20 @@ kotlin {
     val commonTest by getting {
       dependencies { implementation(kotlin("test")) }
     }
+    // Panel-level tests (Compose semantics over a fake SwipConfigDebug) mirror :ui's
+    // desktopTest harness — commonTest can't render Compose.
+    val desktopTest by getting {
+      dependencies {
+        implementation(kotlin("test"))
+        @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+        implementation(compose.uiTest)
+        implementation(compose.desktop.currentOs)
+      }
+    }
   }
 }
+
+tasks.named<Test>("desktopTest") { useJUnitPlatform() }
 
 android {
   namespace = "com.sloopworks.dayfold.swip.inspector"
