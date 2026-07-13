@@ -21,14 +21,13 @@ kotlin {
         // 0.1.1 exposes okio + coroutines-core as `api` (their types leak through
         // ReportLane / ReduxTimelineRecorder ctors), so consumers no longer redeclare them.
         api("works.sloop.swip:swip-rk-recorder:0.1.1")
-        // SNAPSHOT pins carry the config-debug seam (SwipConfigDebug / SwipInstance.configDebug /
-        // SwipPlatformDeps.debuggable) from swip PR #56 — unpublished, resolved from mavenLocal
-        // (see settings.gradle.kts). schema-dayfold MUST move in lockstep: `debuggable` was added
-        // mid-parameter-list on the SwipPlatformDeps data class, so the 0.1.4 build (compiled
-        // against 0.1.8) calls a synthetic constructor signature that no longer exists →
-        // NoSuchMethodError at runtime. Repin both to releases once PR #56 publishes.
-        api("works.sloop.swip:swip-core:0.1.9-SNAPSHOT")
-        api("works.sloop.swip:schema-dayfold:0.1.5-SNAPSHOT")
+        // Config-debug seam (SwipConfigDebug / SwipInstance.configDebug / SwipPlatformDeps.debuggable)
+        // shipped in swip PR #56, published as swip-core 0.1.9 + schema-dayfold 0.1.5 (swip #57).
+        // These MUST move in lockstep: `debuggable` was added mid-parameter-list on the
+        // SwipPlatformDeps data class, so schema-dayfold 0.1.4 (compiled against swip-core 0.1.8)
+        // calls a synthetic constructor signature that no longer exists → NoSuchMethodError.
+        api("works.sloop.swip:swip-core:0.1.9")
+        api("works.sloop.swip:schema-dayfold:0.1.5")
         api("works.sloop.swip:swip-lifecycle:0.1.0")
         api("works.sloop.swip:swip-rk:0.1.0")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

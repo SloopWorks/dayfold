@@ -25,9 +25,9 @@ kotlin {
       dependencies {
         implementation(project(":debugdrawer"))
         implementation("works.sloop.swip:swip-debug:0.1.0")
-        // Config-debug seam (SwipConfigDebug) — SNAPSHOT until swip PR #56 publishes;
+        // Config-debug seam (SwipConfigDebug) — published in swip-core 0.1.9 (swip #56/#57).
         // `api` so the host can name SwipConfigDebug when constructing SwipConfigPlugin.
-        api("works.sloop.swip:swip-core:0.1.9-SNAPSHOT")
+        api("works.sloop.swip:swip-core:0.1.9")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
         implementation(compose.runtime)
         implementation(compose.foundation)
