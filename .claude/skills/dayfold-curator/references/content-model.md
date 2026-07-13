@@ -17,7 +17,15 @@ Required: `id`, `kind`, `title`, `provenance`.
 - `target` — deep link `{hubId, sectionId?, blockId?}` into a hub.
 - `hubRef` — parent hub id (the "PART OF THIS HUB" pane).
 - `triggers[]` — relevance: `{ "when": { "at": <ts>, "alert_offset": "-PT1H" } }`
-  or `{ "geo": { "lat","lng","radius_m","label" } }` (geo matched on-device).
+  or `{ "geo": { "lat","lng","radius_m","label" } }` / `{ "geo": { "place_ref",
+  "radius_m","label" } }` (geo matched on-device).
+  **Foreground vs. background (ADR 0049):** a coord-only (`lat`/`lng`) `geo`
+  trigger only ever surfaces **in-feed while the app is open** — authoring it
+  alone never arms a background geofence/notification. Background geofence
+  notifications fire ONLY for a `place_ref` pointing at a place the family has
+  already saved on-device (matched against their saved-places geofence set).
+  Don't promise "you'll get notified when you're near X" for a plain lat/lng
+  trigger — that's only true for a `place_ref` trigger.
 - `related[]` — cross-links to other cards in THIS family:
   `{ relation, targetId, targetType, title?, sub? }` — `relation` is free text
   (e.g. `same-email | same-thread | same-hub | same-trip | attachment | contact-of`),

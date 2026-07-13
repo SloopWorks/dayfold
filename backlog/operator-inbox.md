@@ -9,6 +9,29 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-32 · 2026-07-13 · low · open — flip ADR 0054/0055/0056/0057 status text from "Proposed" to "Accepted"?**
+  Found during a repo-maintenance pass (code-dedup/docs/CI/values audit): ADR 0054 (SWIP bug
+  reporter), 0055 (SWIP analytics), 0056 (SloopLogging), and 0057 (SWIP debug inspector) are all
+  still headed **"Proposed ... (accept on merge)"** in their own files and in
+  `adr/decisions-index.md`, but all four PRs (#328/#327/#329 etc.) are already merged to `main`
+  and running live in debug builds. Every other Accepted ADR in the index records an explicit
+  operator act ("operator-directed in-session," "operator ratified," "operator accepted as
+  written") — these four instead carry a **self-referential "accept on merge" clause the drafting
+  agent wrote into its own Proposed header**, which this pass is treating as *not* the same thing
+  as an explicit operator ratification (ADR-class decisions are never agent-decided per
+  `CLAUDE.md`). Nothing in these four ADRs is a red flag on its own (the 07-13 values/privacy
+  spot-check passed all five checks — debug-only, count-only, zero release footprint, no secrets,
+  no PII) — this is a **process/status-accuracy** question, not a content one. **Proposed default:
+  confirm merging was intended to be the acceptance act for these four (matching their own "accept
+  on merge" text) and flip all four to Accepted** — or say no and they stay Proposed until you
+  explicitly ratify each. Either way, once you answer, the four ADR files' status headers need a
+  one-line edit (agent-executable once you pick a direction). Separately (not gated, just
+  noted): ADR 0053's own body still says per-hub Contributor/Co-owner is "not built" under its
+  Milestone-posture section, but `apps/api/src/content/write-guard.ts` + migration `0018` show it
+  IS built and live — the ADR text is stale but, per governance, an Accepted ADR isn't edited
+  after acceptance; flagging for awareness, not action. Context: this pass's findings below;
+  `adr/decisions-index.md` now cross-references this item at the 0054-0057 rows.
+
 - **INB-31 · RESOLVED 2026-07-09 — operator ratified ("approved and continue"); ADR 0052 Accepted + BUILT + green** on branch `feat/cold-start-db-first-route` (`:client` 507 / `:ui` 479 tests, 0 fail; iOS+Android compile). Both gates cleared (optimistic-render §4 + DB-table cache home). Gate A offline indicator deferred as a follow (network-fail-with-cache stays on Feed; existing sync-status surfaces cover connectivity). Surfaced a pre-existing CI gap → `OQ-migration-verify` in open-questions. Original ask below.
 
 - **INB-31 · 2026-07-09 · med · open — ratify ADR 0052: DB-first cold-start route gate?**
