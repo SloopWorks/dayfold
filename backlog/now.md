@@ -61,79 +61,66 @@ Deferred by design: G1 content-authoring "brains" loop (interim authoring =
 operator + Claude Code via the CLI/curator skill); E2EE (ADR 0017); web
 target (`wasmJs`, needs a client DB async migration first).
 
-**In review, not yet on `main` (2026-07-12):** leveled/scrubbed on-device
-logging (`Log` front-door, SWIP `swip-logging` bound debug-only, ADR 0056)
-and a SWIP debug-drawer **inspector panel** — live analytics timeline,
-mask-by-default with `FLAG_SECURE` reveal isolation, debug-only, zero
-release footprint (ADR 0057, `feat/swip-inspector-plugin`); regression gate
-(`:debugdrawer-swip:desktopTest`, `:androidApp:compile{Debug,Release}Kotlin`,
-`:swip-wiring:desktopTest`) green. Mandatory on-device smoke test still
-pending (operator, physical device).
+**Shipped since (2026-07-10 → 2026-07-12, not yet folded into the "Shipped
+and live" paragraph above):** account avatars + hub **People** management +
+per-hub **Viewer/Contributor/Co-owner** roles (ADR 0053, #ae38c3f/#ccd38d6) ·
+editable display name · scoped CLI/device tokens — per-hub grants on the
+approval screen (ADR 0029 extension, 2026-07-11) · leveled/scrubbed on-device
+logging (`Log` front-door, SWIP `swip-logging` bound debug-only, ADR 0056) ·
+a SWIP debug-drawer **inspector panel** — live analytics timeline,
+mask-by-default with `FLAG_SECURE` reveal isolation, debug-only, zero release
+footprint (ADR 0057) · a 3-bug analytics-delivery fix (missing PostHog key +
+missing consent grant + two SWIP SDK bugs — dogfood analytics from the
+2026-07-11 slice were silently never arriving; now confirmed reaching
+PostHog) · analytics events now flush on backgrounding and persist to an
+on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
+**Mandatory on-device smoke test for the inspector panel (`FLAG_SECURE`
+screenshot blanking, chrome insets) is still pending** (operator, physical
+device) — the only item from this window not yet operator-verified.
 
-**2026-07-10 repo-maintenance pass (scheduled, not a feature slice) — one
-real CLI/skill-doc bug found + fixed, one architecture-doc gap closed,
-`now.md` itself pruned.** Same no-npm/no-Gradle-registry-egress sandbox as
-every prior pass (re-confirmed: `registry.npmjs.org` and
-`repo.maven.apache.org` both 403 via the proxy) — so, consistent with every
-pass since 07-03, no *logic* changes were made to `apps/api`/`apps/cli` (no
-way to compile-verify them here); the **still-open `apps/api` code-dedup
-queue** (`requireSession` helper, `hubs.getVisibleHub`, `app.ts`
-route-splitting — see `backlog/next.md`) stays deferred to a build-capable
-environment for the same reason as the last 5 passes. **CI: confirmed GREEN
-live via the GitHub Actions API** (latest run on `main`, #692, `success`;
-spot-checked the last 15 runs across `ci.yml`/`release-android.yml`/
-`secret-scan.yml`, all green) — nothing to fix. Added one operator action
-that had fallen through the cracks: **enable branch protection on `main`
-requiring the CI check before merge** (the 07-05 outage landed without
-waiting on its own CI result; see Operator actions below).
-**Found + fixed a real bug (agent-blocking, not just drift):** a spot-check
-diffing `apps/cli`'s `Main.kt` `USAGE`, `.claude/skills/dayfold-curator/`
-(`references/cli.md`, `references/content-model.md`) against the generated
-schema found that a **card's** `visibility`/`audience` (ADR 0030/0038) — real,
-server-accepted fields, documented in all three places as freely settable —
-are **not** part of the generated `BriefingCard` schema (they're access
-control, read off the raw request body server-side, not content). The CLI's
-opt-in `--type` local pre-check strict-decodes a card against that generated
-type, so an agent that (a) follows the docs' own recommendation to always use
-`--type`, and (b) authors a `restricted`/`audience`-scoped card, gets a local
-"unknown field" rejection instead of a working push — the exact "docs read as
-correct, following them literally breaks" class of bug the 07-06/07-07 passes
-also found and fixed. Documented the real behavior (push a scoped card
-*without* `--type`) in all three places — `USAGE`, `cli.md`, `content-model.md`
-— including a one-line, string-literal-only `Main.kt` change (no logic
-touched). Hub-tree pushes are unaffected (already lenient-structural).
-**Found + fixed a real `docs/architecture.md` gap:** no commits touched
-`apps/api`/`packages/schema` since the 07-09 pass (verified via `git log`),
-but the **DB-first cold-start route gate (ADR 0052)** merged to `main` *after*
-that pass's cutoff (2026-07-10T00:47 UTC) and was a real data-flow change (a
-new local-only `membership` cache table + a background auth-reconciliation
-path) the Data-flow section had no mention of. Added a numbered data-flow
-step + updated the Client-core component row + ADR cross-reference list;
-bumped the file's "as of" date. `README.md` and `CHANGELOG.md` were already
-current (shipping commits update `CHANGELOG.md` themselves; `README.md`'s
-repo table/screenshots didn't need a change). **Simplified this file:**
-`backlog/now.md` had grown to 283 lines by re-stacking every repo-maintenance
-pass's full paragraph under one old header instead of pruning to history,
-working against its own stated "kept short on purpose" design
-(self-inflicted context-usage cost, on-topic for this pass's "optimize for
-agentic development" ask) — moved the 2026-07-03/05/06/07 maintenance-pass
-paragraphs into `backlog/now-history.md` (verbatim, nothing lost) and
-collapsed the two stacked "Current state" headers into one (now.md:
-283→~140 lines). Reviewed `CLAUDE.md`/`AGENTS.md`/`processes/agent-routing.md`/
-`processes/agent-dev-loop.md` again with fresh eyes for agentic-context-usage
-opportunities beyond the now.md fix above: still lean (each already scopes
-itself — e.g. `agent-dev-loop.md`'s Compose/KMP section is skippable for
-CLI-/API-only work, `AGENTS.md` is a 27-line pointer) — no further changes
-made. Remaining CLI/skill-doc dedup (hub-timeline table, block-payload alias
-column, checklist id-stamping note repeated across `SKILL.md`/`references/
-cli.md`/`references/content-model.md`/`templates/README.md`/`USAGE`) left
-as-is per 07-09's judgment — each copy is short and partly intentional for
-`templates/README.md`'s standalone readability. Values/privacy spot-check
-clean: this pass's diff is docs + one CLI help-text string (`docs/
-architecture.md`, `backlog/now.md`, `backlog/now-history.md`, `.claude/
-skills/dayfold-curator/references/{cli,content-model}.md`, `apps/cli/.../
-Main.kt` USAGE only) — no secrets, no PII, no child-account or
-restricted-scope-Gmail surface touched.
+**2026-07-13 repo-maintenance pass** (scheduled — the 7th in this series;
+prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-
+egress sandbox as every prior pass (re-confirmed) — no *logic* changes to
+`apps/api`/`apps/cli`/`apps/client`; the still-open `apps/api` code-dedup
+queue stays deferred to a build-capable environment, but its counts were
+refreshed (auth-guard duplication 9→**11** sites, hub-visibility duplication
+"3+1"→**7** sites, `app.ts` ~1000→**1244** lines — see `backlog/next.md`).
+**CI: green** (`ci.yml` #734 on `main`); one self-healed transient flake
+noted (#725, a `sqldelight` Gradle-plugin resolution hiccup, resolved itself
+2 runs later — no code issue, no action taken). **Found + fixed:** this
+file's own "in review, not yet on `main`" claim for ADR 0056/0057 was stale
+(both had already merged) and three shipped slices (ADR 0053 hub roles/
+avatars, the ADR 0029 scoped-token extension, the analytics-reliability fix)
+were missing from `CHANGELOG.md` — added above and there. `docs/
+architecture.md` was missing ADR 0053 (per-hub roles — live in the API but
+undocumented) and ADR 0057/`debugdrawer-swip` — added (component table, data
+flow, ADR list). **Trimmed `adr/decisions-index.md`** from ~6,970 words to a
+short one-line-per-ADR table (full rationale/composes/rejected-alternatives
+still live untouched in each `adr/NNNN-*.md` file this pass never edited) —
+the single largest agentic-context-usage win found: every loop/planning
+session pays this file's read cost per `CLAUDE.md`'s start-of-session
+routine, and it had grown into a near-duplicate of the standalone ADR files
+rather than an index of them. `CLAUDE.md`/`AGENTS.md`/`processes/agent-
+routing.md`/`processes/agent-dev-loop.md` re-checked fresh: still lean, no
+new growth, no changes needed. **CLI/skill-doc gaps found + fixed:** (1) the
+ADR 0053 per-hub **role** gate (`write-guard.ts`) is a second, independent
+403 source beyond ADR 0029 scope that `references/cli.md` didn't explain —
+added; (2) `place_ref`/foreground-vs-background trigger posture (ADR 0049)
+was undocumented in `content-model.md`/`SKILL.md` — an agent following the
+docs alone would always author foreground-only triggers without knowing it —
+added; (3) `templates/README.md` didn't mention the visibility/audience
+`--type` gotcha the other 3 docs already cover — added a one-line pointer.
+**Not fixed this pass (flagged, not mechanical enough for a no-compile
+sandbox):** ADR 0053's per-hub role gate has no CLI-only remedy path and no
+`--help`-per-verb exit-0 behavior — both are small *behavior* changes to
+`Main.kt`/`app.ts`, deferred to a build-capable pass. **Values/privacy
+spot-check:** clean — a dedicated check of the 6 newest SWIP/logging commits
+against ADR 0055-0057 found no guardrail #3/#4 violations (debug-only,
+count-only, zero release footprint, no secrets). It did surface a real
+governance-process gap: ADR 0054/0055/0056/0057 are all still headed
+"Proposed (accept on merge)" despite being merged and live — filed as
+**INB-32** (operator-inbox) rather than agent-flipped, since ADR acceptance
+is never agent-decided.
 
 ## Design-first gate (ADR 0008) — status
 

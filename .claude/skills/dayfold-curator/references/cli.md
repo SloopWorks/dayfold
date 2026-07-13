@@ -43,6 +43,18 @@ in-place re-scope; a 403 from insufficient scope means the operator must
 `dayfold logout` and `dayfold login` again with broader access approved on
 the phone, not something the skill can work around.
 
+**Per-hub role (ADR 0053) — a second, independent 403 source.** Having the
+right `hub:<id>:write` *scope* is not by itself enough to push a **section**
+or **block** into a hub the signed-in identity didn't create: the server also
+checks a per-hub **role** (`viewer` / `contributor` / `co_owner`) on
+`resource_visibility`, and a Viewer-only role 403s the write even with correct
+scope. If a `push --section`/`--block` 403s but `whoami` shows the expected
+`hub:<id>:write` scope, the fix is different from the scope case above — the
+hub's owner or a Co-owner needs to raise the identity's role to Contributor or
+Co-owner (in-app hub People management), not re-login. The hub's author is
+always an implicit Co-owner. This role check does not apply to a plain hub
+body PUT (`--hub`), only to section/block writes.
+
 **Exit codes** (all commands): `0` = success (including `help`); `1` = the
 server rejected the request (non-200 — see Push below); `2` = local misuse
 (bad flags, an unreadable input file, or `login` refusing a keychain-less host

@@ -7,6 +7,23 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-12 — SWIP analytics reliability: fixed non-delivery + added durable flush-on-background
+
+### Fixed (internal)
+- **Dogfood analytics (2026-07-11 entry below) were never actually reaching PostHog** — three
+  stacked bugs, surfaced by the new SWIP inspector panel: a missing PostHog project key on
+  non-Infisical local builds, a missing analytics-consent grant (collection-mode and per-scope
+  consent are separate switches in the SWIP SDK), and two SWIP SDK bugs — a silently-swallowed
+  error from a removed kotlinx-datetime API, and a malformed field that PostHog rejected every
+  batch on. All fixed (SWIP core bumped to 0.1.6, then 0.1.8); the inspector now shows a clean
+  send-ok path with zero drops.
+
+### Added (internal)
+- **Backgrounding the app no longer strands queued analytics events.** Previously events only
+  flushed on a 30-second timer or once 30 queued, so backgrounding or a process kill lost
+  anything pending. Now flushes once on background and persists the queue to on-device SQLite so
+  it survives a process kill and resumes on next launch.
+
 ## 2026-07-12 — SWIP debug-drawer inspector panel (debug-only)
 
 ### Added (internal)
@@ -43,6 +60,29 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   attached to the analytics id. Scoped to the operator's own dogfooded
   household for now; sending analytics from real users' builds needs its own
   future decision plus a privacy-policy update.
+
+## 2026-07-11 — Scoped CLI/device tokens (per-hub grants)
+
+### Added (API)
+- **Device/CLI tokens can now be scoped to specific hubs** instead of only a blanket
+  read/write-everything grant — the approval screen lets you pick which hubs a linking device
+  gets access to. Existing blanket grants are unaffected. (ADR 0029)
+
+## 2026-07-10 — Account avatars, hub People & per-hub roles
+
+### Added (client)
+- **Profile avatars** (a bundled set, replacing the plain monogram) and **hub People
+  management** — hub owners can now add people to a hub, set it Family/Restricted, and assign a
+  role (**Viewer**, **Contributor**, **Co-owner**) instead of the prior read-only allow-list.
+  Contributors get write access; Co-owners can also manage who's in the hub. The hub's author is
+  always an implicit, non-removable Co-owner. Existing hubs are unaffected — everyone already on
+  the allow-list becomes a Viewer by default. Family owners are still **not** auto-added to a hub
+  they didn't create (unchanged from the earlier visibility model). (ADR 0053)
+- **You can now edit your display name** from the Account screen.
+
+### Fixed (client)
+- The top-bar account avatar now updates immediately when you change your profile avatar,
+  instead of requiring a restart.
 
 ## 2026-07-09 — Timeline detail no longer draws under the status bar
 

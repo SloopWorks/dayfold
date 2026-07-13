@@ -898,19 +898,31 @@ local build). Re-verify green on `main` before trusting this list as current.
   would silently break per-member toggle continuity); `importance` +
   `relatedKicker` added to `content-model.md`'s BriefingCard field list.
 
-**Still open — not applied, still needs a build-capable toolchain to verify:**
+**Still open — not applied, still needs a build-capable toolchain to verify.
+Counts refreshed 2026-07-13 (repo-maintenance pass) — both sites have grown
+since the 2026-07-05 audit; re-verify against current `app.ts` line numbers
+before extracting, don't trust the numbers below once more routes land:**
 - **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
-  the revoked-credential check) is repeated ~9× across `/auth/signout`,
-  `/auth/whoami`, `GET`/`PATCH /auth/me`, `/auth/me/export`, `/auth/me/credentials`
-  (GET+DELETE), `DELETE /auth/me`, `POST /families`, `GET /device/pending`
-  (2026-07-05 audit: `app.ts` ~lines 158/177/189/207/228/244/266/290/720). Extract
+  the revoked-credential check) is now repeated **11×** (was 9 at 2026-07-05)
+  across `/auth/signout`, `/auth/whoami`, `GET`/`PATCH /auth/me`,
+  `/auth/me/export`, `/auth/me/credentials` (GET+DELETE), `DELETE /auth/me`,
+  `POST /families`, `GET /device/pending`, plus 2 more added since
+  (2026-07-13 spot-check: `app.ts:180,192,210,228,272,293,309,331,354,883,1012`;
+  the revoked-credential follow-on query repeats at 6 of those sites). Extract
   a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
-  unapplied this pass — 9 call sites is more surface than the mechanical
-  extractions above; do it with a real build to catch a subtle miss.
-- **`apps/api`** — "fetch hub, check visible, else 404" repeated verbatim 3×
-  (`GET /hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`) + once more (with an
-  extra author-gate check) inside the hub PUT. A `hubs.getVisibleHub(fid, id,
-  caller)` helper in `content/hubs.ts` would cover the 3 GET routes.
+  unapplied this pass too — 11 call sites touching every authenticated route is
+  more surface than the mechanical extractions above; do it with a real build
+  to catch a subtle miss.
+- **`apps/api`** — "fetch hub, check visible, else 404" now repeated **7×**
+  (was "3× + 1 more" at 2026-07-05): the 3 original GETs (`/hubs/:id`,
+  `/hubs/:id/tree`, `/hubs/:id/audience`) plus the hub PUT, participants
+  PUT/DELETE, and the visibility PUT (2026-07-13 spot-check: `app.ts:528-538,
+  541-551, 557-566, 585-593, 604-612, 623-631, 832`). A `hubs.getVisibleHub(fid,
+  id, caller)` helper in `content/hubs.ts` would cover the read-only sites, but
+  several call sites now layer extra `canManageHub`/scope checks after the
+  visibility check — an extraction has to preserve those, not just the fetch.
+  `app.ts` itself is now **1244 lines** / 48 inline route handlers (was
+  ~1000 at 2026-07-05) — the route-splitting item is more overdue, not less.
 - **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
   with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
   `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —

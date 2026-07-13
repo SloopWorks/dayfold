@@ -162,6 +162,13 @@ what it does and doesn't catch, including the `kind`/`provenance.at` codegen
 asymmetry. The server (CL-2) remains the authority for format rules
 (`url()`, ISO-8601, length/int caps) and is always the final word on a 422.
 
+**Visibility & audience (ADR 0030/0038) aren't in the generated schema.** A
+card's `visibility`/`audience` fields are real, server-accepted access
+control — not content — so `--type`'s strict decode rejects them as an
+unknown field. Push a `restricted`/`audience`-scoped card **without
+`--type`**. See `.claude/skills/dayfold-curator/references/content-model.md`
+→ "Visibility & audience" for the field shapes.
+
 ## Guardrails (binding)
 
 Own-mail-only email content, honest `privacy.storage` chips, propose-confirm,

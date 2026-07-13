@@ -64,6 +64,9 @@ For each signal worth surfacing **now**:
   `target` to deep-link its hub, add `triggers` for time/place relevance, set an
   honest `privacy.storage` chip, `provenance.source = "claude"`. Validate + show
   JSON, push on approval: `dayfold push <cardId> card.json --type <type>`.
+  A place `trigger` only reaches background notify via `place_ref` to a saved
+  place — a plain lat/lng `trigger` is foreground-only (see `references/
+  content-model.md` → `triggers[]`); don't imply otherwise to the operator.
 
 Batch a hub's whole tree (or a set of cards) into one approval, but NEVER push an
 un-approved batch. If the server returns non-200, surface the body, fix, re-push.

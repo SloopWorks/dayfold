@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-11). For product framing
+A map of the system as it actually runs today (2026-07-13). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -58,14 +58,14 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Component | Path | Stack | Role |
 |---|---|---|---|
 | Content API | `apps/api` | TypeScript, Hono, `pg`, Zod, deployed on Vercel | Auth (mint/verify tokens, device grant, Firebase verify), family/membership CRUD, hub/card/section/block CRUD with visibility + author-gate enforcement, `/sync` cursor feed, cron sweep (tombstone GC) |
-| Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility`, `device_authorizations`, `invites`, `refresh_tokens` |
+| Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility` (incl. per-hub `role` — viewer/contributor/co_owner, ADR 0053), `device_authorizations`, `invites`, `refresh_tokens` |
 | CLI | `apps/cli` | Kotlin, hand-rolled `java.net.http.HttpClient` (no framework) | `login` (device grant + OS keychain) / `push` / `pull` / `delete` / `template` / `whoami` / `update` — the authoring surface for operators and AI loops |
 | Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
 | Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache (incl. a local-only cached-membership table for the DB-first cold-start route gate, ADR 0052), the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
 | UI | `apps/ui` | Compose Multiplatform, depends on `:client` (ADR 0047) | Feed/hub/detail rendering, screens, theme, the CL-SNAP golden-snapshot harness; also hosts the iOS framework build target |
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
-| Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds |
+| Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux`, `debugdrawer-swip` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds. `-swip` (ADR 0057) adds a live, mask-by-default analytics timeline panel fed by the SWIP capture engine's ring buffer — `debugImplementation`-only, zero release bytes |
 | SWIP wiring | `apps/swip-wiring` | KMP library consuming the published SWIP SDK (`works.sloop.swip:*`) | The SWIP privacy floor + the seam that keeps `:client` SWIP-free: the bug-reporter slice registry + `dayfoldSanitizer` (ADR 0054) and the analytics mapper table + `NoOpErrors` (ADR 0055), plus the mandatory salted-PII leak test (`:swip-wiring:desktopTest`, a CI gate). Consumed `debugImplementation`-only by `:androidApp` (debug/internal builds) |
 | Logging | `Log` front-door in `:client` (`com.sloopworks.dayfold.client.Log`, ADR 0056), bound to SWIP `SloopLogging` in `:androidApp`'s debug glue | `:client` = SWIP-free leveled facade; `swip-logging:0.1.1` debug-only | Leveled (debug/info/warn/error) engine milestone logging → console + devtools drawer, debug builds only; PII-scrubbed ahead of every writer, on-device only, zero swip bytes in release |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
@@ -101,7 +101,11 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    through an **outbox** (optimistic apply → `PUT`/`DELETE` with
    `If-Match`/Idempotency-Key → drain on reconnect), not the read-only sync
    path. Author-gated (`created_by`), scoped to `content:write` /
-   `content:delete`.
+   `content:delete`. Section/block writes into someone else's hub additionally
+   require a per-hub **role** — Viewer (read-only), Contributor (write),
+   Co-owner (write + manage people) — checked independently of the ADR 0029
+   scope string; a hub's author is always an implicit, non-removable Co-owner
+   (ADR 0053). Hub People management (add/remove/set-role) is its own screen.
 6. **Background notifications (ADR 0044, Phase B).** On Android, a background
    pass re-runs the *same* `rank()`/notification-selection code the foreground
    feed uses, over the on-device cache plus live (never-persisted) location, to
@@ -125,7 +129,12 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    8-event slice 1, no PII, geoip disabled at the transport, analytics id
    never linked to an account (`identify()` is never called). `:client`
    imports no `works.sloop.swip`; the release APK carries zero analytics
-   bytes (inert `src/release` glue, same idiom as the bug recorder).
+   bytes (inert `src/release` glue, same idiom as the bug recorder). Events
+   flush on backgrounding (not just the 30s/30-event timer) and persist to an
+   on-device SQLite durable queue (WAL) so a process kill mid-batch doesn't
+   strand them — resumes on next launch. A debug-only **inspector panel**
+   (ADR 0057, in the debug drawer) shows this pipeline's live send/drop
+   timeline, mask-by-default with tap-to-reveal.
 
 ## Auth
 
@@ -149,8 +158,9 @@ Full design/decision record: `adr/0011` (auth architecture), `adr/0021`
 visibility), `adr/0038`–`0042` (two-way member writes), `adr/0043`/`0044` (Now
 derived surfacing + background notifications), `adr/0045`/`0046` (Hub
 Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
-route gate), `adr/0055` (SWIP product analytics — debug-only, PostHog EU,
-count-only).
+route gate), `adr/0053` (per-hub participation roles), `adr/0055` (SWIP
+product analytics — debug-only, PostHog EU, count-only), `adr/0057` (SWIP
+debug inspector panel).
 
 ## Deploy
 
