@@ -3,12 +3,15 @@
 package com.sloopworks.dayfold.android
 
 import android.app.Application
+import android.os.Build
 import android.os.SystemClock
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.createAppStore
+import com.sloopworks.dayfold.swip.DayfoldConfig
+import com.sloopworks.dayfold.swip.gatedBy
 import com.sloopworks.dayfold.swip.NoOpErrors
 import com.sloopworks.dayfold.swip.dayfoldMappers
 import kotlinx.coroutines.CoroutineScope
@@ -94,7 +97,17 @@ fun swipInit(app: Application) {
       // debuggable: swip-core ships as a RELEASE aar, so its own BuildConfig.DEBUG is
       // permanently false and it cannot see the consumer's build type — the host must hand it
       // over or the override gate stays shut in every debug build.
-    ).copy(debugSink = SwipInspectorGlue.debugSink(), debuggable = BuildConfig.DEBUG),
+    ).copy(
+      debugSink = SwipInspectorGlue.debugSink(),
+      debuggable = BuildConfig.DEBUG,
+      configDefaults = DayfoldConfig.defaults(),
+      // REQUIRED by analytics.events.enabled's `os_version >= 15` rule. Without it the
+      // context attribute is null → the condition resolves ERROR → the key falls back to its
+      // compiled default (false) → analytics silently OFF. DayfoldSwip.platformDeps() doesn't
+      // expose osVersion, hence the copy. (gte on os_version is a numeric compare, so
+      // RELEASE's "17"/"15" parses; only `eq` takes the semver path.)
+      osVersion = Build.VERSION.RELEASE,
+    ),
     SwipAnalyticsHolder.scope,
   )
   // CollectionMode and per-scope consent are ORTHOGONAL in swip-core: initialMode=FULL alone
@@ -120,7 +133,15 @@ fun debugStoreEnhancer(): StoreEnhancer<AppState>? = compose(
     bugReporterEnhancer(),
     applyMiddleware(
       swipMiddleware<AppState>(
-        analytics = requireSwip().analytics.asSloopAnalytics(),
+        // analytics.events.enabled is enforced HERE, wrapping track — NOT via consentGate.
+        // consentGate only guards the breadcrumb + exposure read; `analytics.track` runs under
+        // the middleware's own `active` check (swip-rk Middleware.kt), so a config check in
+        // consentGate would not stop a single event. The predicate is read per tracked action,
+        // so a panel override applies on the next action with no restart — and that read is what
+        // read-tracks the key into the Config panel. It resolves TARGETING_MATCH/DEFAULT (never
+        // SPLIT), so it records no exposure.
+        analytics = requireSwip().analytics.asSloopAnalytics()
+          .gatedBy { DayfoldConfig.analyticsEnabled(requireSwip().config) },
         errors = NoOpErrors,
         mappers = SwipAnalyticsHolder.mappers,
         config = null,
