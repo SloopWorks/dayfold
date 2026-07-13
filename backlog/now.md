@@ -19,6 +19,12 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   (2026-07-07/07-09 entries) for the full incident + fix if you need it.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
+- **Quarterly:** re-check whether **Gemini Nano 4 has shipped structured output
+  + tool calling** (OQ-ondevice-k2). That is the revisit trigger for an
+  on-device "K2" key-holder agent — assessed 2026-07-13 as **NO-GO today**
+  (capability-blocked: 4k-in/256-out, no JSON schema, no tools, foreground-only,
+  per-device output variance breaks the shared-briefing wedge). First check
+  ~2026-10. → `research/2026-07-13-on-device-llm-assessment.md`.
 - **Next P0 viability review due 2026-07-18** (or +10 iterations).
 
 ## Current state (as of 2026-07-10)
