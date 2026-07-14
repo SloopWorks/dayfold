@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "build:fn": "esbuild src/vercel-entry.ts --bundle --platform=node --format=esm --outfile=api/index.js --packages=external",
+    "build:fn": "node scripts/build-fn.mjs",
     "db:check": "node scripts/schema-drift.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "env:check": "node scripts/env-check.mjs",
-    "preflight": "node scripts/env-check.mjs && node scripts/schema-drift.mjs"
+    "preflight": "node scripts/env-check.mjs && node scripts/schema-drift.mjs",
+    "build:server": "node scripts/build-fn.mjs --server"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
+    "@sentry/node": "^10.65.0",
+    "@sloopworks/swip-js": "0.4.0",
+    "@sloopworks/swip-schema-dayfold": "0.1.0",
+    "@sloopworks/swip-sentry": "0.2.0",
     "hono": "^4.6.0",
     "jose": "^5.9.0",
     "pg": "^8.13.0",

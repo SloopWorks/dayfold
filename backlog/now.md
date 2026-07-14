@@ -143,6 +143,18 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
+- [ ] **API error reporting (ADR 0058) — merge-blocked on SWIP, then set Vercel env.**
+  `feat/api-swip-errors` wires `apps/api` to the SWIP error pillar (PostHog + Sentry,
+  joined on `swip.fingerprint`; flush awaited in a Hono `finally` because Vercel freezes
+  the container at response time). Verified live against both real vendors. **It cannot
+  merge until SWIP PR #68 merges and publishes `@sloopworks/swip-{js,sentry,schema-dayfold}`
+  to GitHub Packages** — CI runs `npm ci`, which cannot resolve versions that don't exist
+  yet; the branch pins the predicted versions (0.4.0 / 0.2.0 / 0.1.0) and they must be
+  re-pinned to whatever the release actually publishes. Then: add
+  `SENTRY_NODE_EU_DSN` (the API's project — *not* the mobile app's),
+  `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST` to Vercel prod
+  (`processes/deploy-m0.md` §2), and the `SLOOPWORKS_PACKAGES_TOKEN` repo secret must have
+  `read:packages` (it already exists for the Gradle lanes).
 - [ ] **Enable branch protection on `main` requiring the CI check before
   merge.** The 2026-07-05 CI outage (PR #289/`cf2898a`) landed without
   waiting on its own CI result; branch protection would prevent a repeat.

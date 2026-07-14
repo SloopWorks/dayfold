@@ -18,11 +18,42 @@ import { findOp, recordOp } from "./content/oplog.ts";
 import { CONTENT_TOMBSTONE_RETENTION_DAYS } from "./auth/sweep.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
+// SWIP: the facade + the middleware only. This module imports no vendor SDK (ADR 0058) —
+// swip.ts loads SWIP dynamically, from an entrypoint, so importing `app` stays free.
+import { swip, swipErrors } from "./swip.ts";
 
 export const app = new Hono();
 
+// SWIP error pillar (ADR 0058) — OUTERMOST, so it sees every error every other
+// middleware and route can throw, and so its flush is the last thing that runs before
+// the response leaves (on Vercel, the container freezes right after). Inert unless an
+// entrypoint booted SWIP: the test suite and a credential-less local server get a
+// straight pass-through.
+app.use("*", swipErrors());
+
 // Liveness — no auth, no DB (isolates routing/cold-start from the DB path).
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
+
+// Error-pillar smoke routes. GATED exactly like /auth/dev-token (`devAuthAllowed`
+// below): opt-in env AND never in a deployed environment (production/preview refuse).
+// They exist so the flush can be PROVEN end-to-end against the real Sentry + PostHog
+// projects (processes/agent-dev-loop.md § API) — a green unit test cannot see a lost
+// event, which is the entire failure mode.
+if (
+  process.env.ENABLE_DEV_ERRORS === "1" &&
+  process.env.VERCEL_ENV !== "production" &&
+  process.env.VERCEL_ENV !== "preview"
+) {
+  app.get("/debug/boom", () => {
+    throw new Error("dayfold api smoke: deliberate unhandled route error", {
+      cause: new Error("connection terminated unexpectedly"),
+    });
+  });
+  app.get("/debug/wtf", (c) => {
+    swip()?.errors.wtf("dayfold.api.smoke", "deliberate non-crash report", { surface: "api" }, "error");
+    return c.json({ ok: true });
+  });
+}
 
 // Retention sweep, run by Vercel Cron (vercel.json `crons`). Vercel attaches
 // `Authorization: Bearer $CRON_SECRET` to cron requests — verify it constant-time so

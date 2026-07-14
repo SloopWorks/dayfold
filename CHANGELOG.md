@@ -7,6 +7,23 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-14 — The API reports errors (SWIP error pillar → PostHog + Sentry)
+
+### Added (internal)
+- **`apps/api` now reports errors through SWIP** (ADR 0058). Any exception a route throws
+  is recorded through the `SloopErrors` facade and lands in **both** PostHog (our own event
+  stream) and **Sentry** (triage), joinable on `swip.fingerprint`; unhandled errors caught by
+  Sentry's global hooks are mirrored back into the owned stream. Deliberate 4xx responses are
+  not reported, and a thrown error still gets the client exactly the response it got before —
+  instrumentation changes no behaviour. Before this, a 500 in production was a log line nobody
+  read.
+- **The flush is the feature.** Vercel freezes the container the moment a response returns, so
+  the middleware awaits a bounded (2 s, never-rejecting) flush in a `finally`. Without it every
+  test still passes and every event is silently lost.
+- **Deploy now requires** `SENTRY_NODE_EU_DSN` (the API's own Sentry project — *not* the mobile
+  app's), `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`; `npm run env:check` refuses a
+  deploy without them, and installs now need GitHub Packages credentials (`NODE_AUTH_TOKEN`).
+
 ## 2026-07-12 — SWIP analytics reliability: fixed non-delivery + added durable flush-on-background
 
 ### Fixed (internal)
