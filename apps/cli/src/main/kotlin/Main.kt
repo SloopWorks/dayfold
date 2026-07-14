@@ -458,7 +458,10 @@ internal val USAGE =
     "        (refresh token is stored in the OS keychain; on a host with no keychain,\n" +
     "         login refuses unless --allow-env-key, then falls back to a plaintext\n" +
     "         0600 file at ~/.config/dayfold/credentials.json — headless/CI.\n" +
-    "         whoami also prints scope=<grants> for the signed-in credential.)\n" +
+    "         whoami also prints scope=<grants> for the signed-in credential — grants are\n" +
+    "         content:read/content:write (family-wide) or hub:<id>:read/hub:<id>:write\n" +
+    "         (per-hub, ADR 0029), fixed at login time; there is no in-place re-scope,\n" +
+    "         only a fresh `login`.)\n" +
     "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
     "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
     "         --type runs local typed card validation before the server.\n" +
@@ -477,9 +480,13 @@ internal val USAGE =
     "  help | -h | --help         print this usage\n" +
     "\n" +
     "  exit codes: 0 = success (or explicit help); 1 = the server/session rejected\n" +
-    "    the request (login/session-expired, non-2xx, validation failure) — re-run\n" +
-    "    `dayfold login` or fix the payload; 2 = local misuse (bad flags/args, missing\n" +
-    "    env, unreadable file, no keychain without --allow-env-key).\n" +
+    "    the request (login/session-expired, non-2xx, validation failure) — usually fixed\n" +
+    "    by `dayfold login` or fixing the payload, EXCEPT a 403 on `push --section`/`--block`\n" +
+    "    into a hub you don't own: that's the per-hub role gate (ADR 0053, independent of\n" +
+    "    login/scope) — a Viewer can't write, a Contributor can't manage people; only the\n" +
+    "    hub owner/a Co-owner can promote you in-app, re-login will NOT fix it; 2 = local\n" +
+    "    misuse (bad flags/args, missing env, unreadable file, no keychain without\n" +
+    "    --allow-env-key).\n" +
     "\n" +
     "  legacy auth (pre-device-grant, still accepted by the API): set DAYFOLD_API,\n" +
     "    FAMILY_ID, and HOUSEHOLD_SECRET in the environment instead of `login` — no\n" +

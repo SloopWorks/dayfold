@@ -11,6 +11,40 @@ end) — each is self-dated, so use the dates to orient rather than position.
 from `backlog/now.md` on 2026-07-10** (verbatim, that file only keeps the
 most recent pass going forward — see its 2026-07-10 entry for why).
 
+**2026-07-13 repo-maintenance pass** (scheduled — the 7th in this series).
+Same no-npm/no-Gradle-registry-egress sandbox as every prior pass
+(re-confirmed) — no *logic* changes to `apps/api`/`apps/cli`/`apps/client`;
+the still-open `apps/api` code-dedup queue stays deferred to a build-capable
+environment, but its counts were refreshed (auth-guard duplication 9→**11**
+sites, hub-visibility duplication "3+1"→**7** sites, `app.ts` ~1000→**1244**
+lines — see `backlog/next.md`). **CI: green** (`ci.yml` #734 on `main`); one
+self-healed transient flake noted (#725, a `sqldelight` Gradle-plugin
+resolution hiccup, resolved itself 2 runs later — no code issue, no action
+taken). **Found + fixed:** this file's own "in review, not yet on `main`"
+claim for ADR 0056/0057 was stale (both had already merged) and three
+shipped slices (ADR 0053 hub roles/avatars, the ADR 0029 scoped-token
+extension, the analytics-reliability fix) were missing from `CHANGELOG.md` —
+added. `docs/architecture.md` was missing ADR 0053 (per-hub roles — live in
+the API but undocumented) and ADR 0057/`debugdrawer-swip` — added. **Trimmed
+`adr/decisions-index.md`** from ~6,970 words to a short one-line-per-ADR
+table (full rationale/composes/rejected-alternatives still live untouched in
+each `adr/NNNN-*.md` file) — the single largest agentic-context-usage win
+found at the time. **CLI/skill-doc gaps found + fixed:** (1) the ADR 0053
+per-hub **role** gate (`write-guard.ts`) is a second, independent 403 source
+beyond ADR 0029 scope that `references/cli.md` didn't explain — added; (2)
+`place_ref`/foreground-vs-background trigger posture (ADR 0049) was
+undocumented in `content-model.md`/`SKILL.md` — added; (3)
+`templates/README.md` didn't mention the visibility/audience `--type`
+gotcha the other 3 docs already cover — added a one-line pointer. **Not
+fixed this pass (flagged, not mechanical enough for a no-compile sandbox):**
+ADR 0053's per-hub role gate had no CLI-only remedy path and no
+`--help`-per-verb exit-0 behavior — both fixed in the 2026-07-14 pass
+(inline `USAGE` text). **Values/privacy spot-check:** clean. Surfaced a
+governance-process gap: ADR 0054/0055/0056/0057 were all still headed
+"Proposed (accept on merge)" despite being merged and live — filed as
+**INB-32** (operator-inbox) rather than agent-flipped, since ADR acceptance
+is never agent-decided.
+
 **2026-07-07 repo-maintenance pass (scheduled, not a feature slice) — added a
 CI self-heal path, closed 3 real skill/CLI-doc bugs (not doc drift — actively
 wrong instructions).** Same no-npm/Gradle-registry-egress sandbox as the prior
