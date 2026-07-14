@@ -15,11 +15,13 @@ flowchart TB
         Skill -- "drives" --> CLI
     end
 
+    IdP["Firebase Auth\n(Google / Apple sign-in)"]
+
     subgraph Cloud["Vercel (serverless)"]
         API["Content API\nTypeScript / Hono\napps/api"]
     end
 
-    DB[("Postgres (Neon)\nfamilies · memberships\nhubs/sections/blocks · cards\nop_log · sync cursors")]
+    DB[("Postgres (Neon)\nfamilies/memberships · hubs/sections/blocks · cards\nop_log · sync cursors\nresource_visibility (per-hub role, ADR 0053)\ndevice_authorizations · invites · refresh_tokens")]
 
     subgraph Devices["Family devices"]
         Core["apps/client (KMP core, Compose-free)\nredux-kotlin store + SQLDelight cache\nADR 0047"]
@@ -31,19 +33,28 @@ flowchart TB
         UI --- IosHost
     end
 
+    subgraph Debug["Debug builds only — zero release footprint"]
+        Analytics["apps/swip-wiring + debugdrawer-swip\nbug reporter (ADR 0054) · analytics (ADR 0055)\nlogging (ADR 0056) · inspector panel (ADR 0057)"]
+        PostHog["PostHog EU\n(3rd-party, count-only, never-identify)"]
+        Analytics -. "count-only events, no PII" .-> PostHog
+    end
+
     Shared["packages/schema + packages/linkrules\ncodegen'd content contract\n+ shared link/media vetting"]
 
     CLI -- "HTTPS: login (RFC 8628 device grant)\npush / pull / delete (JWT)" --> API
     API -- "SQL" --> DB
+    Core -- "sign-in (Google/Apple)" --> IdP
+    API -. "verify ID token via JWKS" .-> IdP
     Core -- "HTTPS: /auth/*, /sync (poll), /families/*\n(member writes: checklist toggle/delete/hide)" --> API
     Core -. "local notifications\n(geofence + exact alarm,\nno push service)\nAndroidHost/IosHost glue" .-> AndroidHost
     Core -. "local notifications" .-> IosHost
+    AndroidHost -. "redux actions\n(debug builds only)" .-> Analytics
     Shared -. "generates TS types for" .-> API
     Shared -. "generates Kotlin types for\n+ srcdir'd into" .-> CLI
     Shared -. "srcdir'd into" .-> Core
 
     classDef ext fill:#f5f5f5,stroke:#999,color:#333;
-    class DB ext;
+    class DB,IdP,PostHog ext;
 ```
 
 **Server-blind, client-rendered.** The API stores and moves typed JSON; it does

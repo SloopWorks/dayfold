@@ -11,8 +11,10 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-10 (latest run,
-  #692, `success`). Was red 2026-07-05→07-07; PR #291 added
+- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-14 (latest run,
+  #29286455499 `CI`, `success`, 2026-07-13T21:28:13Z; one older transient
+  flake at 2026-07-12T18:34:49Z self-healed on the very next push — no
+  action needed). Was red 2026-07-05→07-07; PR #291 added
   `.github/workflows/rebuild-api-bundle.yml` (`workflow_dispatch`,
   `contents: write`) as a standing self-heal tool for the next time the
   committed API bundle drifts from source — see `backlog/now-history.md`
@@ -84,49 +86,50 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-13 repo-maintenance pass** (scheduled — the 7th in this series;
+**2026-07-14 repo-maintenance pass** (scheduled — the 8th in this series;
 prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-
-egress sandbox as every prior pass (re-confirmed) — no *logic* changes to
-`apps/api`/`apps/cli`/`apps/client`; the still-open `apps/api` code-dedup
-queue stays deferred to a build-capable environment, but its counts were
-refreshed (auth-guard duplication 9→**11** sites, hub-visibility duplication
-"3+1"→**7** sites, `app.ts` ~1000→**1244** lines — see `backlog/next.md`).
-**CI: green** (`ci.yml` #734 on `main`); one self-healed transient flake
-noted (#725, a `sqldelight` Gradle-plugin resolution hiccup, resolved itself
-2 runs later — no code issue, no action taken). **Found + fixed:** this
-file's own "in review, not yet on `main`" claim for ADR 0056/0057 was stale
-(both had already merged) and three shipped slices (ADR 0053 hub roles/
-avatars, the ADR 0029 scoped-token extension, the analytics-reliability fix)
-were missing from `CHANGELOG.md` — added above and there. `docs/
-architecture.md` was missing ADR 0053 (per-hub roles — live in the API but
-undocumented) and ADR 0057/`debugdrawer-swip` — added (component table, data
-flow, ADR list). **Trimmed `adr/decisions-index.md`** from ~6,970 words to a
-short one-line-per-ADR table (full rationale/composes/rejected-alternatives
-still live untouched in each `adr/NNNN-*.md` file this pass never edited) —
-the single largest agentic-context-usage win found: every loop/planning
-session pays this file's read cost per `CLAUDE.md`'s start-of-session
-routine, and it had grown into a near-duplicate of the standalone ADR files
-rather than an index of them. `CLAUDE.md`/`AGENTS.md`/`processes/agent-
-routing.md`/`processes/agent-dev-loop.md` re-checked fresh: still lean, no
-new growth, no changes needed. **CLI/skill-doc gaps found + fixed:** (1) the
-ADR 0053 per-hub **role** gate (`write-guard.ts`) is a second, independent
-403 source beyond ADR 0029 scope that `references/cli.md` didn't explain —
-added; (2) `place_ref`/foreground-vs-background trigger posture (ADR 0049)
-was undocumented in `content-model.md`/`SKILL.md` — an agent following the
-docs alone would always author foreground-only triggers without knowing it —
-added; (3) `templates/README.md` didn't mention the visibility/audience
-`--type` gotcha the other 3 docs already cover — added a one-line pointer.
-**Not fixed this pass (flagged, not mechanical enough for a no-compile
-sandbox):** ADR 0053's per-hub role gate has no CLI-only remedy path and no
-`--help`-per-verb exit-0 behavior — both are small *behavior* changes to
-`Main.kt`/`app.ts`, deferred to a build-capable pass. **Values/privacy
-spot-check:** clean — a dedicated check of the 6 newest SWIP/logging commits
-against ADR 0055-0057 found no guardrail #3/#4 violations (debug-only,
-count-only, zero release footprint, no secrets). It did surface a real
-governance-process gap: ADR 0054/0055/0056/0057 are all still headed
-"Proposed (accept on merge)" despite being merged and live — filed as
-**INB-32** (operator-inbox) rather than agent-flipped, since ADR acceptance
-is never agent-decided.
+egress sandbox as every prior pass (re-confirmed: `registry.npmjs.org` and
+`repo1.maven.org` both 403 through the proxy) — no *logic* changes to
+`apps/api`/`apps/client`; the `apps/api` code-dedup queue stays deferred to
+a build-capable environment (unchanged counts, see `backlog/next.md`).
+**CI: green** (`ci.yml` run #29286455499 on `main`, confirmed via the GitHub
+API; one older transient flake at 2026-07-12T18:34:49Z self-healed on the
+next push — no action needed). **Biggest find: `backlog/next.md` (1015
+lines) had never had the pruning pass `now.md` got on 2026-07-03** — it was
+~75% completed/superseded build narrative (the whole Content-Library CL-0…
+CL-PLAT epic, the full AUTH S1–S6 build log, etc.) sitting in a file whose
+own header says "queued work only." Split it the same way, into a new
+**`backlog/next-history.md`**: `next.md` is now 301 lines (was 1015, a
+~71% cut) holding only what's genuinely still queued/blocked; full narrative
+preserved verbatim in the history file. Three sections (TASK-AUTH-S6-D,
+TASK-AUTH-CONTENT, TASK-KMP) read as shipped from git log/CHANGELOG
+evidence but weren't build-verified in this sandbox — archived with a
+flagged "believed done, needs one verification pass" stub in `next.md`
+rather than silently asserted done. **Skill/CLI-doc pass:** the
+`dayfold-curator` skill docs (`cli.md`/`content-model.md`/`guardrails.md`/
+`templates/README.md`) were re-audited command-by-command against
+`Main.kt` — no undocumented commands/flags, no stale references, the
+2026-07-13 fixes all confirmed present. Found the inline `dayfold --help`
+text itself was thin/misleading in two spots and fixed both (source-only,
+not build-verified — plain Kotlin string-literal edits): the exit-code-1
+remediation said "re-run `dayfold login`" for every failure, which is wrong
+for an ADR 0053 per-hub-role 403 (re-login doesn't fix it — only the hub
+owner/co-owner promoting you in-app does); and `whoami`'s scope line never
+explained the ADR 0029 grant vocabulary. **Docs:** `docs/architecture.md`'s
+mermaid diagram was stale relative to its own Components table/prose — it
+never showed the SWIP analytics/logging stack (ADR 0054–0057, debug-only),
+the Firebase/IdP sign-in path, or the per-hub-role/device-auth DB detail;
+added all three. `README.md`'s screenshots section apologized for not
+having "current polished state" shots — swapped in real CI-verified golden
+snapshots (`apps/ui/.../snapshots/linux/*.png`, light+dark, Now feed + Hub
+detail) instead of the older raw dev-proof shots. Also fixed a real
+duplication: `README.md`'s opening paragraph was a near-verbatim copy of
+`CLAUDE.md`'s (edit-one-forget-the-other risk) — shortened to a distinct
+landing-page framing that links to `CLAUDE.md` instead of restating it.
+**Values/privacy spot-check:** clean — the only two commits since the last
+pass (`a34a987` on-device-LLM research, no code; `cbe4acb` the 2026-07-13
+maintenance pass itself) touch no product code. No new guardrail-#3/#4
+exposure from today's changes (docs + one Kotlin help-text edit only).
 
 ## Design-first gate (ADR 0008) — status
 
