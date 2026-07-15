@@ -8,11 +8,10 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/types.ts
+// node_modules/@sloopworks/swip-js/src/types.ts
 var PESSIMISTIC_CONSENT;
 var init_types = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/types.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/types.ts"() {
     PESSIMISTIC_CONSENT = {
       analytics: "unknown",
       telemetry: "unknown",
@@ -21,7 +20,7 @@ var init_types = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/ulid.ts
+// node_modules/@sloopworks/swip-js/src/ulid.ts
 function defaultFillRandom(bytes) {
   crypto.getRandomValues(bytes);
 }
@@ -60,17 +59,15 @@ function makeUlidFactory(deps) {
 }
 var B32;
 var init_ulid = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/ulid.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/ulid.ts"() {
     B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/pipeline.ts
+// node_modules/@sloopworks/swip-js/src/pipeline.ts
 var Pipeline;
 var init_pipeline = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/pipeline.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/pipeline.ts"() {
     init_types();
     Pipeline = class {
       #opts;
@@ -88,6 +85,26 @@ var init_pipeline = __esm({
       #shut = false;
       #persistedIds = /* @__PURE__ */ new Set();
       #noDisk = false;
+      /**
+       * Bumped by [purge]. Every staging write snapshots it before `store.put()` and
+       * re-checks it after: a purge that landed while the write was in flight swept a
+       * store that did not contain that row yet, so adopting the row would leave a
+       * purged, distinct-id-bearing batch on disk for recover() to SHIP at next launch
+       * — a privacy violation, not a lost event (ADR-0018). Mirrors the Kotlin
+       * `purgeEpoch` + `adoptOrPurged()` guard in swip-core Pipeline.kt.
+       */
+      #purgeEpoch = 0;
+      /**
+       * Serialized tail of every disk-staging operation (`#persistFormed`, the purge
+       * sweep). Two overlapping `#persistFormed()` runs would both snapshot
+       * `#persistedIds` before either added to it and re-`put()` the same batch (a
+       * duplicate IDB write that also re-stamps `persistedAt`, silently extending
+       * age-based retention). Chaining also gives `purge()` something to await: an
+       * in-flight `put()` completes BEFORE the sweep lists the store, so the sweep
+       * deletes it rather than racing it.
+       */
+      #persistTail = Promise.resolve();
+      #recovering = null;
       #stats = {
         drops: { consent_denied: 0, overflow: 0, dead_letter: 0 },
         counters: { flush_failures: 0, storage_errors: 0 },
@@ -100,6 +117,7 @@ var init_pipeline = __esm({
           flushIntervalMs: 3e4,
           baseRetryDelayMs: 1e3,
           maxRetryDelayMs: 3e5,
+          maxAttempts: 96,
           maxOfflineBytes: 2 * 1024 * 1024,
           maxOfflineAgeMs: 72 * 36e5,
           ...options
@@ -123,7 +141,24 @@ var init_pipeline = __esm({
         }
       }
       /** Never throws (INVARIANT 13): errors become drop counters, not exceptions. */
-      /** `critical` = write-through durability (ADR-0017): persist before returning. */
+      /**
+       * `critical` = write-through durability (ADR-0017). WHAT IS ACTUALLY GUARANTEED
+       * ON RETURN, precisely — because a comment promising more than the code delivers
+       * is how §8.2 happened:
+       *
+       *  - the event has left the volatile ring and is in a FORMED batch (immutable
+       *    batch_id, INVARIANT 1), and
+       *  - its disk write is QUEUED, ahead of every write initiated after it.
+       *
+       * NOT guaranteed on return: that the bytes are on disk. They cannot be. enqueue()
+       * is sync-returning and non-throwing by contract (INVARIANT 13 forbids main-thread
+       * I/O at an SDK entry point) and the web's only persistence backend — IndexedDB —
+       * has no synchronous API. Kotlin's store is a blocking SQLDelight call, so Kotlin
+       * really does persist before returning; TypeScript cannot.
+       *
+       * The awaitable path for callers that need the real guarantee (a serverless
+       * handler about to freeze, a test): `whenDurable()`.
+       */
       enqueue(event, scope, tier = "normal", critical = false) {
         try {
           const decision = this.#consent[scope];
@@ -144,7 +179,7 @@ var init_pipeline = __esm({
           this.#enqueueGranted(event, tier);
           if (critical) {
             this.#formBatches();
-            void this.#persistFormed();
+            void this.#schedulePersist();
           }
         } catch {
           this.#stats.counters.flush_failures += 1;
@@ -182,18 +217,28 @@ var init_pipeline = __esm({
       /**
        * Requeue batches that survived process death (docs/02: inflight → pending on
        * init). They keep their ORIGINAL batch_id (INVARIANT 1) and go ahead of new
-       * work. Call once after construction, before the first flush.
+       * work. Called by Swip.init() when a persistence backend is wired; idempotent,
+       * and every flush() awaits it, so a flush racing a cold start cannot start
+       * sending before the recovered batches are back in the queue.
        */
-      async recover() {
+      recover() {
+        this.#recovering ??= this.#recoverOnce();
+        return this.#recovering;
+      }
+      async #recoverOnce() {
         if (!this.#opts.persistence) return;
+        const epoch = this.#purgeEpoch;
         try {
           const persisted = await this.#opts.persistence.list();
           for (const row of persisted) {
-            if (row.state === "inflight") await this.#opts.persistence.setState(row.batch.batch_id, "pending");
-            this.#persistedIds.add(row.batch.batch_id);
+            if (row.state === "inflight") {
+              await this.#opts.persistence.setState(row.batch.batch_id, "pending", row.attempts ?? 0);
+            }
           }
+          if (this.#purgeEpoch !== epoch) return;
+          for (const row of persisted) this.#persistedIds.add(row.batch.batch_id);
           this.#batches = [
-            ...persisted.map((row) => ({ batch: row.batch, attempts: 0, notBefore: 0 })),
+            ...persisted.map((row) => ({ batch: row.batch, attempts: row.attempts ?? 0, notBefore: 0 })),
             ...this.#batches
           ];
         } catch {
@@ -207,8 +252,9 @@ var init_pipeline = __esm({
         } catch {
           this.#stats.counters.flush_failures += 1;
         }
+        if (this.#recovering) await this.#recovering;
         this.#formBatches();
-        await this.#persistFormed();
+        await this.#schedulePersist();
         const watched = this.#batches.map((p) => p.batch);
         await this.#drain();
         let sent = 0;
@@ -254,42 +300,111 @@ var init_pipeline = __esm({
         }
       }
       /**
-       * ADR-0018 ANONYMOUS = memory-only. Rides `noDisk` — the existing
-       * "degrade to memory-only" state that already gates every disk op — so no-disk
-       * needs no new field or gate. `setNoDisk(true)` also drops buffered in-memory
-       * state (the downgrade purge); the caller purges the persisted store itself
-       * (it owns the PersistentQueue ref). A real storage failure re-arms the flag
-       * on the next write, so re-enabling on upgrade is self-healing.
+       * ADR-0018 ANONYMOUS = memory-only. Rides `noDisk` — the existing "degrade to
+       * memory-only" state that already gates every disk op — so no-disk needs no new field
+       * or gate. It no longer doubles as the purge (that is `purge()`, which owns the sweep).
+       *
+       * `noDisk` IS A LATCH, NOT A SELF-HEALING FLAG, and the comment that used to say
+       * otherwise was simply false. Two things set it:
+       *
+       *  - this method (a CollectionMode transition: ANONYMOUS → true, an upgrade → false), and
+       *  - a STORAGE FAILURE (`#persistFormed`, `#persistState`, `#recoverOnce`), which latches
+       *    it true FOR THE PROCESS: every disk op is gated on it and nothing retries, so one
+       *    transient IndexedDB error (a private-mode tab, a quota bump, a blocked upgrade)
+       *    disables persistence until the page is reloaded — or until a CollectionMode UPGRADE
+       *    happens to clear it, which is a coincidence, not a recovery.
+       *
+       * That is the deliberate trade (INVARIANT 13: never block delivery on the store, never
+       * throw out of an entry point) and Kotlin's `persistenceDead` latches identically. It is
+       * written down rather than fixed because a retry loop against a store that just failed is
+       * how instrumentation takes the main thread down; the `storage_errors` counter on
+       * `sdk_health` is how it becomes visible instead.
        */
       setNoDisk(v) {
         this.#noDisk = v;
-        if (v) {
-          this.#queue = [];
-          this.#batches = [];
-        }
+      }
+      /**
+       * Destroy queued AND persisted events (ADR-0018 / INVARIANT 29: a collection-mode
+       * downgrade purges synchronously, and purged events are never resurrected).
+       *
+       * The in-memory half — ring buffer, formed batches, pre-consent buffers, the
+       * persisted-id set — is destroyed SYNCHRONOUSLY, before this method's first
+       * await, so a caller that drops the promise still cannot leak pre-downgrade
+       * events into a post-downgrade batch. The disk sweep CANNOT be synchronous
+       * (IndexedDB has no sync API), so "synchronous purge" on the web means
+       * "awaitable, and awaited by the caller" — `setCollectionMode()` awaits it.
+       *
+       * Storage failures are COUNTED (`storage_errors` → `sdk_health`), never
+       * swallowed: a purge that silently failed to clear disk is the exact shape of a
+       * privacy incident nobody notices.
+       */
+      purge() {
+        this.#queue = [];
+        this.#batches = [];
+        this.#preConsent.clear();
+        this.#persistedIds.clear();
+        this.#purgeEpoch += 1;
+        const store = this.#opts.persistence;
+        if (!store) return Promise.resolve();
+        const sweep2 = this.#persistTail.catch(() => {
+        }).then(async () => {
+          try {
+            for (const row of await store.list()) await store.delete(row.batch.batch_id);
+          } catch {
+            this.#stats.counters.storage_errors += 1;
+          }
+        });
+        this.#persistTail = sweep2;
+        return sweep2;
+      }
+      /**
+       * Resolves once every staging write initiated so far has settled — the awaitable
+       * half of the ADR-0017 write-through contract (see `enqueue`). Never rejects.
+       */
+      whenDurable() {
+        return this.#persistTail;
+      }
+      /** Serialize staging behind the tail — see `#persistTail`. */
+      #schedulePersist() {
+        this.#persistTail = this.#persistTail.catch(() => {
+        }).then(() => this.#persistFormed());
+        return this.#persistTail;
       }
       async #persistFormed() {
         const queue = this.#opts.persistence;
         if (!queue || this.#noDisk) return;
-        for (const pending of this.#batches) {
+        const epoch = this.#purgeEpoch;
+        let wrote = false;
+        for (const pending of [...this.#batches]) {
           if (this.#persistedIds.has(pending.batch.batch_id)) continue;
           try {
             await queue.put(pending.batch, "pending", this.#opts.now());
+            if (this.#purgeEpoch !== epoch) {
+              await queue.delete(pending.batch.batch_id);
+              return;
+            }
             this.#persistedIds.add(pending.batch.batch_id);
-            await queue.prune({
-              maxBytes: this.#opts.maxOfflineBytes,
-              maxAgeMs: this.#opts.maxOfflineAgeMs,
-              now: this.#opts.now()
-            });
+            wrote = true;
           } catch {
             this.#stats.counters.storage_errors += 1;
             this.#noDisk = true;
             return;
           }
         }
+        if (!wrote) return;
+        try {
+          await queue.prune({
+            maxBytes: this.#opts.maxOfflineBytes,
+            maxAgeMs: this.#opts.maxOfflineAgeMs,
+            now: this.#opts.now()
+          });
+        } catch {
+          this.#stats.counters.storage_errors += 1;
+          this.#noDisk = true;
+        }
       }
       /** Best-effort persisted-state transition; storage failure degrades, never blocks. */
-      async #persistState(batchId, action) {
+      async #persistState(batchId, action, attempts) {
         const queue = this.#opts.persistence;
         if (!queue || this.#noDisk || !this.#persistedIds.has(batchId)) return;
         try {
@@ -297,7 +412,7 @@ var init_pipeline = __esm({
             await queue.delete(batchId);
             this.#persistedIds.delete(batchId);
           } else {
-            await queue.setState(batchId, action);
+            await queue.setState(batchId, action, attempts);
           }
         } catch {
           this.#stats.counters.storage_errors += 1;
@@ -310,11 +425,41 @@ var init_pipeline = __esm({
         });
         return this.#draining;
       }
+      /**
+       * RETIRE THE SENT BATCH BY IDENTITY. NEVER `#batches.shift()`.
+       *
+       * `#batches` is not owned by the drain loop: while it is suspended inside
+       * `transport.send()`, `purge()` can EMPTY the array, `#formBatches()` can push onto it,
+       * and `recover()` can PREPEND to it. Index 0 when the send returns is therefore not
+       * necessarily the batch that was sent — after a purge it is a DIFFERENT, UNSENT batch,
+       * and `shift()` deletes it unsent, unacked and uncounted (every `health()` drop counter
+       * still reads zero). That is silent, permanent event loss, and its most likely trigger is
+       * the consent banner's Reject button (`setCollectionMode("ANONYMOUS")` → purge + noDisk,
+       * so the batch is not even on disk for `recover()` to find).
+       *
+       * A batch that is gone (purged) is simply not removed — it was already destroyed, on
+       * purpose (ADR-0018), and re-adding it is the one thing a purge must never allow.
+       *
+       * This is the port of Kotlin's `removeSentLocked` (swip-core Pipeline.kt): "Remove by
+       * identity, or not at all." The two SDKs share the invariant; they now share the code.
+       */
+      #retireSent(head) {
+        const i = this.#batches.indexOf(head);
+        if (i >= 0) this.#batches.splice(i, 1);
+      }
       async #drainLoop() {
         while (this.#batches.length > 0) {
           const head = this.#batches[0];
           if (head.notBefore > this.#opts.now()) return;
-          await this.#persistState(head.batch.batch_id, "inflight");
+          if (head.attempts >= this.#opts.maxAttempts) {
+            this.#stats.drops.dead_letter += head.batch.events.length;
+            for (const event of head.batch.events) this.#deadIds.add(event.event_id);
+            this.#retireSent(head);
+            await this.#persistState(head.batch.batch_id, "delete");
+            continue;
+          }
+          head.attempts += 1;
+          await this.#persistState(head.batch.batch_id, "inflight", head.attempts);
           let result;
           try {
             result = await this.#opts.transport.send(head.batch);
@@ -327,25 +472,31 @@ var init_pipeline = __esm({
               this.#hintUntil = this.#opts.now() + result.nextFlushHintS * 1e3;
             }
             for (const event of head.batch.events) this.#ackedIds.add(event.event_id);
-            this.#batches.shift();
+            this.#retireSent(head);
             await this.#persistState(head.batch.batch_id, "delete");
             continue;
           }
           if (result.kind === "drop") {
             this.#stats.drops.dead_letter += head.batch.events.length;
             for (const event of head.batch.events) this.#deadIds.add(event.event_id);
-            this.#batches.shift();
+            this.#retireSent(head);
             await this.#persistState(head.batch.batch_id, "delete");
             continue;
           }
-          head.attempts += 1;
+          if (head.attempts >= this.#opts.maxAttempts) {
+            this.#stats.drops.dead_letter += head.batch.events.length;
+            for (const event of head.batch.events) this.#deadIds.add(event.event_id);
+            this.#retireSent(head);
+            await this.#persistState(head.batch.batch_id, "delete");
+            continue;
+          }
           const window = Math.min(
             this.#opts.maxRetryDelayMs,
             this.#opts.baseRetryDelayMs * 2 ** (head.attempts - 1)
           );
           const delay = result.afterMs ?? Math.max(1, Math.round(this.#opts.random() * window));
           head.notBefore = this.#opts.now() + delay;
-          await this.#persistState(head.batch.batch_id, "pending");
+          await this.#persistState(head.batch.batch_id, "pending", head.attempts);
           if (this.#retryTimer !== null) this.#opts.clearTimeout(this.#retryTimer);
           this.#retryTimer = this.#opts.setTimeout(() => {
             this.#retryTimer = null;
@@ -358,11 +509,10 @@ var init_pipeline = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/coordinator.ts
+// node_modules/@sloopworks/swip-js/src/coordinator.ts
 var FlushCoordinator;
 var init_coordinator = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/coordinator.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/coordinator.ts"() {
     FlushCoordinator = class {
       #flushables = /* @__PURE__ */ new Set();
       #windowUntil = 0;
@@ -389,11 +539,10 @@ var init_coordinator = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/analytics.ts
+// node_modules/@sloopworks/swip-js/src/analytics.ts
 var MemoryStorage, KEY_INSTALLATION, KEY_DISTINCT, KEY_SESSION, SESSION_BACKGROUND_ROTATE_MS, SESSION_MAX_MS, SwipAnalytics;
 var init_analytics = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/analytics.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/analytics.ts"() {
     init_pipeline();
     MemoryStorage = class {
       map = /* @__PURE__ */ new Map();
@@ -513,6 +662,23 @@ var init_analytics = __esm({
       flush() {
         return this.pipeline.flush();
       }
+      /**
+       * Resolves once every write-through (`critical`, ADR-0017) staging write initiated
+       * so far is actually on disk. track() is sync-returning and IndexedDB is async-only,
+       * so this — not track()'s return — is where the durability guarantee is observable.
+       * Never rejects (INVARIANT 13): a storage failure counts, it does not throw.
+       */
+      whenDurable() {
+        return this.pipeline.whenDurable();
+      }
+      /**
+       * Re-queue batches a PREVIOUS process persisted but never acked (docs/02). Without
+       * it the PersistentQueue is WRITE-ONLY — the exact bug Kotlin fixed in 59f42cc.
+       * Called by Swip.init() when a persistence backend is wired; flush() awaits it.
+       */
+      recover() {
+        return this.pipeline.recover();
+      }
       setConsent(consent) {
         this.pipeline.setConsent(consent);
       }
@@ -606,7 +772,7 @@ var init_analytics = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/murmur3.ts
+// node_modules/@sloopworks/swip-js/src/config/murmur3.ts
 function murmur3_32(input, seed = 0) {
   const data = encoder.encode(input);
   const nblocks = data.length >>> 2;
@@ -644,13 +810,12 @@ function murmur3_32(input, seed = 0) {
 }
 var encoder;
 var init_murmur3 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/murmur3.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/murmur3.ts"() {
     encoder = new TextEncoder();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/bucketing.ts
+// node_modules/@sloopworks/swip-js/src/config/bucketing.ts
 function bucketOf(salt, unitId) {
   return murmur3_32(`${salt}.${unitId}`, 0) % 1e4;
 }
@@ -668,13 +833,12 @@ function multivariateVariant(bucket, weights) {
   return last;
 }
 var init_bucketing = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/bucketing.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/bucketing.ts"() {
     init_murmur3();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/semver.ts
+// node_modules/@sloopworks/swip-js/src/config/semver.ts
 function segments(version) {
   const core = version.split(/[+-]/, 1)[0];
   return core.split(".").map((s) => Number.parseInt(s, 10) || 0);
@@ -709,13 +873,12 @@ function satisfiesVersion(version, range) {
 }
 var RANGE_RE;
 var init_semver = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/semver.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/semver.ts"() {
     RANGE_RE = /^(>=|<=|>|<|=)?\s*(.+)$/;
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/evaluate.ts
+// node_modules/@sloopworks/swip-js/src/config/evaluate.ts
 function attrValue(context, attr) {
   if (attr === "platform") return context.platform;
   if (attr === "app_version") return context.appVersion;
@@ -837,15 +1000,14 @@ function evaluateKey(spec, context, options = {}) {
 }
 var VERSION_ATTRS;
 var init_evaluate = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/evaluate.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/evaluate.ts"() {
     init_bucketing();
     init_semver();
     VERSION_ATTRS = /* @__PURE__ */ new Set(["app_version", "os_version"]);
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/duration.ts
+// node_modules/@sloopworks/swip-js/src/config/duration.ts
 function parseDuration(value) {
   const match = DURATION_RE.exec(value.trim());
   if (!match) throw new Error(`invalid duration: ${JSON.stringify(value)}`);
@@ -853,14 +1015,13 @@ function parseDuration(value) {
 }
 var DURATION_RE, UNIT_MS;
 var init_duration = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/duration.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/duration.ts"() {
     DURATION_RE = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/;
     UNIT_MS = { ms: 1, s: 1e3, m: 6e4, h: 36e5, d: 864e5 };
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/key.ts
+// node_modules/@sloopworks/swip-js/src/config/key.ts
 function extractTyped(type, r) {
   const { value } = r;
   switch (type) {
@@ -881,17 +1042,15 @@ function extractTyped(type, r) {
   return value;
 }
 var init_key = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/key.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/key.ts"() {
     init_duration();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config/facade.ts
+// node_modules/@sloopworks/swip-js/src/config/facade.ts
 var KEY_EXPOSURES, SwipConfig;
 var init_facade = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config/facade.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config/facade.ts"() {
     init_evaluate();
     init_key();
     KEY_EXPOSURES = "swip.exposures";
@@ -1029,11 +1188,10 @@ var init_facade = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/crash-reporter.ts
+// node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts
 var NoOpCrashReporter;
 var init_crash_reporter = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/crash-reporter.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts"() {
     NoOpCrashReporter = {
       capture() {
       },
@@ -1045,11 +1203,10 @@ var init_crash_reporter = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/facade.ts
+// node_modules/@sloopworks/swip-js/src/errors/facade.ts
 var NoOpErrors;
 var init_facade2 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/facade.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/facade.ts"() {
     init_crash_reporter();
     NoOpErrors = {
       record() {
@@ -1067,7 +1224,7 @@ var init_facade2 = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/telemetry/traceparent.ts
+// node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts
 function makeTraceparent(traceId, spanId, sampled) {
   return `00-${traceId}-${spanId}-${sampled ? "01" : "00"}`;
 }
@@ -1088,17 +1245,15 @@ function isSampledByRatio(traceId, ratio) {
 }
 var TRACEPARENT_RE;
 var init_traceparent = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/telemetry/traceparent.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts"() {
     TRACEPARENT_RE = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/telemetry/facade.ts
+// node_modules/@sloopworks/swip-js/src/telemetry/facade.ts
 var InMemoryExporter, SwipTelemetry;
 var init_facade3 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/telemetry/facade.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/telemetry/facade.ts"() {
     init_traceparent();
     InMemoryExporter = class {
       spans = [];
@@ -1232,11 +1387,10 @@ var init_facade3 = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/transports.ts
+// node_modules/@sloopworks/swip-js/src/transports.ts
 var NoOpTransport, InMemoryTransport, MultiTransport;
 var init_transports = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/transports.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/transports.ts"() {
     NoOpTransport = class {
       async send(_batch) {
         return { kind: "ok" };
@@ -1277,11 +1431,10 @@ var init_transports = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/init.ts
+// node_modules/@sloopworks/swip-js/src/init.ts
 var SDK_VERSION, FLUSH_TIMEOUT_MS, NoOpAnalytics, NoOpExporter, Swip;
 var init_init = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/init.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/init.ts"() {
     init_analytics();
     init_coordinator();
     init_facade();
@@ -1303,6 +1456,8 @@ var init_init = __esm({
       }
       async flush() {
         return { sent: 0, failed: 0 };
+      }
+      async whenDurable() {
       }
       setConsent() {
       }
@@ -1354,10 +1509,12 @@ var init_init = __esm({
           random,
           ulid,
           storage,
+          persistence: deps.persistence,
           criticalSchemas: deps.criticalSchemas,
           errorsHealth: () => ({ ...errors.health(), errors_factory_missing: errorsFactoryMissing }),
           onFlushStart: () => coordinator.onPillarFlush(analytics)
         }) : new NoOpAnalytics();
+        if (deps.persistence && analytics instanceof SwipAnalytics) void analytics.recover();
         const installationId = () => {
           if (analytics instanceof SwipAnalytics) return analytics.installationId();
           let id3 = storage.get("swip.installation_id");
@@ -1432,6 +1589,7 @@ var init_init = __esm({
           alias: (previousId) => analytics.alias(previousId),
           reset: () => analytics.reset(),
           flush: () => analytics.flush(),
+          whenDurable: () => analytics.whenDurable(),
           setConsent: (consent) => analytics.setConsent(consent),
           onBackground: () => {
             errors.drainStorms();
@@ -1506,7 +1664,7 @@ var init_init = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/index.ts
+// node_modules/@sloopworks/swip-js/src/index.ts
 var src_exports = {};
 __export(src_exports, {
   FlushCoordinator: () => FlushCoordinator,
@@ -1536,8 +1694,7 @@ __export(src_exports, {
   satisfiesVersion: () => satisfiesVersion
 });
 var init_src = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/index.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/index.ts"() {
     init_types();
     init_ulid();
     init_pipeline();
@@ -1557,22 +1714,57 @@ var init_src = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/posthog.ts
-var posthog_exports = {};
-__export(posthog_exports, {
-  PostHogTransport: () => PostHogTransport
-});
-var SCHEMA_NAME_RE, PostHogTransport;
+// node_modules/@sloopworks/swip-js/src/posthog.ts
+function verifyPostHogHost(region, host) {
+  const rule = REGION_HOST[region];
+  if (rule === void 0) {
+    throw new Error(
+      `[swip] UNKNOWN POSTHOG REGION ${JSON.stringify(region)} \u2014 refusing to construct the transport. Known regions: ${Object.keys(REGION_HOST).join(", ")}.`
+    );
+  }
+  const matched = ORIGIN_RE.exec(host)?.[1];
+  if (matched === void 0) {
+    throw new Error(
+      `[swip] MALFORMED POSTHOG HOST \u2014 refusing to construct the transport. This product declares data residency "${region}"; a host that is not a bare https origin has no verifiable residency. Expected https://<host> (e.g. https://eu.i.posthog.com) \u2014 no port, no path, no query, no fragment, no whitespace.`
+    );
+  }
+  const hostname = matched.toLowerCase();
+  if (!rule.test(hostname)) {
+    throw new Error(
+      `[swip] POSTHOG HOST REGION MISMATCH \u2014 refusing to construct the transport. This product declares data residency "${region}", but its PostHog host is "${hostname}". The host is where analytics data PHYSICALLY LANDS \u2014 PostHog Cloud US (Virginia) and EU (Frankfurt) are separate installations and nothing at runtime moves an event between them. Expected a host matching ${String(rule)}. An UNRECOGNIZED host (a reverse proxy, a self-hosted instance) fails here too, deliberately: residency we cannot prove is residency we do not have. Fix POSTHOG_HOST (or whichever env var registry/products/<product>.yaml names); do NOT soften this check \u2014 see the comment on verifyPostHogHost.`
+    );
+  }
+  return hostname;
+}
+var REGION_HOST, ORIGIN_RE, SCHEMA_NAME_RE, PostHogTransport;
 var init_posthog = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/posthog.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/posthog.ts"() {
+    REGION_HOST = {
+      eu: /^eu(\.i)?\.posthog\.com$/i,
+      us: /^(us(\.i)?|app)\.posthog\.com$/i
+    };
+    ORIGIN_RE = /^https:\/\/([a-zA-Z0-9.-]+)\/?$/;
     SCHEMA_NAME_RE = /^swip:event:([^:]+):\d+$/;
     PostHogTransport = class {
       constructor(options) {
         this.options = options;
+        this.endpoint = `https://${verifyPostHogHost(options.region, options.host)}/batch/`;
         this.fetchFn = options.fetch ?? ((url, init) => fetch(url, init));
       }
       fetchFn;
+      /**
+       * THE INGEST URL, BUILT FROM THE VERIFIED HOSTNAME — never from `options.host`.
+       *
+       * `verifyPostHogHost` accepts a trailing slash on purpose (an env var actually contains
+       * one half the time), and its return value used to be THROWN AWAY: `${options.host}/batch/`
+       * then built `https://eu.i.posthog.com//batch/` from `POSTHOG_HOST=https://eu.i.posthog.com/`.
+       * WHATWG URL does not collapse that double slash, PostHog does not 2xx it, the transport
+       * returns `{kind:"drop"}` — and EVERY event is dead-lettered, silently. Exactly the blind
+       * spot that hid the `$insert_id` outage in the header above: the construction tests blessed
+       * the host and the fake fetch returned 200 unconditionally, so nothing ever asserted the URL
+       * that was actually POSTed. Both suites now do (`posthog.test.ts`, `PostHogTransportTest.kt`).
+       */
+      endpoint;
       async send(batch) {
         const payload = {
           api_key: this.options.apiKey,
@@ -1606,7 +1798,7 @@ var init_posthog = __esm({
         };
         let response;
         try {
-          response = await this.fetchFn(`${this.options.host}/batch/`, {
+          response = await this.fetchFn(this.endpoint, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(payload)
@@ -1627,7 +1819,52 @@ var init_posthog = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/logging/src/index.ts
+// node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts
+var analytics_exports = {};
+__export(analytics_exports, {
+  DayfoldSwipAnalytics: () => DayfoldSwipAnalytics
+});
+function processEnv() {
+  return globalThis.process?.env ?? {};
+}
+function requireEnv(env, name) {
+  const value = env[name];
+  if (value === void 0 || value === "") {
+    throw new Error(
+      `[swip] ${name} is unset \u2014 registry/products/dayfold.yaml declares it for the analytics transport. Set it in the deploy environment; do not hardcode it.`
+    );
+  }
+  return value;
+}
+var DayfoldSwipAnalytics;
+var init_analytics2 = __esm({
+  "node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts"() {
+    init_posthog();
+    DayfoldSwipAnalytics = {
+      /** PostHog, region "eu" — declared in registry/products/dayfold.yaml, asserted against
+       *  the host at construction (a wrong-continent host throws; it does not warn). */
+      apiProdTransport: (runtime = {}) => {
+        const env = runtime.env ?? processEnv();
+        return new PostHogTransport({
+          apiKey: requireEnv(env, "POSTHOG_PROJECT_KEY"),
+          host: requireEnv(env, "POSTHOG_HOST"),
+          region: "eu",
+          ...runtime.fetch === void 0 ? {} : { fetch: runtime.fetch }
+        });
+      },
+      /** PostHog, region "eu" — declared in registry/products/dayfold.yaml, asserted against
+       *  the host at construction (a wrong-continent host throws; it does not warn). */
+      webProdTransport: (options) => new PostHogTransport({
+        apiKey: options.apiKey,
+        host: options.host,
+        region: "eu",
+        ...options.fetch === void 0 ? {} : { fetch: options.fetch }
+      })
+    };
+  }
+});
+
+// node_modules/@sloopworks/swip-logging/src/index.ts
 function scrubString(value) {
   return value.replace(URL_QUERY_RE, "$1?[redacted-query]").replace(MGMT_LINK_RE, "/m/[redacted-token]").replace(EMAIL_RE, "[redacted-email]").replace(HIGH_ENTROPY_RE, "[redacted-token]");
 }
@@ -1636,8 +1873,7 @@ function scrubField(key, value) {
 }
 var PII_KEY_RE, EMAIL_RE, MGMT_LINK_RE, HIGH_ENTROPY_RE, URL_QUERY_RE, REDACTED;
 var init_src2 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/logging/src/index.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-logging/src/index.ts"() {
     PII_KEY_RE = /(email|token|api_key|envelope_key)/i;
     EMAIL_RE = /\S+@\S+\.\S+/g;
     MGMT_LINK_RE = /\/m\/[A-Za-z0-9_-]{22,}/g;
@@ -1647,7 +1883,7 @@ var init_src2 = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/sha1.ts
+// node_modules/@sloopworks/swip-js/src/errors/sha1.ts
 function sha1Hex(input) {
   const data = encoder2.encode(input);
   const ml = data.length;
@@ -1709,13 +1945,12 @@ function sha1Hex(input) {
 }
 var encoder2;
 var init_sha1 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/sha1.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/sha1.ts"() {
     encoder2 = new TextEncoder();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/fingerprint.ts
+// node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts
 function normalizeType(type) {
   return asciiTrim(
     type.replace(/<[^>]*>/g, "").replace(/@0x[0-9a-fA-F]+/g, "").replace(/[-_.]?\d+$/g, "")
@@ -1792,26 +2027,23 @@ function isAlnum(c) {
 }
 var MAX_MESSAGE_CHARS, PATH_PLACEHOLDER;
 var init_fingerprint = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/fingerprint.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts"() {
     init_sha1();
     MAX_MESSAGE_CHARS = 256;
     PATH_PLACEHOLDER = "<path>";
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/memory-reporter.ts
+// node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts
 var init_memory_reporter = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/memory-reporter.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts"() {
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/errors/index.ts
+// node_modules/@sloopworks/swip-js/src/errors/index.ts
 var SEVERITIES, BREADCRUMB_RING, BREADCRUMB_ATTACHED, BREADCRUMB_MSG_CHARS, BREADCRUMB_CATEGORY_CHARS, ATTR_KEYS, ATTR_VALUE_CHARS, STACK_CHARS, MESSAGE_CHARS, TYPE_CHARS, KEY_CHARS, MECHANISM_CHARS, STORM_TABLE_MAX, MIRROR_DEDUPE_MAX, MIRROR_EVENT_ID_CHARS, SwipErrors;
 var init_errors = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/errors/index.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/errors/index.ts"() {
     init_src2();
     init_crash_reporter();
     init_fingerprint();
@@ -2160,7 +2392,7 @@ var init_errors = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/vendor-event.ts
+// node_modules/@sloopworks/swip-sentry/src/vendor-event.ts
 function isReservedTag(key) {
   return key.startsWith(RESERVED_TAG_PREFIX) && !SWIP_CONTEXT_TAGS.includes(key);
 }
@@ -2417,8 +2649,7 @@ function runBeforeSend(event, consented, scrub2, chain) {
 }
 var SEVERITIES2, ORIGIN_TAG, ORIGIN_TEE, FINGERPRINT_TAG, WTF_KEY_TAG, RESERVED_TAG_PREFIX, SWIP_CONTEXT_TAGS, SDK_CONTEXT_KEYS, FRAME_TEXT, FRAME_TEXT_ARRAYS;
 var init_vendor_event = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/vendor-event.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-sentry/src/vendor-event.ts"() {
     init_src2();
     SEVERITIES2 = ["fatal", "error", "warning", "log", "info", "debug"];
     ORIGIN_TAG = "swip.origin";
@@ -2449,7 +2680,7 @@ var init_vendor_event = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/privacy.ts
+// node_modules/@sloopworks/swip-sentry/src/privacy.ts
 function scrubSentryEvent(event, opts) {
   try {
     return scrub(event, opts);
@@ -2554,13 +2785,12 @@ function failClosed(event) {
   }
 }
 var init_privacy = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/privacy.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-sentry/src/privacy.ts"() {
     init_src2();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/index.ts
+// node_modules/@sloopworks/swip-sentry/src/index.ts
 function toForeign(event) {
   const values = event.exception?.values;
   const thrown = values === void 0 || values.length === 0 ? void 0 : values[values.length - 1];
@@ -2628,8 +2858,7 @@ function toSeverity(level) {
 }
 var LEVEL, STACK_CHARS2, FLUSH_TIMEOUT_MS2, SentryCrashReporter;
 var init_src3 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/index.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-sentry/src/index.ts"() {
     init_src2();
     init_vendor_event();
     init_privacy();
@@ -2757,7 +2986,7 @@ var init_src3 = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/options.ts
+// node_modules/@sloopworks/swip-sentry/src/options.ts
 function verifyDsn(options) {
   const { region, orgId, projectId } = options;
   let host;
@@ -2775,9 +3004,9 @@ function verifyDsn(options) {
       `[swip-sentry] MALFORMED SENTRY DSN \u2014 refusing to initialize. A DSN whose host cannot be parsed has no verifiable data-residency region, and this product declares region "${region}". Expected https://<key>@<host>/<project>.`
     );
   }
-  if (!REGION_HOST[region].test(host)) {
+  if (!REGION_HOST2[region].test(host)) {
     throw new Error(
-      `[swip-sentry] DSN REGION MISMATCH \u2014 refusing to initialize. This product declares data residency "${region}", but its DSN points at "${host}". The DSN's host is where the crash data PHYSICALLY LANDS \u2014 Sentry's regions are separate installations and no scrubbing, hook or config can move an event between them. Expected a host matching ${String(REGION_HOST[region])}. Fix the DSN (create the project in the correct Sentry organization/region); do NOT soften this check \u2014 see the comment on verifyDsn.`
+      `[swip-sentry] DSN REGION MISMATCH \u2014 refusing to initialize. This product declares data residency "${region}", but its DSN points at "${host}". The DSN's host is where the crash data PHYSICALLY LANDS \u2014 Sentry's regions are separate installations and no scrubbing, hook or config can move an event between them. Expected a host matching ${String(REGION_HOST2[region])}. Fix the DSN (create the project in the correct Sentry organization/region); do NOT soften this check \u2014 see the comment on verifyDsn.`
     );
   }
   if (!ORG_ID.test(orgId) || !PROJECT_ID.test(projectId)) {
@@ -2860,16 +3089,15 @@ function initSentry(sdk, options) {
   sdk.init(buildSentryOptions(options, chain));
   return new SentryCrashReporter(createSentryLike(sdk, chain, verified));
 }
-var DEDUPE, SESSION, REGION_HOST, VERIFIED, ORG_ID, PROJECT_ID;
+var DEDUPE, SESSION, REGION_HOST2, VERIFIED, ORG_ID, PROJECT_ID;
 var init_options = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/options.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-sentry/src/options.ts"() {
     init_src3();
     init_privacy();
     init_vendor_event();
     DEDUPE = /dedupe/i;
     SESSION = /session/i;
-    REGION_HOST = {
+    REGION_HOST2 = {
       // A leading label is REQUIRED (`o4507….ingest.de.sentry.io`) — a bare `ingest.de.sentry.io`
       // is not a real DSN host, and a rule that accepts it is a rule that accepts a typo.
       eu: /^[a-z0-9-]+\.ingest\.de\.sentry\.io$/i,
@@ -2881,23 +3109,21 @@ var init_options = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/node.ts
+// node_modules/@sloopworks/swip-sentry/src/node.ts
 import * as Sentry from "@sentry/node";
 function initSentryNode(options) {
   return initSentry(Sentry, options);
 }
 var init_node = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/swip-sentry/src/node.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-sentry/src/node.ts"() {
     init_options();
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/js/src/config-keys.ts
+// node_modules/@sloopworks/swip-js/src/config-keys.ts
 var configKeyImpl, ConfigKey;
 var init_config_keys = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/js/src/config-keys.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-js/src/config-keys.ts"() {
     init_key();
     configKeyImpl = {};
     for (const type of ["boolean", "string", "duration", "variant", "json"]) {
@@ -2907,11 +3133,10 @@ var init_config_keys = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/config.ts
+// node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts
 var DayfoldConfig, DayfoldConfigDefaults;
 var init_config = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/config.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts"() {
     init_config_keys();
     DayfoldConfig = {
       analyticsEventsEnabled: ConfigKey.boolean("analytics.events.enabled"),
@@ -2932,11 +3157,10 @@ var init_config = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/init.ts
+// node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts
 var DayfoldSwip;
 var init_init2 = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/init.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts"() {
     init_errors();
     init_config();
     DayfoldSwip = {
@@ -2985,15 +3209,15 @@ var init_init2 = __esm({
   }
 });
 
-// ../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/init-node.ts
+// node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts
 var init_node_exports = {};
 __export(init_node_exports, {
   DayfoldSwipNode: () => DayfoldSwipNode
 });
-function processEnv() {
+function processEnv2() {
   return globalThis.process?.env ?? {};
 }
-function requireEnv(env, name) {
+function requireEnv2(env, name) {
   const value = env[name];
   if (value === void 0 || value === "") {
     throw new Error(
@@ -3004,8 +3228,7 @@ function requireEnv(env, name) {
 }
 var DayfoldSwipNode;
 var init_init_node = __esm({
-  "../../../sloopworksinstrumentationplatform/packages/schema-dayfold/src/generated/init-node.ts"() {
-    "use strict";
+  "node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts"() {
     init_errors();
     init_node();
     init_config();
@@ -3013,19 +3236,19 @@ var init_init_node = __esm({
     DayfoldSwipNode = {
       apiProd: () => DayfoldSwip.apiProd(),
       apiProdDeps: (overrides, crash) => {
-        const env = crash.env ?? processEnv();
+        const env = crash.env ?? processEnv2();
         return {
           ...overrides,
           configDefaults: DayfoldConfigDefaults,
           errorsFactory: (errorsDeps) => new SwipErrors({
             ...errorsDeps,
             crashReporter: initSentryNode({
-              dsn: requireEnv(env, "SENTRY_NODE_EU_DSN"),
+              dsn: requireEnv2(env, "SENTRY_NODE_EU_DSN"),
               region: "eu",
               orgId: "o4511720596570112",
               projectId: "4511734782820432",
-              release: requireEnv(env, "SENTRY_RELEASE"),
-              environment: requireEnv(env, "VERCEL_ENV"),
+              release: requireEnv2(env, "SENTRY_RELEASE"),
+              environment: requireEnv2(env, "VERCEL_ENV"),
               consented: crash.consented,
               ...crash.stripMessage === void 0 ? {} : { stripMessage: crash.stripMessage },
               ...crash.scrub === void 0 ? {} : { scrub: crash.scrub }
@@ -3042,32 +3265,24 @@ import { HTTPException } from "hono/http-exception";
 function swip() {
   return handle;
 }
-function requireEnv2(name) {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env var: ${name}`);
-  return value;
-}
 async function initSwip(opts) {
   if (handle) return handle;
   if (!opts.required && !process.env.SENTRY_NODE_EU_DSN) {
     console.log("[swip] SENTRY_NODE_EU_DSN unset \u2014 error reporting is OFF (local dev).");
     return null;
   }
-  const [{ Swip: Swip2 }, { PostHogTransport: PostHogTransport2 }, { DayfoldSwipNode: DayfoldSwipNode2 }] = await Promise.all([
+  const [{ Swip: Swip2 }, { DayfoldSwipAnalytics: DayfoldSwipAnalytics2 }, { DayfoldSwipNode: DayfoldSwipNode2 }] = await Promise.all([
     Promise.resolve().then(() => (init_src(), src_exports)),
-    Promise.resolve().then(() => (init_posthog(), posthog_exports)),
+    Promise.resolve().then(() => (init_analytics2(), analytics_exports)),
     Promise.resolve().then(() => (init_init_node(), init_node_exports))
   ]);
-  const transport = new PostHogTransport2({
-    apiKey: requireEnv2("POSTHOG_PROJECT_KEY"),
-    host: requireEnv2("POSTHOG_HOST")
-  });
+  const transport = DayfoldSwipAnalytics2.apiProdTransport();
   handle = Swip2.init(
     DayfoldSwipNode2.apiProd(),
     DayfoldSwipNode2.apiProdDeps(
       { transport },
       {
-        // CONSENT, SERVER-SIDE (ADR 0058). An error raised inside this API is a defect in
+        // CONSENT, SERVER-SIDE (ADR 0059). An error raised inside this API is a defect in
         // OUR infrastructure, reported about OURSELVES: the API never calls
         // `analytics.identify()`, so the owned event's `distinct_id` is a per-container
         // anonymous id, and swip-sentry sends no `request` object (no url, query, cookies,
@@ -3075,7 +3290,7 @@ async function initSwip(opts) {
         // There is therefore no user whose consent could be asked for, and no user-scoped
         // data to withhold — so the gate is open. It is a gate, not a formality: the day an
         // event can carry a family/member identifier, this must become a real decision
-        // again (see ADR 0058 "When this must be revisited").
+        // again (see ADR 0059 "When this must be revisited").
         consented: () => true,
         // Keep `exception.message` — it is the triage payload, and this API is
         // content-blind by construction (ADR 0015): it stores opaque blobs and never

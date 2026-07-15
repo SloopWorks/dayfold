@@ -40,14 +40,6 @@ export function __setSwipForTest(fake: SwipInstance | null): void {
   handle = fake;
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  // Same throw-idiom the rest of the API uses — `scripts/env-check.mjs` greps for it,
-  // so a var required here is a var the deploy preflight refuses to skip.
-  if (!value) throw new Error(`Missing required env var: ${name}`);
-  return value;
-}
-
 /**
  * Boot the error pillar. Idempotent.
  *
@@ -64,16 +56,17 @@ export async function initSwip(opts: { required: boolean }): Promise<SwipInstanc
     return null;
   }
 
-  const [{ Swip }, { PostHogTransport }, { DayfoldSwipNode }] = await Promise.all([
+  const [{ Swip }, { DayfoldSwipAnalytics }, { DayfoldSwipNode }] = await Promise.all([
     import("@sloopworks/swip-js"),
-    import("@sloopworks/swip-js/posthog"),
+    import("@sloopworks/swip-schema-dayfold/analytics"),
     import("@sloopworks/swip-schema-dayfold/node"),
   ]);
 
-  const transport = new PostHogTransport({
-    apiKey: requireEnv("POSTHOG_PROJECT_KEY"),
-    host: requireEnv("POSTHOG_HOST"),
-  });
+  // PostHog transport from the GENERATED factory: region "eu" is inlined from the registry
+  // (swip-js 0.5.x makes `region` required and asserts host↔region at construction), and the
+  // key/host are read from POSTHOG_PROJECT_KEY / POSTHOG_HOST. INVARIANT 32 — no hand-built
+  // vendor wiring. (`scripts/env-check.mjs` still lists both vars structurally.)
+  const transport = DayfoldSwipAnalytics.apiProdTransport();
 
   handle = Swip.init(
     DayfoldSwipNode.apiProd(),

@@ -21,8 +21,8 @@ kotlin {
         // 0.1.1 exposes okio + coroutines-core as `api` (their types leak through
         // ReportLane / ReduxTimelineRecorder ctors), so consumers no longer redeclare them.
         api("works.sloop.swip:swip-rk-recorder:0.1.1")
-        api("works.sloop.swip:swip-core:0.1.8")
-        api("works.sloop.swip:schema-dayfold:0.1.4")
+        api("works.sloop.swip:swip-core:0.1.11")
+        api("works.sloop.swip:schema-dayfold:0.1.7")
         api("works.sloop.swip:swip-lifecycle:0.1.0")
         api("works.sloop.swip:swip-rk:0.1.0")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

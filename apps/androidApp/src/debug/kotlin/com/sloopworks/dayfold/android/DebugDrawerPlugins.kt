@@ -12,4 +12,5 @@ fun debugDrawerPlugins(activity: ComponentActivity): List<DebugPlugin> = buildLi
   SwipInspectorGlue.debugSink()?.let { sink ->
     add(SwipInspectorPlugin(sink.entries, SwipInspectorGlue.secureWindow(activity)))
   }
+  add(SwipErrorsTriggerPlugin())
 }

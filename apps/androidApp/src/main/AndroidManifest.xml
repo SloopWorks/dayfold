@@ -20,6 +20,7 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
+        android:name=".DayfoldApp"
         android:enableOnBackInvokedCallback="true"
         android:label="Dayfold"
         android:usesCleartextTraffic="true"

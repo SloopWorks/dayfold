@@ -15,9 +15,9 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@sentry/node": "^10.65.0",
-    "@sloopworks/swip-js": "0.5.0",
-    "@sloopworks/swip-schema-dayfold": "1.0.2",
-    "@sloopworks/swip-sentry": "0.2.2",
+    "@sloopworks/swip-js": "0.5.1",
+    "@sloopworks/swip-schema-dayfold": "1.0.3",
+    "@sloopworks/swip-sentry": "0.2.3",
     "hono": "^4.6.0",
     "jose": "^5.9.0",
     "pg": "^8.13.0",

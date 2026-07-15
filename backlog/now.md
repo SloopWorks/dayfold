@@ -172,13 +172,27 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 - [ ] **API error reporting (ADR 0059) — PR #336, unblocked; set Vercel env before deploy.**
   `feat/api-swip-errors` wires `apps/api` to the SWIP error pillar (PostHog + Sentry,
   joined on `swip.fingerprint`; flush awaited in a Hono `finally` because Vercel freezes
-  the container at response time). Verified live against both real vendors. SWIP PR #68 has
-  merged and published the npm packages; the branch pins the actual published versions
-  (`swip-js 0.5.0` / `swip-sentry 0.2.2` / `swip-schema-dayfold 1.0.2`). Before the next prod
-  deploy: add `SENTRY_NODE_EU_DSN` (the API's project — *not* the mobile app's),
-  `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST` to Vercel prod
+  the container at response time). Verified live against both real vendors. The SWIP npm
+  packages are published; the branch pins `swip-js 0.5.1` / `swip-sentry 0.2.3` /
+  `swip-schema-dayfold 1.0.3` (the republished set with the `scrubField` fix, SWIP #76).
+  Before the next prod deploy: add `SENTRY_NODE_EU_DSN` (the API's project — *not* the mobile
+  app's), `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST` to Vercel prod
   (`processes/deploy-m0.md` §2), and the `SLOOPWORKS_PACKAGES_TOKEN` repo secret must have
   `read:packages` (it already exists for the Gradle lanes).
+- [ ] **Accept ADR 0060** (client crash/error reporting — debug-only Android,
+  SWIP error pillar → Sentry KMP project + PostHog). Agent-drafted 2026-07-15;
+  Tasks 1–4 wired (error runtime, Sentry crash reporter, `Application` hoist,
+  debug trigger).
+- [ ] **Run the on-device smoke for ADR 0060 (Task 5, Pixel dogfood
+  device)** — the evidence step no unit test substitutes for: trigger the
+  debug `wtf()`/`record()` and confirm the Sentry↔PostHog fingerprint join;
+  force a real crash, relaunch, and confirm the mirrored `handled:false`
+  PostHog event correlates by type/message/time (not by id, per the ADR).
+- [ ] **ADR 0060's release-scope follow-up is blocked**, not yet actionable:
+  needs the SWIP `consented`-gate gap closed (drafted issue at
+  `.superpowers/sdd/swip-consent-gap-issue.md`, not yet filed) plus a
+  consent surface wired to `CollectionMode`/`ConsentScope.ERRORS` and a
+  privacy-policy disclosure.
 - [ ] **Enable branch protection on `main` requiring the CI check before
   merge.** The 2026-07-05 CI outage (PR #289/`cf2898a`) landed without
   waiting on its own CI result; branch protection would prevent a repeat.
