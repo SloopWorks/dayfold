@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.reduxkotlin.Store
 import org.reduxkotlin.StoreEnhancer
 import org.reduxkotlin.applyMiddleware
@@ -24,6 +25,7 @@ import works.sloop.swip.ConsentDecision
 import works.sloop.swip.ConsentScope
 import works.sloop.swip.SwipInstance
 import works.sloop.swip.db.SwipDb
+import works.sloop.swip.errors.CrashReporter
 import works.sloop.swip.lifecycle.SwipLifecycle
 import works.sloop.swip.lifecycle.SwipLifecycleHandle
 import works.sloop.swip.platform.AndroidSwipStorage
@@ -36,6 +38,9 @@ import works.sloop.swip.rk.ReplayGuard
 import works.sloop.swip.rk.asSloopAnalytics
 import works.sloop.swip.rk.swipMiddleware
 import works.sloop.swip.schema.dayfold.DayfoldSwip
+import works.sloop.swip.sentry.SentryInitConfig
+import works.sloop.swip.sentry.SentryRegion
+import works.sloop.swip.sentry.initSentryAndroid
 import kotlin.random.Random
 
 // Debug/internal-only analytics (ADR 0055): live PostHog EU transport, count-only mapper
@@ -63,6 +68,30 @@ private val TRACKING_MODES = setOf(CollectionMode.FULL, CollectionMode.PSEUDONYM
 fun swipInit(app: Application) {
   if (SwipAnalyticsHolder.swip != null) return
   val storage = AndroidSwipStorage(app).also { SwipAnalyticsHolder.storage = it }
+  // Crash/error vendor (ADR 0060). initSentryAndroid is suspend (prepares the crash-marker
+  // file off-main + recovers a prior crash's marker), and MUST complete before Swip.init, so
+  // it is awaited once here. Empty DSN (no Infisical) ⇒ no Sentry, NoOpCrashReporter default.
+  // projectId is the KMP project, declared INDEPENDENTLY of the DSN so verifyDsn can catch a
+  // wrong-DSN paste (the API's or the legacy project) by failing the boot.
+  val crashReporter: CrashReporter = if (BuildConfig.SENTRY_KOTLIN_EU_DSN.isNotBlank()) {
+    runBlocking(Dispatchers.IO) {
+      initSentryAndroid(
+        app,
+        SentryInitConfig(
+          dsn = BuildConfig.SENTRY_KOTLIN_EU_DSN,
+          region = SentryRegion.EU,
+          orgId = "o4511720596570112",
+          projectId = "4511734711189584",
+          release = BuildConfig.VERSION_NAME,
+          dist = BuildConfig.VERSION_CODE.toString(),
+          environment = "development",
+          debug = BuildConfig.DEBUG,
+        ),
+      )
+    }
+  } else {
+    works.sloop.swip.errors.NoOpCrashReporter
+  }
   SwipAnalyticsHolder.swip = works.sloop.swip.Swip.init(
     DayfoldSwip.androidProd(),
     DayfoldSwip.platformDeps(
@@ -83,7 +112,7 @@ fun swipInit(app: Application) {
         isMainProcess(app),
         SqlDelightPersistentQueue(SwipDb(swipDbDriver(app))),
       ),
-    ).copy(debugSink = SwipInspectorGlue.debugSink()),
+    ).copy(debugSink = SwipInspectorGlue.debugSink(), crashReporter = crashReporter),
     SwipAnalyticsHolder.scope,
   )
   // CollectionMode and per-scope consent are ORTHOGONAL in swip-core: initialMode=FULL alone
