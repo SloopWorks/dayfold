@@ -152,9 +152,8 @@ class MainActivity : ComponentActivity() {
     // installLogging() above — the bug-reporter wraps the SloopLogging-bound sink to
     // feed the breadcrumb ring while still forwarding to console + drawer.
     bugReporterInstall(this)
-    // SWIP analytics runtime (debug builds only; inert mirror in release, ADR 0055). Must
-    // run BEFORE store creation — debugStoreEnhancer() below reads the swip instance.
-    swipInit(application)
+    // SWIP init runs in DayfoldApp.onCreate (ADR 0060) — before any activity — so the crash
+    // handler is installed early and requireSwip() below is ready. Nothing to do here.
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)

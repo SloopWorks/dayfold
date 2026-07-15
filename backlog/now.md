@@ -169,6 +169,20 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
+- [ ] **Accept ADR 0060** (client crash/error reporting — debug-only Android,
+  SWIP error pillar → Sentry KMP project + PostHog). Agent-drafted 2026-07-15;
+  Tasks 1–4 wired (error runtime, Sentry crash reporter, `Application` hoist,
+  debug trigger).
+- [ ] **Run the on-device smoke for ADR 0060 (Task 5, Pixel dogfood
+  device)** — the evidence step no unit test substitutes for: trigger the
+  debug `wtf()`/`record()` and confirm the Sentry↔PostHog fingerprint join;
+  force a real crash, relaunch, and confirm the mirrored `handled:false`
+  PostHog event correlates by type/message/time (not by id, per the ADR).
+- [ ] **ADR 0060's release-scope follow-up is blocked**, not yet actionable:
+  needs the SWIP `consented`-gate gap closed (drafted issue at
+  `.superpowers/sdd/swip-consent-gap-issue.md`, not yet filed) plus a
+  consent surface wired to `CollectionMode`/`ConsentScope.ERRORS` and a
+  privacy-policy disclosure.
 - [ ] **Enable branch protection on `main` requiring the CI check before
   merge.** The 2026-07-05 CI outage (PR #289/`cf2898a`) landed without
   waiting on its own CI result; branch protection would prevent a repeat.

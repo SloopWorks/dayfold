@@ -7,6 +7,19 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-15 — Crash/error reporting in dogfood builds (Sentry + PostHog, debug-only)
+
+### Added (internal)
+- **Debug/dogfood Android builds now report crashes and errors through
+  SWIP's error pillar** — fatal crashes are captured by Sentry's global
+  handler and mirrored into the owned PostHog stream on next launch; handled
+  `record()`/`wtf()` calls go to both, id-joined on a shared fingerprint. A
+  debug-only trigger exercises the handled path end-to-end. Init moved to a
+  custom `Application` class so crashes during startup are covered too. The
+  public release build is unaffected — no SWIP bytes, no Sentry keys (ADR
+  0060). Scoped to the operator's own dogfooded device; not a release
+  posture.
+
 ## 2026-07-12 — SWIP analytics reliability: fixed non-delivery + added durable flush-on-background
 
 ### Fixed (internal)
