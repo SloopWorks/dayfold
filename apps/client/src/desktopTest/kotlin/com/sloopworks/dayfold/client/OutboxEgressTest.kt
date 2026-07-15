@@ -10,9 +10,12 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.core.toByteArray
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -22,9 +25,17 @@ import kotlin.test.assertTrue
 class OutboxEgressTest {
   private val jsonHdr = headersOf("content-type", listOf("application/json"))
   private fun store() = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
-  private fun client(engine: MockEngine) = SyncClient("https://api.test", { "fam1" }, { "tok" }, HttpClient(engine))
+  private fun client(engine: MockEngine) = SyncClient("https://api.test", HttpClient(engine))
   private fun engine(cs: ContentStore, sc: SyncClient) =
-    SyncEngine(createAppStore(debug = false), cs, sc, nowProvider = { "2026-06-29T10:00:00Z" })
+    SyncEngine(
+      createTestAppStore(
+        AppState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        debug = false,
+      ),
+      cs,
+      sc,
+      nowProvider = { "2026-06-29T10:00:00Z" },
+    )
 
   private fun block(done: Boolean, version: Long, doneBy: String? = null, doneAt: String? = null) =
     HubBlock(id = "b1", sectionId = "s1", type = "checklist", version = version,
@@ -78,6 +89,18 @@ class OutboxEgressTest {
     assertEquals("b1", op.targetId)
     assertEquals("del1", op.opId)
     assertEquals("block", op.targetKind)
+  }
+
+  @Test fun `an inflight op is recovered to pending after interrupted delivery`() {
+    val cs = store()
+    seed(cs, block(done = false, version = 3), "c0")
+    cs.enqueueBlockDelete("b1", nowIso = "2026-06-29T10:00:00Z", opId = "del1")
+    cs.markOpInflight("del1")
+    assertEquals(0, cs.pendingOpCount())
+
+    cs.recoverInflightOps()
+
+    assertEquals("del1", cs.nextPendingOp()?.opId)
   }
 
   @Test fun `delete → DELETE with Idempotency-Key (no If-Match) → 204 ack → tombstone removes the row`() = runBlocking {
@@ -148,5 +171,154 @@ class OutboxEgressTest {
     assertEquals(0, cs.pendingOpCount())                   // converged (acked)
     // the merge kept the member's toggle on top of the loop's fresh text
     assertEquals("pending", cs.blockLocalState("b1"))      // still pending until the echo
+  }
+
+  @Test fun `a toggle enqueued after ack but before echo uses the acked block version`() {
+    val cs = store()
+    seed(cs, block(done = false, version = 1), "c0")
+    cs.enqueueBlockToggle(
+      blockId = "b1",
+      itemId = "i1",
+      done = true,
+      doneBy = "mom",
+      nowIso = "2026-06-29T10:00:00Z",
+      opId = "op1",
+    )
+    assertEquals("op1", cs.claimNextPendingOp()?.opId)
+
+    // The server ACK is committed before its inbound echo can advance the cached block.
+    assertFalse(
+      cs.ackOpAndAdvanceSuccessor(
+        opId = "op1",
+        targetId = "b1",
+        resultVersion = 2,
+        nowIso = "2026-06-29T10:00:01Z",
+      ),
+    )
+    cs.enqueueBlockToggle(
+      blockId = "b1",
+      itemId = "i1",
+      done = false,
+      doneBy = "mom",
+      nowIso = "2026-06-29T10:00:02Z",
+      opId = "op2",
+    )
+
+    val successor = cs.nextPendingOp()
+    assertEquals("op2", successor?.opId)
+    assertEquals(2L, successor?.baseVersion)
+    assertFalse(successor?.payload.orEmpty().contains("\"done\":true"))
+    assertEquals("pending", cs.blockLocalState("b1"))
+  }
+
+  @Test fun `a newer toggle queued behind an inflight PUT advances to the acked version`() =
+    runBlocking<Unit> {
+      val cs = store()
+      seed(cs, block(done = false, version = 1), "c0")
+      cs.enqueueBlockToggle(
+        blockId = "b1",
+        itemId = "i1",
+        done = true,
+        doneBy = "mom",
+        nowIso = "2026-06-29T10:00:00Z",
+        opId = "op1",
+      )
+      val firstPutStarted = CompletableDeferred<Unit>()
+      val releaseFirstPut = CompletableDeferred<Unit>()
+      val ifMatches = mutableListOf<String?>()
+      val bodies = mutableListOf<String>()
+      var putCount = 0
+      val sc = client(MockEngine { request ->
+        when {
+          request.url.encodedPath.endsWith("/sync") -> respond(
+            """{"changes":{},"tombstones":[],"has_more":false}""",
+            HttpStatusCode.OK,
+            jsonHdr,
+          )
+          request.method == HttpMethod.Put -> {
+            putCount++
+            ifMatches += request.headers["if-match"]
+            bodies += bodyText(request)
+            if (putCount == 1) {
+              firstPutStarted.complete(Unit)
+              releaseFirstPut.await()
+            }
+            respond("""{"id":"b1","version":${putCount + 1}}""", HttpStatusCode.OK, jsonHdr)
+          }
+          else -> respond("", HttpStatusCode.NotFound)
+        }
+      })
+      val engine = engine(cs, sc)
+
+      val running = async { engine.syncNow() }
+      firstPutStarted.await()
+      cs.enqueueBlockToggle(
+        blockId = "b1",
+        itemId = "i1",
+        done = false,
+        doneBy = "mom",
+        nowIso = "2026-06-29T10:00:01Z",
+        opId = "op2",
+      )
+      releaseFirstPut.complete(Unit)
+      running.await()
+
+      assertEquals(listOf<String?>("1", "2"), ifMatches)
+      assertTrue(bodies[0].contains("\"done\":true"), bodies[0])
+      // The wire serializer omits default-valued false properties.
+      assertFalse(bodies[1].contains("\"done\":true"), bodies[1])
+      assertEquals(0, cs.pendingOpCount())
+      assertEquals(2L, cs.outboxSize()) // both acks remain until the inbound v3 echo
+    }
+
+  @Test fun `outbox 401 refreshes once and retries with the rotated token`() = runBlocking<Unit> {
+    val cs = store()
+    seed(cs, block(done = false, version = 1), "c0")
+    cs.enqueueBlockToggle("b1", "i1", true, "mom", "2026-06-29T10:00:00Z", "op-refresh")
+    val appStore = createTestAppStore(
+      AppState(session = Session("old-a", "old-r"), activeFamilyId = "fam1"),
+      debug = false,
+    )
+    val tokens = object : TokenStore {
+      var session: Session? = null
+      override fun load(): Session? = session
+      override fun save(session: Session) { this.session = session }
+      override fun clear() { session = null }
+    }
+    var puts = 0
+    val http = HttpClient(MockEngine { request ->
+      when {
+        request.url.encodedPath.endsWith("/sync") -> respond(
+          """{"changes":{},"tombstones":[],"has_more":false}""",
+          HttpStatusCode.OK,
+          jsonHdr,
+        )
+        request.url.encodedPath == "/auth/refresh" -> respond(
+          """{"access":"new-a","refresh":"new-r"}""",
+          HttpStatusCode.OK,
+          jsonHdr,
+        )
+        request.method == HttpMethod.Put -> {
+          puts++
+          if (puts == 1) respond("", HttpStatusCode.Unauthorized)
+          else respond("""{"version":2}""", HttpStatusCode.OK, jsonHdr)
+        }
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    val sync = SyncEngine(
+      store = appStore,
+      contentStore = cs,
+      syncClient = SyncClient("https://api.test", http),
+      authClient = AuthClient("https://api.test", http),
+      tokenStore = tokens,
+    )
+
+    sync.syncNow()
+
+    assertEquals(2, puts)
+    assertEquals(Session("new-a", "new-r"), tokens.session)
+    assertEquals(Session("new-a", "new-r"), appStore.state.session)
+    assertEquals(0, cs.pendingOpCount())
   }
 }

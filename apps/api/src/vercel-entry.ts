@@ -9,7 +9,7 @@ import { initSwip } from "./swip.ts";
 
 // SWIP (and with it Sentry) boots BEFORE the router is imported — @sentry/node
 // instruments modules as they load, and a missing DSN/release must fail the deploy, not
-// a request (ADR 0058). `app.ts` is imported dynamically, after, for exactly that reason.
+// a request (ADR 0059). `app.ts` is imported dynamically, after, for exactly that reason.
 await initSwip({ required: true });
 const { app } = await import("./app.ts");
 

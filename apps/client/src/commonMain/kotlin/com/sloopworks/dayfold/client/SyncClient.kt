@@ -16,45 +16,42 @@ import kotlinx.serialization.json.longOrNull
 // ktor-client = cross-platform HTTP (cio desktop · okhttp android · darwin iOS),
 // so this stays in commonMain. fetchPage is called by SyncEngine.
 //
-// AUTH-S5: family + bearer are now PROVIDERS, read fresh per request — the active
-// family is only known after sign-in, and the bearer is the session access token
-// (rotated by AuthEngine on refresh). The entrypoint supplies the legacy
-// HOUSEHOLD_SECRET / FAMILY_ID via the same providers as a dev fallback until the
-// S3 cutover. fetchPage returns an empty page when no family/token is set yet, so
-// the poll loop can run idle before onboarding completes.
+// Family and credentials are explicit request arguments. SyncEngine captures one
+// FamilySessionContext for a complete drain, preventing independent state reads
+// from combining one family's URL with another identity's bearer token.
 class SyncClient(
   private val api: String,
-  private val familyId: () -> String?,
-  private val token: () -> String?,
   private val http: HttpClient = HttpClient(),
   private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
-  /** Transport only: GET one /sync page. Throws on non-200 or network error. */
-  suspend fun fetchPage(since: String?): SyncResponse {
-    val fam = familyId()
-    val tok = token()
-    if (fam.isNullOrEmpty() || tok.isNullOrEmpty()) return SyncResponse()   // not signed in yet
-    val resp = http.get("$api/families/$fam/sync") {
+  /**
+   * Transport-only page fetch using one caller-captured tenant/session snapshot.
+   * Runtime-owned sync uses this overload so a multi-page drain cannot combine a
+   * family read from one Redux version with a token read from another.
+   */
+  suspend fun fetchPage(familyId: String, accessToken: String, since: String?): SyncResponse {
+    val resp = http.get("$api/families/$familyId/sync") {
       if (since != null) parameter("since", since)
-      header("authorization", "Bearer $tok")
+      header("authorization", "Bearer $accessToken")
     }
     if (resp.status.value != 200) throw SyncHttpException(resp.status.value)
     return json.decodeFromString(SyncResponse.serializer(), resp.bodyAsText())
   }
 
   /**
-   * Egress (ADR 0038 §6.2): PUT one whole block with If-Match (the optimistic-concurrency
-   * base) + Idempotency-Key (the op_id). Returns the HTTP status + (on 200) the new server
-   * version, so the sender's OutboxSender.classify can decide ack / re-merge / drop / backoff.
-   * Returns status=null when not signed in. Network errors propagate (the sender treats a
-   * thrown call as a transient/network outcome).
+   * Egress (ADR 0038 §6.2): PUT one caller-captured family/session snapshot with
+   * If-Match (the optimistic-concurrency base) and Idempotency-Key (the op ID).
    */
-  suspend fun putBlock(blockId: String, body: String, baseVersion: Long?, opId: String): PutResult {
-    val fam = familyId()
-    val tok = token()
-    if (fam.isNullOrEmpty() || tok.isNullOrEmpty()) return PutResult(null, null)
-    val resp = http.put("$api/families/$fam/blocks/$blockId") {
-      header("authorization", "Bearer $tok")
+  suspend fun putBlock(
+    familyId: String,
+    accessToken: String,
+    blockId: String,
+    body: String,
+    baseVersion: Long?,
+    opId: String,
+  ): PutResult {
+    val resp = http.put("$api/families/$familyId/blocks/$blockId") {
+      header("authorization", "Bearer $accessToken")
       header("content-type", "application/json")
       if (baseVersion != null) header("if-match", baseVersion.toString())
       header("idempotency-key", opId)
@@ -68,17 +65,17 @@ class SyncClient(
   }
 
   /**
-   * Egress (ADR 0038 §W4): DELETE one block with an Idempotency-Key (the op_id) and no body /
-   * no If-Match — delete is idempotent (a re-delete returns 204) and author-gated server-side.
-   * Returns the HTTP status (204 = OK, 403 = not author / no scope, 404 = absent/can't-see) so
-   * OutboxSender.classify decides ack / drop / backoff. status=null when not signed in.
+   * Egress (ADR 0038 §W4): DELETE one block with an Idempotency-Key and no body
+   * or If-Match. The caller supplies one captured family/session snapshot.
    */
-  suspend fun deleteBlock(blockId: String, opId: String): PutResult {
-    val fam = familyId()
-    val tok = token()
-    if (fam.isNullOrEmpty() || tok.isNullOrEmpty()) return PutResult(null, null)
-    val resp = http.delete("$api/families/$fam/blocks/$blockId") {
-      header("authorization", "Bearer $tok")
+  suspend fun deleteBlock(
+    familyId: String,
+    accessToken: String,
+    blockId: String,
+    opId: String,
+  ): PutResult {
+    val resp = http.delete("$api/families/$familyId/blocks/$blockId") {
+      header("authorization", "Bearer $accessToken")
       header("idempotency-key", opId)
     }
     return PutResult(resp.status.value, null)

@@ -1,4 +1,4 @@
-// The API's ONLY SWIP touch point (ADR 0058). Product code binds the SloopErrors
+// The API's ONLY SWIP touch point (ADR 0059). Product code binds the SloopErrors
 // facade; every vendor decision (which Sentry project, which region, which release,
 // which environment) is codegen'd from `registry/products/dayfold.yaml` in the SWIP
 // repo and reaches us through `DayfoldSwipNode` — INVARIANT 32 / SWIP ADR-0019. There
@@ -80,7 +80,7 @@ export async function initSwip(opts: { required: boolean }): Promise<SwipInstanc
     DayfoldSwipNode.apiProdDeps(
       { transport },
       {
-        // CONSENT, SERVER-SIDE (ADR 0058). An error raised inside this API is a defect in
+        // CONSENT, SERVER-SIDE (ADR 0059). An error raised inside this API is a defect in
         // OUR infrastructure, reported about OURSELVES: the API never calls
         // `analytics.identify()`, so the owned event's `distinct_id` is a per-container
         // anonymous id, and swip-sentry sends no `request` object (no url, query, cookies,
@@ -88,7 +88,7 @@ export async function initSwip(opts: { required: boolean }): Promise<SwipInstanc
         // There is therefore no user whose consent could be asked for, and no user-scoped
         // data to withhold — so the gate is open. It is a gate, not a formality: the day an
         // event can carry a family/member identifier, this must become a real decision
-        // again (see ADR 0058 "When this must be revisited").
+        // again (see ADR 0059 "When this must be revisited").
         consented: () => true,
         // Keep `exception.message` — it is the triage payload, and this API is
         // content-blind by construction (ADR 0015): it stores opaque blobs and never

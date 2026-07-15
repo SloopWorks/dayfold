@@ -18,13 +18,13 @@ import { findOp, recordOp } from "./content/oplog.ts";
 import { CONTENT_TOMBSTONE_RETENTION_DAYS } from "./auth/sweep.ts";
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
-// SWIP: the facade + the middleware only. This module imports no vendor SDK (ADR 0058) —
+// SWIP: the facade + the middleware only. This module imports no vendor SDK (ADR 0059) —
 // swip.ts loads SWIP dynamically, from an entrypoint, so importing `app` stays free.
 import { swip, swipErrors } from "./swip.ts";
 
 export const app = new Hono();
 
-// SWIP error pillar (ADR 0058) — OUTERMOST, so it sees every error every other
+// SWIP error pillar (ADR 0059) — OUTERMOST, so it sees every error every other
 // middleware and route can throw, and so its flush is the last thing that runs before
 // the response leaves (on Vercel, the container freezes right after). Inert unless an
 // entrypoint booted SWIP: the test suite and a credential-less local server get a

@@ -2,6 +2,8 @@ package com.sloopworks.dayfold.swip
 
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.FamilyCreated
+import com.sloopworks.dayfold.client.HubRequestKey
+import com.sloopworks.dayfold.client.HubTenantGeneration
 import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.InviteRejected
 import com.sloopworks.dayfold.client.NavToDetail
@@ -14,6 +16,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonElement
 import org.reduxkotlin.createStore
+import org.reduxkotlin.concurrent.NotificationContext
 import works.sloop.swip.ConsentDecision
 import works.sloop.swip.ConsentScope
 import works.sloop.swip.FlushResult
@@ -82,7 +85,7 @@ class DayfoldLeakTest {
       FamilyCreated("fam_$SALT", "The $SALT Family"),
       InviteRedeemed("The $SALT Family"),
       SyncFailed("boom $SALT someone@$SALT.com"),
-      OpenHub("hub_$SALT"),
+      OpenHub("hub_$SALT", HubRequestKey(HubTenantGeneration(1L, 1L), 1L)),
       NavToDetail("card_$SALT"),
       InviteRejected("expired"),
     )
@@ -97,7 +100,7 @@ class DayfoldLeakTest {
       override fun optIn(scope: ConsentScope) {}
       override fun optOut(scope: ConsentScope) {}
     }
-    val store = createAppStore(debug = false)
+    val store = createAppStore(notificationContext = NotificationContext.Inline, debug = false)
     val chain = swipMiddleware<AppState>(rec, NoOpErrors, dayfoldMappers(), null, ReplayGuard.fixed(false))(store)({ it })
     actions.forEach { chain(it) }
     val dump = rec.events.joinToString(" | ") { it.schema + " " + it.props.toString() }

@@ -9,6 +9,7 @@ import kotlin.test.assertTrue
 
 class ReducerTest {
   private val json = Json { ignoreUnknownKeys = true }
+  private val hubRequest = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
 
   @Test fun `CardsLoaded replaces the card list (DB is truth)`() {
     var s = AppState(cards = listOf(Card("old", title = "Old")))
@@ -31,7 +32,7 @@ class ReducerTest {
   }
 
   @Test fun `opening or closing a hub resets Show hidden`() {
-    assertFalse(rootReducer(AppState(showHidden = true), OpenHub("h1")).showHidden)
+    assertFalse(rootReducer(AppState(showHidden = true), OpenHub("h1", hubRequest)).showHidden)
     assertFalse(rootReducer(AppState(showHidden = true), CloseHub).showHidden)
   }
 
@@ -68,7 +69,7 @@ class ReducerTest {
   }
 
   @Test fun `store wires reducer end to end`() {
-    val store = createAppStore()
+    val store = createTestAppStore()
     store.dispatch(CardsLoaded(listOf(Card("x", title = "X"))))
     assertEquals(1, store.state.cards.size)
   }
@@ -147,14 +148,14 @@ class ReducerTest {
   }
 
   @Test fun `OpenHub enters a hub busy and clears any stale arrival focus`() {
-    val s = rootReducer(AppState(hubFocusBlockId = "old-blk"), OpenHub("h9"))
+    val s = rootReducer(AppState(hubFocusBlockId = "old-blk"), OpenHub("h9", hubRequest))
     assertEquals("h9", s.currentHubId)
     assertTrue(s.hubsBusy)
     assertNull(s.hubFocusBlockId)      // a fresh manual open must not carry a prior deep-link's focus
   }
 
-  @Test fun `SetHubFocus sets the arrival block, CloseHub clears the whole hub substate`() {
-    val focused = rootReducer(AppState(currentHubId = "h1"), SetHubFocus("blk-7"))
+  @Test fun `OpenHub sets the arrival block and CloseHub clears the whole hub substate`() {
+    val focused = rootReducer(AppState(), OpenHub("h1", hubRequest, focusBlockId = "blk-7"))
     assertEquals("blk-7", focused.hubFocusBlockId)
     val closed = rootReducer(focused.copy(currentHubTree = HubTree(hub = hub("h1"))), CloseHub)
     assertNull(closed.currentHubId); assertNull(closed.currentHubTree); assertNull(closed.hubFocusBlockId)
@@ -169,9 +170,9 @@ class ReducerTest {
     assertEquals(listOf("c1"), after.detailStack)   // the originating detail is preserved
   }
 
-  @Test fun `the from-detail flag is set by SetHubReturnToDetail and cleared entering the Hubs list`() {
-    assertTrue(rootReducer(AppState(), SetHubReturnToDetail(true)).hubFromDetail)
-    assertFalse(rootReducer(AppState(hubFromDetail = true), OpenHubs).hubFromDetail)   // bottom-nav list entry clears it
+  @Test fun `OpenHubs atomically carries and clears the return destination`() {
+    assertTrue(rootReducer(AppState(), OpenHubs(HubReturnDestination.FEED_DETAIL)).hubFromDetail)
+    assertFalse(rootReducer(AppState(hubFromDetail = true), OpenHubs()).hubFromDetail)
     assertFalse(rootReducer(AppState(hubFromDetail = true), CloseHub).hubFromDetail)
   }
 
@@ -181,10 +182,14 @@ class ReducerTest {
   @Test fun `audience sheet lifecycle — open clears stale, load populates, close clears`() {
     val stale = HubAudience(visibility = "just_me", members = listOf(HubAudienceMember(uid = "u1")))
     // open from a state carrying a stale audience → sheet open, audience cleared (no flash)
-    val opened = rootReducer(AppState(currentHubAudience = stale), OpenAudienceSheet)
+    val opened = rootReducer(
+      AppState(currentHubId = "h1", currentHubRequest = hubRequest, currentHubAudience = stale),
+      OpenAudienceSheet,
+    )
     assertTrue(opened.audienceSheetOpen); assertNull(opened.currentHubAudience)
+    val requested = rootReducer(opened, HubAudienceRequested("h1", hubRequest))
     // load populates the audience; the sheet stays open
-    val loaded = rootReducer(opened, HubAudienceLoaded(HubAudience(visibility = "family",
+    val loaded = rootReducer(requested, HubAudienceLoaded("h1", hubRequest, HubAudience(visibility = "family",
       members = listOf(HubAudienceMember(uid = "u1", permitted = true), HubAudienceMember(uid = "u2")))))
     assertTrue(loaded.audienceSheetOpen)
     assertEquals("family", loaded.currentHubAudience?.visibility)
@@ -192,5 +197,75 @@ class ReducerTest {
     // close clears both the open flag and the audience
     val closed = rootReducer(loaded, CloseAudienceSheet)
     assertFalse(closed.audienceSheetOpen); assertNull(closed.currentHubAudience)
+  }
+
+  @Test fun `hub results require the current tenant generation hub and request`() {
+    val generation = HubTenantGeneration(identityEpoch = 7L, familyRevision = 11L)
+    val current = HubRequestKey(generation, requestId = 3L)
+    val staleRequest = HubRequestKey(generation, requestId = 2L)
+    val staleGeneration = HubRequestKey(HubTenantGeneration(6L, 11L), requestId = 3L)
+    val originalTree = HubTree(hub("h2"))
+    val state = AppState(
+      currentHubId = "h2",
+      currentHubTree = originalTree,
+      currentHubRequest = current,
+      hubsBusy = true,
+    )
+
+    listOf(
+      HubTreeLoaded("h1", current, HubTree(hub("h1"))),
+      HubTreeLoaded("h2", staleRequest, HubTree(hub("h2"))),
+      HubTreeLoaded("h2", staleGeneration, HubTree(hub("h2"))),
+    ).forEach { action ->
+      assertEquals(state, rootReducer(state, action))
+    }
+  }
+
+  @Test fun `audience results and failures require the latest admitted request`() {
+    val generation = HubTenantGeneration(identityEpoch = 2L, familyRevision = 4L)
+    val treeRequest = HubRequestKey(generation, requestId = 1L)
+    val currentAudienceRequest = HubRequestKey(generation, requestId = 3L)
+    val staleAudienceRequest = HubRequestKey(generation, requestId = 2L)
+    val state = AppState(
+      currentHubId = "h1",
+      currentHubRequest = treeRequest,
+      audienceSheetOpen = true,
+      currentHubAudienceRequest = currentAudienceRequest,
+    )
+
+    assertEquals(
+      state,
+      rootReducer(state, HubAudienceLoaded("h1", staleAudienceRequest, HubAudience("family"))),
+    )
+    assertEquals(
+      state,
+      rootReducer(state, AudienceFailed("h1", staleAudienceRequest, "late")),
+    )
+    assertEquals(
+      state,
+      rootReducer(state, HubManageFailed("h2", currentAudienceRequest, "wrong hub")),
+    )
+  }
+
+  @Test fun `session terminals clear tenant state but preserve device-owned state`() {
+    val deviceConfig = NotifConfig(enabled = true, dailyCap = 2)
+    val state = AppState(
+      cards = listOf(Card("tenant", title = "Tenant content")),
+      session = Session("access", "refresh"),
+      activeFamilyId = "family",
+      notifConfig = deviceConfig,
+      locationPermission = LocationPermission.Always,
+      notificationPermission = NotificationPermission.Granted,
+    )
+
+    listOf(rootReducer(state, SignedOut), rootReducer(state, SessionExpired)).forEach { terminal ->
+      assertEquals(Route.SignIn, terminal.route)
+      assertTrue(terminal.cards.isEmpty())
+      assertNull(terminal.session)
+      assertNull(terminal.activeFamilyId)
+      assertEquals(deviceConfig, terminal.notifConfig)
+      assertEquals(LocationPermission.Always, terminal.locationPermission)
+      assertEquals(NotificationPermission.Granted, terminal.notificationPermission)
+    }
   }
 }

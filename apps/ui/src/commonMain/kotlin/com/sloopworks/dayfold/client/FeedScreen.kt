@@ -54,12 +54,19 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
   // now/timeZone default to the live clock; snapshot renders pin them so goldens are date-stable.
-  val nowFeedRanked = nowFeed(state, now.toString(), location)
+  // Ranking is intentionally memoized here rather than run in selectorState: selectors execute
+  // on every store notification, including unrelated features. The ranker remains a pure function.
+  val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing) {
+    state.rankingState()
+  }
+  val nowFeedRanked = remember(rankingState, now, location, timeZone) {
+    nowFeed(rankingState, now.toString(), location, timeZone)
+  }
   // ADR 0043 §2b carryover — render-driven record-shown EFFECT. We report the subjects actually
   // surfaced (NOT writing surfacing here — unidirectional: action → NowEngine effect → DB → bridge).
   // Keyed by the subject SET, so it only fires when what's on screen changes, not every clock tick;
@@ -87,8 +94,8 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
         // Labeled "Account" for a11y; the avatar image/initials themselves are decorative.
         Box(Modifier.padding(end = 12.dp).clip(RoundedCornerShape(50)).clickable(onClick = onOpenAccount)) {
           DayfoldAvatar(
-            name = state.myDisplayName ?: "You", size = 34.dp,
-            avatarColorKey = state.myAvatarColor, avatarRef = state.myAvatarRef,
+            name = state.displayName ?: "You", size = 34.dp,
+            avatarColorKey = state.avatarColor, avatarRef = state.avatarRef,
             contentDescription = "Account",
           )
         }
@@ -105,7 +112,7 @@ fun FeedScreen(state: AppState, onAction: (CardAction) -> Unit = {}, onOpenAccou
       // caught up (a hub authored, zero briefing cards) as "nothing set up yet". Established
       // = has hubs (from the cache flow) or >1 member (from the session roster) — both already
       // in state on the Now surface (SyncEngine watches activeHubsFlow; roster loads at session).
-      val established = state.hubs.isNotEmpty() || state.members.size > 1
+      val established = state.hubs.isNotEmpty() || state.memberCount > 1
       when {
         // first load, no cache → calm skeleton (not a spinner-in-a-void), debounced so a
         // fast sync never flashes the skeleton or the onboarding state (loading-states PR).

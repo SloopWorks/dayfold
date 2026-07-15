@@ -10,7 +10,7 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 ## 2026-07-14 — The API reports errors (SWIP error pillar → PostHog + Sentry)
 
 ### Added (internal)
-- **`apps/api` now reports errors through SWIP** (ADR 0058). Any exception a route throws
+- **`apps/api` now reports errors through SWIP** (ADR 0059). Any exception a route throws
   is recorded through the `SloopErrors` facade and lands in **both** PostHog (our own event
   stream) and **Sentry** (triage), joinable on `swip.fingerprint`; unhandled errors caught by
   Sentry's global hooks are mirrored back into the owned stream. Deliberate 4xx responses are

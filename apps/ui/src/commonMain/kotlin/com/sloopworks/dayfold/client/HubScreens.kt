@@ -39,6 +39,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -129,7 +130,7 @@ fun DayfoldBottomNav(hubsActive: Boolean, onNow: () -> Unit, onHubs: () -> Unit)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HubListScreen(
-  state: AppState,
+  state: HubListViewState,
   onOpenHub: (String) -> Unit = {},
   onFilter: (String) -> Unit = {},
   onRetry: () -> Unit = {},
@@ -139,25 +140,24 @@ fun HubListScreen(
   // (both recompose this away, and AnimatedContent has no SaveableStateHolder). Default = standalone/test.
   hubListState: LazyListState = rememberLazyListState(),
 ) {
-  val shown = state.hubs.filter { when (state.hubFilter) { "active" -> it.status == "active"; "planning" -> it.status == "planning"; else -> true } }
   Scaffold(
     topBar = { TopAppBar(title = { Text("Hubs", fontWeight = FontWeight.SemiBold) }) },
     // Bottom bar now lives in TabShell; exclude the nav-bar inset so it isn't reserved twice.
     contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
   ) { pad ->
     Column(Modifier.fillMaxSize().padding(pad)) {
-      if (state.hubs.isNotEmpty()) {
+      if (state.hasAnyHubs) {
         Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          FilterPill("All", state.hubFilter == "all") { onFilter("all") }
-          FilterPill("Active", state.hubFilter == "active") { onFilter("active") }
-          FilterPill("Planning", state.hubFilter == "planning") { onFilter("planning") }
+          FilterPill("All", state.filter == "all") { onFilter("all") }
+          FilterPill("Active", state.filter == "active") { onFilter("active") }
+          FilterPill("Planning", state.filter == "planning") { onFilter("planning") }
         }
       }
       when {
-        state.hubs.isEmpty() && state.hubsBusy -> ListSkeleton(rows = 4, modifier = Modifier.fillMaxSize())
-        state.hubs.isEmpty() && state.hubError != null ->
-          Box(Modifier.fillMaxSize(), Alignment.Center) { ErrorRetry(state.hubError, onRetry = onRetry) }
-        state.hubs.isEmpty() ->
+        !state.hasAnyHubs && state.busy -> ListSkeleton(rows = 4, modifier = Modifier.fillMaxSize())
+        !state.hasAnyHubs && state.error != null ->
+          Box(Modifier.fillMaxSize(), Alignment.Center) { ErrorRetry(state.error, onRetry = onRetry) }
+        !state.hasAnyHubs ->
           Box(Modifier.fillMaxSize(), Alignment.Center) {
             Text(
               "When a big family event shows up — a trip, a move, a birthday — a hub appears here.",
@@ -166,9 +166,9 @@ fun HubListScreen(
               modifier = Modifier.padding(40.dp),
             )
           }
-        shown.isEmpty() ->
+        state.shownHubs.isEmpty() ->
           Box(Modifier.fillMaxSize(), Alignment.Center) {
-            Text("No ${state.hubFilter} hubs.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("No ${state.filter} hubs.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         else -> LazyColumn(
           Modifier.fillMaxSize(),
@@ -176,7 +176,7 @@ fun HubListScreen(
           contentPadding = PaddingValues(16.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          items(shown, key = { it.id }) { hub -> HubRow(hub, nowIso = now.toString(), onClick = { onOpenHub(hub.id) }) }
+          items(state.shownHubs, key = { it.id }) { hub -> HubRow(hub, nowIso = now.toString(), onClick = { onOpenHub(hub.id) }) }
         }
       }
     }
@@ -266,7 +266,7 @@ private fun StatusChip(status: String) {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun HubDetailScreen(
-  state: AppState,
+  state: HubDetailViewState,
   onBack: () -> Unit = {},
   onOpenAudience: () -> Unit = {},
   onRetry: () -> Unit = {},
@@ -293,7 +293,7 @@ fun HubDetailScreen(
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
   timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
-  val tree = state.currentHubTree
+  val tree = state.tree
   // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay.
   val authoredTimeline = tree?.hub?.timeline
   // tz: an authored timeline carries its own; a derived one falls back family→device (device for now).
@@ -347,7 +347,7 @@ fun HubDetailScreen(
     contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
   ) { pad ->
     when {
-      tree == null && state.hubsBusy -> ListSkeleton(rows = 5, modifier = Modifier.fillMaxSize().padding(pad))
+      tree == null && state.busy -> ListSkeleton(rows = 5, modifier = Modifier.fillMaxSize().padding(pad))
       tree == null -> Box(Modifier.fillMaxSize().padding(pad), Alignment.Center) {
         ErrorRetry(state.hubError ?: "Hub unavailable", onRetry = onRetry)
       }
@@ -363,11 +363,11 @@ fun HubDetailScreen(
       // the W5 hidden-block filter (partitionHidden) the render applies — else a hidden block
       // (or a queued write) before the target shifts the real index and the scroll overshoots.
       val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso) != null && tree.hub.status != "archived"
-      LaunchedEffect(state.hubFocusBlockId, tree, state.hiddenIds) {
-        val leadingBanners = (if (state.error != null && (pendingWrites > 0 || failedWrites > 0)) 1 else 0) +
+      LaunchedEffect(state.focusBlockId, tree, state.hiddenIds) {
+        val leadingBanners = (if (state.syncError != null && (pendingWrites > 0 || failedWrites > 0)) 1 else 0) +
           (if (pendingWrites > 0) 1 else 0)
         focusedBlockItemIndex(
-          tree, state.hubFocusBlockId, hasCountdown, tree.hub.visibility == "restricted",
+          tree, state.focusBlockId, hasCountdown, tree.hub.visibility == "restricted",
           // one hoisted slot when a (non-hidden) timeline card OR the "No timeline yet" nudge shows
           hasTimelineCard = (tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
             presentTimelineCard(tl, nowIso, tz) != null) || showTimelineNudge,
@@ -383,7 +383,7 @@ fun HubDetailScreen(
       ) {
         // Offline/queued banner: shown only when a sync is actually failing AND we hold
         // unsynced writes — the only honest moment to say "saved here, will sync" (D4).
-        if (state.error != null && (pendingWrites > 0 || failedWrites > 0)) {
+        if (state.syncError != null && (pendingWrites > 0 || failedWrites > 0)) {
           item(key = "sync-banner") { OfflineSavedBanner() }
         }
         // Queue pill: a single tappable "N waiting · Sync now" while writes are in flight.
@@ -502,9 +502,9 @@ fun HubDetailScreen(
         // sections (ordered) each followed by their blocks (grouped by section_id). Hidden
         // blocks (W5) are filtered out of the live sections and collected into the one
         // "Hidden for you" section below — hide is a pure VIEW split, never a deletion (D4).
-        val selfId = state.session?.userId
+        val selfId = state.currentUserId
         // build once from the eager-loaded roster + self id; identity resolved render-side only
-        val resolveDoneBy: (String?) -> String? = { displayNameFor(it, state.members, state.session?.userId) }
+        val resolveDoneBy: (String?) -> String? = { displayNameFor(it, state.members, state.currentUserId) }
         tree.sections.sortedBy { it.ord }.forEach { section ->
           val all = tree.blocks.filter { it.sectionId == section.id }.sortedBy { it.ord }
           val blocks = partitionHidden(all, state.hiddenIds).visible
@@ -519,7 +519,7 @@ fun HubDetailScreen(
           }
           items(blocks, key = { "blk-${it.id}" }) { block ->
             HubBlockCard(
-              block, focused = block.id == state.hubFocusBlockId,
+              block, focused = block.id == state.focusBlockId,
               // author-gate (W4): delete is offered only to the author (set-once created_by);
               // a null author (legacy / loop-authored) is never deletable by a member.
               canDelete = block.createdBy != null && block.createdBy == selfId,
@@ -594,8 +594,8 @@ fun focusedBlockItemIndex(
 // only at MVP — in-app editing of the allow-list is push/CLI (OQ-hub-collab). A
 // scrim + bottom panel; the roster shows permitted (filled check) vs hidden (ring).
 @Composable
-fun WhoCanSeeSheet(state: AppState, onClose: () -> Unit = {}, onRetryAudience: () -> Unit = {}) {
-  val aud = state.currentHubAudience
+fun WhoCanSeeSheet(state: HubAudienceViewState, onClose: () -> Unit = {}, onRetryAudience: () -> Unit = {}) {
+  val aud = state.audience
   Box(Modifier.fillMaxSize()) {
     // scrim
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)).clickable(onClick = onClose))
@@ -611,11 +611,13 @@ fun WhoCanSeeSheet(state: AppState, onClose: () -> Unit = {}, onRetryAudience: (
           style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         when {
-          state.audienceError != null ->
-            ErrorRetry(state.audienceError, onRetry = onRetryAudience)
+          state.error != null ->
+            ErrorRetry(state.error, onRetry = onRetryAudience)
           aud == null ->
             androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-          else -> aud.members.forEach { m -> AudienceRow(m, isYou = m.uid == state.session?.userId) }
+          else -> aud.members.forEach { member ->
+            key(member.uid) { AudienceRow(member, isYou = member.uid == state.currentUserId) }
+          }
         }
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(14.dp)) {
           Text(

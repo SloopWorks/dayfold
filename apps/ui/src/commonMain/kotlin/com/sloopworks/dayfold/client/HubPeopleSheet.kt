@@ -26,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -128,8 +129,10 @@ fun HubPeopleContent(
           style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
         )
       } else {
-        addable.forEach { m ->
-          AddableRow(m, onAdd = { onSetRole(m.uid, "viewer"); addedUids = addedUids + m.uid })
+        addable.forEach { member ->
+          key(member.uid) {
+            AddableRow(member, onAdd = { onSetRole(member.uid, "viewer"); addedUids = addedUids + member.uid })
+          }
         }
       }
       Button(onClick = { addingPeople = false }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
@@ -151,7 +154,9 @@ fun HubPeopleContent(
       }
 
       owner?.let { OwnerRow(it) }
-      participants.forEach { m -> ParticipantRow(m, onSetRole = onSetRole, onRemove = onRemove) }
+      participants.forEach { member ->
+        key(member.uid) { ParticipantRow(member, onSetRole = onSetRole, onRemove = onRemove) }
+      }
 
       // Inline role explainer — one line, no separate matrix/sheet (M-next gets the tap-to-
       // expand role-explainer sheet; this is the always-visible plain-language summary).

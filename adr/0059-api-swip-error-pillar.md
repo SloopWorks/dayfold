@@ -1,4 +1,4 @@
-# ADR 0058: The API Reports Errors Through SWIP — Owned Stream + Sentry, Joined on a Fingerprint, Flushed Before the Function Freezes
+# ADR 0059: The API Reports Errors Through SWIP — Owned Stream + Sentry, Joined on a Fingerprint, Flushed Before the Function Freezes
 
 ## Status
 
