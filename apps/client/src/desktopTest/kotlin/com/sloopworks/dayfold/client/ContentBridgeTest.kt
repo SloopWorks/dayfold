@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
@@ -9,10 +10,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -25,7 +29,13 @@ class ContentBridgeTest {
   @Test fun `family start and replacement cannot invert publication and session locks`() = runBlocking {
     val publicationEntered = CountDownLatch(1)
     val releasePublication = CountDownLatch(1)
+    // Keep the deliberately blocked collector off Dispatchers.Default. On a small CI runner, the
+    // five family collectors can otherwise occupy every scheduler worker while waiting for the
+    // same publication monitor and starve the replacement coroutine this test is meant to observe.
+    val bridgeDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     val fixture = fixture(
+      scopeDispatcher = bridgeDispatcher,
+      ownedDispatcher = bridgeDispatcher,
       beforeFamilyPublicationCommit = {
         publicationEntered.countDown()
         check(releasePublication.await(3, TimeUnit.SECONDS)) {
@@ -210,11 +220,13 @@ class ContentBridgeTest {
   }
 
   private fun fixture(
+    scopeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    ownedDispatcher: ExecutorCoroutineDispatcher? = null,
     beforeFamilyPublicationCommit: () -> Unit = {},
   ): Fixture {
     val content = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
     val parentJob = SupervisorJob()
-    val scope = CoroutineScope(parentJob + Dispatchers.Default)
+    val scope = CoroutineScope(parentJob + scopeDispatcher)
     val coordinator = SessionCoordinator(
       refreshScope = scope,
       refreshSession = { error("refresh not expected") },
@@ -235,7 +247,18 @@ class ContentBridgeTest {
       databaseDispatcher = Dispatchers.Default,
       beforeFamilyPublicationCommit = beforeFamilyPublicationCommit,
     )
-    return Fixture(content, coordinator, auth, family, store, bridge, counter, parentJob, scope)
+    return Fixture(
+      content,
+      coordinator,
+      auth,
+      family,
+      store,
+      bridge,
+      counter,
+      parentJob,
+      scope,
+      ownedDispatcher,
+    )
   }
 
   private class ActionCounter {
@@ -268,9 +291,11 @@ class ContentBridgeTest {
     val counter: ActionCounter,
     val parentJob: Job,
     private val scope: CoroutineScope,
+    private val ownedDispatcher: ExecutorCoroutineDispatcher?,
   ) {
     fun close() {
       scope.cancel()
+      ownedDispatcher?.close()
     }
   }
 }
