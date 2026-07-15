@@ -8,8 +8,6 @@ import com.sloopworks.dayfold.client.OpenHub
 import com.sloopworks.dayfold.client.SignInSucceeded
 import com.sloopworks.dayfold.client.SignedOut
 import com.sloopworks.dayfold.client.SyncFailed
-import kotlinx.serialization.json.JsonElement
-import works.sloop.swip.SloopErrors
 import works.sloop.swip.rk.SwipActionMappers
 import works.sloop.swip.rk.swipMappers
 import works.sloop.swip.schema.dayfold.AccountSignedIn
@@ -46,8 +44,3 @@ private fun inviteReason(s: String): InviteRejectedEvent.Reason = when (s) {
   else -> InviteRejectedEvent.Reason.ERROR
 }
 
-/** swipMiddleware requires a SloopErrors; the analytics-only build has no error runtime. */
-object NoOpErrors : SloopErrors {
-  override fun record(error: Throwable, attrs: Map<String, JsonElement?>, mechanism: String) {}
-  override fun breadcrumb(category: String, message: String) {}
-}

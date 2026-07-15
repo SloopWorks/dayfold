@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import works.sloop.swip.ConsentDecision
 import works.sloop.swip.ConsentScope
 import works.sloop.swip.FlushResult
+import works.sloop.swip.NoOpErrors
 import works.sloop.swip.SloopAnalytics
 import works.sloop.swip.SwipEvent
 import works.sloop.swip.rk.ReplayGuard

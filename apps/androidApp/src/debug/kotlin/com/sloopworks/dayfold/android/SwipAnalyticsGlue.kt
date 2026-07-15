@@ -9,7 +9,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.createAppStore
-import com.sloopworks.dayfold.swip.NoOpErrors
 import com.sloopworks.dayfold.swip.ReplaceableStoreSubscription
 import com.sloopworks.dayfold.swip.dayfoldMappers
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +30,6 @@ import works.sloop.swip.platform.AndroidSwipStorage
 import works.sloop.swip.platform.HttpUrlConnectionPoster
 import works.sloop.swip.platform.isMainProcess
 import works.sloop.swip.platform.swipDbDriver
-import works.sloop.swip.pipeline.PostHogTransport
 import works.sloop.swip.pipeline.SqlDelightPersistentQueue
 import works.sloop.swip.pipeline.persistenceForProcess
 import works.sloop.swip.rk.ReplayGuard
@@ -68,7 +66,7 @@ fun swipInit(app: Application) {
   SwipAnalyticsHolder.swip = works.sloop.swip.Swip.init(
     DayfoldSwip.androidProd(),
     DayfoldSwip.platformDeps(
-      transport = PostHogTransport(BuildConfig.POSTHOG_PROJECT_KEY, BuildConfig.POSTHOG_HOST, HttpUrlConnectionPoster()),
+      transport = DayfoldSwip.androidProdTransport(BuildConfig.POSTHOG_PROJECT_KEY, BuildConfig.POSTHOG_HOST, HttpUrlConnectionPoster()),
       storage = storage,
       appVersion = BuildConfig.VERSION_NAME,
       os = "android",
@@ -94,7 +92,10 @@ fun swipInit(app: Application) {
   // own dogfood household, so grant ANALYTICS consent here to actually ship events. Debug-only
   // glue (release is inert); widening to real users stays a future ADR + real consent surface.
   SwipAnalyticsHolder.swip?.analytics?.setConsent(
-    mapOf(ConsentScope.ANALYTICS to ConsentDecision.GRANTED),
+    mapOf(
+      ConsentScope.ANALYTICS to ConsentDecision.GRANTED,
+      ConsentScope.ERRORS to ConsentDecision.GRANTED,
+    ),
   )
 }
 
@@ -105,7 +106,7 @@ fun debugStoreEnhancer(): StoreEnhancer<AppState>? = compose(
     applyMiddleware(
       swipMiddleware<AppState>(
         analytics = requireSwip().analytics.asSloopAnalytics(),
-        errors = NoOpErrors,
+        errors = requireSwip().errors,
         mappers = SwipAnalyticsHolder.mappers,
         config = null,
         replayGuard = ReplayGuard.detectDevtools(isDebug = BuildConfig.DEBUG),
