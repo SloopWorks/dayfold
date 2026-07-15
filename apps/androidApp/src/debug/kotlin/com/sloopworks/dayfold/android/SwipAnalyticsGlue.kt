@@ -66,6 +66,9 @@ private val TRACKING_MODES = setOf(CollectionMode.FULL, CollectionMode.PSEUDONYM
 
 /** Init the analytics runtime once, BEFORE the store is created. */
 fun swipInit(app: Application) {
+  // Application.onCreate fires in EVERY process; only the main (UI) process runs the pipeline
+  // + Sentry. A second process here would double-init Sentry and contend on the crash marker.
+  if (!isMainProcess(app)) return
   if (SwipAnalyticsHolder.swip != null) return
   val storage = AndroidSwipStorage(app).also { SwipAnalyticsHolder.storage = it }
   // Crash/error vendor (ADR 0060). initSentryAndroid is suspend (prepares the crash-marker
