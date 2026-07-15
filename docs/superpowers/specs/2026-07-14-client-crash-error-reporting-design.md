@@ -88,12 +88,45 @@ end-to-end — the client analog of the API's `/debug/boom` + `/debug/wtf`.
 `ConsentScope`, `CollectionMode`) must be confirmed still-compiling by an actual
 `:androidApp:assembleDebug`, not assumed.
 
-## 5. Wiring (`apps/androidApp/src/debug/.../SwipAnalyticsGlue.kt` — debug variant only)
+## 5. Wiring
 
 The release variant (`src/release/.../SwipAnalyticsGlue.kt`) is an inert same-signature mirror and
-stays untouched.
+stays untouched. Steps 1–6 below are in the **debug** glue (`src/debug/.../SwipAnalyticsGlue.kt`);
+step 0 is shared `src/main`.
 
-1. **Build the reporter once at `swipInit`, before `Swip.init`:**
+0. **Hoist init to a custom `Application` — so crashes during startup are caught.** Sentry must
+   install its `UncaughtExceptionHandler` in the earliest app code; `swipInit` runs in
+   `MainActivity.onCreate` today (`MainActivity:165`), which misses any crash before the first
+   activity. Add `DayfoldApp : Application` in `src/main` and register it
+   (`android:name=".DayfoldApp"` — the `<application>` tag has none today):
+   ```kotlin
+   // src/main — variant-agnostic. swipInit resolves to the debug glue (real) or the
+   // release glue (inert `= Unit`), so this stays SWIP-free and release keeps zero bytes.
+   class DayfoldApp : Application() {
+     override fun onCreate() { super.onCreate(); swipInit(this) }
+   }
+   ```
+   `MainActivity` **drops** its `swipInit(application)` call; `Application.onCreate` always precedes
+   `MainActivity.onCreate`, so the "before the store is created" ordering (`debugStoreEnhancer()`
+   reads the swip instance) is preserved and strengthened. `swipInit` is already idempotent
+   (`SwipAnalyticsHolder.swip != null` early-return), so a stray double-call is harmless.
+
+   **Main-process guard (new, required by the hoist).** `Application.onCreate` runs in *every*
+   process; a future `:background`/work process would otherwise double-init Sentry and contend on the
+   crash-marker file. Add an early guard at the top of the **debug** `swipInit` (this keeps `src/main`
+   SWIP-free — `isMainProcess` is a SWIP symbol, already imported in the glue and already used for the
+   persistence guard at line 84):
+   ```kotlin
+   fun swipInit(app: Application) {
+     if (!isMainProcess(app)) return          // Application.onCreate fires per-process
+     if (SwipAnalyticsHolder.swip != null) return
+     …
+   }
+   ```
+   Dayfold declares no `android:process` today, so this is a no-op now; it makes the hoist correct
+   against a future second process rather than a latent double-init.
+
+1. **Build the reporter once in `swipInit`, before `Swip.init`:**
    ```kotlin
    val reporter: CrashReporter = runBlocking(Dispatchers.IO) {
      initSentryAndroid(app, SentryInitConfig(
@@ -110,8 +143,9 @@ stays untouched.
    ```
    `initSentryAndroid` is `suspend` (it prepares the crash-marker file off-main and recovers a prior
    crash's marker). It must complete before `Swip.init`, so it is awaited with a one-time
-   `runBlocking(Dispatchers.IO)`. **Cost:** briefly blocks the main thread at debug cold start on a
-   small file read — one-time, debug-only, acceptable.
+   `runBlocking(Dispatchers.IO)`. **Cost:** briefly blocks the main thread in `Application.onCreate`
+   (before any UI) on a small file read — one-time, debug-only, acceptable, and the correct trade for
+   installing the crash handler as early as possible.
 
 2. **Feed it into the deps:** the existing call already does
    `DayfoldSwip.platformDeps(...).copy(debugSink = …)`; extend it to
@@ -202,10 +236,10 @@ the raw `message`.)
 
 ## 9. Known gaps / follow-ups (named, not hidden)
 
-- **Sentry inits in `MainActivity.onCreate`** (`swipInit` is called there today, `MainActivity:165`),
-  so a crash during `Application` startup — before the first activity — is not captured. Analytics
-  has the same limitation, so slice 1 is consistent; hoisting Sentry init into a custom
-  `Application.onCreate` for earlier coverage is a follow-up.
+- **Startup crash coverage — closed in this PR (§5.0).** Init is hoisted to a custom
+  `Application.onCreate`, so Sentry's handler is installed in the earliest app code and catches
+  crashes throughout startup, not just after the first activity. (Analytics moves with it — a
+  strict improvement, and it now inits behind a main-process guard.)
 - **SWIP gap (report, do not patch):** `initSentryAndroid` has no `consented: () -> Boolean`
   parameter (the TS `initSentryNode` requires one). Sentry initializes globally and captures
   immediately, so there is no way to gate the *SDK* on `ConsentScope.ERRORS` from the product side.
@@ -222,5 +256,5 @@ the raw `message`.)
 Vendor + project (Sentry KMP `4511734711189584`, EU, and why not the Node/legacy DSN); debug-only
 scope + the honest consent argument and the release boundary; the independent-id wrong-project guard;
 the marker-file fatal mirror + the fatal-vs-handled join distinction; slice-1 contents (crashes +
-breadcrumbs + debug trigger; no production handled site); the Application-startup coverage gap and
-the SWIP `consented`-gate gap as blockers for any release-scope follow-up.
+breadcrumbs + debug trigger; no production handled site); the custom-`Application` hoist + its
+main-process guard; and the SWIP `consented`-gate gap as the blocker for any release-scope follow-up.
