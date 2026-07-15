@@ -131,6 +131,20 @@ fun swipInit(app: Application) {
   )
 }
 
+/** Debug-only smoke (ADR 0060 §8). Fires a deliberate non-crash report through the pillar. */
+fun swipDebugFireWtf() {
+  SwipAnalyticsHolder.swip?.errors?.wtf(
+    key = "dayfold.client.smoke",
+    message = "deliberate client non-crash report",
+    attrs = mapOf("surface" to "android-debug"),
+    severity = works.sloop.swip.ErrorSeverity.ERROR,
+  )
+}
+
+/** Debug-only smoke: an unhandled throw → Sentry's global handler → marker → mirrored next launch. */
+fun swipDebugFireCrash(): Nothing =
+  throw IllegalStateException("dayfold client smoke: deliberate unhandled crash")
+
 /** The ONE enhancer MainActivity passes to createAppStore: recorder (outer) ∘ analytics middleware. */
 fun debugStoreEnhancer(): StoreEnhancer<AppState>? = compose(
   listOfNotNull(
