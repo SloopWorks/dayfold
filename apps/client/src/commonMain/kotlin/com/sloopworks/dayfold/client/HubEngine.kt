@@ -20,10 +20,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.reduxkotlin.Store
 
-// Orchestrates the Hubs surface (ADR 0006). PR2: openHub is now DB-fed — it dispatches
-// OpenHub, triggers a background sync, and subscribes to contentStore.hubTreeFlow(hubId)
-// dispatching HubTreeLoaded whenever the DB delivers tree rows. Removes the direct
-// hubTree network call; keeps HubClient for audience(). Mutex-guarded like AuthEngine.
+/**
+ * Executes family-scoped Hub navigation, editing, projection, and audience effects.
+ *
+ * A runtime-bound family generation owns the active Hub tree collector and request admission.
+ * Content edits flow through the database and sync path; direct network calls are limited to Hub
+ * management data such as audience. The engine does not select families, own host lifecycle, or
+ * render UI—[DayfoldRuntime] binds and closes its family work at tenant boundaries.
+ */
 class HubEngine(
   private val store: Store<AppState>,
   private val hubClient: HubClient,

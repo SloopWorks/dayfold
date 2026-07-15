@@ -14,9 +14,14 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import org.reduxkotlin.Store
 
-// Performs one offline-first captured-context drain (ADR 0020). SyncCoordinator owns request
-// conflation, serialization, polling, and cancellation. The bridge/lifecycle methods remain only
-// as a compatibility boundary until the platform hosts move to DayfoldRuntime (Tasks 11–12).
+/**
+ * Performs one offline-first sync pass for an exact family session context.
+ *
+ * A pass drains pending operations, calls the sync API, persists the response, and publishes
+ * delta-only status while rejecting stale tenant work. [SyncCoordinator] owns request conflation,
+ * polling, serialization, and cancellation; this engine owns neither UI lifecycle nor the source of
+ * truth for synchronized content, which remains the database.
+ */
 class SyncEngine(
   private val store: Store<AppState>,
   private val contentStore: ContentStore,

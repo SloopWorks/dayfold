@@ -45,11 +45,13 @@ internal class DayfoldRuntimeComponents(
 )
 
 /**
- * Owns shared-client lifecycle and coroutine structure without absorbing feature domain logic.
+ * Owns the shared client's structured lifetime and its replaceable family-work boundary.
  *
- * All callbacks run on [backgroundDispatcher]. They may start children only in the supplied
- * runtime-owned scope and must route Redux publication through the supplied [PublicationBoundary].
- * [cancel] closes that boundary and both bridge boundaries synchronously before cancelling jobs.
+ * The runtime starts and stops engine work, scopes every child, fences publication, and orders family
+ * replacement as close, join, wipe, then bind. It delegates authentication, sync, Hub, database, and
+ * presentation rules to their owning components. It does not retain platform UI objects, replace the
+ * Redux store, or serve as the database lock. [cancel] closes admission synchronously;
+ * [awaitClosed] provides ordered teardown for hosts and tests.
  */
 class DayfoldRuntime internal constructor(
   backgroundDispatcher: CoroutineDispatcher,

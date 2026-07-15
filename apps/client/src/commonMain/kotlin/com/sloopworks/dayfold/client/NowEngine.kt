@@ -20,8 +20,13 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import org.reduxkotlin.Store
 
-// ADR 0043 §2b — render reports visible subjects here; this engine serializes the local-only
-// anti-nag writes through one actor. Render never writes DB or Redux directly.
+/**
+ * Serializes the local-only persistence effects behind the Now surface.
+ *
+ * UI reports visible or dismissed subjects; one actor batches and debounces those commands, writes
+ * anti-nag state off-main, and publishes only for the still-current tenant generation. The engine
+ * does not rank content, decide visibility, write from composition, or own its supplied scope.
+ */
 class NowEngine(
   private val store: Store<AppState>,
   private val contentStore: ContentStore,

@@ -22,12 +22,11 @@ enum class SyncReason {
 }
 
 /**
- * Serializes sync passes behind one conflated request signal.
+ * Owns sync scheduling while delegating the contents of each pass to [syncPass].
  *
- * Requests made during a pass schedule at most one rerun. Pausing stops polling and holds a pending
- * rerun until [resume], while allowing the active pass to finish under its session currentness
- * checks. Closing cancels both the poller and active pass through their runtime-owned [CoroutineScope].
- * The coordinator owns jobs, never the supplied scope.
+ * It serializes passes, conflates requests made during a pass into one rerun, and applies foreground
+ * polling and pause/resume policy. It does not perform network or database work, validate sessions,
+ * publish Redux state, or own the runtime-supplied [CoroutineScope]; [close] cancels only its jobs.
  */
 class SyncCoordinator internal constructor(
   private val syncPass: suspend (reason: SyncReason, isConflatedRerun: Boolean) -> Unit,

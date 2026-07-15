@@ -11,7 +11,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-/** Opaque compare-and-set ticket for a replaceable restore or sign-in operation. */
+/**
+ * Opaque ticket identifying the latest replaceable restore or sign-in attempt.
+ *
+ * It exists so a slower authentication result cannot overwrite a newer attempt or signed-out
+ * identity. The ticket carries generation metadata only—never credentials or UI state—and is valid
+ * solely through [SessionCoordinator] currentness and commit operations.
+ */
 class AuthOperationContext internal constructor(
   internal val identityEpoch: Long,
   internal val operationRevision: Long,
@@ -21,11 +27,11 @@ class AuthOperationContext internal constructor(
 }
 
 /**
- * An immutable identity-session snapshot.
+ * Immutable capability for work tied to one authenticated identity epoch.
  *
- * Credentials are intentionally available only through [withAccessToken] and the
- * coordinator's refresh callback. This type must never be put in Redux state,
- * DevTools data, SWIP payloads, or logs.
+ * It keeps credentials and rotation metadata together so authorized work can survive token rotation
+ * while a different login remains rejectable. Credentials are exposed only to bounded callbacks;
+ * this context must not enter Redux, DevTools, SWIP payloads, persistence models, or logs.
  */
 class AuthSessionContext internal constructor(
   internal val identityEpoch: Long,
@@ -52,10 +58,11 @@ class AuthSessionContext internal constructor(
 }
 
 /**
- * An immutable identity-and-family snapshot for tenant-bound work.
+ * Immutable capability for work tied to one identity and family generation.
  *
- * Capture one instance for an entire network/DB operation and validate it with
- * [SessionCoordinator.isCurrent] immediately before family-scoped publication.
+ * Capture one at the command edge and retain it through the complete network or database operation;
+ * [SessionCoordinator] then rejects late publication after a family or identity replacement. It is
+ * a concurrency fence, not selected-family UI state, and must not be serialized or logged.
  */
 class FamilySessionContext internal constructor(
   internal val authContext: AuthSessionContext,
@@ -75,15 +82,13 @@ class FamilySessionContext internal constructor(
 }
 
 /**
- * Owns atomic identity/family snapshots and serializes access-token refresh.
+ * Single authority for identity epochs, family generations, and access-token rotation.
  *
- * [refreshScope] is owned by the runtime. Refresh is launched in that scope so a
- * cancelled caller does not cancel a refresh still awaited by other callers.
- * [invalidate] cancels the active epoch's refresh for every waiter.
- * [commitRotation] must synchronously persist and publish the new session; it is
- * invoked exactly once while rotation is serialized. Refresh-driven rotation runs
- * in [refreshScope]; direct callers must likewise stay off the UI thread if the
- * commit performs blocking persistence.
+ * It mints opaque contexts, deduplicates refresh, and provides atomic currentness-checked commits so
+ * stale asynchronous work cannot cross identity or tenant boundaries. It does not choose a family,
+ * perform transport calls beyond the injected refresh callback, own [refreshScope], or store session
+ * state in Redux. [commitRotation] is invoked once as the bounded persistence/publication seam for a
+ * successful rotation and must execute on an appropriate background context when it blocks.
  */
 class SessionCoordinator(
   private val refreshScope: CoroutineScope,

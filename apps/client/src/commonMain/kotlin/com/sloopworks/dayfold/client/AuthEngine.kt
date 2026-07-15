@@ -33,15 +33,14 @@ fun interface FirebaseSignIn { suspend fun idToken(provider: String): String? }
 const val DEV_TOKEN: String = "dev.local"
 private const val SIGN_OUT_TIMEOUT_MS: Long = 5_000L
 
-// AUTH-S5 T4 — orchestrates the session lifecycle (mirrors SyncEngine): sequences
-// AuthClient I/O + TokenStore persistence and dispatches the auth actions. Pure
-// state transitions live in the reducer (T1); all effects live here.
-//
-// Sign-in (S2, ADR 0023/0027): if a [firebaseSignIn] seam yields a Firebase ID
-// token for the tapped provider, POST /auth/firebase mints a real session. Else
-// it falls back to the gated dev-token path (local/test; the operator's dogfood
-// identity). `firebaseSignIn == null && devSecret == null` ⇒ no path → sign-in
-// fails closed with a clear message (a shipped build without Firebase config).
+/**
+ * Executes identity and account effects behind the application's command boundary.
+ *
+ * The engine orders provider exchange, token persistence, membership reconciliation, invitations,
+ * profile, roster, and device operations; it validates session contexts before committing Redux or
+ * durable state. It does not own native sign-in UI, the runtime scope, navigation, or reducer logic:
+ * hosts supply immutable provider results and [DayfoldRuntime] owns its lifetime.
+ */
 class AuthEngine(
   private val store: Store<AppState>,
   private val authClient: AuthClient,

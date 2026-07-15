@@ -9,12 +9,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 
 /**
- * Retains the latest external Hub target until a current family runtime can admit it.
+ * Bridges platform notification targets to family-scoped Hub admission.
  *
- * The actor owns all mutable state, so notification callbacks may submit from any platform thread.
- * Targets stay outside Redux (and therefore DevTools/SWIP serialization), while the supplied family
- * generation is revalidated immediately before delivery. A successful delivery acknowledges only
- * after the navigation action has been admitted.
+ * Its actor safely accepts callbacks from any platform thread, retains the latest cold target until a
+ * current family is bound, and correlates discard/admission acknowledgements. It does not parse
+ * platform intents, select a tenant, or navigate directly: targets remain outside Redux and delivery
+ * revalidates the supplied family generation before invoking the Hub boundary.
  */
 internal class PendingExternalHubTargetCoordinator(
   scope: CoroutineScope,
