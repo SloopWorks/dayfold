@@ -281,6 +281,22 @@ Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify pass
   checklist id-stamping (repeated near-verbatim in `cli.md` + `content-model.md`
   + the `templates/README.md` table note — low priority, each copy is already
   short).
+- **`apps/cli`** (new, 2026-07-15 audit) — `Main.kt:26-64`: `postStatus`/
+  `putStatus`/`getStatus`/`deleteStatus` are four near-identical ~8-line
+  functions differing only by HTTP method/body; `Main.kt:283`: `push`'s PUT
+  call re-implements the same "retry once on 401" pattern `authedGet`/
+  `authedDelete` already share (no `authedPut` exists, so the retry logic now
+  lives in 3 places) — extracting `authedPut` and merging the four `*Status`
+  helpers into one method-parameterized function are both mechanical Kotlin
+  changes; `Main.kt:197` vs `225`: the device-creds-or-legacy-env `Triple`
+  resolution is copy-pasted between `pull` and `delete` (2 sites, minor). Same
+  no-build-toolchain caveat as the `apps/api` items above — unverified,
+  needs a real Gradle build to land safely.
+- **`apps/api`** (new, 2026-07-15 audit) — `app.ts` (~9 sites, e.g. line 461)
+  use an ad-hoc `{type:"validation", issues}` error shape that doesn't reuse
+  the file's own RFC 9457 `problem()` helper — an inconsistency, not a clean
+  extraction target; worth folding into `problem()` when `app.ts` gets its
+  route-split (see the 1244-line entry above), not on its own.
 
 ## SWIP platform — `SwipAnalytics.track()` swallows Throwable silently (found 2026-07-12)
 

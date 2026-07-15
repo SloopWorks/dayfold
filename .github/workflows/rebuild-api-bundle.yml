@@ -13,9 +13,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: rebuild-api-bundle
+  cancel-in-progress: false
+
 jobs:
   rebuild:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       # @sloopworks/swip-* come from GitHub Packages, and they are BUNDLED into the
       # function (they publish TS sources) — so the rebuild needs registry auth too.

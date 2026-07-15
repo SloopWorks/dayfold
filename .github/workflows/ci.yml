@@ -5,10 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   api:
     name: API (vitest + Postgres)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
@@ -58,6 +66,7 @@ jobs:
   cli:
     name: CLI (Kotlin)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -68,6 +77,7 @@ jobs:
   client:
     name: Client core + feed UI (Compose, headless)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # GitHub Packages credentials for the swip bugreport artifacts (settings.gradle.kts
     # reads this env var; repo secret = read:packages PAT).
     env:
@@ -110,16 +120,23 @@ jobs:
   debugdrawer:
     name: Debug Drawer (Compose-MP lib, headless)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # :debugdrawer-swip depends on works.sloop.swip:swip-debug from GitHub Packages
+    # (same credential the client/android jobs already set — settings.gradle.kts
+    # reads this env var; repo secret = read:packages PAT).
+    env:
+      SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - working-directory: apps
-        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest
+        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest :debugdrawer-swip:desktopTest
 
   android:
     name: Android app (assembleDebug — compile smoke)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # GitHub Packages credentials for the swip bugreport artifacts (settings.gradle.kts
     # reads this env var; repo secret = read:packages PAT).
     env:
@@ -161,6 +178,7 @@ jobs:
   naming-guard:
     name: No legacy com.familyai package (ADR 0026)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: reject com.familyai / FAMILYAI_API in code
@@ -173,6 +191,7 @@ jobs:
   firebase-emulator:
     name: API — real Firebase Auth Emulator (S2, ADR 0027)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
