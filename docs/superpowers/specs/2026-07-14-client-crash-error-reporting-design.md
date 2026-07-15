@@ -1,11 +1,11 @@
 # Client Crash / Error Reporting — Debug-Only Android, SWIP Error Pillar → Sentry (KMP project) + PostHog
 
 **Date:** 2026-07-14
-**Status:** Design, pending operator review → ADR 0059
+**Status:** Design, pending operator review → ADR 0060
 **Scope:** Dayfold Android client (`apps/androidApp`, `apps/swip-wiring`), debug/dogfood variant only
 **Companion:** SWIP error pillar (SWIP PR #67/#68/#73, published KMP artifacts). Realizes the
 KMP/Android half of `sloopworksinstrumentationplatform/docs/superpowers/specs/2026-07-13-swip-errors-sentry-design.md`.
-Sibling of ADR 0058 (the API half, PR #336).
+Sibling of ADR 0059 (the API half, PR #336).
 
 ---
 
@@ -37,7 +37,7 @@ by a `javap` check. Crash reporting follows the identical pattern, for the ident
   proven one (the synchronous-fatal marker-file mirror). iOS (sentry-cocoa + the two-dSYM upload
   trap) is a clean follow-up PR.
 
-**This is the load-bearing distinction from the API (ADR 0058):** an API error is our
+**This is the load-bearing distinction from the API (ADR 0059):** an API error is our
 infrastructure reporting on itself, with no user in the event, so consent there is `() => true`
 unconditionally. A *client* error can carry the device's `distinct_id`. Debug-only-on-the-operator's-
 device is what makes granting consent honest here; it is not a precedent for release.
@@ -187,7 +187,7 @@ Dayfold has three Sentry DSNs in one EU org, all `*.ingest.de.sentry.io`:
 | var | project id | owner |
 |---|---|---|
 | `SENTRY_KOTLIN_EU_DSN` | `4511734711189584` | **this — the KMP app** |
-| `SENTRY_NODE_EU_DSN` | `4511734782820432` | the API (ADR 0058) |
+| `SENTRY_NODE_EU_DSN` | `4511734782820432` | the API (ADR 0059) |
 | `SENTRY_DSN` | — | legacy |
 
 `swip-sentry`'s `verifyDsn` asserts the passed `orgId` + `projectId` against the DSN's host label
@@ -251,7 +251,7 @@ the raw `message`.)
 - **R8 mapping upload:** *not needed for this scope.* Debug builds are un-minified, so stacks are
   already symbolic. Mapping upload is a release-only concern for a future ADR.
 
-## 10. ADR 0059 will record
+## 10. ADR 0060 will record
 
 Vendor + project (Sentry KMP `4511734711189584`, EU, and why not the Node/legacy DSN); debug-only
 scope + the honest consent argument and the release boundary; the independent-id wrong-project guard;

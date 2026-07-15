@@ -35,7 +35,7 @@
 | `apps/androidApp/src/main/.../MainActivity.kt` | drop its `swipInit(application)` call | 3 |
 | `apps/androidApp/src/debug/.../SwipErrorsTriggerPlugin.kt` | **new** debug-drawer plugin: fire wtf / fire crash | 4 |
 | `apps/androidApp/src/debug/.../DebugDrawerPlugins.kt` | register the trigger plugin | 4 |
-| `adr/0059-client-crash-error-reporting.md`, `CHANGELOG.md`, `backlog/now.md` | docs | 6 |
+| `adr/0060-client-crash-error-reporting.md`, `CHANGELOG.md`, `backlog/now.md` | docs | 6 |
 
 ---
 
@@ -151,7 +151,7 @@ Add the `swip-sentry` dependency, inject the DSN via a debug `buildConfigField`,
 
 In `apps/androidApp/build.gradle.kts`, next to the other SWIP `debugImplementation` lines (near line 133), add:
 ```kotlin
-  // SWIP crash/error reporter (debug ONLY, ADR 0059). Pulls io.sentry:sentry-kotlin-multiplatform
+  // SWIP crash/error reporter (debug ONLY, ADR 0060). Pulls io.sentry:sentry-kotlin-multiplatform
   // + sentry-android transitively — release never references them.
   debugImplementation("works.sloop.swip:swip-sentry:0.1.0")
 ```
@@ -160,7 +160,7 @@ In `apps/androidApp/build.gradle.kts`, next to the other SWIP `debugImplementati
 
 In `apps/androidApp/build.gradle.kts`, inside `getByName("debug") { … }` (after the `POSTHOG_HOST` line ~58), add:
 ```kotlin
-      // The KMP Sentry project's DSN (ADR 0059). Injected from Infisical at build; empty ⇒
+      // The KMP Sentry project's DSN (ADR 0060). Injected from Infisical at build; empty ⇒
       // crash reporting stays OFF so a no-Infisical debug build still runs. NEVER a literal.
       buildConfigField("String", "SENTRY_KOTLIN_EU_DSN", "\"${System.getenv("SENTRY_KOTLIN_EU_DSN") ?: ""}\"")
 ```
@@ -181,7 +181,7 @@ import works.sloop.swip.sentry.initSentryAndroid
 
 In `swipInit()`, immediately after `val storage = AndroidSwipStorage(app)…` and before the `Swip.init(` call, add:
 ```kotlin
-  // Crash/error vendor (ADR 0059). initSentryAndroid is suspend (prepares the crash-marker
+  // Crash/error vendor (ADR 0060). initSentryAndroid is suspend (prepares the crash-marker
   // file off-main + recovers a prior crash's marker), and MUST complete before Swip.init, so
   // it is awaited once here. Empty DSN (no Infisical) ⇒ no Sentry, NoOpCrashReporter default.
   // projectId is the KMP project, declared INDEPENDENTLY of the DSN so verifyDsn can catch a
@@ -261,7 +261,7 @@ package com.sloopworks.dayfold.android
 import android.app.Application
 
 /**
- * Hosts SWIP init in the EARLIEST app code (ADR 0059): the crash handler must be installed
+ * Hosts SWIP init in the EARLIEST app code (ADR 0060): the crash handler must be installed
  * before anything can crash during startup. `swipInit` resolves to the debug glue (real) or
  * the release glue (inert `= Unit`), so this class stays SWIP-free and release keeps zero bytes.
  */
@@ -295,7 +295,7 @@ In `apps/androidApp/src/main/kotlin/com/sloopworks/dayfold/android/MainActivity.
 ```
 with:
 ```kotlin
-    // SWIP init runs in DayfoldApp.onCreate (ADR 0059) — before any activity — so the crash
+    // SWIP init runs in DayfoldApp.onCreate (ADR 0060) — before any activity — so the crash
     // handler is installed early and requireSwip() below is ready. Nothing to do here.
 ```
 
@@ -344,7 +344,7 @@ Add two debug-only glue functions and a `DebugPlugin` with two buttons, so the o
 
 In `apps/androidApp/src/debug/.../SwipAnalyticsGlue.kt`, add near the other public glue functions:
 ```kotlin
-/** Debug-only smoke (ADR 0059 §8). Fires a deliberate non-crash report through the pillar. */
+/** Debug-only smoke (ADR 0060 §8). Fires a deliberate non-crash report through the pillar. */
 fun swipDebugFireWtf() {
   SwipAnalyticsHolder.swip?.errors?.wtf(
     key = "dayfold.client.smoke",
@@ -377,7 +377,7 @@ import com.sloopworks.debugdrawer.DebugPlugin
 import com.sloopworks.debugdrawer.DebugScope
 
 /**
- * Debug-only (ADR 0059 §8): fires the SWIP error pillar on demand so the handled + crash paths
+ * Debug-only (ADR 0060 §8): fires the SWIP error pillar on demand so the handled + crash paths
  * can be proven on a real device. Never shown in any user-facing surface.
  */
 class SwipErrorsTriggerPlugin : DebugPlugin {
@@ -455,21 +455,21 @@ Write the two-row evidence table (handled: id-joined on fingerprint; fatal: corr
 
 ---
 
-## Task 6: ADR 0059 + CHANGELOG + backlog + SWIP gap report
+## Task 6: ADR 0060 + CHANGELOG + backlog + SWIP gap report
 
 **Files:**
-- Create: `adr/0059-client-crash-error-reporting.md`
-- Modify: `adr/decisions-index.md` (append the 0059 row)
+- Create: `adr/0060-client-crash-error-reporting.md`
+- Modify: `adr/decisions-index.md` (append the 0060 row)
 - Modify: `CHANGELOG.md` (dated entry)
 - Modify: `backlog/now.md` (operator-actions + follow-ups)
 
-- [ ] **Step 1: Write ADR 0059**
+- [ ] **Step 1: Write ADR 0060**
 
-Create `adr/0059-client-crash-error-reporting.md` following the format of `adr/0055` and `adr/0058`. It MUST record: the vendor + project (Sentry KMP `4511734711189584`, EU) and why not the Node (`…82820432`)/legacy DSN; debug-only scope + the honest consent argument (a client error can carry the device's `distinct_id`, so debug-only-on-the-operator's-device is what makes granting `ERRORS` honest — not a release precedent); the independent-id wrong-project guard; the custom-`Application` hoist + main-process guard; the marker-file fatal mirror + the fatal-vs-handled join distinction; slice-1 contents (crashes + breadcrumbs + debug trigger; no production handled site, and why sync-failure was rejected); and the release-scope blockers — the SWIP `consented`-gate gap and a consent surface / privacy disclosure. Status: `Proposed 2026-07-14 (agent-drafted; accept on merge)`.
+Create `adr/0060-client-crash-error-reporting.md` following the format of `adr/0055` and `adr/0058`. It MUST record: the vendor + project (Sentry KMP `4511734711189584`, EU) and why not the Node (`…82820432`)/legacy DSN; debug-only scope + the honest consent argument (a client error can carry the device's `distinct_id`, so debug-only-on-the-operator's-device is what makes granting `ERRORS` honest — not a release precedent); the independent-id wrong-project guard; the custom-`Application` hoist + main-process guard; the marker-file fatal mirror + the fatal-vs-handled join distinction; slice-1 contents (crashes + breadcrumbs + debug trigger; no production handled site, and why sync-failure was rejected); and the release-scope blockers — the SWIP `consented`-gate gap and a consent surface / privacy disclosure. Status: `Proposed 2026-07-14 (agent-drafted; accept on merge)`.
 
 - [ ] **Step 2: Index + CHANGELOG + backlog**
 
-Append the ADR 0059 row to `adr/decisions-index.md`. Add a dated `CHANGELOG.md` entry (internal: "Android debug/dogfood builds now report crashes + errors through SWIP → Sentry (KMP project) + PostHog"). Add to `backlog/now.md`: operator follow-ups (accept ADR 0059; the release-scope future ADR is blocked on the SWIP consent gate + a consent surface).
+Append the ADR 0060 row to `adr/decisions-index.md`. Add a dated `CHANGELOG.md` entry (internal: "Android debug/dogfood builds now report crashes + errors through SWIP → Sentry (KMP project) + PostHog"). Add to `backlog/now.md`: operator follow-ups (accept ADR 0060; the release-scope future ADR is blocked on the SWIP consent gate + a consent surface).
 
 - [ ] **Step 3: File the SWIP gap (report, do not patch)**
 
@@ -478,8 +478,8 @@ Open an issue against `~/workspace/sloopworksinstrumentationplatform` (via `gh i
 - [ ] **Step 4: Commit**
 
 ```bash
-git add adr/0059-client-crash-error-reporting.md adr/decisions-index.md CHANGELOG.md backlog/now.md
-git commit -m "docs(adr): ADR 0059 — client crash/error reporting (debug-only Android)"
+git add adr/0060-client-crash-error-reporting.md adr/decisions-index.md CHANGELOG.md backlog/now.md
+git commit -m "docs(adr): ADR 0060 — client crash/error reporting (debug-only Android)"
 ```
 
 ---
