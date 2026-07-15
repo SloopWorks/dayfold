@@ -7,6 +7,7 @@ import org.reduxkotlin.compose
 import org.reduxkotlin.middleware
 import org.reduxkotlin.devtools.DevToolsConfig
 import org.reduxkotlin.devtools.devTools
+import org.reduxkotlin.concurrent.NotificationContext
 import org.reduxkotlin.concurrent.createConcurrentStore
 
 // The route gate (pure): derived from (session, families). Family-null is a Feed
@@ -34,6 +35,7 @@ fun ownerFamiliesFor(families: List<FamilyMembership>): List<FamilyMembership> =
 fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is SyncStarted -> state.copy(syncing = true, error = null)
   is SyncSucceeded -> state.copy(syncing = false, error = null)
+  is SyncStopped -> state.copy(syncing = false)
   is SyncFailed -> state.copy(syncing = false, error = action.message)
   is CardsLoaded ->                                    // DB is truth → full replace;
     state.copy(                                         // prune nav stack of synced-away ids
@@ -53,29 +55,102 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
 
   // ── Hubs (ADR 0006 render · ADR 0030 visibility) ──
-  is OpenHubs -> state.copy(route = Route.Hubs, currentHubId = null, currentHubTree = null, hubError = null, hubFromDetail = false)
+  is OpenHubs -> state.copy(
+    route = Route.Hubs,
+    currentHubId = null,
+    currentHubTree = null,
+    currentHubRequest = null,
+    hubError = null,
+    hubFromDetail = action.returnDestination == HubReturnDestination.FEED_DETAIL,
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
   is OpenFeed -> state.copy(route = Route.Feed, hubFromDetail = false)
-  is SetHubReturnToDetail -> state.copy(hubFromDetail = action.value)   // #299-followup: mark cross-surface deep-link origin
   // DB-fed via the SyncEngine hub bridge (one-writer-per-slice). Prunes currentHubId
   // + currentHubTree when the open hub is no longer in the DB (e.g. revocation tombstone).
-  is HubsLoaded -> state.copy(
-    hubs = action.hubs,
-    hubsBusy = false,
-    currentHubId = state.currentHubId?.takeIf { id -> action.hubs.any { it.id == id } },
-    currentHubTree = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.currentHubTree,
-    timelineDetail = if (state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }) null else state.timelineDetail,
-  )
+  is HubsLoaded -> {
+    val openHubRemoved = state.currentHubId != null && action.hubs.none { it.id == state.currentHubId }
+    state.copy(
+      hubs = action.hubs,
+      hubsBusy = false,
+      currentHubId = state.currentHubId?.takeUnless { openHubRemoved },
+      currentHubTree = state.currentHubTree.takeUnless { openHubRemoved },
+      currentHubRequest = state.currentHubRequest.takeUnless { openHubRemoved },
+      timelineDetail = state.timelineDetail.takeUnless { openHubRemoved },
+      audienceSheetOpen = state.audienceSheetOpen && !openHubRemoved,
+      currentHubAudience = state.currentHubAudience.takeUnless { openHubRemoved },
+      currentHubAudienceRequest = state.currentHubAudienceRequest.takeUnless { openHubRemoved },
+      audienceError = state.audienceError.takeUnless { openHubRemoved },
+    )
+  }
   is HubsFailed -> state.copy(hubsBusy = false, hubError = action.message)
-  is OpenHub -> state.copy(currentHubId = action.hubId, currentHubTree = null, hubsBusy = true, hubError = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null)
-  is HubTreeLoaded -> state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
-  is HubNotFound -> state.copy(hubsBusy = false, currentHubId = null, currentHubTree = null, hubError = "That hub is no longer available.", timelineDetail = null)
-  is CloseHub -> state.copy(currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null, hubFromDetail = false)
+  is OpenHub -> state.copy(
+    route = Route.Hubs,
+    currentHubId = action.hubId,
+    currentHubTree = null,
+    currentHubRequest = action.request,
+    hubsBusy = true,
+    hubError = null,
+    hubFocusBlockId = action.focusBlockId,
+    hubFromDetail = action.returnDestination == HubReturnDestination.FEED_DETAIL,
+    showHidden = false,
+    timelineDetail = null,
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
+  is HubTreeLoaded ->
+    if (state.currentHubId == action.hubId && state.currentHubRequest == action.request) {
+      state.copy(hubsBusy = false, currentHubTree = action.tree, hubError = null)
+    } else {
+      state
+    }
+  is HubNotFound -> state.copy(
+    hubsBusy = false,
+    currentHubId = null,
+    currentHubTree = null,
+    currentHubRequest = null,
+    hubError = "That hub is no longer available.",
+    timelineDetail = null,
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
+  is CloseHub -> state.copy(
+    currentHubId = null,
+    currentHubTree = null,
+    currentHubRequest = null,
+    hubFocusBlockId = null,
+    showHidden = false,
+    timelineDetail = null,
+    hubFromDetail = false,
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
   // Cross back to the Feed card detail this hub was deep-linked from: route → Feed (the detailStack
   // card re-renders on ContentHost), and clear the hub substate + the origin flag.
-  is CloseHubToFeed -> state.copy(route = Route.Feed, currentHubId = null, currentHubTree = null, hubFocusBlockId = null, showHidden = false, timelineDetail = null, hubFromDetail = false)
+  is CloseHubToFeed -> state.copy(
+    route = Route.Feed,
+    currentHubId = null,
+    currentHubTree = null,
+    currentHubRequest = null,
+    hubFocusBlockId = null,
+    showHidden = false,
+    timelineDetail = null,
+    hubFromDetail = false,
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
   is OpenTimelineDetail -> state.copy(timelineDetail = action.scale)  // ADR 0045 — open the timeline detail overlay
   is CloseTimelineDetail -> state.copy(timelineDetail = null)         // ADR 0045 — close the timeline detail overlay
-  is SetHubFocus -> state.copy(hubFocusBlockId = action.blockId)
   is SetHubFilter -> state.copy(hubFilter = action.filter)
   // W5 hide (ADR 0038 §W5) — DB-fed hidden ids + the per-view "Show hidden" toggle.
   is HiddenLoaded -> state.copy(hiddenIds = action.ids)
@@ -86,9 +161,38 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NotifConfigLoaded -> state.copy(notifConfig = action.config)              // ADR 0044 Phase B
   is LocationPermissionLoaded -> state.copy(locationPermission = action.state)
   is NotificationPermissionLoaded -> state.copy(notificationPermission = action.state)
-  is OpenAudienceSheet -> state.copy(audienceSheetOpen = true, currentHubAudience = null, audienceError = null)
-  is HubAudienceLoaded -> state.copy(currentHubAudience = action.audience, audienceError = null)
-  is CloseAudienceSheet -> state.copy(audienceSheetOpen = false, currentHubAudience = null, audienceError = null)
+  is OpenAudienceSheet -> state.copy(
+    audienceSheetOpen = true,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
+  is HubAudienceRequested ->
+    if (
+      state.audienceSheetOpen &&
+      state.currentHubId == action.hubId &&
+      state.currentHubRequest?.generation == action.request.generation
+    ) {
+      state.copy(currentHubAudienceRequest = action.request, audienceError = null)
+    } else {
+      state
+    }
+  is HubAudienceLoaded ->
+    if (
+      state.audienceSheetOpen &&
+      state.currentHubId == action.hubId &&
+      state.currentHubAudienceRequest == action.request
+    ) {
+      state.copy(currentHubAudience = action.audience, audienceError = null)
+    } else {
+      state
+    }
+  is CloseAudienceSheet -> state.copy(
+    audienceSheetOpen = false,
+    currentHubAudience = null,
+    currentHubAudienceRequest = null,
+    audienceError = null,
+  )
 
   // ── auth / session (S5) ──
   is AuthRestoring -> state.copy(route = Route.Loading)
@@ -118,13 +222,24 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   }
   is AuthOpFailed -> state.copy(authBusy = false, authError = action.message)
   // Restore-path terminal outcomes — both exit Loading (never wedge the spinner).
-  is SessionExpired -> AppState(route = Route.SignIn, authError = "Your session expired — please sign in again.")
+  is SessionExpired -> AppState(
+    route = Route.SignIn,
+    authError = "Your session expired — please sign in again.",
+    notifConfig = state.notifConfig,
+    locationPermission = state.locationPermission,
+    notificationPermission = state.notificationPermission,
+  )
   is RestoreFailed -> state.copy(route = Route.AuthError, authBusy = false, authError = action.message)
   is OpenAccount -> state.copy(route = Route.Account)    // overlay on the signed-in Feed
   is CloseAccount -> state.copy(route = routeFor(state.session, state.families))  // back to the gate
   is OpenProximity -> state.copy(route = Route.Proximity)   // ADR 0044 Phase B — background-proximity settings
   is CloseProximity -> state.copy(route = Route.Account)
-  is SignedOut -> AppState(route = Route.SignIn)        // clear session + feed
+  is SignedOut -> AppState(                             // clear tenant/session state; preserve device truth
+    route = Route.SignIn,
+    notifConfig = state.notifConfig,
+    locationPermission = state.locationPermission,
+    notificationPermission = state.notificationPermission,
+  )
   is SignOutRequested -> state.copy(signOutBusy = true)
 
   // ── invitee-join (S5 slice-2) ──
@@ -156,6 +271,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is MintFailed -> state.copy(inviteBusy = false, mintError = action.reason)
   is InviteRevokeRequested -> state.copy(inviteOpId = action.id)
   is InviteRevoked -> state.copy(outstandingInvites = state.outstandingInvites.filterNot { it.id == action.id }, inviteOpId = null)
+  is InviteRevokeFailed -> if (state.inviteOpId == action.id) state.copy(inviteOpId = null) else state
   is InviteDismissed -> state.copy(route = Route.Members, mintedInvite = null, mintError = null, inviteBusy = false)
   is MemberResolved -> state.copy(pendingApprovals = state.pendingApprovals.filterNot { it.uid == action.uid }, memberOpId = null)
   is ApprovalsFailed -> state.copy(approvalsBusy = false, memberOpId = null)
@@ -165,10 +281,28 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is DeviceOpRequested -> state.copy(deviceOpId = action.id)
   is DevicesRequested -> state.copy(deviceListBusy = true, deviceListError = null)
   is DevicesFailed -> state.copy(deviceListBusy = false, deviceListError = action.message, deviceOpId = null)
-  is AudienceFailed -> state.copy(audienceError = action.message)
+  is AudienceFailed ->
+    if (
+      state.audienceSheetOpen &&
+      state.currentHubId == action.hubId &&
+      state.currentHubAudienceRequest == action.request
+    ) {
+      state.copy(audienceError = action.message)
+    } else {
+      state
+    }
   // ADR 0053 DC4 — a setParticipant/removeParticipant/setVisibility failure surfaces
   // on the same audienceError slot the sheet already renders (mirrors AudienceFailed).
-  is HubManageFailed -> state.copy(audienceError = action.message)
+  is HubManageFailed ->
+    if (
+      state.audienceSheetOpen &&
+      state.currentHubId == action.hubId &&
+      state.currentHubAudienceRequest == action.request
+    ) {
+      state.copy(audienceError = action.message)
+    } else {
+      state
+    }
   // own profile (task 4) — ProfileLoaded is a full replace (DB/server is truth,
   // like RosterLoaded), and also clears avatarOpId/avatarError (mirrors RosterLoaded
   // clearing memberOpId — a background reload should never leave a stuck busy/error).
@@ -246,13 +380,24 @@ private val actionLog = middleware<AppState> { store, next, action ->
 // tooling like the swip timeline recorder requires (sees every dispatch, wraps
 // the raw store). Null → exactly the previous behavior. :client stays swip-free;
 // the androidApp debug variant supplies the enhancer.
-fun createAppStore(initial: AppState = AppState(), debug: Boolean = true, extraEnhancer: StoreEnhancer<AppState>? = null): Store<AppState> =
+fun createAppStore(
+  notificationContext: NotificationContext,
+  initial: AppState = AppState(),
+  debug: Boolean = true,
+  extraEnhancer: StoreEnhancer<AppState>? = null,
+): Store<AppState> =
   if (debug) createConcurrentStore(
     ::rootReducer, initial,
+    notificationContext = notificationContext,
     enhancer = compose(listOfNotNull(
       devTools(DevToolsConfig(instanceId = "family-ai", name = "Family AI")),
       applyMiddleware(actionLog),
       extraEnhancer, // rightmost = innermost — the recorder's required slot
     )),
   )
-  else createConcurrentStore(::rootReducer, initial, enhancer = extraEnhancer)
+  else createConcurrentStore(
+    ::rootReducer,
+    initial,
+    notificationContext = notificationContext,
+    enhancer = extraEnhancer,
+  )

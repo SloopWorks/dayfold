@@ -19,18 +19,65 @@ class CardHubNavTest {
   }
 
   @Test fun `OpenHub routes to the Hubs surface + triggers the hub load with the focus block`() {
-    val store = createAppStore(AppState(route = Route.Feed), debug = false)
+    val store = createTestAppStore(
+      AppState(route = Route.Feed, activeFamilyId = "family-1"),
+      debug = false,
+    )
     var loadedHub: String? = null; var loadedFocus: String? = "UNSET"
-    routeCardAction(store, onPlatformAction = {}, CardAction.OpenHub("h_party", "blk_chk"),
-      onOpenHub = { id, focus -> loadedHub = id; loadedFocus = focus })
+    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
+    val commands = object : StableDayfoldCommands by base {
+      override fun openHub(
+        familyId: String,
+        hubId: String,
+        focusBlockId: String?,
+        returnDestination: HubReturnDestination,
+      ) {
+        store.dispatch(OpenHubs(returnDestination))
+        loadedHub = hubId
+        loadedFocus = focusBlockId
+      }
+    }
+    routeCardAction(
+      store,
+      commands,
+      StablePlatformActions.noOp(),
+      CardAction.OpenHub("h_party", "blk_chk"),
+    )
     assertEquals(Route.Hubs, store.state.route)   // cross-surface nav (OpenHubs dispatched)
     assertEquals("h_party", loadedHub)            // engine load triggered with the hub id
     assertEquals("blk_chk", loadedFocus)          // + the deep-link focus block (arrival highlight)
   }
 
   @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() {
-    val store = createAppStore(AppState(cards = listOf(Card("c1", title = "X"))), debug = false)
-    routeCardAction(store, onPlatformAction = {}, CardAction.OpenDetail("c1"))
+    val store = createTestAppStore(AppState(cards = listOf(Card("c1", title = "X"))), debug = false)
+    routeCardAction(
+      store,
+      StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
+      StablePlatformActions.noOp(),
+      CardAction.OpenDetail("c1"),
+    )
     assertEquals(listOf("c1"), store.state.detailStack)
+  }
+
+  @Test fun `command-backed card hub navigation carries the detail return atomically`() {
+    val store = createTestAppStore(
+      AppState(
+        route = Route.Feed,
+        cards = listOf(Card("c1", title = "X")),
+        detailStack = listOf("c1"),
+        activeFamilyId = "family-1",
+      ),
+      debug = false,
+    )
+
+    routeCardAction(
+      store = store,
+      platformActions = StablePlatformActions.noOp(),
+      action = CardAction.OpenHub("hub-1", "block-1"),
+      commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
+    )
+
+    assertEquals(Route.Hubs, store.state.route)
+    assertEquals(true, store.state.hubFromDetail)
   }
 }

@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +37,7 @@ import com.sloopworks.dayfold.client.ui.loading.RowBusy
 // entry. Revoke is immediate (server gates per-request).
 @Composable
 fun DevicesScreen(
-  state: AppState,
+  state: DevicesViewState,
   onLoad: () -> Unit = {},
   onRevoke: (String) -> Unit = {},
   onBack: () -> Unit = {},
@@ -79,10 +80,19 @@ fun DevicesScreen(
       }
       Spacer(Modifier.height(9.dp))
       when {
-        state.devices.isEmpty() && state.deviceListBusy -> ListSkeleton(rows = 3, modifier = Modifier.padding(top = 4.dp))
-        state.devices.isEmpty() && state.deviceListError != null -> ErrorRetry(state.deviceListError, onRetry = onLoad)
+        state.devices.isEmpty() && state.busy -> ListSkeleton(rows = 3, modifier = Modifier.padding(top = 4.dp))
+        state.devices.isEmpty() && state.error != null -> ErrorRetry(state.error, onRetry = onLoad)
         else -> Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-          state.devices.forEach { d -> DeviceRow(d, busy = d.id == state.deviceOpId, anyBusy = state.deviceOpId != null, onRevoke) }
+          state.devices.forEach { device ->
+            key(device.id) {
+              DeviceRow(
+                device,
+                busy = device.id == state.operationId,
+                anyBusy = state.operationId != null,
+                onRevoke,
+              )
+            }
+          }
         }
       }
     }

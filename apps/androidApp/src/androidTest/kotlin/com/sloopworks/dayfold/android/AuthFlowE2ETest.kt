@@ -2,19 +2,20 @@ package com.sloopworks.dayfold.android
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.ApprovalsLoaded
 import com.sloopworks.dayfold.client.FamilyCreated
 import com.sloopworks.dayfold.client.FamilyMembership
 import com.sloopworks.dayfold.client.FamilyMember
-import com.sloopworks.dayfold.client.FeedApp
 import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.MemberResolved
 import com.sloopworks.dayfold.client.MemberRemoved
@@ -31,6 +32,7 @@ import com.sloopworks.dayfold.client.DeviceRevoked
 import com.sloopworks.dayfold.client.DevicesLoaded
 import com.sloopworks.dayfold.client.createAppStore
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
+import org.reduxkotlin.concurrent.NotificationContext
 import org.junit.Rule
 import org.junit.Test
 
@@ -43,10 +45,14 @@ class AuthFlowE2ETest {
   @get:Rule val rule = createComposeRule()
 
   @Test fun signIn_createFamily_feed_account_signOut() {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createAppStore(
+      notificationContext = NotificationContext.Inline,
+      initial = AppState(route = Route.SignIn),
+      debug = false,
+    )
     rule.setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -68,10 +74,10 @@ class AuthFlowE2ETest {
 
     // 3) Feed (empty family → null state); open the account overlay via the monogram
     rule.onNodeWithText("Your family space is ready").assertIsDisplayed()
-    rule.onNodeWithText("Y").performClick()
+    rule.onNodeWithContentDescription("Account").performClick()
 
     // 4) Account → sign out → confirm dialog → confirm
-    rule.onNodeWithText("Sign out").assertIsDisplayed().performClick()
+    rule.onNodeWithText("Sign out").performScrollTo().assertIsDisplayed().performClick()
     rule.onNodeWithText("Sign out?").assertIsDisplayed()
     rule.onNodeWithTag("confirm-signout").performClick()
 
@@ -80,10 +86,14 @@ class AuthFlowE2ETest {
   }
 
   @Test fun signIn_joinByInvite_waitsForApproval() {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createAppStore(
+      notificationContext = NotificationContext.Inline,
+      initial = AppState(route = Route.SignIn),
+      debug = false,
+    )
     rule.setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -109,10 +119,14 @@ class AuthFlowE2ETest {
   }
 
   @Test fun owner_approvesPendingMember() {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createAppStore(
+      notificationContext = NotificationContext.Inline,
+      initial = AppState(route = Route.SignIn),
+      debug = false,
+    )
     rule.setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -130,7 +144,7 @@ class AuthFlowE2ETest {
       }
     }
     rule.onNodeWithText("Continue with Google").performClick()
-    rule.onNodeWithText("Y").performClick()                     // Feed → account
+    rule.onNodeWithContentDescription("Account").performClick() // Feed → account
     rule.onNodeWithText("Members & approvals").assertIsDisplayed().performClick()
     rule.onNodeWithText("Sam Rivera").assertIsDisplayed()       // pending queue loaded
     rule.onNodeWithText("Maya Jackson").assertIsDisplayed()     // active roster loaded
@@ -141,10 +155,14 @@ class AuthFlowE2ETest {
   }
 
   @Test fun account_revokesConnectedDevice() {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createAppStore(
+      notificationContext = NotificationContext.Inline,
+      initial = AppState(route = Route.SignIn),
+      debug = false,
+    )
     rule.setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -161,7 +179,7 @@ class AuthFlowE2ETest {
       }
     }
     rule.onNodeWithText("Continue with Google").performClick()
-    rule.onNodeWithText("Y").performClick()
+    rule.onNodeWithContentDescription("Account").performClick()
     rule.onNodeWithText("Connected devices").assertIsDisplayed().performClick()
     rule.onNodeWithText("claude-code").assertIsDisplayed()
     rule.onNodeWithTag("revoke-c2").performClick()

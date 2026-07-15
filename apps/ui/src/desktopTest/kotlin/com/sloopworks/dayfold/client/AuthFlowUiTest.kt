@@ -61,10 +61,10 @@ class AuthFlowUiTest {
   }
 
   @Test fun signIn_createFamily_feed_account_signOut() = runComposeUiTest {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -101,10 +101,10 @@ class AuthFlowUiTest {
   }
 
   @Test fun signIn_joinByInvite_waitsForApproval() = runComposeUiTest {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -138,10 +138,10 @@ class AuthFlowUiTest {
   }
 
   @Test fun owner_approvesPendingMember() = runComposeUiTest {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -178,10 +178,10 @@ class AuthFlowUiTest {
   }
 
   @Test fun owner_opensInviteAndMintsQr() = runComposeUiTest {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))
@@ -210,10 +210,10 @@ class AuthFlowUiTest {
   }
 
   @Test fun account_revokesConnectedDevice() = runComposeUiTest {
-    val store = createAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
     setContent {
       DayfoldTheme {
-        FeedApp(
+        TestFeedApp(
           store,
           onSignIn = {
             store.dispatch(SignInSucceeded(Session("a", "r")))

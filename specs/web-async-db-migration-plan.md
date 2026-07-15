@@ -59,12 +59,19 @@ Narrowed the "no such table" flake cheaply (without re-running the migration):
   reliably finish creating the schema before the first write ran. That is a **create-ordering
   race**, and the fix is to make `create()` **`suspend`** and **`.await()`** the schema build
   (deterministic), NOT a dispatcher confinement.
-- **Separate finding from the probe (latent invariant, not a live bug):** the single JDBC
-  connection cannot run **concurrent transactions**. Production is safe today only because
-  `SyncEngine` serializes writes (one `applyDelta` at a time); a future change that parallelizes
-  writes would break this. The reactive *reads* (flows on `Dispatchers.Default`) overlap the
-  single writer but reads aren't transactions, so they don't hit this. Worth a guard/comment if
-  the write path ever changes — but it is **not** the web-migration flake.
+- **Separate finding from the probe (fixed 2026-07-14):** the single JDBC connection cannot run
+  **concurrent transactions**. `ContentStore` now enforces that invariant with a per-instance,
+  reentrant AtomicFU gate around every public mutation and the multi-query notification snapshot.
+  Correctness no longer depends on `SyncEngine` being the only writer or retaining serial page
+  delivery. Ordinary single-query reads remain outside the gate. This was a distinct latent race,
+  not the web-migration flake's `no such table` root cause.
+- **Async migration changes the gate, not the invariant.** The current monitor cannot enclose a
+  suspending generated query. When `generateAsync` lands, replace it in the same change with one
+  KMP suspend-aware single-writer boundary (prefer `Mutex.withLock`, or a single-writer actor if
+  measurement justifies it). Route **every** mutator and the composite notification/Now snapshots
+  through that boundary; do not retain a sync lock around a suspend call. Because `Mutex` is not
+  reentrant, locked public methods call private unlocked query helpers rather than one another.
+  Headless Android/iOS entry points launch these suspend operations on the injected DB dispatcher.
 - **First step for the dedicated session (REVISED):** make `ContentStore.create()` `suspend` +
   `ContentDb.Schema.create(driver).await()` (drop `.synchronous()` on the create path), thread
   the suspend through the test helpers (`freshStore`/`store`/`freshContentStore` → suspend → their
@@ -92,15 +99,19 @@ completes immediately). So Android/desktop/iOS keep `AndroidSqliteDriver` /
 1. **`apps/client/build.gradle.kts` → `sqldelight { databases { create("ContentDb") { … } } }`**
    add `generateAsync.set(true)`. (Keep the `sqlite-3-38-dialect` + `verifyMigrations`.)
 
-2. **`ContentStore.kt` — make the one-shot queries + writes `suspend`** (flows are
-   already async-friendly, leave them):
+2. **`ContentStore.kt` — replace the monitor with the suspend-aware writer boundary, then make
+   one-shot queries + writes `suspend`** (reactive invalidation remains flow-based):
    - `activeCards()` → `suspend fun activeCards()` using `q.activeCards().awaitAsList()`.
    - `cursor()` → `suspend fun cursor()` using `q.getCursor().awaitAsOneOrNull()`.
-   - `applyDelta(…)` → `suspend` (the insert/update/delete `.execute()`/transaction calls
-     become suspend under `generateAsync`).
-   - `wipe()` → `suspend`.
-   - **Unchanged:** `activeCardsFlow()` / `activeHubsFlow()` / the `asFlow().mapToList()`
-     reactive queries — `coroutines-extensions` flows already model async.
+   - Every public mutator (`applyDelta`, wipes, membership/schema, outbox, hide, surfacing,
+     notification config/log/reservation) → `suspend` and one `Mutex.withLock` boundary; generated
+     insert/update/delete/transaction calls become suspend under `generateAsync`.
+   - Composite `notifSnapshot()` and revision-driven `NowContent` snapshot → `suspend` under the
+     same boundary, using private unlocked await helpers so they cannot deadlock on a non-reentrant
+     mutex.
+   - `activeCardsFlow()` / `activeHubsFlow()` and invalidation flows keep
+     `asFlow().mapToList()`; any multi-query projection still gathers one version-consistent
+     snapshot through the writer boundary rather than `combine`-mixing table versions.
 
 3. **Callers — thread `suspend`** (most are already in coroutine/suspend scope):
    - `SyncEngine.kt`: `contentStore.cursor()` (line ~101) and `contentStore.applyDelta(…)`
@@ -118,6 +129,8 @@ completes immediately). So Android/desktop/iOS keep `AndroidSqliteDriver` /
    - **The only compile-time unknown is the SQLDelight-async API itself** (the `transaction {}`
      block under `generateAsync`, and the exact `awaitAsList`/`awaitAsOneOrNull`/`.await()`
      names) — resolve by following the compiler.
+   - UI, Auth, Hub, Now, and headless callers must enter through the injected background DB
+     dispatcher; a Compose/main callback must never block waiting for the writer boundary.
 
 4. **Startup is unchanged.** The shells construct `ContentStore(DriverFactory().createDriver())`
    eagerly (desktop `Main.kt`, android `MainActivity`); `createDriver()` stays sync — only the
@@ -129,7 +142,9 @@ completes immediately). So Android/desktop/iOS keep `AndroidSqliteDriver` /
 - `:client:desktopTest` green (the engine + ContentStore + feed tests exercise this path).
 - `:androidApp:assembleDebug` compiles (Android target).
 - iOS targets compile (`:client:compileKotlinIosArm64` / simulator) — no device run available;
-  rely on compile + the shared commonMain coverage.
+  also execute the NativeSqliteDriver writer/snapshot concurrency test on the simulator.
+- Run the deterministic all-writer + composite-snapshot concurrency contract on JDBC and Native;
+  verify no nested transaction, no mixed-version snapshot, and no main-thread blocking.
 - Smoke-install on the Pixel + verify sync→render still works (the DB behavior is identical;
   this confirms async-on-`AndroidSqliteDriver` at runtime).
 

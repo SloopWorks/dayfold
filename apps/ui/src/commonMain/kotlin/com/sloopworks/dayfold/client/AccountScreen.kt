@@ -47,8 +47,7 @@ import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 // linking are Slice C (need an API/Firebase); M0 shows "You" + the active role.
 @Composable
 fun AccountScreen(
-  state: AppState,
-  signOutBusy: Boolean = false,
+  state: AccountViewState,
   onSignOut: () -> Unit = {},
   onClose: () -> Unit = {},
   onOpenMembers: () -> Unit = {},
@@ -58,7 +57,7 @@ fun AccountScreen(
   onUpdateName: (String) -> Unit = {},                        // profile name edit → AuthEngine.updateDisplayName
 ) {
   val cs = MaterialTheme.colorScheme
-  val active = state.families.firstOrNull { it.familyId == state.activeFamilyId }
+  val active = state.activeFamily
   val role = (active?.role ?: "adult").replaceFirstChar { it.uppercase() }
   // Transient UI — a local confirm flag, not app state (ADR 0013 is nav, not
   // every ephemeral dialog). Signing out is reversible but deliberate; a one-tap
@@ -71,8 +70,8 @@ fun AccountScreen(
 
   if (avatarPickerOpen) {
     AvatarPickerSheet(
-      currentColor = state.myAvatarColor,
-      currentRef = state.myAvatarRef,
+      currentColor = state.avatarColor,
+      currentRef = state.avatarRef,
       onSave = { color, ref -> avatarPickerOpen = false; onUpdateAvatar(color, ref) },
       onDismiss = { avatarPickerOpen = false },
     )
@@ -80,7 +79,7 @@ fun AccountScreen(
 
   if (editingName) {
     // remember(...) re-seeds the draft with the current name each time the dialog opens.
-    var draft by remember { mutableStateOf(state.myDisplayName ?: "") }
+    var draft by remember { mutableStateOf(state.displayName ?: "") }
     val trimmed = draft.trim()
     val valid = trimmed.isNotEmpty() && trimmed.length <= 80   // matches the server's 1–80 rule
     AlertDialog(
@@ -144,15 +143,15 @@ fun AccountScreen(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
       ) {
         Box(
-          Modifier.clip(CircleShape).clickable(enabled = state.avatarOpId == null) { avatarPickerOpen = true }
+          Modifier.clip(CircleShape).clickable(enabled = !state.avatarBusy) { avatarPickerOpen = true }
             .semantics { contentDescription = "Change avatar" },
           contentAlignment = Alignment.Center,
         ) {
           DayfoldAvatar(
-            name = state.myDisplayName ?: "You", size = 48.dp,
-            avatarColorKey = state.myAvatarColor, avatarRef = state.myAvatarRef,
+            name = state.displayName ?: "You", size = 48.dp,
+            avatarColorKey = state.avatarColor, avatarRef = state.avatarRef,
           )
-          if (state.avatarOpId != null) {
+          if (state.avatarBusy) {
             androidx.compose.material3.CircularProgressIndicator(
               strokeWidth = 2.dp, color = cs.onSurface, modifier = Modifier.size(20.dp),
             )
@@ -166,7 +165,7 @@ fun AccountScreen(
             modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { editingName = true }
               .semantics { contentDescription = "Edit name" },
           ) {
-            Text(state.myDisplayName ?: "You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+            Text(state.displayName ?: "You", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
             Text("✎", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics {})
           }
           Text(
@@ -195,9 +194,9 @@ fun AccountScreen(
           Text("Members & approvals", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
           Text(active?.name ?: "Your family", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
         }
-        if (state.pendingApprovals.isNotEmpty()) {
+        if (state.pendingApprovalCount > 0) {
           Box(Modifier.clip(RoundedCornerShape(50)).background(cs.primary).padding(horizontal = 9.dp, vertical = 3.dp)) {
-            Text("${state.pendingApprovals.size}", style = MaterialTheme.typography.labelLarge, color = cs.onPrimary)
+            Text("${state.pendingApprovalCount}", style = MaterialTheme.typography.labelLarge, color = cs.onPrimary)
           }
         }
         androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
@@ -223,7 +222,7 @@ fun AccountScreen(
         Column(Modifier.weight(1f)) {
           Text("Background proximity", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
           Text(
-            if (state.notifConfig.enabled) "On · matched on your device" else "Off · optional, reversible",
+            if (state.proximityEnabled) "On · matched on your device" else "Off · optional, reversible",
             style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
           )
         }
@@ -245,11 +244,11 @@ fun AccountScreen(
       Box(
         Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp))
           .border(1.5.dp, cs.outline, RoundedCornerShape(16.dp))
-          .clickable(enabled = !signOutBusy) { confirmSignOut = true }
-          .semantics { if (signOutBusy) stateDescription = "Busy" },
+          .clickable(enabled = !state.signOutBusy) { confirmSignOut = true }
+          .semantics { if (state.signOutBusy) stateDescription = "Busy" },
         contentAlignment = Alignment.Center,
       ) {
-        if (signOutBusy) {
+        if (state.signOutBusy) {
           androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = cs.onSurface, modifier = Modifier.size(20.dp))
         } else {
           Text("Sign out", style = MaterialTheme.typography.labelLarge, color = cs.onSurface)

@@ -1,6 +1,6 @@
 package com.sloopworks.dayfold.android
 
-import android.content.Context
+import androidx.activity.ComponentActivity
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -18,15 +18,16 @@ import kotlinx.coroutines.tasks.await
  * Credential Manager surfaces the Google account picker → Google ID token →
  * Firebase Auth `signInWithCredential` exchanges it for a **Firebase** ID token,
  * which our backend `/auth/firebase` verifies (iss=securetoken.google.com). Returns
- * null on cancel / error / non-Google provider, so [com.sloopworks.dayfold.client.AuthEngine]
- * falls back to the dev-token path.
+ * null on cancel / error / non-Google provider. The host treats null as a no-op; debug-provider
+ * authentication is a separate explicit command and is never a cancellation fallback.
  *
- * @param context an **Activity** context — Credential Manager needs one to show UI.
+ * @param activity the current Activity — Credential Manager needs it to show native UI. The
+ *   adapter stays Activity-scoped and is never retained by [DayfoldRuntimeViewModel].
  * @param webClientId the OAuth **Web** client id (`R.string.default_web_client_id`,
  *   emitted by the google-services plugin from google-services.json's type-3 client).
  */
 class AndroidFirebaseSignIn(
-  private val context: Context,
+  private val activity: ComponentActivity,
   private val webClientId: String,
 ) : FirebaseSignIn {
   override suspend fun idToken(provider: String): String? {
@@ -39,7 +40,7 @@ class AndroidFirebaseSignIn(
     val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
 
     val googleIdToken = try {
-      val result = CredentialManager.create(context).getCredential(context, request)
+      val result = CredentialManager.create(activity).getCredential(activity, request)
       val cred = result.credential
       if (cred is CustomCredential && cred.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
         GoogleIdTokenCredential.createFrom(cred.data).idToken

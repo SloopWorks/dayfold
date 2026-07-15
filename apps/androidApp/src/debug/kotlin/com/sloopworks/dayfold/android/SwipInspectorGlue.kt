@@ -2,7 +2,10 @@ package com.sloopworks.dayfold.android
 
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.sloopworks.dayfold.swip.inspector.SecureWindow
+import java.lang.ref.WeakReference
 import works.sloop.swip.ExperimentalSwipDebugApi
 import works.sloop.swip.debug.RingDebugSink
 
@@ -13,6 +16,27 @@ import works.sloop.swip.debug.RingDebugSink
  */
 @OptIn(ExperimentalSwipDebugApi::class)
 object SwipInspectorGlue {
+
+  /** A process-retained plugin may retain this delegate, but never its host. */
+  internal class WeakHostSecureWindow<T : Any>(
+    host: T,
+    private val setSecure: (T) -> Unit,
+    private val clearSecure: (T) -> Unit,
+  ) : SecureWindow {
+    private val host = WeakReference(host)
+
+    override fun set() {
+      host.get()?.let(setSecure)
+    }
+
+    override fun clear() {
+      host.get()?.let(clearSecure)
+    }
+
+    fun release() {
+      host.clear()
+    }
+  }
 
   // Install-gate (allowlist). src/debug already implies a debug build; this is the explicit,
   // documented seam for a real channel signal.
@@ -30,8 +54,18 @@ object SwipInspectorGlue {
     ).also { SwipAnalyticsHolder.debugSink = it }
   }
 
-  fun secureWindow(activity: ComponentActivity): SecureWindow = object : SecureWindow {
-    override fun set() = activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-    override fun clear() = activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+  fun secureWindow(activity: ComponentActivity): SecureWindow {
+    val secure = WeakHostSecureWindow(
+      host = activity,
+      setSecure = { it.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) },
+      clearSecure = { it.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) },
+    )
+    activity.lifecycle.addObserver(object : DefaultLifecycleObserver {
+      override fun onDestroy(owner: LifecycleOwner) {
+        secure.release()
+        owner.lifecycle.removeObserver(this)
+      }
+    })
+    return secure
   }
 }

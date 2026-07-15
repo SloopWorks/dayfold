@@ -23,10 +23,10 @@ class FeedAppHostTest {
 
   private fun shot(name: String, block: (org.reduxkotlin.Store<AppState>) -> Unit) = runComposeUiTest {
     // route=Feed so FeedApp renders the CONTENT host (past the AUTH-S5 route gate).
-    val store = createAppStore(AppState(route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(route = Route.Feed), debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))
     block(store)
-    setContent { FeedApp(store, onPlatformAction = {}) }
+    setContent { TestFeedApp(store) }
     val img = onRoot().captureToImage()
     assertTrue(img.width > 0 && img.height > 0)
     ImageIO.write(img.toAwtImage(), "png", File("build/snapshots".also { File(it).mkdirs() }, "$name.png"))
@@ -41,8 +41,8 @@ class FeedAppHostTest {
 
   // S6-D: FeedApp hosts the device-approval routes without crashing (each outcome).
   private fun hostShot(name: String, initial: AppState) = runComposeUiTest {
-    val store = createAppStore(initial, debug = false)
-    setContent { FeedApp(store) }
+    val store = createTestAppStore(initial, debug = false)
+    setContent { TestFeedApp(store) }
     val img = onRoot().captureToImage()
     assertTrue(img.width > 0 && img.height > 0)
     ImageIO.write(img.toAwtImage(), "png", File("build/snapshots".also { File(it).mkdirs() }, "$name.png"))
@@ -75,18 +75,19 @@ class FeedAppHostTest {
   )
 
   @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() {
-    val store = createAppStore(debug = false)
+    val store = createTestAppStore(debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))
     var performed: CardAction? = null
-    val onPlatform: (CardAction) -> Unit = { performed = it }
+    val commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
+    val platformActions = StablePlatformActions.noOp(onPerform = { performed = it })
 
     // OpenDetail → in-app nav (store), NOT the platform layer
-    routeCardAction(store, onPlatform, CardAction.OpenDetail("f"))
+    routeCardAction(store, commands, platformActions, CardAction.OpenDetail("f"))
     assertTrue(currentDetailCard(store.state)?.id == "f")
     assertTrue(performed == null)
 
     // every other CardAction → the shell's PlatformActions, NOT the store
-    routeCardAction(store, onPlatform, CardAction.Call("+15550142"))
+    routeCardAction(store, commands, platformActions, CardAction.Call("+15550142"))
     assertTrue(performed is CardAction.Call)
     assertTrue(store.state.detailStack == listOf("f")) // unchanged by the handoff
   }

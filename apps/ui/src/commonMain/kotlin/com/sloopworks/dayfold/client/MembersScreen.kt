@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,7 +42,7 @@ import com.sloopworks.dayfold.client.ui.loading.RowBusy
 // on entry.
 @Composable
 fun MembersScreen(
-  state: AppState,
+  state: MembersViewState,
   onApprove: (String) -> Unit = {},
   onDecline: (String) -> Unit = {},
   onLoad: () -> Unit = {},
@@ -52,7 +53,7 @@ fun MembersScreen(
 ) {
   val cs = MaterialTheme.colorScheme
   LaunchedEffect(Unit) { onLoad(); onLoadMembers() }
-  val me = state.families.firstOrNull { it.familyId == state.activeFamilyId }
+  val me = state.activeFamily
   val isOwner = me?.role == "owner"
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
@@ -88,7 +89,17 @@ fun MembersScreen(
       if (state.pendingApprovals.isNotEmpty()) {
         Label("PENDING APPROVAL · ${state.pendingApprovals.size}", cs.primary)
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-          state.pendingApprovals.forEach { p -> PendingRow(p, busy = p.uid == state.memberOpId, anyBusy = state.memberOpId != null, onApprove, onDecline) }
+          state.pendingApprovals.forEach { pending ->
+            key(pending.uid) {
+              PendingRow(
+                pending,
+                busy = pending.uid == state.operationId,
+                anyBusy = state.operationId != null,
+                onApprove,
+                onDecline,
+              )
+            }
+          }
         }
         Spacer(Modifier.height(22.dp))
       }
@@ -99,8 +110,16 @@ fun MembersScreen(
         state.members.isEmpty() && state.rosterError != null -> ErrorRetry(state.rosterError, onRetry = onLoadMembers)
         state.members.isNotEmpty() ->
           Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            state.members.forEach { m ->
-              MemberRow(m, isOwner = m.role == "owner", busy = m.uid == state.memberOpId, anyBusy = state.memberOpId != null, onRemove = onRemoveMember)
+            state.members.forEach { member ->
+              key(member.uid) {
+                MemberRow(
+                  member,
+                  isOwner = member.role == "owner",
+                  busy = member.uid == state.operationId,
+                  anyBusy = state.operationId != null,
+                  onRemove = onRemoveMember,
+                )
+              }
             }
           }
         else -> MemberRow(

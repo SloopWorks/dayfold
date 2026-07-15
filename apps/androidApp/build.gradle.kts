@@ -91,6 +91,9 @@ configurations.configureEach {
 }
 
 dependencies {
+  // MainActivity retains the common runtime directly; keep this dependency explicit rather than
+  // relying on :ui's implementation details.
+  implementation(project(":client"))
   implementation(project(":ui"))
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
@@ -148,6 +151,7 @@ dependencies {
   implementation("androidx.compose.ui:ui")
   implementation("androidx.compose.ui:ui-tooling-preview")
   implementation("androidx.activity:activity-compose:1.9.3")
+  implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
   implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
   implementation("androidx.core:core-ktx:1.15.0")
 
@@ -159,6 +163,9 @@ dependencies {
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test:runner:1.6.2")
   androidTestImplementation("androidx.test:core:1.6.1")   // InstrumentationRegistry (Phase B notifier test)
+  // ContentStore concurrency coverage uses an isolated, uniquely named database through the
+  // same AndroidSqliteDriver implementation that production uses.
+  androidTestImplementation("app.cash.sqldelight:android-driver:2.3.2")
   // espresso 3.6.1 has the API 34/35 InputManager.getInstance() fix (older
   // espresso throws NoSuchMethodException via the compose idling bridge).
   // ⚠ API 37 (Android 16 preview) removed getInstance() entirely → espresso

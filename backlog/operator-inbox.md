@@ -9,6 +9,15 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-33 · 2026-07-14 · high · answered — ADR 0058 client runtime/effect ownership accepted.**
+  The operator accepted ADR 0058 in-session on 2026-07-14. The decision preserves
+  pure reducers, `network→DB→Redux` for family content, off-main effects,
+  UI-thread notifications, state-keyed lifecycle, and narrow subscriptions while
+  narrowly superseding only ADR 0013's middleware-only effect-origin rule. The
+  PR 2 runtime/session-coordinator gate is now open. Context:
+  `adr/0058-client-runtime-and-effect-ownership.md` and the executable plan in
+  `docs/superpowers/plans/2026-07-14-dayfold-runtime-concurrency-render-isolation.md`.
+
 - **INB-32 · 2026-07-13 · low · open — flip ADR 0054/0055/0056/0057 status text from "Proposed" to "Accepted"?**
   Found during a repo-maintenance pass (code-dedup/docs/CI/values audit): ADR 0054 (SWIP bug
   reporter), 0055 (SWIP analytics), 0056 (SloopLogging), and 0057 (SWIP debug inspector) are all

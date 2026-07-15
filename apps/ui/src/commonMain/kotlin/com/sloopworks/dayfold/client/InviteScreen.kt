@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,7 +50,7 @@ import com.sloopworks.dayfold.client.ui.loading.RowBusy
 // the signed-off mockup (no explicit generate button).
 @Composable
 fun InviteScreen(
-  state: AppState,
+  state: InviteViewState,
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
   onMode: (String) -> Unit = {},
   onMint: (String) -> Unit = {},
@@ -63,8 +64,8 @@ fun InviteScreen(
   // Auto-mint on entry / mode-change (mockup shows the QR already present). Guarded so
   // recomposition doesn't re-mint — only fires when there's no code, no in-flight mint,
   // and no error to retry from.
-  LaunchedEffect(state.inviteMode) {
-    if (state.mintedInvite == null && !state.inviteBusy && state.mintError == null) onMint(state.inviteMode)
+  LaunchedEffect(state.mode) {
+    if (state.mintedInvite == null && !state.busy && state.mintError == null) onMint(state.mode)
   }
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
@@ -80,14 +81,14 @@ fun InviteScreen(
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp)) {
-      Segmented(state.inviteMode, onMode)
+      Segmented(state.mode, onMode)
       Spacer(Modifier.height(18.dp))
 
       val minted = state.mintedInvite
       val error = state.mintError
       when {
-        state.inviteBusy -> Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) { RowBusy() }
-        error != null -> MintErrorCard(error, cs, onRetry = { onMint(state.inviteMode) })
+        state.busy -> Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) { RowBusy() }
+        error != null -> MintErrorCard(error, cs, onRetry = { onMint(state.mode) })
         minted != null && minted.mode == "qr" -> QrCard(minted, now)
         minted != null -> LinkCard(minted, now)
       }
@@ -103,9 +104,21 @@ fun InviteScreen(
           modifier = Modifier.padding(start = 4.dp, bottom = 9.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-          others.forEach { OutstandingRow(it, now, busy = it.id == state.inviteOpId, onRevoke = onRevoke) }
-          state.pendingApprovals.forEach { p ->
-            InvitePendingRow(p, busy = p.uid == state.memberOpId, anyBusy = state.memberOpId != null, onApprove, onDecline)
+          others.forEach { invite ->
+            key(invite.id) {
+              OutstandingRow(invite, now, busy = invite.id == state.inviteOperationId, onRevoke = onRevoke)
+            }
+          }
+          state.pendingApprovals.forEach { pending ->
+            key(pending.uid) {
+              InvitePendingRow(
+                pending,
+                busy = pending.uid == state.memberOperationId,
+                anyBusy = state.memberOperationId != null,
+                onApprove,
+                onDecline,
+              )
+            }
           }
         }
       }

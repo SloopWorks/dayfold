@@ -257,19 +257,27 @@ class AuthReducerTest {
 
   // a fully-populated signed-in state: session + family roster + cards + hub content
   // + a pending device grant — the data that must NEVER survive a session invalidation.
-  private fun populatedSignedIn() = AppState(
-    session = sess,
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1",
-    cards = listOf(Card("c1", title = "Soccer 4pm")),
-    pendingApprovals = listOf(PendingMember("u9", "Sam")),
-    pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
-    pendingDeviceLink = "X",
-    hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
-    currentHubId = "h1",
-    currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
-    hubFocusBlockId = "b1",
-  )
+  private fun populatedSignedIn(): AppState {
+    val hubRequest = HubRequestKey(HubTenantGeneration(1L, 2L), 3L)
+    val audienceRequest = HubRequestKey(hubRequest.generation, 4L)
+    return AppState(
+      session = sess,
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+      cards = listOf(Card("c1", title = "Soccer 4pm")),
+      pendingApprovals = listOf(PendingMember("u9", "Sam")),
+      pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
+      pendingDeviceLink = "X",
+      hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
+      currentHubId = "h1",
+      currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
+      currentHubRequest = hubRequest,
+      hubFocusBlockId = "b1",
+      audienceSheetOpen = true,
+      currentHubAudience = HubAudience("family"),
+      currentHubAudienceRequest = audienceRequest,
+    )
+  }
 
   private fun assertNoSensitiveStateSurvives(out: AppState) {
     assertNull(out.session)
@@ -277,7 +285,8 @@ class AuthReducerTest {
     assertTrue(out.cards.isEmpty())
     assertTrue(out.pendingApprovals.isEmpty())
     assertNull(out.pendingDevice); assertNull(out.pendingDeviceLink)
-    assertTrue(out.hubs.isEmpty()); assertNull(out.currentHubId); assertNull(out.currentHubTree); assertNull(out.hubFocusBlockId)
+    assertTrue(out.hubs.isEmpty()); assertNull(out.currentHubId); assertNull(out.currentHubTree); assertNull(out.currentHubRequest); assertNull(out.hubFocusBlockId)
+    assertFalse(out.audienceSheetOpen); assertNull(out.currentHubAudience); assertNull(out.currentHubAudienceRequest)
   }
 
   @Test fun `sign-out wipes ALL sensitive state, not just the session`() {
@@ -309,11 +318,23 @@ class AuthReducerTest {
     val h1 = Hub("h1", title = "Party")
     val h2 = Hub("h2", title = "Vacation")
     val tree = HubTree(h1, emptyList(), emptyList())
-    val withOpenHub = AppState(hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree)
+    val request = HubRequestKey(HubTenantGeneration(1L, 2L), 3L)
+    val withOpenHub = AppState(
+      hubs = listOf(h1, h2),
+      currentHubId = "h1",
+      currentHubTree = tree,
+      currentHubRequest = request,
+      audienceSheetOpen = true,
+      currentHubAudience = HubAudience("family"),
+      currentHubAudienceRequest = HubRequestKey(request.generation, 4L),
+    )
     // Bridge delivers [h2] only — h1 was tombstoned
     val pruned = rootReducer(withOpenHub, HubsLoaded(listOf(h2)))
     assertNull(pruned.currentHubId)
     assertNull(pruned.currentHubTree)
+    assertNull(pruned.currentHubRequest)
+    assertFalse(pruned.audienceSheetOpen)
+    assertNull(pruned.currentHubAudienceRequest)
     assertEquals(listOf("h2"), pruned.hubs.map { it.id })
     assertFalse(pruned.hubsBusy)
   }
@@ -357,5 +378,17 @@ class AuthReducerTest {
     assertTrue(s.families.isEmpty())
     assertTrue(s.cards.isEmpty())
     assertNull(s.activeFamilyId)
+  }
+
+  @Test fun `invite revoke failure clears only the matching busy row and preserves data`() {
+    val invites = listOf(Invite(id = "i1", mode = "link", expiresAt = "z"))
+    val busy = AppState(outstandingInvites = invites, inviteOpId = "i1")
+    val failed = rootReducer(busy, InviteRevokeFailed("i1"))
+    assertNull(failed.inviteOpId)
+    assertEquals(invites, failed.outstandingInvites)
+
+    val stale = rootReducer(busy, InviteRevokeFailed("other"))
+    assertEquals("i1", stale.inviteOpId)
+    assertEquals(invites, stale.outstandingInvites)
   }
 }

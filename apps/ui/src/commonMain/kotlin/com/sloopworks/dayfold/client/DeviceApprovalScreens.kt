@@ -29,6 +29,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -157,7 +158,7 @@ private fun CodeCells(code: String, editable: Boolean) {
 // Phase 1). The 8-cell entry is unchanged.
 @Composable
 fun EnterCodeScreen(
-  state: AppState,
+  state: EnterCodeViewState,
   onLookup: (String) -> Unit = {},
   onBack: () -> Unit = {},
   onScan: (() -> Unit)? = null,
@@ -165,7 +166,7 @@ fun EnterCodeScreen(
   val cs = MaterialTheme.colorScheme
   var raw by remember { mutableStateOf("") }
   val code = normalizeDeviceCode(raw)
-  val ready = code.length == CODE_LEN && !state.deviceBusy
+  val ready = code.length == CODE_LEN && !state.busy
   fun submit() { if (code.length == CODE_LEN) onLookup(formatUserCode(code)) }
 
   Column(Modifier.fillMaxSize().background(cs.surface).padding(start = 28.dp, end = 28.dp, top = 16.dp, bottom = 30.dp)) {
@@ -199,14 +200,14 @@ fun EnterCodeScreen(
       style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
       textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
     )
-    state.deviceError?.let {
+    state.error?.let {
       Spacer(Modifier.height(12.dp))
       Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
     Spacer(Modifier.weight(1f))
     PillButton(
       "Continue",
-      container = cs.primary, content = cs.onPrimary, enabled = ready, busy = state.deviceBusy,
+      container = cs.primary, content = cs.onPrimary, enabled = ready, busy = state.busy,
       modifier = Modifier.fillMaxWidth().testTag("device-continue"), onClick = { submit() },
     )
   }
@@ -221,7 +222,7 @@ private enum class DeviceScopeMode { Full, Hubs }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthorizeDeviceScreen(
-  state: AppState,
+  state: AuthorizeDeviceViewState,
   onApprove: (fid: String, hubIds: List<String>?) -> Unit = { _, _ -> },
   onDeny: (String) -> Unit = {},
   onCancel: () -> Unit = {},
@@ -235,7 +236,7 @@ fun AuthorizeDeviceScreen(
   var pickerOpen by remember { mutableStateOf(false) }
   var scopeMode by remember { mutableStateOf(DeviceScopeMode.Full) }
   var selectedHubIds by remember { mutableStateOf(emptySet<String>()) }
-  val canApprove = device != null && selectedFid != null && !state.deviceBusy &&
+  val canApprove = device != null && selectedFid != null && !state.busy &&
     (scopeMode == DeviceScopeMode.Full || selectedHubIds.isNotEmpty())
 
   Column(Modifier.fillMaxSize().background(cs.surface)) {
@@ -332,15 +333,17 @@ fun AuthorizeDeviceScreen(
             else -> {
               Spacer(Modifier.height(4.dp))
               state.hubs.forEach { hub ->
-                val checked = hub.id in selectedHubIds
-                Row(
-                  Modifier.fillMaxWidth()
-                    .clickable { selectedHubIds = if (checked) selectedHubIds - hub.id else selectedHubIds + hub.id }
-                    .testTag("device-scope-hub-${hub.id}").padding(vertical = 9.dp),
-                  verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                  Text(if (checked) "●" else "○", style = MaterialTheme.typography.titleMedium, color = if (checked) cs.primary else cs.onSurfaceVariant)
-                  Text(hub.title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+                key(hub.id) {
+                  val checked = hub.id in selectedHubIds
+                  Row(
+                    Modifier.fillMaxWidth()
+                      .clickable { selectedHubIds = if (checked) selectedHubIds - hub.id else selectedHubIds + hub.id }
+                      .testTag("device-scope-hub-${hub.id}").padding(vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                  ) {
+                    Text(if (checked) "●" else "○", style = MaterialTheme.typography.titleMedium, color = if (checked) cs.primary else cs.onSurfaceVariant)
+                    Text(hub.title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+                  }
                 }
               }
             }
@@ -360,15 +363,17 @@ fun AuthorizeDeviceScreen(
               DetailRow(glyph = "⌂", title = "For ${sel.name.ifBlank { "your family" }}", sub = "You're an owner here", trailing = if (pickerOpen) "⌃" else "⌄")
             }
             if (pickerOpen) {
-              owners.forEach { f ->
-                RowDivider()
-                Box(
-                  Modifier.fillMaxWidth().clickable { selectedFid = f.familyId; pickerOpen = false }.testTag("device-family-${f.familyId}"),
-                ) {
-                  DetailRow(
-                    glyph = if (f.familyId == sel.familyId) "●" else "○",
-                    title = f.name.ifBlank { "Family ${f.familyId}" }, sub = "Owner",
-                  )
+              owners.forEach { family ->
+                key(family.familyId) {
+                  RowDivider()
+                  Box(
+                    Modifier.fillMaxWidth().clickable { selectedFid = family.familyId; pickerOpen = false }.testTag("device-family-${family.familyId}"),
+                  ) {
+                    DetailRow(
+                      glyph = if (family.familyId == sel.familyId) "●" else "○",
+                      title = family.name.ifBlank { "Family ${family.familyId}" }, sub = "Owner",
+                    )
+                  }
                 }
               }
             }
@@ -376,7 +381,7 @@ fun AuthorizeDeviceScreen(
         }
       }
 
-      state.deviceError?.let {
+      state.error?.let {
         Spacer(Modifier.height(12.dp))
         Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
       }
@@ -385,12 +390,12 @@ fun AuthorizeDeviceScreen(
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         PillButton(
           "Deny", container = cs.surface, content = cs.onSurface, border = cs.outline,
-          enabled = device != null && selectedFid != null && !state.deviceBusy,
+          enabled = device != null && selectedFid != null && !state.busy,
           modifier = Modifier.weight(1f).testTag("device-deny"),
           onClick = { selectedFid?.let { onDeny(it) } },
         )
         PillButton(
-          "Approve", container = cs.primary, content = cs.onPrimary, enabled = canApprove, busy = state.deviceBusy,
+          "Approve", container = cs.primary, content = cs.onPrimary, enabled = canApprove, busy = state.busy,
           modifier = Modifier.weight(1.2f).testTag("device-approve"),
           onClick = { selectedFid?.let { fid -> onApprove(fid, if (scopeMode == DeviceScopeMode.Full) null else selectedHubIds.toList()) } },
         )

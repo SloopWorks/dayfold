@@ -6,25 +6,55 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.io.File
+import java.util.Collections
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.reduxkotlin.Store
+import org.reduxkotlin.StoreEnhancer
 
 class SyncEngineTest {
   private fun freshStore() = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
   private fun syncClient(engine: MockEngine) =
-    SyncClient("https://api.test", { "fam1" }, { "sec" }, HttpClient(engine))
+    SyncClient("https://api.test", HttpClient(engine))
+  private fun readyStore() = createTestAppStore(
+    AppState(session = Session("sec", "refresh"), activeFamilyId = "fam1"),
+    debug = false,
+  )
   private fun engine(cs: ContentStore, sc: SyncClient) =
-    SyncEngine(createAppStore(debug = false), cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
+    SyncEngine(readyStore(), cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
+
+  private fun recordingStore(initial: AppState, actions: MutableList<Any>): Store<AppState> {
+    val enhancer: StoreEnhancer<AppState> = { creator ->
+      { reducer, state, nestedEnhancer ->
+        val created = creator(reducer, state, nestedEnhancer)
+        val downstream = created.dispatch
+        created.dispatch = { action ->
+          actions += action
+          downstream(action)
+        }
+        created
+      }
+    }
+    return createTestAppStore(initial = initial, debug = false, extraEnhancer = enhancer)
+  }
 
   // poll the store until predicate or timeout (the bridge dispatches asynchronously)
   private fun await(store: org.reduxkotlin.Store<AppState>, pred: (AppState) -> Boolean) {
@@ -70,7 +100,7 @@ class SyncEngineTest {
     cs.applyDelta(listOf(Card("cached", title = "Cached")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     var hit = false
     val sc = syncClient(MockEngine { hit = true; respond("", HttpStatusCode.OK) })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     SyncEngine(store, cs, sc).start()                 // bridge only — no sync
     await(store) { it.cards.map { c -> c.id } == listOf("cached") }
     assertFalse(hit)                                   // network never touched
@@ -88,7 +118,7 @@ class SyncEngineTest {
         respond("""{"changes":{"cards":[{"id":"b","title":"B"}]},"tombstones":[],"next_cursor":"p2","has_more":false}""",
           HttpStatusCode.OK)
     })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
     e.start(); e.syncNow()
     assertEquals(listOf("a", "b"), cs.activeCards().map { it.id })
@@ -105,7 +135,7 @@ class SyncEngineTest {
       respond("""{"changes":{"cards":[]},"tombstones":[{"type":"card","id":"a"}],"next_cursor":"c1","has_more":false}""",
         HttpStatusCode.OK)
     })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
     e.start(); e.syncNow()
     assertTrue(cs.activeCards().isEmpty())
@@ -119,7 +149,7 @@ class SyncEngineTest {
   @Test fun `sign-out wipes the local DB cache so no stale tenant hub leaks`() = runBlocking {
     val cs = freshStore()
     cs.applyDelta(emptyList(), listOf(Hub("butler", title = "Butler")), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
-    val store = createAppStore(AppState(session = Session("a1", "r1")), debug = false)
+    val store = createTestAppStore(AppState(session = Session("a1", "r1")), debug = false)
     SyncEngine(store, cs, syncClient(MockEngine { respond("", HttpStatusCode.OK) })).start()
     await(store) { it.hubs.map { h -> h.id } == listOf("butler") }   // bridge projected the cached hub
 
@@ -153,7 +183,7 @@ class SyncEngineTest {
   @Test fun `syncNow surfaces failure as error status`() = runBlocking {
     val cs = freshStore()
     val sc = syncClient(MockEngine { respond("nope", HttpStatusCode.InternalServerError) })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "t" })
     e.syncNow()
     assertFalse(store.state.syncing)
@@ -177,7 +207,7 @@ class SyncEngineTest {
           HttpStatusCode.OK)                                       // resume delivers page 2
       }
     })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
 
     e.syncNow()                                                    // drains p1, then page 2 500s
@@ -198,7 +228,7 @@ class SyncEngineTest {
     cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache populated
     val sc = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "t" })
     e.start(); e.syncNow()
     assertTrue(cs.activeCards().isEmpty())                       // cache wiped
@@ -210,16 +240,54 @@ class SyncEngineTest {
     val cs = freshStore()
     cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val sc = syncClient(MockEngine { respond("nope", HttpStatusCode.NotFound) })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
     assertTrue(cs.activeCards().isEmpty())
+  }
+
+  @Test fun `a stale old-family 403 cannot terminate the current family`() = runBlocking<Unit> {
+    val requestStarted = CompletableDeferred<Unit>()
+    val releaseRequest = CompletableDeferred<Unit>()
+    val session = Session("access", "refresh", "user")
+    val store = createTestAppStore(
+      AppState(session = session, activeFamilyId = "family-a", route = Route.Feed),
+      debug = false,
+    )
+    val coordinator = SessionCoordinator(
+      refreshScope = this,
+      refreshSession = { error("refresh not expected") },
+      commitRotation = {},
+    )
+    val auth = coordinator.install(session)
+    coordinator.selectFamily(auth, "family-a")
+    var invalidations = 0
+    val engine = SyncEngine(
+      store = store,
+      contentStore = freshStore(),
+      syncClient = syncClient(MockEngine {
+        requestStarted.complete(Unit)
+        releaseRequest.await()
+        respond("forbidden", HttpStatusCode.Forbidden)
+      }),
+      suppliedSessionCoordinator = coordinator,
+      onSessionInvalidated = { _, _ -> invalidations++ },
+    )
+
+    val sync = async { engine.syncNow() }
+    requestStarted.await()
+    coordinator.selectFamily(auth, "family-b")
+    releaseRequest.complete(Unit)
+    sync.await()
+
+    assertEquals(0, invalidations)
+    assertEquals(session, store.state.session)
   }
 
   @Test fun `a 401 does NOT wipe the cache (token problem, left to refresh)`() = runBlocking {
     val cs = freshStore()
     cs.applyDelta(listOf(Card("a", title = "A")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val sc = syncClient(MockEngine { respond("unauthorized", HttpStatusCode.Unauthorized) })
-    val store = createAppStore(debug = false)
+    val store = readyStore()
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache intact
     assertEquals("HTTP 401", store.state.error)
@@ -230,7 +298,7 @@ class SyncEngineTest {
   // (a) syncNow writes hubs to the DB and the bridge surfaces HubsLoaded
   @Test fun `syncNow writes hubs to the DB and the bridge surfaces HubsLoaded`(): Unit = runBlocking {
     val cs = freshStore()
-    val appStore = createAppStore(debug = false)
+    val appStore = readyStore()
     val sc = syncClient(MockEngine {
       respond(
         """{"changes":{"cards":[],"hubs":[{"id":"h1","title":"Party","visibility":"family"}]},"tombstones":[],"next_cursor":"p1","has_more":false}""",
@@ -249,7 +317,7 @@ class SyncEngineTest {
   @Test fun `hub tombstone removes from store and prunes currentHubId`(): Unit = runBlocking {
     val cs = freshStore()
     cs.applyDelta(emptyList(), listOf(Hub("h1", title = "Party")), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
-    val appStore = createAppStore(debug = false)
+    val appStore = readyStore()
     val sc = syncClient(MockEngine {
       respond(
         """{"changes":{"cards":[],"hubs":[]},"tombstones":[{"type":"hub","id":"h1"}],"next_cursor":"c1","has_more":false}""",
@@ -261,7 +329,7 @@ class SyncEngineTest {
     // Let the bridge populate hubs first
     await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
     // Simulate the user having opened hub h1
-    appStore.dispatch(OpenHub("h1"))
+    appStore.dispatch(OpenHub("h1", HubRequestKey(HubTenantGeneration(1L, 1L), 1L)))
     assertEquals("h1", appStore.state.currentHubId)
     // Sync delivers the tombstone
     e.syncNow()
@@ -277,7 +345,7 @@ class SyncEngineTest {
       listOf(Hub("h1", title = "Party")),
       emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z"
     )
-    val appStore = createAppStore(debug = false)
+    val appStore = readyStore()
     val sc = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
     val e = SyncEngine(appStore, cs, sc, nowProvider = { "t" })
     e.start()
@@ -299,7 +367,7 @@ class SyncEngineTest {
 
   @Test fun `syncNow with sections+blocks surfaces in hubTreeFlow`(): Unit = runBlocking {
     val cs = freshStore()
-    val appStore = createAppStore(debug = false)
+    val appStore = readyStore()
     val sc = syncClient(MockEngine {
       respond(
         """{"changes":{"cards":[],"hubs":[{"id":"h1","title":"Party","visibility":"family"}],"sections":[{"id":"s1","hub_id":"h1","title":"Details"}],"blocks":[{"id":"b1","section_id":"s1","type":"text","body_md":"hello"}]},"tombstones":[],"next_cursor":"p1","has_more":false}""",
@@ -332,7 +400,7 @@ class SyncEngineTest {
     assertEquals(1, tree0!!.sections.size)
 
     // 403 → wipe() → everything gone
-    val appStore = createAppStore(debug = false)
+    val appStore = readyStore()
     val sc2 = syncClient(MockEngine { respond("forbidden", HttpStatusCode.Forbidden) })
     val e = SyncEngine(appStore, cs, sc2, nowProvider = { "t" })
     e.start(); e.syncNow()
@@ -345,7 +413,7 @@ class SyncEngineTest {
   // refreshes + retries once, mirroring AuthEngine/HubEngine.
   @Test fun `syncNow refreshes the access token on 401 and retries`() = runBlocking<Unit> {
     val cs = freshStore()
-    val store = createAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
     val ts = object : TokenStore { var s: Session? = null; override fun load() = s; override fun save(session: Session) { s = session }; override fun clear() { s = null } }
     var syncCalls = 0
     val mock = MockEngine { req ->
@@ -359,7 +427,7 @@ class SyncEngineTest {
         else -> respond("", HttpStatusCode.NotFound)
       }
     }
-    val sc = SyncClient("https://api.test", { "fam1" }, { store.state.session?.access }, HttpClient(mock))
+    val sc = SyncClient("https://api.test", HttpClient(mock))
     val e = SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock)), tokenStore = ts)
     e.syncNow()
     assertEquals(2, syncCalls)                                  // retried after refresh
@@ -370,10 +438,10 @@ class SyncEngineTest {
     assertFalse(store.state.syncing)
   }
 
-  @Test fun `syncNow 401 with a failed refresh surfaces SyncFailed and keeps the cache`() = runBlocking<Unit> {
+  @Test fun `syncNow 401 with a rejected refresh expires the session and clears tenant cache`() = runBlocking<Unit> {
     val cs = freshStore()
     cs.applyDelta(listOf(Card("old", title = "Old")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "t0")
-    val store = createAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
     val mock = MockEngine { req ->
       when (req.url.encodedPath) {
         "/families/fam1/sync" -> respond("unauth", HttpStatusCode.Unauthorized)
@@ -381,10 +449,207 @@ class SyncEngineTest {
         else -> respond("", HttpStatusCode.NotFound)
       }
     }
-    val sc = SyncClient("https://api.test", { "fam1" }, { store.state.session?.access }, HttpClient(mock))
+    val sc = SyncClient("https://api.test", HttpClient(mock))
     SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock))).syncNow()
-    assertEquals("HTTP 401", store.state.error)                 // surfaced (non-destructive)
-    assertEquals(listOf("old"), cs.activeCards().map { it.id }) // cache intact — NOT wiped
-    assertEquals(Session("stale", "r1"), store.state.session)   // unchanged
+    assertNull(store.state.session)
+    assertEquals(Route.SignIn, store.state.route)
+    assertEquals("Your session expired — please sign in again.", store.state.authError)
+    assertTrue(cs.activeCards().isEmpty())
+  }
+
+  @Test fun `empty resume and conflated rerun emit no sync status actions`() = runBlocking<Unit> {
+    val actions = Collections.synchronizedList(mutableListOf<Any>())
+    val store = recordingStore(
+      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      actions,
+    )
+    val firstRequest = CompletableDeferred<Unit>()
+    val releaseFirst = CompletableDeferred<Unit>()
+    var requests = 0
+    val client = syncClient(MockEngine {
+      requests++
+      if (requests == 1) {
+        firstRequest.complete(Unit)
+        releaseFirst.await()
+      }
+      respond(
+        """{"changes":{},"tombstones":[],"has_more":false}""",
+        HttpStatusCode.OK,
+      )
+    })
+    val engine = SyncEngine(store, freshStore(), client)
+    val owner = SupervisorJob()
+    val ownerScope = CoroutineScope(owner + Dispatchers.Default)
+    val finished = Channel<Unit>(Channel.UNLIMITED)
+    val coordinator = SyncCoordinator(syncPass = { reason, rerun ->
+      engine.syncNow(reason, rerun)
+      finished.send(Unit)
+    }, pollIntervalMs = Long.MAX_VALUE)
+
+    coordinator.resume(ownerScope)
+    firstRequest.await()
+    coordinator.requestSync(SyncReason.MANUAL_REFRESH)
+    releaseFirst.complete(Unit)
+    withTimeout(2_000) {
+      finished.receive()
+      finished.receive()
+    }
+    coordinator.pause()
+    coordinator.close()
+    owner.cancelAndJoin()
+
+    assertEquals(2, requests)
+    assertTrue(actions.none { it is SyncStarted || it is SyncSucceeded || it is SyncStopped })
+  }
+
+  @Test fun `a material poll emits one started and succeeded pair`() = runBlocking<Unit> {
+    val actions = mutableListOf<Any>()
+    val store = recordingStore(
+      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      actions,
+    )
+    val client = syncClient(MockEngine {
+      respond(
+        """{"changes":{"cards":[{"id":"new","title":"New"}]},"tombstones":[],"has_more":false}""",
+        HttpStatusCode.OK,
+      )
+    })
+
+    SyncEngine(store, freshStore(), client).syncNow(SyncReason.POLL)
+
+    assertEquals(1, actions.count { it is SyncStarted })
+    assertEquals(1, actions.count { it is SyncSucceeded })
+    assertEquals(0, actions.count { it is SyncFailed || it is SyncStopped })
+  }
+
+  @Test fun `cancellation after started clears busy without failure`() = runBlocking<Unit> {
+    val actions = mutableListOf<Any>()
+    val store = recordingStore(
+      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      actions,
+    )
+    val requestStarted = CompletableDeferred<Unit>()
+    val client = syncClient(MockEngine {
+      requestStarted.complete(Unit)
+      CompletableDeferred<Unit>().await()
+      respond("", HttpStatusCode.OK)
+    })
+    val engine = SyncEngine(store, freshStore(), client)
+
+    val running = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
+    requestStarted.await()
+    assertTrue(store.state.syncing)
+    running.cancelAndJoin()
+
+    assertFalse(store.state.syncing)
+    assertEquals(1, actions.count { it is SyncStarted })
+    assertEquals(1, actions.count { it is SyncStopped })
+    assertEquals(0, actions.count { it is SyncFailed })
+  }
+
+  @Test fun `family invalidation before cancellation still clears the owned busy status`() = runBlocking<Unit> {
+    val actions = mutableListOf<Any>()
+    val session = Session("access", "refresh", "user")
+    val store = recordingStore(
+      AppState(session = session, activeFamilyId = "family-a"),
+      actions,
+    )
+    val sessionCoordinator = SessionCoordinator(
+      refreshScope = this,
+      refreshSession = { error("refresh not expected") },
+      commitRotation = {},
+    )
+    val auth = sessionCoordinator.install(session)
+    sessionCoordinator.selectFamily(auth, "family-a")
+    val oldRequestStarted = CompletableDeferred<Unit>()
+    val client = syncClient(MockEngine { request ->
+      if (request.url.encodedPath.contains("family-a")) {
+        oldRequestStarted.complete(Unit)
+        CompletableDeferred<Unit>().await()
+      }
+      respond(
+        """{"changes":{},"tombstones":[],"has_more":false}""",
+        HttpStatusCode.OK,
+      )
+    })
+    val engine = SyncEngine(
+      store = store,
+      contentStore = freshStore(),
+      syncClient = client,
+      suppliedSessionCoordinator = sessionCoordinator,
+    )
+
+    val oldPass = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
+    oldRequestStarted.await()
+    assertTrue(store.state.syncing)
+    sessionCoordinator.selectFamily(auth, "family-b")
+    store.dispatch(
+      MembershipsLoaded(
+        listOf(FamilyMembership("family-b", "Family B", role = "owner", status = "active")),
+      ),
+    )
+    oldPass.cancelAndJoin()
+
+    assertFalse(store.state.syncing)
+    assertEquals(1, actions.count { it is SyncStopped })
+    assertEquals(0, actions.count { it is SyncFailed })
+  }
+
+  @Test fun `an old family cancellation cannot clear a newer family status`() = runBlocking<Unit> {
+    val actions = mutableListOf<Any>()
+    val session = Session("access", "refresh", "user")
+    val store = recordingStore(
+      AppState(session = session, activeFamilyId = "family-a"),
+      actions,
+    )
+    val sessionCoordinator = SessionCoordinator(
+      refreshScope = this,
+      refreshSession = { error("refresh not expected") },
+      commitRotation = {},
+    )
+    val auth = sessionCoordinator.install(session)
+    sessionCoordinator.selectFamily(auth, "family-a")
+    val oldRequestStarted = CompletableDeferred<Unit>()
+    val newRequestStarted = CompletableDeferred<Unit>()
+    val client = syncClient(MockEngine { request ->
+      when {
+        request.url.encodedPath.contains("family-a") -> {
+          oldRequestStarted.complete(Unit)
+          CompletableDeferred<Unit>().await()
+        }
+        request.url.encodedPath.contains("family-b") -> {
+          newRequestStarted.complete(Unit)
+          CompletableDeferred<Unit>().await()
+        }
+      }
+      respond("", HttpStatusCode.OK)
+    })
+    val engine = SyncEngine(
+      store = store,
+      contentStore = freshStore(),
+      syncClient = client,
+      suppliedSessionCoordinator = sessionCoordinator,
+    )
+
+    val oldPass = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
+    oldRequestStarted.await()
+    sessionCoordinator.selectFamily(auth, "family-b")
+    store.dispatch(
+      MembershipsLoaded(
+        listOf(FamilyMembership("family-b", "Family B", role = "owner", status = "active")),
+      ),
+    )
+    val newPass = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
+    newRequestStarted.await()
+    val stopsBeforeOldCancellation = actions.count { it is SyncStopped }
+
+    oldPass.cancelAndJoin()
+    assertTrue(store.state.syncing)
+    assertEquals(stopsBeforeOldCancellation, actions.count { it is SyncStopped })
+
+    newPass.cancelAndJoin()
+    assertFalse(store.state.syncing)
+    assertEquals(stopsBeforeOldCancellation + 1, actions.count { it is SyncStopped })
+    assertEquals(0, actions.count { it is SyncFailed })
   }
 }

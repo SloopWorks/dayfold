@@ -1,85 +1,204 @@
 package com.sloopworks.dayfold.client
 
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import org.reduxkotlin.Store
 
-// ADR 0043 §2b — the render-driven surfacing EFFECT (the Phase-A carryover). The Now feed is a pure
-// render-time selector (nowFeed); it must NEVER write surfacing state from the render path. Instead
-// the screen reports which subjects are currently surfaced (RankedFeed.visibleSubjectKeys()) and
-// THIS engine performs the write, keeping the dataflow unidirectional and mirroring HubEngine's
-// local-write methods:
-//
-//   render (visible subjects) → effect (here) → DB (ContentStore) → surfacingFlow bridge →
-//   SurfacingLoaded → state.surfacing → next nowFeed() recompute (decay/soften/omit engage).
-//
-// Two writes, both LOCAL-ONLY / never-synced (syncing who-saw-what would be a behavioral leak,
-// ADR 0043 §2b.3):
-//   • noteShown — STARTS each subject's anti-nag decay clock ONCE (recordShownIfNew). Debounced so a
-//     burst of recompositions coalesces into a single write pass; an in-memory `started` set +
-//     a state check skip subjects whose clock is already running, and the write-if-new SQL is the
-//     final backstop so continuous visibility never RESETS the clock (which would defeat softening).
-//   • dismiss — drops a subject from future ranking (recordDismissed; rank() omits dismissed).
+// ADR 0043 §2b — render reports visible subjects here; this engine serializes the local-only
+// anti-nag writes through one actor. Render never writes DB or Redux directly.
 class NowEngine(
   private val store: Store<AppState>,
   private val contentStore: ContentStore,
   private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   private val nowProvider: () -> String = { Clock.System.now().toString() },
   private val debounceMs: Long = 750L,
+  private val databaseDispatcher: CoroutineDispatcher = Dispatchers.Default,
+  private val sessionCoordinator: SessionCoordinator? = null,
 ) {
-  private val mutex = Mutex()
-  private val started = mutableSetOf<String>()   // subjects whose clock we've already started this session
-  private val pending = mutableSetOf<String>()   // subjects awaiting the next debounced flush
-  private var flushJob: Job? = null
+  private data class TenantGeneration(
+    val identityEpoch: Long,
+    val familyRevision: Long,
+    val familyId: String,
+  )
+
+  private data class TenantContext(
+    val family: FamilySessionContext?,
+    val generation: TenantGeneration?,
+  )
+
+  private data class ShownBatch(
+    val context: TenantContext,
+    val subjectKeys: Set<String>,
+  )
+
+  private sealed interface Command {
+    data object ShownWake : Command
+    data class Dismiss(
+      val context: TenantContext,
+      val subjectKey: String,
+      val nowIso: String,
+    ) : Command
+    data class Flush(val completion: CompletableDeferred<Unit>) : Command
+  }
+
+  // Render may report on the UI thread. Conflate those reports synchronously without launching a
+  // coroutine per recomposition; one ShownWake represents the union accumulated behind this gate.
+  private val ingressGate = SynchronizedObject()
+  private val ingressShown = mutableMapOf<TenantGeneration?, ShownBatch>()
+  private var shownWakeQueued = false
+  private val commands = Channel<Command>(Channel.UNLIMITED)
+  private val actorJob: Job = scope.launch { commandLoop() }
 
   /**
-   * The render path reports the subjects currently surfaced. Coalesces a burst of emissions over
-   * [debounceMs], then starts the decay clock for any not-yet-started subject. Non-suspending
-   * (safe to call from a Compose effect); idempotent.
+   * Reports the currently surfaced subjects. Reports within one fixed debounce window are
+   * conflated; later reports join the active window without moving its deadline, so a changing
+   * feed cannot starve the write indefinitely.
    */
   fun noteShown(subjectKeys: Set<String>) {
     if (subjectKeys.isEmpty()) return
-    scope.launch {
-      mutex.withLock {
-        val fresh = subjectKeys - started - pending
-        if (fresh.isEmpty()) return@withLock
-        pending += fresh
-        // Fixed-window batch, NOT a resettable trailing debounce: arm the timer once and let it
-        // fire after debounceMs; later subjects join `pending` without postponing it. A reset-on-
-        // every-call debounce could starve (a feed whose visible set keeps changing faster than the
-        // window would re-arm forever and never write last_shown). This guarantees the clock starts.
-        if (flushJob?.isActive != true) flushJob = scope.launch { delay(debounceMs); flush() }
+    val context = currentTenantContext() ?: return
+    synchronized(ingressGate) {
+      val previous = ingressShown[context.generation]
+      ingressShown[context.generation] = ShownBatch(
+        context = context,
+        subjectKeys = previous?.subjectKeys.orEmpty() + subjectKeys,
+      )
+      if (!shownWakeQueued) {
+        shownWakeQueued = true
+        if (commands.trySend(Command.ShownWake).isFailure) shownWakeQueued = false
       }
     }
   }
 
-  private suspend fun flush() = mutex.withLock {
-    if (pending.isEmpty()) return@withLock
-    val now = nowProvider()
-    val surfacing = store.state.surfacing
-    Log.d("now") { "surfacing computed count=${pending.size}" }
-    pending.forEach { key ->
-      // write-if-new: skip subjects whose clock is already running (state fast-path; the SQL
-      // DO NOTHING is the authoritative backstop). Starting it once is the whole point — see SQL.
-      if (surfacing[key]?.lastShownAtIso == null) contentStore.recordShownIfNew(key, now)
-      started += key
-    }
-    pending.clear()
-  }
-
-  /** Dismiss a subject — omitted from future ranking (rank() filters dismissed). LOCAL-ONLY. */
+  /** Dismisses a subject from future ranking. The timestamp is captured at the command edge. */
   fun dismiss(subjectKey: String) {
+    val context = currentTenantContext() ?: return
     Log.d("now") { "subject dismissed" }
-    scope.launch { contentStore.recordDismissed(subjectKey, nowProvider()) }
+    commands.trySend(Command.Dismiss(context, subjectKey, nowProvider()))
   }
 
-  fun stop() { flushJob?.cancel(); scope.cancel() }
+  /** Flushes the active shown batch through the actor; used by deterministic lifecycle tests. */
+  internal suspend fun flushPending() {
+    val completion = CompletableDeferred<Unit>()
+    commands.send(Command.Flush(completion))
+    completion.await()
+  }
+
+  private suspend fun commandLoop() {
+    val pending = mutableMapOf<TenantGeneration?, ShownBatch>()
+
+    suspend fun flush() {
+      if (pending.isEmpty()) return
+      val batches = pending.values.toList()
+      pending.clear()
+      val now = nowProvider()
+      Log.d("now") { "surfacing computed count=${batches.sumOf { it.subjectKeys.size }}" }
+      withContext(databaseDispatcher) {
+        batches.forEach { batch ->
+          commitIfCurrent(batch.context) {
+            // SQL's write-if-new constraint is authoritative across delayed bridge delivery,
+            // process restarts, and headless writers.
+            batch.subjectKeys.forEach { key -> contentStore.recordShownIfNew(key, now) }
+          }
+        }
+      }
+    }
+
+    fun acceptShown() {
+      val reported = synchronized(ingressGate) {
+        val result = ingressShown.values.toList()
+        ingressShown.clear()
+        shownWakeQueued = false
+        result
+      }
+      reported.forEach { batch ->
+        val previous = pending[batch.context.generation]
+        pending[batch.context.generation] = ShownBatch(
+          context = batch.context,
+          subjectKeys = previous?.subjectKeys.orEmpty() + batch.subjectKeys,
+        )
+      }
+    }
+
+    suspend fun handle(command: Command): Boolean {
+      when (command) {
+        Command.ShownWake -> acceptShown()
+        is Command.Dismiss -> withContext(databaseDispatcher) {
+          commitIfCurrent(command.context) {
+            contentStore.recordDismissed(command.subjectKey, command.nowIso)
+          }
+        }
+        is Command.Flush -> {
+          flush()
+          command.completion.complete(Unit)
+          return false
+        }
+      }
+      return true
+    }
+
+    suspend fun runFixedWindow() = coroutineScope {
+      val timer = async { delay(debounceMs) }
+      var receiving = true
+      while (receiving && pending.isNotEmpty()) {
+        val command = select<Command?> {
+          timer.onAwait { null }
+          commands.onReceiveCatching { it.getOrNull() }
+        }
+        if (command == null) {
+          flush()
+          receiving = false
+        } else {
+          receiving = handle(command)
+        }
+      }
+      timer.cancel()
+    }
+
+    while (currentCoroutineContext().isActive) {
+      val command = commands.receiveCatching().getOrNull() ?: break
+      handle(command)
+      if (pending.isNotEmpty()) runFixedWindow()
+    }
+  }
+
+  private fun currentTenantContext(): TenantContext? {
+    val coordinator = sessionCoordinator ?: return TenantContext(null, null)
+    val familyId = store.state.activeFamilyId ?: return null
+    val family = coordinator.familySnapshot(familyId) ?: return null
+    return TenantContext(
+      family = family,
+      generation = TenantGeneration(
+        identityEpoch = family.authContext.identityEpoch,
+        familyRevision = family.familyRevision,
+        familyId = family.familyId,
+      ),
+    )
+  }
+
+  private fun commitIfCurrent(context: TenantContext, block: () -> Unit): Boolean =
+    context.family?.let { family -> sessionCoordinator?.commitIfCurrent(family, block) }
+      ?: run { block(); true }
+
+  /** Cancels only work owned by this engine; the injected runtime scope remains caller-owned. */
+  fun stop() {
+    commands.close()
+    actorJob.cancel()
+  }
 }

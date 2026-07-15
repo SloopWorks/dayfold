@@ -22,7 +22,8 @@ class TimelineNavTest {
     assertEquals(null, s.timelineDetail)
   }
   @Test fun `OpenHub clears timelineDetail from previous hub`() {
-    val s = rootReducer(AppState(route = Route.Hubs, currentHubId = "hubA", timelineDetail = TimelineScale.Hub), OpenHub("hubB"))
+    val request = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
+    val s = rootReducer(AppState(route = Route.Hubs, currentHubId = "hubA", timelineDetail = TimelineScale.Hub), OpenHub("hubB", request))
     assertEquals(null, s.timelineDetail)
   }
   @Test fun `HubsLoaded evicting open hub clears timelineDetail`() {

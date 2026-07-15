@@ -21,7 +21,7 @@ class FakeBackendTest {
   private val api = "http://fake.local"
   private fun http(id: String): HttpClient = fakeHttpClient(FakeBackend(FakeScenarios.byId(id)!!.data))
   private fun auth(id: String) = AuthClient(api, http(id))
-  private fun sync(id: String, h: HttpClient = http(id)) = SyncClient(api, { "fam_fake" }, { "t" }, h)
+  private fun sync(id: String, h: HttpClient = http(id)) = SyncClient(api, h)
 
   @Test fun `scenario ids are unique and resolvable`() {
     val ids = FakeScenarios.all.map { it.id }
@@ -37,7 +37,7 @@ class FakeBackendTest {
   }
 
   @Test fun `busy-family sync terminates the drain loop and carries hub tree content`() = runBlocking<Unit> {
-    val page = sync("busy-family").fetchPage(null)
+    val page = sync("busy-family").fetchPage("fam_fake", "t", null)
     assertFalse(page.hasMore, "fake /sync must end the drain loop")
     assertTrue(page.changes.cards.isNotEmpty())
     assertTrue(page.changes.hubs.any { it.id == "h_party" })
@@ -64,7 +64,7 @@ class FakeBackendTest {
   }
 
   @Test fun `empty-new serves an empty feed`() = runBlocking<Unit> {
-    val page = sync("empty-new").fetchPage(null)
+    val page = sync("empty-new").fetchPage("fam_fake", "t", null)
     assertTrue(page.changes.cards.isEmpty())
     assertTrue(page.changes.hubs.isEmpty())
     assertFalse(page.hasMore)
@@ -96,7 +96,7 @@ class FakeBackendTest {
   }
 
   @Test fun `sync-error surfaces HTTP 500`() = runBlocking<Unit> {
-    val e = assertFailsWith<SyncHttpException> { sync("sync-error").fetchPage(null) }
+    val e = assertFailsWith<SyncHttpException> { sync("sync-error").fetchPage("fam_fake", "t", null) }
     assertEquals(500, e.status)
   }
 

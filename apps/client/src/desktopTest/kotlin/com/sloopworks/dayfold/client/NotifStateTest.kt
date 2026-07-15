@@ -9,8 +9,9 @@ import kotlinx.datetime.TimeZone
 /**
  * ADR 0044 Phase B — Slice 1: the device-local, NEVER-synced notification state (ADR 0024).
  * notif_config (single-row config, default-off) + notification_log (per-post rows → daily cap by
- * local date + same-day dedup). Both wiped on wipe() (tenancy revoke) but PRESERVED on
- * wipeForResync() (device-personal, like surfacing_state). Plus the pure DB→store reducer bridges.
+ * local date + same-day dedup). Config survives tenant replacement because it is a device
+ * preference; the tenant-keyed notification log is cleared by wipe(). Both survive a content-only
+ * wipeForResync(). Plus the pure DB→store reducer bridges.
  */
 class NotifStateTest {
   private val zone = TimeZone.UTC
@@ -27,11 +28,12 @@ class NotifStateTest {
     assertEquals(c, s.notifConfig())
   }
 
-  @Test fun `wipe resets notif config to default-off`() {
+  @Test fun `tenant wipe preserves device notif config`() {
     val s = store()
-    s.setNotifConfig(NotifConfig(enabled = true, dailyCap = 5))
+    val config = NotifConfig(enabled = true, dailyCap = 5)
+    s.setNotifConfig(config)
     s.wipe()
-    assertEquals(NotifConfig(), s.notifConfig())
+    assertEquals(config, s.notifConfig())
   }
 
   @Test fun `wipeForResync preserves notif config (device-personal)`() {

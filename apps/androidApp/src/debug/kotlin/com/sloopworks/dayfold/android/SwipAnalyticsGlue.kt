@@ -10,6 +10,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.createAppStore
 import com.sloopworks.dayfold.swip.NoOpErrors
+import com.sloopworks.dayfold.swip.ReplaceableStoreSubscription
 import com.sloopworks.dayfold.swip.dayfoldMappers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +51,7 @@ internal object SwipAnalyticsHolder {
   var storage: AndroidSwipStorage? = null
   val mappers = dayfoldMappers()
   var lifecycle: SwipLifecycleHandle? = null
-  var lastScreen: String? = null
+  var screenSubscription: ReplaceableStoreSubscription<AppState, String>? = null
   var bgFlushInstalled = false
   var debugSink: works.sloop.swip.debug.RingDebugSink? = null
 }
@@ -117,20 +118,22 @@ fun debugStoreEnhancer(): StoreEnhancer<AppState>? = compose(
 /**
  * Foreground/background lifecycle + route-driven screen_view. Call AFTER the store exists.
  * Idempotent per-process: the SwipLifecycle observer installs once and is reused across
- * Activity recreations (rotation/config change); only the screen_view subscription re-binds
- * to the fresh store each call, since the prior store instance is dead after recreation.
+ * Activity recreations (rotation/config change); the screen_view subscription atomically re-binds
+ * to the fresh store and unsubscribes the prior one so the process singleton cannot retain it.
  */
 fun swipLifecycleInstall(app: Application, store: Store<AppState>) {
   val storage = SwipAnalyticsHolder.storage ?: return
   val handle = SwipAnalyticsHolder.lifecycle
     ?: SwipLifecycle.install(app, requireSwip().analytics, storage).also { SwipAnalyticsHolder.lifecycle = it }
   installBackgroundFlush()
-  fun report() {
-    val name = store.state.route.name
-    if (name != SwipAnalyticsHolder.lastScreen) { SwipAnalyticsHolder.lastScreen = name; handle.screen(name) }
-  }
-  report()                       // initial screen (no-op if unchanged since last recreation)
-  store.subscribe { report() }   // dedup on route change
+  val screens = SwipAnalyticsHolder.screenSubscription
+    ?: ReplaceableStoreSubscription<AppState, String>(
+      select = { it.route.name },
+      onChanged = handle::screen,
+    ).also {
+      SwipAnalyticsHolder.screenSubscription = it
+    }
+  screens.bind(store)
 }
 
 /**

@@ -147,6 +147,33 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    (ADR 0057, in the debug drawer) shows this pipeline's live send/drop
    timeline, mask-by-default with tap-to-reveal.
 
+## Client runtime and effect ownership
+
+ADR 0058 is the accepted client-runtime contract. Dayfold keeps one Redux store
+and pure reducers. Family-content results continue to flow
+`network → DB → Redux store → UI`; explicit auth, control, and status actions
+may publish directly to Redux. Effects may originate either in middleware or in
+runtime-owned commands/feature engines, but remain cancellable and off-main.
+Store subscriber delivery is serial and FIFO on the platform UI thread, and
+Compose receives a stable store boundary with the narrowest practical
+route/feature/leaf subscriptions.
+
+`DayfoldRuntime` is the shared composition and lifecycle root, not a second
+state store or domain-service container. It owns structured process, identity,
+and family/session children through opaque, redacted `AuthSessionContext` and
+`FamilySessionContext` boundaries. Family collectors are cancelled and joined
+before cache wipe or tenant restart; truly process/device-local collectors may
+survive login changes. Runtime-retained dependencies never retain Android or
+iOS host UI objects. `ContentStore` independently owns database write and
+composite-snapshot serialization so headless platform callbacks remain safe
+without a foreground runtime.
+
+The UI-notification and database-serialization foundation is implemented. The
+runtime/session coordinator, engine migration, narrow Compose subscriptions,
+state slicing, and measured performance sweep remain staged as sequential work
+in the ADR 0058 implementation plan; acceptance does not imply those phases are
+already built.
+
 ## Auth
 
 - **Identity:** Firebase (Google/Apple sign-in) verified server-side via JWKS,
@@ -171,7 +198,7 @@ derived surfacing + background notifications), `adr/0045`/`0046` (Hub
 Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
 route gate), `adr/0053` (per-hub participation roles), `adr/0055` (SWIP
 product analytics — debug-only, PostHog EU, count-only), `adr/0057` (SWIP
-debug inspector panel).
+debug inspector panel), `adr/0058` (client runtime and effect ownership).
 
 ## Deploy
 
