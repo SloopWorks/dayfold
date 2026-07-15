@@ -2,110 +2,74 @@ package com.sloopworks.dayfold.client
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.sloopworks.dayfold.client.fake.fakeClientForApi
-import io.ktor.client.HttpClient
-import kotlinx.coroutines.launch
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.reduxkotlin.compose.rememberStableStore
 
-// Desktop shell — owns the store + AuthEngine + SyncEngine; UI = f(store.state)
-// via FeedApp. AUTH-S5: the route gate drives sign-in/onboarding/feed; sync uses
-// the session access token + active family (legacy env as a dev fallback).
+/** Desktop host: owns one host-safe runtime graph and only retains native platform actions. */
 fun main() = application {
   val api = System.getenv("DAYFOLD_API") ?: ""
-  // Fake backend (debug UI testing): DAYFOLD_API=fake://<scenario> routes ALL
-  // transport through an in-process MockEngine instead of the network. fakeHttp is
-  // null for real URLs → the shared real HttpClient is used. Clients only need a
-  // well-formed base for URL building (MockEngine routes by path).
   val fakeHttp = remember { fakeClientForApi(api) }
   val isFake = fakeHttp != null
-  val http = remember { fakeHttp ?: HttpClient() }
   val clientApi = if (isFake) "http://fake.local" else api
-  val store = remember { createAppStore() }
-  val tokenStore = remember {
-    FileTokenStore(File(System.getProperty("user.home"), ".dayfold/session.json"))
+  val devSecret = if (isFake) "fake" else System.getenv("DEV_AUTH_SECRET")
+  val driver = remember { DriverFactory().createDriver() }
+  val contentStore = remember(driver) { ContentStore(driver) }
+  val graph = remember {
+    try {
+      DayfoldRuntimeFactory(
+        api = clientApi,
+        contentStore = contentStore,
+        tokenStore = FileTokenStore(File(System.getProperty("user.home"), ".dayfold/session.json")),
+        notificationContext = mainNotificationContext(),
+        httpClientFactory = { fakeHttp ?: io.ktor.client.HttpClient() },
+        devSecret = devSecret,
+        onResourcesClosed = driver::close,
+      ).create()
+    } catch (error: Throwable) {
+      driver.close()
+      throw error
+    }
   }
-  val cs = remember { ContentStore(DriverFactory().createDriver()) }  // shared DB across engines
-  val authEngine = remember {
-    // Fake mode forces the dev-token path (devSecret non-null; no Firebase on desktop
-    // anyway) → any provider tap lands on the scenario's session.
-    AuthEngine(store, AuthClient(clientApi, http), tokenStore,
-      devSecret = if (isFake) "fake" else System.getenv("DEV_AUTH_SECRET"),
-      // Data-boundary: wipe the local cache on logout / dead session (see AuthEngine.clearCache).
-      clearCache = { cs.wipe() },
-      // ADR 0052 — DB-first cold-start route gate: cache/read the family list so the splash
-      // resolves from the DB instead of waiting on a network whoami.
-      loadCachedMemberships = { cs.cachedMemberships() },
-      saveMemberships = { cs.replaceMemberships(it) })
-  }
-  val syncEngine = remember {
-    val legacyFam = System.getenv("FAMILY_ID"); val legacySecret = System.getenv("HOUSEHOLD_SECRET")
-    val client = SyncClient(
-      clientApi,
-      familyId = { store.state.activeFamilyId ?: legacyFam },
-      token = { store.state.session?.access ?: legacySecret },
-      http = http,
+  val platformActions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
+  val stableStore = rememberStableStore(graph.store)
+  val stableCommands = remember(graph.commands) { StableDayfoldCommands(graph.commands) }
+  val stablePlatformActions = remember(platformActions, devSecret) {
+    StablePlatformActions(
+      platformActions = platformActions,
+      onSignIn = { provider ->
+        // Desktop has no native provider UI. Only an explicitly configured dev backend may sign in.
+        if (devSecret != null) graph.commands.signInWithDevProvider(provider)
+      },
+      onDevSignIn = graph.commands::devSignIn,
     )
-    SyncEngine(store, cs, client, authClient = AuthClient(clientApi, http), tokenStore = tokenStore)
   }
-  val hubEngine = remember {  // ADR 0006 render — PR2: DB-fed via contentStore + syncEngine
-    HubEngine(store, HubClient(clientApi, http), AuthClient(clientApi, http), tokenStore, cs, syncEngine)
+  val shutdownOwner = remember(graph) {
+    DesktopShutdownOwner(
+      cancelRuntime = graph::cancel,
+      awaitRuntimeClosed = graph::awaitClosed,
+      exitApplication = { exitApplication() },
+    )
   }
-  val nowEngine = remember { NowEngine(store, cs) }  // ADR 0043 §2b — render-driven record-shown effect
-  val scope = rememberCoroutineScope()
 
-  LaunchedEffect(Unit) {
-    // Fake mode: start clean so a prior run's rows (the desktop DB persists under
-    // ~/.dayfold) don't bleed into the scenario; the fake /sync repopulates.
-    if (isFake) cs.wipe()
-    syncEngine.start()                 // DB→store bridge (instant, offline)
-    authEngine.restore()               // token store → whoami → route
-    syncEngine.resume()                // immediate sync + 45s poll (idles until authed) — always-on intentional: no true background on desktop
+  LaunchedEffect(graph) {
+    if (isFake) withContext(Dispatchers.IO) { contentStore.wipe() }
+    graph.start()
+    graph.resume()
   }
-  val actions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
-  Window(onCloseRequest = ::exitApplication, title = "Dayfold") {
+
+  Window(
+    onCloseRequest = shutdownOwner::requestClose,
+    title = "Dayfold",
+  ) {
     FeedApp(
-      store,
-      onPlatformAction = actions::perform,
-      onOpenUri = actions::openUri,
-      onSignIn = { provider -> scope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
-      // Desktop has no release variant (dev tool) → always offer the fake sign-in.
-      onDevSignIn = { scope.launch { authEngine.devSignIn(); syncEngine.syncNow() } },
-      onCreateFamily = { name -> scope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
-      onSignOut = { scope.launch { authEngine.signOut() } },
-      onRedeemInvite = { token -> scope.launch { authEngine.redeemInvite(token) } },
-      onLoadApprovals = { scope.launch { store.state.activeFamilyId?.let { authEngine.loadApprovals(it) } } },
-      onApproveMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.approveMember(it, uid) } } },
-      onDeclineMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.declineMember(it, uid) } } },
-      onLoadMembers = { scope.launch { store.state.activeFamilyId?.let { authEngine.loadMembers(it) } } },
-      onRemoveMember = { uid -> scope.launch { store.state.activeFamilyId?.let { authEngine.removeMember(it, uid) } } },
-      onMintInvite = { mode -> scope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
-      onRevokeInvite = { id -> scope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
-      onUpdateAvatar = { color, ref -> scope.launch { authEngine.updateAvatar(color, ref) } },
-      onUpdateName = { name -> scope.launch { authEngine.updateDisplayName(name) } },
-      onLoadDevices = { scope.launch { authEngine.loadDevices() } },
-      onRevokeDevice = { id -> scope.launch { authEngine.revokeDevice(id) } },
-      onLookupDevice = { code -> scope.launch { authEngine.lookupDevice(code) } },
-      onApproveDevice = { fid, hubIds -> scope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch, hubIds) } },
-      onDenyDevice = { fid -> scope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
-      onRefresh = { scope.launch { syncEngine.syncNow() } },
-      onNowShown = { keys -> nowEngine.noteShown(keys) },      // ADR 0043 §2b — start the anti-nag clock
-      onLoadHubs = { scope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
-      onOpenHub = { id, block -> scope.launch { hubEngine.openHub(id, block) } },
-      onCloseHub = { scope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
-      onLoadAudience = { id -> scope.launch { hubEngine.loadAudience(id) } },
-      // ADR 0053 DC5 — People sheet management ops
-      onSetHubRole = { hubId, uid, role -> scope.launch { hubEngine.setParticipant(hubId, uid, role) } },
-      onRemoveHubParticipant = { hubId, uid -> scope.launch { hubEngine.removeParticipant(hubId, uid) } },
-      onSetHubVisibility = { hubId, visibility -> scope.launch { hubEngine.setVisibility(hubId, visibility) } },
-      onToggleItem = { blockId, itemId, done -> scope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
-      onRetryBlock = { blockId -> scope.launch { hubEngine.retryBlock(blockId) } },
-      // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.
-      onDeleteBlock = { blockId -> scope.launch { hubEngine.deleteBlock(blockId) } },
-      onHideBlock = { blockId -> scope.launch { hubEngine.hideBlock(blockId) } },
-      onUnhideBlock = { blockId -> scope.launch { hubEngine.unhideBlock(blockId) } },
+      store = stableStore,
+      commands = stableCommands,
+      platformActions = stablePlatformActions,
     )
   }
 }

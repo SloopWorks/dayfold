@@ -33,7 +33,8 @@ kotlin {
         implementation("org.jetbrains.compose.ui:ui-backhandler:1.11.1")
         implementation("io.coil-kt.coil3:coil-compose:3.2.0")
         implementation("io.coil-kt.coil3:coil-network-ktor3:3.2.0")
-        implementation("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha03")
+        // StableStore is part of FeedApp's public host boundary, so consumers need this type.
+        api("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha03")
         // Cross-platform QR rendering (owner invite share). KMP Compose painter —
         // publishes android/jvm/iosArm64/iosSimulatorArm64 klibs (zxing is JVM-only →
         // unusable on iOS). Display-only; encodes the invite URL.
@@ -65,6 +66,16 @@ kotlin {
         // Test-scope ONLY (must not ship). JVM-only artifact (no target suffix).
         // Relocated from :client → :ui (renders Compose, which lives in :ui).
         implementation("org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04")
+      }
+    }
+    val iosArm64Test by getting {
+      dependencies {
+        implementation(kotlin("test"))
+      }
+    }
+    val iosSimulatorArm64Test by getting {
+      dependencies {
+        implementation(kotlin("test"))
       }
     }
   }

@@ -1,6 +1,10 @@
 package com.sloopworks.dayfold.client
 
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import platform.Foundation.NSString
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
@@ -32,12 +36,65 @@ private const val UI_BLOCK_ID = "dayfold.blockId"
 private const val UI_SUBJECT_KEY = "dayfold.subjectKey"
 
 /**
- * Process-global tap channel. The UN delegate (retained for the app lifetime) emits the tapped target;
- * MainViewController collects it and calls hubEngine.openHub. replay=1 covers the cold-start tap that
- * fires before the Compose collector is ready (mirrors Android's cold-start intent-extras consume).
+ * Opaque replay item used to claim one notification tap across controller replacement.
  */
+class IosDeepLinkTap internal constructor(internal val target: DeepLinkTarget)
+
+/**
+ * Thread-safe latest-tap replay with explicit claim and admitted-commit acknowledgement.
+ *
+ * A controller claim prevents simultaneous delivery. Disposal releases only after the controller's
+ * runtime admission closes, so an uncommitted tap can be claimed by the replacement controller.
+ */
+internal class IosDeepLinkReplay {
+  private val gate = SynchronizedObject()
+  private val mutableTaps = MutableStateFlow<IosDeepLinkTap?>(null)
+  private var pending: IosDeepLinkTap? = null
+  private var owner: Any? = null
+
+  val taps: Flow<IosDeepLinkTap> = mutableTaps.filterNotNull()
+
+  fun emit(target: DeepLinkTarget) {
+    synchronized(gate) {
+      val tap = IosDeepLinkTap(target)
+      pending = tap
+      owner = null
+      mutableTaps.value = tap
+    }
+  }
+
+  fun claim(tap: IosDeepLinkTap, candidate: Any): DeepLinkTarget? = synchronized(gate) {
+    if (pending !== tap || (owner != null && owner !== candidate)) return@synchronized null
+    owner = candidate
+    tap.target
+  }
+
+  fun acknowledge(tap: IosDeepLinkTap, candidate: Any) {
+    synchronized(gate) {
+      if (pending !== tap || owner !== candidate) return@synchronized
+      pending = null
+      owner = null
+      mutableTaps.value = null
+    }
+  }
+
+  fun release(candidate: Any) {
+    synchronized(gate) {
+      if (owner === candidate) owner = null
+    }
+  }
+}
+
+/** Process-global notification-tap replay retained independently of a UIKit controller. */
 object IosDeepLinkBus {
-  val taps = MutableSharedFlow<DeepLinkTarget>(replay = 1, extraBufferCapacity = 1)
+  private val replay = IosDeepLinkReplay()
+
+  val taps: Flow<IosDeepLinkTap> get() = replay.taps
+
+  fun emit(target: DeepLinkTarget) = replay.emit(target)
+  fun claim(tap: IosDeepLinkTap, owner: Any): DeepLinkTarget? = replay.claim(tap, owner)
+  fun acknowledge(tap: IosDeepLinkTap, owner: Any) = replay.acknowledge(tap, owner)
+  fun release(owner: Any) = replay.release(owner)
 }
 
 internal fun buildContent(spec: NotificationSpec): UNMutableNotificationContent =
@@ -108,7 +165,7 @@ class IosUNDelegate : NSObject(), UNUserNotificationCenterDelegateProtocol {
   ) {
     val info = didReceiveNotificationResponse.notification.request.content.userInfo
     (info[UI_HUB_ID] as? String)?.let { hubId ->
-      IosDeepLinkBus.taps.tryEmit(
+      IosDeepLinkBus.emit(
         DeepLinkTarget(
           hubId = hubId,
           sectionId = info[UI_SECTION_ID] as? String,

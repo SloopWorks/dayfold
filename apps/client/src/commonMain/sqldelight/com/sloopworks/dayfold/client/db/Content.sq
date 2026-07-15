@@ -287,11 +287,29 @@ SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, s
 FROM outbox WHERE state='pending' ORDER BY created_at, op_id;
 
 markInflight:
-UPDATE outbox SET state='inflight' WHERE op_id=?;
+UPDATE outbox SET state='inflight' WHERE op_id=? AND state='pending';
+
+-- Process/runtime cancellation may stop after markInflight but before classification. No request
+-- is assumed durable across a client restart; idempotency-key makes retrying the op safe.
+recoverInflight:
+UPDATE outbox SET state='pending' WHERE state='inflight';
 
 -- 200: record the server version, mark acked (the row is dropped on echo).
 markAcked:
 UPDATE outbox SET state='acked', result_version=? WHERE op_id=?;
+
+-- A newer same-target toggle may be queued while an older whole-block PUT is inflight. Once the
+-- older PUT returns version V, advance the successor to V and rebuild its payload from current
+-- local state in the same transaction as the ack; otherwise it would retry the stale base forever.
+advancePendingToggle:
+UPDATE outbox SET base_version=?, payload=?
+WHERE target_id=? AND type='toggle' AND state='pending';
+
+-- A successful whole-block PUT establishes a trustworthy local base immediately. Advance the
+-- cached version monotonically so a new toggle enqueued just after the ack cannot mint a stale base
+-- while the inbound echo is still waiting behind the sync cursor.
+advanceBlockVersion:
+UPDATE hub_block SET version=? WHERE id=? AND version<?;
 
 -- 412 re-merge: re-enqueue with a fresh base + merged payload, count the attempt.
 requeueOp:

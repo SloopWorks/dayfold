@@ -31,6 +31,32 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
+### Active — TASK-CLIENT-RUNTIME-HARDENING (started 2026-07-14)
+
+PR 1 plus the runtime/session, engine-hardening, immutable-command,
+platform-lifecycle, stable-Compose-boundary, and route-level render-isolation
+work through the bounded portion of Task 14 are implemented and locally
+verified, except for the plan's explicitly unchecked PR 2
+collector-extraction/race-test items. Production Redux notifications use serial
+UI-thread contexts; `ContentStore` owns process-safe writer/snapshot
+serialization; auth/family epochs fence stale commits; sync requests conflate;
+Hub work is generation-correlated; Auth uses narrow request gates; and Now uses
+one ordered actor plus consistent multi-table snapshots. Production hosts retain
+one runtime graph and expose only stable store/command/platform wrappers to
+Compose. The root whole-state subscription and callback wall are gone; active
+routes subscribe to immutable feature projections, while per-entity row
+subscriptions remain explicitly open. Cold mobile notification targets now wait
+for family restoration and are dropped at identity/tenant boundaries. Adversarial
+verification also found and fixed production 401 self-join and ContentBridge
+lock-order deadlocks. The serialized gate is green across 666 client, 513 UI,
+and 16 SWIP desktop tests; 7 client and 3 UI iOS simulator tests; Android
+debug/release; iOS device/simulator framework linking; and 12 Android API-35
+connected tests. ADR 0058 is **Accepted** (operator accepted in-session
+2026-07-14). Task 14 per-row isolation, Task 15 state-keyed route effects, PR 5
+state/reducer slicing, and PR 6 notification/performance/platform closure remain
+staged in
+`docs/superpowers/plans/2026-07-14-dayfold-runtime-concurrency-render-isolation.md`.
+
 **Stage: M0 render prototype BUILT + cloud-live** — server (TS/Hono/Postgres
 on Vercel+Neon) · Kotlin CLI · KMP client (`apps/client` core + `apps/ui`
 Compose, ADR 0047) · Android (dogfood, real device) + iOS (sim-verified) —

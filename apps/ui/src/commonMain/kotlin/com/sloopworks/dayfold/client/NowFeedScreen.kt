@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -115,7 +116,9 @@ private fun RankedRow(ranked: RankedItem, cardsById: Map<String, Card>, onAction
     // dedup: the merged peer(s) render quietly inset under the head (the "two reasons, one event"
     // group), each still carrying its own why chip.
     ranked.collapsedWith.forEach { peer ->
-      Row(Modifier.padding(start = 12.dp)) { RenderItem(peer, emphasized = false, softened = ranked.softened, cardsById, onAction) }
+      key(peer.id) {
+        Row(Modifier.padding(start = 12.dp)) { RenderItem(peer, emphasized = false, softened = ranked.softened, cardsById, onAction) }
+      }
     }
   }
 }

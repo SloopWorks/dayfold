@@ -28,6 +28,9 @@ kotlin {
         api("org.reduxkotlin:redux-kotlin-concurrent:1.0.0-alpha03")   // -threadsafe is deprecated → concurrent (same contract, lock-free reads)
         implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha03")
         api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha03")
+        // ContentStore is shared by foreground/background callers on every target. Keep its
+        // single-writer gate in common code instead of maintaining divergent platform locks.
+        implementation("org.jetbrains.kotlinx:atomicfu:0.32.1")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         implementation("app.cash.sqldelight:runtime:2.3.2")
@@ -72,6 +75,14 @@ kotlin {
         implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
         implementation("io.ktor:ktor-client-mock:3.5.0")
         implementation("app.cash.turbine:turbine:1.2.1")
+      }
+    }
+    val iosArm64Test by getting {
+      dependencies { implementation(kotlin("test")) }
+    }
+    val iosSimulatorArm64Test by getting {
+      dependencies {
+        implementation(kotlin("test"))
       }
     }
   }
