@@ -491,6 +491,9 @@ data class AppState(
   val hubFilter: String = "all",                              // all | active | planning (list filter chips)
   val currentHubId: String? = null,
   val currentHubTree: HubTree? = null,
+  // Correlates the open tree collector with one exact identity/family generation and request.
+  // Late collector emissions are reducer-rejected after close, re-open, or tenant replacement.
+  val currentHubRequest: HubRequestKey? = null,
   val hubFocusBlockId: String? = null,                        // deep-link arrival: the block to highlight
   // True when the current hub was opened by a CROSS-SURFACE deep-link from a Feed card detail
   // (not the Hubs list). Back then returns to that card detail (CloseHubToFeed) instead of the
@@ -517,6 +520,9 @@ data class AppState(
   // currentHubAudience null while loading.
   val audienceSheetOpen: Boolean = false,
   val currentHubAudience: HubAudience? = null,
+  // The latest audience load/mutation reload admitted for the current hub. Result and failure
+  // actions must match this key so cancelled or reordered requests cannot overwrite newer UI.
+  val currentHubAudienceRequest: HubRequestKey? = null,
   // loading-state additions (2026-06-28)
   val pendingProvider: String? = null,   // which sign-in provider button spins
   val signOutBusy: Boolean = false,
@@ -554,10 +560,11 @@ data class AppState(
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
-// SyncStarted/SyncSucceeded/SyncFailed carry sync STATUS only.
+// SyncStarted/SyncSucceeded/SyncStopped/SyncFailed carry sync STATUS only.
 sealed interface Action
 data object SyncStarted : Action
 data object SyncSucceeded : Action
+data object SyncStopped : Action
 data class SyncFailed(val message: String) : Action
 data class CardsLoaded(val cards: List<Card>) : Action
 // CL-6 nav (push if not already top / pop one level).
@@ -573,17 +580,31 @@ data class RestoreDetailStack(val ids: List<String>) : Action
 // Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer
 // is pure. OpenHubs/OpenFeed flip the bottom-nav surface; OpenHub/CloseHub drive the
 // list↔detail substate (currentHubId).
-data object OpenHubs : Action                                 // bottom nav → Hubs (list)
+enum class HubReturnDestination { HUB_LIST, FEED_DETAIL }
+data class OpenHubs(
+  val returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
+) : Action                                                    // bottom nav/cross-surface → Hubs
 data object OpenFeed : Action                                 // bottom nav → Feed
 data class HubsLoaded(val hubs: List<Hub>) : Action
 data class HubsFailed(val message: String) : Action
-data class OpenHub(val hubId: String) : Action                // list → detail (loads the tree)
-data class HubTreeLoaded(val tree: HubTree) : Action
+data class HubTenantGeneration(
+  val identityEpoch: Long,
+  val familyRevision: Long,
+)
+data class HubRequestKey(
+  val generation: HubTenantGeneration,
+  val requestId: Long,
+)
+data class OpenHub(
+  val hubId: String,
+  val request: HubRequestKey,
+  val focusBlockId: String? = null,
+  val returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
+) : Action // list/cross-surface → detail (loads the tree)
+data class HubTreeLoaded(val hubId: String, val request: HubRequestKey, val tree: HubTree) : Action
 data object HubNotFound : Action                              // 404 (restricted/absent) — back to list with a note
 data object CloseHub : Action                                 // detail → list
 data object CloseHubToFeed : Action                           // detail → back to the Feed card detail it was deep-linked from
-data class SetHubReturnToDetail(val value: Boolean) : Action  // mark the current hub as opened via a card-detail deep-link
-data class SetHubFocus(val blockId: String?) : Action         // deep-link arrival: highlight a block
 data class SetHubFilter(val filter: String) : Action          // list filter chips (all|active|planning)
 // W5 hide (ADR 0038 §W5). HiddenLoaded is the DB→store bridge (sole writer of hiddenIds);
 // SetShowHidden flips the per-view "Show hidden" toggle. Hide/unhide effects run in HubEngine.
@@ -600,14 +621,23 @@ data class NotifConfigLoaded(val config: NotifConfig) : Action
 data class LocationPermissionLoaded(val state: LocationPermission) : Action
 data class NotificationPermissionLoaded(val state: NotificationPermission) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
-data class HubAudienceLoaded(val audience: HubAudience) : Action
+data class HubAudienceRequested(val hubId: String, val request: HubRequestKey) : Action
+data class HubAudienceLoaded(
+  val hubId: String,
+  val request: HubRequestKey,
+  val audience: HubAudience,
+) : Action
 data object CloseAudienceSheet : Action
 // ADR 0053 DC4 — participant/visibility management (the People sheet, DC5). Each op
 // (HubEngine.setParticipant/removeParticipant/setVisibility) reloads the audience on
 // success — dispatching HubAudienceLoaded again (no separate "updated" action needed,
 // the sheet re-renders off the fresh roster/can_manage/visibility). HubManageFailed
 // mirrors AudienceFailed for the one failure case shared by all three ops.
-data class HubManageFailed(val message: String) : Action
+data class HubManageFailed(
+  val hubId: String,
+  val request: HubRequestKey,
+  val message: String,
+) : Action
 // ADR 0045 — timeline detail overlay (substate within the hub detail, not a Route)
 data class OpenTimelineDetail(val scale: TimelineScale) : Action
 data object CloseTimelineDetail : Action
@@ -665,6 +695,7 @@ data class InviteMinted(val invite: MintedInvite) : Action    // 201 → show QR
 data class MintFailed(val reason: String) : Action            // ratelimited | forbidden | error
 data class InviteRevokeRequested(val id: String) : Action     // engine: revoke start (row busy)
 data class InviteRevoked(val id: String) : Action             // 204 → drop from outstanding
+data class InviteRevokeFailed(val id: String) : Action        // terminal failure → clear only that row's busy state
 data object InviteDismissed : Action                          // leave → Members; clears the token
 data class MemberResolved(val uid: String) : Action           // approved or declined → drop from the queue
 data object ApprovalsFailed : Action
@@ -674,7 +705,11 @@ data class RosterFailed(val message: String) : Action
 data class DeviceOpRequested(val id: String) : Action    // revoke start
 data object DevicesRequested : Action
 data class DevicesFailed(val message: String) : Action
-data class AudienceFailed(val message: String) : Action
+data class AudienceFailed(
+  val hubId: String,
+  val request: HubRequestKey,
+  val message: String,
+) : Action
 // own profile (task 4, GET/PATCH /auth/me). ProfileLoaded is a quiet DB-less
 // bridge (like loadRosterLocked) — dispatched after restore/sign-in resolves
 // memberships; a failure there is swallowed (no *Failed action) so it can never

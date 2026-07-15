@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 // invite is owner-approved (ADR 0011), so a success lands on "waiting".
 @Composable
 fun JoinInviteScreen(
-  state: AppState,
+  state: JoinInviteViewState,
   onJoin: (String) -> Unit = {},
   onDismiss: () -> Unit = {},
 ) {
@@ -52,11 +52,11 @@ fun JoinInviteScreen(
       contentAlignment = Alignment.Center,
     ) { androidx.compose.material3.Icon(DayfoldIcons.ArrowBack, contentDescription = "Back", tint = cs.onSurface, modifier = Modifier.size(24.dp)) }
 
-    when (state.joinOutcome) {
-      null -> JoinEntry(state.joinBusy, onJoin)
+    when (state.outcome) {
+      null -> JoinEntry(state.busy, onJoin)
       "waiting" -> JoinResult(
         accent = cs.tertiaryContainer, onAccent = cs.onTertiaryContainer,
-        title = "Almost in", body = "${state.joinFamilyName ?: "The owner"} needs to approve you. We'll let you know the moment they do.",
+        title = "Almost in", body = "${state.familyName ?: "The owner"} needs to approve you. We'll let you know the moment they do.",
         cta = "Done", onCta = onDismiss,
       )
       "locked" -> JoinResult(

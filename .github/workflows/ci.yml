@@ -30,6 +30,9 @@ jobs:
           --health-timeout 5s --health-retries 5
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/fad_test
+      # GitHub Packages credentials for @sloopworks/swip-* (root .npmrc reads this env
+      # var; repo secret = read:packages PAT — the same one the Gradle lanes use).
+      NODE_AUTH_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -203,6 +206,9 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/fad_test
       FIREBASE_PROJECT_ID: dayfold-test
+      # @sloopworks/swip-* come from GitHub Packages — this job's `npm ci` needs auth too
+      # (same as the `api` job). Without it, npm ci 401s downloading swip-sentry.
+      NODE_AUTH_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

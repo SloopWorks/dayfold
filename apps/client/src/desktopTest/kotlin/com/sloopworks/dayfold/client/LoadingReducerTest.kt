@@ -55,6 +55,13 @@ class LoadingReducerTest {
   }
 
   @Test fun audienceFailedSetsError() {
-    assertEquals("x", rootReducer(AppState(), AudienceFailed("x")).audienceError)
+    val request = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
+    val state = AppState(
+      currentHubId = "h1",
+      currentHubRequest = request,
+      audienceSheetOpen = true,
+      currentHubAudienceRequest = request,
+    )
+    assertEquals("x", rootReducer(state, AudienceFailed("h1", request, "x")).audienceError)
   }
 }

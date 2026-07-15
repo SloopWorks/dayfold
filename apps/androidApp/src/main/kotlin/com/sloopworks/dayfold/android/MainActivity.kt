@@ -5,7 +5,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.sloopworks.dayfold.client.AndroidGeofenceController
@@ -13,40 +15,36 @@ import com.sloopworks.dayfold.client.AndroidLocalNotifier
 import com.sloopworks.dayfold.client.AndroidLocationPermissionController
 import com.sloopworks.dayfold.client.AndroidNotificationPermissionController
 import com.sloopworks.dayfold.client.AndroidTokenStore
-import com.sloopworks.dayfold.client.AuthClient
-import com.sloopworks.dayfold.client.AuthEngine
-import com.sloopworks.dayfold.client.ContentStore
 import com.sloopworks.dayfold.client.DEFAULT_GEOFENCE_RADIUS_M
-import com.sloopworks.dayfold.client.DriverFactory
+import com.sloopworks.dayfold.client.DayfoldRuntimeFactory
+import com.sloopworks.dayfold.client.DeepLinkTarget
 import com.sloopworks.dayfold.client.FeedApp
 import com.sloopworks.dayfold.client.GeoRegion
-import com.sloopworks.dayfold.client.HubClient
-import com.sloopworks.dayfold.client.HubEngine
 import com.sloopworks.dayfold.client.LocationPermissionLoaded
 import com.sloopworks.dayfold.client.NotificationPermissionLoaded
-import com.sloopworks.dayfold.client.NowEngine
+import com.sloopworks.dayfold.client.StableDayfoldCommands
+import com.sloopworks.dayfold.client.StablePlatformActions
 import com.sloopworks.dayfold.client.ANDROID_REGION_CAP
-import com.sloopworks.dayfold.client.SyncClient
-import com.sloopworks.dayfold.client.SyncEngine
-import com.sloopworks.dayfold.client.createAppStore
+import com.sloopworks.dayfold.client.mainNotificationContext
 import com.sloopworks.debugdrawer.Backend
 import com.sloopworks.debugdrawer.BuildInfo
 import com.sloopworks.debugdrawer.DebugDrawer
 import com.sloopworks.debugdrawer.DebugDrawerConfig
 import com.sloopworks.debugdrawer.DebugDrawerHost
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.reduxkotlin.compose.rememberStableStore
 
-// Android shell — owns the store + AuthEngine + SyncEngine. AUTH-S5: the route
-// gate drives sign-in/onboarding/feed; repeatOnLifecycle(STARTED) maps the
-// Activity foreground/background to engine.resume()/pause().
+// Android shell — owns Activity-scoped native UI only. The ViewModel retains the application-safe
+// runtime/store across recreation; repeatOnLifecycle maps foreground state to runtime resume/pause.
 class MainActivity : ComponentActivity() {
-  private lateinit var authEngine: AuthEngine
-  private lateinit var hubEngine: HubEngine
-  // Held as a field so onSaveInstanceState can snapshot nav state. The store is rebuilt
-  // fresh in every onCreate (its in-memory nav — detailStack — would otherwise be lost
-  // on recreation: 3P-app return, rotation, process death, "Don't keep activities").
+  private lateinit var runtimeViewModel: DayfoldRuntimeViewModel
+  // Held as a field so onSaveInstanceState can snapshot nav state for process death. Configuration
+  // changes keep the same store through runtimeViewModel and do not replay the saved stack.
   private lateinit var store: org.reduxkotlin.Store<com.sloopworks.dayfold.client.AppState>
 
   private companion object { const val KEY_DETAIL_STACK = "dayfold.detailStack" }
@@ -85,8 +83,12 @@ class MainActivity : ComponentActivity() {
   // here. /invite/<token> → redeem (ADR 0048); /device?user_code=… → device-approval.
   private fun handleDeepLink(intent: Intent?) {
     val data = intent?.data?.toString() ?: return
-    lifecycleScope.launch {
-      if ("/invite/" in data) authEngine.openInviteLink(data) else authEngine.openDeviceLink(data)
+    if (::runtimeViewModel.isInitialized) {
+      if ("/invite/" in data) {
+        runtimeViewModel.commands.openInviteLink(data)
+      } else {
+        runtimeViewModel.commands.openDeviceLink(data)
+      }
     }
   }
 
@@ -94,12 +96,10 @@ class MainActivity : ComponentActivity() {
   // (AndroidLocalNotifier). Route straight to the source hub block — the same OpenHub the in-feed tap
   // uses (container transform + arrival pulse). Tolerates a dangling target (openHub falls back to feed).
   private fun handleNotificationIntent(intent: Intent?) {
-    val hubId = intent?.getStringExtra(AndroidLocalNotifier.EXTRA_HUB_ID) ?: return
-    val blockId = intent.getStringExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
-    // consume the extras so a config-change re-create doesn't re-route.
-    intent.removeExtra(AndroidLocalNotifier.EXTRA_HUB_ID)
-    intent.removeExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
-    if (::hubEngine.isInitialized) lifecycleScope.launch { hubEngine.openHub(hubId, blockId) }
+    val target = intent?.consumeNotificationTarget() ?: return
+    if (::runtimeViewModel.isInitialized) {
+      runtimeViewModel.commands.openExternalHub(target)
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -152,47 +152,69 @@ class MainActivity : ComponentActivity() {
     // installLogging() above — the bug-reporter wraps the SloopLogging-bound sink to
     // feed the breadcrumb ring while still forwarding to console + drawer.
     bugReporterInstall(this)
-    // SWIP analytics runtime (debug builds only; inert mirror in release, ADR 0055). Must
-    // run BEFORE store creation — debugStoreEnhancer() below reads the swip instance.
-    swipInit(application)
+    // SWIP init runs in DayfoldApp.onCreate (ADR 0060) — before any activity — so the crash
+    // handler is installed early and requireSwip() below is ready. Nothing to do here.
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)
+    val appContext = applicationContext
     // Fake backend (debug UI testing): a `fake://<scenario>` selection routes ALL
     // transport through an in-process MockEngine instead of the network. fakeHttp is
     // null in release and for real URLs → the shared real HttpClient is used. The
     // clients only need a well-formed base for URL building (MockEngine routes by
     // path), so a fake scenario points them at a dummy host.
     val scenarioId = if (apiBase.startsWith("fake://")) apiBase.removePrefix("fake://") else null
-    val fakeHttp = scenarioId?.let { fakeBackendClient(it) }
-    val isFake = fakeHttp != null
-    val http = fakeHttp ?: HttpClient()
-    val clientApi = if (isFake) "http://fake.local" else apiBase
-    // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes
-    // the full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
-    // extraEnhancer (innermost): the swip redux timeline recorder in debug; null in
-    // release (the inert mirror) → identical to before.
-    store = createAppStore(debug = BuildConfig.DEBUG, extraEnhancer = debugStoreEnhancer())
-    // Restore the detail the user was on before this Activity was destroyed (3P-app
-    // return / rotation / process death / "Don't keep activities"). Dispatched now, on
-    // the main thread, BEFORE the async authEngine.restore() coroutines run — so
-    // AuthRestoring→…→CardsLoaded (which keeps only present ids) preserve it. Without
-    // this, the fresh store starts at Route.Feed with an empty stack → lands on the feed.
-    savedInstanceState?.getStringArrayList(KEY_DETAIL_STACK)?.takeIf { it.isNotEmpty() }?.let {
-      store.dispatch(com.sloopworks.dayfold.client.RestoreDetailStack(it.toList()))
+    val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(appContext)
+    val retainedFactory = RetainedDayfoldRuntimeFactory {
+      // This closure is invoked only for a new ViewModel. It captures application-safe values and
+      // creates the HTTP client lazily, so a recreated Activity does not allocate an unused client.
+      val fakeHttp = scenarioId?.let { fakeBackendClient(it) }
+      val isFake = fakeHttp != null
+      val http = fakeHttp ?: HttpClient()
+      val clientApi = if (isFake) "http://fake.local" else apiBase
+      val graph = DayfoldRuntimeFactory(
+        api = clientApi,
+        contentStore = cs,
+        tokenStore = AndroidTokenStore(appContext),
+        notificationContext = mainNotificationContext(),
+        httpClientFactory = { http },
+        debug = BuildConfig.DEBUG,
+        extraEnhancer = debugStoreEnhancer(),
+        devSecret = if (isFake) "fake" else BuildConfig.DEV_AUTH_SECRET.ifEmpty { null },
+      ).create()
+      RetainedDayfoldRuntime(
+        handle = GraphDayfoldRuntimeHandle(graph),
+        isFakeBackend = isFake,
+        beforeStart = if (isFake) {
+          // Start clean off-main before runtime auth/sync can read the persistent database. This
+          // retained startup hook runs once, so configuration changes never wipe the session.
+          suspend { withContext(Dispatchers.IO) { cs.wipe() } }
+        } else {
+          suspend {}
+        },
+      )
     }
+    runtimeViewModel = ViewModelProvider(
+      this,
+      DayfoldRuntimeViewModel.Factory(retainedFactory),
+    )[DayfoldRuntimeViewModel::class.java]
+    store = runtimeViewModel.store
+    val isInitialHost = runtimeViewModel.consumeInitialStateRestore()
+    val isFake = runtimeViewModel.isFakeBackend
+    if (isInitialHost) {
+      // A retained store already contains its navigation during a configuration change. A fresh
+      // ViewModel after process death restores the Bundle before asynchronous auth restoration can
+      // filter the stack against loaded cards.
+      savedInstanceState?.getStringArrayList(KEY_DETAIL_STACK)?.takeIf { it.isNotEmpty() }?.let {
+        store.dispatch(com.sloopworks.dayfold.client.RestoreDetailStack(it.toList()))
+      }
+    }
+    // Runtime auth/bridge startup must follow synchronous process-death navigation restoration.
+    // start() is ViewModel-owned and idempotent, so Activity recreation does not add another worker.
+    runtimeViewModel.start()
     // SWIP lifecycle: foreground/background + route-driven screen_view (debug only; inert
     // in release). Store is fully constructed above — safe to subscribe now.
     swipLifecycleInstall(application, store)
-    // Single process-shared store (ADR 0044 §S3) — the geofence/exact-alarm background receivers reuse
-    // this same instance + driver (one WAL writer); foreground and background never open two connections.
-    val cs = com.sloopworks.dayfold.client.AndroidContentStoreHolder.get(applicationContext)
-    if (isFake) {
-      // Start clean so leftover real/seed rows from a prior run don't bleed into the
-      // fake scenario (the persistent DB survives the backend-switch restart); the
-      // fake /sync repopulates from the scenario.
-      cs.wipe()
-    }
     // NOTE: no standalone SampleData seed here. It used to run on every debug launch
     // (BuildConfig.FAMILY_ID is the build-time legacy const, always empty — NOT the
     // interactively signed-in activeFamilyId), so the sample cards (ids s_*) were
@@ -203,64 +225,30 @@ class MainActivity : ComponentActivity() {
     // exercise without a live API is still available via the `fake://` showcase
     // backend (reuses SampleData.cards, wipes on entry so it never coexists with real
     // data). See fix/debug-seed-pollutes-now-feed.
-    val tokenStore = AndroidTokenStore(applicationContext)
-    authEngine = AuthEngine(
-      store, AuthClient(clientApi, http), tokenStore,
-      // Fake mode forces the dev-token path: a non-null devSecret + no Firebase seam
-      // means any provider tap → POST /auth/dev-token (mock-intercepted), landing on
-      // the scenario's session deterministically.
-      devSecret = if (isFake) "fake" else BuildConfig.DEV_AUTH_SECRET.ifEmpty { null },
-      // S2 (ADR 0023/0027): real Google sign-in via Credential Manager + Firebase.
-      // Activity context (this) is required for the account-picker UI. webClientId
-      // comes from google-services.json (default_web_client_id). When the seam
-      // yields a token, AuthEngine uses /auth/firebase; else it falls back to dev-token.
-      firebaseSignIn = if (isFake) null else AndroidFirebaseSignIn(this, getString(R.string.default_web_client_id)),
-      // Data-boundary: wipe the shared content DB on logout / dead session so one
-      // identity's cards+hubs never bleed into the next (the DB→store bridge would
-      // otherwise re-project them). Same wipe the fake-mode switch + ADR 0030 use.
-      clearCache = { cs.wipe() },
-      // ADR 0052 — DB-first cold-start route gate: cache/read the family list so the splash
-      // resolves from the DB instead of waiting on a network whoami (process-death is the
-      // common case on Android — the store is rebuilt fresh here, DB cache is the only continuity).
-      loadCachedMemberships = { cs.cachedMemberships() },
-      saveMemberships = { cs.replaceMemberships(it) },
-    )
-    val legacyFam = BuildConfig.FAMILY_ID; val legacySecret = BuildConfig.HOUSEHOLD_SECRET
-    val syncEngine = SyncEngine(
-      store, cs,
-      SyncClient(
-        clientApi,
-        familyId = { store.state.activeFamilyId ?: legacyFam.ifEmpty { null } },
-        token = { store.state.session?.access ?: legacySecret.ifEmpty { null } },
-        http = http,
-      ),
-      authClient = AuthClient(clientApi, http),   // refresh-on-401 so the foreground sync survives the 5-min access token
-      tokenStore = tokenStore,
-    )
-
-    syncEngine.start()
-    lifecycleScope.launch { authEngine.restore() }
     // Only process a launch deep-link on a FRESH launch. On a recreation (config change
     // or process-death restore, savedInstanceState != null) this singleTask activity's
     // getIntent() still returns the ORIGINAL VIEW intent — re-processing it re-fired the
     // redeem every task-resume → a stuck "invite expired" screen. Genuine warm re-taps
     // arrive via onNewIntent (below), which is unaffected.
     if (savedInstanceState == null) handleDeepLink(intent)
+    val runtimeHost = runtimeViewModel.attachHost()
     lifecycleScope.launch {
       repeatOnLifecycle(Lifecycle.State.STARTED) {
-        syncEngine.resume()
+        runtimeViewModel.resume(runtimeHost)
         // Re-read OS permission truth on every foreground (Android has no permission-change broadcast;
         // the user may have toggled it in Settings while we were backgrounded). ADR 0044 §S3.
         locationPermission.refresh()
         notificationPermission.refresh()
-        try { awaitCancellation() } finally { syncEngine.pause() }
+        try {
+          awaitCancellation()
+        } finally {
+          // repeatOnLifecycle cancels this child before finally runs. The bounded pause transition
+          // must still acquire the owner mutex; generation checks keep an old Activity from pausing
+          // a newer foreground owner.
+          withContext(NonCancellable) { runtimeViewModel.pause(runtimeHost) }
+        }
       }
     }
-    hubEngine = HubEngine(   // ADR 0006 render — PR2: DB-fed
-      store, HubClient(clientApi, http),
-      AuthClient(clientApi, http), tokenStore, cs, syncEngine,
-    )
-    val nowEngine = NowEngine(store, cs)  // ADR 0043 §2b — render-driven record-shown effect
 
     // ADR 0044 Phase B — wire the OS-permission state into the store (sole-writer bridge from the
     // controllers, mirroring SyncEngine's config bridge; OS-owned → re-read on resume below). Then react
@@ -298,7 +286,33 @@ class MainActivity : ComponentActivity() {
     }
     handleNotificationIntent(intent)   // cold-start: did a notification tap launch us?
     val actions = com.sloopworks.dayfold.client.cards.PlatformActions(applicationContext)
+    val providerSignIn = if (isFake) null else AndroidFirebaseSignIn(
+      this,
+      getString(R.string.default_web_client_id),
+    )
     setContent {
+      val stableStore = rememberStableStore(store)
+      val stableCommands = remember(runtimeViewModel.commands) {
+        StableDayfoldCommands(runtimeViewModel.commands)
+      }
+      val stablePlatformActions = remember(actions, providerSignIn, isFake) {
+        StablePlatformActions(
+          platformActions = actions,
+          onSignIn = { provider ->
+            if (isFake) {
+              runtimeViewModel.commands.signInWithDevProvider(provider)
+            } else {
+              lifecycleScope.launch {
+                // Cancellation/null is a host no-op. It never becomes a dev-token sign-in.
+                val idToken = providerSignIn?.idToken(provider) ?: return@launch
+                runtimeViewModel.commands.signIn(provider, idToken)
+              }
+            }
+          },
+          onDevSignIn = if (BuildConfig.DEBUG) runtimeViewModel.commands::devSignIn else null,
+          onRequestProximityPermissions = ::requestProximityPermissions,
+        )
+      }
       // SloopWorks debug drawer: a floating bubble (debug) opens AppInfo / Backend-
       // switch / Logs / Redux DevTools panels. Pure passthrough in release (no-op).
       DebugDrawerHost {
@@ -306,58 +320,22 @@ class MainActivity : ComponentActivity() {
         // content INSIDE the drawer host; pure passthrough in release.
         BugReporterWrapped {
         FeedApp(
-          store,
-          onPlatformAction = actions::perform,
-          onOpenUri = actions::openUri,
-          onSignIn = { provider -> lifecycleScope.launch { authEngine.signIn(provider); syncEngine.syncNow() } },
-          // Debug-only fake sign-in: mints a local session (no network/Firebase) so
-          // the app is enterable against any/unreachable backend. Null in release →
-          // the button is absent.
-          onDevSignIn = if (BuildConfig.DEBUG) ({ lifecycleScope.launch { authEngine.devSignIn(); syncEngine.syncNow() } }) else null,
-          onCreateFamily = { name -> lifecycleScope.launch { authEngine.createFamily(name); syncEngine.syncNow() } },
-          onSignOut = { lifecycleScope.launch { authEngine.signOut() } },
-          onRetry = { lifecycleScope.launch { authEngine.restore() } },
-          onRedeemInvite = { token -> lifecycleScope.launch { authEngine.redeemInvite(token) } },
-          onLoadApprovals = { lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.loadApprovals(it) } } },
-          onApproveMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.approveMember(it, uid) } } },
-          onDeclineMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.declineMember(it, uid) } } },
-          onLoadMembers = { lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.loadMembers(it) } } },
-          onRemoveMember = { uid -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.removeMember(it, uid) } } },
-          onMintInvite = { mode -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.mintInvite(it, mode) } } },
-          onRevokeInvite = { id -> lifecycleScope.launch { store.state.activeFamilyId?.let { authEngine.revokeInvite(it, id) } } },
-          onUpdateAvatar = { color, ref -> lifecycleScope.launch { authEngine.updateAvatar(color, ref) } },
-          onUpdateName = { name -> lifecycleScope.launch { authEngine.updateDisplayName(name) } },
-          onLoadDevices = { lifecycleScope.launch { authEngine.loadDevices() } },
-          onRevokeDevice = { id -> lifecycleScope.launch { authEngine.revokeDevice(id) } },
-          onLookupDevice = { code -> lifecycleScope.launch { authEngine.lookupDevice(code) } },
-          onApproveDevice = { fid, hubIds -> lifecycleScope.launch { authEngine.approveDevice(fid, store.state.pendingDevice?.userCode ?: return@launch, hubIds) } },
-          onDenyDevice = { fid -> lifecycleScope.launch { authEngine.denyDevice(fid, store.state.pendingDevice?.userCode ?: return@launch) } },
-          onRefresh = { lifecycleScope.launch { syncEngine.syncNow() } },
-          onNowShown = { keys -> nowEngine.noteShown(keys) },               // ADR 0043 §2b — start the anti-nag clock
-          onLoadHubs = { lifecycleScope.launch { syncEngine.syncNow() } },  // PR1: hub list is DB-fed via the bridge
-          onOpenHub = { id, block -> lifecycleScope.launch { hubEngine.openHub(id, block) } },
-          onCloseHub = { lifecycleScope.launch { hubEngine.closeHub() } },  // PR2: cancel tree subscription
-          onLoadAudience = { id -> lifecycleScope.launch { hubEngine.loadAudience(id) } },
-          // ADR 0053 DC5 — People sheet management ops
-          onSetHubRole = { hubId, uid, role -> lifecycleScope.launch { hubEngine.setParticipant(hubId, uid, role) } },
-          onRemoveHubParticipant = { hubId, uid -> lifecycleScope.launch { hubEngine.removeParticipant(hubId, uid) } },
-          onSetHubVisibility = { hubId, visibility -> lifecycleScope.launch { hubEngine.setVisibility(hubId, visibility) } },
-          onToggleItem = { blockId, itemId, done -> lifecycleScope.launch { hubEngine.toggleItem(blockId, itemId, done) } },  // Slice 4
-          onRetryBlock = { blockId -> lifecycleScope.launch { hubEngine.retryBlock(blockId) } },
-          // Slice 5b (ADR 0038 §W4/§W5): author-gated delete + local-only hide/unhide.
-          onDeleteBlock = { blockId -> lifecycleScope.launch { hubEngine.deleteBlock(blockId) } },
-          onHideBlock = { blockId -> lifecycleScope.launch { hubEngine.hideBlock(blockId) } },
-          onUnhideBlock = { blockId -> lifecycleScope.launch { hubEngine.unhideBlock(blockId) } },
-          // ADR 0044 Phase B — device-local config write (toggle/quiet/cap) → DB → flow → store; the
-          // notifConfigFlow reaction above arms/disarms geofences + exact alarms. Off the main thread.
-          // Enabling also requests the in-app-grantable runtime permissions (notifications + while-using).
-          onSetNotifConfig = { cfg ->
-            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { cs.setNotifConfig(cfg) }
-            if (cfg.enabled) requestProximityPermissions()
-          },
+          store = stableStore,
+          commands = stableCommands,
+          platformActions = stablePlatformActions,
         )
         }
       }
     }
   }
+
+}
+
+/** Atomically extracts and consumes the one-shot local-notification navigation payload. */
+internal fun Intent.consumeNotificationTarget(): DeepLinkTarget? {
+  val hubId = getStringExtra(AndroidLocalNotifier.EXTRA_HUB_ID) ?: return null
+  val blockId = getStringExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
+  removeExtra(AndroidLocalNotifier.EXTRA_HUB_ID)
+  removeExtra(AndroidLocalNotifier.EXTRA_BLOCK_ID)
+  return DeepLinkTarget(hubId = hubId, blockId = blockId)
 }

@@ -62,6 +62,27 @@ prod/preview): `ENABLE_DEV_AUTH=1 DEV_AUTH_SECRET=… node src/server.ts`, then
 **The legacy `HOUSEHOLD_SECRET` still works on content routes until the S3 cutover.**
 Cloud/device (Pixel) hardcoding fully dies at **AUTH-S3** (CLI device grant).
 
+**Error reporting (SWIP → PostHog + Sentry, ADR 0058).** `npm ci` needs GitHub Packages
+auth for `@sloopworks/swip-*`: `export NODE_AUTH_TOKEN=$(gh auth token)`. SWIP is OFF
+locally unless `SENTRY_NODE_EU_DSN` is set — `node src/server.ts` stays SWIP-free. To run
+it WITH reporting you must use the **bundled** server (SWIP ships TS sources and Node
+refuses to type-strip anything under `node_modules`):
+
+```
+npm run build:server                                   # → dist/server.js
+cd ~/workspace && infisical run --path=/dayfold -- env \
+  VERCEL_ENV=development SENTRY_RELEASE=local-$(git rev-parse --short HEAD) \
+  ENABLE_DEV_ERRORS=1 DATABASE_URL=postgres:///fad_test \
+  node dayfold/apps/api/dist/server.js
+curl localhost:8787/debug/boom                         # a thrown route error → both vendors
+curl localhost:8787/debug/wtf                          # a deliberate non-crash report
+```
+
+`/debug/*` are gated (`ENABLE_DEV_ERRORS=1`, refused in production/preview) exactly like
+`/auth/dev-token`. **The flush is the thing to protect:** a Vercel container freezes when
+the response returns, so `swipErrors()` awaits `swip.flush(2000)` in a `finally`. Break
+that and every test still passes while every event vanishes.
+
 Cloud (live): `https://family-ai-dashboard.vercel.app`. Redeploy (operator-gated;
 the `AUTH_*` env must be set in Vercel — see below):
 `npm run build:fn && vercel deploy --prod --yes --scope patrick-jacksons-projects-c406a118`.

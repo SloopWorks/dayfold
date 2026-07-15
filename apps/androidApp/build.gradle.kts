@@ -56,6 +56,9 @@ android {
       // SWIP analytics (debug-only — never on the release classpath/APK).
       buildConfigField("String", "POSTHOG_PROJECT_KEY", "\"${System.getenv("POSTHOG_PROJECT_KEY") ?: ""}\"")
       buildConfigField("String", "POSTHOG_HOST", "\"${System.getenv("POSTHOG_HOST") ?: "https://eu.i.posthog.com"}\"")
+      // The KMP Sentry project's DSN (ADR 0060). Injected from Infisical at build; empty ⇒
+      // crash reporting stays OFF so a no-Infisical debug build still runs. NEVER a literal.
+      buildConfigField("String", "SENTRY_KOTLIN_EU_DSN", "\"${System.getenv("SENTRY_KOTLIN_EU_DSN") ?: ""}\"")
     }
     getByName("release") {
       // Sign only when the keystore env is present (CI); unsigned otherwise so local
@@ -91,6 +94,9 @@ configurations.configureEach {
 }
 
 dependencies {
+  // MainActivity retains the common runtime directly; keep this dependency explicit rather than
+  // relying on :ui's implementation details.
+  implementation(project(":client"))
   implementation(project(":ui"))
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
@@ -130,7 +136,7 @@ dependencies {
   debugImplementation("works.sloop.swip:swip-bugreport:0.1.1")
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
-  debugImplementation("works.sloop.swip:swip-logging:0.1.1")
+  debugImplementation("works.sloop.swip:swip-logging:0.1.2")
   // ProcessLifecycleOwner for the SWIP background-flush hook. swip-lifecycle depends on it
   // but as `implementation`, so it isn't on our compile classpath — declare it explicitly.
   debugImplementation("androidx.lifecycle:lifecycle-process:2.9.4")
@@ -138,6 +144,9 @@ dependencies {
   // (SwipAnalyticsGlue/SwipInspectorGlue) — :debugdrawer-swip depends on it as `implementation`
   // (intentionally not `api`), so androidApp needs its own direct debugImplementation too.
   debugImplementation("works.sloop.swip:swip-debug:0.1.0")
+  // SWIP crash/error reporter (debug ONLY, ADR 0060). Pulls io.sentry:sentry-kotlin-multiplatform
+  // + sentry-android transitively — release never references them.
+  debugImplementation("works.sloop.swip:swip-sentry:0.1.0")
   // 0.1.1 fixes: window insets on the reporter chrome, and okio/coroutines-core are
   // now `api` (their types leak through ReportLane / ReduxTimelineRecorder ctors), so
   // no consumer-side redeclaration is needed.
@@ -148,6 +157,7 @@ dependencies {
   implementation("androidx.compose.ui:ui")
   implementation("androidx.compose.ui:ui-tooling-preview")
   implementation("androidx.activity:activity-compose:1.9.3")
+  implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
   implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
   implementation("androidx.core:core-ktx:1.15.0")
 
@@ -159,6 +169,9 @@ dependencies {
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test:runner:1.6.2")
   androidTestImplementation("androidx.test:core:1.6.1")   // InstrumentationRegistry (Phase B notifier test)
+  // ContentStore concurrency coverage uses an isolated, uniquely named database through the
+  // same AndroidSqliteDriver implementation that production uses.
+  androidTestImplementation("app.cash.sqldelight:android-driver:2.3.2")
   // espresso 3.6.1 has the API 34/35 InputManager.getInstance() fix (older
   // espresso throws NoSuchMethodException via the compose idling bridge).
   // ⚠ API 37 (Android 16 preview) removed getInstance() entirely → espresso
