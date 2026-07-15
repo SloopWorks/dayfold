@@ -113,14 +113,19 @@ class DayfoldCommands internal constructor(
     focusBlockId: String? = null,
     returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
   ) {
-    val family = sessionCoordinator?.familySnapshot(familyId)
     if (hubEngine == null) {
       store.dispatch(OpenHubs(returnDestination))
       return
     }
+    val initial = sessionCoordinator?.familySnapshot(familyId)
+    if (initial == null) {
+      Log.w("commands") { "Hub open rejected without a current family" }
+      return
+    }
     launchEffect {
-      if (family != null && sessionCoordinator.isCurrent(family)) {
-        hubEngine.openHub(family, hubId, focusBlockId, returnDestination)
+      if (!sessionCoordinator.isCurrent(initial)) return@launchEffect
+      if (!hubEngine.openHub(initial, hubId, focusBlockId, returnDestination)) {
+        Log.w("commands") { "Hub open rejected by family admission" }
       }
     }
   }

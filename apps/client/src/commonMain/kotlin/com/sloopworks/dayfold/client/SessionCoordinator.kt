@@ -156,6 +156,15 @@ class SessionCoordinator(
         return@synchronized null
       }
       val selected = familyId?.takeIf(String::isNotBlank)
+      // Reconciliation routinely confirms the same membership after the cached family has already
+      // been bound. Treat that as observation, not replacement: minting a new revision here would
+      // make every runtime-owned family worker stale without giving the runtime a replacement event.
+      // A real A -> B -> A transition still advances twice because each selected id changes.
+      if (state.familyId == selected) {
+        return@synchronized selected?.let {
+          FamilySessionContext(currentAuth, it, state.familyRevision)
+        }
+      }
       val revision = nextRevision(state.familyRevision)
       state = state.copy(auth = currentAuth, familyId = selected, familyRevision = revision)
       selected?.let { FamilySessionContext(currentAuth, it, revision) }

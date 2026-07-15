@@ -52,6 +52,7 @@ class SessionCoordinatorTest {
       // An operation holding the original same-epoch auth snapshot can still select the family,
       // but the returned family context must carry the current credential revision.
       val currentFamily = coordinator.selectFamily(auth, "family-secret")!!
+      assertTrue(coordinator.isCurrent(family), "confirming the same family must preserve its generation")
       assertEquals(
         "family-secret:access-2",
         currentFamily.withFamilyAndAccessToken { familyId, access -> "$familyId:$access" },

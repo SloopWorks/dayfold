@@ -3,13 +3,17 @@ package com.sloopworks.dayfold.client
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.cards.CardAction
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.reduxkotlin.compose.rememberStableStore
 
 // CL-7: host integration — FeedApp renders the feed, then DetailScreen once a
 // card is open, through the AnimatedContent host. Exercises the remembered
@@ -37,6 +41,40 @@ class FeedAppHostTest {
   @Test fun hostRendersDetailWhenOpen() = shot("host-detail") { store ->
     store.dispatch(NavToDetail("f"))
     assertTrue(store.state.detailStack == listOf("f"))
+  }
+
+  @Test fun hubRowTapCarriesTheProjectedFamilyAndHubToCommands() = runComposeUiTest {
+    val store = createTestAppStore(
+      AppState(
+        route = Route.Hubs,
+        activeFamilyId = "family-1",
+        hubs = listOf(Hub(id = "hub-1", title = "College move", status = "active")),
+      ),
+      debug = false,
+    )
+    var opened: Pair<String, String>? = null
+    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
+    val commands = object : StableDayfoldCommands by base {
+      override fun openHub(
+        familyId: String,
+        hubId: String,
+        focusBlockId: String?,
+        returnDestination: HubReturnDestination,
+      ) {
+        opened = familyId to hubId
+      }
+    }
+
+    setContent {
+      FeedApp(
+        store = rememberStableStore(store),
+        commands = commands,
+        platformActions = StablePlatformActions.noOp(),
+      )
+    }
+    onNodeWithText("College move").performClick()
+
+    assertEquals("family-1" to "hub-1", opened)
   }
 
   // S6-D: FeedApp hosts the device-approval routes without crashing (each outcome).
