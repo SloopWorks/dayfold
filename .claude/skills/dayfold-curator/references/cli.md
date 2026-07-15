@@ -57,9 +57,14 @@ body PUT (`--hub`), only to section/block writes.
 
 **Exit codes** (all commands): `0` = success (including `help`); `1` = the
 server rejected the request (non-200 — see Push below); `2` = local misuse
-(bad flags, an unreadable input file, or `login` refusing a keychain-less host
-without `--allow-env-key`). A `2` means fix the local invocation, not retry
-against the server.
+(bad flags/args, missing env, an unreadable input file, or `login` refusing a
+keychain-less host without `--allow-env-key`). A `2` means fix the local
+invocation, not retry against the server. The **missing-env** case: if
+`DAYFOLD_API` is set but `FAMILY_ID`/`HOUSEHOLD_SECRET` isn't (a
+partially-configured legacy env), `pull`/`push`/`delete` fall through to that
+legacy path and exit 2 with `missing env: FAMILY_ID` rather than guiding you
+to `dayfold login` — run `dayfold login` (or fill in the missing legacy var)
+to fix it.
 
 ## Read current state (Phase C, and to get ids before push)
 

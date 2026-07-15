@@ -16,10 +16,21 @@ on:
         options: [dry-run, apply, backfill]
         default: dry-run
 
+permissions:
+  contents: read
+
+# Serialize: two operators (or one double-click) triggering `apply`/`backfill`
+# concurrently could race a real migration against the production DB.
+# cancel-in-progress: false — never kill a migration mid-flight, queue instead.
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
 jobs:
   migrate:
     name: "db:migrate (${{ inputs.mode }})"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # If a protected `production` GitHub Environment exists, this adds an approval gate
     # before the job runs; harmless if unconfigured.
     environment: production

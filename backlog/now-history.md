@@ -11,6 +11,50 @@ end) — each is self-dated, so use the dates to orient rather than position.
 from `backlog/now.md` on 2026-07-10** (verbatim, that file only keeps the
 most recent pass going forward — see its 2026-07-10 entry for why).
 
+**2026-07-14 repo-maintenance pass** (scheduled — the 8th in this series;
+prior passes: below). Same no-npm/no-Gradle-registry-egress sandbox as every
+prior pass (re-confirmed: `registry.npmjs.org` and `repo1.maven.org` both 403
+through the proxy) — no *logic* changes to `apps/api`/`apps/client`; the
+`apps/api` code-dedup queue stays deferred to a build-capable environment
+(unchanged counts, see `backlog/next.md`). **CI: green** (`ci.yml` run
+#29286455499 on `main`, confirmed via the GitHub API; one older transient
+flake at 2026-07-12T18:34:49Z self-healed on the next push — no action
+needed). **Biggest find: `backlog/next.md` (1015 lines) had never had the
+pruning pass `now.md` got on 2026-07-03** — it was ~75% completed/superseded
+build narrative (the whole Content-Library CL-0…CL-PLAT epic, the full
+AUTH S1–S6 build log, etc.) sitting in a file whose own header says "queued
+work only." Split it the same way, into a new **`backlog/next-history.md`**:
+`next.md` is now 301 lines (was 1015, a ~71% cut) holding only what's
+genuinely still queued/blocked; full narrative preserved verbatim in the
+history file. Three sections (TASK-AUTH-S6-D, TASK-AUTH-CONTENT, TASK-KMP)
+read as shipped from git log/CHANGELOG evidence but weren't build-verified in
+this sandbox — archived with a flagged "believed done, needs one verification
+pass" stub in `next.md` rather than silently asserted done. **Skill/CLI-doc
+pass:** the `dayfold-curator` skill docs (`cli.md`/`content-model.md`/
+`guardrails.md`/`templates/README.md`) were re-audited command-by-command
+against `Main.kt` — no undocumented commands/flags, no stale references, the
+2026-07-13 fixes all confirmed present. Found the inline `dayfold --help`
+text itself was thin/misleading in two spots and fixed both (source-only,
+not build-verified — plain Kotlin string-literal edits): the exit-code-1
+remediation said "re-run `dayfold login`" for every failure, which is wrong
+for an ADR 0053 per-hub-role 403 (re-login doesn't fix it — only the hub
+owner/co-owner promoting you in-app does); and `whoami`'s scope line never
+explained the ADR 0029 grant vocabulary. **Docs:** `docs/architecture.md`'s
+mermaid diagram was stale relative to its own Components table/prose — it
+never showed the SWIP analytics/logging stack (ADR 0054–0057, debug-only),
+the Firebase/IdP sign-in path, or the per-hub-role/device-auth DB detail;
+added all three. `README.md`'s screenshots section apologized for not having
+"current polished state" shots — swapped in real CI-verified golden
+snapshots (`apps/ui/.../snapshots/linux/*.png`, light+dark, Now feed + Hub
+detail) instead of the older raw dev-proof shots. Also fixed a real
+duplication: `README.md`'s opening paragraph was a near-verbatim copy of
+`CLAUDE.md`'s (edit-one-forget-the-other risk) — shortened to a distinct
+landing-page framing that links to `CLAUDE.md` instead of restating it.
+**Values/privacy spot-check:** clean — the only two commits since the last
+pass (`a34a987` on-device-LLM research, no code; `cbe4acb` the 2026-07-13
+maintenance pass itself) touch no product code. No new guardrail-#3/#4
+exposure from today's changes (docs + one Kotlin help-text edit only).
+
 **2026-07-13 repo-maintenance pass** (scheduled — the 7th in this series).
 Same no-npm/no-Gradle-registry-egress sandbox as every prior pass
 (re-confirmed) — no *logic* changes to `apps/api`/`apps/cli`/`apps/client`;
