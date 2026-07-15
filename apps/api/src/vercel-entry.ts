@@ -5,7 +5,13 @@
 // manually: take the buffered body (or the stream as fallback), build a Web
 // Request, drive Hono's `app.fetch`, and write the Web Response back.
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { app } from "./app.ts";
+import { initSwip } from "./swip.ts";
+
+// SWIP (and with it Sentry) boots BEFORE the router is imported — @sentry/node
+// instruments modules as they load, and a missing DSN/release must fail the deploy, not
+// a request (ADR 0059). `app.ts` is imported dynamically, after, for exactly that reason.
+await initSwip({ required: true });
+const { app } = await import("./app.ts");
 
 export default async function handler(
   req: IncomingMessage & { body?: unknown },

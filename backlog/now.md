@@ -169,6 +169,16 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
+- [ ] **API error reporting (ADR 0059) — PR #336, unblocked; set Vercel env before deploy.**
+  `feat/api-swip-errors` wires `apps/api` to the SWIP error pillar (PostHog + Sentry,
+  joined on `swip.fingerprint`; flush awaited in a Hono `finally` because Vercel freezes
+  the container at response time). Verified live against both real vendors. The SWIP npm
+  packages are published; the branch pins `swip-js 0.5.1` / `swip-sentry 0.2.3` /
+  `swip-schema-dayfold 1.0.3` (the republished set with the `scrubField` fix, SWIP #76).
+  Before the next prod deploy: add `SENTRY_NODE_EU_DSN` (the API's project — *not* the mobile
+  app's), `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST` to Vercel prod
+  (`processes/deploy-m0.md` §2), and the `SLOOPWORKS_PACKAGES_TOKEN` repo secret must have
+  `read:packages` (it already exists for the Gradle lanes).
 - [ ] **Accept ADR 0060** (client crash/error reporting — debug-only Android,
   SWIP error pillar → Sentry KMP project + PostHog). Agent-drafted 2026-07-15;
   Tasks 1–4 wired (error runtime, Sentry crash reporter, `Application` hoist,

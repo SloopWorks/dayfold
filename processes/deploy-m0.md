@@ -66,6 +66,21 @@ created + authed the accounts, I can drive the Vercel MCP for the deploy).
                                                       # auto-sends it as Bearer on cron
                                                       # runs (vercel.json `crons`). Unset
                                                       # ⇒ /cron/sweep 404s (sweep won't run)
+   # Error reporting (ADR 0058) — the boot FAILS without these, deliberately: an API that
+   # believes it reports errors and does not is worse than one that refuses to start.
+   vercel env add SENTRY_NODE_EU_DSN production       # the API's OWN Sentry project. NOT
+                                                      # SENTRY_KOTLIN_EU_DSN (the mobile
+                                                      # app's) and NOT the legacy SENTRY_DSN
+                                                      # — all three are EU hosts, so only
+                                                      # SWIP's org+project assertion catches
+                                                      # a mixup. Value: Infisical /dayfold.
+   vercel env add SENTRY_RELEASE production           # set by the step that deploys (and by
+                                                      # the sourcemap upload, once one exists
+                                                      # — a mismatch = zero symbolication)
+   vercel env add POSTHOG_PROJECT_KEY production      # owned event stream (EU)
+   vercel env add POSTHOG_HOST production             # https://eu.i.posthog.com
+   # VERCEL_ENV is set BY Vercel (production|preview|development) — do not add it. It is
+   # what stops preview deploys filing crashes as `production`.
    ```
 4. **[AGENT]** Preview deploy + smoke test (ADR 0012 preview-before-promote):
    ```

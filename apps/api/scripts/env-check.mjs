@@ -11,7 +11,25 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 
 // Structural reads that don't use the throw-idiom but are equally required.
-const STRUCTURAL = ["DATABASE_URL", "FIREBASE_PROJECT_ID"];
+//
+// SENTRY_NODE_EU_DSN / SENTRY_RELEASE / POSTHOG_* are read by GENERATED SWIP code (ADR 0059):
+// the Sentry vars by the crash wiring, the PostHog vars by the analytics transport factory —
+// not by a `Missing required env var:` guard in src/, so the grep below cannot see them, and
+// their silent form is an API that believes it has error reporting/analytics and does not.
+// SENTRY_NODE_EU_DSN is the API's OWN Sentry project: SENTRY_KOTLIN_EU_DSN is the mobile app's
+// and SENTRY_DSN is legacy; all three are EU hosts, so only the name (and SWIP's org+project
+// assertion at boot) tells them apart. The generated factory throws at boot if a POSTHOG_* var
+// is unset; listing them here is what fails the deploy PREFLIGHT before that. VERCEL_ENV is
+// required too but is set BY Vercel — listing it here would fail every local preflight, so it
+// is documented, not checked.
+const STRUCTURAL = [
+  "DATABASE_URL",
+  "FIREBASE_PROJECT_ID",
+  "SENTRY_NODE_EU_DSN",
+  "SENTRY_RELEASE",
+  "POSTHOG_PROJECT_KEY",
+  "POSTHOG_HOST",
+];
 
 function tsFiles(dir) {
   const out = [];
