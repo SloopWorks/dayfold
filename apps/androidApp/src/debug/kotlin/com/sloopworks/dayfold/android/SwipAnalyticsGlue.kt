@@ -121,7 +121,8 @@ fun swipInit(app: Application) {
   // CollectionMode and per-scope consent are ORTHOGONAL in swip-core: initialMode=FULL alone
   // leaves every event parked in the pipeline's pre-consent buffer (scope defaults to UNKNOWN)
   // → enqueued but never batched/sent. ADR 0055 ratified product analytics for the operator's
-  // own dogfood household, so grant ANALYTICS consent here to actually ship events. Debug-only
+  // own dogfood household, so grant ANALYTICS and ERRORS consent here to actually ship events;
+  // ERRORS scope warranted only by debug-only build on operator's device (ADR 0060). Debug-only
   // glue (release is inert); widening to real users stays a future ADR + real consent surface.
   SwipAnalyticsHolder.swip?.analytics?.setConsent(
     mapOf(
