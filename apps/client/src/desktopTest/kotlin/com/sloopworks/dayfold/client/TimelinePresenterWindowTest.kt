@@ -222,7 +222,7 @@ class TimelinePresenterWindowTest {
         ))
         val d = presentTimelineDetail(tl, TimelineScale.Hub, "2026-07-10T10:00:00-04:00", ny)
         assertEquals(listOf("JUNE", "AUGUST"), d.groups.map { it.label })
-        assertEquals(1, d.nowIndex)   // NOW above AUGUST, since July has no group
+        assertEquals(1, d.nowIndex)   // flat index: after jun (past), before aug — July has no stop
     }
 
     @Test fun `presentTimelineDetail hub groups by month`() {
@@ -235,6 +235,18 @@ class TimelinePresenterWindowTest {
         val result = presentTimelineDetail(tl, TimelineScale.Hub, "2026-08-24T10:00:00-04:00", ny)
         assertEquals(TimelineScale.Hub, result.scale)
         assertEquals(listOf("AUGUST", "SEPTEMBER"), result.groups.map { it.label })
-        assertEquals(0, result.nowIndex) // current month is AUGUST at index 0
+        assertEquals(2, result.nowIndex) // flat index: after the two past Aug stops (Aug1, Aug15), before Sep
+    }
+
+    @Test fun `hub NOW lands after past-in-month stops, before future-in-month`() {
+        // The current month (JULY) holds a past stop (Jul 3) and a future stop (Jul 25); now = Jul 16.
+        // The NOW line must land BETWEEN them, not above the whole JULY group.
+        val tl = Timeline(tz = "America/New_York", stops = listOf(
+            Stop("2026-07-03", "past jul", done = true),
+            Stop("2026-07-25", "future jul"),
+        ))
+        val d = presentTimelineDetail(tl, TimelineScale.Hub, "2026-07-16T10:00:00-04:00", ny)
+        assertEquals(listOf("JULY"), d.groups.map { it.label })
+        assertEquals(1, d.nowIndex)   // flat index 1: after Jul 3 (past), before Jul 25 (future)
     }
 }

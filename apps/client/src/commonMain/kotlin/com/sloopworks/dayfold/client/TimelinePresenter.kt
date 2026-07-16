@@ -373,15 +373,12 @@ fun presentTimelineDetail(tl: Timeline, scale: TimelineScale, nowIso: String, tz
             val monthGroupsList = buildMonthGroups(sorted, tz, todayYear)
             val groups = monthGroupsList.map { (label, stops) -> TimelineGroup(label, stops) }
 
-            // NOW band sits above the first month group that is on-or-after the current month —
-            // the current-month group when it exists, else the next future month (so a roadmap that
-            // skips the current month still shows a NOW line). Null when every month is already past.
-            val nowKey = now?.toLocalDateTime(tz)?.let { it.year * 12 + it.month.ordinal }
-            val nowIndex = nowKey?.let {
-                groups.indexOfFirst { g ->
-                    val k = g.stops.firstOrNull()?.instant?.toLocalDateTime(tz)?.let { d -> d.year * 12 + d.month.ordinal }
-                    k != null && k >= nowKey
-                }.takeIf { idx -> idx >= 0 }
+            // NOW line is placed inter-stop, chronologically: a flat index into the sorted stop
+            // stream = the first stop strictly after now. Within the current month it therefore
+            // lands AFTER past-in-month stops (not above them). null when the clock is unparseable.
+            // This unifies the field's meaning with the Day branch (both = flat stop index).
+            val nowIndex = now?.let { n ->
+                sorted.indexOfLast { it.instant != null && it.instant <= n } + 1
             }
 
             PresentedTimeline(scale = TimelineScale.Hub, groups = groups, nowIndex = nowIndex, nowTimeLabel = null, derived = tl.derived)
