@@ -670,6 +670,27 @@ private fun tlSourceTag(source: String?): Pair<ImageVector, String>? = when (sou
     else        -> null
 }
 
+/**
+ * Absolute LazyColumn item index of the NOW line, matching [TimelineDetail]'s item emission:
+ * one sticky-header item per group, then one item per stop, with the NOW line inserted before the
+ * stop at flat index [nowIndex] — or after all stops when [nowIndex] equals the total stop count
+ * (the trailing `now_line_end` item). Returns null when [nowIndex] is null or out of range.
+ */
+internal fun nowLineItemIndex(groups: List<TimelineGroup>, nowIndex: Int?): Int? {
+    if (nowIndex == null) return null
+    var abs = 0
+    var flat = 0
+    for (group in groups) {
+        abs++ // sticky header
+        for (stop in group.stops) {
+            if (flat == nowIndex) return abs
+            abs++ // stop row
+            flat++
+        }
+    }
+    return if (flat == nowIndex) abs else null // trailing all-past NOW line (before provenance)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Derive initials: "Pat + Maya" → "PM"; "Maya" → "MA". */
