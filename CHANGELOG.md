@@ -7,6 +7,14 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-16 — Roadmap NOW placement + open-at-NOW
+
+### Added
+- **Roadmap NOW placement + open-at-NOW:** the full-screen Roadmap (timeline detail)
+  now places the NOW line in true chronological order — inline between the last past and
+  first future stop, even mid-month — and opens scrolled to NOW, with past content
+  reachable by scrolling up. (`TimelineDetail`, ADR 0045/0046 surface.)
+
 ## 2026-07-15 — Client runtime hardening: fixed two production deadlocks
 
 ### Fixed
