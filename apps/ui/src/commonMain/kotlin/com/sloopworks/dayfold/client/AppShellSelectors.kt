@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
+import org.reduxkotlin.granular.memoizedSelector
 
 /** Back ownership resolved by the app shell without exposing feature state to it. */
 enum class BackTarget {
@@ -292,16 +293,39 @@ data class HubListViewState(
   val error: String?,
 )
 
-fun hubListViewState(state: AppState): HubListViewState {
-  val shown = state.hubs.filter { hub ->
-    when (state.hubFilter) {
-      "active" -> hub.status == "active"
-      "planning" -> hub.status == "planning"
-      else -> true
-    }
+/**
+ * Builds a selector whose expensive filtering is cached by the immutable hubs
+ * list and filter value, rather than by every AppState notification.
+ */
+internal fun memoizedHubListViewState(
+  onFilter: () -> Unit = {},
+): (AppState) -> HubListViewState {
+  val shownHubs = memoizedSelector(
+    { state: AppState -> state.hubs },
+    { state: AppState -> state.hubFilter },
+  ) { hubs, filter ->
+    onFilter()
+    when (filter) {
+      "active" -> hubs.filter { it.status == "active" }
+      "planning" -> hubs.filter { it.status == "planning" }
+      else -> hubs
+      }
   }
-  return HubListViewState(state.hubs.isNotEmpty(), shown, state.hubFilter, state.hubsBusy, state.hubError)
+  return { state ->
+    HubListViewState(
+      hasAnyHubs = state.hubs.isNotEmpty(),
+      shownHubs = shownHubs(state),
+      filter = state.hubFilter,
+      busy = state.hubsBusy,
+      error = state.hubError,
+    )
+  }
 }
+
+/** One root-hoisted selector instance keeps its memoized result across route recompositions. */
+private val selectHubListViewState = memoizedHubListViewState()
+
+fun hubListViewState(state: AppState): HubListViewState = selectHubListViewState(state)
 
 @Composable
 internal fun rememberHubListViewState(store: SelectorStore<AppState>): HubListViewState {

@@ -2,7 +2,10 @@ package com.sloopworks.dayfold.client
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
@@ -11,9 +14,36 @@ import org.reduxkotlin.Store
 import org.reduxkotlin.StoreSubscriber
 import org.reduxkotlin.StoreSubscription
 import org.reduxkotlin.compose.rememberSelectorStore
+import org.reduxkotlin.compose.selectorState
 
 @OptIn(ExperimentalTestApi::class)
 class RenderIsolationTest {
+
+  @Test
+  fun memoizedHubFilterOnlyRunsForHubOrFilterInputs() {
+    var filterInvocations = 0
+    val select = memoizedHubListViewState { filterInvocations++ }
+    val initial = AppState(
+      hubs = listOf(
+        Hub(id = "active", title = "Active", status = "active"),
+        Hub(id = "planning", title = "Planning", status = "planning"),
+      ),
+      hubFilter = "active",
+    )
+
+    assertEquals(listOf("active"), select(initial).shownHubs.map(Hub::id))
+    assertEquals(1, filterInvocations)
+
+    select(initial.copy(route = Route.Hubs, notificationPermission = NotificationPermission.Granted))
+    select(initial.copy(hubsBusy = true, hubError = "network"))
+    assertEquals(1, filterInvocations, "unrelated AppState changes must reuse the hub projection")
+
+    assertEquals(listOf("planning"), select(initial.copy(hubFilter = "planning")).shownHubs.map(Hub::id))
+    assertEquals(2, filterInvocations)
+
+    select(initial.copy(hubs = initial.hubs + Hub(id = "next", title = "Next", status = "active")))
+    assertEquals(3, filterInvocations, "a new hubs list must recalculate the projection")
+  }
 
   @Test
   fun unrelatedFeatureChangesDoNotRecomposeShellOrHubRoute() = runComposeUiTest {
@@ -58,6 +88,58 @@ class RenderIsolationTest {
       assertEquals(1, countingStore.activeSubscribers, "active selectors still share one subscription")
     }
   }
+
+  @Test
+  fun keyedSelectorUpdatesItsCapturedParameterWithoutStaleResults() = runComposeUiTest {
+    val store = createTestAppStore(
+      AppState(
+        hubs = listOf(
+          Hub(id = "active", title = "Active", status = "active"),
+          Hub(id = "planning", title = "Planning", status = "planning"),
+        ),
+      ),
+    )
+    var filter by mutableStateOf("active")
+    lateinit var selectedIds: List<String>
+
+    setContent {
+      val selectorStore = rememberSelectorStore(store)
+      val ids by selectorStore.selectorState(filter) { state ->
+        state.hubs.filter { it.status == filter }.map(Hub::id)
+      }
+      selectedIds = ids
+      Text(ids.joinToString())
+    }
+    waitForIdle()
+    assertEquals(listOf("active"), selectedIds)
+
+    filter = "planning"
+    waitForIdle()
+    assertEquals(listOf("planning"), selectedIds)
+  }
+
+  @Test
+  fun unrelatedActionDoesNotRecomposeAnInactiveRoute() = runComposeUiTest {
+    val store = createTestAppStore(AppState(route = Route.SignIn))
+    lateinit var counts: MutableMap<String, Int>
+
+    setContent {
+      counts = remember { mutableMapOf() }
+      RouteProbe(rememberSelectorStore(store), counts)
+    }
+    waitForIdle()
+    assertEquals(1, counts["sign-in"])
+
+    store.dispatch(OpenHubs())
+    waitForIdle()
+    val signInBeforeUnrelatedAction = counts["sign-in"]
+    assertEquals(1, counts["hubs"])
+
+    store.dispatch(NotifConfigLoaded(NotifConfig(enabled = true)))
+    waitForIdle()
+    assertEquals(signInBeforeUnrelatedAction, counts["sign-in"], "inactive SignIn must stay unsubscribed")
+    assertEquals(1, counts["hubs"], "unrelated state must not recompose Hubs")
+  }
 }
 
 @Composable
@@ -70,6 +152,20 @@ private fun IsolationProbe(store: Store<AppState>, counts: MutableMap<String, In
     val hubs = rememberHubListViewState(selectorStore)
     counts["hubs"] = (counts["hubs"] ?: 0) + 1
     Text("${hubs.filter}:${hubs.shownHubs.size}")
+  }
+}
+
+@Composable
+private fun RouteProbe(store: org.reduxkotlin.compose.SelectorStore<AppState>, counts: MutableMap<String, Int>) {
+  val shell = rememberAppShellState(store)
+  if (shell.route == Route.SignIn) {
+    val state by store.selectorState(::signInViewState)
+    counts["sign-in"] = (counts["sign-in"] ?: 0) + 1
+    Text(state.error.orEmpty())
+  } else if (shell.route == Route.Hubs) {
+    val hubs = rememberHubListViewState(store)
+    counts["hubs"] = (counts["hubs"] ?: 0) + 1
+    Text(hubs.filter)
   }
 }
 
