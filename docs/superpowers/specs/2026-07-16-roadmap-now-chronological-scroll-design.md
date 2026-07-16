@@ -111,16 +111,18 @@ Mechanics and rationale:
   positions differ per scale). The `autoScrollToNow` / null branch is *inside* the ctor
   arg, never around the remember, so the slot-table structure is stable across
   recomposition (avoids a "changing number of slots" fault when `nowItemIndex` resolves).
-- **Sticky-header seat (`+headerPx`).** With offset 0 the pinned month header overlays
-  the NOW line's top ~H px permanently. `scrollToItem`'s post-condition is
-  `item.offset == scrollOffset` (px from viewport start), so a **positive** offset ≈
-  header height seats NOW below the header; the header pins in the freed gap (useful
-  month context). Because frame 0 is already at NOW, this nudge is ≤~46 px — a
+- **Sticky-header seat (`-headerPx`).** With offset 0 the pinned month header overlays
+  the NOW line's top ~H px permanently. `scrollToItem(index, scrollOffset)` treats a
+  **positive** offset as a *forward* scroll (the item moves UP, partially off the top),
+  so a **negative** offset ≈ header height is what seats NOW *below* the header — it
+  leaves H px of space above the item, which the pinned header fills (useful month
+  context). **(Verified on-device: a positive offset hid NOW behind the header/title —
+  corrected to negative.)** Because frame 0 is already at NOW, this nudge is ≤~46 px — a
   sub-perceptible settle masked by the HeroMs enter, **not** a jump. `initialScrollOffset`
-  can't do this (it only scrolls the first item *up*), so the seat is a one-shot
-  post-layout `scrollToItem`. `headerPx` is sized to the **taller** later-group header
-  (top-pad 16, ~46.dp) so mid-list NOW never occludes; the group-0/all-future header
-  (top-pad 0, ~30.dp) yields a ≤16 px cosmetic gap — invisible.
+  can't do this (it's non-negative), so the seat is a one-shot post-layout `scrollToItem`.
+  `headerPx` is sized to the **taller** later-group header (top-pad 16, ~46.dp) so mid-list
+  NOW never occludes; the group-0/all-future header (top-pad 0, ~30.dp) yields a ≤16 px
+  cosmetic gap — invisible.
 - **`LaunchedEffect(active)` keyed on scale only** (not `tl`): fires on open and on
   Day↔Hub toggle, never on incidental recomposition or a background sync (which would
   otherwise yank the scroll back mid-read).

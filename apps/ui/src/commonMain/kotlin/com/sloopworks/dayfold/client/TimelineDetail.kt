@@ -97,7 +97,11 @@ fun TimelineDetail(
         LazyListState(firstVisibleItemIndex = if (autoScrollToNow) (nowItemIndex ?: 0) else 0)
     }
     LaunchedEffect(active) {
-        if (autoScrollToNow && nowItemIndex != null) listState.scrollToItem(nowItemIndex, headerPx)
+        // NEGATIVE offset: scrollToItem's positive offset is a forward scroll (moves the item UP,
+        // partially off the top). To seat the NOW line BELOW the pinned month sticky-header we leave
+        // headerPx of space above it → the header fills that gap. A positive offset here hid NOW
+        // behind the header (verified on-device).
+        if (autoScrollToNow && nowItemIndex != null) listState.scrollToItem(nowItemIndex, -headerPx)
     }
     val cs = MaterialTheme.colorScheme
     // Edge-to-edge (MainActivity.enableEdgeToEdge): this is a full-screen substate hosted BARE
