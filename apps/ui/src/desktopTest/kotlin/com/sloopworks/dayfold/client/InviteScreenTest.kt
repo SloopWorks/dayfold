@@ -22,13 +22,13 @@ class InviteScreenTest {
 
   // onMint defaults to {} so the auto-mint LaunchedEffect is a no-op — no loop.
   @Test fun `shows the title`() = runComposeUiTest {
-    setContent { DayfoldTheme { InviteScreen(AppState(route = Route.Invite, inviteMode = "qr"), now = fixedNow) } }
+    setContent { DayfoldTheme { InviteScreen(AppState(navigation = NavigationState(route = Route.Invite), inviteMode = "qr"), now = fixedNow) } }
     onNodeWithText("Invite a member").assertExists()
   }
 
   @Test fun `shows the QR when a qr invite is minted`() = runComposeUiTest {
     val s = AppState(
-      route = Route.Invite, inviteMode = "qr",
+      navigation = NavigationState(route = Route.Invite), inviteMode = "qr",
       mintedInvite = MintedInvite("i", "TOK", "https://x/invite/TOK", "adult", "qr", "2099-01-01T00:00:00Z"),
     )
     setContent { DayfoldTheme { InviteScreen(s, now = fixedNow) } }
@@ -37,7 +37,7 @@ class InviteScreenTest {
 
   @Test fun `shows the copy-link button for a link invite`() = runComposeUiTest {
     val s = AppState(
-      route = Route.Invite, inviteMode = "link",
+      navigation = NavigationState(route = Route.Invite), inviteMode = "link",
       mintedInvite = MintedInvite("i", "TOK", "https://x/invite/TOK", "adult", "link", "2099-01-01T00:00:00Z"),
     )
     setContent { DayfoldTheme { InviteScreen(s, now = fixedNow) } }
@@ -46,7 +46,7 @@ class InviteScreenTest {
 
   @Test fun `shows revoke for an outstanding invite`() = runComposeUiTest {
     val s = AppState(
-      route = Route.Invite,
+      navigation = NavigationState(route = Route.Invite),
       outstandingInvites = listOf(Invite(id = "inv1", mode = "link", maxUses = 5, usedCount = 0, expiresAt = "2099-01-01T00:00:00Z")),
     )
     setContent { DayfoldTheme { InviteScreen(s, now = fixedNow) } }
@@ -54,7 +54,7 @@ class InviteScreenTest {
   }
 
   @Test fun `shows a rate-limit error with retry`() = runComposeUiTest {
-    setContent { DayfoldTheme { InviteScreen(AppState(route = Route.Invite, mintError = "ratelimited"), now = fixedNow) } }
+    setContent { DayfoldTheme { InviteScreen(AppState(navigation = NavigationState(route = Route.Invite), mintError = "ratelimited"), now = fixedNow) } }
     onNodeWithText("Try again").assertExists()
   }
 }

@@ -34,20 +34,20 @@ fun appShellState(state: AppState): AppShellState {
   val backTarget = when {
     state.deviceResuming -> null
     state.hubs.audienceSheetOpen -> BackTarget.Audience
-    state.route == Route.Feed && detailCardId != null -> BackTarget.FeedDetail
-    state.route == Route.Hubs && state.hubs.timelineDetail != null -> BackTarget.Timeline
-    state.route == Route.Hubs && state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> BackTarget.FeedDetailFromHub
-    state.route == Route.Hubs && state.hubs.currentHubId != null -> BackTarget.HubList
-    state.route == Route.Account -> BackTarget.Account
-    state.route == Route.Members || state.route == Route.Devices || state.route == Route.Proximity -> BackTarget.Members
-    state.route == Route.Invite -> BackTarget.Members
-    state.route == Route.AuthorizeDevice || state.route == Route.EnterCode ||
-      state.route == Route.ScanPrimer || state.route == Route.ScanDevice || state.route == Route.ScanDenied -> BackTarget.DeviceFlow
-    state.route == Route.JoinInvite -> BackTarget.JoinInvite
+    state.navigation.route == Route.Feed && detailCardId != null -> BackTarget.FeedDetail
+    state.navigation.route == Route.Hubs && state.hubs.timelineDetail != null -> BackTarget.Timeline
+    state.navigation.route == Route.Hubs && state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> BackTarget.FeedDetailFromHub
+    state.navigation.route == Route.Hubs && state.hubs.currentHubId != null -> BackTarget.HubList
+    state.navigation.route == Route.Account -> BackTarget.Account
+    state.navigation.route == Route.Members || state.navigation.route == Route.Devices || state.navigation.route == Route.Proximity -> BackTarget.Members
+    state.navigation.route == Route.Invite -> BackTarget.Members
+    state.navigation.route == Route.AuthorizeDevice || state.navigation.route == Route.EnterCode ||
+      state.navigation.route == Route.ScanPrimer || state.navigation.route == Route.ScanDevice || state.navigation.route == Route.ScanDenied -> BackTarget.DeviceFlow
+    state.navigation.route == Route.JoinInvite -> BackTarget.JoinInvite
     else -> null
   }
   return AppShellState(
-    route = state.route,
+    route = state.navigation.route,
     detailCardId = detailCardId,
     currentHubId = state.hubs.currentHubId,
     deviceResuming = state.deviceResuming,
@@ -71,7 +71,7 @@ data class HubRouteState(
 )
 
 fun hubRouteState(state: AppState): HubRouteState = HubRouteState(
-  activeFamilyId = state.activeFamilyId,
+  activeFamilyId = state.session.activeFamilyId,
   currentHubId = state.hubs.currentHubId,
   fromFeedDetail = state.hubs.fromFeedDetail,
   audienceSheetOpen = state.hubs.audienceSheetOpen,

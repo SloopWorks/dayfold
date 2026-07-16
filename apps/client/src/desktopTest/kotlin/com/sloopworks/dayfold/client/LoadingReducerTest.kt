@@ -9,18 +9,18 @@ import kotlin.test.assertFalse
 class LoadingReducerTest {
   @Test fun signInRequestedSetsPendingProvider() {
     val s = rootReducer(AppState(), SignInRequested("google"))
-    assertEquals("google", s.pendingProvider)
-    assertTrue(s.authBusy)
+    assertEquals("google", s.session.pendingProvider)
+    assertTrue(s.session.authBusy)
   }
 
   @Test fun signInFailedClearsPendingProvider() {
-    val s = rootReducer(AppState(pendingProvider = "google", authBusy = true), SignInFailed("nope"))
-    assertNull(s.pendingProvider)
-    assertFalse(s.authBusy)
+    val s = rootReducer(AppState(session = SessionState(pendingProvider = "google", authBusy = true)), SignInFailed("nope"))
+    assertNull(s.session.pendingProvider)
+    assertFalse(s.session.authBusy)
   }
 
   @Test fun signOutRequestedSetsBusy() {
-    assertTrue(rootReducer(AppState(), SignOutRequested).signOutBusy)
+    assertTrue(rootReducer(AppState(), SignOutRequested).session.signOutBusy)
   }
 
   @Test fun memberOpRequestedThenResolvedClearsId() {

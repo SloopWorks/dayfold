@@ -34,15 +34,15 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
   is SignedOut -> signedOutState(state)
   is SessionExpired -> expiredSessionState(state)
-  is CardsLoaded -> reduceContent(state, action).copy(detailStack = state.detailStack.filter { id -> action.cards.any { it.id == id } })
+  is CardsLoaded -> reduceContent(state, action).copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack.filter { id -> action.cards.any { it.id == id } }))
   is SyncStarted, is SyncSucceeded, is SyncStopped, is SyncFailed -> reduceContent(state, action)
   is NavToDetail, is NavBack, is RestoreDetailStack, is AuthRestoring, is SessionRestored, is SignInSucceeded, is MembershipsLoaded, is FamilyCreated, is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity, is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
-  is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded, is HubNotFound, is CloseHub, is CloseHubToFeed, is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded, is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded, is CloseAudienceSheet, is AudienceFailed, is HubManageFailed -> reduceHubs(state, action)
+  is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded, is HubNotFound, is CloseHub, is CloseHubToFeed, is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded, is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded, is CloseAudienceSheet, is AudienceFailed, is HubManageFailed -> reduceNavigation(reduceHubs(state, action), action)
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested -> reduceSession(state, action)
-  is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceFamilyAdmin(state, action)
-  is OpenDevices, is DevicesLoaded, is DeviceRevoked, is DeviceOpRequested, is DevicesRequested, is DevicesFailed, is OpenEnterCode, is OpenScan, is ScanPermissionGranted, is ScanPermissionDenied, is DeviceLookupRequested, is DevicePendingLoaded, is DeviceLookupNotFound, is DeviceLookupFailed, is ApproveDeviceRequested, is DenyDeviceRequested, is DeviceApproved, is DeviceDenied, is DeviceApproveExpired, is DeviceOpFailed, is CloseDeviceFlow, is DeviceLinkStashed, is DeviceLinkConsumed, is InviteLinkStashed, is InviteLinkConsumed -> reduceDevices(state, action)
+  is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceNavigation(reduceFamilyAdmin(state, action), action)
+  is OpenDevices, is DevicesLoaded, is DeviceRevoked, is DeviceOpRequested, is DevicesRequested, is DevicesFailed, is OpenEnterCode, is OpenScan, is ScanPermissionGranted, is ScanPermissionDenied, is DeviceLookupRequested, is DevicePendingLoaded, is DeviceLookupNotFound, is DeviceLookupFailed, is ApproveDeviceRequested, is DenyDeviceRequested, is DeviceApproved, is DeviceDenied, is DeviceApproveExpired, is DeviceOpFailed, is CloseDeviceFlow, is DeviceLinkStashed, is DeviceLinkConsumed, is InviteLinkStashed, is InviteLinkConsumed -> reduceNavigation(reduceDevices(state, action), action)
   is ProfileLoaded, is AvatarOpRequested, is AvatarUpdated, is AvatarUpdateFailed, is NameOpRequested, is NameUpdated, is NameUpdateFailed -> reduceProfile(state, action)
   else -> state
 }
@@ -51,11 +51,11 @@ private fun reduceRoutedFeature(state: AppState, action: Any): AppState =
   reduceNavigation(reduceSession(state, action), action)
 
 private fun signedOutState(state: AppState) = AppState(
-  route = Route.SignIn, notifConfig = state.notifConfig, locationPermission = state.locationPermission, notificationPermission = state.notificationPermission,
+  navigation = NavigationState(route = Route.SignIn), notifConfig = state.notifConfig, locationPermission = state.locationPermission, notificationPermission = state.notificationPermission,
 )
 
 private fun expiredSessionState(state: AppState) = signedOutState(state).copy(
-  authError = "Your session expired — please sign in again.",
+  session = SessionState(authError = "Your session expired — please sign in again."),
 )
 
 // AGENT-readable text action log → stdout (desktop) / logcat tag System.out

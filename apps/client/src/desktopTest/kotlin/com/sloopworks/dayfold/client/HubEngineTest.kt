@@ -44,7 +44,7 @@ class HubEngineTest {
   }
   // store with an active family + session, so the engine isn't idle.
   private fun readyStore() = createTestAppStore(
-    AppState(session = Session("ax", "rx"), activeFamilyId = "fam1", route = Route.Hubs), debug = false,
+    AppState(session = SessionState(session = Session("ax", "rx"), activeFamilyId = "fam1"), navigation = NavigationState(route = Route.Hubs)), debug = false,
   )
 
   private fun freshContentStore() = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
@@ -92,8 +92,8 @@ class HubEngineTest {
       refreshSession = { error("refresh not expected") },
       commitRotation = { session -> store.dispatch(SessionRotated(session)) },
     )
-    val auth = coordinator.install(requireNotNull(store.state.session))
-    return coordinator to requireNotNull(coordinator.selectFamily(auth, requireNotNull(store.state.activeFamilyId)))
+    val auth = coordinator.install(requireNotNull(store.state.session.session))
+    return coordinator to requireNotNull(coordinator.selectFamily(auth, requireNotNull(store.state.session.activeFamilyId)))
   }
 
   // poll the store until predicate or timeout
@@ -472,7 +472,7 @@ class HubEngineTest {
     openAudience(e, store)
     e.loadAudience("h1")
     assertEquals(2, calls)                                 // retried after refresh
-    assertEquals(Session("fresh", "r2"), store.state.session)  // rotated into state
+    assertEquals(Session("fresh", "r2"), store.state.session.session)  // rotated into state
     assertEquals(Session("fresh", "r2"), ts.session)       // and persisted
     assertEquals("family", store.state.currentHubAudience?.visibility)
   }
@@ -501,7 +501,7 @@ class HubEngineTest {
         refreshSession = { context -> context.refreshWith(AuthClient("https://api.test", http)::refresh) },
         commitRotation = {},
       )
-      val auth = coordinator.install(requireNotNull(store.state.session))
+      val auth = coordinator.install(requireNotNull(store.state.session.session))
       coordinator.selectFamily(auth, "fam1")
       var expirations = 0
       val content = freshContentStore()
@@ -515,7 +515,7 @@ class HubEngineTest {
         store = store,
         hubClient = HubClient("https://api.test", http),
         authClient = AuthClient("https://api.test", http),
-        tokenStore = MemTokenStore(store.state.session),
+        tokenStore = MemTokenStore(store.state.session.session),
         contentStore = content,
         syncEngine = sync,
         scope = fallbackScope,
@@ -531,8 +531,8 @@ class HubEngineTest {
       load.join()
 
       assertEquals(0, expirations)
-      assertEquals("fam1", store.state.activeFamilyId)
-      assertEquals(Session("ax", "rx"), store.state.session)
+      assertEquals("fam1", store.state.session.activeFamilyId)
+      assertEquals(Session("ax", "rx"), store.state.session.session)
       fallbackScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 
@@ -553,7 +553,7 @@ class HubEngineTest {
     e.loadAudience("h1")                                   // must not throw
     assertEquals(1, calls)                                 // no successful retry
     assertNull(store.state.currentHubAudience)             // nothing dispatched
-    assertEquals(Session("ax", "rx"), store.state.session) // no rotation on failed refresh
+    assertEquals(Session("ax", "rx"), store.state.session.session) // no rotation on failed refresh
   }
 
   @Test fun `loadAudience with no session is a no-op`() = runBlocking<Unit> {

@@ -150,9 +150,11 @@ class NowEngineTest {
       val session = Session("access", "refresh", "user")
       val appStore = createTestAppStore(
         initial = AppState(
-          session = session,
-          families = listOf(FamilyMembership("family-a", "A", "owner", "active")),
-          activeFamilyId = "family-a",
+          session = SessionState(
+            session = session,
+            families = listOf(FamilyMembership("family-a", "A", "owner", "active")),
+            activeFamilyId = "family-a",
+          ),
         ),
         debug = false,
       )

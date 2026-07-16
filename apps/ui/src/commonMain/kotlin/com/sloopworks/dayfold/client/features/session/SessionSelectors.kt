@@ -15,17 +15,17 @@ data class SignInViewState(
 
 fun signInViewState(state: AppState): SignInViewState = SignInViewState(
   pendingDeviceLink = state.pendingDeviceLink,
-  pendingProvider = state.pendingProvider,
-  error = state.authError,
+  pendingProvider = state.session.pendingProvider,
+  error = state.session.authError,
 )
 
-fun authErrorMessage(state: AppState): String? = state.authError
+fun authErrorMessage(state: AppState): String? = state.session.authError
 
 @Immutable
 data class CreateFamilyViewState(val busy: Boolean, val error: String?)
 
 fun createFamilyViewState(state: AppState): CreateFamilyViewState =
-  CreateFamilyViewState(state.authBusy, state.authError)
+  CreateFamilyViewState(state.session.authBusy, state.session.authError)
 
 @Immutable
 data class JoinInviteViewState(
@@ -35,9 +35,9 @@ data class JoinInviteViewState(
 )
 
 fun joinInviteViewState(state: AppState): JoinInviteViewState = JoinInviteViewState(
-  busy = state.joinBusy,
-  outcome = state.joinOutcome,
-  familyName = state.joinFamilyName,
+  busy = state.session.joinBusy,
+  outcome = state.session.joinOutcome,
+  familyName = state.session.joinFamilyName,
 )
 
 @Immutable
@@ -58,8 +58,8 @@ data class AuthorizeDeviceViewState(
 )
 
 fun authorizeDeviceViewState(state: AppState): AuthorizeDeviceViewState = AuthorizeDeviceViewState(
-  activeFamilyId = state.activeFamilyId,
-  families = state.families,
+  activeFamilyId = state.session.activeFamilyId,
+  families = state.session.families,
   hubs = state.hubs.hubs,
   pendingDevice = state.pendingDevice,
   busy = state.deviceBusy,
@@ -82,7 +82,7 @@ data class AccountViewState(
 )
 
 fun accountViewState(state: AppState): AccountViewState = AccountViewState(
-  activeFamily = state.families.firstOrNull { it.familyId == state.activeFamilyId },
+  activeFamily = state.session.families.firstOrNull { it.familyId == state.session.activeFamilyId },
   pendingApprovalCount = state.pendingApprovals.size,
   displayName = state.myDisplayName,
   avatarColor = state.myAvatarColor,
@@ -91,7 +91,7 @@ fun accountViewState(state: AppState): AccountViewState = AccountViewState(
   avatarError = state.avatarError,
   nameError = state.nameError,
   proximityEnabled = state.notifConfig.enabled,
-  signOutBusy = state.signOutBusy,
+  signOutBusy = state.session.signOutBusy,
 )
 
 @Immutable
@@ -130,8 +130,8 @@ data class MembersViewState(
 )
 
 fun membersViewState(state: AppState): MembersViewState = MembersViewState(
-  activeFamilyId = state.activeFamilyId,
-  activeFamily = state.families.firstOrNull { it.familyId == state.activeFamilyId },
+  activeFamilyId = state.session.activeFamilyId,
+  activeFamily = state.session.families.firstOrNull { it.familyId == state.session.activeFamilyId },
   pendingApprovals = state.pendingApprovals,
   members = state.members,
   rosterBusy = state.rosterBusy,
@@ -153,7 +153,7 @@ data class InviteViewState(
 )
 
 fun inviteViewState(state: AppState): InviteViewState = InviteViewState(
-  activeFamilyId = state.activeFamilyId,
+  activeFamilyId = state.session.activeFamilyId,
   mode = state.inviteMode,
   busy = state.inviteBusy,
   mintedInvite = state.mintedInvite,

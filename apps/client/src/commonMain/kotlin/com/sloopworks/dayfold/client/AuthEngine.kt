@@ -126,9 +126,9 @@ class AuthEngine(
   ).also { isolated ->
     // Legacy isolated tests often construct a store already containing a session. Production
     // bootstraps the shared coordinator through restore/sign-in and never takes this path.
-    store.state.session?.let { session ->
+    store.state.session.session?.let { session ->
       val auth = isolated.install(session)
-      store.state.activeFamilyId?.let { isolated.selectFamily(auth, it) }
+      store.state.session.activeFamilyId?.let { isolated.selectFamily(auth, it) }
     }
   }
 
@@ -829,7 +829,7 @@ class AuthEngine(
   }
 
   /** Current access token (for the SyncClient token provider, wired at T6). */
-  fun accessToken(): String? = store.state.session?.access
+  fun accessToken(): String? = store.state.session.session?.access
 
   // ── internals ──
 
@@ -843,7 +843,7 @@ class AuthEngine(
       if (!publishMemberships(context, who.families, persist = true)) return
       resumePendingDeviceLink(context)   // cold-install resume: open a link stashed pre-sign-in
       resumePendingInviteLink(context)   // ADR 0048: redeem an invite link stashed pre-sign-in
-      loadRosterLocked(store.state.activeFamilyId?.let(coordinator::familySnapshot))
+      loadRosterLocked(store.state.session.activeFamilyId?.let(coordinator::familySnapshot))
       loadProfileLocked(context)
     } catch (e: CancellationException) {
       throw e

@@ -32,6 +32,7 @@ import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubDetailScreen
 import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubListScreen
+import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.HubPeopleContent
 import com.sloopworks.dayfold.client.JoinInviteScreen
 import com.sloopworks.dayfold.client.LocationPermission
@@ -156,7 +157,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     presets("file", "link", "invite", "contact", "geo", "email")
     render { args ->
       val id = presetName(args.input)
-      val state = SnapshotStates.TYPED_FEED.copy(detailStack = listOf(id))
+      val state = SnapshotStates.TYPED_FEED.copy(navigation = SnapshotStates.TYPED_FEED.navigation.copy(detailStack = listOf(id)))
       val card = currentDetailCard(state)!!
       themed(args.theme) { DetailScreen(card, onBack = {}, onAction = {}) }
     }
@@ -262,9 +263,9 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       themed(args.theme) {
         when (presetName(args.input)) {
-          "entercode" -> EnterCodeScreen(AppState(route = Route.EnterCode))
-          "entercode-error" -> EnterCodeScreen(AppState(route = Route.EnterCode, deviceError = "Too many tries — wait about 15 minutes."))
-          "entercode-scan" -> EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {})
+          "entercode" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)))
+          "entercode-error" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), deviceError = "Too many tries — wait about 15 minutes."))
+          "entercode-scan" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onScan = {})
           "authorize-datacenter" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("datacenter"))
           "authorize-residential" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("residential"))
           "authorize-multiowner" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("residential", multiOwner = true))

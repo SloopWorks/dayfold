@@ -229,39 +229,38 @@ object SnapshotStates {
     ),
   )
   fun timelineHubCardState(): AppState = AppState(
-    route = Route.Hubs, hubs = HubState(currentHubId = "h1",
+    navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h1",
     currentHubTree = HubTree(hub = Hub(id = "h1", type = "starting-college", title = "Move-in Day Hub",
       status = "active", visibility = "family", timeline = integrationTimeline())),
   ))
   fun timelineHubOverlayState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(timelineDetail = TimelineScale.Day)) }
   fun timelineHubHiddenState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(hiddenIds = setOf("timeline:h1"), showHidden = true)) }
-  fun timelineNudgeState(): AppState = AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h3",
+  fun timelineNudgeState(): AppState = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3",
     currentHubTree = HubTree(hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
       visibility = "family", countdownTo = "2026-09-01"))))
   fun derivedTimelineHubState(): AppState =
-    AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h", currentHubTree = derivedTimelineTree()))
+    AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h", currentHubTree = derivedTimelineTree()))
 
   // ── Auth / account / join (AuthScreensSnapshotTest.kt, verbatim) ────────────
   val ACCOUNT_STATE: AppState = AppState(
-    session = Session("a", "r"),
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1", route = Route.Account,
+    session = SessionState(session = Session("a", "r"), families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
+    navigation = NavigationState(route = Route.Account),
   )
   fun joinState(outcome: String? = null, familyName: String? = null): AppState =
-    AppState(route = Route.JoinInvite, joinOutcome = outcome, joinFamilyName = familyName)
+    AppState(session = SessionState(joinOutcome = outcome, joinFamilyName = familyName), navigation = NavigationState(route = Route.JoinInvite))
 
   // ── Members (AuthScreensSnapshotTest.kt members* fixtures, verbatim) ────────
   private val FAM = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))
   fun membersState(preset: String): AppState = when (preset) {
-    "roster" -> AppState(families = FAM, activeFamilyId = "fam1",
+    "roster" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"),
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(
         FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
         FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
       ))
-    "loading" -> AppState(families = FAM, activeFamilyId = "fam1", rosterBusy = true)
-    "error" -> AppState(families = FAM, activeFamilyId = "fam1", rosterError = "Couldn't load members. Try again.")
-    "row-busy" -> AppState(families = FAM, activeFamilyId = "fam1",
+    "loading" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), rosterBusy = true)
+    "error" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), rosterError = "Couldn't load members. Try again.")
+    "row-busy" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"),
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
       memberOpId = "u9")
@@ -288,8 +287,8 @@ object SnapshotStates {
   fun authorizeState(originKind: String, multiOwner: Boolean = false): AppState {
     val fams = if (multiOwner) TWO_FAM else FAM
     return AppState(
-      session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId,
-      route = Route.AuthorizeDevice,
+      session = SessionState(session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId),
+      navigation = NavigationState(route = Route.AuthorizeDevice),
       pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
         originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
     )

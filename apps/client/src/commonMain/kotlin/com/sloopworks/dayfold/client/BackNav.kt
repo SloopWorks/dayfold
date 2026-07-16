@@ -14,8 +14,8 @@ package com.sloopworks.dayfold.client
 fun backAction(state: AppState): Action? {
   if (state.deviceResuming) return null                       // "Finishing…" resume beat → let the OS handle back
   if (state.hubs.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
-  return when (state.route) {
-    Route.Feed -> if (state.detailStack.isNotEmpty()) NavBack else null
+  return when (state.navigation.route) {
+    Route.Feed -> if (state.navigation.detailStack.isNotEmpty()) NavBack else null
     Route.Hubs -> when {
       state.hubs.timelineDetail != null -> CloseTimelineDetail
       // a hub reached by a card-detail deep-link → back returns to that detail, not the hub list

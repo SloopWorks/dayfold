@@ -76,7 +76,7 @@ class AuthEngineTest {
     val (eng, store) = engine(MemTokenStore(null), handler = MockEngine { respond("", HttpStatusCode.OK) })
     eng.restore()
     assertEquals(Route.SignIn, store.state.route)
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
   }
 
   @Test fun `restore with a saved active session lands on Feed`() = runBlocking {
@@ -84,8 +84,8 @@ class AuthEngineTest {
     val (eng, store) = engine(ts, handler = MockEngine { respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt) })
     eng.restore()
     assertEquals(Route.Feed, store.state.route)
-    assertEquals("fam1", store.state.activeFamilyId)
-    assertEquals("ax", store.state.session?.access)
+    assertEquals("fam1", store.state.session.activeFamilyId)
+    assertEquals("ax", store.state.session.session?.access)
   }
 
   @Test fun `restore eager-loads the roster so members are available app-wide`() = runBlocking {
@@ -112,9 +112,9 @@ class AuthEngineTest {
     })
     eng.restore()
     assertEquals(Route.SignIn, store.state.route)                         // never wedges on Loading
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
     assertNull(ts.session)                                                // dead token cleared
-    assertTrue(store.state.authError?.contains("expired") == true, "was: ${store.state.authError}")
+    assertTrue(store.state.session.authError?.contains("expired") == true, "was: ${store.state.session.authError}")
   }
 
   @Test fun `restore with a transient failure routes to AuthError and keeps the session`() = runBlocking {
@@ -127,7 +127,7 @@ class AuthEngineTest {
     })
     eng.restore()
     assertEquals(Route.AuthError, store.state.route)                      // not Loading, not SignIn
-    assertEquals(Session("ax", "rx"), store.state.session)               // session kept for Retry
+    assertEquals(Session("ax", "rx"), store.state.session.session)               // session kept for Retry
     assertEquals(Session("ax", "rx"), ts.session)                        // not cleared
   }
 
@@ -199,7 +199,7 @@ class AuthEngineTest {
     try {
       runBlocking(uiDispatcher) {
         val session = Session("ax", "rx")
-        val store = createTestAppStore(AppState(session = session, route = Route.Feed), debug = false)
+        val store = createTestAppStore(AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Feed)), debug = false)
         val auth = AuthEngine(
           store = store,
           authClient = AuthClient("https://api.test", HttpClient(MockEngine {
@@ -237,7 +237,7 @@ class AuthEngineTest {
   @Test fun `remote sign-out cancellation still clears tenant data then propagates`() = runBlocking {
     val session = Session("ax", "rx")
     val tokenStore = MemTokenStore(session)
-    val store = createTestAppStore(AppState(session = session, route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Feed)), debug = false)
     var cacheCleared = false
     val auth = AuthEngine(
       store = store,
@@ -266,7 +266,7 @@ class AuthEngineTest {
     var clearThread = ""
 
     try {
-      val store = createTestAppStore(AppState(session = session, route = Route.Feed), debug = false)
+      val store = createTestAppStore(AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Feed)), debug = false)
       val tokenStore = object : TokenStore {
         override fun load(): Session? = storedSession
         override fun save(session: Session) { storedSession = session }
@@ -320,7 +320,7 @@ class AuthEngineTest {
   }
 
   @Test fun `cache save cancellation propagates through sign in`() = runBlocking {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val tokenStore = MemTokenStore()
     val cacheClears = AtomicInteger()
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -340,8 +340,8 @@ class AuthEngineTest {
     )
 
     assertFailsWith<CancellationException> { auth.signIn("google") }
-    assertNull(store.state.authError, "cancellation must not be translated into SignInFailed")
-    assertNull(store.state.session)
+    assertNull(store.state.session.authError, "cancellation must not be translated into SignInFailed")
+    assertNull(store.state.session.session)
     assertNull(tokenStore.session)
     assertEquals(2, cacheClears.get(), "admission clear plus terminal clear must both complete")
   }
@@ -354,10 +354,10 @@ class AuthEngineTest {
       handler = MockEngine { respond("", HttpStatusCode.InternalServerError) })
     eng.restore()
     assertEquals(Route.Feed, store.state.route)                 // routed synchronously off the DB cache
-    assertEquals("fam1", store.state.activeFamilyId)
+    assertEquals("fam1", store.state.session.activeFamilyId)
     eng.reconcileJob?.join()                                    // let the background whoami (500) finish
     assertEquals(Route.Feed, store.state.route)                 // 500 + cache → STAYS on Feed, no AuthError
-    assertEquals(Session("ax", "rx"), store.state.session)      // session kept
+    assertEquals(Session("ax", "rx"), store.state.session.session)      // session kept
   }
 
   @Test fun `a second cached restore cancels and joins the previous reconciliation`() = runBlocking<Unit> {
@@ -392,7 +392,7 @@ class AuthEngineTest {
     withTimeout(3_000) { firstCancelled.await() }
     withTimeout(3_000) { while (calls.get() < 2) yield() }
     eng.reconcileJob?.join()
-    assertEquals("fam1", store.state.activeFamilyId)
+    assertEquals("fam1", store.state.session.activeFamilyId)
     assertEquals(2, calls.get())
   }
 
@@ -420,10 +420,10 @@ class AuthEngineTest {
         }
       })
     eng.restore()
-    assertEquals("stale", store.state.activeFamilyId)           // optimistic (cache) first
+    assertEquals("stale", store.state.session.activeFamilyId)           // optimistic (cache) first
     whoamiGate.complete(Unit)                                   // …now let the background whoami land
     eng.reconcileJob?.join()
-    assertEquals(listOf("fam1"), store.state.families.map { it.familyId })   // overwritten by whoami
+    assertEquals(listOf("fam1"), store.state.session.families.map { it.familyId })   // overwritten by whoami
     assertEquals(listOf("fam1"), saved.last().map { it.familyId })           // persisted for next cold start
     assertEquals(Route.Feed, store.state.route)
   }
@@ -450,7 +450,7 @@ class AuthEngineTest {
     whoamiGate.complete(Unit)
     eng.reconcileJob?.join()
     assertEquals(Route.SignIn, store.state.route)               // revocation wins on reconcile
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
     assertNull(ts.session)                                      // dead token cleared
     assertTrue(cleared, "clearCache (incl. the membership cache) must fire on a dead session")
   }
@@ -466,17 +466,17 @@ class AuthEngineTest {
     })
     eng.signIn("google")
     assertEquals(Route.CreateFamily, store.state.route)            // signed in, no family → onboarding
-    assertEquals(Session("a1", "r1"), store.state.session)
+    assertEquals(Session("a1", "r1"), store.state.session.session)
     assertEquals(Session("a1", "r1"), ts.session)                  // persisted
   }
 
   @Test fun `sign-in with no dev provider fails closed`() = runBlocking {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.OK) }))
     AuthEngine(store, client, MemTokenStore(null), devSecret = null).signIn("apple")
     assertEquals(Route.SignIn, store.state.route)                 // failure stays put, no nav
-    assertTrue(store.state.authError?.contains("S2") == true, "was: ${store.state.authError}")
-    assertNull(store.state.session)
+    assertTrue(store.state.session.authError?.contains("S2") == true, "was: ${store.state.session.authError}")
+    assertNull(store.state.session.session)
   }
 
   @Test fun `sign-in uses the firebase id token when the platform yields one`() = runBlocking {
@@ -496,7 +496,7 @@ class AuthEngineTest {
     assertTrue(firebaseHit, "should call /auth/firebase")
     assertTrue(!devHit, "should NOT fall back to dev-token when a firebase token is present")
     assertEquals(Route.Feed, store.state.route)
-    assertEquals(Session("fa", "fr"), store.state.session)
+    assertEquals(Session("fa", "fr"), store.state.session.session)
     assertEquals(Session("fa", "fr"), ts.session)                // persisted
   }
 
@@ -515,20 +515,20 @@ class AuthEngineTest {
     val eng = AuthEngine(store, client, ts, devSecret = "DEVSECRET", firebaseSignIn = { _ -> null })
     eng.signIn("google")
     assertTrue(devHit, "should fall back to dev-token")
-    assertEquals(Session("d1", "r1"), store.state.session)
+    assertEquals(Session("d1", "r1"), store.state.session.session)
   }
 
   @Test fun `create-family routes into the new owner family`() = runBlocking {
     val ts = MemTokenStore(Session("a1", "r1"))
-    val store = createTestAppStore(AppState(session = Session("a1", "r1"), route = Route.CreateFamily), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a1", "r1")), navigation = NavigationState(route = Route.CreateFamily)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/families") respond("""{"familyId":"famZ"}""", HttpStatusCode.Created, jsonCt)
       else respond("", HttpStatusCode.NotFound)
     }))
     AuthEngine(store, client, ts, devSecret = "DEVSECRET").createFamily("The Jacksons")
     assertEquals(Route.Feed, store.state.route)
-    assertEquals("famZ", store.state.activeFamilyId)
-    assertEquals("owner", store.state.families.single().role)
+    assertEquals("famZ", store.state.session.activeFamilyId)
+    assertEquals("owner", store.state.session.families.single().role)
   }
 
   @Test fun `sign-out wipes the local content cache — data boundary`() = runBlocking {
@@ -538,7 +538,7 @@ class AuthEngineTest {
     // cache, mirroring the ADR 0030 403/404 revocation path in SyncEngine.
     val ts = MemTokenStore(Session("a1", "r1"))
     val store = createTestAppStore(
-      AppState(session = Session("a1", "r1"), route = Route.Feed), debug = false,
+      AppState(session = SessionState(session = Session("a1", "r1")), navigation = NavigationState(route = Route.Feed)), debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
     var wiped = false
@@ -550,14 +550,15 @@ class AuthEngineTest {
   @Test fun `sign-out clears tokens and returns to SignIn`() = runBlocking {
     val ts = MemTokenStore(Session("a1", "r1"))
     val store = createTestAppStore(
-      AppState(session = Session("a1", "r1"), families = listOf(FamilyMembership("fam1", status = "active")),
-        activeFamilyId = "fam1", route = Route.Feed, cards = listOf(Card("c", title = "T"))),
+      AppState(
+        session = SessionState(session = Session("a1", "r1"), families = listOf(FamilyMembership("fam1", status = "active")), activeFamilyId = "fam1"),
+        navigation = NavigationState(route = Route.Feed), cards = listOf(Card("c", title = "T"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
     AuthEngine(store, client, ts).signOut()
     assertEquals(Route.SignIn, store.state.route)
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
     assertNull(ts.session)                       // cleared locally
     assertTrue(store.state.cards.isEmpty())
   }
@@ -579,22 +580,22 @@ class AuthEngineTest {
     eng.restore()
     assertEquals(2, whoamiCalls)                        // retried after refresh
     assertEquals(Route.Feed, store.state.route)
-    assertEquals(Session("fresh", "r2"), store.state.session)   // rotated into state
+    assertEquals(Session("fresh", "r2"), store.state.session.session)   // rotated into state
     assertEquals(Session("fresh", "r2"), ts.session)            // and persisted
   }
 
   // ── debug-only fake sign-in (no network) ──
   @Test fun `devSignIn lands on Feed purely local — no network, not persisted`() = runBlocking {
     val ts = MemTokenStore(null)
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     // Any HTTP call fails the test: devSignIn must mint the session locally, so it
     // works against an unreachable/real backend without touching it.
     val client = AuthClient("https://api.test", HttpClient(MockEngine { error("devSignIn must not hit the network") }))
     AuthEngine(store, client, ts, devSecret = null).devSignIn()
     assertEquals(Route.Feed, store.state.route)
-    assertEquals("dev-family", store.state.activeFamilyId)
-    assertEquals("dev-user", store.state.session?.userId)
-    assertFalse(store.state.authBusy)
+    assertEquals("dev-family", store.state.session.activeFamilyId)
+    assertEquals("dev-user", store.state.session.session?.userId)
+    assertFalse(store.state.session.authBusy)
     // Not persisted: a saved dev session would make the next cold-start restore()
     // call whoami on the (unreachable) backend → "Couldn't reach" again.
     assertNull(ts.session)
@@ -602,12 +603,12 @@ class AuthEngineTest {
 
   // ── invitee-join (slice-2 foundation) ──
   private suspend fun redeemOutcome(status: HttpStatusCode, body: String): Pair<String?, String?> {
-    val store = createTestAppStore(AppState(session = Session("a", "r")), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r"))), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/invites:redeem") respond(body, status, jsonCt) else respond("", HttpStatusCode.NotFound)
     }))
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).redeemInvite("tok")
-    return store.state.joinOutcome to store.state.joinFamilyName
+    return store.state.session.joinOutcome to store.state.session.joinFamilyName
   }
 
   @Test fun `redeem invite success routes to waiting`() = runBlocking {
@@ -626,7 +627,7 @@ class AuthEngineTest {
 
   // ── owner-side approvals ──
   @Test fun `loadApprovals fills the pending queue`() = runBlocking {
-    val store = createTestAppStore(AppState(session = Session("a", "r")), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r"))), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/families/fam1/invites")
         respond("""{"invites":[],"pending":[{"uid":"u9","display_name":"Sam Rivera","role":"adult"}]}""", HttpStatusCode.OK, jsonCt)
@@ -639,7 +640,7 @@ class AuthEngineTest {
 
   @Test fun `approveMember drops the member from the queue`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), pendingApprovals = listOf(PendingMember("u9", "Sam"), PendingMember("u8", "Mo"))),
+      AppState(session = SessionState(session = Session("a", "r")), pendingApprovals = listOf(PendingMember("u9", "Sam"), PendingMember("u8", "Mo"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
@@ -648,7 +649,7 @@ class AuthEngineTest {
   }
 
   @Test fun `loadMembers fills the roster`() = runBlocking {
-    val store = createTestAppStore(AppState(session = Session("a", "r")), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r"))), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/families/fam1/members")
         respond("""{"members":[{"uid":"u1","display_name":"Pat","role":"owner"}]}""", HttpStatusCode.OK, jsonCt)
@@ -661,7 +662,7 @@ class AuthEngineTest {
 
   @Test fun `removeMember drops from the roster on success`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), members = listOf(FamilyMember("u1", "Pat", role = "owner"), FamilyMember("u2", "Maya"))),
+      AppState(session = SessionState(session = Session("a", "r")), members = listOf(FamilyMember("u1", "Pat", role = "owner"), FamilyMember("u2", "Maya"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
@@ -671,7 +672,7 @@ class AuthEngineTest {
 
   // ── connected devices ──
   @Test fun `loadDevices fills the device list`() = runBlocking {
-    val store = createTestAppStore(AppState(session = Session("a", "r")), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r"))), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/auth/me/credentials")
         respond("""{"credentials":[{"id":"c1","kind":"app","current":true}]}""", HttpStatusCode.OK, jsonCt)
@@ -686,7 +687,7 @@ class AuthEngineTest {
     val deviceStarted = CompletableDeferred<Unit>()
     val releaseDevice = CompletableDeferred<Unit>()
     val session = Session("a", "r")
-    val store = createTestAppStore(AppState(session = session, activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = session, activeFamilyId = "fam1")), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       when (req.url.encodedPath) {
         "/auth/me/credentials" -> {
@@ -714,7 +715,7 @@ class AuthEngineTest {
     val releaseDevice = CompletableDeferred<Unit>()
     val session = Session("a", "r")
     val tokens = MemTokenStore(session)
-    val store = createTestAppStore(AppState(session = session, route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Feed)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       when (req.url.encodedPath) {
         "/auth/me/credentials" -> {
@@ -740,7 +741,7 @@ class AuthEngineTest {
 
   @Test fun `revokeDevice drops from the list on success`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), devices = listOf(DeviceCredential("c1", current = true), DeviceCredential("c2"))),
+      AppState(session = SessionState(session = Session("a", "r")), devices = listOf(DeviceCredential("c1", current = true), DeviceCredential("c2"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
@@ -751,7 +752,7 @@ class AuthEngineTest {
   // ── own avatar (task 4 fix — optimistic op-start + revert-on-failure) ──
   @Test fun `updateAvatar applies the server-returned value on success and clears avatarOpId`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      AppState(session = SessionState(session = Session("a", "r")), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -768,7 +769,7 @@ class AuthEngineTest {
 
   @Test fun `updateAvatar reverts to the previous value and sets avatarError on failure`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      AppState(session = SessionState(session = Session("a", "r")), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.BadRequest) }))
@@ -782,7 +783,7 @@ class AuthEngineTest {
 
   // ── CLI/device approval (S6-D) ── runBlocking<Unit> per the agent-dev-loop JUnit gotcha.
   @Test fun `lookupDevice happy path loads the grant and routes to AuthorizeDevice`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(session = Session("a", "r"), route = Route.EnterCode), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.EnterCode)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/device/pending")
         respond("""{"user_code":"WDJF-7K2P","client":"dayfold-cli","origin_kind":"datacenter"}""", HttpStatusCode.OK, jsonCt)
@@ -795,7 +796,7 @@ class AuthEngineTest {
   }
 
   @Test fun `lookupDevice 404 routes to AuthorizeDevice with the expired outcome`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(session = Session("a", "r"), route = Route.EnterCode), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.EnterCode)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }))
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).lookupDevice("XXXX-YYYY")
     assertEquals(Route.AuthorizeDevice, store.state.route)
@@ -804,7 +805,7 @@ class AuthEngineTest {
   }
 
   @Test fun `lookupDevice 429 stays on EnterCode with an inline error`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(session = Session("a", "r"), route = Route.EnterCode), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.EnterCode)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.TooManyRequests) }))
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).lookupDevice("X")
     assertEquals(Route.EnterCode, store.state.route)
@@ -814,7 +815,7 @@ class AuthEngineTest {
   @Test fun `lookupDevice 401 refreshes once and retries`() = runBlocking<Unit> {
     val ts = MemTokenStore(Session("stale", "r1"))
     var lookups = 0
-    val store = createTestAppStore(AppState(session = Session("stale", "r1"), route = Route.EnterCode), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("stale", "r1")), navigation = NavigationState(route = Route.EnterCode)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       when (req.url.encodedPath) {
         "/device/pending" -> {
@@ -828,7 +829,7 @@ class AuthEngineTest {
     }))
     AuthEngine(store, client, ts).lookupDevice("WDJF-7K2P")
     assertEquals(2, lookups)                                      // retried after refresh
-    assertEquals(Session("fresh", "r2"), store.state.session)     // rotated into state
+    assertEquals(Session("fresh", "r2"), store.state.session.session)     // rotated into state
     assertEquals(Session("fresh", "r2"), ts.session)             // and persisted
     assertEquals(Route.AuthorizeDevice, store.state.route)
     assertEquals("WDJF-7K2P", store.state.pendingDevice?.userCode)
@@ -836,7 +837,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice happy path sets the approved outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), route = Route.AuthorizeDevice, pendingDevice = PendingDevice("WDJF-7K2P")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("WDJF-7K2P")),
       debug = false,
     )
     var path = ""
@@ -849,7 +850,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice 404 race sets the expired outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), route = Route.AuthorizeDevice, pendingDevice = PendingDevice("X")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }))
@@ -859,7 +860,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice 403 (non-owner) surfaces an inline error, no outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = Session("a", "r"), route = Route.AuthorizeDevice, pendingDevice = PendingDevice("X")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.Forbidden) }))
@@ -871,7 +872,7 @@ class AuthEngineTest {
   @Test fun `denyDevice sets the denied outcome (204 or already-gone)`() = runBlocking<Unit> {
     val mk = { status: HttpStatusCode ->
       val store = createTestAppStore(
-        AppState(session = Session("a", "r"), route = Route.AuthorizeDevice, pendingDevice = PendingDevice("X")),
+        AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
         debug = false,
       )
       val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", status) }))
@@ -884,7 +885,7 @@ class AuthEngineTest {
 
   // ── deep-link (Phase 2 client plumbing) ──
   @Test fun `openDeviceLink while signed-in looks up immediately`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(session = Session("a", "r"), route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.Feed)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       if (req.url.encodedPath == "/device/pending")
         respond("""{"user_code":"WDJF-7K2P","origin_kind":"residential"}""", HttpStatusCode.OK, jsonCt)
@@ -897,7 +898,7 @@ class AuthEngineTest {
   }
 
   @Test fun `openDeviceLink while signed-out stashes the code without navigating`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }))
     AuthEngine(store, client, MemTokenStore(null), devSecret = "DEVSECRET").openDeviceLink("https://x/device?user_code=WDJF-7K2P")
     assertEquals(Route.SignIn, store.state.route)
@@ -905,7 +906,7 @@ class AuthEngineTest {
   }
 
   @Test fun `openDeviceLink ignores a malformed payload`() = runBlocking<Unit> {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }))
     AuthEngine(store, client, MemTokenStore(null)).openDeviceLink("https://x/device")  // no user_code
     assertNull(store.state.pendingDeviceLink)
@@ -914,7 +915,7 @@ class AuthEngineTest {
 
   @Test fun `cold-install resume — stashed link opens after sign-in resolves memberships`() = runBlocking<Unit> {
     val ts = MemTokenStore(null)
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       when (req.url.encodedPath) {
         "/auth/dev-token" -> respond("""{"access":"a1","refresh":"r1"}""", HttpStatusCode.OK, jsonCt)
@@ -1003,13 +1004,13 @@ class AuthEngineTest {
     eng.restore()
     eng.openInviteLink("https://x/invite/TOK_abc123")
     assertEquals(Route.JoinInvite, store.state.route)      // routed so the outcome is visible
-    assertEquals("waiting", store.state.joinOutcome)       // redeemed → waiting-for-approval
-    assertEquals("The Jacksons", store.state.joinFamilyName)
+    assertEquals("waiting", store.state.session.joinOutcome)       // redeemed → waiting-for-approval
+    assertEquals("The Jacksons", store.state.session.joinFamilyName)
   }
 
   @Test fun `openInviteLink pre-sign-in stashes then redeems on sign-in`() = runBlocking {
     val ts = MemTokenStore(null)
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
       when (req.url.encodedPath) {
         "/auth/dev-token" -> respond("""{"access":"a1","refresh":"r1"}""", HttpStatusCode.OK, jsonCt)
@@ -1024,7 +1025,7 @@ class AuthEngineTest {
     eng.signIn("google")                                  // sign-in → memberships → redeem
     assertNull(store.state.pendingInviteLink)             // consumed
     assertEquals(Route.JoinInvite, store.state.route)     // resumes onto the Join outcome screen
-    assertEquals("waiting", store.state.joinOutcome)
+    assertEquals("waiting", store.state.session.joinOutcome)
   }
 
   @Test fun `openInviteLink ignores a non-invite URL`() = runBlocking {
@@ -1033,7 +1034,7 @@ class AuthEngineTest {
     eng.restore()
     eng.openInviteLink("https://x/device?user_code=WDJF-7K2P")
     assertNull(store.state.pendingInviteLink)
-    assertNull(store.state.joinOutcome)
+    assertNull(store.state.session.joinOutcome)
   }
 
   @Test fun `reconcile replacement does not deadlock with terminal cleanup`() = runBlocking<Unit> {
@@ -1070,7 +1071,7 @@ class AuthEngineTest {
     val exchangeStarted = CompletableDeferred<Unit>()
     val releaseExchange = CompletableDeferred<Unit>()
     val clears = AtomicInteger()
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val auth = AuthEngine(
       store = store,
       authClient = AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -1090,8 +1091,8 @@ class AuthEngineTest {
     releaseExchange.complete(Unit)
     old.join()
     assertEquals(1, clears.get(), "only the winning dev identity may clear the cache")
-    assertEquals(DEV_TOKEN, store.state.session?.access)
-    assertEquals("dev-family", store.state.activeFamilyId)
+    assertEquals(DEV_TOKEN, store.state.session.session?.access)
+    assertEquals("dev-family", store.state.session.activeFamilyId)
   }
 
   @Test fun `cancelled blocked sign-in never reaches destructive cache admission`() = runBlocking<Unit> {
@@ -1099,7 +1100,7 @@ class AuthEngineTest {
     val releaseExchange = CompletableDeferred<Unit>()
     val clears = AtomicInteger()
     val coordinator = coordinator()
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val auth = AuthEngine(
       store = store,
       authClient = AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -1120,7 +1121,7 @@ class AuthEngineTest {
     releaseExchange.complete(Unit)
     old.join()
     assertEquals(0, clears.get())
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
   }
 
   @Test fun `stale family terminal rejection cannot expire the selected replacement family`() = runBlocking<Unit> {
@@ -1130,7 +1131,7 @@ class AuthEngineTest {
     val oldFamily = checkNotNull(coordinator.selectFamily(authContext, "old"))
     checkNotNull(coordinator.selectFamily(authContext, "new"))
     val tokens = MemTokenStore(session)
-    val store = createTestAppStore(AppState(session = session, activeFamilyId = "new", route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = session, activeFamilyId = "new"), navigation = NavigationState(route = Route.Feed)), debug = false)
     val auth = AuthEngine(
       store = store,
       authClient = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.OK) })),
@@ -1140,7 +1141,7 @@ class AuthEngineTest {
 
     auth.terminateFamilySession(oldFamily, expired = true)
     assertEquals(session, tokens.session)
-    assertEquals(session, store.state.session)
+    assertEquals(session, store.state.session.session)
     assertTrue(coordinator.authSnapshot() != null)
   }
 
@@ -1149,7 +1150,7 @@ class AuthEngineTest {
     val releaseFirstLoad = CompletableDeferred<Unit>()
     val loads = AtomicInteger()
     val session = Session("a", "r")
-    val store = createTestAppStore(AppState(session = session, activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = session, activeFamilyId = "fam1")), debug = false)
     val auth = AuthEngine(
       store,
       AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -1196,8 +1197,7 @@ class AuthEngineTest {
       val session = Session("a", "r")
       val store = createTestAppStore(
         AppState(
-          session = session,
-          activeFamilyId = "fam1",
+          session = SessionState(session = session, activeFamilyId = "fam1"),
           outstandingInvites = listOf(Invite(id = "i1", mode = "link", expiresAt = "z")),
           pendingApprovals = listOf(PendingMember(uid = "u1", displayName = "Pat", role = "adult")),
         ),
@@ -1246,7 +1246,7 @@ class AuthEngineTest {
     val calls = AtomicInteger()
     val session = Session("a", "r")
     val store = createTestAppStore(
-      AppState(session = session, myAvatarColor = "old", myAvatarRef = "avatar:old"),
+      AppState(session = SessionState(session = session), myAvatarColor = "old", myAvatarRef = "avatar:old"),
       debug = false,
     )
     val auth = AuthEngine(

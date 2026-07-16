@@ -92,7 +92,7 @@ class DayfoldRuntimeFactoryTest {
       try {
         val expected = requireNotNull(graph.sessionCoordinator.authSnapshot())
         assertNotNull(graph.sessionCoordinator.rotate(expected, rotated))
-        assertEquals(rotated, graph.store.state.session)
+        assertEquals(rotated, graph.store.state.session.session)
 
         graph.syncEngine.syncNow()
         graph.hubEngine.openHub("hub-1")
@@ -125,7 +125,7 @@ class DayfoldRuntimeFactoryTest {
       val graph = factory(
         contentStore = content,
         tokenStore = tokens,
-        initialState = AppState(route = Route.Loading),
+        initialState = AppState(navigation = NavigationState(route = Route.Loading)),
         httpClientFactory = {
           HttpClient(MockEngine { request ->
             when (request.url.encodedPath) {
@@ -156,7 +156,7 @@ class DayfoldRuntimeFactoryTest {
       try {
         val cachedMembershipPublished = CompletableDeferred<Unit>()
         val unsubscribeMembership = graph.store.subscribe {
-          if (graph.store.state.activeFamilyId == "fam-1") cachedMembershipPublished.complete(Unit)
+          if (graph.store.state.session.activeFamilyId == "fam-1") cachedMembershipPublished.complete(Unit)
         }
         graph.start()
         try {
@@ -249,7 +249,7 @@ class DayfoldRuntimeFactoryTest {
       val graph = factory(
         contentStore = content,
         tokenStore = tokens,
-        initialState = AppState(session = session, route = Route.Loading),
+        initialState = AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Loading)),
         httpClientFactory = {
           HttpClient(MockEngine { request ->
             when (request.url.encodedPath) {
@@ -270,7 +270,7 @@ class DayfoldRuntimeFactoryTest {
       try {
         val membershipsLoaded = CompletableDeferred<Unit>()
         val unsubscribeMemberships = graph.store.subscribe {
-          if (graph.store.state.activeFamilyId == "fam-1") membershipsLoaded.complete(Unit)
+          if (graph.store.state.session.activeFamilyId == "fam-1") membershipsLoaded.complete(Unit)
         }
         graph.start()
         try {
@@ -281,7 +281,7 @@ class DayfoldRuntimeFactoryTest {
         assertNotNull(graph.replaceFamily("fam-1"))
         val signedOut = CompletableDeferred<Unit>()
         val unsubscribe = graph.store.subscribe {
-          if (graph.store.state.session == null) signedOut.complete(Unit)
+          if (graph.store.state.session.session == null) signedOut.complete(Unit)
         }
         graph.resume()
         try {
@@ -290,7 +290,7 @@ class DayfoldRuntimeFactoryTest {
           unsubscribe()
         }
 
-        assertNull(graph.store.state.session)
+        assertNull(graph.store.state.session.session)
         assertEquals(Route.SignIn, graph.store.state.route)
         assertNull(tokens.session)
         assertEquals(1, tokens.clears.get())
@@ -321,7 +321,7 @@ class DayfoldRuntimeFactoryTest {
       val graph = factory(
         contentStore = content,
         tokenStore = tokens,
-        initialState = AppState(session = session, route = Route.Loading),
+        initialState = AppState(session = SessionState(session = session), navigation = NavigationState(route = Route.Loading)),
         httpClientFactory = {
           HttpClient(MockEngine { request ->
             requests += request.url.encodedPath
@@ -343,7 +343,7 @@ class DayfoldRuntimeFactoryTest {
       try {
         val membershipsLoaded = CompletableDeferred<Unit>()
         val unsubscribeMemberships = graph.store.subscribe {
-          if (graph.store.state.activeFamilyId == "fam-1") membershipsLoaded.complete(Unit)
+          if (graph.store.state.session.activeFamilyId == "fam-1") membershipsLoaded.complete(Unit)
         }
         graph.start()
         try {
@@ -356,7 +356,7 @@ class DayfoldRuntimeFactoryTest {
         graph.store.dispatch(OpenAudienceSheet)
         val signedOut = CompletableDeferred<Unit>()
         val unsubscribe = graph.store.subscribe {
-          if (graph.store.state.session == null) signedOut.complete(Unit)
+          if (graph.store.state.session.session == null) signedOut.complete(Unit)
         }
         withTimeout(2_000) { graph.hubEngine.loadAudience("hub-1") }
         assertTrue("/families/fam-1/hubs/hub-1/audience" in requests, requests.toString())
@@ -367,7 +367,7 @@ class DayfoldRuntimeFactoryTest {
           unsubscribe()
         }
 
-        assertNull(graph.store.state.session)
+        assertNull(graph.store.state.session.session)
         assertEquals(Route.SignIn, graph.store.state.route)
         assertNull(tokens.session)
         assertEquals(1, tokens.clears.get())
@@ -388,7 +388,7 @@ class DayfoldRuntimeFactoryTest {
       val graph = factory(
         contentStore = freshContentStore(),
         tokenStore = tokens,
-        initialState = AppState(route = Route.SignIn),
+        initialState = AppState(navigation = NavigationState(route = Route.SignIn)),
         httpClientFactory = {
           HttpClient(MockEngine { request ->
             when (request.url.encodedPath) {
@@ -418,7 +418,7 @@ class DayfoldRuntimeFactoryTest {
       graph.awaitClosed()
 
       assertNull(tokens.session)
-      assertNull(graph.store.state.session)
+      assertNull(graph.store.state.session.session)
       assertNull(graph.sessionCoordinator.authSnapshot())
     }
 
@@ -448,9 +448,11 @@ class DayfoldRuntimeFactoryTest {
     ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
 
   private fun readyState(session: Session): AppState = AppState(
-    session = session,
-    families = listOf(FamilyMembership("fam-1", "Family", "owner", "active")),
-    activeFamilyId = "fam-1",
-    route = Route.Feed,
+    session = SessionState(
+      session = session,
+      families = listOf(FamilyMembership("fam-1", "Family", "owner", "active")),
+      activeFamilyId = "fam-1",
+    ),
+    navigation = NavigationState(route = Route.Feed),
   )
 }

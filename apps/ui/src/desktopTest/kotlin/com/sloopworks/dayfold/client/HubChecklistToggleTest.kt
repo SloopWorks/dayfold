@@ -86,7 +86,7 @@ class HubChecklistToggleTest {
 
   @Test fun `a done item shows the toggler's first name, not the raw userId`() = runComposeUiTest {
     val state = AppState(
-      session = Session("a", "r", userId = "u_me"),
+      session = SessionState(session = Session("a", "r", userId = "u_me")),
       members = listOf(FamilyMember(uid = "u_pat", displayName = "Patrick Jackson")),
       hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_pat"))),
     )
@@ -98,7 +98,7 @@ class HubChecklistToggleTest {
 
   @Test fun `a done item by an unknown member falls back to a family member`() = runComposeUiTest {
     val state = AppState(
-      session = Session("a", "r", userId = "u_me"), members = emptyList(),
+      session = SessionState(session = Session("a", "r", userId = "u_me")), members = emptyList(),
       hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_gone"))),
     )
     setContent { MaterialTheme { HubDetailScreen(state) } }

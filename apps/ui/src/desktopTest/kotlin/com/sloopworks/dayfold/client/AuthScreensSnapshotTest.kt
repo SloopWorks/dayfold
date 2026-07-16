@@ -36,30 +36,32 @@ class AuthScreensSnapshotTest {
   @Test fun splash() = snap("auth-splash") { SplashScreen() }
 
   private val acctState = AppState(
-    session = Session("a", "r"),
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1", route = Route.Account,
+    session = SessionState(
+      session = Session("a", "r"),
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+    ),
+    navigation = NavigationState(route = Route.Account),
   )
   @Test fun account() = snap("auth-account") { AccountScreen(acctState) }
   @Test fun accountDark() = snap("auth-account-dark", dark = true) { AccountScreen(acctState) }
   @Test fun accountSignOutBusy() = snap("auth-account-signout-busy") { AccountScreen(acctState, signOutBusy = true) }
 
   // invitee-join (slice-2b)
-  @Test fun joinEntry() = snap("auth-join-entry") { JoinInviteScreen(AppState(route = Route.JoinInvite)) }
+  @Test fun joinEntry() = snap("auth-join-entry") { JoinInviteScreen(AppState(navigation = NavigationState(route = Route.JoinInvite))) }
   @Test fun joinWaiting() = snap("auth-join-waiting") {
-    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "waiting", joinFamilyName = "The Riveras"))
+    JoinInviteScreen(AppState(session = SessionState(joinOutcome = "waiting", joinFamilyName = "The Riveras"), navigation = NavigationState(route = Route.JoinInvite)))
   }
   @Test fun joinLocked() = snap("auth-join-locked") {
-    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "locked"))
+    JoinInviteScreen(AppState(session = SessionState(joinOutcome = "locked"), navigation = NavigationState(route = Route.JoinInvite)))
   }
   @Test fun joinError() = snap("auth-join-error", dark = true) {
-    JoinInviteScreen(AppState(route = Route.JoinInvite, joinOutcome = "error"))
+    JoinInviteScreen(AppState(session = SessionState(joinOutcome = "error"), navigation = NavigationState(route = Route.JoinInvite)))
   }
 
   @Test fun members() = snap("auth-members") {
     MembersScreen(AppState(
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1",
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(
         FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
@@ -69,20 +71,17 @@ class AuthScreensSnapshotTest {
   }
   @Test fun membersLoading() = snap("members-loading") {
     MembersScreen(AppState(
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1", rosterBusy = true,
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), rosterBusy = true,
     ))
   }
   @Test fun membersError() = snap("members-error") {
     MembersScreen(AppState(
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1", rosterError = "Couldn't load members. Try again.",
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), rosterError = "Couldn't load members. Try again.",
     ))
   }
   @Test fun membersRowBusy() = snap("members-row-busy") {
     MembersScreen(AppState(
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1",
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
       memberOpId = "u9",
@@ -108,15 +107,15 @@ class AuthScreensSnapshotTest {
   }
 
   // ── CLI/device approval (S6-D) — A8b entercode/authorizedevice/devicedenied/deviceexpired ──
-  @Test fun enterCode() = snap("device-entercode") { EnterCodeScreen(AppState(route = Route.EnterCode)) }
-  @Test fun enterCodeDark() = snap("device-entercode-dark", dark = true) { EnterCodeScreen(AppState(route = Route.EnterCode)) }
+  @Test fun enterCode() = snap("device-entercode") { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode))) }
+  @Test fun enterCodeDark() = snap("device-entercode-dark", dark = true) { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode))) }
   @Test fun enterCodeError() = snap("device-entercode-error") {
-    EnterCodeScreen(AppState(route = Route.EnterCode, deviceError = "Too many tries — wait about 15 minutes."))
+    EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), deviceError = "Too many tries — wait about 15 minutes."))
   }
 
   private fun authState(originKind: String, fams: List<FamilyMembership>) = AppState(
-    session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId,
-    route = Route.AuthorizeDevice,
+    session = SessionState(session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId),
+    navigation = NavigationState(route = Route.AuthorizeDevice),
     pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
       originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
   )
@@ -138,8 +137,8 @@ class AuthScreensSnapshotTest {
   @Test fun deviceApproved() = snap("device-approved") { DeviceApprovedConfirm() }
 
   // ── Phase 2 scan + deep-link (A8b scanprimer/scandevice/scandenied/deviceresume) ──
-  @Test fun enterCodeWithScanToggle() = snap("device-entercode-scan") { EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {}) }
-  @Test fun enterCodeWithScanToggleDark() = snap("device-entercode-scan-dark", dark = true) { EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {}) }
+  @Test fun enterCodeWithScanToggle() = snap("device-entercode-scan") { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onScan = {}) }
+  @Test fun enterCodeWithScanToggleDark() = snap("device-entercode-scan-dark", dark = true) { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onScan = {}) }
   @Test fun scanPrimer() = snap("scan-primer") { ScanPrimerScreen() }
   @Test fun scanPrimerDark() = snap("scan-primer-dark", dark = true) { ScanPrimerScreen() }
   @Test fun scanDevice() = snap("scan-device") { ScanDeviceScreen() }

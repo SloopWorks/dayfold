@@ -97,13 +97,13 @@ class ReducerTest {
   }
 
   @Test fun `NavToDetail to a card not in cache is a no-op (dangling related ref)`() {
-    val s = AppState(cards = listOf(Card("a", title = "A")), detailStack = listOf("a"))
+    val s = AppState(cards = listOf(Card("a", title = "A")), navigation = NavigationState(detailStack = listOf("a")))
     val after = rootReducer(s, NavToDetail("ghost")) // target not cached
     assertEquals(listOf("a"), after.detailStack)      // unchanged — stays on current detail
   }
 
   @Test fun `CardsLoaded prunes nav-stack ids that synced away`() {
-    var s = AppState(cards = listOf(Card("a", title = "A")), detailStack = listOf("a"))
+    var s = AppState(cards = listOf(Card("a", title = "A")), navigation = NavigationState(detailStack = listOf("a")))
     s = rootReducer(s, CardsLoaded(listOf(Card("b", title = "B")))) // 'a' gone
     assertEquals(emptyList(), s.detailStack)
   }
@@ -111,8 +111,8 @@ class ReducerTest {
   @Test fun `currentDetailCard resolves the top id, null when absent`() {
     val cards = listOf(Card("a", title = "A"), Card("b", title = "B"))
     assertNull(currentDetailCard(AppState(cards = cards)))
-    assertEquals("b", currentDetailCard(AppState(cards = cards, detailStack = listOf("a", "b")))?.id)
-    assertNull(currentDetailCard(AppState(cards = cards, detailStack = listOf("gone"))))
+    assertEquals("b", currentDetailCard(AppState(cards = cards, navigation = NavigationState(detailStack = listOf("a", "b"))))?.id)
+    assertNull(currentDetailCard(AppState(cards = cards, navigation = NavigationState(detailStack = listOf("gone")))))
   }
 
   // ── Hubs reducer (ADR 0006/0030) ──
@@ -162,7 +162,7 @@ class ReducerTest {
   }
 
   @Test fun `cross-surface hub deep-link return — CloseHubToFeed routes to Feed, keeps the detail, clears the flag`() {
-    val s = AppState(route = Route.Hubs, detailStack = listOf("c1"), hubs = HubState(currentHubId = "h1", fromFeedDetail = true))
+    val s = AppState(navigation = NavigationState(route = Route.Hubs, detailStack = listOf("c1")), hubs = HubState(currentHubId = "h1", fromFeedDetail = true))
     val after = rootReducer(s, CloseHubToFeed)
     assertEquals(Route.Feed, after.route)      // back on Feed → the detailStack card detail re-renders
     assertNull(after.currentHubId)
@@ -246,8 +246,7 @@ class ReducerTest {
     val deviceConfig = NotifConfig(enabled = true, dailyCap = 2)
     val state = AppState(
       cards = listOf(Card("tenant", title = "Tenant content")),
-      session = Session("access", "refresh"),
-      activeFamilyId = "family",
+      session = SessionState(session = Session("access", "refresh"), activeFamilyId = "family"),
       notifConfig = deviceConfig,
       locationPermission = LocationPermission.Always,
       notificationPermission = NotificationPermission.Granted,
@@ -256,8 +255,8 @@ class ReducerTest {
     listOf(rootReducer(state, SignedOut), rootReducer(state, SessionExpired)).forEach { terminal ->
       assertEquals(Route.SignIn, terminal.route)
       assertTrue(terminal.cards.isEmpty())
-      assertNull(terminal.session)
-      assertNull(terminal.activeFamilyId)
+      assertNull(terminal.session.session)
+      assertNull(terminal.session.activeFamilyId)
       assertEquals(deviceConfig, terminal.notifConfig)
       assertEquals(LocationPermission.Always, terminal.locationPermission)
       assertEquals(NotificationPermission.Granted, terminal.notificationPermission)

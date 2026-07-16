@@ -2,11 +2,11 @@ package com.sloopworks.dayfold.client
 
 /** Hub-list, hub-detail, timeline, and audience-sheet transitions. */
 fun reduceHubs(state: AppState, action: Any): AppState = when (action) {
-  is OpenHubs -> state.copy(route = Route.Hubs, hubs = state.hubs.copy(
+  is OpenHubs -> state.copy(hubs = state.hubs.copy(
     currentHubId = null, currentHubTree = null, currentHubRequest = null, error = null,
     fromFeedDetail = action.returnDestination == HubReturnDestination.FEED_DETAIL,
     audienceSheetOpen = false, currentAudience = null, currentAudienceRequest = null, audienceError = null))
-  is OpenFeed -> state.copy(route = Route.Feed, hubs = state.hubs.copy(fromFeedDetail = false))
+  is OpenFeed -> state.copy(hubs = state.hubs.copy(fromFeedDetail = false))
   is HubsLoaded -> {
     val h = state.hubs
     val openHubRemoved = h.currentHubId != null && action.hubs.none { it.id == h.currentHubId }
@@ -21,7 +21,7 @@ fun reduceHubs(state: AppState, action: Any): AppState = when (action) {
       audienceError = h.audienceError.takeUnless { openHubRemoved }))
   }
   is HubsFailed -> state.copy(hubs = state.hubs.copy(busy = false, error = action.message))
-  is OpenHub -> state.copy(route = Route.Hubs, hubs = state.hubs.copy(currentHubId = action.hubId, currentHubTree = null,
+  is OpenHub -> state.copy(hubs = state.hubs.copy(currentHubId = action.hubId, currentHubTree = null,
     currentHubRequest = action.request, busy = true, error = null, focusBlockId = action.focusBlockId,
     fromFeedDetail = action.returnDestination == HubReturnDestination.FEED_DETAIL, showHidden = false,
     timelineDetail = null, audienceSheetOpen = false, currentAudience = null,
@@ -34,7 +34,7 @@ fun reduceHubs(state: AppState, action: Any): AppState = when (action) {
   is CloseHub -> state.copy(hubs = state.hubs.copy(currentHubId = null, currentHubTree = null, currentHubRequest = null,
     focusBlockId = null, showHidden = false, timelineDetail = null, fromFeedDetail = false,
     audienceSheetOpen = false, currentAudience = null, currentAudienceRequest = null, audienceError = null))
-  is CloseHubToFeed -> state.copy(route = Route.Feed, hubs = state.hubs.copy(currentHubId = null, currentHubTree = null,
+  is CloseHubToFeed -> state.copy(hubs = state.hubs.copy(currentHubId = null, currentHubTree = null,
     currentHubRequest = null, focusBlockId = null, showHidden = false, timelineDetail = null,
     fromFeedDetail = false, audienceSheetOpen = false, currentAudience = null,
     currentAudienceRequest = null, audienceError = null))

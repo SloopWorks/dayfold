@@ -62,9 +62,9 @@ class SyncEngine(
         store.dispatch(SessionRotated(session))
       },
     ).also { coordinator ->
-      store.state.session?.let { session ->
+      store.state.session.session?.let { session ->
         val auth = coordinator.install(session)
-        coordinator.selectFamily(auth, store.state.activeFamilyId)
+        coordinator.selectFamily(auth, store.state.session.activeFamilyId)
       }
     }
 
@@ -140,7 +140,7 @@ class SyncEngine(
     reason: SyncReason = SyncReason.MANUAL_REFRESH,
     isConflatedRerun: Boolean = false,
   ) {
-    val familyId = store.state.activeFamilyId ?: return
+    val familyId = store.state.session.activeFamilyId ?: return
     val context = sessionCoordinator.familySnapshot(familyId) ?: return
     adoptStatusBoundary(context)
     var statusStarted = false

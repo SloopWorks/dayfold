@@ -28,7 +28,7 @@ class FeedAppHostTest {
 
   private fun shot(name: String, block: (org.reduxkotlin.Store<AppState>) -> Unit) = runComposeUiTest {
     // route=Feed so FeedApp renders the CONTENT host (past the AUTH-S5 route gate).
-    val store = createTestAppStore(AppState(route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.Feed)), debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))
     block(store)
     setContent { TestFeedApp(store) }
@@ -47,8 +47,8 @@ class FeedAppHostTest {
   @Test fun hubRowTapCarriesTheProjectedFamilyAndHubToCommands() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
-        route = Route.Hubs,
-        activeFamilyId = "family-1",
+        navigation = NavigationState(route = Route.Hubs),
+        session = SessionState(activeFamilyId = "family-1"),
         hubs = HubState(hubs = listOf(Hub(id = "hub-1", title = "College move", status = "active"))),
       ),
       debug = false,
@@ -89,8 +89,8 @@ class FeedAppHostTest {
 
   private val ownerFam = FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")
   private fun authedAt(route: Route, outcome: String? = null) = AppState(
-    session = Session("a", "r"), families = listOf(ownerFam), activeFamilyId = "fam1",
-    route = route, deviceOutcome = outcome,
+    session = SessionState(session = Session("a", "r"), families = listOf(ownerFam), activeFamilyId = "fam1"),
+    navigation = NavigationState(route = route), deviceOutcome = outcome,
     pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
   )
 
@@ -106,11 +106,11 @@ class FeedAppHostTest {
   @Test fun hostRendersScanDenied() = hostShot("host-scan-denied", authedAt(Route.ScanDenied).copy(pendingDevice = null))
   @Test fun hostRendersDeviceResume() = hostShot(
     "host-deviceresume",
-    AppState(route = Route.SignIn, pendingDeviceLink = "WDJF-7K2P"),
+    AppState(navigation = NavigationState(route = Route.SignIn), pendingDeviceLink = "WDJF-7K2P"),
   )
   @Test fun hostRendersFinishing() = hostShot(
     "host-devicefinishing",
-    AppState(route = Route.Feed, deviceResuming = true),
+    AppState(navigation = NavigationState(route = Route.Feed), deviceResuming = true),
   )
 
   @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() = runComposeUiTest {

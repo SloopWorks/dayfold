@@ -433,32 +433,37 @@ data class PendingDevice(
   @SerialName("expires_at") val expiresAt: String? = null,
 )
 
-// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
-// not here — the store is a projection of the DB. The auth fields below are the
-// only client-held session state; the access token is attached per request and
+// The account/session projection. The access token is attached per request and
 // re-validated server-side (never trusted locally for authz).
+data class SessionState(
+  val session: Session? = null,
+  val families: List<FamilyMembership> = emptyList(),
+  val activeFamilyId: String? = null,
+  val authBusy: Boolean = false,
+  val authError: String? = null,
+  val joinBusy: Boolean = false,
+  val joinOutcome: String? = null,
+  val joinFamilyName: String? = null,
+  val pendingProvider: String? = null,
+  val signOutBusy: Boolean = false,
+)
+
+// Transient navigation is deliberately non-persisted. A cold start returns to
+// Feed rather than restoring an open card detail.
+data class NavigationState(
+  val route: Route = Route.Loading,
+  val detailStack: List<String> = emptyList(),
+)
+
+// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
+// not here — the store is a projection of the DB.
 data class AppState(
   // feed surface
   val cards: List<Card> = emptyList(),
   val syncing: Boolean = false,
   val error: String? = null,
-  // CL-6 nav: a STACK of card ids (top = current detail, empty = feed). A stack
-  // so related-edges (CL-8) chain detail→detail. Nav is app state (ADR 0013), not
-  // a side channel. Not persisted at M0 → cold start returns to feed (restoring
-  // an open detail across process death is not an M0 requirement).
-  val detailStack: List<String> = emptyList(),
-  // auth / session (S5)
-  val session: Session? = null,
-  val families: List<FamilyMembership> = emptyList(),
-  val activeFamilyId: String? = null,
-  val route: Route = Route.Loading,
-  val authBusy: Boolean = false,
-  val authError: String? = null,
-  // invitee-join (S5 slice-2). outcome: null | waiting | expired | locked |
-  // already | removed | error — the join screen renders the matching A8b state.
-  val joinBusy: Boolean = false,
-  val joinOutcome: String? = null,
-  val joinFamilyName: String? = null,
+  val session: SessionState = SessionState(),
+  val navigation: NavigationState = NavigationState(),
   // owner-side approvals (S6). The pending-member queue + a busy flag.
   val pendingApprovals: List<PendingMember> = emptyList(),
   val approvalsBusy: Boolean = false,
@@ -498,8 +503,6 @@ data class AppState(
   val locationPermission: LocationPermission = LocationPermission.Denied,
   val notificationPermission: NotificationPermission = NotificationPermission.Denied,
   // loading-state additions (2026-06-28)
-  val pendingProvider: String? = null,   // which sign-in provider button spins
-  val signOutBusy: Boolean = false,
   val rosterBusy: Boolean = false,
   val rosterError: String? = null,
   val memberOpId: String? = null,        // member row currently approving/declining/removing
@@ -531,6 +534,9 @@ data class AppState(
   val nameOpId: String? = null,
   val nameError: String? = null,
 ) {
+  /** Read-only migration accessors; no second writable navigation state exists. */
+  @Deprecated("Use navigation.route") val route get() = navigation.route
+  @Deprecated("Use navigation.detailStack") val detailStack get() = navigation.detailStack
   /** Read-only migration accessors; no second writable hub state exists. */
   @Deprecated("Use hubs.busy") val hubsBusy get() = hubs.busy
   @Deprecated("Use hubs.error") val hubError get() = hubs.error

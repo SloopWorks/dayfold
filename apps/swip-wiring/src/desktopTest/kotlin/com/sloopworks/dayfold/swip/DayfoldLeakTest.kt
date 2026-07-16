@@ -10,6 +10,8 @@ import com.sloopworks.dayfold.client.InviteRejected
 import com.sloopworks.dayfold.client.NavToDetail
 import com.sloopworks.dayfold.client.OpenHub
 import com.sloopworks.dayfold.client.Session
+import com.sloopworks.dayfold.client.SessionState
+import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.SignInSucceeded
 import com.sloopworks.dayfold.client.SyncFailed
 import com.sloopworks.dayfold.client.createAppStore
@@ -36,10 +38,10 @@ import kotlin.test.assertTrue
 /** docs/12 §6: product-owned sanitizer leak test over SALTED real state. */
 class DayfoldLeakTest {
   private val salted = AppState(
-    session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted"),
+    session = SessionState(session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted")),
     myDisplayName = "Salted Q. User",
     hubs = HubState(filter = "salted-search someone@example.com padding-padding-padding"), // synthetic: real values are chip literals; salt proves the fence anyway
-    detailStack = listOf("card_salt_1"),
+    navigation = NavigationState(detailStack = listOf("card_salt_1")),
   )
 
   @Test fun journal_never_contains_salted_pii() = runTest {

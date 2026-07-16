@@ -26,7 +26,7 @@ class DayfoldCommandsTest {
 
   @Test fun `open hubs carries its return destination in one atomic action`() {
     val store = createTestAppStore(
-      AppState(route = Route.Feed, detailStack = listOf("card-1")),
+      AppState(navigation = NavigationState(route = Route.Feed, detailStack = listOf("card-1"))),
       debug = false,
     )
 
@@ -39,7 +39,7 @@ class DayfoldCommandsTest {
   @Test fun `close is expected-hub correlated and cannot clear a replacement hub`() {
     val request = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
     val store = createTestAppStore(
-      AppState(route = Route.Hubs, hubs = HubState(currentHubId = "hub-a", currentHubRequest = request)),
+      AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "hub-a", currentHubRequest = request)),
       debug = false,
     )
     val commands = DayfoldCommands.navigationOnly(store)
@@ -57,8 +57,7 @@ class DayfoldCommandsTest {
       val session = Session("access", "refresh", "user")
       val store = createTestAppStore(
         AppState(
-          session = session,
-          activeFamilyId = "family-a",
+          session = SessionState(session = session, activeFamilyId = "family-a"),
           pendingDevice = PendingDevice(userCode = "STATE-CODE"),
         ),
         debug = false,
@@ -105,8 +104,7 @@ class DayfoldCommandsTest {
       val pending = PendingMember("member-1", "Pat")
       val store = createTestAppStore(
         AppState(
-          session = session,
-          activeFamilyId = "family-a",
+          session = SessionState(session = session, activeFamilyId = "family-a"),
           pendingApprovals = listOf(pending),
         ),
         debug = false,

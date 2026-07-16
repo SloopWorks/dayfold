@@ -72,14 +72,14 @@ class HubEngine(
         store.dispatch(SessionRotated(session))
       },
     ).also { coordinator ->
-      store.state.session?.let { session ->
+      store.state.session.session?.let { session ->
         val auth = coordinator.install(session)
-        coordinator.selectFamily(auth, store.state.activeFamilyId)
+        coordinator.selectFamily(auth, store.state.session.activeFamilyId)
       }
     }
 
   private fun familyContext(): FamilySessionContext? =
-    store.state.activeFamilyId?.let(sessionCoordinator::familySnapshot)
+    store.state.session.activeFamilyId?.let(sessionCoordinator::familySnapshot)
 
   private fun requestKey(context: FamilySessionContext): HubRequestKey = HubRequestKey(
     generation = HubTenantGeneration(

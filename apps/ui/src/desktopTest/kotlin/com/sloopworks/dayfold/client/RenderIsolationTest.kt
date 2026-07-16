@@ -33,7 +33,7 @@ class RenderIsolationTest {
     assertEquals(listOf("active"), select(initial).shownHubs.map(Hub::id))
     assertEquals(1, filterInvocations)
 
-    select(initial.copy(route = Route.Hubs, notificationPermission = NotificationPermission.Granted))
+    select(initial.copy(navigation = initial.navigation.copy(route = Route.Hubs), notificationPermission = NotificationPermission.Granted))
     select(initial.copy(hubs = initial.hubs.copy(busy = true, error = "network")))
     assertEquals(1, filterInvocations, "unrelated AppState changes must reuse the hub projection")
 
@@ -46,7 +46,7 @@ class RenderIsolationTest {
 
   @Test
   fun unrelatedFeatureChangesDoNotRecomposeShellOrHubRoute() = runComposeUiTest {
-    val countingStore = CountingStore(createTestAppStore(AppState(route = Route.Hubs)))
+    val countingStore = CountingStore(createTestAppStore(AppState(navigation = NavigationState(route = Route.Hubs))))
     lateinit var counts: MutableMap<String, Int>
 
     setContent {
@@ -68,7 +68,7 @@ class RenderIsolationTest {
 
   @Test
   fun routeSubscriptionsReturnToBaselineAcrossNavigation() = runComposeUiTest {
-    val countingStore = CountingStore(createTestAppStore(AppState(route = Route.Hubs)))
+    val countingStore = CountingStore(createTestAppStore(AppState(navigation = NavigationState(route = Route.Hubs))))
 
     setContent {
       val counts = remember { mutableMapOf<String, Int>() }
@@ -119,7 +119,7 @@ class RenderIsolationTest {
 
   @Test
   fun unrelatedActionDoesNotRecomposeAnInactiveRoute() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn))
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)))
     lateinit var counts: MutableMap<String, Int>
 
     setContent {

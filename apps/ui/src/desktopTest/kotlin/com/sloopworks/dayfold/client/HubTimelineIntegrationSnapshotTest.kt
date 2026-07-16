@@ -52,7 +52,7 @@ class HubTimelineIntegrationSnapshotTest {
 
     /** State with hub open + timeline present — no detail overlay yet. */
     private fun cardState() = AppState(
-        route = Route.Hubs,
+        navigation = NavigationState(route = Route.Hubs),
         hubs = HubState(currentHubId = "h1", currentHubTree = HubTree(hub = timelineHub())),
     )
 
@@ -111,7 +111,7 @@ class HubTimelineIntegrationSnapshotTest {
             HubBlock(id = "c", sectionId = "s", type = "checklist",
                 payload = BlockPayload(items = listOf(ChecklistItem(id = "i", text = "Buy balloons", due = "2026-08-22")))),
         )
-        val state = AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h2",
+        val state = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h2",
             currentHubTree = HubTree(hub = hub, blocks = blocks)))
         setContent {
             DayfoldTheme(darkTheme = false) {
@@ -127,7 +127,7 @@ class HubTimelineIntegrationSnapshotTest {
         // only the hub countdown is dated → one stop → "No timeline yet" nudge, no card.
         val hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
             visibility = "family", countdownTo = "2026-09-01")
-        val state = AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h3", currentHubTree = HubTree(hub = hub)))
+        val state = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3", currentHubTree = HubTree(hub = hub)))
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) { HubDetailScreen(state) }

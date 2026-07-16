@@ -132,7 +132,7 @@ class FeedSnapshotTest {
 
   // ── CL-6: DetailScreen per type, light + dark ──────────────────────────────
   // Reached by opening the corresponding typed card (detailStack = [id]).
-  private fun detailState(id: String) = typedFeed.copy(detailStack = listOf(id))
+  private fun detailState(id: String) = typedFeed.copy(navigation = typedFeed.navigation.copy(detailStack = listOf(id)))
 
   private fun detailSnap(name: String, id: String, dark: Boolean = false) = runComposeUiTest {
     setContent {

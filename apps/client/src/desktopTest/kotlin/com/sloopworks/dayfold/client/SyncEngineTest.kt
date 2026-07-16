@@ -35,7 +35,7 @@ class SyncEngineTest {
   private fun syncClient(engine: MockEngine) =
     SyncClient("https://api.test", HttpClient(engine))
   private fun readyStore() = createTestAppStore(
-    AppState(session = Session("sec", "refresh"), activeFamilyId = "fam1"),
+    AppState(session = SessionState(session = Session("sec", "refresh"), activeFamilyId = "fam1")),
     debug = false,
   )
   private fun engine(cs: ContentStore, sc: SyncClient) =
@@ -149,7 +149,7 @@ class SyncEngineTest {
   @Test fun `sign-out wipes the local DB cache so no stale tenant hub leaks`() = runBlocking {
     val cs = freshStore()
     cs.applyDelta(emptyList(), listOf(Hub("butler", title = "Butler")), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
-    val store = createTestAppStore(AppState(session = Session("a1", "r1")), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("a1", "r1"))), debug = false)
     SyncEngine(store, cs, syncClient(MockEngine { respond("", HttpStatusCode.OK) })).start()
     await(store) { it.hubs.map { h -> h.id } == listOf("butler") }   // bridge projected the cached hub
 
@@ -250,7 +250,7 @@ class SyncEngineTest {
     val releaseRequest = CompletableDeferred<Unit>()
     val session = Session("access", "refresh", "user")
     val store = createTestAppStore(
-      AppState(session = session, activeFamilyId = "family-a", route = Route.Feed),
+      AppState(session = SessionState(session = session, activeFamilyId = "family-a"), navigation = NavigationState(route = Route.Feed)),
       debug = false,
     )
     val coordinator = SessionCoordinator(
@@ -280,7 +280,7 @@ class SyncEngineTest {
     sync.await()
 
     assertEquals(0, invalidations)
-    assertEquals(session, store.state.session)
+    assertEquals(session, store.state.session.session)
   }
 
   @Test fun `a 401 does NOT wipe the cache (token problem, left to refresh)`() = runBlocking {
@@ -413,7 +413,7 @@ class SyncEngineTest {
   // refreshes + retries once, mirroring AuthEngine/HubEngine.
   @Test fun `syncNow refreshes the access token on 401 and retries`() = runBlocking<Unit> {
     val cs = freshStore()
-    val store = createTestAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("stale", "r1"), activeFamilyId = "fam1")), debug = false)
     val ts = object : TokenStore { var s: Session? = null; override fun load() = s; override fun save(session: Session) { s = session }; override fun clear() { s = null } }
     var syncCalls = 0
     val mock = MockEngine { req ->
@@ -431,7 +431,7 @@ class SyncEngineTest {
     val e = SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock)), tokenStore = ts)
     e.syncNow()
     assertEquals(2, syncCalls)                                  // retried after refresh
-    assertEquals(Session("fresh", "r2"), store.state.session)   // rotated into state
+    assertEquals(Session("fresh", "r2"), store.state.session.session)   // rotated into state
     assertEquals(Session("fresh", "r2"), ts.s)                  // and persisted
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // the retry page landed
     assertNull(store.state.error)
@@ -441,7 +441,7 @@ class SyncEngineTest {
   @Test fun `syncNow 401 with a rejected refresh expires the session and clears tenant cache`() = runBlocking<Unit> {
     val cs = freshStore()
     cs.applyDelta(listOf(Card("old", title = "Old")), emptyList(), emptyList(), emptyList(), emptyList(), "c0", "t0")
-    val store = createTestAppStore(AppState(session = Session("stale", "r1"), activeFamilyId = "fam1"), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = Session("stale", "r1"), activeFamilyId = "fam1")), debug = false)
     val mock = MockEngine { req ->
       when (req.url.encodedPath) {
         "/families/fam1/sync" -> respond("unauth", HttpStatusCode.Unauthorized)
@@ -451,16 +451,16 @@ class SyncEngineTest {
     }
     val sc = SyncClient("https://api.test", HttpClient(mock))
     SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock))).syncNow()
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
     assertEquals(Route.SignIn, store.state.route)
-    assertEquals("Your session expired — please sign in again.", store.state.authError)
+    assertEquals("Your session expired — please sign in again.", store.state.session.authError)
     assertTrue(cs.activeCards().isEmpty())
   }
 
   @Test fun `empty resume and conflated rerun emit no sync status actions`() = runBlocking<Unit> {
     val actions = Collections.synchronizedList(mutableListOf<Any>())
     val store = recordingStore(
-      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      AppState(session = SessionState(session = Session("access", "refresh"), activeFamilyId = "fam1")),
       actions,
     )
     val firstRequest = CompletableDeferred<Unit>()
@@ -505,7 +505,7 @@ class SyncEngineTest {
   @Test fun `a material poll emits one started and succeeded pair`() = runBlocking<Unit> {
     val actions = mutableListOf<Any>()
     val store = recordingStore(
-      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      AppState(session = SessionState(session = Session("access", "refresh"), activeFamilyId = "fam1")),
       actions,
     )
     val client = syncClient(MockEngine {
@@ -525,7 +525,7 @@ class SyncEngineTest {
   @Test fun `cancellation after started clears busy without failure`() = runBlocking<Unit> {
     val actions = mutableListOf<Any>()
     val store = recordingStore(
-      AppState(session = Session("access", "refresh"), activeFamilyId = "fam1"),
+      AppState(session = SessionState(session = Session("access", "refresh"), activeFamilyId = "fam1")),
       actions,
     )
     val requestStarted = CompletableDeferred<Unit>()
@@ -551,7 +551,7 @@ class SyncEngineTest {
     val actions = mutableListOf<Any>()
     val session = Session("access", "refresh", "user")
     val store = recordingStore(
-      AppState(session = session, activeFamilyId = "family-a"),
+      AppState(session = SessionState(session = session, activeFamilyId = "family-a")),
       actions,
     )
     val sessionCoordinator = SessionCoordinator(
@@ -599,7 +599,7 @@ class SyncEngineTest {
     val actions = mutableListOf<Any>()
     val session = Session("access", "refresh", "user")
     val store = recordingStore(
-      AppState(session = session, activeFamilyId = "family-a"),
+      AppState(session = SessionState(session = session, activeFamilyId = "family-a")),
       actions,
     )
     val sessionCoordinator = SessionCoordinator(

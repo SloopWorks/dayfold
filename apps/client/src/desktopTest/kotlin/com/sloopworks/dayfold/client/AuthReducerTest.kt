@@ -29,87 +29,87 @@ class AuthReducerTest {
   @Test fun `cold-start restore with no session lands on SignIn`() {
     val s = rootReducer(rootReducer(AppState(), AuthRestoring), SessionRestored(null))
     assertEquals(Route.SignIn, s.route)
-    assertNull(s.session)
+    assertNull(s.session.session)
   }
 
   @Test fun `restoring a saved session waits in Loading until whoami`() {
     val s = rootReducer(AppState(), SessionRestored(sess))
     assertEquals(Route.Loading, s.route)
-    assertEquals(sess, s.session)
+    assertEquals(sess, s.session.session)
   }
 
   @Test fun `sign-in busy then success then memberships routes to Feed`() {
-    var s = rootReducer(AppState(route = Route.SignIn), SignInRequested("google"))
-    assertTrue(s.authBusy); assertNull(s.authError)
+    var s = rootReducer(AppState(navigation = NavigationState(route = Route.SignIn)), SignInRequested("google"))
+    assertTrue(s.session.authBusy); assertNull(s.session.authError)
     s = rootReducer(s, SignInSucceeded(sess))
-    assertFalse(s.authBusy); assertEquals(Route.Loading, s.route); assertEquals(sess, s.session)
+    assertFalse(s.session.authBusy); assertEquals(Route.Loading, s.route); assertEquals(sess, s.session.session)
     s = rootReducer(s, MembershipsLoaded(listOf(active)))
     assertEquals(Route.Feed, s.route)
-    assertEquals("fam1", s.activeFamilyId)
+    assertEquals("fam1", s.session.activeFamilyId)
   }
 
   @Test fun `sign-in with no families routes to CreateFamily`() {
     var s = rootReducer(AppState(), SignInSucceeded(sess))
     s = rootReducer(s, MembershipsLoaded(emptyList()))
     assertEquals(Route.CreateFamily, s.route)
-    assertNull(s.activeFamilyId)
+    assertNull(s.session.activeFamilyId)
   }
 
   @Test fun `sign-in failure surfaces the error and clears busy`() {
-    var s = rootReducer(AppState(route = Route.SignIn), SignInRequested("apple"))
+    var s = rootReducer(AppState(navigation = NavigationState(route = Route.SignIn)), SignInRequested("apple"))
     s = rootReducer(s, SignInFailed("network down"))
-    assertFalse(s.authBusy); assertEquals("network down", s.authError)
+    assertFalse(s.session.authBusy); assertEquals("network down", s.session.authError)
     assertEquals(Route.SignIn, s.route)   // failure keeps you on SignIn, doesn't navigate
   }
 
   @Test fun `create-family success becomes the active owner family and routes to Feed`() {
-    var s = rootReducer(AppState(session = sess, route = Route.CreateFamily), CreateFamilyRequested("The Jacksons"))
-    assertTrue(s.authBusy)
+    var s = rootReducer(AppState(session = SessionState(session = sess), navigation = NavigationState(route = Route.CreateFamily)), CreateFamilyRequested("The Jacksons"))
+    assertTrue(s.session.authBusy)
     s = rootReducer(s, FamilyCreated("fam1", "The Jacksons"))
-    assertFalse(s.authBusy)
+    assertFalse(s.session.authBusy)
     assertEquals(Route.Feed, s.route)
-    assertEquals("fam1", s.activeFamilyId)
-    val m = s.families.single()
+    assertEquals("fam1", s.session.activeFamilyId)
+    val m = s.session.families.single()
     assertEquals("owner", m.role); assertEquals("active", m.status); assertEquals("fam1", m.familyId)
   }
 
   @Test fun `create-family failure keeps you on CreateFamily with an error`() {
-    var s = rootReducer(AppState(session = sess, route = Route.CreateFamily), CreateFamilyRequested("X"))
+    var s = rootReducer(AppState(session = SessionState(session = sess), navigation = NavigationState(route = Route.CreateFamily)), CreateFamilyRequested("X"))
     s = rootReducer(s, AuthOpFailed("name taken"))
-    assertFalse(s.authBusy); assertEquals("name taken", s.authError); assertEquals(Route.CreateFamily, s.route)
+    assertFalse(s.session.authBusy); assertEquals("name taken", s.session.authError); assertEquals(Route.CreateFamily, s.route)
   }
 
   @Test fun `open then close account overlays the signed-in Feed`() {
-    val signedIn = AppState(session = sess, families = listOf(active), activeFamilyId = "fam1", route = Route.Feed)
+    val signedIn = AppState(session = SessionState(session = sess, families = listOf(active), activeFamilyId = "fam1"), navigation = NavigationState(route = Route.Feed))
     val opened = rootReducer(signedIn, OpenAccount)
     assertEquals(Route.Account, opened.route)
-    assertEquals(sess, opened.session)                 // session/family untouched
+    assertEquals(sess, opened.session.session)                 // session/family untouched
     val closed = rootReducer(opened, CloseAccount)
     assertEquals(Route.Feed, closed.route)             // back through the gate
-    assertEquals("fam1", closed.activeFamilyId)
+    assertEquals("fam1", closed.session.activeFamilyId)
   }
 
   @Test fun `open join-invite routes there and dismiss returns to the gate`() {
-    val opened = rootReducer(AppState(session = sess, route = Route.CreateFamily), OpenJoinInvite)
+    val opened = rootReducer(AppState(session = SessionState(session = sess), navigation = NavigationState(route = Route.CreateFamily)), OpenJoinInvite)
     assertEquals(Route.JoinInvite, opened.route)
-    assertNull(opened.joinOutcome)
+    assertNull(opened.session.joinOutcome)
     val waiting = rootReducer(opened, InviteRedeemed("Riveras"))
-    assertEquals("waiting", waiting.joinOutcome)
+    assertEquals("waiting", waiting.session.joinOutcome)
     val dismissed = rootReducer(waiting, JoinDismissed)
     assertEquals(Route.CreateFamily, dismissed.route)   // no active family → back to CreateFamily
-    assertNull(dismissed.joinOutcome)
+    assertNull(dismissed.session.joinOutcome)
   }
 
   @Test fun `invitee-join outcomes (waiting then dismiss, and a rejection)`() {
-    var s = rootReducer(AppState(session = sess), RedeemRequested("tok"))
-    assertTrue(s.joinBusy); assertNull(s.joinOutcome)
+    var s = rootReducer(AppState(session = SessionState(session = sess)), RedeemRequested("tok"))
+    assertTrue(s.session.joinBusy); assertNull(s.session.joinOutcome)
     s = rootReducer(s, InviteRedeemed("The Jacksons"))
-    assertFalse(s.joinBusy); assertEquals("waiting", s.joinOutcome); assertEquals("The Jacksons", s.joinFamilyName)
+    assertFalse(s.session.joinBusy); assertEquals("waiting", s.session.joinOutcome); assertEquals("The Jacksons", s.session.joinFamilyName)
     val cleared = rootReducer(s, JoinDismissed)
-    assertNull(cleared.joinOutcome); assertNull(cleared.joinFamilyName)
+    assertNull(cleared.session.joinOutcome); assertNull(cleared.session.joinFamilyName)
 
     val rejected = rootReducer(rootReducer(AppState(), RedeemRequested("t")), InviteRejected("expired"))
-    assertEquals("expired", rejected.joinOutcome); assertFalse(rejected.joinBusy)
+    assertEquals("expired", rejected.session.joinOutcome); assertFalse(rejected.session.joinBusy)
   }
 
   @Test fun `owner approvals queue loads and resolves`() {
@@ -125,7 +125,7 @@ class AuthReducerTest {
   @Test fun `owner invite-mint slice transitions`() {
     val mi = MintedInvite("i", "TOK", "https://x/invite/TOK", "adult", "qr", "2099-01-01T00:00:00Z")
     // open clears any prior mint + routes
-    var s = rootReducer(AppState(route = Route.Members, mintedInvite = mi, mintError = "error"), OpenInvite)
+    var s = rootReducer(AppState(navigation = NavigationState(route = Route.Members), mintedInvite = mi, mintError = "error"), OpenInvite)
     assertEquals(Route.Invite, s.route); assertNull(s.mintedInvite); assertNull(s.mintError)
     // mint request → busy, error cleared
     s = rootReducer(s.copy(mintError = "error"), MintRequested)
@@ -140,7 +140,7 @@ class AuthReducerTest {
     s = rootReducer(s.copy(inviteBusy = true), MintFailed("ratelimited"))
     assertEquals("ratelimited", s.mintError); assertFalse(s.inviteBusy)
     // dismiss clears the token + routes back to Members
-    s = rootReducer(s.copy(route = Route.Invite, mintedInvite = mi), InviteDismissed)
+    s = rootReducer(s.copy(navigation = s.navigation.copy(route = Route.Invite), mintedInvite = mi), InviteDismissed)
     assertEquals(Route.Members, s.route); assertNull(s.mintedInvite)
   }
 
@@ -183,7 +183,7 @@ class AuthReducerTest {
 
   @Test fun `OpenEnterCode routes to EnterCode and clears device fields`() {
     val dirty = AppState(
-      route = Route.AuthorizeDevice, pendingDevice = dev, deviceBusy = true,
+      navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = dev, deviceBusy = true,
       deviceError = "x", deviceOutcome = "denied",
     )
     val s = rootReducer(dirty, OpenEnterCode)
@@ -192,30 +192,30 @@ class AuthReducerTest {
   }
 
   @Test fun `DeviceLookupRequested sets busy and clears the error`() {
-    val s = rootReducer(AppState(route = Route.EnterCode, deviceError = "old"), DeviceLookupRequested)
+    val s = rootReducer(AppState(navigation = NavigationState(route = Route.EnterCode), deviceError = "old"), DeviceLookupRequested)
     assertTrue(s.deviceBusy); assertNull(s.deviceError)
   }
 
   @Test fun `DevicePendingLoaded routes to AuthorizeDevice with the device`() {
-    val s = rootReducer(AppState(route = Route.EnterCode, deviceBusy = true), DevicePendingLoaded(dev))
+    val s = rootReducer(AppState(navigation = NavigationState(route = Route.EnterCode), deviceBusy = true), DevicePendingLoaded(dev))
     assertEquals(Route.AuthorizeDevice, s.route)
     assertEquals(dev, s.pendingDevice); assertFalse(s.deviceBusy); assertNull(s.deviceOutcome)
   }
 
   @Test fun `DeviceLookupNotFound routes to AuthorizeDevice with the expired outcome`() {
-    val s = rootReducer(AppState(route = Route.EnterCode, deviceBusy = true), DeviceLookupNotFound)
+    val s = rootReducer(AppState(navigation = NavigationState(route = Route.EnterCode), deviceBusy = true), DeviceLookupNotFound)
     assertEquals(Route.AuthorizeDevice, s.route)
     assertEquals("expired", s.deviceOutcome); assertNull(s.pendingDevice); assertFalse(s.deviceBusy)
   }
 
   @Test fun `DeviceLookupFailed surfaces the inline error and stays on EnterCode`() {
-    val s = rootReducer(AppState(route = Route.EnterCode, deviceBusy = true), DeviceLookupFailed("Too many tries"))
+    val s = rootReducer(AppState(navigation = NavigationState(route = Route.EnterCode), deviceBusy = true), DeviceLookupFailed("Too many tries"))
     assertEquals(Route.EnterCode, s.route)            // does NOT navigate
     assertEquals("Too many tries", s.deviceError); assertFalse(s.deviceBusy)
   }
 
   @Test fun `approve and deny flows set busy then the terminal outcome`() {
-    val onScreen = AppState(route = Route.AuthorizeDevice, pendingDevice = dev)
+    val onScreen = AppState(navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = dev)
     var s = rootReducer(onScreen, ApproveDeviceRequested)
     assertTrue(s.deviceBusy)
     s = rootReducer(s, DeviceApproved)
@@ -229,15 +229,15 @@ class AuthReducerTest {
   }
 
   @Test fun `DeviceOpFailed surfaces an inline error and clears busy (stays on AuthorizeDevice)`() {
-    val s = rootReducer(AppState(route = Route.AuthorizeDevice, pendingDevice = dev, deviceBusy = true), DeviceOpFailed("Couldn't approve"))
+    val s = rootReducer(AppState(navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = dev, deviceBusy = true), DeviceOpFailed("Couldn't approve"))
     assertEquals(Route.AuthorizeDevice, s.route)
     assertEquals("Couldn't approve", s.deviceError); assertFalse(s.deviceBusy); assertNull(s.deviceOutcome)
   }
 
   @Test fun `CloseDeviceFlow returns to the gate and clears device state`() {
     val onScreen = AppState(
-      session = sess, families = listOf(active), activeFamilyId = "fam1",
-      route = Route.AuthorizeDevice, pendingDevice = dev, deviceOutcome = "approved", deviceError = "x",
+      session = SessionState(session = sess, families = listOf(active), activeFamilyId = "fam1"),
+      navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = dev, deviceOutcome = "approved", deviceError = "x",
     )
     val s = rootReducer(onScreen, CloseDeviceFlow)
     assertEquals(Route.Feed, s.route)                 // routeFor(session, active family) = Feed
@@ -245,13 +245,13 @@ class AuthReducerTest {
   }
 
   @Test fun `deep-link code stashes then is consumed, and sign-out clears it`() {
-    var s = rootReducer(AppState(route = Route.SignIn), DeviceLinkStashed("WDJF-7K2P"))
+    var s = rootReducer(AppState(navigation = NavigationState(route = Route.SignIn)), DeviceLinkStashed("WDJF-7K2P"))
     assertEquals("WDJF-7K2P", s.pendingDeviceLink)
     assertEquals(Route.SignIn, s.route)                 // stashing does not navigate
     s = rootReducer(s, DeviceLinkConsumed)
     assertNull(s.pendingDeviceLink)
     // a stash that survives to a signed-in session is wiped on sign-out (fresh state)
-    val signedOut = rootReducer(AppState(session = sess, pendingDeviceLink = "X"), SignedOut)
+    val signedOut = rootReducer(AppState(session = SessionState(session = sess), pendingDeviceLink = "X"), SignedOut)
     assertNull(signedOut.pendingDeviceLink)
   }
 
@@ -261,9 +261,11 @@ class AuthReducerTest {
     val hubRequest = HubRequestKey(HubTenantGeneration(1L, 2L), 3L)
     val audienceRequest = HubRequestKey(hubRequest.generation, 4L)
     return AppState(
-      session = sess,
-      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-      activeFamilyId = "fam1",
+      session = SessionState(
+        session = sess,
+        families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+        activeFamilyId = "fam1",
+      ),
       cards = listOf(Card("c1", title = "Soccer 4pm")),
       pendingApprovals = listOf(PendingMember("u9", "Sam")),
       pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
@@ -278,8 +280,8 @@ class AuthReducerTest {
   }
 
   private fun assertNoSensitiveStateSurvives(out: AppState) {
-    assertNull(out.session)
-    assertTrue(out.families.isEmpty()); assertNull(out.activeFamilyId)
+    assertNull(out.session.session)
+    assertTrue(out.session.families.isEmpty()); assertNull(out.session.activeFamilyId)
     assertTrue(out.cards.isEmpty())
     assertTrue(out.pendingApprovals.isEmpty())
     assertNull(out.pendingDevice); assertNull(out.pendingDeviceLink)
@@ -300,13 +302,13 @@ class AuthReducerTest {
     val out = rootReducer(populatedSignedIn(), SessionExpired)
     assertEquals(Route.SignIn, out.route)
     assertNoSensitiveStateSurvives(out)
-    assertEquals("Your session expired — please sign in again.", out.authError)
+    assertEquals("Your session expired — please sign in again.", out.session.authError)
   }
 
   @Test fun `scan flow routes — primer, granted to device, denied`() {
-    assertEquals(Route.ScanPrimer, rootReducer(AppState(route = Route.EnterCode), OpenScan).route)
-    assertEquals(Route.ScanDevice, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionGranted).route)
-    assertEquals(Route.ScanDenied, rootReducer(AppState(route = Route.ScanPrimer), ScanPermissionDenied).route)
+    assertEquals(Route.ScanPrimer, rootReducer(AppState(navigation = NavigationState(route = Route.EnterCode)), OpenScan).route)
+    assertEquals(Route.ScanDevice, rootReducer(AppState(navigation = NavigationState(route = Route.ScanPrimer)), ScanPermissionGranted).route)
+    assertEquals(Route.ScanDenied, rootReducer(AppState(navigation = NavigationState(route = Route.ScanPrimer)), ScanPermissionDenied).route)
   }
 
   // ── Task 5: HubsLoaded (DB-fed) prunes currentHubId + currentHubTree ──────────
@@ -363,15 +365,16 @@ class AuthReducerTest {
 
   @Test fun `sign-out clears session and feed back to SignIn`() {
     val signedIn = AppState(
-      cards = listOf(Card("c", title = "T")), session = sess,
-      families = listOf(active), activeFamilyId = "fam1", route = Route.Feed,
+      cards = listOf(Card("c", title = "T")),
+      session = SessionState(session = sess, families = listOf(active), activeFamilyId = "fam1"),
+      navigation = NavigationState(route = Route.Feed),
     )
     val s = rootReducer(signedIn, SignedOut)
     assertEquals(Route.SignIn, s.route)
-    assertNull(s.session)
-    assertTrue(s.families.isEmpty())
+    assertNull(s.session.session)
+    assertTrue(s.session.families.isEmpty())
     assertTrue(s.cards.isEmpty())
-    assertNull(s.activeFamilyId)
+    assertNull(s.session.activeFamilyId)
   }
 
   @Test fun `invite revoke failure clears only the matching busy row and preserves data`() {

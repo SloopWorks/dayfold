@@ -79,7 +79,7 @@ fun hubDetailViewState(state: AppState): HubDetailViewState = HubDetailViewState
   showHidden = state.hubs.showHidden,
   timelineDetail = state.hubs.timelineDetail,
   members = state.members,
-  currentUserId = state.session?.userId,
+  currentUserId = state.session.session?.userId,
 )
 
 @Immutable
@@ -92,5 +92,5 @@ data class HubAudienceViewState(
 fun hubAudienceViewState(state: AppState): HubAudienceViewState = HubAudienceViewState(
   audience = state.hubs.currentAudience,
   error = state.hubs.audienceError,
-  currentUserId = state.session?.userId,
+  currentUserId = state.session.session?.userId,
 )

@@ -25,7 +25,7 @@ class CardHubNavTest {
 
   @Test fun `OpenHub routes to the Hubs surface + triggers the hub load with the focus block`() = runComposeUiTest {
     val store = createTestAppStore(
-      AppState(route = Route.Feed, activeFamilyId = "family-1"),
+      AppState(session = SessionState(activeFamilyId = "family-1"), navigation = NavigationState(route = Route.Feed)),
       debug = false,
     )
     var loadedHub: String? = null; var loadedFocus: String? = "UNSET"
@@ -73,10 +73,9 @@ class CardHubNavTest {
   @Test fun `command-backed card hub navigation carries the detail return atomically`() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
-        route = Route.Feed,
+        navigation = NavigationState(route = Route.Feed, detailStack = listOf("c1")),
         cards = listOf(Card("c1", title = "X")),
-        detailStack = listOf("c1"),
-        activeFamilyId = "family-1",
+        session = SessionState(activeFamilyId = "family-1"),
       ),
       debug = false,
     )

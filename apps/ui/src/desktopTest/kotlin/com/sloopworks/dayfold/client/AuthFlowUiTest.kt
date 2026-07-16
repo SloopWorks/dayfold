@@ -55,13 +55,13 @@ class AuthFlowUiTest {
     // duplicate membership request. While the join is in flight (joinBusy) the button disables —
     // type a code so the guard under test is `busy`, not the blank-token check
     // (enabled = !busy && token.isNotBlank()). Only the snapshots + reducer covered joinBusy.
-    setContent { DayfoldTheme { JoinInviteScreen(AppState(route = Route.JoinInvite, joinBusy = true)) } }
+    setContent { DayfoldTheme { JoinInviteScreen(AppState(session = SessionState(joinBusy = true), navigation = NavigationState(route = Route.JoinInvite))) } }
     onNode(hasSetTextAction()).performTextInput("FAMILY-INVITE-7K2P")
     onNodeWithText("Join").assertIsNotEnabled()
   }
 
   @Test fun signIn_createFamily_feed_account_signOut() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     setContent {
       DayfoldTheme {
         TestFeedApp(
@@ -101,7 +101,7 @@ class AuthFlowUiTest {
   }
 
   @Test fun signIn_joinByInvite_waitsForApproval() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     setContent {
       DayfoldTheme {
         TestFeedApp(
@@ -138,7 +138,7 @@ class AuthFlowUiTest {
   }
 
   @Test fun owner_approvesPendingMember() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     setContent {
       DayfoldTheme {
         TestFeedApp(
@@ -178,7 +178,7 @@ class AuthFlowUiTest {
   }
 
   @Test fun owner_opensInviteAndMintsQr() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     setContent {
       DayfoldTheme {
         TestFeedApp(
@@ -210,7 +210,7 @@ class AuthFlowUiTest {
   }
 
   @Test fun account_revokesConnectedDevice() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     setContent {
       DayfoldTheme {
         TestFeedApp(
@@ -247,10 +247,12 @@ class AuthFlowUiTest {
   // semantically via the device-datacenter-warning testTag, so a benign restyle
   // won't mask a regression that drops the banner (or shows it for home networks).
   private fun authorizeState(originKind: String) = AppState(
-    session = Session("a", "r"),
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1",
-    route = Route.AuthorizeDevice,
+    session = SessionState(
+      session = Session("a", "r"),
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+    ),
+    navigation = NavigationState(route = Route.AuthorizeDevice),
     pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = originKind),
   )
 
@@ -304,13 +306,15 @@ class AuthFlowUiTest {
   @Test fun switchingTheFamilySelectorRoutesTheGrantToTheChosenFamily() = runComposeUiTest {
     var approvedFid: String? = null
     val twoOwner = AppState(
-      session = Session("a", "r"),
-      families = listOf(
-        FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"),
-        FamilyMembership("fam2", "Lake House", role = "owner", status = "active"),
+      session = SessionState(
+        session = Session("a", "r"),
+        families = listOf(
+          FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"),
+          FamilyMembership("fam2", "Lake House", role = "owner", status = "active"),
+        ),
+        activeFamilyId = "fam1",                                // default target
       ),
-      activeFamilyId = "fam1",                                  // default target
-      route = Route.AuthorizeDevice,
+      navigation = NavigationState(route = Route.AuthorizeDevice),
       pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
     )
     setContent { DayfoldTheme { AuthorizeDeviceScreen(twoOwner, onApprove = { fid, _ -> approvedFid = fid }) } }
@@ -325,10 +329,12 @@ class AuthFlowUiTest {
   // "Only these hubs" requires picking ≥1 hub before Approve is even tappable — the
   // API's 400 on an empty hub list is a backstop, not the UX guard (T3 review note).
   private fun authorizeStateWithHubs(hubs: List<Hub>) = AppState(
-    session = Session("a", "r"),
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1",
-    route = Route.AuthorizeDevice,
+    session = SessionState(
+      session = Session("a", "r"),
+      families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
+      activeFamilyId = "fam1",
+    ),
+    navigation = NavigationState(route = Route.AuthorizeDevice),
     pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
     hubs = HubState(hubs = hubs),
   )
@@ -363,7 +369,7 @@ class AuthFlowUiTest {
   // device-continue were orphaned, and normalizeDeviceCode/formatUserCode had no test.
   @Test fun enterCodeNormalizesThenSubmitsTheFormattedCode() = runComposeUiTest {
     var looked: String? = null
-    setContent { DayfoldTheme { EnterCodeScreen(AppState(route = Route.EnterCode), onLookup = { looked = it }) } }
+    setContent { DayfoldTheme { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onLookup = { looked = it }) } }
     onNodeWithTag("device-code-field").performTextInput("wdjf-7k2p")   // lowercase + dash, as a human types it
     onNodeWithTag("device-continue").performClick()
     assertEquals("WDJF-7K2P", looked)                            // uppercased, dash dropped then re-formatted XXXX-XXXX
@@ -371,7 +377,7 @@ class AuthFlowUiTest {
 
   @Test fun continueDoesNotSubmitAnIncompleteCode() = runComposeUiTest {
     var looked: String? = null
-    setContent { DayfoldTheme { EnterCodeScreen(AppState(route = Route.EnterCode), onLookup = { looked = it }) } }
+    setContent { DayfoldTheme { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onLookup = { looked = it }) } }
     onNodeWithTag("device-code-field").performTextInput("wd2")   // 3 chars — short
     onNodeWithTag("device-continue").performClick()
     assertEquals(null, looked)                                   // submit() guards on 8 chars; button is disabled too

@@ -69,7 +69,7 @@ class SessionBoundaryTest {
     val providerStarted = CompletableDeferred<Unit>()
     val releaseProvider = CompletableDeferred<Unit>()
     val tokenStore = MemoryTokenStore()
-    val store = createTestAppStore(AppState(route = Route.SignIn), debug = false)
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)), debug = false)
     val coordinator = SessionCoordinator(
       refreshScope = this,
       refreshSession = { error("refresh must not run") },
@@ -106,14 +106,14 @@ class SessionBoundaryTest {
 
     assertNull(coordinator.authSnapshot())
     assertNull(tokenStore.session)
-    assertNull(store.state.session)
+    assertNull(store.state.session.session)
     assertEquals(Route.SignIn, store.state.route)
   }
 
   @Test fun `a new sign in waits for terminal cleanup and survives it`() = runBlocking {
     val old = Session("old-a", "old-r", "old-user")
     val tokenStore = MemoryTokenStore(old)
-    val store = createTestAppStore(AppState(session = old, route = Route.Feed), debug = false)
+    val store = createTestAppStore(AppState(session = SessionState(session = old), navigation = NavigationState(route = Route.Feed)), debug = false)
     val cleanupEntered = CompletableDeferred<Unit>()
     val releaseCleanup = CompletableDeferred<Unit>()
     val providerExchanged = CompletableDeferred<Unit>()
@@ -154,8 +154,8 @@ class SessionBoundaryTest {
     signIn.await()
 
     assertEquals(Session("new-a", "new-r"), tokenStore.session)
-    assertEquals("new-a", store.state.session?.access)
-    assertEquals("fam-new", store.state.activeFamilyId)
+    assertEquals("new-a", store.state.session.session?.access)
+    assertEquals("fam-new", store.state.session.activeFamilyId)
     assertEquals(Route.Feed, store.state.route)
   }
 }
