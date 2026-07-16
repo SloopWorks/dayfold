@@ -552,7 +552,7 @@ class AuthEngineTest {
     val store = createTestAppStore(
       AppState(
         session = SessionState(session = Session("a1", "r1"), families = listOf(FamilyMembership("fam1", status = "active")), activeFamilyId = "fam1"),
-        navigation = NavigationState(route = Route.Feed), cards = listOf(Card("c", title = "T"))),
+        navigation = NavigationState(route = Route.Feed), content = ContentState(cards = listOf(Card("c", title = "T")))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))

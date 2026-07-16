@@ -56,6 +56,8 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
   val updated = reduceSession(state, action)
   val familyChanged = state.session.activeFamilyId != updated.session.activeFamilyId
   val familyScoped = if (familyChanged) updated.copy(
+    content = ContentState(),
+    now = NowState(),
     hubs = HubState(),
     familyAdmin = FamilyAdminState(),
   ) else updated
@@ -63,7 +65,8 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
 }
 
 private fun signedOutState(state: AppState) = AppState(
-  navigation = NavigationState(route = Route.SignIn), notifConfig = state.notifConfig, locationPermission = state.locationPermission, notificationPermission = state.notificationPermission,
+  navigation = NavigationState(route = Route.SignIn),
+  notifications = state.notifications,
 )
 
 private fun expiredSessionState(state: AppState) = signedOutState(state).copy(
@@ -77,7 +80,7 @@ private fun expiredSessionState(state: AppState) = signedOutState(state).copy(
 private val actionLog = middleware<AppState> { store, next, action ->
   val r = next(action)
   val s = store.state
-  Log.d("redux") { "${action::class.simpleName} → cards=${s.cards.size} syncing=${s.syncing} error=${s.error}" }
+  Log.d("redux") { "${action::class.simpleName} → cards=${s.content.cards.size} syncing=${s.content.syncing} error=${s.content.error}" }
   r
 }
 

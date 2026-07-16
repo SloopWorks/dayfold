@@ -7,7 +7,7 @@ import com.sloopworks.dayfold.client.*
 object SnapshotStates {
 
   // Lift verbatim from FeedSnapshotTest.kt:87-107 (the `typedFeed` val body).
-  val TYPED_FEED: AppState = AppState(cards = listOf(
+  val TYPED_FEED: AppState = AppState(content = ContentState(cards = listOf(
     Card("file", kind = "action", title = "Permission slip — sign by Thursday",
       provenance = Provenance("email"), type = "file", privacy = CardPrivacy("on_device"),
       payload = Payload(file = FilePayload(filename = "permission.pdf", mime = "application/pdf", size = 240000, pages = 2,
@@ -27,11 +27,11 @@ object SnapshotStates {
     Card("email", kind = "action", title = "School RSVP needs a reply by Thursday",
       provenance = Provenance("email"), type = "email",
       payload = Payload(email = EmailPayload(from = "Lincoln Elementary", fromAddr = "office@lincoln.edu", subject = "Field trip permission", threadLen = 2))),
-  ))
+  )))
 
   fun feed(preset: String): AppState = when (preset) {
     // Lift verbatim from FeedSnapshotTest.kt:44-55 (populatedFeedSnapshot body).
-    "busy" -> AppState(cards = listOf(
+    "busy" -> AppState(content = ContentState(cards = listOf(
       Card("a", kind = "action", title = "Party Saturday — order groceries?",
         bodyMd = "Tap [the list](https://instacart.com) to reorder.",
         provenance = Provenance("claude"), notBefore = "2026-06-18T09:00:00Z"),
@@ -39,20 +39,20 @@ object SnapshotStates {
         provenance = Provenance("claude"), notBefore = "2026-06-18T15:00:00Z"),
       Card("c", kind = "countdown", title = "Maya starts college",
         bodyMd = "12 days", provenance = Provenance("claude")),
-    ))
+    )))
     "empty" -> AppState()                                           // FeedSnapshotTest.kt:58
     "caught-up" -> AppState(hubs = HubState(hubs = listOf(          // FeedSnapshotTest.kt:63
       Hub(id = "h1", title = "Starting College", status = "active", visibility = "family"))))
-    "syncing" -> AppState(syncing = true)                          // FeedSnapshotTest.kt:66
-    "offline" -> AppState(error = "No internet connection")        // FeedSnapshotTest.kt:68
+    "syncing" -> AppState(content = ContentState(syncing = true))  // FeedSnapshotTest.kt:66
+    "offline" -> AppState(content = ContentState(error = "No internet connection")) // FeedSnapshotTest.kt:68
     "typed" -> TYPED_FEED
     // Lift verbatim from FeedSnapshotTest.kt:116-121 (`enrichedFeed` val body).
-    "enriched" -> AppState(cards = listOf(
+    "enriched" -> AppState(content = ContentState(cards = listOf(
       Card("enr", kind = "action", title = "Maya's party Saturday — order the groceries?",
         provenance = Provenance("claude"),
         media = CardMedia(icon = "party", accentColor = "#C0381E",
           thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.jpg")),
-    ))
+    )))
     else -> error("unknown feed preset '$preset'")
   }
 
@@ -98,19 +98,19 @@ object SnapshotStates {
 
   // ── Feed extras ─────────────────────────────────────────────────────────────
   // Lift verbatim from FeedSnapshotTest.kt (inviteWith) — RSVP tri-state on the invite slice.
-  fun inviteFeed(rsvp: String): AppState = AppState(cards = listOf(
+  fun inviteFeed(rsvp: String): AppState = AppState(content = ContentState(cards = listOf(
     Card("inv", kind = "action", title = "Maya's party", provenance = Provenance("email"),
       type = "invite", payload = Payload(invite = InvitePayload(eventName = "Maya's party", rsvpState = rsvp))),
-  ))
+  )))
 
   // Lift verbatim from EnrichmentSnapshotTest.kt (`feed` val) — thumb tile + accent-only pair.
   private const val HERO = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.png"
-  val ENRICHED_PAIR_FEED: AppState = AppState(cards = listOf(
+  val ENRICHED_PAIR_FEED: AppState = AppState(content = ContentState(cards = listOf(
     Card("trip", kind = "action", title = "Lisbon check-in opens today", bodyMd = "Window seats still free.",
       provenance = Provenance("claude"), media = CardMedia(icon = "travel", accentColor = "#1C6E8C", thumbnailUrl = HERO, imageAlt = "trip")),
     Card("school", kind = "action", title = "Dorm forms due Thursday", bodyMd = "Sign the housing waiver.",
       provenance = Provenance("claude"), media = CardMedia(icon = "school", accentColor = "#2C3E73")),
-  ))
+  )))
 
   // ── Enrichment hubs (EnrichmentSnapshotTest.kt `hubs` val, verbatim) ────────
   val ENRICHED_HUBS: List<Hub> = listOf(

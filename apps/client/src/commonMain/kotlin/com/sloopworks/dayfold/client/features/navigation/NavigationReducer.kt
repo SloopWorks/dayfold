@@ -2,7 +2,7 @@ package com.sloopworks.dayfold.client
 
 /** Feed detail navigation and session-gate routes not owned by another feature flow. */
 fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
-  is NavToDetail -> if (state.navigation.detailStack.lastOrNull() == action.cardId || state.cards.none { it.id == action.cardId }) state
+  is NavToDetail -> if (state.navigation.detailStack.lastOrNull() == action.cardId || state.content.cards.none { it.id == action.cardId }) state
     else state.copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack + action.cardId))
   is NavBack -> state.copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack.dropLast(1)))
   is RestoreDetailStack -> state.copy(navigation = state.navigation.copy(detailStack = action.ids))

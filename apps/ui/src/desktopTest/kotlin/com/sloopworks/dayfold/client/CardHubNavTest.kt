@@ -57,7 +57,7 @@ class CardHubNavTest {
   }
 
   @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() = runComposeUiTest {
-    val store = createTestAppStore(AppState(cards = listOf(Card("c1", title = "X"))), debug = false)
+    val store = createTestAppStore(AppState(content = ContentState(cards = listOf(Card("c1", title = "X")))), debug = false)
     lateinit var selectorStore: SelectorStore<AppState>
     setContent { selectorStore = rememberSelectorStore(store) }
     waitForIdle()
@@ -74,7 +74,7 @@ class CardHubNavTest {
     val store = createTestAppStore(
       AppState(
         navigation = NavigationState(route = Route.Feed, detailStack = listOf("c1")),
-        cards = listOf(Card("c1", title = "X")),
+        content = ContentState(cards = listOf(Card("c1", title = "X"))),
         session = SessionState(activeFamilyId = "family-1"),
       ),
       debug = false,

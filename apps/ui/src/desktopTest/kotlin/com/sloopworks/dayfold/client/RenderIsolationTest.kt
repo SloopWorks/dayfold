@@ -33,7 +33,7 @@ class RenderIsolationTest {
     assertEquals(listOf("active"), select(initial).shownHubs.map(Hub::id))
     assertEquals(1, filterInvocations)
 
-    select(initial.copy(navigation = initial.navigation.copy(route = Route.Hubs), notificationPermission = NotificationPermission.Granted))
+    select(initial.copy(navigation = initial.navigation.copy(route = Route.Hubs), notifications = initial.notifications.copy(notificationPermission = NotificationPermission.Granted)))
     select(initial.copy(hubs = initial.hubs.copy(busy = true, error = "network")))
     assertEquals(1, filterInvocations, "unrelated AppState changes must reuse the hub projection")
 

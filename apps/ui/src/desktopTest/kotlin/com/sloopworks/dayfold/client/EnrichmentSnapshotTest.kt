@@ -48,12 +48,12 @@ class EnrichmentSnapshotTest {
   @Test fun hubDetailPhotoLight() = snap("enrich-hubdetail-photo", false) { HubDetailScreen(detail(hubs[0])) }
 
   // enriched feed cards: icon+accent kind chip + (thumb→tile fallback); + accent-only.
-  private val feed = AppState(cards = listOf(
+  private val feed = AppState(content = ContentState(cards = listOf(
     Card("trip", kind = "action", title = "Lisbon check-in opens today", bodyMd = "Window seats still free.",
       provenance = Provenance("claude"), media = CardMedia(icon = "travel", accentColor = "#1C6E8C", thumbnailUrl = HERO, imageAlt = "trip")),
     Card("school", kind = "action", title = "Dorm forms due Thursday", bodyMd = "Sign the housing waiver.",
       provenance = Provenance("claude"), media = CardMedia(icon = "school", accentColor = "#2C3E73")),
-  ))
+  )))
   @Test fun enrichedFeedLight() = snap("enrich-feed", false) { FeedScreen(feed) }
   @Test fun enrichedFeedDark() = snap("enrich-feed-dark", true) { FeedScreen(feed) }
 }

@@ -591,7 +591,9 @@ class SyncEngineTest {
     oldPass.cancelAndJoin()
 
     assertFalse(store.state.syncing)
-    assertEquals(1, actions.count { it is SyncStopped })
+    // Family replacement clears ContentState synchronously; the old request's
+    // cancellation is stale and must not publish into the new family.
+    assertEquals(0, actions.count { it is SyncStopped })
     assertEquals(0, actions.count { it is SyncFailed })
   }
 

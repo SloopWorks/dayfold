@@ -17,10 +17,10 @@ class FeedScreenTest {
   @Test
   fun rendersCardsInFeedOrder() = runComposeUiTest {
     val state = AppState(
-      cards = listOf(
+      content = ContentState(cards = listOf(
         Card("b", title = "Soccer 4pm", notBefore = "2026-06-18T16:00:00Z"),
         Card("a", title = "Leave by 3:30", notBefore = "2026-06-18T15:30:00Z"),
-      ),
+      )),
     )
     setContent { MaterialTheme { FeedScreen(state) } }
     onNodeWithText("Soccer 4pm").assertIsDisplayed()
@@ -31,7 +31,7 @@ class FeedScreenTest {
   fun cardBodyRendersMarkdownNotRawSyntax() = runComposeUiTest {
     // a CLI-authored card body with **bold** must show "Reply by Thursday",
     // not the literal "**Reply**" (feed now uses the same renderer as hub blocks).
-    val state = AppState(cards = listOf(Card("c1", title = "School email", bodyMd = "**Reply** by Thursday")))
+    val state = AppState(content = ContentState(cards = listOf(Card("c1", title = "School email", bodyMd = "**Reply** by Thursday"))))
     setContent { MaterialTheme { FeedScreen(state) } }
     onNodeWithText("Reply by Thursday").assertIsDisplayed()   // markers stripped, run bolded
   }
@@ -39,7 +39,7 @@ class FeedScreenTest {
   @Test
   fun accountAvatarExposesAnAccessibleLabel() = runComposeUiTest {
     // the monogram avatar is icon-only → screen readers must hear "Account", not "Y"
-    setContent { MaterialTheme { FeedScreen(AppState(cards = listOf(Card("c1", title = "X")))) } }
+    setContent { MaterialTheme { FeedScreen(AppState(content = ContentState(cards = listOf(Card("c1", title = "X"))))) } }
     onNodeWithContentDescription("Account").assertIsDisplayed()
   }
 
@@ -68,7 +68,7 @@ class FeedScreenTest {
   fun showsSkeletonWhileSyncing() = runComposeUiTest {
     // empty + syncing now renders the FeedSkeleton (liveRegion "Loading your day")
     // after rememberStableLoading's ~200ms debounce; waitForIdle drives the delay.
-    setContent { MaterialTheme { FeedScreen(AppState(syncing = true)) } }
+    setContent { MaterialTheme { FeedScreen(AppState(content = ContentState(syncing = true))) } }
     // #164 SyncingState skeleton ("Catching up on your day"), now gated by the
     // loading-states rememberStableLoading ~200ms anti-flash debounce.
     mainClock.advanceTimeBy(250)   // past the 200ms debounce
@@ -81,7 +81,7 @@ class FeedScreenTest {
     // inside the ~200ms debounce must NEVER flash the skeleton. Hold the clock and advance
     // less than the debounce → the skeleton must not be shown.
     mainClock.autoAdvance = false
-    setContent { MaterialTheme { FeedScreen(AppState(syncing = true)) } }
+    setContent { MaterialTheme { FeedScreen(AppState(content = ContentState(syncing = true))) } }
     mainClock.advanceTimeBy(100)   // before the 200ms debounce
     onNodeWithContentDescription("Catching up on your day").assertDoesNotExist()
   }
@@ -90,7 +90,7 @@ class FeedScreenTest {
   fun emptyFeedErrorOffersRetryInsteadOfDeadEnd() = runComposeUiTest {
     // first-launch-offline: empty + error must offer a way forward, not just text
     var retried = false
-    setContent { MaterialTheme { FeedScreen(AppState(error = "Network unavailable"), onRefresh = { retried = true }) } }
+    setContent { MaterialTheme { FeedScreen(AppState(content = ContentState(error = "Network unavailable")), onRefresh = { retried = true }) } }
     onNodeWithText("Couldn't load your day").assertIsDisplayed()
     onNodeWithText("Network unavailable").assertIsDisplayed()   // the actual reason
     onNodeWithText("Try again").performClick()
@@ -102,7 +102,7 @@ class FeedScreenTest {
     // a sync error with cached cards was silent before — now a calm banner + retry,
     // and the saved cards still render (offline-first: stale beats blank).
     var retried = false
-    val state = AppState(cards = listOf(Card("c1", title = "Soccer 4pm")), error = "Network unavailable")
+    val state = AppState(content = ContentState(cards = listOf(Card("c1", title = "Soccer 4pm")), error = "Network unavailable"))
     setContent { MaterialTheme { FeedScreen(state, onRefresh = { retried = true }) } }
     onNodeWithText("Couldn't refresh", substring = true).assertIsDisplayed()
     onNodeWithText("Soccer 4pm").assertIsDisplayed()           // cached card still shown

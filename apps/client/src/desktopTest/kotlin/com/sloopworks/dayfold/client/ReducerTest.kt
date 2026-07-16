@@ -12,7 +12,7 @@ class ReducerTest {
   private val hubRequest = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
 
   @Test fun `CardsLoaded replaces the card list (DB is truth)`() {
-    var s = AppState(cards = listOf(Card("old", title = "Old")))
+    var s = AppState(content = ContentState(cards = listOf(Card("old", title = "Old"))))
     s = rootReducer(s, CardsLoaded(listOf(Card("a", title = "A"), Card("b", title = "B"))))
     assertEquals(listOf("a", "b"), s.cards.map { it.id })
   }
@@ -39,7 +39,7 @@ class ReducerTest {
   @Test fun `sync status lifecycle`() {
     val started = rootReducer(AppState(), SyncStarted)
     assertTrue(started.syncing); assertNull(started.error)
-    val ok = rootReducer(started.copy(error = "stale"), SyncSucceeded)
+    val ok = rootReducer(started.copy(content = started.content.copy(error = "stale")), SyncSucceeded)
     assertFalse(ok.syncing); assertNull(ok.error)
     val failed = rootReducer(started, SyncFailed("boom"))
     assertFalse(failed.syncing); assertEquals("boom", failed.error)
@@ -77,7 +77,7 @@ class ReducerTest {
   // ── CL-6 nav ────────────────────────────────────────────────────────────────
 
   @Test fun `NavToDetail pushes, dedups a re-tap of the top, NavBack pops`() {
-    var s = AppState(cards = listOf(Card("a", title = "A"), Card("b", title = "B")))
+    var s = AppState(content = ContentState(cards = listOf(Card("a", title = "A"), Card("b", title = "B"))))
     s = rootReducer(s, NavToDetail("a")); assertEquals(listOf("a"), s.detailStack)
     s = rootReducer(s, NavToDetail("a")); assertEquals(listOf("a"), s.detailStack)   // dedup top
     s = rootReducer(s, NavToDetail("b")); assertEquals(listOf("a", "b"), s.detailStack)
@@ -97,22 +97,22 @@ class ReducerTest {
   }
 
   @Test fun `NavToDetail to a card not in cache is a no-op (dangling related ref)`() {
-    val s = AppState(cards = listOf(Card("a", title = "A")), navigation = NavigationState(detailStack = listOf("a")))
+    val s = AppState(content = ContentState(cards = listOf(Card("a", title = "A"))), navigation = NavigationState(detailStack = listOf("a")))
     val after = rootReducer(s, NavToDetail("ghost")) // target not cached
     assertEquals(listOf("a"), after.detailStack)      // unchanged — stays on current detail
   }
 
   @Test fun `CardsLoaded prunes nav-stack ids that synced away`() {
-    var s = AppState(cards = listOf(Card("a", title = "A")), navigation = NavigationState(detailStack = listOf("a")))
+    var s = AppState(content = ContentState(cards = listOf(Card("a", title = "A"))), navigation = NavigationState(detailStack = listOf("a")))
     s = rootReducer(s, CardsLoaded(listOf(Card("b", title = "B")))) // 'a' gone
     assertEquals(emptyList(), s.detailStack)
   }
 
   @Test fun `currentDetailCard resolves the top id, null when absent`() {
     val cards = listOf(Card("a", title = "A"), Card("b", title = "B"))
-    assertNull(currentDetailCard(AppState(cards = cards)))
-    assertEquals("b", currentDetailCard(AppState(cards = cards, navigation = NavigationState(detailStack = listOf("a", "b"))))?.id)
-    assertNull(currentDetailCard(AppState(cards = cards, navigation = NavigationState(detailStack = listOf("gone")))))
+    assertNull(currentDetailCard(AppState(content = ContentState(cards = cards))))
+    assertEquals("b", currentDetailCard(AppState(content = ContentState(cards = cards), navigation = NavigationState(detailStack = listOf("a", "b"))))?.id)
+    assertNull(currentDetailCard(AppState(content = ContentState(cards = cards), navigation = NavigationState(detailStack = listOf("gone")))))
   }
 
   // ── Hubs reducer (ADR 0006/0030) ──
@@ -245,11 +245,9 @@ class ReducerTest {
   @Test fun `session terminals clear tenant state but preserve device-owned state`() {
     val deviceConfig = NotifConfig(enabled = true, dailyCap = 2)
     val state = AppState(
-      cards = listOf(Card("tenant", title = "Tenant content")),
+      content = ContentState(cards = listOf(Card("tenant", title = "Tenant content"))),
       session = SessionState(session = Session("access", "refresh"), activeFamilyId = "family"),
-      notifConfig = deviceConfig,
-      locationPermission = LocationPermission.Always,
-      notificationPermission = NotificationPermission.Granted,
+      notifications = NotificationState(deviceConfig, LocationPermission.Always, NotificationPermission.Granted),
     )
 
     listOf(rootReducer(state, SignedOut), rootReducer(state, SessionExpired)).forEach { terminal ->

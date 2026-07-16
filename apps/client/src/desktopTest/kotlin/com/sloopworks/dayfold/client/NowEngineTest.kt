@@ -92,7 +92,7 @@ class NowEngineTest {
     val cs = freshContentStore()
     val e = NowEngine(store(), cs, nowProvider = { now }, debounceMs = 20)
     val card = Card(id = "c1", title = "Bake sale", provenance = Provenance("claude"))
-    val base = AppState(cards = listOf(card))
+    val base = AppState(content = ContentState(cards = listOf(card)))
     // before: the authored card surfaces (a target-less card keys on card:<id>).
     val before = nowFeed(base, now, null, zone)
     assertTrue((before.now + before.soon + before.later + before.overflow).any { it.item.id == "authored:c1" })
@@ -100,7 +100,7 @@ class NowEngineTest {
     e.dismiss("card:c1")
     e.flushPending()
     val recs = surfacingWhen(cs) { it["card:c1"]?.dismissedAtIso != null }
-    val after = nowFeed(base.copy(surfacing = recs), now, null, zone)
+    val after = nowFeed(base.copy(now = base.now.copy(surfacing = recs)), now, null, zone)
     assertTrue((after.now + after.soon + after.later + after.overflow).none { it.item.id == "authored:c1" })
     e.stop()
   }

@@ -90,7 +90,7 @@ fun accountViewState(state: AppState): AccountViewState = AccountViewState(
   avatarBusy = state.profile.avatarOpId != null,
   avatarError = state.profile.avatarError,
   nameError = state.profile.nameError,
-  proximityEnabled = state.notifConfig.enabled,
+  proximityEnabled = state.notifications.config.enabled,
   signOutBusy = state.session.signOutBusy,
 )
 
@@ -101,7 +101,7 @@ data class ProximityViewState(
 )
 
 fun proximityViewState(state: AppState): ProximityViewState =
-  ProximityViewState(state.notifConfig, state.locationPermission)
+  ProximityViewState(state.notifications.config, state.notifications.locationPermission)
 
 @Immutable
 data class DevicesViewState(

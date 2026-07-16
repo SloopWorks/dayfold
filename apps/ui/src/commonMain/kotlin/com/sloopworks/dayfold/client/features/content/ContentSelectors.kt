@@ -21,24 +21,23 @@ data class FeedViewState(
 )
 
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
-  cards = state.cards,
+  cards = state.content.cards,
   hubs = state.hubs.hubs,
   memberCount = state.familyAdmin.members.size,
-  syncing = state.syncing,
-  error = state.error,
+  syncing = state.content.syncing,
+  error = state.content.error,
   displayName = state.profile.displayName,
   avatarColor = state.profile.avatarColor,
   avatarRef = state.profile.avatarRef,
-  nowContent = state.nowContent,
-  surfacing = state.surfacing,
+  nowContent = state.now.content,
+  surfacing = state.now.surfacing,
 )
 
 /** Small input used to memoize ranking away from store notification delivery. */
 internal fun FeedViewState.rankingState(): AppState = AppState(
-  cards = cards,
+  content = ContentState(cards = cards),
   hubs = HubState(hubs = hubs),
-  nowContent = nowContent,
-  surfacing = surfacing,
+  now = NowState(content = nowContent, surfacing = surfacing),
 )
 
 @Immutable

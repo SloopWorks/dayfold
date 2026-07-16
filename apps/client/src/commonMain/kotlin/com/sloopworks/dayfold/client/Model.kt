@@ -499,33 +499,53 @@ data class ProfileState(
   val nameError: String? = null,
 )
 
-// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
-// not here — the store is a projection of the DB.
-data class AppState(
-  // feed surface
+/** Feed content and its sync lifecycle for the active family. */
+data class ContentState(
   val cards: List<Card> = emptyList(),
   val syncing: Boolean = false,
   val error: String? = null,
+)
+
+/** DB-fed inputs and local surfacing history used by the Now ranking projection. */
+data class NowState(
+  val content: NowContent = NowContent(),
+  val surfacing: Map<String, SurfacingRecord> = emptyMap(),
+)
+
+/** Device-local notification configuration and OS-owned permission observations. */
+data class NotificationState(
+  val config: NotifConfig = NotifConfig(),
+  val locationPermission: LocationPermission = LocationPermission.Denied,
+  val notificationPermission: NotificationPermission = NotificationPermission.Denied,
+)
+
+// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
+// not here — the store is a projection of the DB.
+data class AppState(
   val session: SessionState = SessionState(),
   val navigation: NavigationState = NavigationState(),
+  val content: ContentState = ContentState(),
+  val now: NowState = NowState(),
   val familyAdmin: FamilyAdminState = FamilyAdminState(),
   val devices: DeviceState = DeviceState(),
   val profile: ProfileState = ProfileState(),
   // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
   // is DB-fed and detail/audience state is request-correlated transient UI state.
   val hubs: HubState = HubState(),
-  // ADR 0043 Phase A — the derived-lane candidate inputs + LOCAL-ONLY engine state. Both are
-  // DB-fed projections (sole-writer bridges, like hiddenIds); the nowFeed selector runs
-  // deriveNow + rank over them at render time with an injected clock + location.
-  val nowContent: NowContent = NowContent(),
-  val surfacing: Map<String, SurfacingRecord> = emptyMap(),
   // ADR 0044 Phase B — device-local, NEVER-synced. notifConfig is DB-fed (sole-writer bridge, like
   // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
   // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
-  val notifConfig: NotifConfig = NotifConfig(),
-  val locationPermission: LocationPermission = LocationPermission.Denied,
-  val notificationPermission: NotificationPermission = NotificationPermission.Denied,
+  val notifications: NotificationState = NotificationState(),
 ) {
+  /** Read-only migration accessors; no second writable content/Now/notification state exists. */
+  @Deprecated("Use content.cards") val cards get() = content.cards
+  @Deprecated("Use content.syncing") val syncing get() = content.syncing
+  @Deprecated("Use content.error") val error get() = content.error
+  @Deprecated("Use now.content") val nowContent get() = now.content
+  @Deprecated("Use now.surfacing") val surfacing get() = now.surfacing
+  @Deprecated("Use notifications.config") val notifConfig get() = notifications.config
+  @Deprecated("Use notifications.locationPermission") val locationPermission get() = notifications.locationPermission
+  @Deprecated("Use notifications.notificationPermission") val notificationPermission get() = notifications.notificationPermission
   /** Read-only migration accessors; no second writable navigation state exists. */
   @Deprecated("Use navigation.route") val route get() = navigation.route
   @Deprecated("Use navigation.detailStack") val detailStack get() = navigation.detailStack

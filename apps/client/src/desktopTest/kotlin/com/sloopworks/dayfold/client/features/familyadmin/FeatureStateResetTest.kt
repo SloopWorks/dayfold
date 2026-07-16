@@ -24,6 +24,8 @@ class FeatureStateResetTest {
       session = SessionState(session = Session("access", "refresh", "user"), activeFamilyId = "old"),
       familyAdmin = FamilyAdminState(rosterBusy = true),
       hubs = HubState(filter = "mine"),
+      content = ContentState(cards = listOf(Card("card", title = "Old family"))),
+      now = NowState(surfacing = mapOf("card" to SurfacingRecord(subjectKey = "card"))),
       devices = DeviceState(busy = true),
       profile = ProfileState(nameOpId = "name-op"),
     )
@@ -32,6 +34,8 @@ class FeatureStateResetTest {
 
     assertEquals(FamilyAdminState(), next.familyAdmin)
     assertEquals(HubState(), next.hubs)
+    assertEquals(ContentState(), next.content)
+    assertEquals(NowState(), next.now)
     assertSame(state.devices, next.devices)
     assertSame(state.profile, next.profile)
   }
@@ -41,7 +45,7 @@ class FeatureStateResetTest {
       familyAdmin = FamilyAdminState(rosterBusy = true),
       devices = DeviceState(busy = true),
       profile = ProfileState(nameOpId = "name-op"),
-      notifConfig = NotifConfig(),
+      notifications = NotificationState(config = NotifConfig()),
     )
 
     val next = rootReducer(state, SignedOut)
@@ -49,6 +53,6 @@ class FeatureStateResetTest {
     assertEquals(FamilyAdminState(), next.familyAdmin)
     assertEquals(DeviceState(), next.devices)
     assertEquals(ProfileState(), next.profile)
-    assertSame(state.notifConfig, next.notifConfig)
+    assertSame(state.notifications, next.notifications)
   }
 }

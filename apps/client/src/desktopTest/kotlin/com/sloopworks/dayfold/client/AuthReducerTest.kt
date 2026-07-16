@@ -261,7 +261,7 @@ class AuthReducerTest {
     val hubRequest = HubRequestKey(HubTenantGeneration(1L, 2L), 3L)
     val audienceRequest = HubRequestKey(hubRequest.generation, 4L)
     return AppState(
-      cards = listOf(Card("c1", title = "Soccer 4pm")),
+      content = ContentState(cards = listOf(Card("c1", title = "Soccer 4pm"))),
       familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam"))),
       devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "cli")),
       session = SessionState(session = sess, families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1", pendingInviteLink = "X"),
@@ -360,7 +360,7 @@ class AuthReducerTest {
 
   @Test fun `sign-out clears session and feed back to SignIn`() {
     val signedIn = AppState(
-      cards = listOf(Card("c", title = "T")),
+      content = ContentState(cards = listOf(Card("c", title = "T"))),
       session = SessionState(session = sess, families = listOf(active), activeFamilyId = "fam1"),
       navigation = NavigationState(route = Route.Feed),
     )

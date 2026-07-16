@@ -53,7 +53,7 @@ class DayfoldLeakTest {
       clock = Clock { 0L },
       scope = this,
     )
-    val store = createStore({ s: AppState, _: Any -> s.copy(syncing = !s.syncing) }, salted, rec.enhancer())
+    val store = createStore({ s: AppState, _: Any -> s.copy(content = s.content.copy(syncing = !s.content.syncing)) }, salted, rec.enhancer())
     rec.activate()
     repeat(3) { store.dispatch("tick"); advanceUntilIdle() }
     val text = rec.freeze()!!.journalJson.decodeToString() + rec.freeze()!!.finalStateJson.decodeToString()
