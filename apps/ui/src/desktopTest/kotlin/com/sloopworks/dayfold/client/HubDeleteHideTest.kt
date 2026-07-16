@@ -25,7 +25,7 @@ class HubDeleteHideTest {
 
   @Test fun authorCanOpenTheDeleteSheetAndConfirm() = androidx.compose.ui.test.runComposeUiTest {
     var deleted: String? = null
-    val state = AppState(session = me, currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom")))
+    val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom"))))
     setContent { MaterialTheme { HubDetailScreen(state, onDeleteBlock = { deleted = it }) } }
     onNodeWithContentDescription("More options").performClick()
     onNodeWithText("Delete").performClick()                      // overflow → Delete opens the warn sheet
@@ -35,7 +35,7 @@ class HubDeleteHideTest {
 
   @Test fun keepItDismissesWithoutDeleting() = androidx.compose.ui.test.runComposeUiTest {
     var deleted: String? = null
-    val state = AppState(session = me, currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom")))
+    val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom"))))
     setContent { MaterialTheme { HubDetailScreen(state, onDeleteBlock = { deleted = it }) } }
     onNodeWithContentDescription("More options").performClick()
     onNodeWithText("Delete").performClick()
@@ -44,7 +44,7 @@ class HubDeleteHideTest {
   }
 
   @Test fun nonAuthorSeesNoDeleteOption() = androidx.compose.ui.test.runComposeUiTest {
-    val state = AppState(session = me, currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam")))
+    val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam"))))
     setContent { MaterialTheme { HubDetailScreen(state) } }
     onNodeWithContentDescription("More options").performClick()
     onNodeWithText("Hide for me").assertIsDisplayed()            // hide is for everyone
@@ -52,7 +52,7 @@ class HubDeleteHideTest {
   }
 
   @Test fun aBlockWithNoAuthorIsNotDeletable() = androidx.compose.ui.test.runComposeUiTest {
-    val state = AppState(session = me, currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = null)))
+    val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = null))))
     setContent { MaterialTheme { HubDetailScreen(state) } }
     onNodeWithContentDescription("More options").performClick()
     onNodeWithText("Delete").assertDoesNotExist()               // legacy / loop-authored → no member delete
@@ -60,7 +60,7 @@ class HubDeleteHideTest {
 
   @Test fun overflowHideReportsTheBlock() = androidx.compose.ui.test.runComposeUiTest {
     var hidden: String? = null
-    val state = AppState(session = me, currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam")))
+    val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam"))))
     setContent { MaterialTheme { HubDetailScreen(state, onHideBlock = { hidden = it }) } }
     onNodeWithContentDescription("More options").performClick()
     onNodeWithText("Hide for me").performClick()
@@ -69,8 +69,9 @@ class HubDeleteHideTest {
 
   @Test fun aHiddenBlockLeavesTheLiveSectionAndFoldsIntoHiddenForYou() = androidx.compose.ui.test.runComposeUiTest {
     val state = AppState(
-      session = me, currentHubId = "h1", hiddenIds = setOf("b1"),
-      currentHubTree = treeWith(textBlock("b1", author = "usr_sam").copy(bodyMd = "Sensitive note")),
+      session = SessionState(session = me),
+      hubs = HubState(currentHubId = "h1", hiddenIds = setOf("b1"),
+        currentHubTree = treeWith(textBlock("b1", author = "usr_sam").copy(bodyMd = "Sensitive note"))),
     )
     setContent { MaterialTheme { HubDetailScreen(state) } }
     onNodeWithText("Sensitive note").assertDoesNotExist()        // not in the live view
@@ -80,8 +81,9 @@ class HubDeleteHideTest {
   @Test fun showHiddenRevealsTheItemWithYouHidThisAndUnhide() = androidx.compose.ui.test.runComposeUiTest {
     var unhidden: String? = null
     val state = AppState(
-      session = me, currentHubId = "h1", hiddenIds = setOf("b1"), showHidden = true,
-      currentHubTree = treeWith(textBlock("b1", author = "usr_sam").copy(bodyMd = "Sensitive note")),
+      session = SessionState(session = me),
+      hubs = HubState(currentHubId = "h1", hiddenIds = setOf("b1"), showHidden = true,
+        currentHubTree = treeWith(textBlock("b1", author = "usr_sam").copy(bodyMd = "Sensitive note"))),
     )
     setContent { MaterialTheme { HubDetailScreen(state, onUnhideBlock = { unhidden = it }) } }
     onNodeWithText("You hid this").assertIsDisplayed()

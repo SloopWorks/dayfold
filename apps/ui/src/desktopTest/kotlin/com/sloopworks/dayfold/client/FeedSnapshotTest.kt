@@ -30,20 +30,20 @@ class FeedSnapshotTest {
   @Test
   fun populatedFeedDarkSnapshot() = snapshot(
     "feed-populated-dark",
-    AppState(cards = listOf(
+    AppState(content = ContentState(cards = listOf(
       Card("a", kind = "action", title = "Party Saturday — order groceries?",
         bodyMd = "Tap [the list](https://instacart.com) to reorder.",
         provenance = Provenance("claude"), notBefore = "2026-06-18T09:00:00Z"),
       Card("c", kind = "countdown", title = "Maya starts college",
         bodyMd = "12 days", provenance = Provenance("claude")),
-    )),
+    ))),
     dark = true,
   )
 
   @Test
   fun populatedFeedSnapshot() = snapshot(
     "feed-populated",
-    AppState(cards = listOf(
+    AppState(content = ContentState(cards = listOf(
       Card("a", kind = "action", title = "Party Saturday — order groceries?",
         bodyMd = "Tap [the list](https://instacart.com) to reorder.",
         provenance = Provenance("claude"), notBefore = "2026-06-18T09:00:00Z"),
@@ -51,7 +51,7 @@ class FeedSnapshotTest {
         provenance = Provenance("claude"), notBefore = "2026-06-18T15:00:00Z"),
       Card("c", kind = "countdown", title = "Maya starts college",
         bodyMd = "12 days", provenance = Provenance("claude")),
-    )),
+    ))),
   )
 
   @Test
@@ -60,12 +60,12 @@ class FeedSnapshotTest {
   // ── #164: the four posture states for an empty feed (ADR 0008) ─────────────
   // An ESTABLISHED family (has a hub) with no cards → "all caught up", NOT onboarding —
   // the headline misframing fix. Syncing → skeleton. (feed-empty above = first-run.)
-  private val caughtUp = AppState(hubs = listOf(Hub(id = "h1", title = "Starting College", status = "active", visibility = "family")))
+  private val caughtUp = AppState(hubs = HubState(hubs = listOf(Hub(id = "h1", title = "Starting College", status = "active", visibility = "family"))))
   @Test fun caughtUpSnapshot() = snapshot("feed-caught-up", caughtUp)
   @Test fun caughtUpDarkSnapshot() = snapshot("feed-caught-up-dark", caughtUp, dark = true)
-  @Test fun syncingSnapshot() = snapshot("feed-syncing", AppState(syncing = true))
+  @Test fun syncingSnapshot() = snapshot("feed-syncing", AppState(content = ContentState(syncing = true)))
   // offline / sync error (4th posture state): recoverable — reason + Try again, never a dead-end
-  private val offline = AppState(error = "No internet connection")
+  private val offline = AppState(content = ContentState(error = "No internet connection"))
   @Test fun offlineSnapshot() = snapshot("feed-offline", offline)
   @Test fun offlineDarkSnapshot() = snapshot("feed-offline-dark", offline, dark = true)
 
@@ -84,7 +84,7 @@ class FeedSnapshotTest {
 
   // ── CL-5: the 6 typed Now cards, light + dark ──────────────────────────────
 
-  private val typedFeed = AppState(cards = listOf(
+  private val typedFeed = AppState(content = ContentState(cards = listOf(
     Card("file", kind = "action", title = "Permission slip — sign by Thursday",
       provenance = Provenance("email"), type = "file", privacy = CardPrivacy("on_device"),
       payload = Payload(file = FilePayload(filename = "permission.pdf", mime = "application/pdf", size = 240000, pages = 2,
@@ -104,7 +104,7 @@ class FeedSnapshotTest {
     Card("email", kind = "action", title = "School RSVP needs a reply by Thursday",
       provenance = Provenance("email"), type = "email",
       payload = Payload(email = EmailPayload(from = "Lincoln Elementary", fromAddr = "office@lincoln.edu", subject = "Field trip permission", threadLen = 2))),
-  ))
+  )))
 
   @Test fun typedCardsSnapshot() = snapshot("cards-typed", typedFeed)
   @Test fun typedCardsDarkSnapshot() = snapshot("cards-typed-dark", typedFeed, dark = true)
@@ -113,26 +113,26 @@ class FeedSnapshotTest {
   // The leading EnrichedThumbnail renders only when thumbnailUrl != null (no image loads
   // in headless → icon+accent tile fallback), and the kind chip goes accent-tinted. The
   // thumbnail composable + accent math had unit/hub coverage; the card render path did not.
-  private val enrichedFeed = AppState(cards = listOf(
+  private val enrichedFeed = AppState(content = ContentState(cards = listOf(
     Card("enr", kind = "action", title = "Maya's party Saturday — order the groceries?",
       provenance = Provenance("claude"),
       media = CardMedia(icon = "party", accentColor = "#C0381E",
         thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.jpg")),
-  ))
+  )))
   @Test fun enrichedCardSnapshot() = snapshot("card-enriched", enrichedFeed)
 
   // invite RSVP display-only: each authored state renders the right highlighted chip
-  private fun inviteWith(state: String) = AppState(cards = listOf(
+  private fun inviteWith(state: String) = AppState(content = ContentState(cards = listOf(
     Card("inv", kind = "action", title = "Maya's party", provenance = Provenance("email"),
       type = "invite", payload = Payload(invite = InvitePayload(eventName = "Maya's party", rsvpState = state))),
-  ))
+  )))
   @Test fun inviteRsvpNoneSnapshot() = snapshot("invite-rsvp-none", inviteWith("none"))
   @Test fun inviteRsvpYesSnapshot() = snapshot("invite-rsvp-yes", inviteWith("yes"))
   @Test fun inviteRsvpNoSnapshot() = snapshot("invite-rsvp-no", inviteWith("no"))
 
   // ── CL-6: DetailScreen per type, light + dark ──────────────────────────────
   // Reached by opening the corresponding typed card (detailStack = [id]).
-  private fun detailState(id: String) = typedFeed.copy(detailStack = listOf(id))
+  private fun detailState(id: String) = typedFeed.copy(navigation = typedFeed.navigation.copy(detailStack = listOf(id)))
 
   private fun detailSnap(name: String, id: String, dark: Boolean = false) = runComposeUiTest {
     setContent {

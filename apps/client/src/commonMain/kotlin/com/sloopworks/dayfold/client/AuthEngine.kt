@@ -126,9 +126,9 @@ class AuthEngine(
   ).also { isolated ->
     // Legacy isolated tests often construct a store already containing a session. Production
     // bootstraps the shared coordinator through restore/sign-in and never takes this path.
-    store.state.session?.let { session ->
+    store.state.session.session?.let { session ->
       val auth = isolated.install(session)
-      store.state.activeFamilyId?.let { isolated.selectFamily(auth, it) }
+      store.state.session.activeFamilyId?.let { isolated.selectFamily(auth, it) }
     }
   }
 
@@ -370,7 +370,7 @@ class AuthEngine(
   // Consume a pre-sign-in stashed invite token once memberships resolve. Called at the
   // tail of loadMembershipsLocked using the same captured identity context.
   private suspend fun resumePendingInviteLink(context: AuthSessionContext) {
-    val token = store.state.pendingInviteLink ?: return
+    val token = store.state.session.pendingInviteLink ?: return
     if (!publish(context, InviteLinkConsumed)) return
     redeemInviteLocked(token, context)
   }
@@ -407,7 +407,7 @@ class AuthEngine(
         approvalsLoadRequests,
         request,
         context,
-        ApprovalsLoaded(store.state.pendingApprovals, store.state.outstandingInvites),
+        ApprovalsLoaded(store.state.familyAdmin.pendingApprovals, store.state.familyAdmin.outstandingInvites),
         terminal = true,
       )
     }
@@ -566,7 +566,7 @@ class AuthEngine(
       } catch (cancelled: CancellationException) {
         throw cancelled
       } catch (_: Exception) {
-        store.state.members
+        store.state.familyAdmin.members
       }
       rosterRequests.invalidateAndCommit { publish(context, RosterLoaded(fallback)) }
     }
@@ -605,8 +605,8 @@ class AuthEngine(
     avatarColor: String?,
     avatarRef: String?,
   ): Unit = profileMutationMutex.withLock {
-    val prevAvatarColor = store.state.myAvatarColor
-    val prevAvatarRef = store.state.myAvatarRef
+    val prevAvatarColor = store.state.profile.avatarColor
+    val prevAvatarRef = store.state.profile.avatarRef
     publish(context, AvatarOpRequested(avatarColor, avatarRef))
     try {
       val profile = authorized(context) { accessToken ->
@@ -628,7 +628,7 @@ class AuthEngine(
 
   internal suspend fun updateDisplayName(context: AuthSessionContext, name: String): Unit =
     profileMutationMutex.withLock {
-    val prevName = store.state.myDisplayName
+    val prevName = store.state.profile.displayName
     publish(context, NameOpRequested(name))
     try {
       val profile = authorized(context) { accessToken -> authClient.updateDisplayName(accessToken, name) }
@@ -684,7 +684,7 @@ class AuthEngine(
       } catch (cancelled: CancellationException) {
         throw cancelled
       } catch (_: Exception) {
-        store.state.devices
+        store.state.devices.devices
       }
       deviceRequests.invalidateAndCommit { publish(context, DevicesLoaded(fallback)) }
     }
@@ -767,7 +767,7 @@ class AuthEngine(
   // If a deep-link code was stashed before sign-in, consume it and open the approve
   // screen now. Called at the tail of loadMembershipsLocked with the same identity context.
   private suspend fun resumePendingDeviceLink(context: AuthSessionContext) {
-    val code = store.state.pendingDeviceLink ?: return
+    val code = store.state.devices.pendingLink ?: return
     if (!publish(context, DeviceLinkConsumed)) return
     lookupDeviceLocked(code, context)
   }
@@ -829,7 +829,7 @@ class AuthEngine(
   }
 
   /** Current access token (for the SyncClient token provider, wired at T6). */
-  fun accessToken(): String? = store.state.session?.access
+  fun accessToken(): String? = store.state.session.session?.access
 
   // ── internals ──
 
@@ -843,7 +843,7 @@ class AuthEngine(
       if (!publishMemberships(context, who.families, persist = true)) return
       resumePendingDeviceLink(context)   // cold-install resume: open a link stashed pre-sign-in
       resumePendingInviteLink(context)   // ADR 0048: redeem an invite link stashed pre-sign-in
-      loadRosterLocked(store.state.activeFamilyId?.let(coordinator::familySnapshot))
+      loadRosterLocked(store.state.session.activeFamilyId?.let(coordinator::familySnapshot))
       loadProfileLocked(context)
     } catch (e: CancellationException) {
       throw e

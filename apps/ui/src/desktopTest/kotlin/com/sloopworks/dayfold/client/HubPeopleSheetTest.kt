@@ -166,12 +166,11 @@ class HubPeopleSheetTest {
   // decides which sheet to open; WhoCanSeeSheet itself never grows controls).
   @Test fun nonManagerAudienceRendersReadOnlyWhoCanSeeSheet() = runComposeUiTest {
     val state = AppState(
-      audienceSheetOpen = true,
-      currentHubAudience = HubAudience(
+      hubs = HubState(audienceSheetOpen = true, currentAudience = HubAudience(
         visibility = "restricted",
         members = listOf(owner, jordan),
         canManage = false,
-      ),
+      )),
     )
     setContent { MaterialTheme { WhoCanSeeSheet(state) } }
     onNodeWithText("Maya").assertIsDisplayed()
@@ -212,7 +211,7 @@ class HubPeopleSheetTest {
   }
 
   // Code-review fix (write-failure surfacing): a failed role/remove/visibility op
-  // dispatches HubManageFailed → state.audienceError, which HubsHost now threads into
+  // dispatches HubManageFailed → state.hubs.hubs.audienceError, which HubsHost now threads into
   // HubPeopleSheet's errorMessage param — the manager must see it, not silence.
   @Test fun errorMessageRendersAnInlineBanner() = runComposeUiTest {
     setContent {

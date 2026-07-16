@@ -51,10 +51,12 @@ fun planBackgroundNotifications(
   if (!snapshot.config.enabled) return NotifPlan()
 
   val state = AppState(
-    cards = snapshot.cards,
-    hubs = snapshot.hubs,
-    nowContent = NowContent(sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places),
-    surfacing = snapshot.surfacing,
+    content = ContentState(cards = snapshot.cards),
+    hubs = HubState(hubs = snapshot.hubs),
+    now = NowState(
+      content = NowContent(sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places),
+      surfacing = snapshot.surfacing,
+    ),
   )
   // ADR 0049 Option A (#299): background pass never surfaces a coord-only authored geo trigger.
   val feed = nowFeed(state, nowIso, location, zone, deriveConfig, rankConfig, authoredCoordGeo = false)

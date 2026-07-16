@@ -54,9 +54,9 @@ internal fun routeCardAction(
     is CardAction.OpenDetail -> store.dispatch(NavToDetail(action.cardId))
     is CardAction.OpenHub -> {  // cross-surface deep-link arrival
       // remember we came from a Feed card detail so back returns there (not the hub list)
-      val fromDetail = store.state.route == Route.Feed && store.state.detailStack.isNotEmpty()
+      val fromDetail = store.state.navigation.route == Route.Feed && store.state.navigation.detailStack.isNotEmpty()
       val destination = if (fromDetail) HubReturnDestination.FEED_DETAIL else HubReturnDestination.HUB_LIST
-      val familyId = store.state.activeFamilyId
+      val familyId = store.state.session.activeFamilyId
       if (familyId != null) {
         commands.openHub(familyId, action.hubId, action.focusBlockId, destination)
       }

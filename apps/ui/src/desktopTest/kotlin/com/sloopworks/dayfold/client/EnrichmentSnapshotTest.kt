@@ -38,22 +38,22 @@ class EnrichmentSnapshotTest {
     Hub(id = "plain", type = "move", title = "House move (unenriched)", status = "planning"),
   )
 
-  @Test fun hubListLight() = snap("enrich-hublist", false) { HubListScreen(AppState(hubs = hubs)) }
-  @Test fun hubListDark() = snap("enrich-hublist-dark", true) { HubListScreen(AppState(hubs = hubs)) }
+  @Test fun hubListLight() = snap("enrich-hublist", false) { HubListScreen(AppState(hubs = HubState(hubs = hubs))) }
+  @Test fun hubListDark() = snap("enrich-hublist-dark", true) { HubListScreen(AppState(hubs = HubState(hubs = hubs))) }
 
   // hero detail — contain logo (fallback to accent + school icon tile, with scrim title).
-  private fun detail(hub: Hub) = AppState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+  private fun detail(hub: Hub) = AppState(hubs = HubState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList())))
   @Test fun hubDetailLogoLight() = snap("enrich-hubdetail-logo", false) { HubDetailScreen(detail(hubs[1])) }
   @Test fun hubDetailLogoDark() = snap("enrich-hubdetail-logo-dark", true) { HubDetailScreen(detail(hubs[1])) }
   @Test fun hubDetailPhotoLight() = snap("enrich-hubdetail-photo", false) { HubDetailScreen(detail(hubs[0])) }
 
   // enriched feed cards: icon+accent kind chip + (thumb→tile fallback); + accent-only.
-  private val feed = AppState(cards = listOf(
+  private val feed = AppState(content = ContentState(cards = listOf(
     Card("trip", kind = "action", title = "Lisbon check-in opens today", bodyMd = "Window seats still free.",
       provenance = Provenance("claude"), media = CardMedia(icon = "travel", accentColor = "#1C6E8C", thumbnailUrl = HERO, imageAlt = "trip")),
     Card("school", kind = "action", title = "Dorm forms due Thursday", bodyMd = "Sign the housing waiver.",
       provenance = Provenance("claude"), media = CardMedia(icon = "school", accentColor = "#2C3E73")),
-  ))
+  )))
   @Test fun enrichedFeedLight() = snap("enrich-feed", false) { FeedScreen(feed) }
   @Test fun enrichedFeedDark() = snap("enrich-feed-dark", true) { FeedScreen(feed) }
 }

@@ -29,11 +29,11 @@ import works.sloop.swip.rk.recorder.slices
  * with new salts covering the added slice.
  */
 fun dayfoldSlices(): List<SliceSpec<AppState>> = slices {
-  slice("route", String.serializer(), { s -> s.route.name }, { s, v -> s.copy(route = Route.valueOf(v)) })
-  slice("syncing", Boolean.serializer(), { s -> s.syncing }, { s, v -> s.copy(syncing = v) })
-  slice("detailStack", ListSerializer(String.serializer()), { s -> s.detailStack }, { s, v -> s.copy(detailStack = v) })
-  slice("cardsCount", Int.serializer()) { s -> s.cards.size } // derived — no apply
-  slice("hubFilter", String.serializer(), { s -> s.hubFilter }, { s, v -> s.copy(hubFilter = v) })
+  slice("route", String.serializer(), { s -> s.navigation.route.name }, { s, v -> s.copy(navigation = s.navigation.copy(route = Route.valueOf(v))) })
+  slice("syncing", Boolean.serializer(), { s -> s.content.syncing }, { s, v -> s.copy(content = s.content.copy(syncing = v)) })
+  slice("detailStack", ListSerializer(String.serializer()), { s -> s.navigation.detailStack }, { s, v -> s.copy(navigation = s.navigation.copy(detailStack = v)) })
+  slice("cardsCount", Int.serializer()) { s -> s.content.cards.size } // derived — no apply
+  slice("hubFilter", String.serializer(), { s -> s.hubs.filter }, { s, v -> s.copy(hubs = s.hubs.copy(filter = v)) })
 }
 
 /**

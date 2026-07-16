@@ -22,6 +22,7 @@ import com.sloopworks.dayfold.client.DeviceApprovedConfirm
 import com.sloopworks.dayfold.client.DeviceDeniedScreen
 import com.sloopworks.dayfold.client.DeviceExpiredScreen
 import com.sloopworks.dayfold.client.DeviceFinishingScreen
+import com.sloopworks.dayfold.client.DeviceState
 import com.sloopworks.dayfold.client.DeviceResumeScreen
 import com.sloopworks.dayfold.client.DevicesScreen
 import com.sloopworks.dayfold.client.EnterCodeScreen
@@ -30,7 +31,9 @@ import com.sloopworks.dayfold.client.FeedScreen
 import com.sloopworks.dayfold.client.HubAudience
 import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubDetailScreen
+import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubListScreen
+import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.HubPeopleContent
 import com.sloopworks.dayfold.client.JoinInviteScreen
 import com.sloopworks.dayfold.client.LocationPermission
@@ -112,7 +115,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       val p = presetName(args.input)
       val state = when (p) {
-        "canonical", "enriched" -> SnapshotStates.hubTree(p).let { AppState(currentHubId = it.hub.id, currentHubTree = it) }
+        "canonical", "enriched" -> SnapshotStates.hubTree(p).let { AppState(hubs = HubState(currentHubId = it.hub.id, currentHubTree = it)) }
         "checklist" -> SnapshotStates.CHECKLIST_HUB
         "enriched-logo" -> SnapshotStates.enrichedHubDetail(SnapshotStates.ENRICHED_HUBS[1])
         "enriched-photo" -> SnapshotStates.enrichedHubDetail(SnapshotStates.ENRICHED_HUBS[0])
@@ -130,7 +133,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         TabShell(
           // Match production: the timeline overlay (timelineDetail != null) hides the bar
           // (full-screen morph, ADR 0050); every other hub-detail preset keeps it.
-          Route.Hubs, reduceMotion = true, barVisible = state.timelineDetail == null, onNow = {}, onHubs = {},
+          Route.Hubs, reduceMotion = true, barVisible = state.hubs.timelineDetail == null, onNow = {}, onHubs = {},
           feedContent = {},
           hubsContent = { HubDetailScreen(state, now = now, timeZone = NY) },
         )
@@ -145,7 +148,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         TabShell(
           Route.Hubs, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
           feedContent = {},
-          hubsContent = { HubListScreen(AppState(hubs = SnapshotStates.ENRICHED_HUBS), now = SNAPSHOT_NOW) },
+          hubsContent = { HubListScreen(AppState(hubs = HubState(hubs = SnapshotStates.ENRICHED_HUBS)), now = SNAPSHOT_NOW) },
         )
       }
     }
@@ -155,7 +158,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     presets("file", "link", "invite", "contact", "geo", "email")
     render { args ->
       val id = presetName(args.input)
-      val state = SnapshotStates.TYPED_FEED.copy(detailStack = listOf(id))
+      val state = SnapshotStates.TYPED_FEED.copy(navigation = SnapshotStates.TYPED_FEED.navigation.copy(detailStack = listOf(id)))
       val card = currentDetailCard(state)!!
       themed(args.theme) { DetailScreen(card, onBack = {}, onAction = {}) }
     }
@@ -261,9 +264,9 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       themed(args.theme) {
         when (presetName(args.input)) {
-          "entercode" -> EnterCodeScreen(AppState(route = Route.EnterCode))
-          "entercode-error" -> EnterCodeScreen(AppState(route = Route.EnterCode, deviceError = "Too many tries — wait about 15 minutes."))
-          "entercode-scan" -> EnterCodeScreen(AppState(route = Route.EnterCode), onScan = {})
+          "entercode" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)))
+          "entercode-error" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), devices = DeviceState(error = "Too many tries — wait about 15 minutes.")))
+          "entercode-scan" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onScan = {})
           "authorize-datacenter" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("datacenter"))
           "authorize-residential" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("residential"))
           "authorize-multiowner" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("residential", multiOwner = true))

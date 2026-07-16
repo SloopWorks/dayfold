@@ -62,9 +62,9 @@ class SyncEngine(
         store.dispatch(SessionRotated(session))
       },
     ).also { coordinator ->
-      store.state.session?.let { session ->
+      store.state.session.session?.let { session ->
         val auth = coordinator.install(session)
-        coordinator.selectFamily(auth, store.state.activeFamilyId)
+        coordinator.selectFamily(auth, store.state.session.activeFamilyId)
       }
     }
 
@@ -140,7 +140,7 @@ class SyncEngine(
     reason: SyncReason = SyncReason.MANUAL_REFRESH,
     isConflatedRerun: Boolean = false,
   ) {
-    val familyId = store.state.activeFamilyId ?: return
+    val familyId = store.state.session.activeFamilyId ?: return
     val context = sessionCoordinator.familySnapshot(familyId) ?: return
     adoptStatusBoundary(context)
     var statusStarted = false
@@ -311,7 +311,7 @@ class SyncEngine(
     sessionCoordinator.commitIfCurrent(context) {
       synchronized(statusGate) {
         val owner = statusOwner
-        val stale = owner != null && !owner.sameBoundary(context) && store.state.syncing
+        val stale = owner != null && !owner.sameBoundary(context) && store.state.content.syncing
         if (stale) {
           statusOwner = null
           store.dispatch(SyncStopped)
@@ -326,7 +326,7 @@ class SyncEngine(
       synchronized(statusGate) {
         statusOwner = context
         val current = store.state
-        if (!current.syncing || current.error != null) store.dispatch(SyncStarted)
+        if (!current.content.syncing || current.content.error != null) store.dispatch(SyncStarted)
         admitted = true
       }
     }
@@ -339,7 +339,7 @@ class SyncEngine(
         val owns = statusOwner?.sameBoundary(context) == true
         if (owns) {
           statusOwner = null
-          if (store.state.syncing || store.state.error != null) store.dispatch(SyncSucceeded)
+          if (store.state.content.syncing || store.state.content.error != null) store.dispatch(SyncSucceeded)
         }
       }
     }
@@ -352,7 +352,7 @@ class SyncEngine(
     synchronized(statusGate) {
       if (statusOwner?.sameBoundary(context) == true) {
         statusOwner = null
-        if (store.state.syncing) store.dispatch(SyncStopped)
+        if (store.state.content.syncing) store.dispatch(SyncStopped)
       }
     }
   }
@@ -362,7 +362,7 @@ class SyncEngine(
       synchronized(statusGate) {
         if (statusOwner?.sameBoundary(context) == true) statusOwner = null
         val current = store.state
-        if (current.syncing || current.error != message) store.dispatch(SyncFailed(message))
+        if (current.content.syncing || current.content.error != message) store.dispatch(SyncFailed(message))
       }
     }
   }

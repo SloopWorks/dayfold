@@ -185,7 +185,7 @@ class NowEngine(
 
   private fun currentTenantContext(): TenantContext? {
     val coordinator = sessionCoordinator ?: return TenantContext(null, null)
-    val familyId = store.state.activeFamilyId ?: return null
+    val familyId = store.state.session.activeFamilyId ?: return null
     val family = coordinator.familySnapshot(familyId) ?: return null
     return TenantContext(
       family = family,

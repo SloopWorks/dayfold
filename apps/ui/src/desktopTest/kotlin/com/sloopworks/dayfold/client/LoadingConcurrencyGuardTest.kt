@@ -18,8 +18,7 @@ class LoadingConcurrencyGuardTest {
     // u1's approve/decline is in flight (memberOpId) → u1 shows a spinner; u2's actions,
     // though rendered, must be disabled so they can't fire while u1 resolves.
     val state = AppState(
-      pendingApprovals = listOf(PendingMember("u1", "Alex Kim"), PendingMember("u2", "Sam Rivera")),
-      memberOpId = "u1",
+      familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u1", "Alex Kim"), PendingMember("u2", "Sam Rivera")), memberOpId = "u1"),
     )
     setContent { MaterialTheme { MembersScreen(state) } }
     onNodeWithTag("approve-u2").assertIsNotEnabled()
@@ -30,11 +29,10 @@ class LoadingConcurrencyGuardTest {
     // c1's revoke is in flight (deviceOpId) → c1 shows a spinner; c2's revoke, though
     // rendered, must be disabled so a second revoke can't race the first.
     val state = AppState(
-      devices = listOf(
+      devices = DeviceState(devices = listOf(
         DeviceCredential("c1", kind = "cli", label = "claude-code · CI"),
         DeviceCredential("c2", kind = "cli", label = "laptop · dev"),
-      ),
-      deviceOpId = "c1",
+      ), operationId = "c1"),
     )
     setContent { MaterialTheme { DevicesScreen(state) } }
     onNodeWithTag("revoke-c2").assertIsNotEnabled()

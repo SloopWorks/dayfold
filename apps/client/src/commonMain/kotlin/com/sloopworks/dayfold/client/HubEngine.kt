@@ -72,14 +72,14 @@ class HubEngine(
         store.dispatch(SessionRotated(session))
       },
     ).also { coordinator ->
-      store.state.session?.let { session ->
+      store.state.session.session?.let { session ->
         val auth = coordinator.install(session)
-        coordinator.selectFamily(auth, store.state.activeFamilyId)
+        coordinator.selectFamily(auth, store.state.session.activeFamilyId)
       }
     }
 
   private fun familyContext(): FamilySessionContext? =
-    store.state.activeFamilyId?.let(sessionCoordinator::familySnapshot)
+    store.state.session.activeFamilyId?.let(sessionCoordinator::familySnapshot)
 
   private fun requestKey(context: FamilySessionContext): HubRequestKey = HubRequestKey(
     generation = HubTenantGeneration(
@@ -528,7 +528,7 @@ class HubEngine(
     var admitted = false
     commitIfAdmitted(owner, context) {
       store.dispatch(HubAudienceRequested(hubId, request))
-      admitted = store.state.currentHubAudienceRequest == request
+      admitted = store.state.hubs.currentAudienceRequest == request
     }
     return admitted
   }

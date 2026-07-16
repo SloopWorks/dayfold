@@ -28,14 +28,14 @@ class CreateAppStoreEnhancerTest {
       )
       store.dispatch(OpenFeed) // data object, Reducer.kt:56 → route = Route.Feed (initial is Route.Loading)
       assertTrue(seen >= 1, "debug=$debug")  // >=1: devtools may re-dispatch internals
-      assertEquals(Route.Feed, store.state.route)
+      assertEquals(Route.Feed, store.state.navigation.route)
     }
   }
 
   @Test fun null_extra_enhancer_is_todays_behavior() {
     val store = createAppStore(notificationContext = NotificationContext.Inline, debug = false)
     store.dispatch(OpenFeed)
-    assertEquals(Route.Feed, store.state.route)
+    assertEquals(Route.Feed, store.state.navigation.route)
   }
 
   @Test fun supplied_notification_context_is_used_in_debug_and_release_modes() {

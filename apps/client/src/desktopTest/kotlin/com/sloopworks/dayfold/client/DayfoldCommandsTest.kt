@@ -26,20 +26,20 @@ class DayfoldCommandsTest {
 
   @Test fun `open hubs carries its return destination in one atomic action`() {
     val store = createTestAppStore(
-      AppState(route = Route.Feed, detailStack = listOf("card-1")),
+      AppState(navigation = NavigationState(route = Route.Feed, detailStack = listOf("card-1"))),
       debug = false,
     )
 
     DayfoldCommands.navigationOnly(store).openHubs(HubReturnDestination.FEED_DETAIL)
 
-    assertEquals(Route.Hubs, store.state.route)
-    assertTrue(store.state.hubFromDetail)
+    assertEquals(Route.Hubs, store.state.navigation.route)
+    assertTrue(store.state.hubs.fromFeedDetail)
   }
 
   @Test fun `close is expected-hub correlated and cannot clear a replacement hub`() {
     val request = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
     val store = createTestAppStore(
-      AppState(route = Route.Hubs, currentHubId = "hub-a", currentHubRequest = request),
+      AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "hub-a", currentHubRequest = request)),
       debug = false,
     )
     val commands = DayfoldCommands.navigationOnly(store)
@@ -48,8 +48,8 @@ class DayfoldCommandsTest {
     store.dispatch(OpenHub("hub-b", request.copy(requestId = 2L)))
     commands.closeHub("hub-a", HubReturnDestination.HUB_LIST)
 
-    assertEquals("hub-b", store.state.currentHubId)
-    assertEquals(Route.Hubs, store.state.route)
+    assertEquals("hub-b", store.state.hubs.currentHubId)
+    assertEquals(Route.Hubs, store.state.navigation.route)
   }
 
   @Test fun `device approval carries rendered family code and hubs without rereading state`() =
@@ -57,9 +57,8 @@ class DayfoldCommandsTest {
       val session = Session("access", "refresh", "user")
       val store = createTestAppStore(
         AppState(
-          session = session,
-          activeFamilyId = "family-a",
-          pendingDevice = PendingDevice(userCode = "STATE-CODE"),
+          session = SessionState(session = session, activeFamilyId = "family-a"),
+          devices = DeviceState(pendingDevice = PendingDevice(userCode = "STATE-CODE")),
         ),
         debug = false,
       )
@@ -105,9 +104,8 @@ class DayfoldCommandsTest {
       val pending = PendingMember("member-1", "Pat")
       val store = createTestAppStore(
         AppState(
-          session = session,
-          activeFamilyId = "family-a",
-          pendingApprovals = listOf(pending),
+          session = SessionState(session = session, activeFamilyId = "family-a"),
+          familyAdmin = FamilyAdminState(pendingApprovals = listOf(pending)),
         ),
         debug = false,
       )
@@ -146,7 +144,7 @@ class DayfoldCommandsTest {
       releaseRequest.complete(Unit)
       coroutineContext[Job]?.children?.toList().orEmpty().joinAll()
 
-      assertEquals(listOf(pending), store.state.pendingApprovals)
+      assertEquals(listOf(pending), store.state.familyAdmin.pendingApprovals)
       http.close()
     }
 }

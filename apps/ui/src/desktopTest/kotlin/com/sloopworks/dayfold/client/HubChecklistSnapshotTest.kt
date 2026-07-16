@@ -37,14 +37,14 @@ class HubChecklistSnapshotTest {
   }
 
   @Test fun interactiveLight() {
-    shot("checklist-interactive-light", false, AppState(currentHubId = "h1", currentHubTree = tree()))
+    shot("checklist-interactive-light", false, AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree())))
   }
   @Test fun interactiveDark() {
-    shot("checklist-interactive-dark", true, AppState(currentHubId = "h1", currentHubTree = tree()))
+    shot("checklist-interactive-dark", true, AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree())))
   }
 
   @Test fun pendingShowsQueuePill() = runComposeUiTest {
-    val state = AppState(currentHubId = "h1", currentHubTree = tree(localState = "pending"))
+    val state = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree(localState = "pending")))
     setContent { DayfoldTheme { HubDetailScreen(state) } }
     onNodeWithText("Sync now").assertExists()                     // queue pill present while a write is in flight
     val img = onRoot().captureToImage()
@@ -52,7 +52,7 @@ class HubChecklistSnapshotTest {
   }
 
   @Test fun failedShowsBannerAndRetry() = runComposeUiTest {
-    val state = AppState(currentHubId = "h1", currentHubTree = tree(localState = "failed"), error = "HTTP 500")
+    val state = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree(localState = "failed")), content = ContentState(error = "HTTP 500"))
     setContent { DayfoldTheme { HubDetailScreen(state) } }
     onNodeWithText("Couldn't save", substring = true).assertExists()
     onNodeWithText("Saved here").assertExists()                   // calm offline/queued banner

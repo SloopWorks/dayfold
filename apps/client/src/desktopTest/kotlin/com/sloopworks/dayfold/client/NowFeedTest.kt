@@ -18,7 +18,7 @@ class NowFeedTest {
   private val now = "2026-06-30T12:00:00Z"
 
   private fun state(cards: List<Card> = emptyList(), hubs: List<Hub> = emptyList(), content: NowContent = NowContent()) =
-    AppState(cards = cards, hubs = hubs, nowContent = content)
+    AppState(content = ContentState(cards = cards), hubs = HubState(hubs = hubs), now = NowState(content = content))
 
   // ── authored card triggers (#299) ────────────────────────────────────────────
   private fun geoCard(id: String, geo: TriggerGeo, vararg extra: BlockTrigger) =

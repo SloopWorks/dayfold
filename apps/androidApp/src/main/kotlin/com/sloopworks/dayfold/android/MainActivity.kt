@@ -115,7 +115,7 @@ class MainActivity : ComponentActivity() {
   // into a fresh ArrayList (Bundle requirement + defensive copy). Restore is in onCreate.
   override fun onSaveInstanceState(outState: Bundle) {
     super.onSaveInstanceState(outState)
-    if (::store.isInitialized) outState.putStringArrayList(KEY_DETAIL_STACK, ArrayList(store.state.detailStack))
+    if (::store.isInitialized) outState.putStringArrayList(KEY_DETAIL_STACK, ArrayList(store.state.navigation.detailStack))
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -276,7 +276,7 @@ class MainActivity : ComponentActivity() {
     // the geofence set + exact alarms fresh while the feature is on (part of the re-registration matrix).
     lifecycleScope.launch {
       cs.nowContentFlow().collect {
-        if (store.state.notifConfig.enabled) {
+        if (store.state.notifications.config.enabled) {
           val regions = cs.activePlaces().take(ANDROID_REGION_CAP)
             .map { GeoRegion(it.id, it.lat, it.lng, it.radiusM?.toDouble() ?: DEFAULT_GEOFENCE_RADIUS_M) }
           geofence.register(regions)

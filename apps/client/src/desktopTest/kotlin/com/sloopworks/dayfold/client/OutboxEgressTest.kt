@@ -29,7 +29,7 @@ class OutboxEgressTest {
   private fun engine(cs: ContentStore, sc: SyncClient) =
     SyncEngine(
       createTestAppStore(
-        AppState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        AppState(session = SessionState(session = Session("tok", "refresh"), activeFamilyId = "fam1")),
         debug = false,
       ),
       cs,
@@ -276,7 +276,7 @@ class OutboxEgressTest {
     seed(cs, block(done = false, version = 1), "c0")
     cs.enqueueBlockToggle("b1", "i1", true, "mom", "2026-06-29T10:00:00Z", "op-refresh")
     val appStore = createTestAppStore(
-      AppState(session = Session("old-a", "old-r"), activeFamilyId = "fam1"),
+      AppState(session = SessionState(session = Session("old-a", "old-r"), activeFamilyId = "fam1")),
       debug = false,
     )
     val tokens = object : TokenStore {
@@ -318,7 +318,7 @@ class OutboxEgressTest {
 
     assertEquals(2, puts)
     assertEquals(Session("new-a", "new-r"), tokens.session)
-    assertEquals(Session("new-a", "new-r"), appStore.state.session)
+    assertEquals(Session("new-a", "new-r"), appStore.state.session.session)
     assertEquals(0, cs.pendingOpCount())
   }
 }

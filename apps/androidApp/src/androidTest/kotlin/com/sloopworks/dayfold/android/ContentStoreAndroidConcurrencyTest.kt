@@ -66,7 +66,7 @@ class ContentStoreAndroidConcurrencyTest {
         worker("android-snapshot-reader") {
           repeat(ITERATIONS * 2) {
             val snapshot = store.notifSnapshot()
-            snapshot.cards.forEach { card -> check(card.id.isNotEmpty()) }
+            snapshot.content.cards.forEach { card -> check(card.id.isNotEmpty()) }
             snapshot.log.forEach { row -> check(row.subjectKey.isNotEmpty()) }
           }
         },
@@ -96,8 +96,8 @@ class ContentStoreAndroidConcurrencyTest {
       store.logNotification("final-subject", NOW)
 
       val snapshot = store.notifSnapshot()
-      assertEquals(listOf("final-card"), snapshot.cards.map { it.id })
-      assertEquals(listOf("final-hub"), snapshot.hubs.map { it.id })
+      assertEquals(listOf("final-card"), snapshot.content.cards.map { it.id })
+      assertEquals(listOf("final-hub"), snapshot.hubs.hubs.map { it.id })
       assertEquals(listOf("final-section"), snapshot.sections.map { it.id })
       assertEquals(listOf("final-block"), snapshot.blocks.map { it.id })
       assertEquals(listOf("final-place"), snapshot.places.map { it.id })

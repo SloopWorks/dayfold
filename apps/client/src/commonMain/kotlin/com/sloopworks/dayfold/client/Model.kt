@@ -433,130 +433,109 @@ data class PendingDevice(
   @SerialName("expires_at") val expiresAt: String? = null,
 )
 
-// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
-// not here — the store is a projection of the DB. The auth fields below are the
-// only client-held session state; the access token is attached per request and
+// The account/session projection. The access token is attached per request and
 // re-validated server-side (never trusted locally for authz).
-data class AppState(
-  // feed surface
-  val cards: List<Card> = emptyList(),
-  val syncing: Boolean = false,
-  val error: String? = null,
-  // CL-6 nav: a STACK of card ids (top = current detail, empty = feed). A stack
-  // so related-edges (CL-8) chain detail→detail. Nav is app state (ADR 0013), not
-  // a side channel. Not persisted at M0 → cold start returns to feed (restoring
-  // an open detail across process death is not an M0 requirement).
-  val detailStack: List<String> = emptyList(),
-  // auth / session (S5)
+data class SessionState(
   val session: Session? = null,
   val families: List<FamilyMembership> = emptyList(),
   val activeFamilyId: String? = null,
-  val route: Route = Route.Loading,
   val authBusy: Boolean = false,
   val authError: String? = null,
-  // invitee-join (S5 slice-2). outcome: null | waiting | expired | locked |
-  // already | removed | error — the join screen renders the matching A8b state.
   val joinBusy: Boolean = false,
   val joinOutcome: String? = null,
   val joinFamilyName: String? = null,
-  // owner-side approvals (S6). The pending-member queue + a busy flag.
-  val pendingApprovals: List<PendingMember> = emptyList(),
-  val approvalsBusy: Boolean = false,
-  // the active member roster (GET /members).
-  val members: List<FamilyMember> = emptyList(),
-  // connected devices/apps — the caller's credentials (GET /auth/me/credentials).
-  val devices: List<DeviceCredential> = emptyList(),
-  // CLI/device approval (S6-D). The pending grant being reviewed + a busy flag +
-  // an inline error (lookup transient/lockout). deviceOutcome is the terminal
-  // screen the AuthorizeDevice route renders: null | "denied" | "expired" | "approved".
-  val pendingDevice: PendingDevice? = null,
-  val deviceBusy: Boolean = false,
-  val deviceError: String? = null,
-  val deviceOutcome: String? = null,
-  // Deep-link (Phase 2): a user_code captured from an App/Universal Link before
-  // the owner was signed in. Stashed here, then consumed + looked up once sign-in
-  // resolves memberships (cold-install resume). Null = nothing pending.
-  val pendingDeviceLink: String? = null,
-  // True between consuming a stashed deep-link and the lookup resolving — the
-  // Loading route then shows the "Finishing…" beat instead of the plain splash.
-  val deviceResuming: Boolean = false,
+  val pendingProvider: String? = null,
+  val signOutBusy: Boolean = false,
   // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
   // once memberships resolve. Null = nothing pending.
   val pendingInviteLink: String? = null,
-  // Hubs surface (ADR 0006 render). The list + the open hub's tree. currentHubId
-  // null = list, set = detail (a Hubs substate, like detailStack is for Feed).
-  val hubs: List<Hub> = emptyList(),
-  val hubsBusy: Boolean = false,
-  val hubError: String? = null,
-  val hubFilter: String = "all",                              // all | active | planning (list filter chips)
-  val currentHubId: String? = null,
-  val currentHubTree: HubTree? = null,
-  // Correlates the open tree collector with one exact identity/family generation and request.
-  // Late collector emissions are reducer-rejected after close, re-open, or tenant replacement.
-  val currentHubRequest: HubRequestKey? = null,
-  val hubFocusBlockId: String? = null,                        // deep-link arrival: the block to highlight
-  // True when the current hub was opened by a CROSS-SURFACE deep-link from a Feed card detail
-  // (not the Hubs list). Back then returns to that card detail (CloseHubToFeed) instead of the
-  // hub list. Set on the deep-link path, cleared on any Hubs-list entry / hub close.
-  val hubFromDetail: Boolean = false,
-  val timelineDetail: TimelineScale? = null,                  // ADR 0045 — non-null = timeline detail overlay open at this scale
-  // W5 hide (ADR 0038 §W5) — DB-fed set of locally-hidden entity ids (bridge writes it);
-  // showHidden is the per-view "Show hidden" toggle (reset on open/close hub). Hide is
-  // local-only + personal — never synced, no family-visible signal.
-  val hiddenIds: Set<String> = emptySet(),
-  val showHidden: Boolean = false,
-  // ADR 0043 Phase A — the derived-lane candidate inputs + LOCAL-ONLY engine state. Both are
-  // DB-fed projections (sole-writer bridges, like hiddenIds); the nowFeed selector runs
-  // deriveNow + rank over them at render time with an injected clock + location.
-  val nowContent: NowContent = NowContent(),
+)
+
+// Transient navigation is deliberately non-persisted. A cold start returns to
+// Feed rather than restoring an open card detail.
+data class NavigationState(
+  val route: Route = Route.Loading,
+  val detailStack: List<String> = emptyList(),
+)
+
+/** Owner-side roster, approvals, and invite administration for the active family. */
+data class FamilyAdminState(
+  val pendingApprovals: List<PendingMember> = emptyList(),
+  val approvalsBusy: Boolean = false,
+  val members: List<FamilyMember> = emptyList(),
+  val rosterBusy: Boolean = false,
+  val rosterError: String? = null,
+  val memberOpId: String? = null,
+  val inviteMode: String = "qr",
+  val inviteBusy: Boolean = false,
+  val mintedInvite: MintedInvite? = null,
+  val mintError: String? = null,
+  val outstandingInvites: List<Invite> = emptyList(),
+  val inviteOpId: String? = null,
+)
+
+/** Account-scoped connected-device data plus device-local approval-flow UI state. */
+data class DeviceState(
+  val devices: List<DeviceCredential> = emptyList(),
+  val listBusy: Boolean = false,
+  val listError: String? = null,
+  val operationId: String? = null,
+  val pendingDevice: PendingDevice? = null,
+  val busy: Boolean = false,
+  val error: String? = null,
+  val outcome: String? = null,
+  val pendingLink: String? = null,
+  val resuming: Boolean = false,
+)
+
+/** The signed-in user's editable profile projection. */
+data class ProfileState(
+  val displayName: String? = null,
+  val avatarColor: String? = null,
+  val avatarRef: String? = null,
+  val avatarOpId: String? = null,
+  val avatarError: String? = null,
+  val nameOpId: String? = null,
+  val nameError: String? = null,
+)
+
+/** Feed content and its sync lifecycle for the active family. */
+data class ContentState(
+  val cards: List<Card> = emptyList(),
+  val syncing: Boolean = false,
+  val error: String? = null,
+)
+
+/** DB-fed inputs and local surfacing history used by the Now ranking projection. */
+data class NowState(
+  val content: NowContent = NowContent(),
   val surfacing: Map<String, SurfacingRecord> = emptyMap(),
+)
+
+/** Device-local notification configuration and OS-owned permission observations. */
+data class NotificationState(
+  val config: NotifConfig = NotifConfig(),
+  val locationPermission: LocationPermission = LocationPermission.Denied,
+  val notificationPermission: NotificationPermission = NotificationPermission.Denied,
+)
+
+// Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
+// not here — the store is a projection of the DB.
+data class AppState(
+  val session: SessionState = SessionState(),
+  val navigation: NavigationState = NavigationState(),
+  val content: ContentState = ContentState(),
+  val now: NowState = NowState(),
+  val familyAdmin: FamilyAdminState = FamilyAdminState(),
+  val devices: DeviceState = DeviceState(),
+  val profile: ProfileState = ProfileState(),
+  // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
+  // is DB-fed and detail/audience state is request-correlated transient UI state.
+  val hubs: HubState = HubState(),
   // ADR 0044 Phase B — device-local, NEVER-synced. notifConfig is DB-fed (sole-writer bridge, like
   // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
   // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
-  val notifConfig: NotifConfig = NotifConfig(),
-  val locationPermission: LocationPermission = LocationPermission.Denied,
-  val notificationPermission: NotificationPermission = NotificationPermission.Denied,
-  // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
-  // currentHubAudience null while loading.
-  val audienceSheetOpen: Boolean = false,
-  val currentHubAudience: HubAudience? = null,
-  // The latest audience load/mutation reload admitted for the current hub. Result and failure
-  // actions must match this key so cancelled or reordered requests cannot overwrite newer UI.
-  val currentHubAudienceRequest: HubRequestKey? = null,
-  // loading-state additions (2026-06-28)
-  val pendingProvider: String? = null,   // which sign-in provider button spins
-  val signOutBusy: Boolean = false,
-  val rosterBusy: Boolean = false,
-  val rosterError: String? = null,
-  val memberOpId: String? = null,        // member row currently approving/declining/removing
-  // owner invite-mint (Invite screen). mintedInvite carries the RAW one-time token for
-  // display only — cleared on leave (InviteDismissed), NEVER persisted to the DB.
-  val inviteMode: String = "qr",         // "qr" | "link" segmented toggle
-  val inviteBusy: Boolean = false,       // mint in flight
-  val mintedInvite: MintedInvite? = null,
-  val mintError: String? = null,         // ratelimited | forbidden | error
-  val outstandingInvites: List<Invite> = emptyList(),
-  val inviteOpId: String? = null,        // outstanding-invite row currently revoking
-  val deviceListBusy: Boolean = false,
-  val deviceListError: String? = null,
-  val deviceOpId: String? = null,        // device row currently revoking
-  val audienceError: String? = null,
-  // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
-  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId — non-null only
-  // while a PATCH is in flight, cleared by either terminal action. The update IS
-  // optimistic (AvatarOpRequested applies the picked value immediately, no network
-  // wait) but the optimistic value is REVERTED on failure (mirrors removeMember's
-  // reconcile-on-failure) and avatarError surfaces the failure (mirrors
-  // rosterError/devicesError).
-  val myDisplayName: String? = null,
-  val myAvatarColor: String? = null,
-  val myAvatarRef: String? = null,
-  val avatarOpId: String? = null,
-  val avatarError: String? = null,
-  // Display-name edit (mirrors avatarOpId/avatarError): nameOpId non-null while the PATCH is
-  // in flight; nameError surfaces a failed rename (reverted).
-  val nameOpId: String? = null,
-  val nameError: String? = null,
+  val notifications: NotificationState = NotificationState(),
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);

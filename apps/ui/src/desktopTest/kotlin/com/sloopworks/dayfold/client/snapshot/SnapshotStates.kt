@@ -7,7 +7,7 @@ import com.sloopworks.dayfold.client.*
 object SnapshotStates {
 
   // Lift verbatim from FeedSnapshotTest.kt:87-107 (the `typedFeed` val body).
-  val TYPED_FEED: AppState = AppState(cards = listOf(
+  val TYPED_FEED: AppState = AppState(content = ContentState(cards = listOf(
     Card("file", kind = "action", title = "Permission slip — sign by Thursday",
       provenance = Provenance("email"), type = "file", privacy = CardPrivacy("on_device"),
       payload = Payload(file = FilePayload(filename = "permission.pdf", mime = "application/pdf", size = 240000, pages = 2,
@@ -27,11 +27,11 @@ object SnapshotStates {
     Card("email", kind = "action", title = "School RSVP needs a reply by Thursday",
       provenance = Provenance("email"), type = "email",
       payload = Payload(email = EmailPayload(from = "Lincoln Elementary", fromAddr = "office@lincoln.edu", subject = "Field trip permission", threadLen = 2))),
-  ))
+  )))
 
   fun feed(preset: String): AppState = when (preset) {
     // Lift verbatim from FeedSnapshotTest.kt:44-55 (populatedFeedSnapshot body).
-    "busy" -> AppState(cards = listOf(
+    "busy" -> AppState(content = ContentState(cards = listOf(
       Card("a", kind = "action", title = "Party Saturday — order groceries?",
         bodyMd = "Tap [the list](https://instacart.com) to reorder.",
         provenance = Provenance("claude"), notBefore = "2026-06-18T09:00:00Z"),
@@ -39,20 +39,20 @@ object SnapshotStates {
         provenance = Provenance("claude"), notBefore = "2026-06-18T15:00:00Z"),
       Card("c", kind = "countdown", title = "Maya starts college",
         bodyMd = "12 days", provenance = Provenance("claude")),
-    ))
+    )))
     "empty" -> AppState()                                           // FeedSnapshotTest.kt:58
-    "caught-up" -> AppState(hubs = listOf(                          // FeedSnapshotTest.kt:63
-      Hub(id = "h1", title = "Starting College", status = "active", visibility = "family")))
-    "syncing" -> AppState(syncing = true)                          // FeedSnapshotTest.kt:66
-    "offline" -> AppState(error = "No internet connection")        // FeedSnapshotTest.kt:68
+    "caught-up" -> AppState(hubs = HubState(hubs = listOf(          // FeedSnapshotTest.kt:63
+      Hub(id = "h1", title = "Starting College", status = "active", visibility = "family"))))
+    "syncing" -> AppState(content = ContentState(syncing = true))  // FeedSnapshotTest.kt:66
+    "offline" -> AppState(content = ContentState(error = "No internet connection")) // FeedSnapshotTest.kt:68
     "typed" -> TYPED_FEED
     // Lift verbatim from FeedSnapshotTest.kt:116-121 (`enrichedFeed` val body).
-    "enriched" -> AppState(cards = listOf(
+    "enriched" -> AppState(content = ContentState(cards = listOf(
       Card("enr", kind = "action", title = "Maya's party Saturday — order the groceries?",
         provenance = Provenance("claude"),
         media = CardMedia(icon = "party", accentColor = "#C0381E",
           thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.jpg")),
-    ))
+    )))
     else -> error("unknown feed preset '$preset'")
   }
 
@@ -93,24 +93,24 @@ object SnapshotStates {
 
   // The 6 detail cards are the same objects as TYPED_FEED's cards, addressed by id.
   fun detailCard(preset: String): Card =
-    TYPED_FEED.cards.firstOrNull { it.id == preset }
-      ?: error("unknown detail preset '$preset' (ids: ${TYPED_FEED.cards.map { it.id }})")
+    TYPED_FEED.content.cards.firstOrNull { it.id == preset }
+      ?: error("unknown detail preset '$preset' (ids: ${TYPED_FEED.content.cards.map { it.id }})")
 
   // ── Feed extras ─────────────────────────────────────────────────────────────
   // Lift verbatim from FeedSnapshotTest.kt (inviteWith) — RSVP tri-state on the invite slice.
-  fun inviteFeed(rsvp: String): AppState = AppState(cards = listOf(
+  fun inviteFeed(rsvp: String): AppState = AppState(content = ContentState(cards = listOf(
     Card("inv", kind = "action", title = "Maya's party", provenance = Provenance("email"),
       type = "invite", payload = Payload(invite = InvitePayload(eventName = "Maya's party", rsvpState = rsvp))),
-  ))
+  )))
 
   // Lift verbatim from EnrichmentSnapshotTest.kt (`feed` val) — thumb tile + accent-only pair.
   private const val HERO = "https://upload.wikimedia.org/wikipedia/commons/0/0c/Logo.png"
-  val ENRICHED_PAIR_FEED: AppState = AppState(cards = listOf(
+  val ENRICHED_PAIR_FEED: AppState = AppState(content = ContentState(cards = listOf(
     Card("trip", kind = "action", title = "Lisbon check-in opens today", bodyMd = "Window seats still free.",
       provenance = Provenance("claude"), media = CardMedia(icon = "travel", accentColor = "#1C6E8C", thumbnailUrl = HERO, imageAlt = "trip")),
     Card("school", kind = "action", title = "Dorm forms due Thursday", bodyMd = "Sign the housing waiver.",
       provenance = Provenance("claude"), media = CardMedia(icon = "school", accentColor = "#2C3E73")),
-  ))
+  )))
 
   // ── Enrichment hubs (EnrichmentSnapshotTest.kt `hubs` val, verbatim) ────────
   val ENRICHED_HUBS: List<Hub> = listOf(
@@ -123,10 +123,10 @@ object SnapshotStates {
     Hub(id = "plain", type = "move", title = "House move (unenriched)", status = "planning"),
   )
   fun enrichedHubDetail(hub: Hub): AppState =
-    AppState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+    AppState(hubs = HubState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList())))
 
   // ── Checklist hub (HubChecklistSnapshotTest.kt `tree()`, verbatim) ──────────
-  val CHECKLIST_HUB: AppState = AppState(currentHubId = "h1", currentHubTree = HubTree(
+  val CHECKLIST_HUB: AppState = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = HubTree(
     hub = Hub(id = "h1", type = "party-event", title = "Maya's birthday", status = "active", visibility = "family"),
     sections = listOf(HubSection(id = "s1", hubId = "h1", title = "Packing", ord = 0)),
     blocks = listOf(HubBlock(id = "b_chk", sectionId = "s1", type = "checklist", ord = 0, version = 3,
@@ -134,7 +134,7 @@ object SnapshotStates {
         ChecklistItem(id = "i1", text = "Cooler + ice", done = false, assignee = "Sam"),
         ChecklistItem(id = "i2", text = "Beach umbrella", done = false),
         ChecklistItem(id = "i3", text = "Sunscreen", done = true, doneBy = "Mom", doneAt = "2026-06-29T10:00:00Z"))))),
-  ))
+  )))
 
   // ── Timelines (TimelineCard/TimelineDetail/HubTimelineIntegration tests, verbatim) ──
   // All pinned to move-in day 10:40 ET so done/next markers are stable.
@@ -229,57 +229,56 @@ object SnapshotStates {
     ),
   )
   fun timelineHubCardState(): AppState = AppState(
-    route = Route.Hubs, currentHubId = "h1",
+    navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h1",
     currentHubTree = HubTree(hub = Hub(id = "h1", type = "starting-college", title = "Move-in Day Hub",
       status = "active", visibility = "family", timeline = integrationTimeline())),
-  )
-  fun timelineHubOverlayState(): AppState = timelineHubCardState().copy(timelineDetail = TimelineScale.Day)
-  fun timelineHubHiddenState(): AppState = timelineHubCardState().copy(hiddenIds = setOf("timeline:h1"), showHidden = true)
-  fun timelineNudgeState(): AppState = AppState(route = Route.Hubs, currentHubId = "h3",
+  ))
+  fun timelineHubOverlayState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(timelineDetail = TimelineScale.Day)) }
+  fun timelineHubHiddenState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(hiddenIds = setOf("timeline:h1"), showHidden = true)) }
+  fun timelineNudgeState(): AppState = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3",
     currentHubTree = HubTree(hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
-      visibility = "family", countdownTo = "2026-09-01")))
+      visibility = "family", countdownTo = "2026-09-01"))))
   fun derivedTimelineHubState(): AppState =
-    AppState(route = Route.Hubs, currentHubId = "h", currentHubTree = derivedTimelineTree())
+    AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h", currentHubTree = derivedTimelineTree()))
 
   // ── Auth / account / join (AuthScreensSnapshotTest.kt, verbatim) ────────────
   val ACCOUNT_STATE: AppState = AppState(
-    session = Session("a", "r"),
-    families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")),
-    activeFamilyId = "fam1", route = Route.Account,
+    session = SessionState(session = Session("a", "r"), families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
+    navigation = NavigationState(route = Route.Account),
   )
   fun joinState(outcome: String? = null, familyName: String? = null): AppState =
-    AppState(route = Route.JoinInvite, joinOutcome = outcome, joinFamilyName = familyName)
+    AppState(session = SessionState(joinOutcome = outcome, joinFamilyName = familyName), navigation = NavigationState(route = Route.JoinInvite))
 
   // ── Members (AuthScreensSnapshotTest.kt members* fixtures, verbatim) ────────
   private val FAM = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))
   fun membersState(preset: String): AppState = when (preset) {
-    "roster" -> AppState(families = FAM, activeFamilyId = "fam1",
+    "roster" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(
         FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
         FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
-      ))
-    "loading" -> AppState(families = FAM, activeFamilyId = "fam1", rosterBusy = true)
-    "error" -> AppState(families = FAM, activeFamilyId = "fam1", rosterError = "Couldn't load members. Try again.")
-    "row-busy" -> AppState(families = FAM, activeFamilyId = "fam1",
+      )))
+    "loading" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterBusy = true))
+    "error" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterError = "Couldn't load members. Try again."))
+    "row-busy" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
-      memberOpId = "u9")
+      memberOpId = "u9"))
     else -> error("unknown members preset '$preset'")
   }
 
   // ── Devices (AuthScreensSnapshotTest.kt devices* fixtures, verbatim) ────────
   fun devicesState(preset: String): AppState = when (preset) {
-    "list" -> AppState(devices = listOf(
+    "list" -> AppState(devices = DeviceState(devices = listOf(
       DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
       DeviceCredential("c2", kind = "cli", label = "claude-code · CI", lastUsedAt = "2026-06-19T09:00:00Z", lastUsedIp = "San Jose"),
-    ))
-    "loading" -> AppState(deviceListBusy = true)
-    "error" -> AppState(deviceListError = "Couldn't load devices. Try again.")
-    "row-busy" -> AppState(devices = listOf(
+    )))
+    "loading" -> AppState(devices = DeviceState(listBusy = true))
+    "error" -> AppState(devices = DeviceState(listError = "Couldn't load devices. Try again."))
+    "row-busy" -> AppState(devices = DeviceState(devices = listOf(
       DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
       DeviceCredential("c2", kind = "cli", label = "claude-code · CI"),
-    ), deviceOpId = "c2")
+    ), operationId = "c2"))
     else -> error("unknown devices preset '$preset'")
   }
 
@@ -288,10 +287,10 @@ object SnapshotStates {
   fun authorizeState(originKind: String, multiOwner: Boolean = false): AppState {
     val fams = if (multiOwner) TWO_FAM else FAM
     return AppState(
-      session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId,
-      route = Route.AuthorizeDevice,
-      pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
-        originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
+      session = SessionState(session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId),
+      navigation = NavigationState(route = Route.AuthorizeDevice),
+      devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
+        originUa = "dayfold-cli/1.0 · macOS", originKind = originKind)),
     )
   }
 

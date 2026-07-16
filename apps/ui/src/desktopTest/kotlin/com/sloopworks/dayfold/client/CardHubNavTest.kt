@@ -25,7 +25,7 @@ class CardHubNavTest {
 
   @Test fun `OpenHub routes to the Hubs surface + triggers the hub load with the focus block`() = runComposeUiTest {
     val store = createTestAppStore(
-      AppState(route = Route.Feed, activeFamilyId = "family-1"),
+      AppState(session = SessionState(activeFamilyId = "family-1"), navigation = NavigationState(route = Route.Feed)),
       debug = false,
     )
     var loadedHub: String? = null; var loadedFocus: String? = "UNSET"
@@ -51,13 +51,13 @@ class CardHubNavTest {
       StablePlatformActions.noOp(),
       CardAction.OpenHub("h_party", "blk_chk"),
     )
-    assertEquals(Route.Hubs, store.state.route)   // cross-surface nav (OpenHubs dispatched)
+    assertEquals(Route.Hubs, store.state.navigation.route)   // cross-surface nav (OpenHubs dispatched)
     assertEquals("h_party", loadedHub)            // engine load triggered with the hub id
     assertEquals("blk_chk", loadedFocus)          // + the deep-link focus block (arrival highlight)
   }
 
   @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() = runComposeUiTest {
-    val store = createTestAppStore(AppState(cards = listOf(Card("c1", title = "X"))), debug = false)
+    val store = createTestAppStore(AppState(content = ContentState(cards = listOf(Card("c1", title = "X")))), debug = false)
     lateinit var selectorStore: SelectorStore<AppState>
     setContent { selectorStore = rememberSelectorStore(store) }
     waitForIdle()
@@ -67,16 +67,15 @@ class CardHubNavTest {
       StablePlatformActions.noOp(),
       CardAction.OpenDetail("c1"),
     )
-    assertEquals(listOf("c1"), store.state.detailStack)
+    assertEquals(listOf("c1"), store.state.navigation.detailStack)
   }
 
   @Test fun `command-backed card hub navigation carries the detail return atomically`() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
-        route = Route.Feed,
-        cards = listOf(Card("c1", title = "X")),
-        detailStack = listOf("c1"),
-        activeFamilyId = "family-1",
+        navigation = NavigationState(route = Route.Feed, detailStack = listOf("c1")),
+        content = ContentState(cards = listOf(Card("c1", title = "X"))),
+        session = SessionState(activeFamilyId = "family-1"),
       ),
       debug = false,
     )
@@ -91,7 +90,7 @@ class CardHubNavTest {
       commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
     )
 
-    assertEquals(Route.Hubs, store.state.route)
-    assertEquals(true, store.state.hubFromDetail)
+    assertEquals(Route.Hubs, store.state.navigation.route)
+    assertEquals(true, store.state.hubs.fromFeedDetail)
   }
 }

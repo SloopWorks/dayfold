@@ -15,7 +15,7 @@ import kotlin.time.Instant
 // not a visibility gate).
 fun feedCards(state: AppState, nowIso: String): List<Card> {
   val now = parseTs(nowIso)
-  return state.cards
+  return state.content.cards
     .filter { card -> now == null || card.expiresAt == null || (parseTs(card.expiresAt)?.let { it > now } ?: true) }
     .sortedWith(compareBy({ it.notBefore == null }, { it.notBefore }, { it.id }))
 }
@@ -25,4 +25,4 @@ private fun parseTs(s: String?): Instant? = normalizeTs(s)?.let { runCatching { 
 // CL-6: the card at the top of the detail stack, or null (→ feed). Null also when
 // the open card synced away — the host gracefully falls back to the feed.
 fun currentDetailCard(state: AppState): Card? =
-  state.detailStack.lastOrNull()?.let { id -> state.cards.find { it.id == id } }
+  state.navigation.detailStack.lastOrNull()?.let { id -> state.content.cards.find { it.id == id } }

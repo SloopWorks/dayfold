@@ -21,24 +21,23 @@ data class FeedViewState(
 )
 
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
-  cards = state.cards,
-  hubs = state.hubs,
-  memberCount = state.members.size,
-  syncing = state.syncing,
-  error = state.error,
-  displayName = state.myDisplayName,
-  avatarColor = state.myAvatarColor,
-  avatarRef = state.myAvatarRef,
-  nowContent = state.nowContent,
-  surfacing = state.surfacing,
+  cards = state.content.cards,
+  hubs = state.hubs.hubs,
+  memberCount = state.familyAdmin.members.size,
+  syncing = state.content.syncing,
+  error = state.content.error,
+  displayName = state.profile.displayName,
+  avatarColor = state.profile.avatarColor,
+  avatarRef = state.profile.avatarRef,
+  nowContent = state.now.content,
+  surfacing = state.now.surfacing,
 )
 
 /** Small input used to memoize ranking away from store notification delivery. */
 internal fun FeedViewState.rankingState(): AppState = AppState(
-  cards = cards,
-  hubs = hubs,
-  nowContent = nowContent,
-  surfacing = surfacing,
+  content = ContentState(cards = cards),
+  hubs = HubState(hubs = hubs),
+  now = NowState(content = nowContent, surfacing = surfacing),
 )
 
 @Immutable
@@ -47,7 +46,7 @@ data class FeedDetailViewState(val card: Card, val hubName: String?)
 fun feedDetailViewState(state: AppState): FeedDetailViewState? {
   val card = currentDetailCard(state) ?: return null
   val hubName = (card.targetHubId ?: card.hubRef)?.let { hubId ->
-    state.hubs.firstOrNull { it.id == hubId }?.title
+    state.hubs.hubs.firstOrNull { it.id == hubId }?.title
   }
   return FeedDetailViewState(card, hubName)
 }

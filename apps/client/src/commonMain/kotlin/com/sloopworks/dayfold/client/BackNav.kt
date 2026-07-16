@@ -12,15 +12,15 @@ package com.sloopworks.dayfold.client
 // subscription via onCloseHub() (FeedApp HubsHost). The shell BackHandler special-
 // cases CloseHub to run that closure; see Task 4. Everything else is dispatch-only.
 fun backAction(state: AppState): Action? {
-  if (state.deviceResuming) return null                       // "Finishing…" resume beat → let the OS handle back
-  if (state.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
-  return when (state.route) {
-    Route.Feed -> if (state.detailStack.isNotEmpty()) NavBack else null
+  if (state.devices.resuming) return null                     // "Finishing…" resume beat → let the OS handle back
+  if (state.hubs.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
+  return when (state.navigation.route) {
+    Route.Feed -> if (state.navigation.detailStack.isNotEmpty()) NavBack else null
     Route.Hubs -> when {
-      state.timelineDetail != null -> CloseTimelineDetail
+      state.hubs.timelineDetail != null -> CloseTimelineDetail
       // a hub reached by a card-detail deep-link → back returns to that detail, not the hub list
-      state.currentHubId != null && state.hubFromDetail -> CloseHubToFeed
-      state.currentHubId != null -> CloseHub
+      state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> CloseHubToFeed
+      state.hubs.currentHubId != null -> CloseHub
       else -> null
     }
     Route.Account -> CloseAccount

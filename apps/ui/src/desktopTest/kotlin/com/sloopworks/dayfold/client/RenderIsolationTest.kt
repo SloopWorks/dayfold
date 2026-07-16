@@ -24,30 +24,63 @@ class RenderIsolationTest {
     var filterInvocations = 0
     val select = memoizedHubListViewState { filterInvocations++ }
     val initial = AppState(
-      hubs = listOf(
+      hubs = HubState(hubs = listOf(
         Hub(id = "active", title = "Active", status = "active"),
         Hub(id = "planning", title = "Planning", status = "planning"),
-      ),
-      hubFilter = "active",
+      ), filter = "active"),
     )
 
     assertEquals(listOf("active"), select(initial).shownHubs.map(Hub::id))
     assertEquals(1, filterInvocations)
 
-    select(initial.copy(route = Route.Hubs, notificationPermission = NotificationPermission.Granted))
-    select(initial.copy(hubsBusy = true, hubError = "network"))
+    select(initial.copy(navigation = initial.navigation.copy(route = Route.Hubs), notifications = initial.notifications.copy(notificationPermission = NotificationPermission.Granted)))
+    select(initial.copy(hubs = initial.hubs.copy(busy = true, error = "network")))
     assertEquals(1, filterInvocations, "unrelated AppState changes must reuse the hub projection")
 
-    assertEquals(listOf("planning"), select(initial.copy(hubFilter = "planning")).shownHubs.map(Hub::id))
+    assertEquals(listOf("planning"), select(initial.copy(hubs = initial.hubs.copy(filter = "planning"))).shownHubs.map(Hub::id))
     assertEquals(2, filterInvocations)
 
-    select(initial.copy(hubs = initial.hubs + Hub(id = "next", title = "Next", status = "active")))
+    select(initial.copy(hubs = initial.hubs.copy(hubs = initial.hubs.hubs + Hub(id = "next", title = "Next", status = "active"))))
     assertEquals(3, filterInvocations, "a new hubs list must recalculate the projection")
   }
 
   @Test
+  fun activeSelectorStoreSkipsWorstCaseHubFilteringForUnrelatedDispatches() = runComposeUiTest {
+    var filterInvocations = 0
+    val select = memoizedHubListViewState { filterInvocations++ }
+    val hubs = List(1_000) { index ->
+      Hub(id = "hub-$index", title = "Hub $index", status = if (index % 2 == 0) "active" else "planning")
+    }
+    val countingStore = CountingStore(createTestAppStore(AppState(hubs = HubState(hubs = hubs, filter = "active"))))
+    lateinit var shown: HubListViewState
+
+    setContent {
+      val selectorStore = rememberSelectorStore(countingStore)
+      val selected by selectorStore.selectorState(select)
+      shown = selected
+      Text(shown.shownHubs.size.toString())
+    }
+    waitForIdle()
+    assertEquals(500, shown.shownHubs.size)
+    assertEquals(1, filterInvocations)
+    assertEquals(1, countingStore.activeSubscribers)
+
+    countingStore.dispatch(NotifConfigLoaded(NotifConfig(enabled = true)))
+    countingStore.dispatch(NameUpdated("Unrelated profile update"))
+    waitForIdle()
+
+    assertEquals(1, filterInvocations, "active selectors must not re-filter on unrelated notifications")
+    assertEquals(1, countingStore.activeSubscribers)
+
+    countingStore.dispatch(SetHubFilter("planning"))
+    waitForIdle()
+    assertEquals(2, filterInvocations)
+    assertEquals(500, shown.shownHubs.size)
+  }
+
+  @Test
   fun unrelatedFeatureChangesDoNotRecomposeShellOrHubRoute() = runComposeUiTest {
-    val countingStore = CountingStore(createTestAppStore(AppState(route = Route.Hubs)))
+    val countingStore = CountingStore(createTestAppStore(AppState(navigation = NavigationState(route = Route.Hubs))))
     lateinit var counts: MutableMap<String, Int>
 
     setContent {
@@ -69,7 +102,7 @@ class RenderIsolationTest {
 
   @Test
   fun routeSubscriptionsReturnToBaselineAcrossNavigation() = runComposeUiTest {
-    val countingStore = CountingStore(createTestAppStore(AppState(route = Route.Hubs)))
+    val countingStore = CountingStore(createTestAppStore(AppState(navigation = NavigationState(route = Route.Hubs))))
 
     setContent {
       val counts = remember { mutableMapOf<String, Int>() }
@@ -93,10 +126,10 @@ class RenderIsolationTest {
   fun keyedSelectorUpdatesItsCapturedParameterWithoutStaleResults() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
-        hubs = listOf(
+        hubs = HubState(hubs = listOf(
           Hub(id = "active", title = "Active", status = "active"),
           Hub(id = "planning", title = "Planning", status = "planning"),
-        ),
+        )),
       ),
     )
     var filter by mutableStateOf("active")
@@ -105,7 +138,7 @@ class RenderIsolationTest {
     setContent {
       val selectorStore = rememberSelectorStore(store)
       val ids by selectorStore.selectorState(filter) { state ->
-        state.hubs.filter { it.status == filter }.map(Hub::id)
+        state.hubs.hubs.filter { it.status == filter }.map(Hub::id)
       }
       selectedIds = ids
       Text(ids.joinToString())
@@ -120,7 +153,7 @@ class RenderIsolationTest {
 
   @Test
   fun unrelatedActionDoesNotRecomposeAnInactiveRoute() = runComposeUiTest {
-    val store = createTestAppStore(AppState(route = Route.SignIn))
+    val store = createTestAppStore(AppState(navigation = NavigationState(route = Route.SignIn)))
     lateinit var counts: MutableMap<String, Int>
 
     setContent {

@@ -85,7 +85,7 @@ class DayfoldRuntimeGraph internal constructor(
   }
 
   private suspend fun bindSelectedFamily() {
-    val familyId = store.state.activeFamilyId ?: return
+    val familyId = store.state.session.activeFamilyId ?: return
     replaceFamily(familyId)
   }
 
@@ -161,9 +161,9 @@ class DayfoldRuntimeFactory(
               store.dispatch(SessionRotated(session))
             },
           )
-          store.state.session?.let { session ->
+          store.state.session.session?.let { session ->
             val auth = coordinator.install(session)
-            coordinator.selectFamily(auth, store.state.activeFamilyId)
+            coordinator.selectFamily(auth, store.state.session.activeFamilyId)
           }
 
           authEngine = AuthEngine(
@@ -261,7 +261,7 @@ class DayfoldRuntimeFactory(
             externalHubTargets = externalHubTargets,
             bindSelectedFamily = {
               val auth = coordinator.authSnapshot()
-              val familyId = store.state.activeFamilyId
+              val familyId = store.state.session.activeFamilyId
               if (auth != null && familyId != null) {
                 runtime.replaceFamily(auth, familyId)?.let { externalHubTargets.familyBound(it) }
               }
@@ -289,7 +289,7 @@ class DayfoldRuntimeFactory(
         restoreAuth = { _, publication ->
           authEngine.restore()
           val auth = coordinator.authSnapshot()
-          val familyId = store.state.activeFamilyId
+          val familyId = store.state.session.activeFamilyId
           if (auth != null && familyId != null && publication.isOpen) {
             runtime.replaceFamily(auth, familyId)?.let { externalHubTargets.familyBound(it) }
           } else if (auth == null) {

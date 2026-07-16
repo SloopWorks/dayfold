@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 // ADR 0045 — integration snapshot tests: the hoisted TimelineCard appears in the hub
 // dossier (Task 13a, static wiring), and the TimelineDetail overlay replaces it when
-// state.timelineDetail is set. Uses a day-scale intraday timeline (7 stops, "Move-in day").
+// state.hubs.hubs.timelineDetail is set. Uses a day-scale intraday timeline (7 stops, "Move-in day").
 @OptIn(ExperimentalTestApi::class)
 class HubTimelineIntegrationSnapshotTest {
 
@@ -52,13 +52,12 @@ class HubTimelineIntegrationSnapshotTest {
 
     /** State with hub open + timeline present — no detail overlay yet. */
     private fun cardState() = AppState(
-        route = Route.Hubs,
-        currentHubId = "h1",
-        currentHubTree = HubTree(hub = timelineHub()),
+        navigation = NavigationState(route = Route.Hubs),
+        hubs = HubState(currentHubId = "h1", currentHubTree = HubTree(hub = timelineHub())),
     )
 
     /** Same hub, but with the timeline detail overlay open at Day scale. */
-    private fun detailState() = cardState().copy(timelineDetail = TimelineScale.Day)
+    private fun detailState() = cardState().let { it.copy(hubs = it.hubs.copy(timelineDetail = TimelineScale.Day)) }
 
     // ── (1) Hoisted card in dossier ───────────────────────────────────────────
 
@@ -112,8 +111,8 @@ class HubTimelineIntegrationSnapshotTest {
             HubBlock(id = "c", sectionId = "s", type = "checklist",
                 payload = BlockPayload(items = listOf(ChecklistItem(id = "i", text = "Buy balloons", due = "2026-08-22")))),
         )
-        val state = AppState(route = Route.Hubs, currentHubId = "h2",
-            currentHubTree = HubTree(hub = hub, blocks = blocks))
+        val state = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h2",
+            currentHubTree = HubTree(hub = hub, blocks = blocks)))
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) { HubDetailScreen(state) }
@@ -128,7 +127,7 @@ class HubTimelineIntegrationSnapshotTest {
         // only the hub countdown is dated → one stop → "No timeline yet" nudge, no card.
         val hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
             visibility = "family", countdownTo = "2026-09-01")
-        val state = AppState(route = Route.Hubs, currentHubId = "h3", currentHubTree = HubTree(hub = hub))
+        val state = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3", currentHubTree = HubTree(hub = hub)))
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) { HubDetailScreen(state) }
@@ -142,7 +141,7 @@ class HubTimelineIntegrationSnapshotTest {
 
     @Test fun hiddenTimelineLeavesDossierAndIsRecoverable() = runComposeUiTest {
         // Member hid the timeline: the synthetic id "timeline:<hubId>" is in hiddenIds.
-        val state = cardState().copy(hiddenIds = setOf("timeline:h1"), showHidden = true)
+        val state = cardState().let { it.copy(hubs = it.hubs.copy(hiddenIds = setOf("timeline:h1"), showHidden = true)) }
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(780.dp)) {

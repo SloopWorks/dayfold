@@ -26,20 +26,20 @@ fun nowFeed(
   val visible = feedCards(state, nowIso).filter { notBeforeReached(it.notBefore, nowIso, zone) }
   val authored = visible.map { cardToNowItem(it, rankConfig, nowIso, zone) }
   // Authored geo lane (#299): a visible card's geo trigger, matched on-device against live location.
-  val authoredGeo = authoredGeoItems(visible, state.nowContent.places, location, deriveConfig, placeRefOnly = !authoredCoordGeo)
+  val authoredGeo = authoredGeoItems(visible, state.now.content.places, location, deriveConfig, placeRefOnly = !authoredCoordGeo)
 
   val derived = deriveNow(
-    hubs = state.hubs,
-    sections = state.nowContent.sections,
-    blocks = state.nowContent.blocks,
-    places = state.nowContent.places,
+    hubs = state.hubs.hubs,
+    sections = state.now.content.sections,
+    blocks = state.now.content.blocks,
+    places = state.now.content.places,
     nowIso = nowIso,
     location = location,
     zone = zone,
     config = deriveConfig,
   )
 
-  return rank(derived + authored + authoredGeo, nowIso, location, state.surfacing, zone, rankConfig)
+  return rank(derived + authored + authoredGeo, nowIso, location, state.now.surfacing, zone, rankConfig)
 }
 
 // Foreground authored-geo lane (ADR 0049 Option A, #299): a visible card whose geo trigger the user

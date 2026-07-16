@@ -3,12 +3,16 @@ package com.sloopworks.dayfold.swip
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.FamilyCreated
 import com.sloopworks.dayfold.client.HubRequestKey
+import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubTenantGeneration
 import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.InviteRejected
 import com.sloopworks.dayfold.client.NavToDetail
 import com.sloopworks.dayfold.client.OpenHub
+import com.sloopworks.dayfold.client.ProfileState
 import com.sloopworks.dayfold.client.Session
+import com.sloopworks.dayfold.client.SessionState
+import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.SignInSucceeded
 import com.sloopworks.dayfold.client.SyncFailed
 import com.sloopworks.dayfold.client.createAppStore
@@ -35,10 +39,10 @@ import kotlin.test.assertTrue
 /** docs/12 §6: product-owned sanitizer leak test over SALTED real state. */
 class DayfoldLeakTest {
   private val salted = AppState(
-    session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted"),
-    myDisplayName = "Salted Q. User",
-    hubFilter = "salted-search someone@example.com padding-padding-padding", // synthetic: real values are chip literals; salt proves the fence anyway
-    detailStack = listOf("card_salt_1"),
+    session = SessionState(session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted")),
+    profile = ProfileState(displayName = "Salted Q. User"),
+    hubs = HubState(filter = "salted-search someone@example.com padding-padding-padding"), // synthetic: real values are chip literals; salt proves the fence anyway
+    navigation = NavigationState(detailStack = listOf("card_salt_1")),
   )
 
   @Test fun journal_never_contains_salted_pii() = runTest {
@@ -49,7 +53,7 @@ class DayfoldLeakTest {
       clock = Clock { 0L },
       scope = this,
     )
-    val store = createStore({ s: AppState, _: Any -> s.copy(syncing = !s.syncing) }, salted, rec.enhancer())
+    val store = createStore({ s: AppState, _: Any -> s.copy(content = s.content.copy(syncing = !s.content.syncing)) }, salted, rec.enhancer())
     rec.activate()
     repeat(3) { store.dispatch("tick"); advanceUntilIdle() }
     val text = rec.freeze()!!.journalJson.decodeToString() + rec.freeze()!!.finalStateJson.decodeToString()
@@ -70,7 +74,7 @@ class DayfoldLeakTest {
       config = RecorderConfig(appVersion = "test"), clock = Clock { 0L }, scope = this,
     )
     val longFilter = "x".repeat(100)
-    val store = createStore({ s: AppState, _: Any -> s }, AppState(hubFilter = longFilter), rec.enhancer())
+    val store = createStore({ s: AppState, _: Any -> s }, AppState(hubs = HubState(filter = longFilter)), rec.enhancer())
     rec.activate()
     store.dispatch("tick"); advanceUntilIdle()
     val text = rec.freeze()!!.journalJson.decodeToString()
