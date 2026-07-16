@@ -48,7 +48,7 @@ class ContentStoreNativeConcurrencyTest {
           start.await()
           repeat(ITERATIONS * 2) {
             val snapshot = store.notifSnapshot()
-            snapshot.content.cards.forEach { card -> assertTrue(card.id.isNotEmpty()) }
+            snapshot.cards.forEach { card -> assertTrue(card.id.isNotEmpty()) }
             snapshot.log.forEach { row -> assertTrue(row.subjectKey.isNotEmpty()) }
           }
         },
@@ -75,8 +75,8 @@ class ContentStoreNativeConcurrencyTest {
       store.logNotification("final-subject", NOW)
 
       val snapshot = store.notifSnapshot()
-      assertEquals(listOf("final-card"), snapshot.content.cards.map { it.id })
-      assertEquals(listOf("final-hub"), snapshot.hubs.hubs.map { it.id })
+      assertEquals(listOf("final-card"), snapshot.cards.map { it.id })
+      assertEquals(listOf("final-hub"), snapshot.hubs.map { it.id })
       assertEquals(listOf("final-section"), snapshot.sections.map { it.id })
       assertEquals(listOf("final-block"), snapshot.blocks.map { it.id })
       assertEquals(listOf("final-place"), snapshot.places.map { it.id })
