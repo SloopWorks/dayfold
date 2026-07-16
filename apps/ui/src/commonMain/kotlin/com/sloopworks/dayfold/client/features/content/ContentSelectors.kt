@@ -22,7 +22,7 @@ data class FeedViewState(
 
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
   cards = state.cards,
-  hubs = state.hubs,
+  hubs = state.hubs.hubs,
   memberCount = state.members.size,
   syncing = state.syncing,
   error = state.error,
@@ -36,7 +36,7 @@ fun feedViewState(state: AppState): FeedViewState = FeedViewState(
 /** Small input used to memoize ranking away from store notification delivery. */
 internal fun FeedViewState.rankingState(): AppState = AppState(
   cards = cards,
-  hubs = hubs,
+  hubs = HubState(hubs = hubs),
   nowContent = nowContent,
   surfacing = surfacing,
 )
@@ -47,7 +47,7 @@ data class FeedDetailViewState(val card: Card, val hubName: String?)
 fun feedDetailViewState(state: AppState): FeedDetailViewState? {
   val card = currentDetailCard(state) ?: return null
   val hubName = (card.targetHubId ?: card.hubRef)?.let { hubId ->
-    state.hubs.firstOrNull { it.id == hubId }?.title
+    state.hubs.hubs.firstOrNull { it.id == hubId }?.title
   }
   return FeedDetailViewState(card, hubName)
 }

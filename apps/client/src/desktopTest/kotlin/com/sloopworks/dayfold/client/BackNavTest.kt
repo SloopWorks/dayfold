@@ -10,8 +10,8 @@ import kotlin.test.assertTrue
 class BackNavTest {
   private fun st(route: Route, detail: List<String> = emptyList(), hub: String? = null,
                  sheet: Boolean = false, resuming: Boolean = false, fromDetail: Boolean = false) =
-    AppState(route = route, detailStack = detail, currentHubId = hub,
-             audienceSheetOpen = sheet, deviceResuming = resuming, hubFromDetail = fromDetail)
+    AppState(route = route, detailStack = detail, deviceResuming = resuming,
+             hubs = HubState(currentHubId = hub, audienceSheetOpen = sheet, fromFeedDetail = fromDetail))
 
   @Test fun `back from a hub deep-linked from a card detail returns to the detail, not the list`() {
     // deep-linked: route=Hubs, hub open, flagged fromDetail (detailStack still holds the card)

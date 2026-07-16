@@ -29,7 +29,7 @@ fun nowFeed(
   val authoredGeo = authoredGeoItems(visible, state.nowContent.places, location, deriveConfig, placeRefOnly = !authoredCoordGeo)
 
   val derived = deriveNow(
-    hubs = state.hubs,
+    hubs = state.hubs.hubs,
     sections = state.nowContent.sections,
     blocks = state.nowContent.blocks,
     places = state.nowContent.places,

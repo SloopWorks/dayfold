@@ -24,24 +24,23 @@ class RenderIsolationTest {
     var filterInvocations = 0
     val select = memoizedHubListViewState { filterInvocations++ }
     val initial = AppState(
-      hubs = listOf(
+      hubs = HubState(hubs = listOf(
         Hub(id = "active", title = "Active", status = "active"),
         Hub(id = "planning", title = "Planning", status = "planning"),
-      ),
-      hubFilter = "active",
+      ), filter = "active"),
     )
 
     assertEquals(listOf("active"), select(initial).shownHubs.map(Hub::id))
     assertEquals(1, filterInvocations)
 
     select(initial.copy(route = Route.Hubs, notificationPermission = NotificationPermission.Granted))
-    select(initial.copy(hubsBusy = true, hubError = "network"))
+    select(initial.copy(hubs = initial.hubs.copy(busy = true, error = "network")))
     assertEquals(1, filterInvocations, "unrelated AppState changes must reuse the hub projection")
 
-    assertEquals(listOf("planning"), select(initial.copy(hubFilter = "planning")).shownHubs.map(Hub::id))
+    assertEquals(listOf("planning"), select(initial.copy(hubs = initial.hubs.copy(filter = "planning"))).shownHubs.map(Hub::id))
     assertEquals(2, filterInvocations)
 
-    select(initial.copy(hubs = initial.hubs + Hub(id = "next", title = "Next", status = "active")))
+    select(initial.copy(hubs = initial.hubs.copy(hubs = initial.hubs.hubs + Hub(id = "next", title = "Next", status = "active"))))
     assertEquals(3, filterInvocations, "a new hubs list must recalculate the projection")
   }
 
@@ -93,10 +92,10 @@ class RenderIsolationTest {
   fun keyedSelectorUpdatesItsCapturedParameterWithoutStaleResults() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
-        hubs = listOf(
+        hubs = HubState(hubs = listOf(
           Hub(id = "active", title = "Active", status = "active"),
           Hub(id = "planning", title = "Planning", status = "planning"),
-        ),
+        )),
       ),
     )
     var filter by mutableStateOf("active")

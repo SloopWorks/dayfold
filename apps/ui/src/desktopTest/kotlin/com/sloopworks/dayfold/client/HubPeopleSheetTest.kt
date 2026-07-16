@@ -166,12 +166,11 @@ class HubPeopleSheetTest {
   // decides which sheet to open; WhoCanSeeSheet itself never grows controls).
   @Test fun nonManagerAudienceRendersReadOnlyWhoCanSeeSheet() = runComposeUiTest {
     val state = AppState(
-      audienceSheetOpen = true,
-      currentHubAudience = HubAudience(
+      hubs = HubState(audienceSheetOpen = true, currentAudience = HubAudience(
         visibility = "restricted",
         members = listOf(owner, jordan),
         canManage = false,
-      ),
+      )),
     )
     setContent { MaterialTheme { WhoCanSeeSheet(state) } }
     onNodeWithText("Maya").assertIsDisplayed()

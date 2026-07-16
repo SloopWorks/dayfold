@@ -30,6 +30,7 @@ import com.sloopworks.dayfold.client.FeedScreen
 import com.sloopworks.dayfold.client.HubAudience
 import com.sloopworks.dayfold.client.HubAudienceMember
 import com.sloopworks.dayfold.client.HubDetailScreen
+import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubListScreen
 import com.sloopworks.dayfold.client.HubPeopleContent
 import com.sloopworks.dayfold.client.JoinInviteScreen
@@ -112,7 +113,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     render { args ->
       val p = presetName(args.input)
       val state = when (p) {
-        "canonical", "enriched" -> SnapshotStates.hubTree(p).let { AppState(currentHubId = it.hub.id, currentHubTree = it) }
+        "canonical", "enriched" -> SnapshotStates.hubTree(p).let { AppState(hubs = HubState(currentHubId = it.hub.id, currentHubTree = it)) }
         "checklist" -> SnapshotStates.CHECKLIST_HUB
         "enriched-logo" -> SnapshotStates.enrichedHubDetail(SnapshotStates.ENRICHED_HUBS[1])
         "enriched-photo" -> SnapshotStates.enrichedHubDetail(SnapshotStates.ENRICHED_HUBS[0])
@@ -145,7 +146,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         TabShell(
           Route.Hubs, reduceMotion = true, barVisible = true, onNow = {}, onHubs = {},
           feedContent = {},
-          hubsContent = { HubListScreen(AppState(hubs = SnapshotStates.ENRICHED_HUBS), now = SNAPSHOT_NOW) },
+          hubsContent = { HubListScreen(AppState(hubs = HubState(hubs = SnapshotStates.ENRICHED_HUBS)), now = SNAPSHOT_NOW) },
         )
       }
     }

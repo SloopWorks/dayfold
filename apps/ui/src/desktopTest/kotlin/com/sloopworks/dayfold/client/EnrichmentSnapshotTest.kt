@@ -38,11 +38,11 @@ class EnrichmentSnapshotTest {
     Hub(id = "plain", type = "move", title = "House move (unenriched)", status = "planning"),
   )
 
-  @Test fun hubListLight() = snap("enrich-hublist", false) { HubListScreen(AppState(hubs = hubs)) }
-  @Test fun hubListDark() = snap("enrich-hublist-dark", true) { HubListScreen(AppState(hubs = hubs)) }
+  @Test fun hubListLight() = snap("enrich-hublist", false) { HubListScreen(AppState(hubs = HubState(hubs = hubs))) }
+  @Test fun hubListDark() = snap("enrich-hublist-dark", true) { HubListScreen(AppState(hubs = HubState(hubs = hubs))) }
 
   // hero detail — contain logo (fallback to accent + school icon tile, with scrim title).
-  private fun detail(hub: Hub) = AppState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+  private fun detail(hub: Hub) = AppState(hubs = HubState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList())))
   @Test fun hubDetailLogoLight() = snap("enrich-hubdetail-logo", false) { HubDetailScreen(detail(hubs[1])) }
   @Test fun hubDetailLogoDark() = snap("enrich-hubdetail-logo-dark", true) { HubDetailScreen(detail(hubs[1])) }
   @Test fun hubDetailPhotoLight() = snap("enrich-hubdetail-photo", false) { HubDetailScreen(detail(hubs[0])) }

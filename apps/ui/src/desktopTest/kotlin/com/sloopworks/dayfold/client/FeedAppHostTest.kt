@@ -49,7 +49,7 @@ class FeedAppHostTest {
       AppState(
         route = Route.Hubs,
         activeFamilyId = "family-1",
-        hubs = listOf(Hub(id = "hub-1", title = "College move", status = "active")),
+        hubs = HubState(hubs = listOf(Hub(id = "hub-1", title = "College move", status = "active"))),
       ),
       debug = false,
     )

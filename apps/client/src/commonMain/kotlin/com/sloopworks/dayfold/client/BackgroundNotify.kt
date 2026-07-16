@@ -52,7 +52,7 @@ fun planBackgroundNotifications(
 
   val state = AppState(
     cards = snapshot.cards,
-    hubs = snapshot.hubs,
+    hubs = HubState(hubs = snapshot.hubs),
     nowContent = NowContent(sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places),
     surfacing = snapshot.surfacing,
   )

@@ -156,8 +156,8 @@ class DayfoldCommands internal constructor(
    * A delayed cleanup for Hub A cannot cancel the collector installed for Hub B.
    */
   fun closeHub(expectedHubId: String, destination: HubReturnDestination) {
-    if (store.state.currentHubId != expectedHubId) return
-    val expectedRequest = store.state.currentHubRequest
+    if (store.state.hubs.currentHubId != expectedHubId) return
+    val expectedRequest = store.state.hubs.currentHubRequest
     store.dispatch(if (destination == HubReturnDestination.FEED_DETAIL) CloseHubToFeed else CloseHub)
     launchEffect { hubEngine?.closeHub(expectedHubId, expectedRequest) }
   }

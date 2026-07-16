@@ -41,8 +41,8 @@ object SnapshotStates {
         bodyMd = "12 days", provenance = Provenance("claude")),
     ))
     "empty" -> AppState()                                           // FeedSnapshotTest.kt:58
-    "caught-up" -> AppState(hubs = listOf(                          // FeedSnapshotTest.kt:63
-      Hub(id = "h1", title = "Starting College", status = "active", visibility = "family")))
+    "caught-up" -> AppState(hubs = HubState(hubs = listOf(          // FeedSnapshotTest.kt:63
+      Hub(id = "h1", title = "Starting College", status = "active", visibility = "family"))))
     "syncing" -> AppState(syncing = true)                          // FeedSnapshotTest.kt:66
     "offline" -> AppState(error = "No internet connection")        // FeedSnapshotTest.kt:68
     "typed" -> TYPED_FEED
@@ -123,10 +123,10 @@ object SnapshotStates {
     Hub(id = "plain", type = "move", title = "House move (unenriched)", status = "planning"),
   )
   fun enrichedHubDetail(hub: Hub): AppState =
-    AppState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList()))
+    AppState(hubs = HubState(currentHubTree = HubTree(hub = hub, sections = emptyList(), blocks = emptyList())))
 
   // ── Checklist hub (HubChecklistSnapshotTest.kt `tree()`, verbatim) ──────────
-  val CHECKLIST_HUB: AppState = AppState(currentHubId = "h1", currentHubTree = HubTree(
+  val CHECKLIST_HUB: AppState = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = HubTree(
     hub = Hub(id = "h1", type = "party-event", title = "Maya's birthday", status = "active", visibility = "family"),
     sections = listOf(HubSection(id = "s1", hubId = "h1", title = "Packing", ord = 0)),
     blocks = listOf(HubBlock(id = "b_chk", sectionId = "s1", type = "checklist", ord = 0, version = 3,
@@ -134,7 +134,7 @@ object SnapshotStates {
         ChecklistItem(id = "i1", text = "Cooler + ice", done = false, assignee = "Sam"),
         ChecklistItem(id = "i2", text = "Beach umbrella", done = false),
         ChecklistItem(id = "i3", text = "Sunscreen", done = true, doneBy = "Mom", doneAt = "2026-06-29T10:00:00Z"))))),
-  ))
+  )))
 
   // ── Timelines (TimelineCard/TimelineDetail/HubTimelineIntegration tests, verbatim) ──
   // All pinned to move-in day 10:40 ET so done/next markers are stable.
@@ -229,17 +229,17 @@ object SnapshotStates {
     ),
   )
   fun timelineHubCardState(): AppState = AppState(
-    route = Route.Hubs, currentHubId = "h1",
+    route = Route.Hubs, hubs = HubState(currentHubId = "h1",
     currentHubTree = HubTree(hub = Hub(id = "h1", type = "starting-college", title = "Move-in Day Hub",
       status = "active", visibility = "family", timeline = integrationTimeline())),
-  )
-  fun timelineHubOverlayState(): AppState = timelineHubCardState().copy(timelineDetail = TimelineScale.Day)
-  fun timelineHubHiddenState(): AppState = timelineHubCardState().copy(hiddenIds = setOf("timeline:h1"), showHidden = true)
-  fun timelineNudgeState(): AppState = AppState(route = Route.Hubs, currentHubId = "h3",
+  ))
+  fun timelineHubOverlayState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(timelineDetail = TimelineScale.Day)) }
+  fun timelineHubHiddenState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(hiddenIds = setOf("timeline:h1"), showHidden = true)) }
+  fun timelineNudgeState(): AppState = AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h3",
     currentHubTree = HubTree(hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
-      visibility = "family", countdownTo = "2026-09-01")))
+      visibility = "family", countdownTo = "2026-09-01"))))
   fun derivedTimelineHubState(): AppState =
-    AppState(route = Route.Hubs, currentHubId = "h", currentHubTree = derivedTimelineTree())
+    AppState(route = Route.Hubs, hubs = HubState(currentHubId = "h", currentHubTree = derivedTimelineTree()))
 
   // ── Auth / account / join (AuthScreensSnapshotTest.kt, verbatim) ────────────
   val ACCOUNT_STATE: AppState = AppState(

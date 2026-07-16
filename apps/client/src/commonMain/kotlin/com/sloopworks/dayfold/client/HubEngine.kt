@@ -528,7 +528,7 @@ class HubEngine(
     var admitted = false
     commitIfAdmitted(owner, context) {
       store.dispatch(HubAudienceRequested(hubId, request))
-      admitted = store.state.currentHubAudienceRequest == request
+      admitted = store.state.hubs.currentAudienceRequest == request
     }
     return admitted
   }

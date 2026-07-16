@@ -60,7 +60,7 @@ class FeedSnapshotTest {
   // ── #164: the four posture states for an empty feed (ADR 0008) ─────────────
   // An ESTABLISHED family (has a hub) with no cards → "all caught up", NOT onboarding —
   // the headline misframing fix. Syncing → skeleton. (feed-empty above = first-run.)
-  private val caughtUp = AppState(hubs = listOf(Hub(id = "h1", title = "Starting College", status = "active", visibility = "family")))
+  private val caughtUp = AppState(hubs = HubState(hubs = listOf(Hub(id = "h1", title = "Starting College", status = "active", visibility = "family"))))
   @Test fun caughtUpSnapshot() = snapshot("feed-caught-up", caughtUp)
   @Test fun caughtUpDarkSnapshot() = snapshot("feed-caught-up-dark", caughtUp, dark = true)
   @Test fun syncingSnapshot() = snapshot("feed-syncing", AppState(syncing = true))

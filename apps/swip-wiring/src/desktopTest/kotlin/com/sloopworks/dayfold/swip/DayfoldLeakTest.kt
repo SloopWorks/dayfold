@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.swip
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.FamilyCreated
 import com.sloopworks.dayfold.client.HubRequestKey
+import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubTenantGeneration
 import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.InviteRejected
@@ -37,7 +38,7 @@ class DayfoldLeakTest {
   private val salted = AppState(
     session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted"),
     myDisplayName = "Salted Q. User",
-    hubFilter = "salted-search someone@example.com padding-padding-padding", // synthetic: real values are chip literals; salt proves the fence anyway
+    hubs = HubState(filter = "salted-search someone@example.com padding-padding-padding"), // synthetic: real values are chip literals; salt proves the fence anyway
     detailStack = listOf("card_salt_1"),
   )
 
@@ -70,7 +71,7 @@ class DayfoldLeakTest {
       config = RecorderConfig(appVersion = "test"), clock = Clock { 0L }, scope = this,
     )
     val longFilter = "x".repeat(100)
-    val store = createStore({ s: AppState, _: Any -> s }, AppState(hubFilter = longFilter), rec.enhancer())
+    val store = createStore({ s: AppState, _: Any -> s }, AppState(hubs = HubState(filter = longFilter)), rec.enhancer())
     rec.activate()
     store.dispatch("tick"); advanceUntilIdle()
     val text = rec.freeze()!!.journalJson.decodeToString()

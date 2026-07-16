@@ -60,7 +60,7 @@ data class AuthorizeDeviceViewState(
 fun authorizeDeviceViewState(state: AppState): AuthorizeDeviceViewState = AuthorizeDeviceViewState(
   activeFamilyId = state.activeFamilyId,
   families = state.families,
-  hubs = state.hubs,
+  hubs = state.hubs.hubs,
   pendingDevice = state.pendingDevice,
   busy = state.deviceBusy,
   error = state.deviceError,

@@ -330,7 +330,7 @@ class AuthFlowUiTest {
     activeFamilyId = "fam1",
     route = Route.AuthorizeDevice,
     pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
-    hubs = hubs,
+    hubs = HubState(hubs = hubs),
   )
 
   @Test fun approveDefaultsToFullAccessScope() = runComposeUiTest {

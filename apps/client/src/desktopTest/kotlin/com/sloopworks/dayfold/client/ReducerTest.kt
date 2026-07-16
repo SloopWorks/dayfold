@@ -20,7 +20,7 @@ class ReducerTest {
   // Slice 5b (ADR 0038 §W5) — hidden ids are DB-fed (bridge) into state; "Show hidden" is a
   // per-view toggle that OpenHub/CloseHub reset so it never leaks across hubs.
   @Test fun `HiddenLoaded replaces the hidden id set`() {
-    var s = AppState(hiddenIds = setOf("old"))
+    var s = AppState(hubs = HubState(hiddenIds = setOf("old")))
     s = rootReducer(s, HiddenLoaded(setOf("b1", "b2")))
     assertEquals(setOf("b1", "b2"), s.hiddenIds)
   }
@@ -32,8 +32,8 @@ class ReducerTest {
   }
 
   @Test fun `opening or closing a hub resets Show hidden`() {
-    assertFalse(rootReducer(AppState(showHidden = true), OpenHub("h1", hubRequest)).showHidden)
-    assertFalse(rootReducer(AppState(showHidden = true), CloseHub).showHidden)
+    assertFalse(rootReducer(AppState(hubs = HubState(showHidden = true)), OpenHub("h1", hubRequest)).showHidden)
+    assertFalse(rootReducer(AppState(hubs = HubState(showHidden = true)), CloseHub).showHidden)
   }
 
   @Test fun `sync status lifecycle`() {
@@ -120,7 +120,7 @@ class ReducerTest {
 
   @Test fun `HubsLoaded closes the open hub when it is revoked (no longer in the DB list)`() {
     // viewing hub "h1" with its tree loaded; a sync drops it (revocation tombstone)
-    val open = AppState(currentHubId = "h1", currentHubTree = HubTree(hub = hub("h1")), hubsBusy = true)
+    val open = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = HubTree(hub = hub("h1")), busy = true))
     val s = rootReducer(open, HubsLoaded(listOf(hub("h2"))))   // h1 gone
     assertNull(s.currentHubId)        // kicked back to the list — can't keep viewing revoked content
     assertNull(s.currentHubTree)
@@ -129,7 +129,7 @@ class ReducerTest {
 
   @Test fun `HubsLoaded keeps the open hub + tree when it is still present`() {
     val tree = HubTree(hub = hub("h1"))
-    val open = AppState(currentHubId = "h1", currentHubTree = tree)
+    val open = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree))
     val s = rootReducer(open, HubsLoaded(listOf(hub("h1"), hub("h2"))))
     assertEquals("h1", s.currentHubId)
     assertEquals(tree, s.currentHubTree)
@@ -139,7 +139,7 @@ class ReducerTest {
     // Unlike HubsLoaded's revocation path, a FAILED list refresh is non-destructive: it must
     // not evict the hub you're reading (transient network blip) — just clear busy + say why.
     val tree = HubTree(hub = hub("h1"))
-    val open = AppState(currentHubId = "h1", currentHubTree = tree, hubsBusy = true)
+    val open = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree, busy = true))
     val s = rootReducer(open, HubsFailed("network down"))
     assertFalse(s.hubsBusy)                  // no stuck spinner on the error path
     assertEquals("network down", s.hubError)
@@ -148,7 +148,7 @@ class ReducerTest {
   }
 
   @Test fun `OpenHub enters a hub busy and clears any stale arrival focus`() {
-    val s = rootReducer(AppState(hubFocusBlockId = "old-blk"), OpenHub("h9", hubRequest))
+    val s = rootReducer(AppState(hubs = HubState(focusBlockId = "old-blk")), OpenHub("h9", hubRequest))
     assertEquals("h9", s.currentHubId)
     assertTrue(s.hubsBusy)
     assertNull(s.hubFocusBlockId)      // a fresh manual open must not carry a prior deep-link's focus
@@ -157,12 +157,12 @@ class ReducerTest {
   @Test fun `OpenHub sets the arrival block and CloseHub clears the whole hub substate`() {
     val focused = rootReducer(AppState(), OpenHub("h1", hubRequest, focusBlockId = "blk-7"))
     assertEquals("blk-7", focused.hubFocusBlockId)
-    val closed = rootReducer(focused.copy(currentHubTree = HubTree(hub = hub("h1"))), CloseHub)
+    val closed = rootReducer(focused.copy(hubs = focused.hubs.copy(currentHubTree = HubTree(hub = hub("h1")))), CloseHub)
     assertNull(closed.currentHubId); assertNull(closed.currentHubTree); assertNull(closed.hubFocusBlockId)
   }
 
   @Test fun `cross-surface hub deep-link return — CloseHubToFeed routes to Feed, keeps the detail, clears the flag`() {
-    val s = AppState(route = Route.Hubs, currentHubId = "h1", hubFromDetail = true, detailStack = listOf("c1"))
+    val s = AppState(route = Route.Hubs, detailStack = listOf("c1"), hubs = HubState(currentHubId = "h1", fromFeedDetail = true))
     val after = rootReducer(s, CloseHubToFeed)
     assertEquals(Route.Feed, after.route)      // back on Feed → the detailStack card detail re-renders
     assertNull(after.currentHubId)
@@ -172,8 +172,8 @@ class ReducerTest {
 
   @Test fun `OpenHubs atomically carries and clears the return destination`() {
     assertTrue(rootReducer(AppState(), OpenHubs(HubReturnDestination.FEED_DETAIL)).hubFromDetail)
-    assertFalse(rootReducer(AppState(hubFromDetail = true), OpenHubs()).hubFromDetail)
-    assertFalse(rootReducer(AppState(hubFromDetail = true), CloseHub).hubFromDetail)
+    assertFalse(rootReducer(AppState(hubs = HubState(fromFeedDetail = true)), OpenHubs()).hubFromDetail)
+    assertFalse(rootReducer(AppState(hubs = HubState(fromFeedDetail = true)), CloseHub).hubFromDetail)
   }
 
   // ADR 0030 audience sheet (who-can-see-this-hub). The non-obvious property: open AND
@@ -183,7 +183,7 @@ class ReducerTest {
     val stale = HubAudience(visibility = "just_me", members = listOf(HubAudienceMember(uid = "u1")))
     // open from a state carrying a stale audience → sheet open, audience cleared (no flash)
     val opened = rootReducer(
-      AppState(currentHubId = "h1", currentHubRequest = hubRequest, currentHubAudience = stale),
+      AppState(hubs = HubState(currentHubId = "h1", currentHubRequest = hubRequest, currentAudience = stale)),
       OpenAudienceSheet,
     )
     assertTrue(opened.audienceSheetOpen); assertNull(opened.currentHubAudience)
@@ -205,12 +205,9 @@ class ReducerTest {
     val staleRequest = HubRequestKey(generation, requestId = 2L)
     val staleGeneration = HubRequestKey(HubTenantGeneration(6L, 11L), requestId = 3L)
     val originalTree = HubTree(hub("h2"))
-    val state = AppState(
-      currentHubId = "h2",
-      currentHubTree = originalTree,
-      currentHubRequest = current,
-      hubsBusy = true,
-    )
+    val state = AppState(hubs = HubState(
+      currentHubId = "h2", currentHubTree = originalTree, currentHubRequest = current, busy = true,
+    ))
 
     listOf(
       HubTreeLoaded("h1", current, HubTree(hub("h1"))),
@@ -226,12 +223,10 @@ class ReducerTest {
     val treeRequest = HubRequestKey(generation, requestId = 1L)
     val currentAudienceRequest = HubRequestKey(generation, requestId = 3L)
     val staleAudienceRequest = HubRequestKey(generation, requestId = 2L)
-    val state = AppState(
-      currentHubId = "h1",
-      currentHubRequest = treeRequest,
-      audienceSheetOpen = true,
-      currentHubAudienceRequest = currentAudienceRequest,
-    )
+    val state = AppState(hubs = HubState(
+      currentHubId = "h1", currentHubRequest = treeRequest, audienceSheetOpen = true,
+      currentAudienceRequest = currentAudienceRequest,
+    ))
 
     assertEquals(
       state,

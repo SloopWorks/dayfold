@@ -33,11 +33,11 @@ fun appShellState(state: AppState): AppShellState {
   val detailCardId = currentDetailCard(state)?.id
   val backTarget = when {
     state.deviceResuming -> null
-    state.audienceSheetOpen -> BackTarget.Audience
+    state.hubs.audienceSheetOpen -> BackTarget.Audience
     state.route == Route.Feed && detailCardId != null -> BackTarget.FeedDetail
-    state.route == Route.Hubs && state.timelineDetail != null -> BackTarget.Timeline
-    state.route == Route.Hubs && state.currentHubId != null && state.hubFromDetail -> BackTarget.FeedDetailFromHub
-    state.route == Route.Hubs && state.currentHubId != null -> BackTarget.HubList
+    state.route == Route.Hubs && state.hubs.timelineDetail != null -> BackTarget.Timeline
+    state.route == Route.Hubs && state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> BackTarget.FeedDetailFromHub
+    state.route == Route.Hubs && state.hubs.currentHubId != null -> BackTarget.HubList
     state.route == Route.Account -> BackTarget.Account
     state.route == Route.Members || state.route == Route.Devices || state.route == Route.Proximity -> BackTarget.Members
     state.route == Route.Invite -> BackTarget.Members
@@ -49,9 +49,9 @@ fun appShellState(state: AppState): AppShellState {
   return AppShellState(
     route = state.route,
     detailCardId = detailCardId,
-    currentHubId = state.currentHubId,
+    currentHubId = state.hubs.currentHubId,
     deviceResuming = state.deviceResuming,
-    timelineDetailOpen = state.timelineDetail != null,
+    timelineDetailOpen = state.hubs.timelineDetail != null,
     backTarget = backTarget,
   )
 }
@@ -72,7 +72,7 @@ data class HubRouteState(
 
 fun hubRouteState(state: AppState): HubRouteState = HubRouteState(
   activeFamilyId = state.activeFamilyId,
-  currentHubId = state.currentHubId,
-  fromFeedDetail = state.hubFromDetail,
-  audienceSheetOpen = state.audienceSheetOpen,
+  currentHubId = state.hubs.currentHubId,
+  fromFeedDetail = state.hubs.fromFeedDetail,
+  audienceSheetOpen = state.hubs.audienceSheetOpen,
 )

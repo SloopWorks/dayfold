@@ -483,28 +483,9 @@ data class AppState(
   // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
   // once memberships resolve. Null = nothing pending.
   val pendingInviteLink: String? = null,
-  // Hubs surface (ADR 0006 render). The list + the open hub's tree. currentHubId
-  // null = list, set = detail (a Hubs substate, like detailStack is for Feed).
-  val hubs: List<Hub> = emptyList(),
-  val hubsBusy: Boolean = false,
-  val hubError: String? = null,
-  val hubFilter: String = "all",                              // all | active | planning (list filter chips)
-  val currentHubId: String? = null,
-  val currentHubTree: HubTree? = null,
-  // Correlates the open tree collector with one exact identity/family generation and request.
-  // Late collector emissions are reducer-rejected after close, re-open, or tenant replacement.
-  val currentHubRequest: HubRequestKey? = null,
-  val hubFocusBlockId: String? = null,                        // deep-link arrival: the block to highlight
-  // True when the current hub was opened by a CROSS-SURFACE deep-link from a Feed card detail
-  // (not the Hubs list). Back then returns to that card detail (CloseHubToFeed) instead of the
-  // hub list. Set on the deep-link path, cleared on any Hubs-list entry / hub close.
-  val hubFromDetail: Boolean = false,
-  val timelineDetail: TimelineScale? = null,                  // ADR 0045 — non-null = timeline detail overlay open at this scale
-  // W5 hide (ADR 0038 §W5) — DB-fed set of locally-hidden entity ids (bridge writes it);
-  // showHidden is the per-view "Show hidden" toggle (reset on open/close hub). Hide is
-  // local-only + personal — never synced, no family-visible signal.
-  val hiddenIds: Set<String> = emptySet(),
-  val showHidden: Boolean = false,
+  // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
+  // is DB-fed and detail/audience state is request-correlated transient UI state.
+  val hubs: HubState = HubState(),
   // ADR 0043 Phase A — the derived-lane candidate inputs + LOCAL-ONLY engine state. Both are
   // DB-fed projections (sole-writer bridges, like hiddenIds); the nowFeed selector runs
   // deriveNow + rank over them at render time with an injected clock + location.
@@ -516,13 +497,6 @@ data class AppState(
   val notifConfig: NotifConfig = NotifConfig(),
   val locationPermission: LocationPermission = LocationPermission.Denied,
   val notificationPermission: NotificationPermission = NotificationPermission.Denied,
-  // "Who can see this hub" sheet (ADR 0030). audienceSheetOpen drives the overlay;
-  // currentHubAudience null while loading.
-  val audienceSheetOpen: Boolean = false,
-  val currentHubAudience: HubAudience? = null,
-  // The latest audience load/mutation reload admitted for the current hub. Result and failure
-  // actions must match this key so cancelled or reordered requests cannot overwrite newer UI.
-  val currentHubAudienceRequest: HubRequestKey? = null,
   // loading-state additions (2026-06-28)
   val pendingProvider: String? = null,   // which sign-in provider button spins
   val signOutBusy: Boolean = false,
@@ -540,7 +514,6 @@ data class AppState(
   val deviceListBusy: Boolean = false,
   val deviceListError: String? = null,
   val deviceOpId: String? = null,        // device row currently revoking
-  val audienceError: String? = null,
   // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
   // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId — non-null only
   // while a PATCH is in flight, cleared by either terminal action. The update IS
@@ -557,7 +530,24 @@ data class AppState(
   // in flight; nameError surfaces a failed rename (reverted).
   val nameOpId: String? = null,
   val nameError: String? = null,
-)
+) {
+  /** Read-only migration accessors; no second writable hub state exists. */
+  @Deprecated("Use hubs.busy") val hubsBusy get() = hubs.busy
+  @Deprecated("Use hubs.error") val hubError get() = hubs.error
+  @Deprecated("Use hubs.filter") val hubFilter get() = hubs.filter
+  @Deprecated("Use hubs.currentHubId") val currentHubId get() = hubs.currentHubId
+  @Deprecated("Use hubs.currentHubTree") val currentHubTree get() = hubs.currentHubTree
+  @Deprecated("Use hubs.currentHubRequest") val currentHubRequest get() = hubs.currentHubRequest
+  @Deprecated("Use hubs.focusBlockId") val hubFocusBlockId get() = hubs.focusBlockId
+  @Deprecated("Use hubs.fromFeedDetail") val hubFromDetail get() = hubs.fromFeedDetail
+  @Deprecated("Use hubs.timelineDetail") val timelineDetail get() = hubs.timelineDetail
+  @Deprecated("Use hubs.hiddenIds") val hiddenIds get() = hubs.hiddenIds
+  @Deprecated("Use hubs.showHidden") val showHidden get() = hubs.showHidden
+  @Deprecated("Use hubs.audienceSheetOpen") val audienceSheetOpen get() = hubs.audienceSheetOpen
+  @Deprecated("Use hubs.currentAudience") val currentHubAudience get() = hubs.currentAudience
+  @Deprecated("Use hubs.currentAudienceRequest") val currentHubAudienceRequest get() = hubs.currentAudienceRequest
+  @Deprecated("Use hubs.audienceError") val audienceError get() = hubs.audienceError
+}
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
 // SyncStarted/SyncSucceeded/SyncStopped/SyncFailed carry sync STATUS only.

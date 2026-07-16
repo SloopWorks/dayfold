@@ -268,14 +268,12 @@ class AuthReducerTest {
       pendingApprovals = listOf(PendingMember("u9", "Sam")),
       pendingDevice = PendingDevice("WDJF-7K2P", client = "cli"),
       pendingDeviceLink = "X",
-      hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
-      currentHubId = "h1",
-      currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
-      currentHubRequest = hubRequest,
-      hubFocusBlockId = "b1",
-      audienceSheetOpen = true,
-      currentHubAudience = HubAudience("family"),
-      currentHubAudienceRequest = audienceRequest,
+      hubs = HubState(
+        hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
+        currentHubId = "h1", currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
+        currentHubRequest = hubRequest, focusBlockId = "b1", audienceSheetOpen = true,
+        currentAudience = HubAudience("family"), currentAudienceRequest = audienceRequest,
+      ),
     )
   }
 
@@ -319,15 +317,11 @@ class AuthReducerTest {
     val h2 = Hub("h2", title = "Vacation")
     val tree = HubTree(h1, emptyList(), emptyList())
     val request = HubRequestKey(HubTenantGeneration(1L, 2L), 3L)
-    val withOpenHub = AppState(
-      hubs = listOf(h1, h2),
-      currentHubId = "h1",
-      currentHubTree = tree,
-      currentHubRequest = request,
-      audienceSheetOpen = true,
-      currentHubAudience = HubAudience("family"),
-      currentHubAudienceRequest = HubRequestKey(request.generation, 4L),
-    )
+    val withOpenHub = AppState(hubs = HubState(
+      hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree,
+      currentHubRequest = request, audienceSheetOpen = true,
+      currentAudience = HubAudience("family"), currentAudienceRequest = HubRequestKey(request.generation, 4L),
+    ))
     // Bridge delivers [h2] only — h1 was tombstoned
     val pruned = rootReducer(withOpenHub, HubsLoaded(listOf(h2)))
     assertNull(pruned.currentHubId)
@@ -343,7 +337,7 @@ class AuthReducerTest {
     val h1 = Hub("h1", title = "Party")
     val h2 = Hub("h2", title = "Vacation")
     val tree = HubTree(h1, emptyList(), emptyList())
-    val withOpenHub = AppState(hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree)
+    val withOpenHub = AppState(hubs = HubState(hubs = listOf(h1, h2), currentHubId = "h1", currentHubTree = tree))
     // Bridge delivers both hubs — h1 still present
     val s = rootReducer(withOpenHub, HubsLoaded(listOf(h1, h2)))
     assertEquals("h1", s.currentHubId)
@@ -352,7 +346,7 @@ class AuthReducerTest {
 
   @Test fun `HubsLoaded with null currentHubId leaves tree null (no-hub-open case)`() {
     val h1 = Hub("h1", title = "Party")
-    val s = rootReducer(AppState(hubs = emptyList(), currentHubId = null, currentHubTree = null), HubsLoaded(listOf(h1)))
+    val s = rootReducer(AppState(hubs = HubState(hubs = emptyList(), currentHubId = null, currentHubTree = null)), HubsLoaded(listOf(h1)))
     assertEquals(listOf("h1"), s.hubs.map { it.id })
     assertNull(s.currentHubId)
     assertNull(s.currentHubTree)

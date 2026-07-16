@@ -53,7 +53,7 @@ class HubSnapshotTest {
   )
 
   private fun snapshot(name: String, dark: Boolean) = runComposeUiTest {
-    val state = AppState(currentHubId = "sample", currentHubTree = canonicalHub())
+    val state = AppState(hubs = HubState(currentHubId = "sample", currentHubTree = canonicalHub()))
     setContent { DayfoldTheme(darkTheme = dark) { HubDetailScreen(state) } }
     // capture FIRST so the artifact is written even if an assertion later fails
     val img = onRoot().captureToImage()
@@ -77,7 +77,7 @@ class HubSnapshotTest {
   @Test fun enrichedHubRendersHeroBannerFallback() = runComposeUiTest {
     val base = canonicalHub()
     val enriched = base.copy(hub = base.hub.copy(media = HubMedia(icon = "school", accentColor = "#3B5BDB")))
-    val state = AppState(currentHubId = "sample", currentHubTree = enriched)
+    val state = AppState(hubs = HubState(currentHubId = "sample", currentHubTree = enriched))
     setContent { DayfoldTheme { HubDetailScreen(state) } }
     val img = onRoot().captureToImage()
     assertTrue(img.width > 0 && img.height > 0, "enriched snapshot has no pixels")

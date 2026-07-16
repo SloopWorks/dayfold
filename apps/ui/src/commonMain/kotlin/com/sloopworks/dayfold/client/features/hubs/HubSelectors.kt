@@ -23,8 +23,8 @@ internal fun memoizedHubListViewState(
   onFilter: () -> Unit = {},
 ): (AppState) -> HubListViewState {
   val shownHubs = memoizedSelector(
-    { state: AppState -> state.hubs },
-    { state: AppState -> state.hubFilter },
+    { state: AppState -> state.hubs.hubs },
+    { state: AppState -> state.hubs.filter },
   ) { hubs, filter ->
     onFilter()
     when (filter) {
@@ -35,11 +35,11 @@ internal fun memoizedHubListViewState(
   }
   return { state ->
     HubListViewState(
-      hasAnyHubs = state.hubs.isNotEmpty(),
+      hasAnyHubs = state.hubs.hubs.isNotEmpty(),
       shownHubs = shownHubs(state),
-      filter = state.hubFilter,
-      busy = state.hubsBusy,
-      error = state.hubError,
+      filter = state.hubs.filter,
+      busy = state.hubs.busy,
+      error = state.hubs.error,
     )
   }
 }
@@ -70,14 +70,14 @@ data class HubDetailViewState(
 )
 
 fun hubDetailViewState(state: AppState): HubDetailViewState = HubDetailViewState(
-  tree = state.currentHubTree,
-  busy = state.hubsBusy,
-  hubError = state.hubError,
+  tree = state.hubs.currentHubTree,
+  busy = state.hubs.busy,
+  hubError = state.hubs.error,
   syncError = state.error,
-  focusBlockId = state.hubFocusBlockId,
-  hiddenIds = state.hiddenIds,
-  showHidden = state.showHidden,
-  timelineDetail = state.timelineDetail,
+  focusBlockId = state.hubs.focusBlockId,
+  hiddenIds = state.hubs.hiddenIds,
+  showHidden = state.hubs.showHidden,
+  timelineDetail = state.hubs.timelineDetail,
   members = state.members,
   currentUserId = state.session?.userId,
 )
@@ -90,7 +90,7 @@ data class HubAudienceViewState(
 )
 
 fun hubAudienceViewState(state: AppState): HubAudienceViewState = HubAudienceViewState(
-  audience = state.currentHubAudience,
-  error = state.audienceError,
+  audience = state.hubs.currentAudience,
+  error = state.hubs.audienceError,
   currentUserId = state.session?.userId,
 )

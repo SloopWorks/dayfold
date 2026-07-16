@@ -38,7 +38,7 @@ class HubLinkTapTest {
     setContent {
       MaterialTheme {
         CompositionLocalProvider(LocalUriHandler provides handler) {
-          HubDetailScreen(AppState(currentHubId = "h1", currentHubTree = tree))
+          HubDetailScreen(AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree)))
         }
       }
     }
@@ -54,7 +54,7 @@ class HubLinkTapTest {
     setContent {
       MaterialTheme {
         CompositionLocalProvider(LocalUriHandler provides handler) {
-          HubDetailScreen(AppState(currentHubId = "h1", currentHubTree = tree))
+          HubDetailScreen(AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree)))
         }
       }
     }
@@ -69,7 +69,7 @@ class HubLinkTapTest {
     setContent {
       MaterialTheme {
         CompositionLocalProvider(LocalUriHandler provides handler) {
-          HubDetailScreen(AppState(currentHubId = "h1", currentHubTree = tree))
+          HubDetailScreen(AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree)))
         }
       }
     }

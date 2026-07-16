@@ -24,7 +24,7 @@ class HubBlockActionTest {
     HubBlock(id = "b_c", sectionId = "s1", type = "contact", ord = 0, payload = payload)
   private fun location(payload: BlockPayload) =
     HubBlock(id = "b_l", sectionId = "s1", type = "location", ord = 1, payload = payload)
-  private fun state(t: HubTree) = AppState(currentHubId = "h1", currentHubTree = t)
+  private fun state(t: HubTree) = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = t))
 
   @Test fun `tapping Call on a contact block dials the number`() = runComposeUiTest {
     var got: CardAction? = null

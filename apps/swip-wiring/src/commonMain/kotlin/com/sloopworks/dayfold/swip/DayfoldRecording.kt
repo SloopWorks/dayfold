@@ -33,7 +33,7 @@ fun dayfoldSlices(): List<SliceSpec<AppState>> = slices {
   slice("syncing", Boolean.serializer(), { s -> s.syncing }, { s, v -> s.copy(syncing = v) })
   slice("detailStack", ListSerializer(String.serializer()), { s -> s.detailStack }, { s, v -> s.copy(detailStack = v) })
   slice("cardsCount", Int.serializer()) { s -> s.cards.size } // derived — no apply
-  slice("hubFilter", String.serializer(), { s -> s.hubFilter }, { s, v -> s.copy(hubFilter = v) })
+  slice("hubFilter", String.serializer(), { s -> s.hubs.filter }, { s, v -> s.copy(hubs = s.hubs.copy(filter = v)) })
 }
 
 /**

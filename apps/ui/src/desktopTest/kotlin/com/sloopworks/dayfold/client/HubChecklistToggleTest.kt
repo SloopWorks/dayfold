@@ -37,16 +37,16 @@ class HubChecklistToggleTest {
   // row height > 48dp — the reliable discriminator (assertIsDisplayed misses an overflow clip).
   @Test fun aWrappingItemGrowsPastTheHitTargetSoTheSublineFits() = runComposeUiTest {
     val long = "Email BIEA + Band Boosters thank-you and disbursement letters to the finaid office at finaid@butler.edu before Thursday"
-    val state = AppState(currentHubId = "h1", currentHubTree = treeWith(
-      ChecklistItem(id = "i1", text = long, done = false, assignee = "Patrick")))
+    val state = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(
+      ChecklistItem(id = "i1", text = long, done = false, assignee = "Patrick"))))
     setContent { MaterialTheme { Box(Modifier.width(360.dp)) { HubDetailScreen(state) } } }
     onNode(hasText(long, substring = true) and hasClickAction()).assertHeightIsAtLeast(56.dp)
   }
 
   @Test fun tappingAnUndoneRowReportsAToggleToDone() = runComposeUiTest {
     var toggled: Triple<String, String, Boolean>? = null
-    val state = AppState(currentHubId = "h1",
-      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Buy balloons", done = false)))
+    val state = AppState(hubs = HubState(currentHubId = "h1",
+      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Buy balloons", done = false))))
     setContent { MaterialTheme { HubDetailScreen(state, onToggleItem = { b, i, d -> toggled = Triple(b, i, d) }) } }
     onNodeWithText("Buy balloons").performClick()
     assertEquals(Triple("b_chk", "i1", true), toggled)
@@ -54,8 +54,8 @@ class HubChecklistToggleTest {
 
   @Test fun tappingADoneRowReportsAToggleToUndone() = runComposeUiTest {
     var toggled: Triple<String, String, Boolean>? = null
-    val state = AppState(currentHubId = "h1",
-      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Order cake", done = true)))
+    val state = AppState(hubs = HubState(currentHubId = "h1",
+      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Order cake", done = true))))
     // a done item with an empty burst is folded — expand the "1 done" section, then tap it
     setContent { MaterialTheme { HubDetailScreen(state, onToggleItem = { b, i, d -> toggled = Triple(b, i, d) }) } }
     onNodeWithText("1 done").performClick()                  // expand the folded section
@@ -65,8 +65,8 @@ class HubChecklistToggleTest {
 
   @Test fun anItemWithoutAnIdIsNotTappable() = runComposeUiTest {
     var toggled: Triple<String, String, Boolean>? = null
-    val state = AppState(currentHubId = "h1",
-      currentHubTree = treeWith(ChecklistItem(id = null, text = "Legacy item", done = false)))
+    val state = AppState(hubs = HubState(currentHubId = "h1",
+      currentHubTree = treeWith(ChecklistItem(id = null, text = "Legacy item", done = false))))
     setContent { MaterialTheme { HubDetailScreen(state, onToggleItem = { b, i, d -> toggled = Triple(b, i, d) }) } }
     onNodeWithText("Legacy item").assertIsDisplayed()        // still renders
     onNodeWithText("Legacy item").performClick()
@@ -75,9 +75,9 @@ class HubChecklistToggleTest {
 
   @Test fun aFailedBlockShowsACalmRetryThatReportsTheBlock() = runComposeUiTest {
     var retried: String? = null
-    val state = AppState(currentHubId = "h1",
+    val state = AppState(hubs = HubState(currentHubId = "h1",
       currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Buy balloons", done = false))
-        .let { it.copy(blocks = it.blocks.map { b -> b.copy(localState = "failed") }) })
+        .let { it.copy(blocks = it.blocks.map { b -> b.copy(localState = "failed") }) }))
     setContent { MaterialTheme { HubDetailScreen(state, onRetryBlock = { retried = it }) } }
     onNodeWithText("Couldn't save", substring = true).assertIsDisplayed()
     onNodeWithText("Retry").performClick()
@@ -86,10 +86,9 @@ class HubChecklistToggleTest {
 
   @Test fun `a done item shows the toggler's first name, not the raw userId`() = runComposeUiTest {
     val state = AppState(
-      currentHubId = "h1",
       session = Session("a", "r", userId = "u_me"),
       members = listOf(FamilyMember(uid = "u_pat", displayName = "Patrick Jackson")),
-      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_pat")),
+      hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_pat"))),
     )
     setContent { MaterialTheme { HubDetailScreen(state) } }
     onNodeWithText("1 done").performClick()                 // expand the folded done section
@@ -99,8 +98,8 @@ class HubChecklistToggleTest {
 
   @Test fun `a done item by an unknown member falls back to a family member`() = runComposeUiTest {
     val state = AppState(
-      currentHubId = "h1", session = Session("a", "r", userId = "u_me"), members = emptyList(),
-      currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_gone")),
+      session = Session("a", "r", userId = "u_me"), members = emptyList(),
+      hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(ChecklistItem(id = "i1", text = "Email letters", done = true, doneBy = "u_gone"))),
     )
     setContent { MaterialTheme { HubDetailScreen(state) } }
     onNodeWithText("1 done").performClick()

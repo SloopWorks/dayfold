@@ -39,7 +39,7 @@ class DayfoldCommandsTest {
   @Test fun `close is expected-hub correlated and cannot clear a replacement hub`() {
     val request = HubRequestKey(HubTenantGeneration(1L, 1L), 1L)
     val store = createTestAppStore(
-      AppState(route = Route.Hubs, currentHubId = "hub-a", currentHubRequest = request),
+      AppState(route = Route.Hubs, hubs = HubState(currentHubId = "hub-a", currentHubRequest = request)),
       debug = false,
     )
     val commands = DayfoldCommands.navigationOnly(store)
