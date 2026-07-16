@@ -5,9 +5,8 @@
 **Proposed** 2026-07-15 (agent-drafted; accept on merge). Realizes
 `docs/superpowers/specs/2026-07-14-client-crash-error-reporting-design.md`.
 Companion to the SWIP error pillar (SWIP PR #67/#68/#73, published KMP
-artifacts). Sibling of **ADR 0059** — the API half of the same pillar; that
-number is reserved for the in-flight API PR #336 and is intentionally absent
-from this branch. Composes with ADR 0055 (analytics — shares `:swip-wiring`
+artifacts). Sibling of **ADR 0059** — the API half of the same pillar (merged
+as PR #336, commit `c65c0d4`, since this ADR was drafted). Composes with ADR 0055 (analytics — shares `:swip-wiring`
 and the debug/release glue split), ADR 0054 (bug reporter — same
 debug-only idiom), ADR 0056/0057 (logging, inspector — same pattern).
 

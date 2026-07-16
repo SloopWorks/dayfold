@@ -9,10 +9,13 @@ project, same Infisical secrets path), ADR 0056 (SloopLogging), ADR 0015
 Dayfold half of SWIP's error-pillar design
 (`docs/superpowers/specs/2026-07-13-swip-errors-sentry-design.md`, SWIP PR #67/#68).
 
-**Blocked on publication:** the SWIP packages carrying this work
+**Merged and live** (2026-07-15 repo-maintenance pass): `feat/api-swip-errors`
+merged as PR #336 (commit `c65c0d4`); the SWIP packages this work depends on
 (`@sloopworks/swip-js`, `@sloopworks/swip-sentry`, `@sloopworks/swip-schema-dayfold`)
-are not on GitHub Packages yet — SWIP PR #68 must merge and release first. See
-"Merge order" below.
+published and the code is running in production. This ADR's own status stays
+**Proposed** — merging is not the same act as operator ratification (see
+`backlog/operator-inbox.md` INB-32, which now also covers this ADR) — but the
+"blocked on publication" framing was stale and is corrected here.
 
 ## Context
 

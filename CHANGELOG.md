@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-15 — Client runtime hardening: fixed two production deadlocks
+
+### Fixed
+- **Two real production deadlocks in the client runtime are gone.** A narrow
+  race could self-join a 401 refresh against itself, and `ContentBridge`
+  could lock-order-deadlock against the same store under concurrent
+  writes — both found and fixed during a broader concurrency/render-isolation
+  hardening pass (ADR 0058). Production notifications now run on one
+  serialized UI-thread context, `ContentStore` owns process-safe
+  writer/snapshot serialization, and auth/family epochs fence stale
+  in-flight commits so a stale response can't clobber a newer one. Active
+  routes now subscribe to immutable per-feature state slices instead of the
+  whole store, removing a root whole-state subscription + callback wall that
+  caused unnecessary recompositions.
+
 ## 2026-07-15 — CLI catches blank-rendering hub content at author time
 
 ### Changed
@@ -109,6 +124,15 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 - **Device/CLI tokens can now be scoped to specific hubs** instead of only a blanket
   read/write-everything grant — the approval screen lets you pick which hubs a linking device
   gets access to. Existing blanket grants are unaffected. (ADR 0029)
+
+## 2026-07-10 — In-app bug reporter (debug-only): shake to capture, annotate, review
+
+### Added (internal)
+- **Debug/dogfood Android builds can now shake the device to file a bug
+  report** — captures a screenshot plus a rolling breadcrumb ring of recent
+  app activity, lets the operator annotate before sending, and routes through
+  SWIP's bug-report pipeline for review. The public release build carries no
+  bug-reporter code. (ADR 0054)
 
 ## 2026-07-10 — Account avatars, hub People & per-hub roles
 

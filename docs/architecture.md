@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-13). For product framing
+A map of the system as it actually runs today (2026-07-16). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -21,6 +21,8 @@ flowchart TB
         API["Content API\nTypeScript / Hono\napps/api"]
     end
 
+    Sentry["Sentry\n(3rd-party triage: 2 projects —\nAPI/Node + client/KMP)"]
+
     DB[("Postgres (Neon)\nfamilies/memberships · hubs/sections/blocks · cards\nop_log · sync cursors\nresource_visibility (per-hub role, ADR 0053)\ndevice_authorizations · invites · refresh_tokens")]
 
     subgraph Devices["Family devices"]
@@ -34,12 +36,16 @@ flowchart TB
     end
 
     subgraph Debug["Debug builds only — zero release footprint"]
-        Analytics["apps/swip-wiring + debugdrawer-swip\nbug reporter (ADR 0054) · analytics (ADR 0055)\nlogging (ADR 0056) · inspector panel (ADR 0057)"]
+        Analytics["apps/swip-wiring + debugdrawer-swip\nbug reporter (ADR 0054) · analytics (ADR 0055)\nlogging (ADR 0056) · inspector panel (ADR 0057)\ncrash/error reporting (ADR 0060)"]
         PostHog["PostHog EU\n(3rd-party, count-only, never-identify)"]
         Analytics -. "count-only events, no PII" .-> PostHog
+        Analytics -. "handled record()/wtf() + fatal crashes\n(joined on swip.fingerprint)" .-> Sentry
     end
 
     Shared["packages/schema + packages/linkrules\ncodegen'd content contract\n+ shared link/media vetting"]
+
+    API -. "any thrown route error\n(always-on in prod, ADR 0059)" .-> Sentry
+    API -. "same error, PostHog-joined on swip.fingerprint" .-> PostHog
 
     CLI -- "HTTPS: login (RFC 8628 device grant)\npush / pull / delete (JWT)" --> API
     API -- "SQL" --> DB
@@ -54,7 +60,7 @@ flowchart TB
     Shared -. "srcdir'd into" .-> Core
 
     classDef ext fill:#f5f5f5,stroke:#999,color:#333;
-    class DB,IdP,PostHog ext;
+    class DB,IdP,PostHog,Sentry ext;
 ```
 
 **Server-blind, client-rendered.** The API stores and moves typed JSON; it does
@@ -68,7 +74,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 
 | Component | Path | Stack | Role |
 |---|---|---|---|
-| Content API | `apps/api` | TypeScript, Hono, `pg`, Zod, deployed on Vercel | Auth (mint/verify tokens, device grant, Firebase verify), family/membership CRUD, hub/card/section/block CRUD with visibility + author-gate enforcement, `/sync` cursor feed, cron sweep (tombstone GC) |
+| Content API | `apps/api` | TypeScript, Hono, `pg`, Zod, deployed on Vercel | Auth (mint/verify tokens, device grant, Firebase verify), family/membership CRUD, hub/card/section/block CRUD with visibility + author-gate enforcement, `/sync` cursor feed, cron sweep (tombstone GC), always-on error reporting through SWIP (ADR 0059) |
 | Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility` (incl. per-hub `role` — viewer/contributor/co_owner, ADR 0053), `device_authorizations`, `invites`, `refresh_tokens` |
 | CLI | `apps/cli` | Kotlin, hand-rolled `java.net.http.HttpClient` (no framework) | `login` (device grant + OS keychain) / `push` / `pull` / `delete` / `template` / `whoami` / `update` — the authoring surface for operators and AI loops |
 | Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
@@ -77,7 +83,8 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
 | iOS host | `apps/iosApp` | SwiftUI/xcodegen, embeds the `:ui` static framework | Notification parity with Android (ADR 0044 Phase B) via `:client`'s `iosMain` glue (`IosLocalNotifier`, `IosGeofenceController`, `IosExactNotificationScheduler`) over the same shared `commonMain` core |
 | Debug drawer | `apps/debugdrawer`, `debugdrawer-noop`, `debugdrawer-redux`, `debugdrawer-swip` | Compose-MP library modules | In-app devtools bubble/drawer (action log, redux state inspector); `-noop` variant is the release no-op, gated to debug builds. `-swip` (ADR 0057) adds a live, mask-by-default analytics timeline panel fed by the SWIP capture engine's ring buffer — `debugImplementation`-only, zero release bytes |
-| SWIP wiring | `apps/swip-wiring` | KMP library consuming the published SWIP SDK (`works.sloop.swip:*`) | The SWIP privacy floor + the seam that keeps `:client` SWIP-free: the bug-reporter slice registry + `dayfoldSanitizer` (ADR 0054) and the analytics mapper table + `NoOpErrors` (ADR 0055), plus the mandatory salted-PII leak test (`:swip-wiring:desktopTest`, a CI gate). Consumed `debugImplementation`-only by `:androidApp` (debug/internal builds) |
+| SWIP wiring | `apps/swip-wiring` | KMP library consuming the published SWIP SDK (`works.sloop.swip:*`) | The SWIP privacy floor + the seam that keeps `:client` SWIP-free: the bug-reporter slice registry + `dayfoldSanitizer` (ADR 0054), the analytics mapper table (ADR 0055), and — debug-only Android — a real Sentry crash/error reporter replacing `NoOpErrors` (ADR 0060), plus the mandatory salted-PII leak test (`:swip-wiring:desktopTest`, a CI gate). Consumed `debugImplementation`-only by `:androidApp` (debug/internal builds) |
+| API error reporting | `apps/api/src/swip.ts` | `@sloopworks/swip-js` + `@sloopworks/swip-sentry`, always-on (not debug-gated) | Every thrown route error is recorded through the `SloopErrors` facade to **both** PostHog (owned stream) and Sentry (triage), joined on `swip.fingerprint`; deliberate 4xx responses are not reported. The response the client sees is unchanged — this is instrumentation only. Flush is awaited in a Hono `finally` (bounded 2s, never-rejecting) because Vercel freezes the container at response time (ADR 0059) |
 | Logging | `Log` front-door in `:client` (`com.sloopworks.dayfold.client.Log`, ADR 0056), bound to SWIP `SloopLogging` in `:androidApp`'s debug glue | `:client` = SWIP-free leveled facade; `swip-logging:0.1.1` debug-only | Leveled (debug/info/warn/error) engine milestone logging → console + devtools drawer, debug builds only; PII-scrubbed ahead of every writer, on-device only, zero swip bytes in release |
 | Schema | `packages/schema` | `content.schema.json` → generated Zod (API) + Kotlin (`Content.kt`, shared by CLI/client) | The single content contract; CI fails if generated output is stale |
 | Shared Kotlin | `packages/linkrules` | Kotlin (`commonMain`, no platform deps) | Srcdir'd into both CLI and client so authoring and rendering never drift: phone/email linkification + URL/mailto vetting, the ULID minter (ADR 0038), and hardened image/icon/accent validation (ADR 0036, mirrored in `apps/api/src/media-validation.ts`) |
@@ -146,6 +153,13 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    strand them — resumes on next launch. A debug-only **inspector panel**
    (ADR 0057, in the debug drawer) shows this pipeline's live send/drop
    timeline, mask-by-default with tap-to-reveal.
+9. **Error reporting.** Unlike analytics, this runs in **production, always
+   on, both sides**. Any exception a route throws is reported by the API
+   (ADR 0059) to Sentry (triage) and the owned PostHog stream, joined on a
+   shared fingerprint, before the serverless function freezes. On dogfood
+   Android debug builds, the client mirrors this for crashes and handled
+   `record()`/`wtf()` calls through a separate Sentry KMP project (ADR 0060,
+   debug-only — the release build ships no Sentry keys or SWIP bytes).
 
 ## Client runtime and effect ownership
 
@@ -198,14 +212,20 @@ derived surfacing + background notifications), `adr/0045`/`0046` (Hub
 Timeline — authored + on-device-derived), `adr/0052` (DB-first cold-start
 route gate), `adr/0053` (per-hub participation roles), `adr/0055` (SWIP
 product analytics — debug-only, PostHog EU, count-only), `adr/0057` (SWIP
-debug inspector panel), `adr/0058` (client runtime and effect ownership).
+debug inspector panel), `adr/0058` (client runtime and effect ownership),
+`adr/0059` (API error reporting — always-on, PostHog + Sentry), `adr/0060`
+(client crash/error reporting — debug-only, Sentry KMP + PostHog).
 
 ## Deploy
 
 - **API:** bundled with esbuild (`npm run build:fn` → `apps/api/api/index.js`)
   and deployed to Vercel (`vercel deploy --prod`). Prod DB is Neon (pooled
   connection). `npm run preflight` (`env:check` + `db:check`) gates a redeploy
-  against missing env or schema drift.
+  against missing env or schema drift. Since ADR 0059, `env:check` also
+  requires `SENTRY_NODE_EU_DSN` (the API's own Sentry project — not the
+  mobile app's), `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`;
+  installs need GitHub Packages credentials (`NODE_AUTH_TOKEN`) for the SWIP
+  packages.
 - **CI** (`.github/workflows/ci.yml`): API tests against a live Postgres
   service container, client desktop tests + Compose snapshot tests, codegen +
   bundle drift guards, expect/actual parity check for KMP targets. Runs on
