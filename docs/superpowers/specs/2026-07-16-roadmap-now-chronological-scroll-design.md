@@ -74,18 +74,28 @@ transform; **`SeekableTransitionState` is deliberately avoided** — it drops th
 sharedBounds morph). The list must therefore be correct on **frame 0** — a
 post-composition scroll would play a visible top→NOW jump during the enter morph.
 
-Pre-seat the list state so frame 0 is already at NOW:
+This **mirrors the proven arrival-scroll pattern** already used for hub deep-links
+(`HubDetailScreen` → `focusedBlockItemIndex` + `LaunchedEffect{…animateScrollToItem}`,
+`HubScreens.kt:366-377`; helper unit-tested in `HubArrivalIndexTest`). `nowLineItemIndex`
+is the timeline analogue of `focusedBlockItemIndex`, living in `:ui` commonMain beside it.
+**Deliberate divergence:** we pre-seat frame 0 and use `scrollToItem` (instant), *not*
+`animateScrollToItem` — the deep-link case is user-initiated and benefits from the
+animated reveal, but open-at-NOW fires on *every* open, so an animated scroll would fling
+through all history each time.
 
 ```kotlin
-// nowLineItemIndex: absolute lazy-item index of the NOW line (walk groups:
-//   +1 per sticky header, +1 per stop; capture running count when flat == nowIndex).
+// nowLineItemIndex(groups, nowIndex): absolute lazy-item index of the NOW line. Walk groups:
+//   +1 per sticky header, +1 per stop; capture the running count when flat == nowIndex.
+//   MUST also handle the trailing all-past case (nowIndex == totalFlat) after the loop,
+//   mirroring the render's `now_line_end` item. Returns null when nowIndex is null.
 val nowItemIndex = remember(presented) { nowLineItemIndex(presented.groups, presented.nowIndex) }
-val headerPx = with(LocalDensity.current) { 44.dp.roundToPx() }
+val headerPx = with(LocalDensity.current) { 46.dp.roundToPx() }
 
-val listState =
-    if (autoScrollToNow && nowItemIndex != null) remember(active) { LazyListState(nowItemIndex) }
-    else rememberLazyListState()
-
+// ONE unconditional keyed remember (a conditional remember whose branch flips would fault
+// Compose's slot table). null-checks live INSIDE, not around the remember call site.
+val listState = remember(active) {
+    LazyListState(firstVisibleItemIndex = if (autoScrollToNow) (nowItemIndex ?: 0) else 0)
+}
 LaunchedEffect(active) {
     if (autoScrollToNow && nowItemIndex != null) listState.scrollToItem(nowItemIndex, headerPx)
 }
@@ -96,26 +106,39 @@ Mechanics and rationale:
 - **Frame 0 already at NOW** (`LazyListState(firstVisibleItemIndex = nowItemIndex)`) —
   no top→NOW motion exists to be seen. The enter morph shows NOW-positioned content
   fading/sliding in.
+- **Unconditional keyed remember.** A single `remember(active) { LazyListState(...) }` —
+  `remember(active)` re-seats to NOW for the swapped content on Day↔Hub toggle (item
+  positions differ per scale). The `autoScrollToNow` / null branch is *inside* the ctor
+  arg, never around the remember, so the slot-table structure is stable across
+  recomposition (avoids a "changing number of slots" fault when `nowItemIndex` resolves).
 - **Sticky-header seat (`+headerPx`).** With offset 0 the pinned month header overlays
   the NOW line's top ~H px permanently. `scrollToItem`'s post-condition is
   `item.offset == scrollOffset` (px from viewport start), so a **positive** offset ≈
   header height seats NOW below the header; the header pins in the freed gap (useful
-  month context). Because frame 0 is already at NOW, this nudge is ≤~44 px — a
+  month context). Because frame 0 is already at NOW, this nudge is ≤~46 px — a
   sub-perceptible settle masked by the HeroMs enter, **not** a jump. `initialScrollOffset`
   can't do this (it only scrolls the first item *up*), so the seat is a one-shot
-  post-layout `scrollToItem`.
+  post-layout `scrollToItem`. `headerPx` is sized to the **taller** later-group header
+  (top-pad 16, ~46.dp) so mid-list NOW never occludes; the group-0/all-future header
+  (top-pad 0, ~30.dp) yields a ≤16 px cosmetic gap — invisible.
 - **`LaunchedEffect(active)` keyed on scale only** (not `tl`): fires on open and on
   Day↔Hub toggle, never on incidental recomposition or a background sync (which would
-  otherwise yank the scroll back mid-read). `remember(active) { LazyListState(...) }`
-  re-seats to NOW for the swapped content on toggle (item positions differ per scale).
+  otherwise yank the scroll back mid-read).
 - **Ephemeral by design.** Reopen resets to NOW — matches how the scale toggle already
   resets. No hoist / saveable needed for this full-screen substate.
+- **Both scales.** `autoScrollToNow` defaults true for Day *and* Hub — "Today's schedule"
+  also opens at NOW (skipping past-morning stops), consistent with the roadmap.
 - **Reduced-motion honesty preserved.** `scrollToItem` is instantaneous, not an
   animation — nothing to gate; consistent with the NOW line's static-halo treatment.
   (`animateScrollToItem` would fling and fight the enter morph — rejected.)
 - **Transition untouched.** Only list state + presenter change — no
   `SeekableTransitionState`, no transition spec, no shared-element keys → zero morph
   disruption.
+- **Rail connector at NOW.** The NOW line is a full-width row between two stop rows,
+  interrupting the vertical rail — this already happens in Day scale (ADR 0045); Hub now
+  inherits the identical look. Consistent, not a regression.
+- **Gap/future-month NOW.** When today has no stop, NOW seats under the next future
+  month's header ("SEPTEMBER / NOW / Sep 5"). Pre-existing behavior, preserved.
 
 `headerPx` uses a ~44.dp constant (first-group header has top-pad 0, later headers
 top-pad 16 → a few px variance, cosmetically invisible). An `onGloballyPositioned`
@@ -138,19 +161,33 @@ Web / Desktop identical, no `expect/actual`. Presenter change is `:client` commo
 
 ## Testing
 
-- **Presenter (`:client`, pure):** update the Hub `nowIndex` expectations from group
-  index to flat stop index — `TimelinePresenterWindowTest`, `HubArrivalIndexTest`,
-  `DeriveTimelineTest`, `TimelineModelTest` (whichever assert Hub `nowIndex`). Add a
-  case: a current-month group with a past-in-month + future-in-month stop → NOW index
-  lands between them.
-- **`nowLineItemIndex` helper (`:ui`):** unit-cover the group-walk (NOW at group start,
-  mid-group, all-past→end, all-future→0, null passthrough).
+- **Presenter (`:client`, pure) — `TimelinePresenterWindowTest`** (the only test that
+  asserts Hub `nowIndex`; `HubArrivalIndexTest` is HubDetailScreen deep-link and is
+  *unrelated*):
+  - `presentTimelineDetail hub groups by month` (line 238): now=Aug24, stops
+    Aug1/Aug15/Sep1. Flat index = `indexOfLast{≤now}+1 = 2` → NOW after the two past
+    August stops, before Sep. **Assertion `0 → 2`** — this change *is* the bug fix.
+  - `hub NOW band lands on next future month` (line 225): flat index = 1 (numerically
+    unchanged, but update the comment to flat-index semantics so it isn't a misleading
+    coincidence).
+  - Add an explicit mid-month case: a current-month group with a past-in-month +
+    future-in-month stop → NOW index lands between them.
+  - `detail-day nowIndex …` (line 184): Day scale, unchanged (already flat).
+- **`nowLineItemIndex` helper (`:ui`)** — unit-cover in `HubArrivalIndexTest` style
+  (mirroring `focusedBlockItemIndex` tests): NOW at group-start, mid-group,
+  all-past→trailing end, all-future, null passthrough.
+- **Scroll behavior (`:ui`, `runComposeUiTest`)** — available (`ProximitySettingsTest`)
+  and idles effects, so it's deterministic where a single-frame snapshot would race:
+  compose `TimelineDetail(Hub, autoScrollToNow=true)`, `waitForIdle`, assert
+  `onNodeWithText("NOW · …").assertIsDisplayed()` and the earliest past stop is not
+  composed (scrolled off above). Closes the gap the `autoScrollToNow=false` snapshots leave.
 - **Snapshots:** `TimelineDetail` gains `autoScrollToNow: Boolean = true`; snapshot
   scenes (`DerivedTimelineSnapshotTest`, `HubTimelineIntegrationSnapshotTest`,
-  `TimelineDetailSnapshotTest`) pass `false` → deterministic top render (avoids a
-  one-shot scroll racing the single-frame capture). They then verify the **placement**
-  change. Regenerate roadmap-detail goldens on **both** macos + linux sets (cross-OS
-  wrap drift means one set won't cover the other).
+  `TimelineDetailSnapshotTest`) pass `false` → deterministic top render (avoids the
+  one-shot scroll racing the capture). They verify the **placement** change. Regenerate
+  roadmap-detail (Hub) goldens on **both** macos + linux sets (cross-OS wrap drift means
+  one set won't cover the other). Day-scale goldens are unchanged (same flat-index path;
+  keys renamed only → no pixel change).
 - **On-device:** operator-driven smoke on the Pixel — open a roadmap with past +
   present + future milestones; confirm it opens at NOW with past scrollable above and
   the NOW line seated below the pinned month header.
