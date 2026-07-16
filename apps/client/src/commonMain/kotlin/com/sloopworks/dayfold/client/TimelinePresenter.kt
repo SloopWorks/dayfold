@@ -333,7 +333,8 @@ internal fun condenseSpine(nodes: List<SpineNode>): Pair<List<SpineNode>, Int> {
  *             local hour in [tz]. nowIndex = nowLineIndex result (absolute stop index in groups).
  *             nowTimeLabel = clockTime(now, tz) iff focal day is today.
  *
- * Hub scale:  groups by month ("AUGUST", etc.). nowIndex = index of the current-month group.
+ * Hub scale:  groups by month ("AUGUST", etc.). nowIndex = flat stop index of the first stop
+ *             after now (inter-stop, like Day) — the NOW line renders before that stop.
  *             nowTimeLabel = null.
  */
 fun presentTimelineDetail(tl: Timeline, scale: TimelineScale, nowIso: String, tz: TimeZone): PresentedTimeline {
