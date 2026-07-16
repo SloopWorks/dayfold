@@ -176,11 +176,11 @@ private fun ReplayedState(state: AppState) {
     verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     for ((label, value) in listOf(
-      "route" to state.route.name,
-      "syncing" to state.syncing.toString(),
-      "cards" to state.cards.size.toString(),
-      "detailStack" to state.detailStack.toString(),
-      "hubFilter" to state.hubFilter,
+      "route" to state.navigation.route.name,
+      "syncing" to state.content.syncing.toString(),
+      "cards" to state.content.cards.size.toString(),
+      "detailStack" to state.navigation.detailStack.toString(),
+      "hubFilter" to state.hubs.filter,
     )) {
       Text("$label = $value", fontFamily = FontFamily.Monospace, fontSize = 13.sp)
     }

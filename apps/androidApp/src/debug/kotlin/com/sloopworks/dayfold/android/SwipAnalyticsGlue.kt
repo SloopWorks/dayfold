@@ -176,7 +176,7 @@ fun swipLifecycleInstall(app: Application, store: Store<AppState>) {
   installBackgroundFlush()
   val screens = SwipAnalyticsHolder.screenSubscription
     ?: ReplaceableStoreSubscription<AppState, String>(
-      select = { it.route.name },
+      select = { it.navigation.route.name },
       onChanged = handle::screen,
     ).also {
       SwipAnalyticsHolder.screenSubscription = it
