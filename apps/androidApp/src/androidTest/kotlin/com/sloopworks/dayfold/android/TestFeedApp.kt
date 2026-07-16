@@ -8,7 +8,7 @@ import com.sloopworks.dayfold.client.FeedApp
 import com.sloopworks.dayfold.client.StableDayfoldCommands
 import com.sloopworks.dayfold.client.StablePlatformActions
 import org.reduxkotlin.Store
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 /** Android-test adapter that keeps deterministic behavior fakes outside the production boundary. */
 @Composable
@@ -25,7 +25,7 @@ internal fun TestFeedApp(
   onLoadDevices: () -> Unit = {},
   onRevokeDevice: (String) -> Unit = {},
 ) {
-  val stableStore = rememberStableStore(store)
+  val selectorStore = rememberSelectorStore(store)
   val commands = remember(store) {
     val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
     object : StableDayfoldCommands by base {
@@ -42,7 +42,7 @@ internal fun TestFeedApp(
   }
   val platformActions = remember(store) { StablePlatformActions.noOp(onSignIn = onSignIn) }
   FeedApp(
-    store = stableStore,
+    store = selectorStore,
     commands = commands,
     platformActions = platformActions,
   )

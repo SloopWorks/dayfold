@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.sloopworks.dayfold.client.cards.CardAction
 import org.reduxkotlin.Store
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 /** Test-only adapter that keeps behavior fakes outside FeedApp's production boundary. */
 @Composable
@@ -23,7 +23,7 @@ internal fun TestFeedApp(
   onRevokeDevice: (String) -> Unit = {},
   onPlatformAction: (CardAction) -> Unit = {},
 ) {
-  val stableStore = rememberStableStore(store)
+  val selectorStore = rememberSelectorStore(store)
   val commands = remember(store) {
     val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
     object : StableDayfoldCommands by base {
@@ -46,7 +46,7 @@ internal fun TestFeedApp(
     )
   }
   FeedApp(
-    store = stableStore,
+    store = selectorStore,
     commands = commands,
     platformActions = platformActions,
   )

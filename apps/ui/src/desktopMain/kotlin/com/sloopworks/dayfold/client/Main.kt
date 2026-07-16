@@ -8,7 +8,7 @@ import com.sloopworks.dayfold.client.fake.fakeClientForApi
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 /** Desktop host: owns one host-safe runtime graph and only retains native platform actions. */
 fun main() = application {
@@ -36,7 +36,7 @@ fun main() = application {
     }
   }
   val platformActions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
-  val stableStore = rememberStableStore(graph.store)
+  val selectorStore = rememberSelectorStore(graph.store)
   val stableCommands = remember(graph.commands) { StableDayfoldCommands(graph.commands) }
   val stablePlatformActions = remember(platformActions, devSecret) {
     StablePlatformActions(
@@ -67,7 +67,7 @@ fun main() = application {
     title = "Dayfold",
   ) {
     FeedApp(
-      store = stableStore,
+      store = selectorStore,
       commands = stableCommands,
       platformActions = stablePlatformActions,
     )

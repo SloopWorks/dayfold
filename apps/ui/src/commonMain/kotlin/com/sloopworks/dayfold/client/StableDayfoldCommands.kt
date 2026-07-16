@@ -5,7 +5,6 @@ import androidx.compose.runtime.Stable
 /** Compose-stable UI command contract backed by the application-owned [DayfoldCommands]. */
 @Stable
 interface StableDayfoldCommands {
-  fun dispatch(action: Action)
   fun retryAuth()
   fun createFamily(name: String)
   fun signOut()
@@ -54,7 +53,6 @@ fun StableDayfoldCommands(commands: DayfoldCommands): StableDayfoldCommands =
 private class RuntimeStableDayfoldCommands(
   private val commands: DayfoldCommands,
 ) : StableDayfoldCommands {
-  override fun dispatch(action: Action) = commands.dispatch(action)
   override fun retryAuth() = commands.retryAuth()
   override fun createFamily(name: String) = commands.createFamily(name)
   override fun signOut() = commands.signOut()

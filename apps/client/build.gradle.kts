@@ -16,8 +16,7 @@ kotlin {
   androidTarget()
   jvm("desktop")
   // iosArm64 = device, iosSimulatorArm64 = Apple-Silicon sim. iosX64 (intel sim)
-  // dropped: redux-kotlin-granular alpha01 has no iosX64 publication, and intel
-  // Macs are EOL. (Operator owns reduxkotlin — add iosX64 granular to restore it.)
+  // iosX64 is intentionally omitted because Intel Macs are EOL.
   listOf(iosArm64(), iosSimulatorArm64())
 
   sourceSets {
@@ -25,9 +24,9 @@ kotlin {
       dependencies {
         // redux-kotlin KMP coordinates (unsuffixed → per-target variant resolved
         // by Gradle). api() for the types the platform shells touch (Store etc.).
-        api("org.reduxkotlin:redux-kotlin-concurrent:1.0.0-alpha03")   // -threadsafe is deprecated → concurrent (same contract, lock-free reads)
-        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha03")
-        api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha03")
+        api("org.reduxkotlin:redux-kotlin-concurrent:1.0.0-alpha05")   // -threadsafe is deprecated → concurrent (same contract, lock-free reads)
+        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha05")
+        api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha05")
         // ContentStore is shared by foreground/background callers on every target. Keep its
         // single-writer gate in common code instead of maintaining divergent platform locks.
         implementation("org.jetbrains.kotlinx:atomicfu:0.32.1")

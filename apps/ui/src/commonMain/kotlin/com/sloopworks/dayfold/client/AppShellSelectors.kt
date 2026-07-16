@@ -3,7 +3,7 @@ package com.sloopworks.dayfold.client
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import org.reduxkotlin.compose.StableStore
+import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
 
 /** Back ownership resolved by the app shell without exposing feature state to it. */
@@ -59,8 +59,8 @@ fun appShellState(state: AppState): AppShellState {
 }
 
 @Composable
-internal fun rememberAppShellState(store: StableStore<AppState>): AppShellState {
-  val state by store.value.selectorState(::appShellState)
+internal fun rememberAppShellState(store: SelectorStore<AppState>): AppShellState {
+  val state by store.selectorState(::appShellState)
   return state
 }
 
@@ -304,8 +304,8 @@ fun hubListViewState(state: AppState): HubListViewState {
 }
 
 @Composable
-internal fun rememberHubListViewState(store: StableStore<AppState>): HubListViewState {
-  val state by store.value.selectorState(::hubListViewState)
+internal fun rememberHubListViewState(store: SelectorStore<AppState>): HubListViewState {
+  val state by store.selectorState(::hubListViewState)
   return state
 }
 

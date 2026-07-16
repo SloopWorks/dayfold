@@ -27,10 +27,13 @@ at all — it's a plain Gradle/JVM module (`./gradlew test`); see
 - **Kotlin 2.3.20** · Compose-MP 1.9.3 (desktop) · **AGP 9.2.1** · **Gradle 9.4.1**
   (the single `apps/` wrapper; PR #26 upgraded from the old 8.7.2/8.11.1) · compileSdk
   37 (Android 16) · Node 24 + local Postgres (`psql`) running.
-- **redux-kotlin `1.0.0-alpha01`** gotchas: `selectorState`/`fieldState` are
-  **extensions** → `store.selectorState{}` (not `selectorState(store)`); the
-  compose module needs `redux-kotlin-granular` added **explicitly** (not pulled
-  transitively); the android module pins `kotlin-stdlib` to 2.3.20.
+- **redux-kotlin `1.0.0-alpha05`:** create one `SelectorStore` with
+  `rememberSelectorStore(rawStore)` at each Compose root, pass it through the
+  bound subtree, and use `store.selectorState { ... }` / `store.fieldState(...)`.
+  Do not escape back to the raw store with `StableStore.value`, and use the
+  keyed selector overload for projections that capture changing Compose values.
+  The compose artifact brings granular bindings transitively; keep the explicit
+  granular dependency only where non-Compose granular APIs are used.
 - **`rk` CLI `1.0.0-alpha02`** (NOW PUBLISHED — Homebrew `reduxkotlin/tap/rk`):
   the unified redux-kotlin CLI = **devtools + snapshot**. Alpha — pin like the
   redux-kotlin alpha bet. **Brew symlink is broken** (the formula points at
