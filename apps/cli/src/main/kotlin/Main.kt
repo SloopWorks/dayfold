@@ -153,9 +153,13 @@ internal fun fileReadError(file: String, e: Exception): String = when (e) {
 }
 
 fun main(args: Array<String>) {
+  // Help routing first (ADR: complete per-command help). `help`/`-h`/`--help` at the front,
+  // or `<command> --help`, or `... --json`, resolve to a HelpRequest → print to stdout, exit 0
+  // (help is not an error). Falls through to the dispatch below for a normal invocation.
+  helpInvocation(args)?.let { println(renderHelp(it)); return }
+
   when (args.getOrNull(0)) {
     "--version", "-v", "version" -> println("dayfold ${cliVersion()}")
-    "help", "-h", "--help" -> println(USAGE)   // explicit help → stdout, exit 0 (not an error)
     "update", "upgrade" -> runUpdate()         // ADR 0037: brew upgrade + version check
 
     "login" -> deviceLogin(
@@ -452,61 +456,9 @@ private fun deviceLogin(api: String, allowEnvKey: Boolean) {
   System.err.println("login timed out — run `dayfold login` to try again."); exitProcess(1)
 }
 
-internal val USAGE =
-  "usage: dayfold <command>\n" +
-    "  login [--allow-env-key] | logout | whoami\n" +
-    "        (refresh token is stored in the OS keychain; on a host with no keychain,\n" +
-    "         login refuses unless --allow-env-key, then falls back to a plaintext\n" +
-    "         0600 file at ~/.config/dayfold/credentials.json — headless/CI.\n" +
-    "         whoami also prints scope=<grants> for the signed-in credential — grants are\n" +
-    "         content:read/content:write (family-wide) or hub:<id>:read/hub:<id>:write\n" +
-    "         (per-hub, ADR 0029), fixed at login time; there is no in-place re-scope,\n" +
-    "         only a fresh `login`.)\n" +
-    "  push <id> <file.json> [--hub|--section|--block] [--type file|link|...] [--no-linkify]\n" +
-    "        (default: a briefing card; --hub/--section/--block author a hub tree.\n" +
-    "         --type runs local typed card validation before the server.\n" +
-    "         body_md phone/email are auto-linked to tappable links; --no-linkify opts out.\n" +
-    "         checklist items without an id get one stamped client-side (ADR 0038) — reuse\n" +
-    "         ids from `pull` on a re-push, don't hand-author new ones each time, or you'll\n" +
-    "         mint a fresh interactive item and lose members' prior toggle state)\n" +
-    "  pull [--hub <id>]          read content back (cards+hubs, or one hub tree)\n" +
-    "  template <type>            starter body: file|link|invite|contact|geo|email\n" +
-    "                              (card types) or hub|section|block|timeline (hub tree)\n" +
-    "  delete <id> [--card|--block] | rm\n" +
-    "        remove a hub (cascades sections+blocks), a card, or a single block\n" +
-    "  update | upgrade           update to the latest dayfold (brew upgrade)\n" +
-    "        (auto-checks at most once/24h; set DAYFOLD_NO_UPDATE_CHECK to disable)\n" +
-    "  version | --version | -v  print the CLI version\n" +
-    "  help | -h | --help         print this usage\n" +
-    "\n" +
-    "  exit codes: 0 = success (or explicit help); 1 = the server/session rejected\n" +
-    "    the request (login/session-expired, non-2xx, validation failure) — usually fixed\n" +
-    "    by `dayfold login` or fixing the payload, EXCEPT a 403 on `push --section`/`--block`\n" +
-    "    into a hub you don't own: that's the per-hub role gate (ADR 0053, independent of\n" +
-    "    login/scope) — a Viewer can't write, a Contributor can't manage people; only the\n" +
-    "    hub owner/a Co-owner can promote you in-app, re-login will NOT fix it; 2 = local\n" +
-    "    misuse (bad flags/args, missing env, unreadable file, no keychain without\n" +
-    "    --allow-env-key).\n" +
-    "\n" +
-    "  legacy auth (pre-device-grant, still accepted by the API): set DAYFOLD_API,\n" +
-    "    FAMILY_ID, and HOUSEHOLD_SECRET in the environment instead of `login` — no\n" +
-    "    flag needed, the CLI falls back to these when no stored credential exists.\n" +
-    "\n" +
-    "  visual enrichment (ADR 0036): card `media` {thumbnailUrl,imageFit,imageAlt,icon,\n" +
-    "    accentColor} vs hub `media` {heroUrl,heroFit,thumbnailUrl,imageAlt,icon,accentColor}\n" +
-    "    (hub-only: heroUrl/heroFit — a card has no hero slot) + block link/document\n" +
-    "    thumbnailUrl + contact avatarUrl. image URLs must be https on an ALLOWED host\n" +
-    "    (upload.wikimedia.org); icon ∈ {school,luggage,medical,move,party,baby,calendar,\n" +
-    "    location,link,document,contact,budget,travel,car,food,pet,sport,list}; accentColor\n" +
-    "    #RRGGBB (decorative). The authoring skill MUST surface the chosen image to the\n" +
-    "    operator before push.\n" +
-    "\n" +
-    "  visibility (ADR 0030/0038): card/hub body may set visibility=family (default, all\n" +
-    "    members) or visibility=restricted + audience=[userId,...] (only those members can\n" +
-    "    see it; everyone else gets a uniform 404). Not locally structure-checked — a bad\n" +
-    "    value is caught server-side only. On a CARD, these two fields are outside the\n" +
-    "    generated schema (access control, not content) — pushing with --type will REJECT\n" +
-    "    them as unknown fields; push a restricted/audience card without --type."
+// The top-level index, rendered from the command registry (Help.kt) — the single source of
+// truth for the index, per-command `--help`, and `--json`. `usage()` prints this on misuse.
+internal val USAGE: String get() = renderIndex(helpModel())
 
 // Misuse → usage to stderr, exit 2. Explicit `help` prints to stdout + exits 0 (help
 // is not an error) — see the dispatch in main().

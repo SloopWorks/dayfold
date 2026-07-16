@@ -14,6 +14,11 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   now places the NOW line in true chronological order — inline between the last past and
   first future stop, even mid-month — and opens scrolled to NOW, with past content
   reachable by scrolling up. (`TimelineDetail`, ADR 0045/0046 surface.)
+- **CLI: complete per-command help.** `dayfold <command> --help` (and `dayfold help
+  <command>`) now prints focused help for one command — synopsis, described arguments and
+  options, behavior notes, and examples. `dayfold help` is a clean one-line-per-command
+  index; `dayfold help --json` (or `<command> --help --json`) emits a machine-readable
+  description for agents. Every command, alias, argument, and option carries a description.
 
 ## 2026-07-15 — Client runtime hardening: fixed two production deadlocks
 

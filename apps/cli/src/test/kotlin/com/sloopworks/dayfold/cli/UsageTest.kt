@@ -3,8 +3,8 @@ package com.sloopworks.dayfold.cli
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-// `dayfold help` / -h / --help prints USAGE to stdout + exits 0 (help is not an error);
-// misuse prints it to stderr + exits 2. The text must list every command.
+// `dayfold help` / -h / --help prints the index (USAGE) to stdout + exits 0 (help is not an
+// error); misuse prints it to stderr + exits 2. The index must list every command.
 class UsageTest {
   @Test fun `USAGE lists every command incl the destructive + update ones`() {
     // delete (#180) + update (ADR 0037) were added after help shipped — assert them
@@ -14,10 +14,12 @@ class UsageTest {
     assertTrue(USAGE.startsWith("usage: dayfold"))
   }
 
-  @Test fun `USAGE explains content-modifying push behavior (--no-linkify)`() {
+  @Test fun `push help explains the content-modifying auto-link behavior (--no-linkify)`() {
     // push auto-rewrites body_md phone/email into links (#196) — content-modifying, so the
-    // help must explain it + the opt-out, not just list the flag in the syntax line.
-    assertTrue(USAGE.contains("--no-linkify"), "USAGE missing the --no-linkify opt-out")
-    assertTrue(USAGE.contains("auto-linked"), "USAGE doesn't explain the auto-link default")
+    // help must explain it + the opt-out. This detail now lives in the push command help
+    // (the index stays a one-line-per-command summary).
+    val push = renderCommand(commandByToken("push")!!)
+    assertTrue(push.contains("--no-linkify"), "push help missing the --no-linkify opt-out")
+    assertTrue(push.contains("auto-wrap"), "push help doesn't explain the auto-link default")
   }
 }
