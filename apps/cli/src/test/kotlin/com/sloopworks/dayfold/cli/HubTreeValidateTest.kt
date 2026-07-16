@@ -64,13 +64,40 @@ class HubTreeValidateTest {
     ok(validateHubTree("blocks", """{"sectionId":"s1","type":"checklist","ord":0}"""))   // no payload, no body — placeholder
   }
 
+  // Regression: Camp Parsons rendered checkboxes with no text because its checklist
+  // items carried `label` (a budget-row field) instead of `text` (the schema-canonical
+  // item text, Content.kt Item.text). The renderer reads `item.text` → blank. Catch it
+  // at author time so a `label`-only item can never be pushed as a checklist.
+  @Test fun `checklist item must carry text, not label`() {
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"checklist","payload":{"items":[{"text":"Pack roster copies"}]}}"""))
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"checklist","payload":{"items":[{"label":"Pack roster copies"}]}}"""), "text")
+    // one good item + one label-only item → still flagged (and names the index)
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"checklist","payload":{"items":[{"text":"ok"},{"label":"bad"}]}}"""), "1")
+    // a blank/whitespace text is as bad as a missing one
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"checklist","payload":{"items":[{"text":"  "}]}}"""), "text")
+  }
+
+  // Regression: Camp Parsons also had `markdown` note blocks with an empty body_md and
+  // an empty `{}` payload → blank cards. text/markdown render their body_md, so an empty
+  // one is always a blank card — reject it at author time.
+  @Test fun `text and markdown blocks require a non-empty body_md`() {
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"markdown","body_md":"**Check-in** opens 2pm Sunday"}"""))
+    ok(validateHubTree("blocks", """{"sectionId":"s1","type":"text","body_md":"Bring closed-toe water shoes"}"""))
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"markdown","payload":{}}"""), "body_md")
+    bad(validateHubTree("blocks", """{"sectionId":"s1","type":"text"}"""), "body_md")
+  }
+
   // The block-type + hub-status accept-lists are DERIVED from the generated schema
   // enums (Content.kt). This locks that derivation: every value the schema declares
   // must validate. If the schema adds/removes a value, this passes automatically —
   // and it fails loudly if anyone re-hardcodes the lists and misses one (drift).
   @Test fun `every generated BlockType and hub Status is accepted (no schema drift)`() {
-    for (t in BlockType.entries)
-      ok(validateHubTree("blocks", """{"sectionId":"s1","type":"${t.value}"}"""))
+    for (t in BlockType.entries) {
+      // text/markdown are body_md-driven — give them a body so this drift check exercises
+      // type-acceptance (its purpose) without tripping the empty-body content rule.
+      val body = if (t.value == "text" || t.value == "markdown") ""","body_md":"x"""" else ""
+      ok(validateHubTree("blocks", """{"sectionId":"s1","type":"${t.value}"$body}"""))
+    }
     for (s in Status.entries)
       ok(validateHubTree("hubs", """{"type":"party-event","title":"x","status":"${s.value}"}"""))
   }
