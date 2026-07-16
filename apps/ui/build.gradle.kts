@@ -35,6 +35,7 @@ kotlin {
         implementation("io.coil-kt.coil3:coil-network-ktor3:3.2.0")
         // SelectorStore is part of FeedApp's public host boundary, so consumers need this type.
         api("org.reduxkotlin:redux-kotlin-compose:1.0.0-alpha05")
+        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha05")
         // Cross-platform QR rendering (owner invite share). KMP Compose painter —
         // publishes android/jvm/iosArm64/iosSimulatorArm64 klibs (zxing is JVM-only →
         // unusable on iOS). Display-only; encodes the invite URL.

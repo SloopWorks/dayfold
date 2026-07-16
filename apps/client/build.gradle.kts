@@ -25,8 +25,7 @@ kotlin {
         // redux-kotlin KMP coordinates (unsuffixed → per-target variant resolved
         // by Gradle). api() for the types the platform shells touch (Store etc.).
         api("org.reduxkotlin:redux-kotlin-concurrent:1.0.0-alpha05")   // -threadsafe is deprecated → concurrent (same contract, lock-free reads)
-        implementation("org.reduxkotlin:redux-kotlin-granular:1.0.0-alpha05")
-        api("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha05")
+        implementation("org.reduxkotlin:redux-kotlin-devtools-core:1.0.0-alpha05")
         // ContentStore is shared by foreground/background callers on every target. Keep its
         // single-writer gate in common code instead of maintaining divergent platform locks.
         implementation("org.jetbrains.kotlinx:atomicfu:0.32.1")
