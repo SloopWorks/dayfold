@@ -220,33 +220,31 @@ in `next-history.md`).
   its own `apps/iosApp` module, meeting the task's stated DoD; not
   re-verified against a live `./gradlew build` in this pass.
 
-## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-13)
+## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16)
 
 Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify passes.
 **Still open — needs a build-capable toolchain to verify; counts below are as of
-2026-07-13, re-verify against current `app.ts` line numbers before extracting:**
+2026-07-16, re-verify against current `app.ts` line numbers before extracting:**
 
 - **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
-  the revoked-credential check) is now repeated **11×** (was 9 at 2026-07-05)
-  across `/auth/signout`, `/auth/whoami`, `GET`/`PATCH /auth/me`,
-  `/auth/me/export`, `/auth/me/credentials` (GET+DELETE), `DELETE /auth/me`,
-  `POST /families`, `GET /device/pending`, plus 2 more added since
-  (2026-07-13 spot-check: `app.ts:180,192,210,228,272,293,309,331,354,883,1012`;
-  the revoked-credential follow-on query repeats at 6 of those sites). Extract
+  the revoked-credential check) is still repeated **11×** (unchanged count,
+  shifted by the file's growth) — `app.ts:211,223,241,259,303,324,340,362,385,
+  914,1043` (2026-07-16 spot-check). Extract
   a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
   unapplied this pass too — 11 call sites touching every authenticated route is
   more surface than the mechanical extractions already applied; do it with a
   real build to catch a subtle miss.
-- **`apps/api`** — "fetch hub, check visible, else 404" now repeated **7×**
-  (was "3× + 1 more" at 2026-07-05): the 3 original GETs (`/hubs/:id`,
-  `/hubs/:id/tree`, `/hubs/:id/audience`) plus the hub PUT, participants
-  PUT/DELETE, and the visibility PUT (2026-07-13 spot-check: `app.ts:528-538,
-  541-551, 557-566, 585-593, 604-612, 623-631, 832`). A `hubs.getVisibleHub(fid,
-  id, caller)` helper in `content/hubs.ts` would cover the read-only sites, but
-  several call sites now layer extra `canManageHub`/scope checks after the
-  visibility check — an extraction has to preserve those, not just the fetch.
-  `app.ts` itself is now **1244 lines** / 48 inline route handlers (was
-  ~1000 at 2026-07-05) — the route-splitting item is more overdue, not less.
+- **`apps/api`** — "fetch hub, check visible, else 404" is now **8×**, not
+  7× (2026-07-16 correction — the prior count missed one site): the 3 original
+  GETs (`/hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`), the hub PUT,
+  participants PUT/DELETE, the visibility PUT, **and `DELETE
+  /families/:fid/blocks/:id`** (`app.ts:568,581,597,624,643,662,708,863`). A
+  `hubs.getVisibleHub(fid, id, caller)` helper in `content/hubs.ts` would cover
+  the read-only sites, but several call sites now layer extra
+  `canManageHub`/scope checks after the visibility check — an extraction has
+  to preserve those, not just the fetch. `app.ts` itself is now **1276 lines**
+  / 48+ inline route handlers (was 1244 at 2026-07-15) — the route-splitting
+  item is more overdue, not less.
 - **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
   with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
   `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
@@ -292,11 +290,16 @@ Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify pass
   resolution is copy-pasted between `pull` and `delete` (2 sites, minor). Same
   no-build-toolchain caveat as the `apps/api` items above — unverified,
   needs a real Gradle build to land safely.
-- **`apps/api`** (new, 2026-07-15 audit) — `app.ts` (~9 sites, e.g. line 461)
-  use an ad-hoc `{type:"validation", issues}` error shape that doesn't reuse
-  the file's own RFC 9457 `problem()` helper — an inconsistency, not a clean
-  extraction target; worth folding into `problem()` when `app.ts` gets its
-  route-split (see the 1244-line entry above), not on its own.
+- **`apps/api`** — the ad-hoc validation-error-shape count was a significant
+  undercount: **~23 sites, not ~9** (2026-07-16 correction). 14 inline literal
+  `{type:"validation",issues}` returns (`app.ts:492,495,500,631,668,686,689,
+  692,757,767,786,803,807,811`), 7 call sites of the shared `idError()` helper
+  (`473,531,674,742,751,780,846`), and 2 call sites of `parseVisibilityAudience`'s
+  `va.error` (`487,682`) — all bypass `problem()`, the file's own RFC 9457
+  helper, which itself is used only 3× in real routes (the `bad-cursor` checks,
+  `1180,1185,1192`). An inconsistency, not a clean extraction target; worth
+  folding into `problem()` when `app.ts` gets its route-split (see the
+  1276-line entry above), not on its own.
 
 ## SWIP platform — `SwipAnalytics.track()` swallows Throwable silently (found 2026-07-12)
 

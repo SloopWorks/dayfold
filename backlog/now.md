@@ -11,10 +11,11 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-14 (latest run,
-  #29286455499 `CI`, `success`, 2026-07-13T21:28:13Z; one older transient
-  flake at 2026-07-12T18:34:49Z self-healed on the very next push — no
-  action needed). Was red 2026-07-05→07-07; PR #291 added
+- **✅ CI is GREEN on `main`** — re-confirmed live 2026-07-16 (latest run,
+  #29475848812 `CI`, `success`, 2026-07-16T06:08:37Z; one transient flake on
+  `SessionBoundaryTest` at 2026-07-15T21:34:45Z self-healed on the very next
+  push — second occurrence of this specific flake, worth watching if it
+  recurs a third time, no action needed yet). Was red 2026-07-05→07-07; PR #291 added
   `.github/workflows/rebuild-api-bundle.yml` (`workflow_dispatch`,
   `contents: write`) as a standing self-heal tool for the next time the
   committed API bundle drifts from source — see `backlog/now-history.md`
@@ -112,81 +113,111 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-15 repo-maintenance pass** (scheduled — the 9th in this series;
-prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-
-egress sandbox as every prior pass (re-confirmed) — no *logic* changes to
-`apps/api`/`apps/cli`/`apps/client` (both still deferred to a build-capable
-environment). Only one commit had landed since the 07-14 pass (that pass's
-own commit, `f671d0a`), so this pass deliberately did NOT re-run the same
-ground three prior passes already covered (docs/CLAUDE.md/CLI-doc audits) —
-instead it went a layer deeper into areas those passes' own scope didn't
-reach. **CI workflow hardening (new — first pass to read the `.github/
-workflows/*.yml` files themselves rather than just checking run status):**
-`ci.yml` had no `permissions:` block (default token scope, not least-
-privilege) and no `concurrency` group (rapid PR pushes ran full heavy Gradle
-jobs to completion instead of cancelling superseded ones) — added both, plus
-`timeout-minutes` on every job (none had one; GitHub's default is 360m).
-`migrate.yml` — the manual `workflow_dispatch` that runs `db:migrate apply`/
-`backfill` directly against **prod** — had no `concurrency` group, so two
-overlapping manual triggers could race a real migration against the
-production DB; added `concurrency: {group: migrate-production,
-cancel-in-progress: false}` (the one genuinely prod-safety-relevant fix this
-pass made). `rebuild-api-bundle.yml` got a concurrency group + timeout too;
-`release-android.yml`/`release-cli.yml`/`release-cli-edge.yml`/
-`secret-scan.yml` already had correct permissions/concurrency (per their own
-inline security-posture comments) and only needed `timeout-minutes` added.
-Also found + fixed: the `debugdrawer` CI job never ran
-`:debugdrawer-swip:desktopTest` even though that module (ADR 0057 inspector)
-has a real test suite and ships in the Android debug build — added it to the
-job. **CLI/skill-doc gap (narrow, missed by the 07-14 pass):**
-`references/cli.md`'s exit-code enumeration listed exit `2` as "bad flags, an
-unreadable input file, or a keychain-less `login`" but silently dropped the
-**missing-env** case the in-source `USAGE` string documents (a reachable path
-— `DAYFOLD_API` set without `FAMILY_ID`/`HOUSEHOLD_SECRET` falls through to
-the legacy env path and exits 2) — added, with the fix ("run `dayfold
-login`") an agent following only the doc wouldn't otherwise infer.
-**New apps/api/apps/cli dedup items found** (logged into `backlog/next.md`'s
-existing CODE DEDUP FINDINGS queue, same unverified/no-build-toolchain
-caveat as the queue's existing entries — not applied): four small Kotlin
-`Main.kt` duplications (near-identical `*Status` HTTP helpers, a missing
-`authedPut` retry-wrapper, one copy-pasted credential-resolution `Triple`)
-and one `apps/api` `app.ts` inconsistency (~9 sites use an ad-hoc validation-
-error shape instead of the file's own RFC 9457 `problem()` helper).
-**Verified clean, no action needed:** `README.md` screenshot references
-still resolve to real files; `CLAUDE.md` (177 lines) / `AGENTS.md` (26
-lines) are already lean from the 07-13 context-trim pass, no further cut
-warranted; `CHANGELOG.md` is current through 2026-07-12 (this pass's changes
-are CI-infra + docs, internal-only, correctly excluded per the changelog's
-own "product/API/feature changes" scope). **Values/privacy spot-check:**
-clean — this pass touched only CI workflow YAML and two doc/backlog files,
-no product code, no data-handling change.
+**2026-07-16 repo-maintenance pass** (scheduled — the 10th in this series;
+prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-egress
+sandbox as every prior pass (re-confirmed: `npm ping` 403s through the proxy,
+`./gradlew --version` can't tunnel to `services.gradle.org`) — no *logic*
+changes to `apps/api`/`apps/cli`/`apps/client`; all findings below are
+docs/backlog/CI-YAML/ADR-status only. Broader scope than usual this pass (the
+operator asked for simplification + agentic-context optimization + skill/doc
+completeness + diagrams + changelog + CI + a values pass, not just a spot
+audit) — four parallel research agents covered apps/api+cli+skill, the
+agent-facing docs, README/architecture/CHANGELOG, and CI, then findings were
+applied directly. **Biggest structural change: `backlog/operator-inbox.md`
+split** (540 → 142 lines; new `operator-inbox-history.md`, 444 lines) — same
+now.md/next.md precedent, applied here for the first time. Of 43 `INB-*`
+entries only 7 were genuinely open or had an unconfirmed operator-only
+remainder (INB-32/30/27/23/19/15/3); the other 36 were fully resolved and
+moved to history verbatim, cutting the mandatory full-routine inbox read by
+~74%. **Two other stale-doc bugs found and fixed while classifying those
+entries:** `backlog/now.md`'s own "Operator actions pending" list carried a
+**stale INB-13** entry (asking to hand the trigger-design v2 fix-list to
+Claude Design) that was actually closed 2026-07-01 (PR #260) — removed, and
+the "Design-first gate" section's parallel stale claim about the M1 trigger
+surface fixed too; both had survived at least two prior maintenance passes
+uncaught. **ADR status-accuracy gap (INB-32 pattern) now covers two more
+ADRs:** 0059 (API error pillar, PR #336) and 0060 (client crash reporting,
+PR #339) are both merged and live but still text-labeled "Proposed ... accept
+on merge" — folded into INB-32 rather than opening a new item; ADR 0059's
+"blocked on publication" sentence (now false — it shipped) was corrected as a
+wording fix only (the status flip itself stays operator-gated). **CODE DEDUP
+FINDINGS counts corrected** (`backlog/next.md`): the hub-visibility-fetch
+duplication is 8×, not 7× (missed `DELETE .../blocks/:id`); the ad-hoc
+validation-error-shape count is ~23 sites, not ~9 — both re-verified with
+exact current line numbers. No fixes applied to the queue itself (still
+behavior-touching, still needs a real `./gradlew`/`npm test` run this sandbox
+can't provide) — the CLI's 3 small dedup items were independently re-assessed
+as the safest in the queue (single-file, small enumerable call-site sets) but
+still staged as "verify with a build," not applied blind. **docs/architecture.md
+gap closed:** ADR 0059/0060 (API + debug-client error reporting → Sentry +
+PostHog) were entirely absent from the diagram/components/deploy sections
+despite the API half running in production — added (diagram nodes + arrows,
+2 Components rows, a data-flow step, Deploy env-var note). **CHANGELOG.md gap
+closed:** two shipped, changelog-worthy items had no entry — ADR 0054 (SWIP
+bug reporter, PR #320, 2026-07-10) and ADR 0058 (client runtime hardening incl.
+two real production deadlock fixes, PR #338, 2026-07-15) — both added in their
+chronological slot. **CI: confirmed green** (`ci.yml` run #29475848812 on
+`main`, 2026-07-16T06:08:37Z, all 7 jobs pass); the 07-15 pass's workflow
+hardening (permissions/concurrency/timeout-minutes, the `debugdrawer-swip`
+test job) verified still in place, nothing new broken. **One flake, second
+occurrence, not a new defect:** `SessionBoundaryTest` (a client concurrency/
+race test, part of the still-unchecked TASK-CLIENT-RUNTIME-HARDENING "PR 2"
+race-test items) failed once on run #29452429482 (2026-07-15T21:34:45Z, the
+ADR-0059 API-errors commit) and self-healed on the very next push a minute
+later — same pattern as the 07-12 flake. Worth watching if it recurs a third
+time. **CLAUDE.md "Current stage" section was 12 days stale** (dated
+2026-07-04, silent on ADRs 0055–0060) — updated to 2026-07-16 with a one-
+sentence summary of the SWIP/error-reporting/runtime-hardening work.
+**Flagged but not touched** (bigger restructure or needs operator judgment):
+`CLAUDE.md`'s hard-guardrail text is independently restated (not just
+pointed-to) in `processes/agent-routing.md` and `processes/build-loop-prompt.md`
+— a future edit to one could drift from the others; picking one canonical
+location is an operator call given each file is written for at-point-of-use
+visibility, not a mechanical fix. **Skills/CLI --help re-verified complete:**
+every CLI command and flag in `Main.kt`'s dispatch/flag-parsing is documented
+in the in-source `USAGE` string (cross-checked directly against source, not
+just the docs); `SKILL.md`/`references/cli.md` confirmed accurate by a
+research agent (no undocumented commands/flags, exit-code table still
+correct). **README/architecture spot-check:** README screenshots still
+resolve to real files, no stale claims found. **Values/privacy spot-check:**
+clean — every change this pass was docs/backlog/ADR-status-text/CI-YAML; no
+product code, no data-handling change, no scope/pricing/legal decision made
+(the two ADR-status questions were added to the existing operator-gated
+INB-32, not decided).
 
 ## Design-first gate (ADR 0008) — status
 
 The **feed-only** M0 slice was built **build-first** (operator-directed) from the
-initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**:
-the **M1 trigger surface** needs its hi-fi mockups (trigger v2 = INB-13) **before**
-it's built. **Event Hubs render: design gate CLEARED (INB-22, 2026-06-24)** — the
+initial Now mockups in `designs/`. ADR 0008 **still governs unbuilt surfaces**,
+but the trigger surface's design gate is now cleared too: the v2 hi-fi mockups
+(trigger v2 = INB-13, the §6b honesty rework) were signed off and **shipped** in
+the Phase-B surfaces on `main` (PR #260, 2026-07-01 — see INB-13 CLOSED in
+`backlog/operator-inbox-history.md`); this line was stale (still described the
+M1 trigger surface as needing its mockups) until this pass corrected it.
+**Event Hubs render: design gate CLEARED (INB-22, 2026-06-24)** — the
 Hubs phone surface (INB-15/16) + content adaptive two-pane (INB-20) + the ADR-0030
 visibility delta (`Hubs-Visibility.dc.html`, signed off) are all in; the content-
 API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
-- [ ] **API error reporting (ADR 0059) — PR #336, unblocked; set Vercel env before deploy.**
-  `feat/api-swip-errors` wires `apps/api` to the SWIP error pillar (PostHog + Sentry,
+- [ ] **API error reporting (ADR 0059) — PR #336 merged (`c65c0d4`, 2026-07-15);
+  set Vercel env before the next prod deploy.**
+  `apps/api` is wired to the SWIP error pillar (PostHog + Sentry,
   joined on `swip.fingerprint`; flush awaited in a Hono `finally` because Vercel freezes
   the container at response time). Verified live against both real vendors. The SWIP npm
-  packages are published; the branch pins `swip-js 0.5.1` / `swip-sentry 0.2.3` /
+  packages are published; the merged code pins `swip-js 0.5.1` / `swip-sentry 0.2.3` /
   `swip-schema-dayfold 1.0.3` (the republished set with the `scrubField` fix, SWIP #76).
   Before the next prod deploy: add `SENTRY_NODE_EU_DSN` (the API's project — *not* the mobile
   app's), `SENTRY_RELEASE`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST` to Vercel prod
   (`processes/deploy-m0.md` §2), and the `SLOOPWORKS_PACKAGES_TOKEN` repo secret must have
-  `read:packages` (it already exists for the Gradle lanes).
+  `read:packages` (it already exists for the Gradle lanes). Also still Proposed, not
+  Accepted (same status-accuracy gap as ADR 0054-0057 — see INB-32).
 - [ ] **Accept ADR 0060** (client crash/error reporting — debug-only Android,
-  SWIP error pillar → Sentry KMP project + PostHog). Agent-drafted 2026-07-15;
-  Tasks 1–4 wired (error runtime, Sentry crash reporter, `Application` hoist,
-  debug trigger).
+  SWIP error pillar → Sentry KMP project + PostHog). Agent-drafted 2026-07-15,
+  merged as PR #339 (`311c290`); Tasks 1–4 wired (error runtime, Sentry crash
+  reporter, `Application` hoist, debug trigger). Same status-accuracy gap as
+  ADR 0059 (merged but still Proposed — INB-32).
 - [ ] **Run the on-device smoke for ADR 0060 (Task 5, Pixel dogfood
   device)** — the evidence step no unit test substitutes for: trigger the
   debug `wtf()`/`record()` and confirm the Sentry↔PostHog fingerprint join;
@@ -211,8 +242,6 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
   build change already merged (#76).
 - [ ] **INB-3** kill-checks (~2 hrs): Gemini Daily Brief + Maple+ hands-on;
   note the niche gap → feeds A1. *(Only matters if pursuing the business path.)*
-- [ ] **INB-13** hand the trigger-design v2 fix-list (`designs/DESIGN-BRIEF-
-  triggers.md §6b`) back to Claude Design before the M1 trigger surface.
 - [ ] Counsel confirm for ADR 0005 (14+) — only if/when pursuing teen accounts.
 - [ ] **INB-19 remainder** (operator-only): publish `redux-kotlin-snapshot` to
   Maven Central + fix `reduxkotlin/homebrew-tap` symlink (keg `bin/` empty →

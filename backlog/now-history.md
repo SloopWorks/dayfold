@@ -11,6 +11,55 @@ end) — each is self-dated, so use the dates to orient rather than position.
 from `backlog/now.md` on 2026-07-10** (verbatim, that file only keeps the
 most recent pass going forward — see its 2026-07-10 entry for why).
 
+**2026-07-15 repo-maintenance pass** (scheduled — the 9th in this series;
+prior passes: below). Same no-npm/no-Gradle-registry-egress sandbox as every
+prior pass (re-confirmed) — no *logic* changes to
+`apps/api`/`apps/cli`/`apps/client` (both still deferred to a build-capable
+environment). Only one commit had landed since the 07-14 pass (that pass's
+own commit, `f671d0a`), so this pass deliberately did NOT re-run the same
+ground three prior passes already covered (docs/CLAUDE.md/CLI-doc audits) —
+instead it went a layer deeper into areas those passes' own scope didn't
+reach. **CI workflow hardening (new — first pass to read the `.github/
+workflows/*.yml` files themselves rather than just checking run status):**
+`ci.yml` had no `permissions:` block (default token scope, not least-
+privilege) and no `concurrency` group (rapid PR pushes ran full heavy Gradle
+jobs to completion instead of cancelling superseded ones) — added both, plus
+`timeout-minutes` on every job (none had one; GitHub's default is 360m).
+`migrate.yml` — the manual `workflow_dispatch` that runs `db:migrate apply`/
+`backfill` directly against **prod** — had no `concurrency` group, so two
+overlapping manual triggers could race a real migration against the
+production DB; added `concurrency: {group: migrate-production,
+cancel-in-progress: false}` (the one genuinely prod-safety-relevant fix this
+pass made). `rebuild-api-bundle.yml` got a concurrency group + timeout too;
+`release-android.yml`/`release-cli.yml`/`release-cli-edge.yml`/
+`secret-scan.yml` already had correct permissions/concurrency (per their own
+inline security-posture comments) and only needed `timeout-minutes` added.
+Also found + fixed: the `debugdrawer` CI job never ran
+`:debugdrawer-swip:desktopTest` even though that module (ADR 0057 inspector)
+has a real test suite and ships in the Android debug build — added it to the
+job. **CLI/skill-doc gap (narrow, missed by the 07-14 pass):**
+`references/cli.md`'s exit-code enumeration listed exit `2` as "bad flags, an
+unreadable input file, or a keychain-less `login`" but silently dropped the
+**missing-env** case the in-source `USAGE` string documents (a reachable path
+— `DAYFOLD_API` set without `FAMILY_ID`/`HOUSEHOLD_SECRET` falls through to
+the legacy env path and exits 2) — added, with the fix ("run `dayfold
+login`") an agent following only the doc wouldn't otherwise infer.
+**New apps/api/apps/cli dedup items found** (logged into `backlog/next.md`'s
+existing CODE DEDUP FINDINGS queue, same unverified/no-build-toolchain
+caveat as the queue's existing entries — not applied): four small Kotlin
+`Main.kt` duplications (near-identical `*Status` HTTP helpers, a missing
+`authedPut` retry-wrapper, one copy-pasted credential-resolution `Triple`)
+and one `apps/api` `app.ts` inconsistency (~9 sites use an ad-hoc validation-
+error shape instead of the file's own RFC 9457 `problem()` helper).
+**Verified clean, no action needed:** `README.md` screenshot references
+still resolve to real files; `CLAUDE.md` (177 lines) / `AGENTS.md` (26
+lines) are already lean from the 07-13 context-trim pass, no further cut
+warranted; `CHANGELOG.md` is current through 2026-07-12 (this pass's changes
+are CI-infra + docs, internal-only, correctly excluded per the changelog's
+own "product/API/feature changes" scope). **Values/privacy spot-check:**
+clean — this pass touched only CI workflow YAML and two doc/backlog files,
+no product code, no data-handling change.
+
 **2026-07-14 repo-maintenance pass** (scheduled — the 8th in this series;
 prior passes: below). Same no-npm/no-Gradle-registry-egress sandbox as every
 prior pass (re-confirmed: `registry.npmjs.org` and `repo1.maven.org` both 403
