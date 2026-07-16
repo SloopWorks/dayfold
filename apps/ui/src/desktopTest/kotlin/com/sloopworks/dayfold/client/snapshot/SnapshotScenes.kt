@@ -417,7 +417,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         else -> error("unknown timeline-detail preset")
       }
       themed(args.theme) {
-        TimelineDetail(tl = tl, scale = scale, nowIso = SnapshotStates.TIMELINE_NOW, tz = NY, onBack = {}, onAction = {})
+        TimelineDetail(tl = tl, scale = scale, nowIso = SnapshotStates.TIMELINE_NOW, tz = NY, onBack = {}, onAction = {}, autoScrollToNow = false)
       }
     }
   }
