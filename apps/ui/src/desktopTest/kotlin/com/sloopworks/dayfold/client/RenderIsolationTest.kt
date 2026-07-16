@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import org.reduxkotlin.Store
 import org.reduxkotlin.StoreSubscriber
 import org.reduxkotlin.StoreSubscription
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 @OptIn(ExperimentalTestApi::class)
 class RenderIsolationTest {
@@ -46,28 +46,28 @@ class RenderIsolationTest {
       IsolationProbe(countingStore, counts)
     }
     waitForIdle()
-    assertEquals(2, countingStore.activeSubscribers, "shell + active Hubs projection")
+    assertEquals(1, countingStore.activeSubscribers, "root SelectorStore shares one store subscription")
 
     repeat(5) {
       countingStore.dispatch(OpenFeed)
       waitForIdle()
-      assertEquals(1, countingStore.activeSubscribers, "inactive Hubs projection is disposed")
+      assertEquals(1, countingStore.activeSubscribers, "root SelectorStore remains subscribed")
 
       countingStore.dispatch(OpenHubs())
       waitForIdle()
-      assertEquals(2, countingStore.activeSubscribers, "Hubs returns to its original baseline")
+      assertEquals(1, countingStore.activeSubscribers, "active selectors still share one subscription")
     }
   }
 }
 
 @Composable
 private fun IsolationProbe(store: Store<AppState>, counts: MutableMap<String, Int>) {
-  val stableStore = rememberStableStore(store)
-  val shell = rememberAppShellState(stableStore)
+  val selectorStore = rememberSelectorStore(store)
+  val shell = rememberAppShellState(selectorStore)
   counts["shell"] = (counts["shell"] ?: 0) + 1
   Text(shell.route.name)
   if (shell.route == Route.Hubs) {
-    val hubs = rememberHubListViewState(stableStore)
+    val hubs = rememberHubListViewState(selectorStore)
     counts["hubs"] = (counts["hubs"] ?: 0) + 1
     Text("${hubs.filter}:${hubs.shownHubs.size}")
   }

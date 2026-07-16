@@ -13,7 +13,8 @@ import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.SelectorStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 // CL-7: host integration — FeedApp renders the feed, then DetailScreen once a
 // card is open, through the AnimatedContent host. Exercises the remembered
@@ -67,7 +68,7 @@ class FeedAppHostTest {
 
     setContent {
       FeedApp(
-        store = rememberStableStore(store),
+        store = rememberSelectorStore(store),
         commands = commands,
         platformActions = StablePlatformActions.noOp(),
       )
@@ -112,20 +113,23 @@ class FeedAppHostTest {
     AppState(route = Route.Feed, deviceResuming = true),
   )
 
-  @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() {
+  @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() = runComposeUiTest {
     val store = createTestAppStore(debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))
     var performed: CardAction? = null
     val commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
     val platformActions = StablePlatformActions.noOp(onPerform = { performed = it })
+    lateinit var selectorStore: SelectorStore<AppState>
+    setContent { selectorStore = rememberSelectorStore(store) }
+    waitForIdle()
 
     // OpenDetail → in-app nav (store), NOT the platform layer
-    routeCardAction(store, commands, platformActions, CardAction.OpenDetail("f"))
+    routeCardAction(selectorStore, commands, platformActions, CardAction.OpenDetail("f"))
     assertTrue(currentDetailCard(store.state)?.id == "f")
     assertTrue(performed == null)
 
     // every other CardAction → the shell's PlatformActions, NOT the store
-    routeCardAction(store, commands, platformActions, CardAction.Call("+15550142"))
+    routeCardAction(selectorStore, commands, platformActions, CardAction.Call("+15550142"))
     assertTrue(performed is CardAction.Call)
     assertTrue(store.state.detailStack == listOf("f")) // unchanged by the handoff
   }

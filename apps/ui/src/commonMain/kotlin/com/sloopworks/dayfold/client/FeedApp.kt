@@ -33,8 +33,7 @@ import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
 import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
-import org.reduxkotlin.Store
-import org.reduxkotlin.compose.StableStore
+import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
 
 // Feed & Hubs share ONE key so the persistent TabShell (bar) does not cross-fade on a tab
@@ -46,13 +45,13 @@ private fun navGroupKey(route: Route): String =
 // an OS handoff → the shell's PlatformActions. Extracted (non-Composable) so the
 // split is unit-testable. Returns Unit (store.dispatch returns the action).
 internal fun routeCardAction(
-  store: Store<AppState>,
+  store: SelectorStore<AppState>,
   commands: StableDayfoldCommands,
   platformActions: StablePlatformActions,
   action: CardAction,
 ) {
   when (action) {
-    is CardAction.OpenDetail -> commands.dispatch(NavToDetail(action.cardId))
+    is CardAction.OpenDetail -> store.dispatch(NavToDetail(action.cardId))
     is CardAction.OpenHub -> {  // cross-surface deep-link arrival
       // remember we came from a Feed card detail so back returns there (not the hub list)
       val fromDetail = store.state.route == Route.Feed && store.state.detailStack.isNotEmpty()
@@ -71,12 +70,12 @@ internal fun routeCardAction(
 // Every platform renders this one connected composable under the Dayfold theme (ADR 0022 D5).
 //
 // AUTH-S5 route gate (auth) + CL content host (feed/detail) integrated: a pure
-// when(route) gate (no nav library, ADR 0013). The host supplies one stable store,
-// one stable application-command boundary, and one stable native handoff boundary.
+// when(route) gate (no nav library, ADR 0013). The host supplies one root-scoped
+// selector store, one stable application-command boundary, and one stable native handoff boundary.
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun FeedApp(
-  store: StableStore<AppState>,
+  store: SelectorStore<AppState>,
   commands: StableDayfoldCommands,
   platformActions: StablePlatformActions,
 ) {
@@ -84,7 +83,6 @@ fun FeedApp(
   // Idempotent; runs before the first AsyncImage composes. URLs are still gated by
   // MediaValidation before Coil sees them.
   remember { setupImageLoader(); 0 }
-  val rawStore = store.value
   val shell = rememberAppShellState(store)
   // Now-feed scroll position, hoisted to FeedApp (always composed) so it survives EVERY nav that
   // recomposes the feed away: the feed↔detail swap AND the Feed↔Hubs tab swap AND a Feed→Account
@@ -97,8 +95,8 @@ fun FeedApp(
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
   // in-app nav → dispatched to the store; every other CardAction is an OS handoff
   // → the shell's PlatformActions.
-  val handle = remember(rawStore, commands, platformActions) {
-    fun(action: CardAction) = routeCardAction(rawStore, commands, platformActions, action)
+  val handle = remember(store, commands, platformActions) {
+    fun(action: CardAction) = routeCardAction(store, commands, platformActions, action)
   }
   // Inline body-link taps (LinkAnnotation.Url, no listener) open via LocalUriHandler
   // — route them through the shell's vetted PlatformActions.openUri instead of the
@@ -128,15 +126,15 @@ fun FeedApp(
         BackTarget.FeedDetailFromHub -> shell.currentHubId?.let { id ->
           commands.closeHub(id, HubReturnDestination.FEED_DETAIL)
         }
-        BackTarget.Audience -> rawStore.dispatch(CloseAudienceSheet)
-        BackTarget.Timeline -> rawStore.dispatch(CloseTimelineDetail)
-        BackTarget.Account -> rawStore.dispatch(CloseAccount)
+        BackTarget.Audience -> store.dispatch(CloseAudienceSheet)
+        BackTarget.Timeline -> store.dispatch(CloseTimelineDetail)
+        BackTarget.Account -> store.dispatch(CloseAccount)
         BackTarget.Members -> {
-          if (shell.route == Route.Invite) rawStore.dispatch(InviteDismissed)
-          else rawStore.dispatch(OpenAccount)
+          if (shell.route == Route.Invite) store.dispatch(InviteDismissed)
+          else store.dispatch(OpenAccount)
         }
-        BackTarget.DeviceFlow -> rawStore.dispatch(CloseDeviceFlow)
-        BackTarget.JoinInvite -> rawStore.dispatch(JoinDismissed)
+        BackTarget.DeviceFlow -> store.dispatch(CloseDeviceFlow)
+        BackTarget.JoinInvite -> store.dispatch(JoinDismissed)
         BackTarget.FeedDetail, null -> Unit
       }
     }
@@ -171,14 +169,14 @@ fun FeedApp(
         // only the timeline overlay does (hub list + hub detail keep the bar — incl. a card-deep-
         // linked hub detail where detailStack is retained for back). They morph to full screen (ADR 0050).
         barVisible = if (route == Route.Feed) shell.detailCardId == null else !shell.timelineDetailOpen,
-        onNow = { commands.dispatch(OpenFeed) },
+        onNow = { store.dispatch(OpenFeed) },
         onHubs = { commands.openHubs() },
         feedContent = {
           ContentHost(
             store = store,
             detailCardId = shell.detailCardId,
             handle = handle,
-            onConnectDevice = { commands.dispatch(OpenEnterCode) },
+            onConnectDevice = { store.dispatch(OpenEnterCode) },
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
             onNowShown = commands::nowShown,
@@ -213,16 +211,15 @@ fun FeedApp(
 @Composable
 private fun RouteHost(
   route: Route,
-  store: StableStore<AppState>,
+  store: SelectorStore<AppState>,
   commands: StableDayfoldCommands,
   platformActions: StablePlatformActions,
   devSignIn: (() -> Unit)?,
 ) {
-  val rawStore = store.value
   when (route) {
     Route.Loading -> SplashScreen()
     Route.SignIn -> {
-      val state by rawStore.selectorState(::signInViewState)
+      val state by store.selectorState(::signInViewState)
       if (state.pendingDeviceLink != null) {
         DeviceResumeScreen(onProvider = platformActions::signIn)
       } else {
@@ -235,7 +232,7 @@ private fun RouteHost(
       }
     }
     Route.AuthError -> {
-      val error by rawStore.selectorState(::authErrorMessage)
+      val error by store.selectorState(::authErrorMessage)
       AuthErrorScreen(
         message = error,
         onRetry = commands::retryAuth,
@@ -243,60 +240,60 @@ private fun RouteHost(
       )
     }
     Route.CreateFamily -> {
-      val state by rawStore.selectorState(::createFamilyViewState)
+      val state by store.selectorState(::createFamilyViewState)
       CreateFamilyScreen(
         busy = state.busy,
         error = state.error,
         onCreate = commands::createFamily,
-        onJoinInvite = { commands.dispatch(OpenJoinInvite) },
+        onJoinInvite = { store.dispatch(OpenJoinInvite) },
       )
     }
     Route.JoinInvite -> {
-      val state by rawStore.selectorState(::joinInviteViewState)
+      val state by store.selectorState(::joinInviteViewState)
       JoinInviteScreen(
         state,
         onJoin = commands::redeemInvite,
-        onDismiss = { commands.dispatch(JoinDismissed) },
+        onDismiss = { store.dispatch(JoinDismissed) },
       )
     }
     Route.EnterCode -> {
-      val state by rawStore.selectorState(::enterCodeViewState)
+      val state by store.selectorState(::enterCodeViewState)
       EnterCodeScreen(
         state,
         onLookup = commands::lookupDevice,
-        onBack = { commands.dispatch(CloseDeviceFlow) },
-        onScan = if (qrScanSupported) ({ commands.dispatch(OpenScan) }) else null,
+        onBack = { store.dispatch(CloseDeviceFlow) },
+        onScan = if (qrScanSupported) ({ store.dispatch(OpenScan) }) else null,
       )
     }
     Route.ScanPrimer -> {
       val requestCamera = rememberCameraPermissionRequester { granted ->
-        commands.dispatch(if (granted) ScanPermissionGranted else ScanPermissionDenied)
+        store.dispatch(if (granted) ScanPermissionGranted else ScanPermissionDenied)
       }
       ScanPrimerScreen(
         onAllow = requestCamera,
-        onEnterCode = { commands.dispatch(OpenEnterCode) },
-        onClose = { commands.dispatch(CloseDeviceFlow) },
+        onEnterCode = { store.dispatch(OpenEnterCode) },
+        onClose = { store.dispatch(CloseDeviceFlow) },
       )
     }
     Route.ScanDevice -> ScanDeviceScreen(
       onCode = commands::lookupDevice,
-      onEnterManually = { commands.dispatch(OpenEnterCode) },
-      onClose = { commands.dispatch(CloseDeviceFlow) },
+      onEnterManually = { store.dispatch(OpenEnterCode) },
+      onClose = { store.dispatch(CloseDeviceFlow) },
     )
     Route.ScanDenied -> ScanDeniedScreen(
       onOpenSettings = platformActions::openAppSettings,
-      onEnterCode = { commands.dispatch(OpenEnterCode) },
-      onClose = { commands.dispatch(CloseDeviceFlow) },
+      onEnterCode = { store.dispatch(OpenEnterCode) },
+      onClose = { store.dispatch(CloseDeviceFlow) },
     )
     Route.AuthorizeDevice -> {
-      val state by rawStore.selectorState(::authorizeDeviceViewState)
+      val state by store.selectorState(::authorizeDeviceViewState)
       when (state.outcome) {
-        "denied" -> DeviceDeniedScreen(onDone = { commands.dispatch(CloseDeviceFlow) })
+        "denied" -> DeviceDeniedScreen(onDone = { store.dispatch(CloseDeviceFlow) })
         "expired" -> DeviceExpiredScreen(
-          onRetry = { commands.dispatch(OpenEnterCode) },
-          onDone = { commands.dispatch(CloseDeviceFlow) },
+          onRetry = { store.dispatch(OpenEnterCode) },
+          onDone = { store.dispatch(CloseDeviceFlow) },
         )
-        "approved" -> DeviceApprovedConfirm(onDone = { commands.dispatch(CloseDeviceFlow) })
+        "approved" -> DeviceApprovedConfirm(onDone = { store.dispatch(CloseDeviceFlow) })
         else -> AuthorizeDeviceScreen(
           state,
           onApprove = { familyId, hubIds ->
@@ -305,25 +302,25 @@ private fun RouteHost(
           onDeny = { familyId ->
             state.pendingDevice?.userCode?.let { code -> commands.denyDevice(familyId, code) }
           },
-          onCancel = { commands.dispatch(CloseDeviceFlow) },
+          onCancel = { store.dispatch(CloseDeviceFlow) },
         )
       }
     }
     Route.Account -> {
-      val state by rawStore.selectorState(::accountViewState)
+      val state by store.selectorState(::accountViewState)
       AccountScreen(
         state,
         onSignOut = commands::signOut,
-        onClose = { commands.dispatch(CloseAccount) },
-        onOpenMembers = { commands.dispatch(OpenMembers) },
-        onOpenDevices = { commands.dispatch(OpenDevices) },
-        onOpenProximity = { commands.dispatch(OpenProximity) },
+        onClose = { store.dispatch(CloseAccount) },
+        onOpenMembers = { store.dispatch(OpenMembers) },
+        onOpenDevices = { store.dispatch(OpenDevices) },
+        onOpenProximity = { store.dispatch(OpenProximity) },
         onUpdateAvatar = commands::updateAvatar,
         onUpdateName = commands::updateDisplayName,
       )
     }
     Route.Proximity -> {
-      val state by rawStore.selectorState(::proximityViewState)
+      val state by store.selectorState(::proximityViewState)
       ProximitySettingsHost(
         config = state.config,
         permission = state.permission,
@@ -332,21 +329,21 @@ private fun RouteHost(
           if (it.enabled) platformActions.requestProximityPermissions()
         },
         onOpenPermission = platformActions::openAppSettings,
-        onBack = { commands.dispatch(CloseProximity) },
+        onBack = { store.dispatch(CloseProximity) },
       )
     }
     Route.Devices -> {
-      val state by rawStore.selectorState(::devicesViewState)
+      val state by store.selectorState(::devicesViewState)
       DevicesScreen(
         state,
         onLoad = commands::loadDevices,
         onRevoke = commands::revokeDevice,
-        onBack = { commands.dispatch(OpenAccount) },
-        onConnectDevice = { commands.dispatch(OpenEnterCode) },
+        onBack = { store.dispatch(OpenAccount) },
+        onConnectDevice = { store.dispatch(OpenEnterCode) },
       )
     }
     Route.Members -> {
-      val state by rawStore.selectorState(::membersViewState)
+      val state by store.selectorState(::membersViewState)
       MembersScreen(
         state,
         onApprove = { uid -> state.activeFamilyId?.let { commands.approveMember(it, uid) } },
@@ -354,23 +351,23 @@ private fun RouteHost(
         onLoad = { state.activeFamilyId?.let(commands::loadApprovals) },
         onLoadMembers = { state.activeFamilyId?.let(commands::loadMembers) },
         onRemoveMember = { uid -> state.activeFamilyId?.let { commands.removeMember(it, uid) } },
-        onInvite = { commands.dispatch(OpenInvite) },
-        onBack = { commands.dispatch(OpenAccount) },
+        onInvite = { store.dispatch(OpenInvite) },
+        onBack = { store.dispatch(OpenAccount) },
       )
     }
     Route.Invite -> {
-      val state by rawStore.selectorState(::inviteViewState)
+      val state by store.selectorState(::inviteViewState)
       LaunchedEffect(state.activeFamilyId) {
         state.activeFamilyId?.let(commands::loadApprovals)
       }
       InviteScreen(
         state,
-        onMode = { commands.dispatch(InviteModeSelected(it)) },
+        onMode = { store.dispatch(InviteModeSelected(it)) },
         onMint = { mode -> state.activeFamilyId?.let { commands.mintInvite(it, mode) } },
         onRevoke = { id -> state.activeFamilyId?.let { commands.revokeInvite(it, id) } },
         onApprove = { uid -> state.activeFamilyId?.let { commands.approveMember(it, uid) } },
         onDecline = { uid -> state.activeFamilyId?.let { commands.declineMember(it, uid) } },
-        onBack = { commands.dispatch(InviteDismissed) },
+        onBack = { store.dispatch(InviteDismissed) },
       )
     }
     Route.Feed, Route.Hubs -> Unit
@@ -400,7 +397,7 @@ private fun SafeArea(content: @Composable () -> Unit) {
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun ContentHost(
-  store: StableStore<AppState>,
+  store: SelectorStore<AppState>,
   detailCardId: String?,
   handle: (CardAction) -> Unit,
   onConnectDevice: () -> Unit = {},
@@ -409,7 +406,6 @@ private fun ContentHost(
   onNowShown: (Set<String>) -> Unit = {},
   feedListState: LazyListState = rememberLazyListState(),
 ) {
-  val rawStore = store.value
   val targetKey: String? = detailCardId            // top of the detail stack (null = feed)
   val reduceMotion = rememberReduceMotion()
   // feedListState is hoisted to FeedApp (survives the tab swap too) and threaded in; the default
@@ -423,7 +419,7 @@ private fun ContentHost(
   PredictiveBackHandler(enabled = detailCardId != null) { progress ->
     try {
       progress.collect { /* OS renders the peek; the container-transform plays on commit */ }
-      rawStore.dispatch(NavBack)                 // COMMIT
+      store.dispatch(NavBack)                    // COMMIT
     } catch (e: CancellationException) {
       throw e                                    // CANCEL — no state change to undo; must rethrow
     }
@@ -451,21 +447,21 @@ private fun ContentHost(
         LocalAnimatedVisibilityScope provides this@AnimatedContent,
       ) {
         if (id != null) {
-          val detail by rawStore.selectorState(::feedDetailViewState)
+          val detail by store.selectorState(::feedDetailViewState)
           detail?.let {
             DetailScreen(
               it.card,
               hubName = it.hubName,
-              onBack = { rawStore.dispatch(NavBack) },
+              onBack = { store.dispatch(NavBack) },
               onAction = handle,
             )
           }
         } else {
-          val feed by rawStore.selectorState(::feedViewState)
+          val feed by store.selectorState(::feedViewState)
           FeedScreen(
             feed,
             onAction = handle,
-            onOpenAccount = { rawStore.dispatch(OpenAccount) },
+            onOpenAccount = { store.dispatch(OpenAccount) },
             onConnectDevice = onConnectDevice,
             onNavHubs = onNavHubs,
             onRefresh = onRefresh,
@@ -482,16 +478,15 @@ private fun ContentHost(
 // A LaunchedEffect fetches the list on entry; the bottom nav flips back to Feed.
 @Composable
 private fun HubsHost(
-  store: StableStore<AppState>,
+  store: SelectorStore<AppState>,
   commands: StableDayfoldCommands,
   onCardAction: (CardAction) -> Unit = {},
   hubListState: LazyListState = rememberLazyListState(),
 ) {
-  val rawStore = store.value
-  val route by rawStore.selectorState(::hubRouteState)
+  val route by store.selectorState(::hubRouteState)
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
-  val onOpenTimeline: (TimelineScale) -> Unit = { scale -> rawStore.dispatch(OpenTimelineDetail(scale)) }
-  val onCloseTimeline: () -> Unit = { rawStore.dispatch(CloseTimelineDetail) }
+  val onOpenTimeline: (TimelineScale) -> Unit = { scale -> store.dispatch(OpenTimelineDetail(scale)) }
+  val onCloseTimeline: () -> Unit = { store.dispatch(CloseTimelineDetail) }
   val reduceMotion = rememberReduceMotion()
   val slidePx = with(LocalDensity.current) { 30.dp.roundToPx() }
   androidx.compose.foundation.layout.Box {
@@ -506,7 +501,7 @@ private fun HubsHost(
       label = "hub-list-detail",
     ) { showDetail ->
       if (showDetail) {
-        val state by rawStore.selectorState(::hubDetailViewState)
+        val state by store.selectorState(::hubDetailViewState)
         HubDetailScreen(
           // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
           state,
@@ -519,7 +514,7 @@ private fun HubsHost(
             }
           },
           onOpenAudience = { route.currentHubId?.let { hubId ->
-            rawStore.dispatch(OpenAudienceSheet)
+            store.dispatch(OpenAudienceSheet)
             route.activeFamilyId?.let { familyId ->
               commands.loadAudience(familyId, hubId)
             }
@@ -545,7 +540,7 @@ private fun HubsHost(
           onUnhideBlock = { blockId -> route.activeFamilyId?.let { familyId ->
             commands.unhideBlock(familyId, blockId)
           } },
-          onSetShowHidden = { rawStore.dispatch(SetShowHidden(it)) },
+          onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
           onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
         )
       } else {
@@ -558,7 +553,7 @@ private fun HubsHost(
           onOpenHub = { hubId -> route.activeFamilyId?.let { familyId ->
             commands.openHub(familyId, hubId)
           } },
-          onFilter = { rawStore.dispatch(SetHubFilter(it)) },
+          onFilter = { store.dispatch(SetHubFilter(it)) },
           onRetry = commands::loadHubs,
           hubListState = hubListState,
         )
@@ -568,7 +563,7 @@ private fun HubsHost(
     // People management sheet; everyone else (incl. while aud is still loading/erroring)
     // keeps the existing read-only WhoCanSeeSheet — unchanged.
     if (route.audienceSheetOpen) {
-      val audienceState by rawStore.selectorState(::hubAudienceViewState)
+      val audienceState by store.selectorState(::hubAudienceViewState)
       val aud = audienceState.audience
       if (aud != null && aud.canManage) {
         HubPeopleSheet(
@@ -582,14 +577,14 @@ private fun HubsHost(
           onSetVisibility = { vis -> route.currentHubId?.let { hubId -> route.activeFamilyId?.let { familyId ->
             commands.setHubVisibility(familyId, hubId, vis)
           } } },
-          onDismiss = { rawStore.dispatch(CloseAudienceSheet) },
+          onDismiss = { store.dispatch(CloseAudienceSheet) },
           // ADR 0053 DC5 code-review fix — surface a failed role/remove/visibility write
           // (HubEngine dispatches HubManageFailed onto this same slot) instead of silently
           // dropping it; the sheet stays pure, this is just an input string.
           errorMessage = audienceState.error,
         )
       } else {
-        WhoCanSeeSheet(audienceState, onClose = { rawStore.dispatch(CloseAudienceSheet) }, onRetryAudience = {
+        WhoCanSeeSheet(audienceState, onClose = { store.dispatch(CloseAudienceSheet) }, onRetryAudience = {
           route.currentHubId?.let { hubId -> route.activeFamilyId?.let { familyId ->
             commands.loadAudience(familyId, hubId)
           } }

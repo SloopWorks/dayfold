@@ -8,7 +8,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeUIViewController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIApplication
@@ -145,7 +145,7 @@ private fun IosControllerContent(
       IosDeepLinkBus.release(notificationTapOwner)
     }
   }
-  val stableStore = rememberStableStore(store)
+  val selectorStore = rememberSelectorStore(store)
   val stableCommands = remember(graph.commands) { StableDayfoldCommands(graph.commands) }
   val stablePlatformActions = remember(actions, locPerm, notifPerm) {
     StablePlatformActions(
@@ -159,7 +159,7 @@ private fun IosControllerContent(
     )
   }
   FeedApp(
-    store = stableStore,
+    store = selectorStore,
     commands = stableCommands,
     platformActions = stablePlatformActions,
   )

@@ -1,11 +1,16 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.cards.hubLinkTarget
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import org.reduxkotlin.compose.SelectorStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
+@OptIn(ExperimentalTestApi::class)
 class CardHubNavTest {
   @Test fun `hubLinkTarget prefers target_hub_id, falls back to hub_ref, carries the focus block`() {
     assertEquals("h1" to "b1", hubLinkTarget(Card("c", title = "X", targetHubId = "h1", targetBlockId = "b1")))
@@ -18,7 +23,7 @@ class CardHubNavTest {
     assertNull(hubLinkTarget(Card("c", title = "X", targetHubId = "  ")))   // blank id → no deep-link
   }
 
-  @Test fun `OpenHub routes to the Hubs surface + triggers the hub load with the focus block`() {
+  @Test fun `OpenHub routes to the Hubs surface + triggers the hub load with the focus block`() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(route = Route.Feed, activeFamilyId = "family-1"),
       debug = false,
@@ -37,8 +42,11 @@ class CardHubNavTest {
         loadedFocus = focusBlockId
       }
     }
+    lateinit var selectorStore: SelectorStore<AppState>
+    setContent { selectorStore = rememberSelectorStore(store) }
+    waitForIdle()
     routeCardAction(
-      store,
+      selectorStore,
       commands,
       StablePlatformActions.noOp(),
       CardAction.OpenHub("h_party", "blk_chk"),
@@ -48,10 +56,13 @@ class CardHubNavTest {
     assertEquals("blk_chk", loadedFocus)          // + the deep-link focus block (arrival highlight)
   }
 
-  @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() {
+  @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() = runComposeUiTest {
     val store = createTestAppStore(AppState(cards = listOf(Card("c1", title = "X"))), debug = false)
+    lateinit var selectorStore: SelectorStore<AppState>
+    setContent { selectorStore = rememberSelectorStore(store) }
+    waitForIdle()
     routeCardAction(
-      store,
+      selectorStore,
       StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
       StablePlatformActions.noOp(),
       CardAction.OpenDetail("c1"),
@@ -59,7 +70,7 @@ class CardHubNavTest {
     assertEquals(listOf("c1"), store.state.detailStack)
   }
 
-  @Test fun `command-backed card hub navigation carries the detail return atomically`() {
+  @Test fun `command-backed card hub navigation carries the detail return atomically`() = runComposeUiTest {
     val store = createTestAppStore(
       AppState(
         route = Route.Feed,
@@ -70,8 +81,11 @@ class CardHubNavTest {
       debug = false,
     )
 
+    lateinit var selectorStore: SelectorStore<AppState>
+    setContent { selectorStore = rememberSelectorStore(store) }
+    waitForIdle()
     routeCardAction(
-      store = store,
+      store = selectorStore,
       platformActions = StablePlatformActions.noOp(),
       action = CardAction.OpenHub("hub-1", "block-1"),
       commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),

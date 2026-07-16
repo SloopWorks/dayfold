@@ -1,5 +1,5 @@
 // Optional, debug-only adapter: embeds reduxkotlin's DevTools inspector
-// (ReduxDevToolsPanel, redux-kotlin-devtools-inapp 1.0.0-alpha03+) as a SloopWorks
+// (ReduxDevToolsPanel, redux-kotlin-devtools-inapp 1.0.0-alpha05+) as a SloopWorks
 // debug-drawer panel. Apps add this debugImplementation only; it is never in release.
 // Depends on :debugdrawer (the plugin API) — keeping the core drawer redux-agnostic.
 plugins {
@@ -26,7 +26,7 @@ kotlin {
         implementation(project(":debugdrawer"))
         // The real (debug) in-app DevTools — provides ReduxDevToolsPanel. This module
         // is itself debug-only (app wires it debugImplementation), so no noop is needed.
-        implementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha03")
+        implementation("org.reduxkotlin:redux-kotlin-devtools-inapp:1.0.0-alpha05")
         implementation(compose.runtime)
       }
     }

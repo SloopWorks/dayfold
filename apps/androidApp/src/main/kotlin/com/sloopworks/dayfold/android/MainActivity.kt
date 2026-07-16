@@ -37,7 +37,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.reduxkotlin.compose.rememberStableStore
+import org.reduxkotlin.compose.rememberSelectorStore
 
 // Android shell — owns Activity-scoped native UI only. The ViewModel retains the application-safe
 // runtime/store across recreation; repeatOnLifecycle maps foreground state to runtime resume/pause.
@@ -291,7 +291,7 @@ class MainActivity : ComponentActivity() {
       getString(R.string.default_web_client_id),
     )
     setContent {
-      val stableStore = rememberStableStore(store)
+      val selectorStore = rememberSelectorStore(store)
       val stableCommands = remember(runtimeViewModel.commands) {
         StableDayfoldCommands(runtimeViewModel.commands)
       }
@@ -320,7 +320,7 @@ class MainActivity : ComponentActivity() {
         // content INSIDE the drawer host; pure passthrough in release.
         BugReporterWrapped {
         FeedApp(
-          store = stableStore,
+          store = selectorStore,
           commands = stableCommands,
           platformActions = stablePlatformActions,
         )
