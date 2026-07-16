@@ -22,6 +22,7 @@ import com.sloopworks.dayfold.client.DeviceApprovedConfirm
 import com.sloopworks.dayfold.client.DeviceDeniedScreen
 import com.sloopworks.dayfold.client.DeviceExpiredScreen
 import com.sloopworks.dayfold.client.DeviceFinishingScreen
+import com.sloopworks.dayfold.client.DeviceState
 import com.sloopworks.dayfold.client.DeviceResumeScreen
 import com.sloopworks.dayfold.client.DevicesScreen
 import com.sloopworks.dayfold.client.EnterCodeScreen
@@ -264,7 +265,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       themed(args.theme) {
         when (presetName(args.input)) {
           "entercode" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)))
-          "entercode-error" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), deviceError = "Too many tries — wait about 15 minutes."))
+          "entercode-error" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), devices = DeviceState(error = "Too many tries — wait about 15 minutes.")))
           "entercode-scan" -> EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode)), onScan = {})
           "authorize-datacenter" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("datacenter"))
           "authorize-residential" -> AuthorizeDeviceScreen(SnapshotStates.authorizeState("residential"))

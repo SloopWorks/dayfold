@@ -252,33 +252,33 @@ object SnapshotStates {
   // ── Members (AuthScreensSnapshotTest.kt members* fixtures, verbatim) ────────
   private val FAM = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))
   fun membersState(preset: String): AppState = when (preset) {
-    "roster" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"),
+    "roster" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(
         FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
         FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
-      ))
-    "loading" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), rosterBusy = true)
-    "error" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), rosterError = "Couldn't load members. Try again.")
-    "row-busy" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"),
+      )))
+    "loading" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterBusy = true))
+    "error" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterError = "Couldn't load members. Try again."))
+    "row-busy" -> AppState(session = SessionState(families = FAM, activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(
       pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
       members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
-      memberOpId = "u9")
+      memberOpId = "u9"))
     else -> error("unknown members preset '$preset'")
   }
 
   // ── Devices (AuthScreensSnapshotTest.kt devices* fixtures, verbatim) ────────
   fun devicesState(preset: String): AppState = when (preset) {
-    "list" -> AppState(devices = listOf(
+    "list" -> AppState(devices = DeviceState(devices = listOf(
       DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
       DeviceCredential("c2", kind = "cli", label = "claude-code · CI", lastUsedAt = "2026-06-19T09:00:00Z", lastUsedIp = "San Jose"),
-    ))
-    "loading" -> AppState(deviceListBusy = true)
-    "error" -> AppState(deviceListError = "Couldn't load devices. Try again.")
-    "row-busy" -> AppState(devices = listOf(
+    )))
+    "loading" -> AppState(devices = DeviceState(listBusy = true))
+    "error" -> AppState(devices = DeviceState(listError = "Couldn't load devices. Try again."))
+    "row-busy" -> AppState(devices = DeviceState(devices = listOf(
       DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
       DeviceCredential("c2", kind = "cli", label = "claude-code · CI"),
-    ), deviceOpId = "c2")
+    ), operationId = "c2"))
     else -> error("unknown devices preset '$preset'")
   }
 
@@ -289,8 +289,8 @@ object SnapshotStates {
     return AppState(
       session = SessionState(session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId),
       navigation = NavigationState(route = Route.AuthorizeDevice),
-      pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
-        originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
+      devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
+        originUa = "dayfold-cli/1.0 · macOS", originKind = originKind)),
     )
   }
 

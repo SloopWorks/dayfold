@@ -21,7 +21,7 @@ class AccountScreenTest {
     var saved: String? = null
     setContent {
       MaterialTheme {
-        AccountScreen(state = AppState(myDisplayName = "Leo"), onUpdateName = { saved = it })
+        AccountScreen(state = AppState(profile = ProfileState(displayName = "Leo")), onUpdateName = { saved = it })
       }
     }
     onNodeWithContentDescription("Edit name").performClick()   // open the dialog (prefilled "Leo")
@@ -34,7 +34,7 @@ class AccountScreenTest {
   @Test fun saveIsDisabledForABlankName() = runComposeUiTest {
     setContent {
       MaterialTheme {
-        AccountScreen(state = AppState(myDisplayName = "Leo"), onUpdateName = {})
+        AccountScreen(state = AppState(profile = ProfileState(displayName = "Leo")), onUpdateName = {})
       }
     }
     onNodeWithContentDescription("Edit name").performClick()

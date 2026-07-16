@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class MembersScreenA11yTest {
   @Test fun approveAndDeclineExposeDistinctAccessibleLabels() = runComposeUiTest {
-    val state = AppState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")))
+    val state = AppState(familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera"))))
     setContent { MaterialTheme { MembersScreen(state) } }
     onNodeWithContentDescription("Approve Sam Rivera").assertIsDisplayed()
     onNodeWithContentDescription("Decline Sam Rivera").assertIsDisplayed()
@@ -27,7 +27,7 @@ class MembersScreenA11yTest {
   @Test fun approveAndDeclineInvokeTheirCallbacksForThatMember() = runComposeUiTest {
     var approved: String? = null
     var declined: String? = null
-    val state = AppState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")))
+    val state = AppState(familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera"))))
     setContent { MaterialTheme { MembersScreen(state, onApprove = { approved = it }, onDecline = { declined = it }) } }
     onNodeWithTag("decline-u9").performClick()
     assertEquals("u9", declined)   // deny side wired to the right member
@@ -38,14 +38,14 @@ class MembersScreenA11yTest {
   // Profile avatars (P1b Task 3): a roster member carrying a fun avatarRef renders the
   // fun avatar (a11y name from FunAvatars), not the monogram fallback.
   @Test fun memberWithFunAvatarShowsIt() = runComposeUiTest {
-    val state = AppState(members = listOf(FamilyMember(uid = "u1", displayName = "Fiona Fox", avatarRef = "avatar:fox-01")))
+    val state = AppState(familyAdmin = FamilyAdminState(members = listOf(FamilyMember(uid = "u1", displayName = "Fiona Fox", avatarRef = "avatar:fox-01"))))
     setContent { MaterialTheme { MembersScreen(state) } }
     onNodeWithContentDescription("Fox avatar").assertIsDisplayed()
   }
 
   // Same for a pending (awaiting-approval) member.
   @Test fun pendingMemberWithFunAvatarShowsIt() = runComposeUiTest {
-    val state = AppState(pendingApprovals = listOf(PendingMember(uid = "u9", displayName = "Sam Rivera", avatarRef = "avatar:sun-01")))
+    val state = AppState(familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember(uid = "u9", displayName = "Sam Rivera", avatarRef = "avatar:sun-01"))))
     setContent { MaterialTheme { MembersScreen(state) } }
     onNodeWithContentDescription("Sun avatar").assertIsDisplayed()
   }

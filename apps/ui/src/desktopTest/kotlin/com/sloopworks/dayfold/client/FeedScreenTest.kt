@@ -50,7 +50,7 @@ class FeedScreenTest {
     // set in state the account button renders that path and still exposes the "Account" label.
     setContent {
       MaterialTheme {
-        FeedScreen(AppState(myDisplayName = "Zoe", myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"))
+        FeedScreen(AppState(profile = ProfileState(displayName = "Zoe", avatarColor = "teal", avatarRef = "avatar:fox-01")))
       }
     }
     onNodeWithContentDescription("Account").assertIsDisplayed()

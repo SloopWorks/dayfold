@@ -9,6 +9,7 @@ import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.InviteRejected
 import com.sloopworks.dayfold.client.NavToDetail
 import com.sloopworks.dayfold.client.OpenHub
+import com.sloopworks.dayfold.client.ProfileState
 import com.sloopworks.dayfold.client.Session
 import com.sloopworks.dayfold.client.SessionState
 import com.sloopworks.dayfold.client.NavigationState
@@ -39,7 +40,7 @@ import kotlin.test.assertTrue
 class DayfoldLeakTest {
   private val salted = AppState(
     session = SessionState(session = Session(access = "eyJSALTEDJWTACCESS", refresh = "eyJSALTEDREFRESH", userId = "u_salted")),
-    myDisplayName = "Salted Q. User",
+    profile = ProfileState(displayName = "Salted Q. User"),
     hubs = HubState(filter = "salted-search someone@example.com padding-padding-padding"), // synthetic: real values are chip literals; salt proves the fence anyway
     navigation = NavigationState(detailStack = listOf("card_salt_1")),
   )

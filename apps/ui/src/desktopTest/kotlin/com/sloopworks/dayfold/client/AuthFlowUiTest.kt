@@ -253,7 +253,7 @@ class AuthFlowUiTest {
       activeFamilyId = "fam1",
     ),
     navigation = NavigationState(route = Route.AuthorizeDevice),
-    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = originKind),
+    devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = originKind)),
   )
 
   @Test fun datacenterOriginShowsTheAntiPhishingWarning() = runComposeUiTest {
@@ -282,7 +282,7 @@ class AuthFlowUiTest {
     // first request is in flight) must be impossible. canApprove = … && !deviceBusy, so an
     // in-flight approval disables the Authorize button. The approve-wiring test above only
     // covers the non-busy case; this pins the double-grant guard (#223 loading states).
-    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential").copy(deviceBusy = true)) } }
+    setContent { DayfoldTheme { AuthorizeDeviceScreen(authorizeState("residential").copy(devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"), busy = true))) } }
     onNodeWithTag("device-approve").assertIsNotEnabled()
   }
 
@@ -315,7 +315,7 @@ class AuthFlowUiTest {
         activeFamilyId = "fam1",                                // default target
       ),
       navigation = NavigationState(route = Route.AuthorizeDevice),
-      pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
+      devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential")),
     )
     setContent { DayfoldTheme { AuthorizeDeviceScreen(twoOwner, onApprove = { fid, _ -> approvedFid = fid }) } }
     onNodeWithTag("device-family-selector").performClick()      // open the picker
@@ -335,7 +335,7 @@ class AuthFlowUiTest {
       activeFamilyId = "fam1",
     ),
     navigation = NavigationState(route = Route.AuthorizeDevice),
-    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
+    devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential")),
     hubs = HubState(hubs = hubs),
   )
 

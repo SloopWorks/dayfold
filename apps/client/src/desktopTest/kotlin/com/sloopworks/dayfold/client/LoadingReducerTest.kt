@@ -31,7 +31,7 @@ class LoadingReducerTest {
   }
 
   @Test fun memberOpClearedOnApprovalsFailed() {
-    assertNull(rootReducer(AppState(memberOpId = "u1"), ApprovalsFailed).memberOpId)
+    assertNull(rootReducer(AppState(familyAdmin = FamilyAdminState(memberOpId = "u1")), ApprovalsFailed).memberOpId)
   }
 
   @Test fun rosterRequestedFailedFlow() {

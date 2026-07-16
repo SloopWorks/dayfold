@@ -16,6 +16,8 @@ fun reduceSession(state: AppState, action: Any): AppState = when (action) {
   is AuthOpFailed -> state.copy(session = state.session.copy(authBusy = false, authError = action.message))
   is RestoreFailed -> state.copy(session = state.session.copy(authBusy = false, authError = action.message))
   is SignOutRequested -> state.copy(session = state.session.copy(signOutBusy = true))
+  is InviteLinkStashed -> state.copy(session = state.session.copy(pendingInviteLink = action.token))
+  is InviteLinkConsumed -> state.copy(session = state.session.copy(pendingInviteLink = null))
   is OpenJoinInvite -> state.copy(session = state.session.copy(joinBusy = false, joinOutcome = null, joinFamilyName = null))
   is RedeemRequested -> state.copy(session = state.session.copy(joinBusy = true, joinOutcome = null))
   is InviteRedeemed -> state.copy(session = state.session.copy(joinBusy = false, joinOutcome = "waiting", joinFamilyName = action.familyName))

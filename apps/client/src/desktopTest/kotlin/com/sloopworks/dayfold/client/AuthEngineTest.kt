@@ -640,7 +640,7 @@ class AuthEngineTest {
 
   @Test fun `approveMember drops the member from the queue`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), pendingApprovals = listOf(PendingMember("u9", "Sam"), PendingMember("u8", "Mo"))),
+      AppState(session = SessionState(session = Session("a", "r")), familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam"), PendingMember("u8", "Mo")))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
@@ -662,7 +662,7 @@ class AuthEngineTest {
 
   @Test fun `removeMember drops from the roster on success`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), members = listOf(FamilyMember("u1", "Pat", role = "owner"), FamilyMember("u2", "Maya"))),
+      AppState(session = SessionState(session = Session("a", "r")), familyAdmin = FamilyAdminState(members = listOf(FamilyMember("u1", "Pat", role = "owner"), FamilyMember("u2", "Maya")))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
@@ -679,8 +679,8 @@ class AuthEngineTest {
       else respond("", HttpStatusCode.NotFound)
     }))
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).loadDevices()
-    assertEquals(1, store.state.devices.size)
-    assertEquals("c1", store.state.devices[0].id)
+    assertEquals(1, store.state.devices.devices.size)
+    assertEquals("c1", store.state.devices.devices[0].id)
   }
 
   @Test fun `independent auth reads do not wait behind a slow device request`() = runBlocking<Unit> {
@@ -736,23 +736,23 @@ class AuthEngineTest {
     assertNull(tokens.session)
     releaseDevice.complete(Unit)
     devices.join()
-    assertTrue(store.state.devices.isEmpty(), "a late pre-sign-out read must not repopulate state")
+    assertTrue(store.state.devices.devices.isEmpty(), "a late pre-sign-out read must not repopulate state")
   }
 
   @Test fun `revokeDevice drops from the list on success`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), devices = listOf(DeviceCredential("c1", current = true), DeviceCredential("c2"))),
+      AppState(session = SessionState(session = Session("a", "r")), devices = DeviceState(devices = listOf(DeviceCredential("c1", current = true), DeviceCredential("c2")))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }))
     AuthEngine(store, client, MemTokenStore(Session("a", "r"))).revokeDevice("c2")
-    assertEquals(listOf("c1"), store.state.devices.map { it.id })
+    assertEquals(listOf("c1"), store.state.devices.devices.map { it.id })
   }
 
   // ── own avatar (task 4 fix — optimistic op-start + revert-on-failure) ──
   @Test fun `updateAvatar applies the server-returned value on success and clears avatarOpId`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      AppState(session = SessionState(session = Session("a", "r")), profile = ProfileState(avatarColor = "teal", avatarRef = "avatar:fox-01")),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { req ->
@@ -769,7 +769,7 @@ class AuthEngineTest {
 
   @Test fun `updateAvatar reverts to the previous value and sets avatarError on failure`() = runBlocking {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), myAvatarColor = "teal", myAvatarRef = "avatar:fox-01"),
+      AppState(session = SessionState(session = Session("a", "r")), profile = ProfileState(avatarColor = "teal", avatarRef = "avatar:fox-01")),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.BadRequest) }))
@@ -837,7 +837,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice happy path sets the approved outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("WDJF-7K2P")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P"))),
       debug = false,
     )
     var path = ""
@@ -850,7 +850,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice 404 race sets the expired outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), devices = DeviceState(pendingDevice = PendingDevice("X"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }))
@@ -860,7 +860,7 @@ class AuthEngineTest {
 
   @Test fun `approveDevice 403 (non-owner) surfaces an inline error, no outcome`() = runBlocking<Unit> {
     val store = createTestAppStore(
-      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
+      AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), devices = DeviceState(pendingDevice = PendingDevice("X"))),
       debug = false,
     )
     val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.Forbidden) }))
@@ -872,7 +872,7 @@ class AuthEngineTest {
   @Test fun `denyDevice sets the denied outcome (204 or already-gone)`() = runBlocking<Unit> {
     val mk = { status: HttpStatusCode ->
       val store = createTestAppStore(
-        AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), pendingDevice = PendingDevice("X")),
+        AppState(session = SessionState(session = Session("a", "r")), navigation = NavigationState(route = Route.AuthorizeDevice), devices = DeviceState(pendingDevice = PendingDevice("X"))),
         debug = false,
       )
       val client = AuthClient("https://api.test", HttpClient(MockEngine { respond("", status) }))
@@ -1198,8 +1198,10 @@ class AuthEngineTest {
       val store = createTestAppStore(
         AppState(
           session = SessionState(session = session, activeFamilyId = "fam1"),
-          outstandingInvites = listOf(Invite(id = "i1", mode = "link", expiresAt = "z")),
-          pendingApprovals = listOf(PendingMember(uid = "u1", displayName = "Pat", role = "adult")),
+          familyAdmin = FamilyAdminState(
+            outstandingInvites = listOf(Invite(id = "i1", mode = "link", expiresAt = "z")),
+            pendingApprovals = listOf(PendingMember(uid = "u1", displayName = "Pat", role = "adult")),
+          ),
         ),
         debug = false,
       )
@@ -1246,7 +1248,7 @@ class AuthEngineTest {
     val calls = AtomicInteger()
     val session = Session("a", "r")
     val store = createTestAppStore(
-      AppState(session = SessionState(session = session), myAvatarColor = "old", myAvatarRef = "avatar:old"),
+      AppState(session = SessionState(session = session), profile = ProfileState(avatarColor = "old", avatarRef = "avatar:old")),
       debug = false,
     )
     val auth = AuthEngine(

@@ -62,47 +62,43 @@ class AuthScreensSnapshotTest {
   @Test fun members() = snap("auth-members") {
     MembersScreen(AppState(
       session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
-      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
-      members = listOf(
+      familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")), members = listOf(
         FamilyMember("u1", "Pat Jackson", role = "owner", status = "active"),
         FamilyMember("u2", "Maya Jackson", role = "adult", status = "active"),
-      ),
+      )),
     ))
   }
   @Test fun membersLoading() = snap("members-loading") {
     MembersScreen(AppState(
-      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), rosterBusy = true,
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterBusy = true),
     ))
   }
   @Test fun membersError() = snap("members-error") {
     MembersScreen(AppState(
-      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), rosterError = "Couldn't load members. Try again.",
+      session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"), familyAdmin = FamilyAdminState(rosterError = "Couldn't load members. Try again."),
     ))
   }
   @Test fun membersRowBusy() = snap("members-row-busy") {
     MembersScreen(AppState(
       session = SessionState(families = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")), activeFamilyId = "fam1"),
-      pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")),
-      members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")),
-      memberOpId = "u9",
+      familyAdmin = FamilyAdminState(pendingApprovals = listOf(PendingMember("u9", "Sam Rivera")), members = listOf(FamilyMember("u1", "Pat Jackson", role = "owner", status = "active")), memberOpId = "u9"),
     ))
   }
 
   @Test fun devices() = snap("auth-devices") {
-    DevicesScreen(AppState(devices = listOf(
+    DevicesScreen(AppState(devices = DeviceState(devices = listOf(
       DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
       DeviceCredential("c2", kind = "cli", label = "claude-code · CI", lastUsedAt = "2026-06-19T09:00:00Z", lastUsedIp = "San Jose"),
-    )))
+    ))))
   }
-  @Test fun devicesLoading() = snap("devices-loading") { DevicesScreen(AppState(deviceListBusy = true)) }
-  @Test fun devicesError() = snap("devices-error") { DevicesScreen(AppState(deviceListError = "Couldn't load devices. Try again.")) }
+  @Test fun devicesLoading() = snap("devices-loading") { DevicesScreen(AppState(devices = DeviceState(listBusy = true))) }
+  @Test fun devicesError() = snap("devices-error") { DevicesScreen(AppState(devices = DeviceState(listError = "Couldn't load devices. Try again."))) }
   @Test fun devicesRowBusy() = snap("devices-row-busy") {
     DevicesScreen(AppState(
-      devices = listOf(
+      devices = DeviceState(devices = listOf(
         DeviceCredential("c1", kind = "app", label = "iPhone 15 Pro", current = true),
         DeviceCredential("c2", kind = "cli", label = "claude-code · CI"),
-      ),
-      deviceOpId = "c2",
+      ), operationId = "c2"),
     ))
   }
 
@@ -110,14 +106,14 @@ class AuthScreensSnapshotTest {
   @Test fun enterCode() = snap("device-entercode") { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode))) }
   @Test fun enterCodeDark() = snap("device-entercode-dark", dark = true) { EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode))) }
   @Test fun enterCodeError() = snap("device-entercode-error") {
-    EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), deviceError = "Too many tries — wait about 15 minutes."))
+    EnterCodeScreen(AppState(navigation = NavigationState(route = Route.EnterCode), devices = DeviceState(error = "Too many tries — wait about 15 minutes.")))
   }
 
   private fun authState(originKind: String, fams: List<FamilyMembership>) = AppState(
     session = SessionState(session = Session("a", "r"), families = fams, activeFamilyId = fams.firstOrNull()?.familyId),
     navigation = NavigationState(route = Route.AuthorizeDevice),
-    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
-      originUa = "dayfold-cli/1.0 · macOS", originKind = originKind),
+    devices = DeviceState(pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originIp = "San Jose, CA · US",
+      originUa = "dayfold-cli/1.0 · macOS", originKind = originKind)),
   )
   private val oneOwner = listOf(FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active"))
   private val twoOwner = listOf(

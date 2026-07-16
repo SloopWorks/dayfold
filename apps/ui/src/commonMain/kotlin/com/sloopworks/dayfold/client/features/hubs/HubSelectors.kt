@@ -78,7 +78,7 @@ fun hubDetailViewState(state: AppState): HubDetailViewState = HubDetailViewState
   hiddenIds = state.hubs.hiddenIds,
   showHidden = state.hubs.showHidden,
   timelineDetail = state.hubs.timelineDetail,
-  members = state.members,
+  members = state.familyAdmin.members,
   currentUserId = state.session.session?.userId,
 )
 

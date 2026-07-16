@@ -90,27 +90,27 @@ class FeedAppHostTest {
   private val ownerFam = FamilyMembership("fam1", "The Jacksons", role = "owner", status = "active")
   private fun authedAt(route: Route, outcome: String? = null) = AppState(
     session = SessionState(session = Session("a", "r"), families = listOf(ownerFam), activeFamilyId = "fam1"),
-    navigation = NavigationState(route = route), deviceOutcome = outcome,
-    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential"),
+    navigation = NavigationState(route = route), devices = DeviceState(outcome = outcome,
+    pendingDevice = PendingDevice("WDJF-7K2P", client = "Dayfold CLI", originKind = "residential")),
   )
 
-  @Test fun hostRendersEnterCode() = hostShot("host-entercode", authedAt(Route.EnterCode).copy(pendingDevice = null))
+  @Test fun hostRendersEnterCode() = hostShot("host-entercode", authedAt(Route.EnterCode).copy(devices = DeviceState()))
   @Test fun hostRendersAuthorize() = hostShot("host-authorize", authedAt(Route.AuthorizeDevice))
   @Test fun hostRendersDenied() = hostShot("host-device-denied", authedAt(Route.AuthorizeDevice, "denied"))
   @Test fun hostRendersExpired() = hostShot("host-device-expired", authedAt(Route.AuthorizeDevice, "expired"))
   @Test fun hostRendersApproved() = hostShot("host-device-approved", authedAt(Route.AuthorizeDevice, "approved"))
 
   // Phase 2 scan + deep-link host arms (render without crashing).
-  @Test fun hostRendersScanPrimer() = hostShot("host-scan-primer", authedAt(Route.ScanPrimer).copy(pendingDevice = null))
-  @Test fun hostRendersScanDevice() = hostShot("host-scan-device", authedAt(Route.ScanDevice).copy(pendingDevice = null))
-  @Test fun hostRendersScanDenied() = hostShot("host-scan-denied", authedAt(Route.ScanDenied).copy(pendingDevice = null))
+  @Test fun hostRendersScanPrimer() = hostShot("host-scan-primer", authedAt(Route.ScanPrimer).copy(devices = DeviceState()))
+  @Test fun hostRendersScanDevice() = hostShot("host-scan-device", authedAt(Route.ScanDevice).copy(devices = DeviceState()))
+  @Test fun hostRendersScanDenied() = hostShot("host-scan-denied", authedAt(Route.ScanDenied).copy(devices = DeviceState()))
   @Test fun hostRendersDeviceResume() = hostShot(
     "host-deviceresume",
-    AppState(navigation = NavigationState(route = Route.SignIn), pendingDeviceLink = "WDJF-7K2P"),
+    AppState(navigation = NavigationState(route = Route.SignIn), session = SessionState(pendingInviteLink = "WDJF-7K2P")),
   )
   @Test fun hostRendersFinishing() = hostShot(
     "host-devicefinishing",
-    AppState(navigation = NavigationState(route = Route.Feed), deviceResuming = true),
+    AppState(navigation = NavigationState(route = Route.Feed), devices = DeviceState(resuming = true)),
   )
 
   @Test fun routeCardAction_splits_openDetail_from_platform_handoffs() = runComposeUiTest {

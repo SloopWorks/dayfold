@@ -23,12 +23,12 @@ data class FeedViewState(
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
   cards = state.cards,
   hubs = state.hubs.hubs,
-  memberCount = state.members.size,
+  memberCount = state.familyAdmin.members.size,
   syncing = state.syncing,
   error = state.error,
-  displayName = state.myDisplayName,
-  avatarColor = state.myAvatarColor,
-  avatarRef = state.myAvatarRef,
+  displayName = state.profile.displayName,
+  avatarColor = state.profile.avatarColor,
+  avatarRef = state.profile.avatarRef,
   nowContent = state.nowContent,
   surfacing = state.surfacing,
 )

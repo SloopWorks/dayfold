@@ -58,7 +58,7 @@ class DayfoldCommandsTest {
       val store = createTestAppStore(
         AppState(
           session = SessionState(session = session, activeFamilyId = "family-a"),
-          pendingDevice = PendingDevice(userCode = "STATE-CODE"),
+          devices = DeviceState(pendingDevice = PendingDevice(userCode = "STATE-CODE")),
         ),
         debug = false,
       )
@@ -105,7 +105,7 @@ class DayfoldCommandsTest {
       val store = createTestAppStore(
         AppState(
           session = SessionState(session = session, activeFamilyId = "family-a"),
-          pendingApprovals = listOf(pending),
+          familyAdmin = FamilyAdminState(pendingApprovals = listOf(pending)),
         ),
         debug = false,
       )

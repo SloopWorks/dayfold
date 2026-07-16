@@ -32,7 +32,7 @@ data class AppShellState(
 fun appShellState(state: AppState): AppShellState {
   val detailCardId = currentDetailCard(state)?.id
   val backTarget = when {
-    state.deviceResuming -> null
+    state.devices.resuming -> null
     state.hubs.audienceSheetOpen -> BackTarget.Audience
     state.navigation.route == Route.Feed && detailCardId != null -> BackTarget.FeedDetail
     state.navigation.route == Route.Hubs && state.hubs.timelineDetail != null -> BackTarget.Timeline
@@ -50,7 +50,7 @@ fun appShellState(state: AppState): AppShellState {
     route = state.navigation.route,
     detailCardId = detailCardId,
     currentHubId = state.hubs.currentHubId,
-    deviceResuming = state.deviceResuming,
+    deviceResuming = state.devices.resuming,
     timelineDetailOpen = state.hubs.timelineDetail != null,
     backTarget = backTarget,
   )

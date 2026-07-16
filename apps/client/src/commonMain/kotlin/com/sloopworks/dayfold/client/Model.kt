@@ -446,6 +446,9 @@ data class SessionState(
   val joinFamilyName: String? = null,
   val pendingProvider: String? = null,
   val signOutBusy: Boolean = false,
+  // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
+  // once memberships resolve. Null = nothing pending.
+  val pendingInviteLink: String? = null,
 )
 
 // Transient navigation is deliberately non-persisted. A cold start returns to
@@ -453,6 +456,47 @@ data class SessionState(
 data class NavigationState(
   val route: Route = Route.Loading,
   val detailStack: List<String> = emptyList(),
+)
+
+/** Owner-side roster, approvals, and invite administration for the active family. */
+data class FamilyAdminState(
+  val pendingApprovals: List<PendingMember> = emptyList(),
+  val approvalsBusy: Boolean = false,
+  val members: List<FamilyMember> = emptyList(),
+  val rosterBusy: Boolean = false,
+  val rosterError: String? = null,
+  val memberOpId: String? = null,
+  val inviteMode: String = "qr",
+  val inviteBusy: Boolean = false,
+  val mintedInvite: MintedInvite? = null,
+  val mintError: String? = null,
+  val outstandingInvites: List<Invite> = emptyList(),
+  val inviteOpId: String? = null,
+)
+
+/** Account-scoped connected-device data plus device-local approval-flow UI state. */
+data class DeviceState(
+  val devices: List<DeviceCredential> = emptyList(),
+  val listBusy: Boolean = false,
+  val listError: String? = null,
+  val operationId: String? = null,
+  val pendingDevice: PendingDevice? = null,
+  val busy: Boolean = false,
+  val error: String? = null,
+  val outcome: String? = null,
+  val pendingLink: String? = null,
+  val resuming: Boolean = false,
+)
+
+/** The signed-in user's editable profile projection. */
+data class ProfileState(
+  val displayName: String? = null,
+  val avatarColor: String? = null,
+  val avatarRef: String? = null,
+  val avatarOpId: String? = null,
+  val avatarError: String? = null,
+  val nameOpId: String? = null,
+  val nameError: String? = null,
 )
 
 // Redux state (client state tree). The feed cursor lives in the DB (sync_meta),
@@ -464,30 +508,9 @@ data class AppState(
   val error: String? = null,
   val session: SessionState = SessionState(),
   val navigation: NavigationState = NavigationState(),
-  // owner-side approvals (S6). The pending-member queue + a busy flag.
-  val pendingApprovals: List<PendingMember> = emptyList(),
-  val approvalsBusy: Boolean = false,
-  // the active member roster (GET /members).
-  val members: List<FamilyMember> = emptyList(),
-  // connected devices/apps — the caller's credentials (GET /auth/me/credentials).
-  val devices: List<DeviceCredential> = emptyList(),
-  // CLI/device approval (S6-D). The pending grant being reviewed + a busy flag +
-  // an inline error (lookup transient/lockout). deviceOutcome is the terminal
-  // screen the AuthorizeDevice route renders: null | "denied" | "expired" | "approved".
-  val pendingDevice: PendingDevice? = null,
-  val deviceBusy: Boolean = false,
-  val deviceError: String? = null,
-  val deviceOutcome: String? = null,
-  // Deep-link (Phase 2): a user_code captured from an App/Universal Link before
-  // the owner was signed in. Stashed here, then consumed + looked up once sign-in
-  // resolves memberships (cold-install resume). Null = nothing pending.
-  val pendingDeviceLink: String? = null,
-  // True between consuming a stashed deep-link and the lookup resolving — the
-  // Loading route then shows the "Finishing…" beat instead of the plain splash.
-  val deviceResuming: Boolean = false,
-  // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
-  // once memberships resolve. Null = nothing pending.
-  val pendingInviteLink: String? = null,
+  val familyAdmin: FamilyAdminState = FamilyAdminState(),
+  val devices: DeviceState = DeviceState(),
+  val profile: ProfileState = ProfileState(),
   // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
   // is DB-fed and detail/audience state is request-correlated transient UI state.
   val hubs: HubState = HubState(),
@@ -502,37 +525,6 @@ data class AppState(
   val notifConfig: NotifConfig = NotifConfig(),
   val locationPermission: LocationPermission = LocationPermission.Denied,
   val notificationPermission: NotificationPermission = NotificationPermission.Denied,
-  // loading-state additions (2026-06-28)
-  val rosterBusy: Boolean = false,
-  val rosterError: String? = null,
-  val memberOpId: String? = null,        // member row currently approving/declining/removing
-  // owner invite-mint (Invite screen). mintedInvite carries the RAW one-time token for
-  // display only — cleared on leave (InviteDismissed), NEVER persisted to the DB.
-  val inviteMode: String = "qr",         // "qr" | "link" segmented toggle
-  val inviteBusy: Boolean = false,       // mint in flight
-  val mintedInvite: MintedInvite? = null,
-  val mintError: String? = null,         // ratelimited | forbidden | error
-  val outstandingInvites: List<Invite> = emptyList(),
-  val inviteOpId: String? = null,        // outstanding-invite row currently revoking
-  val deviceListBusy: Boolean = false,
-  val deviceListError: String? = null,
-  val deviceOpId: String? = null,        // device row currently revoking
-  // own profile (task 4, GET/PATCH /auth/me). Loaded eagerly on restore (like
-  // loadRosterLocked); avatarOpId mirrors memberOpId/deviceOpId — non-null only
-  // while a PATCH is in flight, cleared by either terminal action. The update IS
-  // optimistic (AvatarOpRequested applies the picked value immediately, no network
-  // wait) but the optimistic value is REVERTED on failure (mirrors removeMember's
-  // reconcile-on-failure) and avatarError surfaces the failure (mirrors
-  // rosterError/devicesError).
-  val myDisplayName: String? = null,
-  val myAvatarColor: String? = null,
-  val myAvatarRef: String? = null,
-  val avatarOpId: String? = null,
-  val avatarError: String? = null,
-  // Display-name edit (mirrors avatarOpId/avatarError): nameOpId non-null while the PATCH is
-  // in flight; nameError surfaces a failed rename (reverted).
-  val nameOpId: String? = null,
-  val nameError: String? = null,
 ) {
   /** Read-only migration accessors; no second writable navigation state exists. */
   @Deprecated("Use navigation.route") val route get() = navigation.route
@@ -553,6 +545,37 @@ data class AppState(
   @Deprecated("Use hubs.currentAudience") val currentHubAudience get() = hubs.currentAudience
   @Deprecated("Use hubs.currentAudienceRequest") val currentHubAudienceRequest get() = hubs.currentAudienceRequest
   @Deprecated("Use hubs.audienceError") val audienceError get() = hubs.audienceError
+  /** Read-only migration accessors; no second writable feature state exists. */
+  @Deprecated("Use familyAdmin.pendingApprovals") val pendingApprovals get() = familyAdmin.pendingApprovals
+  @Deprecated("Use familyAdmin.approvalsBusy") val approvalsBusy get() = familyAdmin.approvalsBusy
+  @Deprecated("Use familyAdmin.members") val members get() = familyAdmin.members
+  @Deprecated("Use familyAdmin.rosterBusy") val rosterBusy get() = familyAdmin.rosterBusy
+  @Deprecated("Use familyAdmin.rosterError") val rosterError get() = familyAdmin.rosterError
+  @Deprecated("Use familyAdmin.memberOpId") val memberOpId get() = familyAdmin.memberOpId
+  @Deprecated("Use familyAdmin.inviteMode") val inviteMode get() = familyAdmin.inviteMode
+  @Deprecated("Use familyAdmin.inviteBusy") val inviteBusy get() = familyAdmin.inviteBusy
+  @Deprecated("Use familyAdmin.mintedInvite") val mintedInvite get() = familyAdmin.mintedInvite
+  @Deprecated("Use familyAdmin.mintError") val mintError get() = familyAdmin.mintError
+  @Deprecated("Use familyAdmin.outstandingInvites") val outstandingInvites get() = familyAdmin.outstandingInvites
+  @Deprecated("Use familyAdmin.inviteOpId") val inviteOpId get() = familyAdmin.inviteOpId
+  @Deprecated("Use devices.devices") val connectedDevices get() = devices.devices
+  @Deprecated("Use devices.listBusy") val deviceListBusy get() = devices.listBusy
+  @Deprecated("Use devices.listError") val deviceListError get() = devices.listError
+  @Deprecated("Use devices.operationId") val deviceOpId get() = devices.operationId
+  @Deprecated("Use devices.pendingDevice") val pendingDevice get() = devices.pendingDevice
+  @Deprecated("Use devices.busy") val deviceBusy get() = devices.busy
+  @Deprecated("Use devices.error") val deviceError get() = devices.error
+  @Deprecated("Use devices.outcome") val deviceOutcome get() = devices.outcome
+  @Deprecated("Use devices.pendingLink") val pendingDeviceLink get() = devices.pendingLink
+  @Deprecated("Use devices.resuming") val deviceResuming get() = devices.resuming
+  @Deprecated("Use session.pendingInviteLink") val pendingInviteLink get() = session.pendingInviteLink
+  @Deprecated("Use profile.displayName") val myDisplayName get() = profile.displayName
+  @Deprecated("Use profile.avatarColor") val myAvatarColor get() = profile.avatarColor
+  @Deprecated("Use profile.avatarRef") val myAvatarRef get() = profile.avatarRef
+  @Deprecated("Use profile.avatarOpId") val avatarOpId get() = profile.avatarOpId
+  @Deprecated("Use profile.avatarError") val avatarError get() = profile.avatarError
+  @Deprecated("Use profile.nameOpId") val nameOpId get() = profile.nameOpId
+  @Deprecated("Use profile.nameError") val nameError get() = profile.nameError
 }
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
