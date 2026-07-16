@@ -67,7 +67,7 @@ class DerivedTimelineSnapshotTest {
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(820.dp)) {
-                    TimelineDetail(derived(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(derived(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }

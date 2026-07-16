@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
@@ -39,6 +40,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -74,6 +77,9 @@ fun TimelineDetail(
     tz: TimeZone,
     onBack: () -> Unit,
     onAction: (CardAction) -> Unit,
+    // Opens scrolled to the NOW line (past above, future below). false in snapshot scenes so the
+    // one-shot scroll doesn't race the single-frame capture.
+    autoScrollToNow: Boolean = true,
 ) {
     // Both scales present → offer the ephemeral day↔hub scope toggle (resets to the
     // auto-selected [scale] each time the detail is opened; spec §5).
@@ -81,6 +87,18 @@ fun TimelineDetail(
     var selectedScale by remember(scale) { mutableStateOf(scale) }
     val active = if (both) selectedScale else scale
     val presented = remember(tl, active, nowIso, tz) { presentTimelineDetail(tl, active, nowIso, tz) }
+    // Open-at-NOW: pre-seat the list so frame 0 is already at the NOW line (no top→NOW jump under
+    // the enter morph); a one-shot seat nudge then drops NOW below the pinned month sticky-header.
+    // ONE unconditional keyed remember — a conditional remember whose branch flips faults the slot
+    // table. remember(active) re-seats to NOW for the swapped content on the Day↔Hub toggle.
+    val nowItemIndex = remember(presented) { nowLineItemIndex(presented.groups, presented.nowIndex) }
+    val headerPx = with(LocalDensity.current) { 46.dp.roundToPx() }
+    val listState = remember(active) {
+        LazyListState(firstVisibleItemIndex = if (autoScrollToNow) (nowItemIndex ?: 0) else 0)
+    }
+    LaunchedEffect(active) {
+        if (autoScrollToNow && nowItemIndex != null) listState.scrollToItem(nowItemIndex, headerPx)
+    }
     val cs = MaterialTheme.colorScheme
     // Edge-to-edge (MainActivity.enableEdgeToEdge): this is a full-screen substate hosted BARE
     // in the Feed/Hubs tab branch (no shared SafeArea, and the tab bar is hidden here), so it must
@@ -105,6 +123,7 @@ fun TimelineDetail(
         // ── Feed ─────────────────────────────────────────────────────────────
         LazyColumn(
             modifier = Modifier.weight(1f),
+            state = listState,
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 18.dp + navBottom),
         ) {
             var flatIdx = 0
@@ -113,19 +132,12 @@ fun TimelineDetail(
                     TlGroupHeader(group.label, isFirst = groupIdx == 0)
                 }
 
-                // Hub scale: NOW line just after the current-month group header
-                if (active == TimelineScale.Hub && presented.nowIndex == groupIdx) {
-                    item(key = "now_hub_$groupIdx") {
-                        TlNowLine(presented.nowTimeLabel ?: "Today")
-                    }
-                }
-
                 group.stops.forEachIndexed { stopIdx, ps ->
                     val fi = flatIdx
-                    // Day scale: NOW line before the stop at this flat index
-                    if (active == TimelineScale.Day && presented.nowIndex == fi) {
-                        item(key = "now_day_$fi") {
-                            TlNowLine(presented.nowTimeLabel ?: "")
+                    // NOW line before the stop at this flat (chronological) index — both scales.
+                    if (presented.nowIndex == fi) {
+                        item(key = "now_line_$fi") {
+                            TlNowLine(presented.nowTimeLabel ?: "Today")
                         }
                     }
                     val isLast = groupIdx == presented.groups.lastIndex &&
@@ -137,11 +149,11 @@ fun TimelineDetail(
                 }
             }
 
-            // Day: NOW after every stop (i.e., after all)
+            // NOW after all stops (an all-past timeline) — both scales.
             val totalFlat = flatIdx
-            if (active == TimelineScale.Day && presented.nowIndex == totalFlat) {
-                item(key = "now_day_end") {
-                    TlNowLine(presented.nowTimeLabel ?: "")
+            if (presented.nowIndex == totalFlat) {
+                item(key = "now_line_end") {
+                    TlNowLine(presented.nowTimeLabel ?: "Today")
                 }
             }
 

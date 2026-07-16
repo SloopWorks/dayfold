@@ -113,6 +113,7 @@ class TimelineDetailSnapshotTest {
                         tz = ny,
                         onBack = {},
                         onAction = {},
+                        autoScrollToNow = false,
                     )
                 }
             }
@@ -136,6 +137,7 @@ class TimelineDetailSnapshotTest {
                             tz = ny,
                             onBack = {},
                             onAction = {},
+                            autoScrollToNow = false,
                         )
                     }
                 }
@@ -162,7 +164,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -173,7 +175,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -184,7 +186,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -195,7 +197,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -206,7 +208,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -221,7 +223,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -232,7 +234,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -243,7 +245,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -254,7 +256,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -265,7 +267,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -278,7 +280,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(hubTimeline(), TimelineScale.Hub, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -293,7 +295,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(bothScalesTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(bothScalesTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -305,7 +307,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(bothScalesTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(bothScalesTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
@@ -320,7 +322,7 @@ class TimelineDetailSnapshotTest {
         setContent {
             DayfoldTheme {
                 Box(Modifier.width(390.dp).height(780.dp)) {
-                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {})
+                    TimelineDetail(dayTimeline(), TimelineScale.Day, nowIso, ny, {}, {}, autoScrollToNow = false)
                 }
             }
         }
