@@ -179,10 +179,32 @@ private fun JsonObject.hasNonEmptyArray(key: String): Boolean =
   (this[key] as? JsonArray)?.isNotEmpty() == true
 
 internal fun blockPayloadErrors(type: String, payload: JsonObject?, bodyMd: String?): List<String> {
+  // text/markdown render their body_md — it IS the content, so an empty one is always a
+  // blank card (the Camp Parsons empty-note bug). Require it regardless of any payload.
+  if (type == "text" || type == "markdown") {
+    return if (bodyMd.isNullOrBlank())
+      listOf("block $type: `body_md` is required — a $type block renders its body_md, so an empty one shows a blank card")
+    else emptyList()
+  }
   if (payload == null) return emptyList()                        // body_md path / placeholder — fine (#113)
-  if (type == "text" || type == "markdown") return emptyList()   // these are body_md, not payload-driven
+  // checklist: not only a non-empty items array, but every item must carry `text` — the
+  // schema-canonical item text (Content.kt Item.text). `label` is a BUDGET-row field, so a
+  // `label`-only item renders a checkbox with no text (the Camp Parsons bug). Flag by index.
+  if (type == "checklist") {
+    if (!payload.hasNonEmptyArray("items"))
+      return listOf("block checklist: `payload` is present but missing its core field — see apps/cli/templates/README.md")
+    val items = payload["items"] as JsonArray
+    val blank = items.mapIndexedNotNull { i, el ->
+      val text = ((el as? JsonObject)?.get("text") as? JsonPrimitive)?.takeIf { it.isString }?.content
+      if (text.isNullOrBlank()) i else null
+    }
+    return if (blank.isEmpty()) emptyList()
+    else listOf(
+      "block checklist: item(s) at index ${blank.joinToString(",")} have no `text` — a checklist item's " +
+        "text field is `text`, not `label` (`label` is a budget-row field, ADR 0035); it renders as an empty checkbox",
+    )
+  }
   val ok = when (type) {
-    "checklist" -> payload.hasNonEmptyArray("items")
     "budget" -> payload.hasNonEmptyArray("items") || payload.has("total", "spent")
     "document" -> payload.has("ref", "docRef")
     "link" -> payload.has("url")
