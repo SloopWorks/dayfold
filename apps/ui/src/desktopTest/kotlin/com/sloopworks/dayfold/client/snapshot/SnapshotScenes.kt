@@ -133,7 +133,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         TabShell(
           // Match production: the timeline overlay (timelineDetail != null) hides the bar
           // (full-screen morph, ADR 0050); every other hub-detail preset keeps it.
-          Route.Hubs, reduceMotion = true, barVisible = state.timelineDetail == null, onNow = {}, onHubs = {},
+          Route.Hubs, reduceMotion = true, barVisible = state.hubs.timelineDetail == null, onNow = {}, onHubs = {},
           feedContent = {},
           hubsContent = { HubDetailScreen(state, now = now, timeZone = NY) },
         )

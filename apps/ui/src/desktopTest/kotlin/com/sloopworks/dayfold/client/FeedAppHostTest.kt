@@ -41,7 +41,7 @@ class FeedAppHostTest {
 
   @Test fun hostRendersDetailWhenOpen() = shot("host-detail") { store ->
     store.dispatch(NavToDetail("f"))
-    assertTrue(store.state.detailStack == listOf("f"))
+    assertTrue(store.state.navigation.detailStack == listOf("f"))
   }
 
   @Test fun hubRowTapCarriesTheProjectedFamilyAndHubToCommands() = runComposeUiTest {
@@ -131,6 +131,6 @@ class FeedAppHostTest {
     // every other CardAction → the shell's PlatformActions, NOT the store
     routeCardAction(selectorStore, commands, platformActions, CardAction.Call("+15550142"))
     assertTrue(performed is CardAction.Call)
-    assertTrue(store.state.detailStack == listOf("f")) // unchanged by the handoff
+    assertTrue(store.state.navigation.detailStack == listOf("f")) // unchanged by the handoff
   }
 }

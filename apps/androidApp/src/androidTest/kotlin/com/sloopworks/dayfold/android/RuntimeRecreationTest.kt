@@ -91,7 +91,7 @@ class RuntimeRecreationTest {
     private val closed = CompletableDeferred<Unit>()
 
     override suspend fun start() {
-      detailStackAtStart = store.state.detailStack
+      detailStackAtStart = store.state.navigation.detailStack
       startCalls.incrementAndGet()
       started.complete(Unit)
     }

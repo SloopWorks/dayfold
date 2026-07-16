@@ -51,7 +51,7 @@ class CardHubNavTest {
       StablePlatformActions.noOp(),
       CardAction.OpenHub("h_party", "blk_chk"),
     )
-    assertEquals(Route.Hubs, store.state.route)   // cross-surface nav (OpenHubs dispatched)
+    assertEquals(Route.Hubs, store.state.navigation.route)   // cross-surface nav (OpenHubs dispatched)
     assertEquals("h_party", loadedHub)            // engine load triggered with the hub id
     assertEquals("blk_chk", loadedFocus)          // + the deep-link focus block (arrival highlight)
   }
@@ -67,7 +67,7 @@ class CardHubNavTest {
       StablePlatformActions.noOp(),
       CardAction.OpenDetail("c1"),
     )
-    assertEquals(listOf("c1"), store.state.detailStack)
+    assertEquals(listOf("c1"), store.state.navigation.detailStack)
   }
 
   @Test fun `command-backed card hub navigation carries the detail return atomically`() = runComposeUiTest {
@@ -90,7 +90,7 @@ class CardHubNavTest {
       commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
     )
 
-    assertEquals(Route.Hubs, store.state.route)
-    assertEquals(true, store.state.hubFromDetail)
+    assertEquals(Route.Hubs, store.state.navigation.route)
+    assertEquals(true, store.state.hubs.fromFeedDetail)
   }
 }

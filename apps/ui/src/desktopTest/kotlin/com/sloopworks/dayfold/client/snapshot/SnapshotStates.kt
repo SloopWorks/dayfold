@@ -93,8 +93,8 @@ object SnapshotStates {
 
   // The 6 detail cards are the same objects as TYPED_FEED's cards, addressed by id.
   fun detailCard(preset: String): Card =
-    TYPED_FEED.cards.firstOrNull { it.id == preset }
-      ?: error("unknown detail preset '$preset' (ids: ${TYPED_FEED.cards.map { it.id }})")
+    TYPED_FEED.content.cards.firstOrNull { it.id == preset }
+      ?: error("unknown detail preset '$preset' (ids: ${TYPED_FEED.content.cards.map { it.id }})")
 
   // ── Feed extras ─────────────────────────────────────────────────────────────
   // Lift verbatim from FeedSnapshotTest.kt (inviteWith) — RSVP tri-state on the invite slice.

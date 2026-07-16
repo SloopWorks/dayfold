@@ -22,4 +22,4 @@ data class HubState(
   val currentAudience: HubAudience? = null,
   val currentAudienceRequest: HubRequestKey? = null,
   val audienceError: String? = null,
-) : List<Hub> by hubs
+)

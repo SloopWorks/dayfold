@@ -204,7 +204,7 @@ class AuthFlowUiTest {
     // owner-only invite entry (content description — the label text is cleared for a11y)
     waitUntil(timeoutMillis = 5_000L) { seenCd("Invite a member") }
     onNodeWithContentDescription("Invite a member").performClick()
-    waitUntil(timeoutMillis = 5_000L) { store.state.route == Route.Invite }
+    waitUntil(timeoutMillis = 5_000L) { store.state.navigation.route == Route.Invite }
     // auto-mint → InviteMinted → the QR renders
     waitUntil(timeoutMillis = 5_000L) { seenCd("Invite QR code") }
   }

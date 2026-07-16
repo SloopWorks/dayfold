@@ -211,7 +211,7 @@ class HubPeopleSheetTest {
   }
 
   // Code-review fix (write-failure surfacing): a failed role/remove/visibility op
-  // dispatches HubManageFailed → state.audienceError, which HubsHost now threads into
+  // dispatches HubManageFailed → state.hubs.hubs.audienceError, which HubsHost now threads into
   // HubPeopleSheet's errorMessage param — the manager must see it, not silence.
   @Test fun errorMessageRendersAnInlineBanner() = runComposeUiTest {
     setContent {

@@ -67,7 +67,7 @@ class MainNotificationContextTest {
     val observedRoutes = CopyOnWriteArrayList<Route>()
     val delivered = CountDownLatch(2)
     store.subscribe {
-      observedRoutes += store.state.route
+      observedRoutes += store.state.navigation.route
       delivered.countDown()
     }
 

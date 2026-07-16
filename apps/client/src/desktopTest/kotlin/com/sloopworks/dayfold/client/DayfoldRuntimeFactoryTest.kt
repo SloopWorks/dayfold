@@ -178,7 +178,7 @@ class DayfoldRuntimeFactoryTest {
 
         val hubOpened = CompletableDeferred<Unit>()
         val unsubscribeHub = graph.store.subscribe {
-          if (graph.store.state.currentHubId == "hub-1") hubOpened.complete(Unit)
+          if (graph.store.state.hubs.currentHubId == "hub-1") hubOpened.complete(Unit)
         }
         try {
           graph.commands.openHub("fam-1", "hub-1")
@@ -186,7 +186,7 @@ class DayfoldRuntimeFactoryTest {
         } finally {
           unsubscribeHub()
         }
-        assertEquals("hub-1", graph.store.state.currentHubId)
+        assertEquals("hub-1", graph.store.state.hubs.currentHubId)
       } finally {
         graph.cancel()
         graph.awaitClosed()
@@ -222,7 +222,7 @@ class DayfoldRuntimeFactoryTest {
         dispatcher.runUntilIdle()
 
         assertNull(
-          graph.store.state.currentHubId,
+          graph.store.state.hubs.currentHubId,
           "a queued tap captured in the original A must not open in replacement A",
         )
       } finally {
@@ -291,7 +291,7 @@ class DayfoldRuntimeFactoryTest {
         }
 
         assertNull(graph.store.state.session.session)
-        assertEquals(Route.SignIn, graph.store.state.route)
+        assertEquals(Route.SignIn, graph.store.state.navigation.route)
         assertNull(tokens.session)
         assertEquals(1, tokens.clears.get())
         assertTrue(content.activeCards().isEmpty())
@@ -368,7 +368,7 @@ class DayfoldRuntimeFactoryTest {
         }
 
         assertNull(graph.store.state.session.session)
-        assertEquals(Route.SignIn, graph.store.state.route)
+        assertEquals(Route.SignIn, graph.store.state.navigation.route)
         assertNull(tokens.session)
         assertEquals(1, tokens.clears.get())
         assertTrue(content.activeCards().isEmpty())

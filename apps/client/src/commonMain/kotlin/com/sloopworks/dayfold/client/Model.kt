@@ -536,67 +536,7 @@ data class AppState(
   // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
   // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
   val notifications: NotificationState = NotificationState(),
-) {
-  /** Read-only migration accessors; no second writable content/Now/notification state exists. */
-  @Deprecated("Use content.cards") val cards get() = content.cards
-  @Deprecated("Use content.syncing") val syncing get() = content.syncing
-  @Deprecated("Use content.error") val error get() = content.error
-  @Deprecated("Use now.content") val nowContent get() = now.content
-  @Deprecated("Use now.surfacing") val surfacing get() = now.surfacing
-  @Deprecated("Use notifications.config") val notifConfig get() = notifications.config
-  @Deprecated("Use notifications.locationPermission") val locationPermission get() = notifications.locationPermission
-  @Deprecated("Use notifications.notificationPermission") val notificationPermission get() = notifications.notificationPermission
-  /** Read-only migration accessors; no second writable navigation state exists. */
-  @Deprecated("Use navigation.route") val route get() = navigation.route
-  @Deprecated("Use navigation.detailStack") val detailStack get() = navigation.detailStack
-  /** Read-only migration accessors; no second writable hub state exists. */
-  @Deprecated("Use hubs.busy") val hubsBusy get() = hubs.busy
-  @Deprecated("Use hubs.error") val hubError get() = hubs.error
-  @Deprecated("Use hubs.filter") val hubFilter get() = hubs.filter
-  @Deprecated("Use hubs.currentHubId") val currentHubId get() = hubs.currentHubId
-  @Deprecated("Use hubs.currentHubTree") val currentHubTree get() = hubs.currentHubTree
-  @Deprecated("Use hubs.currentHubRequest") val currentHubRequest get() = hubs.currentHubRequest
-  @Deprecated("Use hubs.focusBlockId") val hubFocusBlockId get() = hubs.focusBlockId
-  @Deprecated("Use hubs.fromFeedDetail") val hubFromDetail get() = hubs.fromFeedDetail
-  @Deprecated("Use hubs.timelineDetail") val timelineDetail get() = hubs.timelineDetail
-  @Deprecated("Use hubs.hiddenIds") val hiddenIds get() = hubs.hiddenIds
-  @Deprecated("Use hubs.showHidden") val showHidden get() = hubs.showHidden
-  @Deprecated("Use hubs.audienceSheetOpen") val audienceSheetOpen get() = hubs.audienceSheetOpen
-  @Deprecated("Use hubs.currentAudience") val currentHubAudience get() = hubs.currentAudience
-  @Deprecated("Use hubs.currentAudienceRequest") val currentHubAudienceRequest get() = hubs.currentAudienceRequest
-  @Deprecated("Use hubs.audienceError") val audienceError get() = hubs.audienceError
-  /** Read-only migration accessors; no second writable feature state exists. */
-  @Deprecated("Use familyAdmin.pendingApprovals") val pendingApprovals get() = familyAdmin.pendingApprovals
-  @Deprecated("Use familyAdmin.approvalsBusy") val approvalsBusy get() = familyAdmin.approvalsBusy
-  @Deprecated("Use familyAdmin.members") val members get() = familyAdmin.members
-  @Deprecated("Use familyAdmin.rosterBusy") val rosterBusy get() = familyAdmin.rosterBusy
-  @Deprecated("Use familyAdmin.rosterError") val rosterError get() = familyAdmin.rosterError
-  @Deprecated("Use familyAdmin.memberOpId") val memberOpId get() = familyAdmin.memberOpId
-  @Deprecated("Use familyAdmin.inviteMode") val inviteMode get() = familyAdmin.inviteMode
-  @Deprecated("Use familyAdmin.inviteBusy") val inviteBusy get() = familyAdmin.inviteBusy
-  @Deprecated("Use familyAdmin.mintedInvite") val mintedInvite get() = familyAdmin.mintedInvite
-  @Deprecated("Use familyAdmin.mintError") val mintError get() = familyAdmin.mintError
-  @Deprecated("Use familyAdmin.outstandingInvites") val outstandingInvites get() = familyAdmin.outstandingInvites
-  @Deprecated("Use familyAdmin.inviteOpId") val inviteOpId get() = familyAdmin.inviteOpId
-  @Deprecated("Use devices.devices") val connectedDevices get() = devices.devices
-  @Deprecated("Use devices.listBusy") val deviceListBusy get() = devices.listBusy
-  @Deprecated("Use devices.listError") val deviceListError get() = devices.listError
-  @Deprecated("Use devices.operationId") val deviceOpId get() = devices.operationId
-  @Deprecated("Use devices.pendingDevice") val pendingDevice get() = devices.pendingDevice
-  @Deprecated("Use devices.busy") val deviceBusy get() = devices.busy
-  @Deprecated("Use devices.error") val deviceError get() = devices.error
-  @Deprecated("Use devices.outcome") val deviceOutcome get() = devices.outcome
-  @Deprecated("Use devices.pendingLink") val pendingDeviceLink get() = devices.pendingLink
-  @Deprecated("Use devices.resuming") val deviceResuming get() = devices.resuming
-  @Deprecated("Use session.pendingInviteLink") val pendingInviteLink get() = session.pendingInviteLink
-  @Deprecated("Use profile.displayName") val myDisplayName get() = profile.displayName
-  @Deprecated("Use profile.avatarColor") val myAvatarColor get() = profile.avatarColor
-  @Deprecated("Use profile.avatarRef") val myAvatarRef get() = profile.avatarRef
-  @Deprecated("Use profile.avatarOpId") val avatarOpId get() = profile.avatarOpId
-  @Deprecated("Use profile.avatarError") val avatarError get() = profile.avatarError
-  @Deprecated("Use profile.nameOpId") val nameOpId get() = profile.nameOpId
-  @Deprecated("Use profile.nameError") val nameError get() = profile.nameError
-}
+)
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
 // SyncStarted/SyncSucceeded/SyncStopped/SyncFailed carry sync STATUS only.

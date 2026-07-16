@@ -120,7 +120,7 @@ class HubEngineTest {
     val e = engine(store, MockEngine { hit = true; respond("[]", HttpStatusCode.OK, jsonCt) })
     e.loadHubs()
     assertEquals(false, hit)               // no network call — bridge owns the list
-    assertTrue(store.state.hubs.isEmpty()) // unchanged; bridge not started in this test
+    assertTrue(store.state.hubs.hubs.isEmpty()) // unchanged; bridge not started in this test
   }
 
   // PR2: openHub is now DB-fed. It dispatches OpenHub, triggers a sync, and subscribes
@@ -139,25 +139,25 @@ class HubEngineTest {
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
     e.openHub("h1")
     // openHub dispatches OpenHub immediately
-    assertEquals("h1", store.state.currentHubId)
+    assertEquals("h1", store.state.hubs.currentHubId)
     // The treeJob coroutine should dispatch HubTreeLoaded shortly
-    await(store) { it.currentHubTree?.hub?.title == "Party" }
-    assertEquals(listOf("s1"), store.state.currentHubTree?.sections?.map { it.id })
-    assertEquals(listOf("b1"), store.state.currentHubTree?.blocks?.map { it.id })
+    await(store) { it.hubs.currentHubTree?.hub?.title == "Party" }
+    assertEquals(listOf("s1"), store.state.hubs.currentHubTree?.sections?.map { it.id })
+    assertEquals(listOf("b1"), store.state.hubs.currentHubTree?.blocks?.map { it.id })
   }
 
   // PR2: when the hub is absent from DB (was never synced or was tombstoned), the
   // flow emits null. HubNotFound is no longer dispatched (the network call is gone);
-  // hubsBusy stays true until a sync delivers the tree.
+  // busy stays true until a sync delivers the tree.
   @Test fun `openHub with hub absent from DB stays busy (no HubNotFound)`() = runBlocking {
     val store = readyStore()
     val cs = freshContentStore()
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
     e.openHub("hX")
-    assertEquals("hX", store.state.currentHubId)
-    assertTrue(store.state.hubsBusy)  // still busy — no hub in DB yet
-    assertNull(store.state.currentHubTree)
-    assertNull(store.state.hubError)  // no error dispatched
+    assertEquals("hX", store.state.hubs.currentHubId)
+    assertTrue(store.state.hubs.busy)  // still busy — no hub in DB yet
+    assertNull(store.state.hubs.currentHubTree)
+    assertNull(store.state.hubs.error)  // no error dispatched
   }
 
   @Test fun `closeHub clears the substate AND cancels the tree subscription`() = runBlocking {
@@ -171,15 +171,15 @@ class HubEngineTest {
     )
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
     e.openHub("h1")
-    await(store) { it.currentHubTree?.hub?.title == "Trip" }
+    await(store) { it.hubs.currentHubTree?.hub?.title == "Trip" }
 
     e.closeHub()
     // Low-level cleanup no longer owns navigation; the command/UI layer dispatches once.
-    assertEquals("h1", store.state.currentHubId)
+    assertEquals("h1", store.state.hubs.currentHubId)
     store.dispatch(CloseHub)
-    assertNull(store.state.currentHubId)
-    assertNull(store.state.currentHubTree)
-    assertNull(store.state.hubFocusBlockId)
+    assertNull(store.state.hubs.currentHubId)
+    assertNull(store.state.hubs.currentHubTree)
+    assertNull(store.state.hubs.focusBlockId)
 
     // the tree subscription must be cancelled — a later DB write to h1 must NOT
     // re-dispatch HubTreeLoaded (else the coroutine leaks per hub open).
@@ -190,7 +190,7 @@ class HubEngineTest {
       tombstones = emptyList(), nextCursor = "c2", nowIso = "2026-06-24T00:01:00Z",
     )
     Thread.sleep(250)
-    assertNull(store.state.currentHubTree)   // cancelled → no stray re-render
+    assertNull(store.state.hubs.currentHubTree)   // cancelled → no stray re-render
   }
 
   // Navigating hub1 -> hub2 must cancel hub1's tree subscription (openHub line:
@@ -209,10 +209,10 @@ class HubEngineTest {
     )
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
     e.openHub("h1")
-    await(store) { it.currentHubTree?.hub?.title == "H1" }
+    await(store) { it.hubs.currentHubTree?.hub?.title == "H1" }
     e.openHub("h2")
-    await(store) { it.currentHubTree?.hub?.title == "H2" }
-    assertEquals("h2", store.state.currentHubId)
+    await(store) { it.hubs.currentHubTree?.hub?.title == "H2" }
+    assertEquals("h2", store.state.hubs.currentHubId)
 
     // a later write to h1 must NOT pull the detail back to h1 — its subscription
     // was cancelled when we opened h2.
@@ -223,7 +223,7 @@ class HubEngineTest {
       tombstones = emptyList(), nextCursor = "c2", nowIso = "2026-06-24T00:01:00Z",
     )
     Thread.sleep(250)
-    assertEquals("H2", store.state.currentHubTree?.hub?.title)   // stays on h2; no stray h1 re-dispatch
+    assertEquals("H2", store.state.hubs.currentHubTree?.hub?.title)   // stays on h2; no stray h1 re-dispatch
   }
 
   @Test fun `cancelled hub A collector emitting after hub B opens cannot replace hub B`() = runBlocking {
@@ -258,15 +258,15 @@ class HubEngineTest {
     )
 
     e.openHub("h1")
-    await(store) { it.currentHubTree?.hub?.title == "H1" }
+    await(store) { it.hubs.currentHubTree?.hub?.title == "H1" }
     e.openHub("h2")
     cancelled.await()
-    await(store) { it.currentHubTree?.hub?.title == "H2" }
+    await(store) { it.hubs.currentHubTree?.hub?.title == "H2" }
     releaseLateEmission.complete(Unit)
     delay(100)
 
-    assertEquals("h2", store.state.currentHubId)
-    assertEquals("H2", store.state.currentHubTree?.hub?.title)
+    assertEquals("h2", store.state.hubs.currentHubId)
+    assertEquals("H2", store.state.hubs.currentHubTree?.hub?.title)
   }
 
   @Test fun `family replacement cancels and joins blocked tree before admitting new family`() =
@@ -327,8 +327,8 @@ class HubEngineTest {
         PublicationBoundary(),
       )
       engine.openHub("h2")
-      await(store) { it.currentHubTree?.hub?.title == "New family" }
-      assertEquals("h2", store.state.currentHubId)
+      await(store) { it.hubs.currentHubTree?.hub?.title == "New family" }
+      assertEquals("h2", store.state.hubs.currentHubId)
       familyBJob.cancel()
       familyBJob.join()
     }
@@ -344,8 +344,8 @@ class HubEngineTest {
     )
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
     e.openHub("h1", focusBlockId = "b1")
-    await(store) { it.currentHubTree != null }
-    assertEquals("b1", store.state.hubFocusBlockId)  // SetHubFocus dispatched + survived HubTreeLoaded
+    await(store) { it.hubs.currentHubTree != null }
+    assertEquals("b1", store.state.hubs.focusBlockId)  // SetHubFocus dispatched + survived HubTreeLoaded
   }
 
   @Test fun `delayed close for hub A request cannot cancel reopened hub B request`() = runBlocking {
@@ -372,9 +372,9 @@ class HubEngineTest {
     )
 
     e.openHub("hub-a")
-    val requestA = requireNotNull(store.state.currentHubRequest)
+    val requestA = requireNotNull(store.state.hubs.currentHubRequest)
     e.openHub("hub-b")
-    val requestB = requireNotNull(store.state.currentHubRequest)
+    val requestB = requireNotNull(store.state.hubs.currentHubRequest)
     store.dispatch(OpenAudienceSheet)
     val audienceLoadB = launch { e.loadAudience("hub-b") }
     audienceStarted.await()
@@ -382,13 +382,13 @@ class HubEngineTest {
     e.closeHub(expectedHubId = "hub-a", expectedRequest = requestA)
     assertTrue(audienceLoadB.isActive, "stale A cleanup must not cancel B audience work")
     b.value = HubTree(Hub("hub-b", title = "B"))
-    await(store) { it.currentHubTree?.hub?.id == "hub-b" }
+    await(store) { it.hubs.currentHubTree?.hub?.id == "hub-b" }
     releaseAudience.complete(Unit)
     audienceLoadB.join()
-    await(store) { it.currentHubAudience?.visibility == "family" }
+    await(store) { it.hubs.currentAudience?.visibility == "family" }
 
-    assertEquals("hub-b", store.state.currentHubId)
-    assertEquals(requestB, store.state.currentHubRequest)
+    assertEquals("hub-b", store.state.hubs.currentHubId)
+    assertEquals(requestB, store.state.hubs.currentHubRequest)
   }
 
   @Test fun `idle with no family or session is a no-op`() = runBlocking {
@@ -397,7 +397,7 @@ class HubEngineTest {
     val e = engine(store, MockEngine { hit = true; respond("[]", HttpStatusCode.OK, jsonCt) })
     e.loadHubs()
     assertEquals(false, hit)
-    assertTrue(store.state.hubs.isEmpty())
+    assertTrue(store.state.hubs.hubs.isEmpty())
   }
 
   @Test fun `open aborts navigation focus and collector after runtime admission closes`() =
@@ -421,14 +421,14 @@ class HubEngineTest {
 
       engine.openHub("h1", focusBlockId = "b1")
 
-      assertNull(store.state.currentHubId)
-      assertNull(store.state.hubFocusBlockId)
+      assertNull(store.state.hubs.currentHubId)
+      assertNull(store.state.hubs.focusBlockId)
       assertEquals(0, collectors)
       familyJob.cancel()
       familyJob.join()
     }
 
-  // loadAudience: happy path — GET /audience → HubAudienceLoaded into currentHubAudience.
+  // loadAudience: happy path — GET /audience → HubAudienceLoaded into currentAudience.
   @Test fun `loadAudience dispatches HubAudienceLoaded on success`() = runBlocking<Unit> {
     val store = readyStore()
     var calls = 0
@@ -447,9 +447,9 @@ class HubEngineTest {
     openAudience(e, store)
     e.loadAudience("h1")
     assertEquals(1, calls)
-    assertEquals("restricted", store.state.currentHubAudience?.visibility)
-    assertEquals(listOf("u1"), store.state.currentHubAudience?.members?.map { it.uid })
-    assertEquals(true, store.state.currentHubAudience?.members?.single()?.permitted)
+    assertEquals("restricted", store.state.hubs.currentAudience?.visibility)
+    assertEquals(listOf("u1"), store.state.hubs.currentAudience?.members?.map { it.uid })
+    assertEquals(true, store.state.hubs.currentAudience?.members?.single()?.permitted)
   }
 
   // loadAudience mirrors AuthEngine's 401 refresh-and-retry: a 401 on the audience
@@ -474,7 +474,7 @@ class HubEngineTest {
     assertEquals(2, calls)                                 // retried after refresh
     assertEquals(Session("fresh", "r2"), store.state.session.session)  // rotated into state
     assertEquals(Session("fresh", "r2"), ts.session)       // and persisted
-    assertEquals("family", store.state.currentHubAudience?.visibility)
+    assertEquals("family", store.state.hubs.currentAudience?.visibility)
   }
 
   @Test fun `failed refresh 401 from stale family does not expire replacement family`() =
@@ -552,7 +552,7 @@ class HubEngineTest {
     openAudience(e, store)
     e.loadAudience("h1")                                   // must not throw
     assertEquals(1, calls)                                 // no successful retry
-    assertNull(store.state.currentHubAudience)             // nothing dispatched
+    assertNull(store.state.hubs.currentAudience)             // nothing dispatched
     assertEquals(Session("ax", "rx"), store.state.session.session) // no rotation on failed refresh
   }
 
@@ -562,7 +562,7 @@ class HubEngineTest {
     val e = engine(store, MockEngine { hit = true; respond("", HttpStatusCode.NotFound) })
     e.loadAudience("h1")
     assertEquals(false, hit)                               // guarded before any network call
-    assertNull(store.state.currentHubAudience)
+    assertNull(store.state.hubs.currentAudience)
   }
 
   @Test fun `close does not wait behind blocked audience load and late success is rejected`() = runBlocking<Unit> {
@@ -584,13 +584,13 @@ class HubEngineTest {
 
     withTimeout(500) { e.closeHub() }
     store.dispatch(CloseHub)
-    assertNull(store.state.currentHubId)
+    assertNull(store.state.hubs.currentHubId)
 
     releaseRequest.complete(Unit)
     loading.join()
     delay(100)
-    assertNull(store.state.currentHubAudience)
-    assertNull(store.state.audienceError)
+    assertNull(store.state.hubs.currentAudience)
+    assertNull(store.state.hubs.audienceError)
   }
 
   @Test fun `legacy family cancellation joins work and reopens admission`() = runBlocking<Unit> {
@@ -631,8 +631,8 @@ class HubEngineTest {
     assertTrue(oldFinished.isCompleted)
 
     engine.openHub("h2")
-    await(store) { it.currentHubTree?.hub?.title == "Replacement" }
-    assertEquals("h2", store.state.currentHubId)
+    await(store) { it.hubs.currentHubTree?.hub?.title == "Replacement" }
+    assertEquals("h2", store.state.hubs.currentHubId)
   }
 
   @Test fun `terminal family close joins blocked audience load before cleanup`() = runBlocking<Unit> {
@@ -682,7 +682,7 @@ class HubEngineTest {
     // caller job. The pre-release assertion above is the family-child join guarantee; await the
     // transport fixture only so it cannot leak into the next test.
     requestFinished.await()
-    assertNull(store.state.currentHubAudience)
+    assertNull(store.state.hubs.currentAudience)
   }
 
   @Test fun `throwing external acknowledgement cannot undo admitted Hub navigation`() = runBlocking<Unit> {
@@ -708,7 +708,7 @@ class HubEngineTest {
       )
 
       assertTrue(admitted)
-      assertEquals("h1", store.state.currentHubId)
+      assertEquals("h1", store.state.hubs.currentHubId)
     } finally {
       publication.close()
       engine.closeFamilyAdmission()
@@ -764,7 +764,7 @@ class HubEngineTest {
     // finally one scheduler turn after the cancelled Hub caller completes. The pre-release
     // assertion is the family-child ownership proof; drain the transport fixture before exit.
     mutationFinished.await()
-    assertNull(store.state.currentHubAudience)
+    assertNull(store.state.hubs.currentAudience)
   }
 
   // Slice 4 (ADR 0038) — toggleItem runs the optimistic apply + outbox enqueue through
@@ -892,9 +892,9 @@ class HubEngineTest {
     assertEquals(1, putCalls)
     assertEquals("""{"role":"contributor"}""", putBody)
     assertEquals(1, audienceCalls)                          // reload fired on success
-    assertEquals("contributor", store.state.currentHubAudience?.members?.single()?.participationRole)
-    assertEquals(true, store.state.currentHubAudience?.canManage)
-    assertNull(store.state.audienceError)
+    assertEquals("contributor", store.state.hubs.currentAudience?.members?.single()?.participationRole)
+    assertEquals(true, store.state.hubs.currentAudience?.canManage)
+    assertNull(store.state.hubs.audienceError)
   }
 
   @Test fun `setParticipant on failure dispatches HubManageFailed and skips the reload`() = runBlocking<Unit> {
@@ -910,8 +910,8 @@ class HubEngineTest {
     openAudience(e, store)
     e.setParticipant("h1", "u2", "co_owner")
     assertEquals(0, audienceCalls)                          // mutation failed before any reload
-    assertNull(store.state.currentHubAudience)
-    assertEquals("Couldn't update that person's access. Try again.", store.state.audienceError)
+    assertNull(store.state.hubs.currentAudience)
+    assertEquals("Couldn't update that person's access. Try again.", store.state.hubs.audienceError)
   }
 
   @Test fun `removeParticipant DELETEs then reloads the audience`() = runBlocking<Unit> {
@@ -933,7 +933,7 @@ class HubEngineTest {
     e.removeParticipant("h1", "u2")
     assertEquals(1, delCalls)
     assertEquals(1, audienceCalls)
-    assertTrue(store.state.currentHubAudience?.members?.isEmpty() == true)
+    assertTrue(store.state.hubs.currentAudience?.members?.isEmpty() == true)
   }
 
   @Test fun `setVisibility PUTs the visibility then reloads the audience`() = runBlocking<Unit> {
@@ -956,7 +956,7 @@ class HubEngineTest {
     e.setVisibility("h1", "restricted")
     assertEquals("""{"visibility":"restricted"}""", putBody)
     assertEquals(1, audienceCalls)
-    assertEquals("restricted", store.state.currentHubAudience?.visibility)
+    assertEquals("restricted", store.state.hubs.currentAudience?.visibility)
   }
 
   @Test fun `setVisibility with no session is a no-op`() = runBlocking<Unit> {
@@ -965,7 +965,7 @@ class HubEngineTest {
     val e = engine(store, MockEngine { hit = true; respond("", HttpStatusCode.NotFound) })
     e.setVisibility("h1", "family")
     assertEquals(false, hit)
-    assertNull(store.state.currentHubAudience)
+    assertNull(store.state.hubs.currentAudience)
   }
 
   @Test fun `retryBlock re-arms a block parked failed back to pending`() = runBlocking<Unit> {

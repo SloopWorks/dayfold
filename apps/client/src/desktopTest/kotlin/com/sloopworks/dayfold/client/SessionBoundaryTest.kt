@@ -62,7 +62,7 @@ class SessionBoundaryTest {
     assertTrue(whoamiFinished.isCompleted, "sign-out must join reconcile before cache cleanup")
     assertTrue(cacheClearedAfterReconcile)
     assertNull(tokenStore.session)
-    assertEquals(Route.SignIn, store.state.route)
+    assertEquals(Route.SignIn, store.state.navigation.route)
   }
 
   @Test fun `blocked provider completion cannot install after sign out invalidates its ticket`() = runBlocking {
@@ -107,7 +107,7 @@ class SessionBoundaryTest {
     assertNull(coordinator.authSnapshot())
     assertNull(tokenStore.session)
     assertNull(store.state.session.session)
-    assertEquals(Route.SignIn, store.state.route)
+    assertEquals(Route.SignIn, store.state.navigation.route)
   }
 
   @Test fun `a new sign in waits for terminal cleanup and survives it`() = runBlocking {
@@ -156,6 +156,6 @@ class SessionBoundaryTest {
     assertEquals(Session("new-a", "new-r"), tokenStore.session)
     assertEquals("new-a", store.state.session.session?.access)
     assertEquals("fam-new", store.state.session.activeFamilyId)
-    assertEquals(Route.Feed, store.state.route)
+    assertEquals(Route.Feed, store.state.navigation.route)
   }
 }

@@ -88,7 +88,7 @@ class ContentBridgeTest {
       val first = fixture.bridge.startFamily(fixture.family)
       val second = fixture.bridge.startFamily(fixture.family)
       assertSame(first, second)
-      awaitState(fixture) { it.cards == listOf(card) }
+      awaitState(fixture) { it.content.cards == listOf(card) }
       assertEquals(1, fixture.counter.cards.get())
 
       fixture.content.applyDelta(
@@ -124,7 +124,7 @@ class ContentBridgeTest {
 
       val enabled = NotifConfig(enabled = true, dailyCap = 2)
       fixture.content.setNotifConfig(enabled)
-      awaitState(fixture) { it.notifConfig == enabled }
+      awaitState(fixture) { it.notifications.config == enabled }
       assertTrue(fixture.counter.notifConfig.get() >= 2)
 
       secondFamily.cancelAndJoin()
@@ -149,7 +149,7 @@ class ContentBridgeTest {
         nowIso = "2026-07-14T10:00:00Z",
       )
       val staleA = fixture.bridge.startFamily(fixture.family)
-      awaitState(fixture) { it.cards == listOf(initial) }
+      awaitState(fixture) { it.content.cards == listOf(initial) }
 
       fixture.coordinator.selectFamily(fixture.auth, "family-b")
       fixture.coordinator.selectFamily(fixture.auth, "family-a")
@@ -165,7 +165,7 @@ class ContentBridgeTest {
       )
       delay(200)
 
-      assertEquals(listOf(initial), fixture.store.state.cards)
+      assertEquals(listOf(initial), fixture.store.state.content.cards)
       assertEquals(1, fixture.counter.cards.get())
       staleA.cancelAndJoin()
     } finally {
@@ -187,7 +187,7 @@ class ContentBridgeTest {
         nowIso = "2026-07-14T10:00:00Z",
       )
       val handle = fixture.bridge.startFamily(fixture.family)
-      awaitState(fixture) { it.cards == listOf(initial) }
+      awaitState(fixture) { it.content.cards == listOf(initial) }
       handle.cancel()
 
       fixture.content.applyDelta(
@@ -202,7 +202,7 @@ class ContentBridgeTest {
       handle.awaitClosed()
       delay(100)
 
-      assertEquals(listOf(initial), fixture.store.state.cards)
+      assertEquals(listOf(initial), fixture.store.state.content.cards)
       assertEquals(1, fixture.counter.cards.get())
       assertTrue(fixture.parentJob.isActive)
     } finally {

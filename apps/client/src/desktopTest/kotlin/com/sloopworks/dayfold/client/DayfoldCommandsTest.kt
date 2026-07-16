@@ -32,8 +32,8 @@ class DayfoldCommandsTest {
 
     DayfoldCommands.navigationOnly(store).openHubs(HubReturnDestination.FEED_DETAIL)
 
-    assertEquals(Route.Hubs, store.state.route)
-    assertTrue(store.state.hubFromDetail)
+    assertEquals(Route.Hubs, store.state.navigation.route)
+    assertTrue(store.state.hubs.fromFeedDetail)
   }
 
   @Test fun `close is expected-hub correlated and cannot clear a replacement hub`() {
@@ -48,8 +48,8 @@ class DayfoldCommandsTest {
     store.dispatch(OpenHub("hub-b", request.copy(requestId = 2L)))
     commands.closeHub("hub-a", HubReturnDestination.HUB_LIST)
 
-    assertEquals("hub-b", store.state.currentHubId)
-    assertEquals(Route.Hubs, store.state.route)
+    assertEquals("hub-b", store.state.hubs.currentHubId)
+    assertEquals(Route.Hubs, store.state.navigation.route)
   }
 
   @Test fun `device approval carries rendered family code and hubs without rereading state`() =
@@ -144,7 +144,7 @@ class DayfoldCommandsTest {
       releaseRequest.complete(Unit)
       coroutineContext[Job]?.children?.toList().orEmpty().joinAll()
 
-      assertEquals(listOf(pending), store.state.pendingApprovals)
+      assertEquals(listOf(pending), store.state.familyAdmin.pendingApprovals)
       http.close()
     }
 }

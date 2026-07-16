@@ -78,19 +78,19 @@ class NotifStateTest {
 
   @Test fun `NotifConfigLoaded sets the config slice`() {
     val c = NotifConfig(enabled = true, dailyCap = 1)
-    assertEquals(c, rootReducer(AppState(), NotifConfigLoaded(c)).notifConfig)
+    assertEquals(c, rootReducer(AppState(), NotifConfigLoaded(c)).notifications.config)
   }
 
   @Test fun `LocationPermissionLoaded sets the permission slice`() {
-    assertEquals(LocationPermission.Always, rootReducer(AppState(), LocationPermissionLoaded(LocationPermission.Always)).locationPermission)
+    assertEquals(LocationPermission.Always, rootReducer(AppState(), LocationPermissionLoaded(LocationPermission.Always)).notifications.locationPermission)
   }
 
   @Test fun `NotificationPermissionLoaded sets the permission slice`() {
-    assertEquals(NotificationPermission.Granted, rootReducer(AppState(), NotificationPermissionLoaded(NotificationPermission.Granted)).notificationPermission)
+    assertEquals(NotificationPermission.Granted, rootReducer(AppState(), NotificationPermissionLoaded(NotificationPermission.Granted)).notifications.notificationPermission)
   }
 
   @Test fun `permission slices default to denied`() {
-    assertEquals(LocationPermission.Denied, AppState().locationPermission)
-    assertEquals(NotificationPermission.Denied, AppState().notificationPermission)
+    assertEquals(LocationPermission.Denied, AppState().notifications.locationPermission)
+    assertEquals(NotificationPermission.Denied, AppState().notifications.notificationPermission)
   }
 }

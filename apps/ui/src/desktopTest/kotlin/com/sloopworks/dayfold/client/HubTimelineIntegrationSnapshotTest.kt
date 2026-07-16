@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 // ADR 0045 — integration snapshot tests: the hoisted TimelineCard appears in the hub
 // dossier (Task 13a, static wiring), and the TimelineDetail overlay replaces it when
-// state.timelineDetail is set. Uses a day-scale intraday timeline (7 stops, "Move-in day").
+// state.hubs.hubs.timelineDetail is set. Uses a day-scale intraday timeline (7 stops, "Move-in day").
 @OptIn(ExperimentalTestApi::class)
 class HubTimelineIntegrationSnapshotTest {
 

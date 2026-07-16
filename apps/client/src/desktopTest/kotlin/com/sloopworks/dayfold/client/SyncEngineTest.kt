@@ -102,7 +102,7 @@ class SyncEngineTest {
     val sc = syncClient(MockEngine { hit = true; respond("", HttpStatusCode.OK) })
     val store = readyStore()
     SyncEngine(store, cs, sc).start()                 // bridge only — no sync
-    await(store) { it.cards.map { c -> c.id } == listOf("cached") }
+    await(store) { it.content.cards.map { c -> c.id } == listOf("cached") }
     assertFalse(hit)                                   // network never touched
   }
 
@@ -124,8 +124,8 @@ class SyncEngineTest {
     assertEquals(listOf("a", "b"), cs.activeCards().map { it.id })
     assertEquals("p2", cs.cursor())
     assertEquals(listOf(null, "p1"), seen)             // page 2 carried since=p1
-    await(store) { it.cards.map { c -> c.id } == listOf("a", "b") }
-    assertFalse(store.state.syncing)
+    await(store) { it.content.cards.map { c -> c.id } == listOf("a", "b") }
+    assertFalse(store.state.content.syncing)
   }
 
   @Test fun `tombstone removes from DB and store`() = runBlocking {
@@ -139,7 +139,7 @@ class SyncEngineTest {
     val e = SyncEngine(store, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
     e.start(); e.syncNow()
     assertTrue(cs.activeCards().isEmpty())
-    await(store) { it.cards.isEmpty() }
+    await(store) { it.content.cards.isEmpty() }
   }
 
   // Data-boundary regression (the reported "butler hub" leak): the DB→store bridge
@@ -151,7 +151,7 @@ class SyncEngineTest {
     cs.applyDelta(emptyList(), listOf(Hub("butler", title = "Butler")), emptyList(), emptyList(), emptyList(), "c0", "2026-06-18T09:00:00Z")
     val store = createTestAppStore(AppState(session = SessionState(session = Session("a1", "r1"))), debug = false)
     SyncEngine(store, cs, syncClient(MockEngine { respond("", HttpStatusCode.OK) })).start()
-    await(store) { it.hubs.map { h -> h.id } == listOf("butler") }   // bridge projected the cached hub
+    await(store) { it.hubs.hubs.map { h -> h.id } == listOf("butler") }   // bridge projected the cached hub
 
     val noopTokens = object : TokenStore {
       override fun load(): Session? = null
@@ -186,8 +186,8 @@ class SyncEngineTest {
     val store = readyStore()
     val e = SyncEngine(store, cs, sc, nowProvider = { "t" })
     e.syncNow()
-    assertFalse(store.state.syncing)
-    assertEquals("HTTP 500", store.state.error)
+    assertFalse(store.state.content.syncing)
+    assertEquals("HTTP 500", store.state.content.error)
   }
 
   // ADR 0020: each page is its own atomic applyDelta, so a multi-page drain that
@@ -213,7 +213,7 @@ class SyncEngineTest {
     e.syncNow()                                                    // drains p1, then page 2 500s
     assertEquals(listOf("a"), cs.activeCards().map { it.id })      // page-1 rows survived
     assertEquals("p1", cs.cursor())                                // cursor advanced to p1 only — not reset, not skipped
-    assertEquals("HTTP 500", store.state.error)                    // failure surfaced
+    assertEquals("HTTP 500", store.state.content.error)                    // failure surfaced
 
     e.syncNow()                                                    // resume
     assertEquals(listOf("a", "b"), cs.activeCards().map { it.id }) // page 2 now applied on top
@@ -233,7 +233,7 @@ class SyncEngineTest {
     e.start(); e.syncNow()
     assertTrue(cs.activeCards().isEmpty())                       // cache wiped
     assertEquals(null, cs.cursor())                             // cursor cleared → re-sync clean
-    await(store) { it.route == Route.SignIn && it.cards.isEmpty() }  // signed out
+    await(store) { it.navigation.route == Route.SignIn && it.content.cards.isEmpty() }  // signed out
   }
 
   @Test fun `non-member (404) also wipes the cache`() = runBlocking {
@@ -290,7 +290,7 @@ class SyncEngineTest {
     val store = readyStore()
     SyncEngine(store, cs, sc, nowProvider = { "t" }).syncNow()
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // cache intact
-    assertEquals("HTTP 401", store.state.error)
+    assertEquals("HTTP 401", store.state.content.error)
   }
 
   // ── Task 5 TDD: hub list is DB-fed via the SyncEngine bridge ──────────────────
@@ -309,8 +309,8 @@ class SyncEngineTest {
     e.start()
     e.syncNow()
     // Bridge surfaces HubsLoaded into the store (h1 in hubs list)
-    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
-    assertFalse(appStore.state.hubsBusy)
+    await(appStore) { it.hubs.hubs.map { h -> h.id } == listOf("h1") }
+    assertFalse(appStore.state.hubs.busy)
   }
 
   // (b) hub tombstone removes from the store + prunes currentHubId
@@ -327,14 +327,14 @@ class SyncEngineTest {
     val e = SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-18T10:00:00Z" })
     e.start()
     // Let the bridge populate hubs first
-    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
+    await(appStore) { it.hubs.hubs.map { h -> h.id } == listOf("h1") }
     // Simulate the user having opened hub h1
     appStore.dispatch(OpenHub("h1", HubRequestKey(HubTenantGeneration(1L, 1L), 1L)))
-    assertEquals("h1", appStore.state.currentHubId)
+    assertEquals("h1", appStore.state.hubs.currentHubId)
     // Sync delivers the tombstone
     e.syncNow()
     // Bridge emits [] → reducer prunes currentHubId
-    await(appStore) { it.hubs.isEmpty() && it.currentHubId == null }
+    await(appStore) { it.hubs.hubs.isEmpty() && it.hubs.currentHubId == null }
   }
 
   // (c) 403 wipes hubs too — bridge surfaces empty HubsLoaded + signs out
@@ -350,10 +350,10 @@ class SyncEngineTest {
     val e = SyncEngine(appStore, cs, sc, nowProvider = { "t" })
     e.start()
     // Let the bridge emit the initial h1
-    await(appStore) { it.hubs.map { h -> h.id } == listOf("h1") }
+    await(appStore) { it.hubs.hubs.map { h -> h.id } == listOf("h1") }
     // 403 → wipe() → bridge re-emits [] → SignedOut
     e.syncNow()
-    await(appStore) { it.route == Route.SignIn && it.hubs.isEmpty() }
+    await(appStore) { it.navigation.route == Route.SignIn && it.hubs.hubs.isEmpty() }
     // DB hub table must be empty (the flow is now empty)
     var dbHubs: List<Hub> = emptyList()
     val job = GlobalScope.launch {
@@ -434,8 +434,8 @@ class SyncEngineTest {
     assertEquals(Session("fresh", "r2"), store.state.session.session)   // rotated into state
     assertEquals(Session("fresh", "r2"), ts.s)                  // and persisted
     assertEquals(listOf("a"), cs.activeCards().map { it.id })   // the retry page landed
-    assertNull(store.state.error)
-    assertFalse(store.state.syncing)
+    assertNull(store.state.content.error)
+    assertFalse(store.state.content.syncing)
   }
 
   @Test fun `syncNow 401 with a rejected refresh expires the session and clears tenant cache`() = runBlocking<Unit> {
@@ -452,7 +452,7 @@ class SyncEngineTest {
     val sc = SyncClient("https://api.test", HttpClient(mock))
     SyncEngine(store, cs, sc, nowProvider = { "t" }, authClient = AuthClient("https://api.test", HttpClient(mock))).syncNow()
     assertNull(store.state.session.session)
-    assertEquals(Route.SignIn, store.state.route)
+    assertEquals(Route.SignIn, store.state.navigation.route)
     assertEquals("Your session expired — please sign in again.", store.state.session.authError)
     assertTrue(cs.activeCards().isEmpty())
   }
@@ -538,10 +538,10 @@ class SyncEngineTest {
 
     val running = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
     requestStarted.await()
-    assertTrue(store.state.syncing)
+    assertTrue(store.state.content.syncing)
     running.cancelAndJoin()
 
-    assertFalse(store.state.syncing)
+    assertFalse(store.state.content.syncing)
     assertEquals(1, actions.count { it is SyncStarted })
     assertEquals(1, actions.count { it is SyncStopped })
     assertEquals(0, actions.count { it is SyncFailed })
@@ -581,7 +581,7 @@ class SyncEngineTest {
 
     val oldPass = async { engine.syncNow(SyncReason.MANUAL_REFRESH) }
     oldRequestStarted.await()
-    assertTrue(store.state.syncing)
+    assertTrue(store.state.content.syncing)
     sessionCoordinator.selectFamily(auth, "family-b")
     store.dispatch(
       MembershipsLoaded(
@@ -590,7 +590,7 @@ class SyncEngineTest {
     )
     oldPass.cancelAndJoin()
 
-    assertFalse(store.state.syncing)
+    assertFalse(store.state.content.syncing)
     // Family replacement clears ContentState synchronously; the old request's
     // cancellation is stale and must not publish into the new family.
     assertEquals(0, actions.count { it is SyncStopped })
@@ -646,11 +646,11 @@ class SyncEngineTest {
     val stopsBeforeOldCancellation = actions.count { it is SyncStopped }
 
     oldPass.cancelAndJoin()
-    assertTrue(store.state.syncing)
+    assertTrue(store.state.content.syncing)
     assertEquals(stopsBeforeOldCancellation, actions.count { it is SyncStopped })
 
     newPass.cancelAndJoin()
-    assertFalse(store.state.syncing)
+    assertFalse(store.state.content.syncing)
     assertEquals(stopsBeforeOldCancellation + 1, actions.count { it is SyncStopped })
     assertEquals(0, actions.count { it is SyncFailed })
   }

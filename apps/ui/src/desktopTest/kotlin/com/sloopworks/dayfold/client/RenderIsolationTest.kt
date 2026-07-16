@@ -45,6 +45,40 @@ class RenderIsolationTest {
   }
 
   @Test
+  fun activeSelectorStoreSkipsWorstCaseHubFilteringForUnrelatedDispatches() = runComposeUiTest {
+    var filterInvocations = 0
+    val select = memoizedHubListViewState { filterInvocations++ }
+    val hubs = List(1_000) { index ->
+      Hub(id = "hub-$index", title = "Hub $index", status = if (index % 2 == 0) "active" else "planning")
+    }
+    val countingStore = CountingStore(createTestAppStore(AppState(hubs = HubState(hubs = hubs, filter = "active"))))
+    lateinit var shown: HubListViewState
+
+    setContent {
+      val selectorStore = rememberSelectorStore(countingStore)
+      val selected by selectorStore.selectorState(select)
+      shown = selected
+      Text(shown.shownHubs.size.toString())
+    }
+    waitForIdle()
+    assertEquals(500, shown.shownHubs.size)
+    assertEquals(1, filterInvocations)
+    assertEquals(1, countingStore.activeSubscribers)
+
+    countingStore.dispatch(NotifConfigLoaded(NotifConfig(enabled = true)))
+    countingStore.dispatch(NameUpdated("Unrelated profile update"))
+    waitForIdle()
+
+    assertEquals(1, filterInvocations, "active selectors must not re-filter on unrelated notifications")
+    assertEquals(1, countingStore.activeSubscribers)
+
+    countingStore.dispatch(SetHubFilter("planning"))
+    waitForIdle()
+    assertEquals(2, filterInvocations)
+    assertEquals(500, shown.shownHubs.size)
+  }
+
+  @Test
   fun unrelatedFeatureChangesDoNotRecomposeShellOrHubRoute() = runComposeUiTest {
     val countingStore = CountingStore(createTestAppStore(AppState(navigation = NavigationState(route = Route.Hubs))))
     lateinit var counts: MutableMap<String, Int>
@@ -104,7 +138,7 @@ class RenderIsolationTest {
     setContent {
       val selectorStore = rememberSelectorStore(store)
       val ids by selectorStore.selectorState(filter) { state ->
-        state.hubs.filter { it.status == filter }.map(Hub::id)
+        state.hubs.hubs.filter { it.status == filter }.map(Hub::id)
       }
       selectedIds = ids
       Text(ids.joinToString())

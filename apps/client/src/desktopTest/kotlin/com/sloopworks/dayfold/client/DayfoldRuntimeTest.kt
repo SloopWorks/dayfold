@@ -176,8 +176,8 @@ class DayfoldRuntimeTest {
 
       assertTrue(closeSawFinished.await(), "resources must close after runtime children terminate")
       assertEquals(0, latePublishes.get())
-      assertNull(fixture.store.state.error)
-      assertTrue(fixture.store.state.cards.isEmpty())
+      assertNull(fixture.store.state.content.error)
+      assertTrue(fixture.store.state.content.cards.isEmpty())
     }
 
   @Test fun `family replacement is ordered and rejects an ABA context`() = runBlocking<Unit> {
@@ -237,7 +237,7 @@ class DayfoldRuntimeTest {
 
       val config = NotifConfig(enabled = true, dailyCap = 3)
       fixture.content.setNotifConfig(config)
-      awaitState(fixture.store) { it.notifConfig == config }
+      awaitState(fixture.store) { it.notifications.config == config }
 
       assertTrue(fixture.actionCounter.notifConfig.get() >= 2)
       assertEquals(DayfoldRuntimeState.PAUSED, fixture.runtime.lifecycleState)
@@ -290,7 +290,7 @@ class DayfoldRuntimeTest {
 
         val config = NotifConfig(enabled = true, dailyCap = 4)
         fixture.content.setNotifConfig(config)
-        awaitState(fixture.store) { it.notifConfig == config }
+        awaitState(fixture.store) { it.notifications.config == config }
       } finally {
         fixture.close()
       }
