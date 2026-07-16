@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onNodeWithText
@@ -328,5 +329,30 @@ class TimelineDetailSnapshotTest {
         }
         // dayTimeline() is a single-scale (today-only) timeline → no toggle.
         onNodeWithText("Whole hub").assertDoesNotExist()
+    }
+
+    // ── Behavioral assertions — open-at-NOW scroll ────────────────────────────
+
+    @Test fun `hub roadmap opens scrolled to NOW with earliest past scrolled off`() = runComposeUiTest {
+        // Five past monthly milestones + one future stop. now = nowIso (Aug 24). Opening at NOW must
+        // scroll the earliest month (JAN "kickoff") off the top, and the NOW line must be visible.
+        val tl = Timeline(title = "Season", tz = "America/New_York", stops = listOf(
+            Stop("2026-01-10", "kickoff", done = true),
+            Stop("2026-02-10", "phase one", done = true),
+            Stop("2026-03-10", "phase two", done = true),
+            Stop("2026-04-10", "phase three", done = true),
+            Stop("2026-05-10", "phase four", done = true),
+            Stop("2026-08-25", "launch"),
+        ))
+        setContent {
+            DayfoldTheme(darkTheme = false) {
+                Box(Modifier.width(390.dp).height(760.dp)) {
+                    TimelineDetail(tl, TimelineScale.Hub, nowIso, ny, {}, {})
+                }
+            }
+        }
+        waitForIdle()
+        onNodeWithText("NOW · Today").assertIsDisplayed()
+        onNodeWithText("kickoff").assertDoesNotExist()   // earliest past scrolled above the fold
     }
 }
