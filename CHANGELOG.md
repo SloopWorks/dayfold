@@ -7,6 +7,18 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-15 — CLI catches blank-rendering hub content at author time
+
+### Changed
+- **`dayfold push` now rejects two content mistakes that render blank** in the
+  app instead of accepting them silently. A checklist item must carry `text`
+  (the item text field); an item authored with `label` — a budget-row field —
+  used to sync fine and then render as a **checkbox with no text**. And a
+  `text`/`markdown` block must carry a non-empty `body_md`, since that body is
+  the card's content — an empty one renders a **blank card**. The server stays
+  the authority; this is a fast author-side pre-check. Surfaced by the Camp
+  Parsons dogfood hub, whose checklists were authored with `label`.
+
 ## 2026-07-15 — Crash/error reporting in dogfood builds (Sentry + PostHog, debug-only)
 
 ### Added (internal)
