@@ -220,31 +220,44 @@ in `next-history.md`).
   its own `apps/iosApp` module, meeting the task's stated DoD; not
   re-verified against a live `./gradlew build` in this pass.
 
-## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16)
+## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16, re-verified 2026-07-17)
 
 Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify passes.
 **Still open — needs a build-capable toolchain to verify; counts below are as of
-2026-07-16, re-verify against current `app.ts` line numbers before extracting:**
+2026-07-17, re-verify against current `app.ts` line numbers before extracting:**
 
 - **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
   the revoked-credential check) is still repeated **11×** (unchanged count,
-  shifted by the file's growth) — `app.ts:211,223,241,259,303,324,340,362,385,
-  914,1043` (2026-07-16 spot-check). Extract
-  a `requireSession(c): {sub,cid} | Err` helper mirroring `authorizeTenant`. Left
-  unapplied this pass too — 11 call sites touching every authenticated route is
-  more surface than the mechanical extractions already applied; do it with a
-  real build to catch a subtle miss.
-- **`apps/api`** — "fetch hub, check visible, else 404" is now **8×**, not
-  7× (2026-07-16 correction — the prior count missed one site): the 3 original
-  GETs (`/hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`), the hub PUT,
-  participants PUT/DELETE, the visibility PUT, **and `DELETE
-  /families/:fid/blocks/:id`** (`app.ts:568,581,597,624,643,662,708,863`). A
-  `hubs.getVisibleHub(fid, id, caller)` helper in `content/hubs.ts` would cover
-  the read-only sites, but several call sites now layer extra
-  `canManageHub`/scope checks after the visibility check — an extraction has
-  to preserve those, not just the fetch. `app.ts` itself is now **1276 lines**
-  / 48+ inline route handlers (was 1244 at 2026-07-15) — the route-splitting
-  item is more overdue, not less.
+  `app.ts` untouched since 2026-07-15) — `app.ts:211,223,241,259,303,324,340,362,385,
+  914,1043`. **2026-07-17 re-check:** all 11 sites are byte-identical prologues
+  (only the destructured field varies) — a dedicated pass assessed this as
+  mechanically safe to extract into one `requireCred(c)` helper by careful
+  diff-read alone. **Still deferred, deliberately**: this is live-production
+  auth code with zero ability to compile or run the test suite in this sandbox
+  (`npx tsc --noEmit` fails even locally — missing `@types/node`, `./gradlew`
+  can't tunnel to `services.gradle.org`), and an unverified auth refactor is
+  the wrong place to spend that risk. Land it in a session with real
+  `npm test`/`tsc` access.
+- **`apps/api`** — "fetch hub, check visible, else 404" is still **8×**: the 3
+  original GETs (`/hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`), the hub
+  PUT, participants PUT/DELETE, the visibility PUT, and `DELETE
+  /families/:fid/blocks/:id` (`app.ts:568,581,597,624,643,662,708,863`).
+  **2026-07-17 re-check:** 7 of the 8 (all but line 708, the hub PUT) are
+  textually identical and safe to extract into a `resolveVisibleHub(fid, id,
+  caller)` helper by inspection; line 708 reuses its `allow`/`permitted`
+  closure for more state later in the same handler and should NOT be folded
+  into the same helper without a build to catch a subtle capture miss. Same
+  no-toolchain deferral as above. `app.ts` itself is now **1275 lines** / 48+
+  inline route handlers — the route-splitting item is more overdue, not less.
+- **`apps/api`** (new, 2026-07-17) — `ownerGate` boilerplate (`const g = await
+  ownerGate(c, fid); if ("status" in g) return c.body(null, g.status);`)
+  repeated **7×**, verbatim: `app.ts:951,1003,1015,1082,1105,1133,1141`. Same
+  profile as the auth-boilerplate item above (trivial, no branching variation)
+  — safe to fold into the same extraction pass. Also new: `hubWriteGate`'s
+  3-line `invisible`/`denied`/`absent` → 404/403/409 status mapping is
+  duplicated verbatim at `app.ts:762-764` and `797-799` — a 1-line helper
+  candidate, lowest risk of anything in this list. Both deferred with the rest
+  pending a build-capable session.
 - **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
   with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
   `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
@@ -263,43 +276,52 @@ Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify pass
   needs a real build to land safely.
 - **CLI/skill docs** — moderate (2-4x) duplication of the same explanations
   across `SKILL.md` / `references/cli.md` / `references/content-model.md` /
-  `templates/README.md` / `USAGE`: hub timeline, block payload field table,
+  `templates/README.md`: hub timeline, block payload field table,
   visual-enrichment/`media`, auto-linkify, and "local validation is a pre-check
   only" are each explained in 2-4 places. Not inconsistent (the copies agree),
-  just redundant. **Confirmed still accurate + no undocumented commands/flags
-  as of 2026-07-14** (repo-maintenance pass audit) — the 2026-07-13 fixes (ADR
-  0053 role-403, ADR 0049 place_ref posture, visibility/audience `--type`
-  gotcha) are all present and correct. **Still open:** hub-timeline field
+  just redundant, and low priority to consolidate. **The one real gap found
+  this series is now CLOSED (2026-07-17):** PR #347 replaced the old monolithic
+  `USAGE` string with a `Help.kt` registry driving `--help` and a new `--json`
+  machine-readable mode, but nothing in the skill docs told an agent that
+  `--json` existed — added a "Discovering capabilities" section to
+  `references/cli.md` with example invocations and the `HelpModel`/
+  `HelpCommand` field shapes. **Still open, low priority:** hub-timeline field
   table (`content-model.md` vs `templates/README.md`, the latter already has a
-  pointer + condensed version — lower priority, arguably intentional since
-  `templates/README.md` needs to stand alone for non-Claude CLI users), block
-  payload table (`content-model.md`'s is simpler; `templates/README.md`'s adds
-  the ADR-0035 "also accepted" alias column — consider merging the alias
-  column into `content-model.md` and pointing `templates/README.md` there),
-  checklist id-stamping (repeated near-verbatim in `cli.md` + `content-model.md`
-  + the `templates/README.md` table note — low priority, each copy is already
-  short).
-- **`apps/cli`** (new, 2026-07-15 audit) — `Main.kt:26-64`: `postStatus`/
-  `putStatus`/`getStatus`/`deleteStatus` are four near-identical ~8-line
-  functions differing only by HTTP method/body; `Main.kt:283`: `push`'s PUT
-  call re-implements the same "retry once on 401" pattern `authedGet`/
-  `authedDelete` already share (no `authedPut` exists, so the retry logic now
-  lives in 3 places) — extracting `authedPut` and merging the four `*Status`
-  helpers into one method-parameterized function are both mechanical Kotlin
-  changes; `Main.kt:197` vs `225`: the device-creds-or-legacy-env `Triple`
-  resolution is copy-pasted between `pull` and `delete` (2 sites, minor). Same
-  no-build-toolchain caveat as the `apps/api` items above — unverified,
-  needs a real Gradle build to land safely.
-- **`apps/api`** — the ad-hoc validation-error-shape count was a significant
-  undercount: **~23 sites, not ~9** (2026-07-16 correction). 14 inline literal
-  `{type:"validation",issues}` returns (`app.ts:492,495,500,631,668,686,689,
-  692,757,767,786,803,807,811`), 7 call sites of the shared `idError()` helper
-  (`473,531,674,742,751,780,846`), and 2 call sites of `parseVisibilityAudience`'s
-  `va.error` (`487,682`) — all bypass `problem()`, the file's own RFC 9457
-  helper, which itself is used only 3× in real routes (the `bad-cursor` checks,
-  `1180,1185,1192`). An inconsistency, not a clean extraction target; worth
-  folding into `problem()` when `app.ts` gets its route-split (see the
-  1276-line entry above), not on its own.
+  pointer + condensed version — arguably intentional since `templates/README.md`
+  needs to stand alone for non-Claude CLI users), block payload table
+  (`content-model.md`'s is simpler; `templates/README.md`'s adds the ADR-0035
+  "also accepted" alias column — consider merging the alias column into
+  `content-model.md` and pointing `templates/README.md` there), checklist
+  id-stamping (repeated near-verbatim in `cli.md` + `content-model.md` + the
+  `templates/README.md` table note).
+- **`apps/cli`** (2026-07-15 audit, re-verified 2026-07-17 against `Main.kt`
+  post-PR-#347 — Help.kt's routing shim shifted these ~4 lines but didn't
+  resolve any of them): `Main.kt:27-66`: `postStatus`/`putStatus`/`getStatus`/
+  `deleteStatus` are four near-identical ~8-line functions differing only by
+  HTTP method/body; `Main.kt:284-289`: `push`'s inline PUT call re-implements
+  the same "retry once on 401" pattern `authedGet`/`authedDelete` already share
+  (no `authedPut` exists, so the retry logic now lives in 3 places) —
+  extracting `authedPut` and merging the four `*Status` helpers into one
+  method-parameterized function are both mechanical Kotlin changes assessed as
+  safe-to-hand-verify-by-diff-read; `Main.kt:201-203` vs `229-231`: the
+  device-creds-or-legacy-env `Triple` resolution is copy-pasted between `pull`
+  and `delete` (2 sites, minor, also safe-by-inspection). Same no-build-toolchain
+  caveat as the `apps/api` items above (confirmed 2026-07-17: `./gradlew
+  --version` still can't tunnel through the proxy) — assessed as mechanically
+  safe but unverified, needs a real Gradle build to land safely.
+- **`apps/api`** — the ad-hoc validation-error-shape footprint is broader than
+  every prior count: **2026-07-17 correction — ~70 sites, not ~23.** The
+  2026-07-16 count (~23) only tallied the validation/id-error literal shapes;
+  a fuller sweep finds **68** `c.json({type: ...}, status)` call sites plus 2
+  `c.json({error: ...}, status)` sites, against only **4** real uses of
+  `problem()` (the RFC 9457 helper: the `bad-cursor` checks at
+  `1180,1185,1192` plus the 413 handler at line 77). An inconsistency, not a
+  clean extraction target — many of these 68 sites differ in response
+  `Content-Type` semantics from `problem()`'s `application/problem+json`, and
+  client code may already depend on today's plain-JSON shape, so a blanket
+  swap needs a real build/test run, not a docs-only pass. Worth folding into
+  `problem()` when `app.ts` gets its route-split (see the 1275-line entry
+  above), not on its own.
 
 ## SWIP platform — `SwipAnalytics.track()` swallows Throwable silently (found 2026-07-12)
 

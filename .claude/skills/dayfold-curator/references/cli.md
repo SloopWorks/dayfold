@@ -26,6 +26,24 @@ commands, not part of the authoring flow — mention them only if the operator
 asks about upgrading the CLI itself. `update` auto-checks at most once/24h;
 set `DAYFOLD_NO_UPDATE_CHECK` (any value) to disable the background check.
 
+## Discovering capabilities directly (--help / --json)
+
+This cheatsheet can drift from the CLI's actual flags. Every command carries
+built-in help, and the CLI itself is the source of truth if anything here
+looks stale or incomplete:
+
+```
+dayfold help                    # top-level command index
+dayfold <command> --help        # focused synopsis/args/options/examples for one command
+dayfold help --json             # machine-readable model: every command, alias, arg,
+                                 # option, and exit code, as JSON — for agents/tooling
+dayfold <command> --help --json # same, scoped to one command
+```
+`--json` renders a `HelpModel` (`name`, `version`, `summary`, `commands[]`,
+`env[]`, `exitCodes[]`) or, when scoped to one command, a `HelpCommand`
+(`name`, `aliases`, `synopsis`, `summary`, `details`, `args`, `options`,
+`examples`). Prefer this over guessing at an undocumented flag.
+
 **`(legacy)` mode / no device login at all** — the CLI also accepts a
 pre-device-grant fallback: set all three of `DAYFOLD_API`, `FAMILY_ID`, and
 `HOUSEHOLD_SECRET` as env vars and every command (`push`/`pull`/`delete`)

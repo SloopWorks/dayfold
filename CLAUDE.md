@@ -47,8 +47,8 @@ re-attacked on cadence.
 end to end, including the journal entry and inbox/digest close-out.
 **If asked to "bootstrap this project":** follow `BOOTSTRAP.md`.
 **If building/editing `apps/client`, `apps/ui`, `apps/androidApp`, or the iOS
-target:** read `processes/agent-dev-loop.md` first — the fixed toolchain (JDK17, Kotlin 2.3.20,
-redux-kotlin alpha01 gotchas) + the cheap feedback loop (text action log,
+target:** read `processes/agent-dev-loop.md` first — the fixed toolchain (JDK,
+Kotlin, redux-kotlin pins — see that file for exact versions) + the cheap feedback loop (text action log,
 snapshot PNGs, devtools). It's Compose/KMP-heavy — skip it for `apps/cli`-only
 work (a plain standalone Gradle/JVM module, no special gotchas: `cd apps/cli
 && ./gradlew test`; packaging/release is `processes/cli-release.md`) or
@@ -61,7 +61,7 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 | Path | Holds | Authority |
 |---|---|---|
 | `CLAUDE.md` | This file — session protocol, governance | Source of truth |
-| `AGENTS.md` | Thin pointer to this file, for agent tooling that looks for `AGENTS.md` by convention | Redirect only — no independent content |
+| `AGENTS.md` | Thin pointer to this file, for agent tooling that looks for `AGENTS.md` by convention, plus a cold-agent orientation index | Redirect only — no restated policy |
 | `adr/` | Decision records + `decisions-index.md` | Source of truth (immutable once Accepted) |
 | `context/` | Values & direction (operator-owned), constitution, goals/constraints, kill switches, open questions, operating lessons | Source of truth |
 | `planning/` | Waterfall workstream board the loop executes | Live working state |
@@ -88,7 +88,7 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 2. Do not begin substantive work until constraints are loaded.
 3. **Light-task exception:** for a narrowly-scoped, read-only, or single-file
    task (answer a question, review one PR, fix one bug) — steps 1–4 are still
-   required, but 5–8 may be skipped in favor of just the files the task
+   required, but 5–9 may be skipped in favor of just the files the task
    touches. Skip nothing when doing loop/planning work, a multi-file change,
    or anything touching scope/pricing/legal/data-handling — those need the
    full routine to catch a conflict with working state.
