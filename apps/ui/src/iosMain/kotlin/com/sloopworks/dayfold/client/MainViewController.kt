@@ -146,7 +146,6 @@ private fun IosControllerContent(
     }
   }
   val selectorStore = rememberSelectorStore(store)
-  val stableCommands = remember(graph.commands) { StableDayfoldCommands(graph.commands) }
   val stablePlatformActions = remember(actions, locPerm, notifPerm) {
     StablePlatformActions(
       platformActions = actions,
@@ -160,7 +159,7 @@ private fun IosControllerContent(
   }
   FeedApp(
     store = selectorStore,
-    commands = stableCommands,
+    commands = graph.commands,
     platformActions = stablePlatformActions,
   )
 }

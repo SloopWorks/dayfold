@@ -7,6 +7,10 @@ plugins {
   id("com.android.library")
 }
 
+composeCompiler {
+  stabilityConfigurationFiles = listOf(layout.projectDirectory.file("compose-stability.conf"))
+}
+
 kotlin {
   jvmToolchain(17)
   androidTarget()

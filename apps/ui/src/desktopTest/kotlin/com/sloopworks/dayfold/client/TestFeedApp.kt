@@ -24,9 +24,21 @@ internal fun TestFeedApp(
   onPlatformAction: (CardAction) -> Unit = {},
 ) {
   val selectorStore = rememberSelectorStore(store)
-  val commands = remember(store) {
-    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
-    object : StableDayfoldCommands by base {
+  val commands = remember(
+    store,
+    onCreateFamily,
+    onSignOut,
+    onRedeemInvite,
+    onLoadApprovals,
+    onApproveMember,
+    onLoadMembers,
+    onRemoveMember,
+    onMintInvite,
+    onLoadDevices,
+    onRevokeDevice,
+  ) {
+    val base = DayfoldCommands.navigationOnly(store)
+    object : DayfoldCommandPort by base {
       override fun createFamily(name: String) = onCreateFamily(name)
       override fun signOut() = onSignOut()
       override fun redeemInvite(token: String) = onRedeemInvite(token)
@@ -39,7 +51,7 @@ internal fun TestFeedApp(
       override fun revokeDevice(deviceId: String) = onRevokeDevice(deviceId)
     }
   }
-  val platformActions = remember(store) {
+  val platformActions = remember(store, onSignIn, onPlatformAction) {
     StablePlatformActions.noOp(
       onSignIn = onSignIn,
       onPerform = onPlatformAction,

@@ -29,8 +29,8 @@ class CardHubNavTest {
       debug = false,
     )
     var loadedHub: String? = null; var loadedFocus: String? = "UNSET"
-    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
-    val commands = object : StableDayfoldCommands by base {
+    val base = DayfoldCommands.navigationOnly(store)
+    val commands = object : DayfoldCommandPort by base {
       override fun openHub(
         familyId: String,
         hubId: String,
@@ -49,7 +49,9 @@ class CardHubNavTest {
       selectorStore,
       commands,
       StablePlatformActions.noOp(),
-      CardAction.OpenHub("h_party", "blk_chk"),
+      activeFamilyId = "family-1",
+      fromFeedDetail = false,
+      action = CardAction.OpenHub("h_party", "blk_chk"),
     )
     assertEquals(Route.Hubs, store.state.navigation.route)   // cross-surface nav (OpenHubs dispatched)
     assertEquals("h_party", loadedHub)            // engine load triggered with the hub id
@@ -63,9 +65,11 @@ class CardHubNavTest {
     waitForIdle()
     routeCardAction(
       selectorStore,
-      StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
+      DayfoldCommands.navigationOnly(store),
       StablePlatformActions.noOp(),
-      CardAction.OpenDetail("c1"),
+      activeFamilyId = null,
+      fromFeedDetail = false,
+      action = CardAction.OpenDetail("c1"),
     )
     assertEquals(listOf("c1"), store.state.navigation.detailStack)
   }
@@ -87,7 +91,9 @@ class CardHubNavTest {
       store = selectorStore,
       platformActions = StablePlatformActions.noOp(),
       action = CardAction.OpenHub("hub-1", "block-1"),
-      commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store)),
+      commands = DayfoldCommands.navigationOnly(store),
+      activeFamilyId = "family-1",
+      fromFeedDetail = true,
     )
 
     assertEquals(Route.Hubs, store.state.navigation.route)

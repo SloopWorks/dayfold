@@ -22,7 +22,6 @@ import com.sloopworks.dayfold.client.FeedApp
 import com.sloopworks.dayfold.client.GeoRegion
 import com.sloopworks.dayfold.client.LocationPermissionLoaded
 import com.sloopworks.dayfold.client.NotificationPermissionLoaded
-import com.sloopworks.dayfold.client.StableDayfoldCommands
 import com.sloopworks.dayfold.client.StablePlatformActions
 import com.sloopworks.dayfold.client.ANDROID_REGION_CAP
 import com.sloopworks.dayfold.client.mainNotificationContext
@@ -292,9 +291,6 @@ class MainActivity : ComponentActivity() {
     )
     setContent {
       val selectorStore = rememberSelectorStore(store)
-      val stableCommands = remember(runtimeViewModel.commands) {
-        StableDayfoldCommands(runtimeViewModel.commands)
-      }
       val stablePlatformActions = remember(actions, providerSignIn, isFake) {
         StablePlatformActions(
           platformActions = actions,
@@ -319,11 +315,11 @@ class MainActivity : ComponentActivity() {
         // Bug reporter overlay (edge tab + review/annotate sheets) wraps the app
         // content INSIDE the drawer host; pure passthrough in release.
         BugReporterWrapped {
-        FeedApp(
-          store = selectorStore,
-          commands = stableCommands,
-          platformActions = stablePlatformActions,
-        )
+          FeedApp(
+            store = selectorStore,
+            commands = runtimeViewModel.commands,
+            platformActions = stablePlatformActions,
+          )
         }
       }
     }

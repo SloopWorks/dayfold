@@ -41,7 +41,7 @@ import org.reduxkotlin.compose.selectorState
 internal fun RouteHost(
   route: Route,
   store: SelectorStore<AppState>,
-  commands: StableDayfoldCommands,
+  commands: DayfoldCommandPort,
   platformActions: StablePlatformActions,
   devSignIn: (() -> Unit)?,
 ) {

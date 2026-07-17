@@ -39,7 +39,7 @@ import org.reduxkotlin.compose.selectorState
 @Composable
 internal fun HubsHost(
   store: SelectorStore<AppState>,
-  commands: StableDayfoldCommands,
+  commands: DayfoldCommandPort,
   onCardAction: (CardAction) -> Unit = {},
   hubListState: LazyListState = rememberLazyListState(),
 ) {

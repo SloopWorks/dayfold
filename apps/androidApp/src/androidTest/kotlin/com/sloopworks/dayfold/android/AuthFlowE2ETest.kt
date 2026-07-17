@@ -20,6 +20,7 @@ import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.MemberResolved
 import com.sloopworks.dayfold.client.MemberRemoved
 import com.sloopworks.dayfold.client.MembershipsLoaded
+import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.PendingMember
 import com.sloopworks.dayfold.client.RedeemRequested
 import com.sloopworks.dayfold.client.RosterLoaded
@@ -47,7 +48,7 @@ class AuthFlowE2ETest {
   @Test fun signIn_createFamily_feed_account_signOut() {
     val store = createAppStore(
       notificationContext = NotificationContext.Inline,
-      initial = AppState(route = Route.SignIn),
+      initial = AppState(navigation = NavigationState(route = Route.SignIn)),
       debug = false,
     )
     rule.setContent {
@@ -88,7 +89,7 @@ class AuthFlowE2ETest {
   @Test fun signIn_joinByInvite_waitsForApproval() {
     val store = createAppStore(
       notificationContext = NotificationContext.Inline,
-      initial = AppState(route = Route.SignIn),
+      initial = AppState(navigation = NavigationState(route = Route.SignIn)),
       debug = false,
     )
     rule.setContent {
@@ -121,7 +122,7 @@ class AuthFlowE2ETest {
   @Test fun owner_approvesPendingMember() {
     val store = createAppStore(
       notificationContext = NotificationContext.Inline,
-      initial = AppState(route = Route.SignIn),
+      initial = AppState(navigation = NavigationState(route = Route.SignIn)),
       debug = false,
     )
     rule.setContent {
@@ -157,7 +158,7 @@ class AuthFlowE2ETest {
   @Test fun account_revokesConnectedDevice() {
     val store = createAppStore(
       notificationContext = NotificationContext.Inline,
-      initial = AppState(route = Route.SignIn),
+      initial = AppState(navigation = NavigationState(route = Route.SignIn)),
       debug = false,
     )
     rule.setContent {

@@ -21,6 +21,7 @@ enum class BackTarget {
 @Immutable
 data class AppShellState(
   val route: Route,
+  val activeFamilyId: String?,
   val detailCardId: String?,
   val currentHubId: String?,
   val deviceResuming: Boolean,
@@ -48,6 +49,7 @@ fun appShellState(state: AppState): AppShellState {
   }
   return AppShellState(
     route = state.navigation.route,
+    activeFamilyId = state.session.activeFamilyId,
     detailCardId = detailCardId,
     currentHubId = state.hubs.currentHubId,
     deviceResuming = state.devices.resuming,
