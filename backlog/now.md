@@ -113,77 +113,49 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-16 repo-maintenance pass** (scheduled — the 10th in this series;
+**2026-07-17 repo-maintenance pass** (scheduled — the 11th in this series;
 prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-egress
-sandbox as every prior pass (re-confirmed: `npm ping` 403s through the proxy,
-`./gradlew --version` can't tunnel to `services.gradle.org`) — no *logic*
-changes to `apps/api`/`apps/cli`/`apps/client`; all findings below are
-docs/backlog/CI-YAML/ADR-status only. Broader scope than usual this pass (the
-operator asked for simplification + agentic-context optimization + skill/doc
-completeness + diagrams + changelog + CI + a values pass, not just a spot
-audit) — four parallel research agents covered apps/api+cli+skill, the
-agent-facing docs, README/architecture/CHANGELOG, and CI, then findings were
-applied directly. **Biggest structural change: `backlog/operator-inbox.md`
-split** (540 → 142 lines; new `operator-inbox-history.md`, 444 lines) — same
-now.md/next.md precedent, applied here for the first time. Of 43 `INB-*`
-entries only 7 were genuinely open or had an unconfirmed operator-only
-remainder (INB-32/30/27/23/19/15/3); the other 36 were fully resolved and
-moved to history verbatim, cutting the mandatory full-routine inbox read by
-~74%. **Two other stale-doc bugs found and fixed while classifying those
-entries:** `backlog/now.md`'s own "Operator actions pending" list carried a
-**stale INB-13** entry (asking to hand the trigger-design v2 fix-list to
-Claude Design) that was actually closed 2026-07-01 (PR #260) — removed, and
-the "Design-first gate" section's parallel stale claim about the M1 trigger
-surface fixed too; both had survived at least two prior maintenance passes
-uncaught. **ADR status-accuracy gap (INB-32 pattern) now covers two more
-ADRs:** 0059 (API error pillar, PR #336) and 0060 (client crash reporting,
-PR #339) are both merged and live but still text-labeled "Proposed ... accept
-on merge" — folded into INB-32 rather than opening a new item; ADR 0059's
-"blocked on publication" sentence (now false — it shipped) was corrected as a
-wording fix only (the status flip itself stays operator-gated). **CODE DEDUP
-FINDINGS counts corrected** (`backlog/next.md`): the hub-visibility-fetch
-duplication is 8×, not 7× (missed `DELETE .../blocks/:id`); the ad-hoc
-validation-error-shape count is ~23 sites, not ~9 — both re-verified with
-exact current line numbers. No fixes applied to the queue itself (still
-behavior-touching, still needs a real `./gradlew`/`npm test` run this sandbox
-can't provide) — the CLI's 3 small dedup items were independently re-assessed
-as the safest in the queue (single-file, small enumerable call-site sets) but
-still staged as "verify with a build," not applied blind. **docs/architecture.md
-gap closed:** ADR 0059/0060 (API + debug-client error reporting → Sentry +
-PostHog) were entirely absent from the diagram/components/deploy sections
-despite the API half running in production — added (diagram nodes + arrows,
-2 Components rows, a data-flow step, Deploy env-var note). **CHANGELOG.md gap
-closed:** two shipped, changelog-worthy items had no entry — ADR 0054 (SWIP
-bug reporter, PR #320, 2026-07-10) and ADR 0058 (client runtime hardening incl.
-two real production deadlock fixes, PR #338, 2026-07-15) — both added in their
-chronological slot. **CI: confirmed green** (`ci.yml` run #29475848812 on
-`main`, 2026-07-16T06:08:37Z, all 7 jobs pass); the 07-15 pass's workflow
-hardening (permissions/concurrency/timeout-minutes, the `debugdrawer-swip`
-test job) verified still in place, nothing new broken. **One flake, second
-occurrence, not a new defect:** `SessionBoundaryTest` (a client concurrency/
-race test, part of the still-unchecked TASK-CLIENT-RUNTIME-HARDENING "PR 2"
-race-test items) failed once on run #29452429482 (2026-07-15T21:34:45Z, the
-ADR-0059 API-errors commit) and self-healed on the very next push a minute
-later — same pattern as the 07-12 flake. Worth watching if it recurs a third
-time. **CLAUDE.md "Current stage" section was 12 days stale** (dated
-2026-07-04, silent on ADRs 0055–0060) — updated to 2026-07-16 with a one-
-sentence summary of the SWIP/error-reporting/runtime-hardening work.
-**Flagged but not touched** (bigger restructure or needs operator judgment):
-`CLAUDE.md`'s hard-guardrail text is independently restated (not just
-pointed-to) in `processes/agent-routing.md` and `processes/build-loop-prompt.md`
-— a future edit to one could drift from the others; picking one canonical
-location is an operator call given each file is written for at-point-of-use
-visibility, not a mechanical fix. **Skills/CLI --help re-verified complete:**
-every CLI command and flag in `Main.kt`'s dispatch/flag-parsing is documented
-in the in-source `USAGE` string (cross-checked directly against source, not
-just the docs); `SKILL.md`/`references/cli.md` confirmed accurate by a
-research agent (no undocumented commands/flags, exit-code table still
-correct). **README/architecture spot-check:** README screenshots still
-resolve to real files, no stale claims found. **Values/privacy spot-check:**
-clean — every change this pass was docs/backlog/ADR-status-text/CI-YAML; no
-product code, no data-handling change, no scope/pricing/legal decision made
-(the two ADR-status questions were added to the existing operator-gated
-INB-32, not decided).
+sandbox as every prior pass (re-confirmed: `npm ping` 403s, `./gradlew
+--version` can't tunnel, and — new check this pass — even local `npx tsc
+--noEmit` in `apps/api` fails on a missing `@types/node`, meaning nothing in
+`apps/api`/`apps/cli` can be compile- or test-verified here at all) — no
+*logic* changes to `apps/api`/`apps/cli`/`apps/client`; everything below is
+docs/backlog only. Confirmed **CI green** on `main` at head `6e867f4` (#346,
+run #29532422005, success) before starting. Four parallel research agents
+re-covered apps/api dedup, apps/cli + skill-doc completeness, agent-facing
+doc duplication, and README/architecture/CHANGELOG gaps. **Real gap closed:**
+PR #347 (same-day, per-command `--help` + machine-readable `--json` via a new
+`Help.kt` registry) shipped with no mention of `--json` anywhere in the
+`dayfold-curator` skill docs — an agent following `SKILL.md` as written had no
+path to discovering it existed. Added a "Discovering capabilities" section to
+`references/cli.md` (example invocations + the `HelpModel`/`HelpCommand`
+field shapes), plus one-line mentions in `README.md`'s and
+`docs/architecture.md`'s CLI rows. **Agentic-context fixes:** `CLAUDE.md`'s
+toolchain-version teaser (`redux-kotlin alpha01`) and
+`processes/build-loop-prompt.md`'s worktree-discipline line (`redux-kotlin
+1.0.0-alpha01`, `SQLDelight 2.3.2`) had already drifted stale against
+`processes/agent-dev-loop.md`'s canonical `1.0.0-alpha05` — both now point to
+that file instead of restating a version; also fixed the Light-task
+exception's ambiguous step-9 boundary (said "5–8 may be skipped," omitting
+whether memory-system loading is skippable — now "5–9") and a slightly
+inaccurate `AGENTS.md` directory-map description. `processes/agent-routing.md`'s
+own restated guardrail list was re-checked against CLAUDE.md's — not drifted,
+deliberately left as a stand-alone restatement (read mid-task without
+CLAUDE.md loaded). **CODE DEDUP FINDINGS refreshed** (`backlog/next.md`): all
+prior counts re-verified line-for-line (unchanged — `app.ts` untouched since
+07-15); found 2 new duplication sites (`ownerGate` boilerplate 7×,
+`hubWriteGate` status-mapping 2×); corrected the validation-error-shape count
+again, this time upward, ~23 → **~70 sites** (the prior count only tallied
+validation/id-error literals, not the full `c.json({type...})` footprint).
+**Deliberately still not applied**, even the ones a dedicated review called
+"mechanically safe to hand-verify by diff-read": this is live-production
+auth/visibility-gate code, this sandbox cannot compile or test it at all (not
+even locally), and an unverified refactor of auth code is the wrong place to
+spend that risk — same judgment every prior pass reached, now with an
+explicit reason (no local typecheck either) rather than just "needs a real
+build." **CI/values:** re-confirmed green, nothing new broken; diff this pass
+is docs/backlog/skill-reference only — no secrets, no PII, no data-handling
+or scope/pricing/legal decision made.
 
 ## Design-first gate (ADR 0008) — status
 

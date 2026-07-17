@@ -18,7 +18,7 @@ SCOPE & GUARDRAILS
 WORKTREE DISCIPLINE
 - git fetch origin; fast-forward local main to origin/main BEFORE starting anything.
 - Do all work in a dedicated git worktree off latest main: git worktree add .claude/worktrees/<slug> -b <branch> origin/main. Never commit on main. One worktree per work-stream; ff-merge each reviewed slice onto that worktree's integration branch.
-- Read processes/agent-dev-loop.md for the toolchain (JDK17, Kotlin 2.3.20, Compose-MP 1.9.3, SQLDelight 2.3.2, redux-kotlin 1.0.0-alpha01) before editing apps/.
+- Read processes/agent-dev-loop.md for the pinned toolchain versions (JDK, Kotlin, Compose-MP, SQLDelight, redux-kotlin) before editing apps/.
 
 REVIEW DIMENSIONS (every review grades each; cite Critical/Important/Minor + fix)
 - Correctness & completeness vs the spec/DoD; gaps and edge cases.
