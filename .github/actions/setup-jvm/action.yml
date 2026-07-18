@@ -1,0 +1,12 @@
+name: Checkout + JDK 17
+description: >
+  Checkout the repo and install Temurin JDK 17 — the pair every Gradle-based
+  CI job in ci.yml needs. Not used by release-*.yml, which deliberately keep
+  their checkout/setup-java steps inline and SHA-pinned (see the comment at
+  the top of release-android.yml) for maximum auditability on publish paths.
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with: { distribution: temurin, java-version: "17" }

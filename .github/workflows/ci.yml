@@ -68,9 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
+      - uses: ./.github/actions/setup-jvm
       - working-directory: apps/cli
         run: ./gradlew --no-daemon build
 
@@ -83,9 +81,7 @@ jobs:
     env:
       SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
+      - uses: ./.github/actions/setup-jvm
       # Cheap guard: every commonMain `expect` has an `actual` per platform (android/
       # desktop/ios). CI doesn't compile iOS, so a missing iosMain actual would merge
       # undetected (see #225). Pure grep — fails fast before the gradle build.
@@ -127,9 +123,7 @@ jobs:
     env:
       SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
+      - uses: ./.github/actions/setup-jvm
       - working-directory: apps
         run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest :debugdrawer-swip:desktopTest
 
@@ -142,9 +136,7 @@ jobs:
     env:
       SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
+      - uses: ./.github/actions/setup-jvm
       # google-services.json is gitignored + per-env (the real config is a release
       # secret). For a compile-only smoke a stub is enough — it satisfies the gms
       # plugin without shipping real Firebase config (same stub release-android.yml
@@ -210,11 +202,9 @@ jobs:
       # (same as the `api` job). Without it, npm ci 401s downloading swip-sentry.
       NODE_AUTH_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-jvm   # checkout + JDK (the Auth emulator runs on the JVM)
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
-      - uses: actions/setup-java@v4   # the Auth emulator runs on the JVM
-        with: { distribution: temurin, java-version: "17" }
       - run: npm ci
       - name: codegen (generated types the API imports)
         run: npm run codegen

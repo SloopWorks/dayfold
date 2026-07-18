@@ -118,7 +118,7 @@ manual-apply process is **ADR 0033** (tracked migration runner; Proposed).
 
 **Dependency:** `:ui` `api(project(":client"))` — `:ui` sees all of `:client`; `:client` has no Compose dependency.
 
-**Build from `apps/`** (one Gradle root, Gradle 9.4.1 + AGP 9.2.1):
+**Build from `apps/`** (one Gradle root — pins in Toolchain above):
 - `:client` logic/data edit → only `:client` recompiles (~7,348 lines, ~2.4s)
 - `:ui` composable edit → `:ui` recompiles (~7,434 lines, ~2.6s); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
 - Both modules: KT-62686 still fires (full recompile within module) — KMP + Kotlin 2.3.20 project-level issue, not Compose-specific
@@ -341,13 +341,3 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:compileKotlinIosArm64 \
   ACTIONS/STATE/DIFF/PIPELINE/OUTPUTS (time-travel). Needs a screenshot to read →
   use only when the text log + `rk devtools` aren't enough.
 - **Snapshot PNGs / `rk snapshot`** (above) for UI checks.
-
-## Now available (updated 2026-07-02 — supersedes the old "not available" note)
-- **redux-kotlin CLI `rk`**: **PUBLISHED** via Homebrew (`reduxkotlin/tap/rk`,
-  1.0.0-alpha02). devtools + snapshot, both wired above. (Mind the broken brew
-  symlink — see Toolchain.)
-- **screenshot/golden module**: **`redux-kotlin-snapshot:1.0.0-alpha04`** is on
-  Maven Central. Headless render + committed-golden CI gate are **DELIVERED**
-  (CL-SNAP) — no Roborazzi DIY needed. Realizes ADR 0019 "Remaining" items #4
-  and #6. See the `⭐ rk snapshot` section above for the exact CLI and golden
-  workflow.

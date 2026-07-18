@@ -39,7 +39,7 @@ PER-TASK LOOP (do every step)
 3. Implement TDD. Match existing code style. Keep read-only M0 invariants (ADR 0020) and honesty/privacy rules (ADR 0014/0015).
 4. Verify: apps/api `npx vitest run` green; from `apps/`, `./gradlew :client:desktopTest :ui:desktopTest` green (ADR 0047 split — logic tests live in `:client`, render/golden-snapshot tests in `:ui`); `npm run codegen` idempotent; android + iOS-sim compile; for UI, write snapshot PNGs and READ them to eyeball (or use the CL-SNAP `--dashboard` gate, `processes/agent-dev-loop.md`), and when an emulator is FREE (check `adb devices` + foreground app — do NOT contend with another agent's app) deploy + drive via adb screencap.
 5. Launch a final whole-branch review subagent graded across ALL applicable REVIEW DIMENSIONS (plus a dedicated UI/Compose/Material3-Expressive/UX/a11y reviewer when UI changed); fix Critical/Important findings.
-6. Commit (normal prose message; end with: Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>). Update backlog/next.md (TASK-* done + follows). ff-merge onto the integration branch.
+6. Commit (normal prose message; end with: Co-Authored-By: Claude <noreply@anthropic.com>). Update backlog/next.md (TASK-* done + follows). ff-merge onto the integration branch.
 
 INTEGRATION / MERGE
 - When a coherent unit (or several slices) is ready: pull latest origin/main, merge it into the integration branch, resolve conflicts (auth⟂content are usually unions; watch for migration-number collisions with the auth agent → renumber content migrations to sit after theirs and update all references), re-run all tests + compile + codegen.
