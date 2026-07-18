@@ -17,7 +17,7 @@ multi-step task. Single-fact lookups and trivial edits skip routing.
 | Outreach / sales material | Agent drafts | drafts only | **Operator sends. Always.** |
 | Administrative / setup (entity, accounts, insurance, banking) | Agent prepares runbook + comparison; operator executes | `processes/` runbook | All sign-ups/signatures human |
 | Infrastructure / provisioning (build phase) | Runbook-driven; agent executes within granted credentials | `processes/` | Credential grants, spend |
-| Software build (post-spec) | 8-phase milestone workflow: brainstorm spec → plan → worktree → TDD build → verify → independent fresh-context review → gated merge → close-out | code + `roadmap/` status | Guardrail escalations only |
+| Software build (post-spec) | `processes/build-loop-prompt.md` — worktree → spec → adversarial pre-review → TDD → verify → final review → commit → integrate/merge | code + `roadmap/` status | Guardrail escalations only |
 | Compliance / legal questions | Research fleet for landscape only; **conclusions are not legal advice** | `research/` + open question | Real lawyer before reliance |
 | Business operations (steady state) | Scheduled agents: monitoring, periodic business review, support triage, reporting | dashboards/reports | Escalation rules per ADR |
 

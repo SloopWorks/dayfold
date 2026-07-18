@@ -11,6 +11,49 @@ end) — each is self-dated, so use the dates to orient rather than position.
 from `backlog/now.md` on 2026-07-10** (verbatim, that file only keeps the
 most recent pass going forward — see its 2026-07-10 entry for why).
 
+**2026-07-17 repo-maintenance pass** (scheduled — the 11th in this series;
+same no-npm/no-Gradle-registry-egress sandbox as every prior pass (re-confirmed:
+`npm ping` 403s, `./gradlew --version` can't tunnel, and — new check this pass —
+even local `npx tsc --noEmit` in `apps/api` fails on a missing `@types/node`,
+meaning nothing in `apps/api`/`apps/cli` can be compile- or test-verified here at
+all) — no *logic* changes to `apps/api`/`apps/cli`/`apps/client`; everything
+below is docs/backlog only. Confirmed **CI green** on `main` at head `6e867f4`
+(#346, run #29532422005, success) before starting. Four parallel research
+agents re-covered apps/api dedup, apps/cli + skill-doc completeness,
+agent-facing doc duplication, and README/architecture/CHANGELOG gaps. **Real
+gap closed:** PR #347 (same-day, per-command `--help` + machine-readable
+`--json` via a new `Help.kt` registry) shipped with no mention of `--json`
+anywhere in the `dayfold-curator` skill docs — an agent following `SKILL.md`
+as written had no path to discovering it existed. Added a "Discovering
+capabilities" section to `references/cli.md` (example invocations + the
+`HelpModel`/`HelpCommand` field shapes), plus one-line mentions in
+`README.md`'s and `docs/architecture.md`'s CLI rows. **Agentic-context
+fixes:** `CLAUDE.md`'s toolchain-version teaser (`redux-kotlin alpha01`) and
+`processes/build-loop-prompt.md`'s worktree-discipline line (`redux-kotlin
+1.0.0-alpha01`, `SQLDelight 2.3.2`) had already drifted stale against
+`processes/agent-dev-loop.md`'s canonical `1.0.0-alpha05` — both now point to
+that file instead of restating a version; also fixed the Light-task
+exception's ambiguous step-9 boundary (said "5–8 may be skipped," omitting
+whether memory-system loading is skippable — now "5–9") and a slightly
+inaccurate `AGENTS.md` directory-map description. `processes/agent-routing.md`'s
+own restated guardrail list was re-checked against CLAUDE.md's — not drifted,
+deliberately left as a stand-alone restatement (read mid-task without
+CLAUDE.md loaded). **CODE DEDUP FINDINGS refreshed** (`backlog/next.md`): all
+prior counts re-verified line-for-line (unchanged — `app.ts` untouched since
+07-15); found 2 new duplication sites (`ownerGate` boilerplate 7×,
+`hubWriteGate` status-mapping 2×); corrected the validation-error-shape count
+again, this time upward, ~23 → **~70 sites** (the prior count only tallied
+validation/id-error literals, not the full `c.json({type...})` footprint).
+**Deliberately still not applied**, even the ones a dedicated review called
+"mechanically safe to hand-verify by diff-read": this is live-production
+auth/visibility-gate code, this sandbox cannot compile or test it at all (not
+even locally), and an unverified refactor of auth code is the wrong place to
+spend that risk — same judgment every prior pass reached, now with an
+explicit reason (no local typecheck either) rather than just "needs a real
+build." **CI/values:** re-confirmed green, nothing new broken; diff this pass
+is docs/backlog/skill-reference only — no secrets, no PII, no data-handling
+or scope/pricing/legal decision made.
+
 **2026-07-16 repo-maintenance pass** (scheduled — the 10th in this series;
 prior passes: below). Same no-npm/no-Gradle-registry-egress sandbox as every
 prior pass (re-confirmed: `npm ping` 403s through the proxy,

@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-16). For product framing
+A map of the system as it actually runs today (2026-07-18). For product framing
 see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
 live build status see `backlog/now.md`. This file is descriptive (what's built),
 not a design doc — update it when a component's shape changes, not on every PR.
@@ -186,11 +186,15 @@ iOS host UI objects. `ContentStore` independently owns database write and
 composite-snapshot serialization so headless platform callbacks remain safe
 without a foreground runtime.
 
-The UI-notification and database-serialization foundation is implemented. The
-runtime/session coordinator, engine migration, narrow Compose subscriptions,
-state slicing, and measured performance sweep remain staged as sequential work
-in the ADR 0058 implementation plan; acceptance does not imply those phases are
-already built.
+The UI-notification serialization, `ContentStore` write/snapshot serialization,
+runtime/session coordinator, method-only `DayfoldCommandPort`, and narrow
+per-feature Compose subscriptions (replacing the prior root whole-state
+subscription) are implemented and locally verified. Per-row isolation (the
+remaining slice of Task 14), Task 15 state-keyed route effects, PR 5
+state/reducer slicing, and PR 6 notification/performance/platform closure
+remain staged as sequential work in the ADR 0058 implementation plan
+(`docs/superpowers/plans/2026-07-14-dayfold-runtime-concurrency-render-isolation.md`);
+acceptance does not imply those phases are already built.
 
 ## Auth
 
@@ -203,7 +207,9 @@ already built.
 - **CLI device login:** RFC 8628 device-authorization grant (`/device/*`) — the
   CLI prints a code, the family owner approves it in the app, the CLI polls and
   lazily mints a token. Refresh tokens live in the OS keychain (headless/CI
-  fallback: a 0600 file via `--allow-env-key`).
+  fallback: a 0600 file via `--allow-env-key`). The owner can scope the grant
+  to specific hubs on the approval screen (per-hub `content:read`/`write`
+  instead of family-wide), an extension of the ADR 0029 scope model.
 - **Tenancy:** every content route is scoped to a `familyId`; cross-family
   access is a 404 (no existence oracle), not a 403.
 - **Legacy path:** a static `HOUSEHOLD_SECRET` bearer still works on content

@@ -1,0 +1,14 @@
+name: Setup JDK 17
+description: >
+  Install Temurin JDK 17 — every Gradle-based CI job in ci.yml needs this
+  exact setup-java step. Callers must run actions/checkout themselves first:
+  a local action (`uses: ./path`) can only be resolved once the repo
+  containing it is already on disk, so this action cannot checkout for its
+  own caller. Not used by release-*.yml, which deliberately keep their
+  checkout/setup-java steps inline and SHA-pinned (see the comment at the
+  top of release-android.yml) for maximum auditability on publish paths.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with: { distribution: temurin, java-version: "17" }

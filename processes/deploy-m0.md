@@ -1,4 +1,9 @@
-# M0 Cloud Deploy Runbook (INB-12)
+# M0 Cloud Deploy Runbook — ARCHIVED (completed 2026-06-19)
+
+> This runbook's one-time setup (§1-§2) is done; nothing here is actionable
+> anymore. Kept only for the still-useful gotchas (§3, `.ts`-import bundling)
+> and the redeploy command (§4). For current API dev/redeploy process, see
+> `processes/agent-dev-loop.md`'s `## API` section instead.
 
 > **STATUS 2026-06-18 — ✅ LIVE on Vercel + Neon (via CLI, end to end).**
 > **Neon:** project `spring-waterfall-37999618` (aws-us-west-2, pg17), migration
@@ -125,9 +130,3 @@ this on the first deploy if needed.
   (revocable via `revoked_at`); TLS to Neon; **plaintext M0** (no E2E — ADR
   0015 is M1). No Gmail/restricted scopes → no CASA (guardrail 3 clear).
 - **CI:** the GitHub deploy can be gated on the green CI run (already in place).
-
-## What I need from you to start
-
-Create the **Neon project** + **Vercel account** and either (a) paste the two
-Neon URLs + confirm Vercel is linked, or (b) auth the Vercel MCP and I'll drive
-§1.3–§2.5 + the §3 fallback end to end, then verify the live `/sync`.
