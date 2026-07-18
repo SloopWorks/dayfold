@@ -43,8 +43,11 @@ UI-thread contexts; `ContentStore` owns process-safe writer/snapshot
 serialization; auth/family epochs fence stale commits; sync requests conflate;
 Hub work is generation-correlated; Auth uses narrow request gates; and Now uses
 one ordered actor plus consistent multi-table snapshots. Production hosts retain
-one runtime graph and expose only stable store/command/platform wrappers to
-Compose. The root whole-state subscription and callback wall are gone; active
+one runtime graph and expose stable selection/dispatch, method-only command, and
+platform-handoff capabilities to Compose. The duplicate command wrapper has
+since been replaced by the compiler-stable `DayfoldCommandPort`; `SelectorStore`
+is limited in use to selection and dispatch. The root whole-state subscription
+and callback wall are gone; active
 routes subscribe to immutable feature projections, while per-entity row
 subscriptions remain explicitly open. Cold mobile notification targets now wait
 for family restoration and are dropped at identity/tenant boundaries. Adversarial

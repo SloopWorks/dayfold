@@ -46,19 +46,19 @@ private fun navGroupKey(route: Route): String =
 // split is unit-testable. Returns Unit (store.dispatch returns the action).
 internal fun routeCardAction(
   store: SelectorStore<AppState>,
-  commands: StableDayfoldCommands,
+  commands: DayfoldCommandPort,
   platformActions: StablePlatformActions,
+  activeFamilyId: String?,
+  fromFeedDetail: Boolean,
   action: CardAction,
 ) {
   when (action) {
     is CardAction.OpenDetail -> store.dispatch(NavToDetail(action.cardId))
     is CardAction.OpenHub -> {  // cross-surface deep-link arrival
       // remember we came from a Feed card detail so back returns there (not the hub list)
-      val fromDetail = store.state.navigation.route == Route.Feed && store.state.navigation.detailStack.isNotEmpty()
-      val destination = if (fromDetail) HubReturnDestination.FEED_DETAIL else HubReturnDestination.HUB_LIST
-      val familyId = store.state.session.activeFamilyId
-      if (familyId != null) {
-        commands.openHub(familyId, action.hubId, action.focusBlockId, destination)
+      val destination = if (fromFeedDetail) HubReturnDestination.FEED_DETAIL else HubReturnDestination.HUB_LIST
+      if (activeFamilyId != null) {
+        commands.openHub(activeFamilyId, action.hubId, action.focusBlockId, destination)
       }
     }
     else -> platformActions.perform(action)
@@ -76,7 +76,7 @@ internal fun routeCardAction(
 @Composable
 fun FeedApp(
   store: SelectorStore<AppState>,
-  commands: StableDayfoldCommands,
+  commands: DayfoldCommandPort,
   platformActions: StablePlatformActions,
 ) {
   // ADR 0036: one-time Coil image-loader setup (Ktor network fetcher + crossfade).
@@ -95,8 +95,22 @@ fun FeedApp(
   // One stable handler (remembered so feed/detail stay skippable): OpenDetail is
   // in-app nav → dispatched to the store; every other CardAction is an OS handoff
   // → the shell's PlatformActions.
-  val handle = remember(store, commands, platformActions) {
-    fun(action: CardAction) = routeCardAction(store, commands, platformActions, action)
+  val handle = remember(
+    store,
+    commands,
+    platformActions,
+    shell.activeFamilyId,
+    shell.route,
+    shell.detailCardId,
+  ) {
+    fun(action: CardAction) = routeCardAction(
+      store = store,
+      commands = commands,
+      platformActions = platformActions,
+      activeFamilyId = shell.activeFamilyId,
+      fromFeedDetail = shell.route == Route.Feed && shell.detailCardId != null,
+      action = action,
+    )
   }
   // Inline body-link taps (LinkAnnotation.Url, no listener) open via LocalUriHandler
   // — route them through the shell's vetted PlatformActions.openUri instead of the

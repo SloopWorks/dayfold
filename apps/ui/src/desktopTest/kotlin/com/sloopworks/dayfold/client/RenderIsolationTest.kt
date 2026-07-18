@@ -173,6 +173,38 @@ class RenderIsolationTest {
     assertEquals(signInBeforeUnrelatedAction, counts["sign-in"], "inactive SignIn must stay unsubscribed")
     assertEquals(1, counts["hubs"], "unrelated state must not recompose Hubs")
   }
+
+  @Test
+  fun stableCommandPortDoesNotRecomposeWhenOnlyItsParentChanges() = runComposeUiTest {
+    val store = createTestAppStore()
+    val commands: DayfoldCommandPort = DayfoldCommands.navigationOnly(store)
+    val parentTick = mutableStateOf(0)
+    var childCompositions = 0
+
+    setContent {
+      val onChildComposition = remember {
+        {
+          childCompositions += 1
+          Unit
+        }
+      }
+      Text("parent=${parentTick.value}")
+      CommandPortProbe(commands, onChildComposition)
+    }
+    waitForIdle()
+    val baseline = childCompositions
+
+    parentTick.value += 1
+    waitForIdle()
+
+    assertEquals(baseline, childCompositions, "the configured method-only command port must remain skippable")
+  }
+}
+
+@Composable
+private fun CommandPortProbe(commands: DayfoldCommandPort, onComposition: () -> Unit) {
+  onComposition()
+  Text(commands::class.simpleName.orEmpty())
 }
 
 @Composable

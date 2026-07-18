@@ -3,9 +3,9 @@ package com.sloopworks.dayfold.android
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.DayfoldCommandPort
 import com.sloopworks.dayfold.client.DayfoldCommands
 import com.sloopworks.dayfold.client.FeedApp
-import com.sloopworks.dayfold.client.StableDayfoldCommands
 import com.sloopworks.dayfold.client.StablePlatformActions
 import org.reduxkotlin.Store
 import org.reduxkotlin.compose.rememberSelectorStore
@@ -26,9 +26,20 @@ internal fun TestFeedApp(
   onRevokeDevice: (String) -> Unit = {},
 ) {
   val selectorStore = rememberSelectorStore(store)
-  val commands = remember(store) {
-    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
-    object : StableDayfoldCommands by base {
+  val commands = remember(
+    store,
+    onCreateFamily,
+    onSignOut,
+    onRedeemInvite,
+    onLoadApprovals,
+    onApproveMember,
+    onLoadMembers,
+    onRemoveMember,
+    onLoadDevices,
+    onRevokeDevice,
+  ) {
+    val base = DayfoldCommands.navigationOnly(store)
+    object : DayfoldCommandPort by base {
       override fun createFamily(name: String) = onCreateFamily(name)
       override fun signOut() = onSignOut()
       override fun redeemInvite(token: String) = onRedeemInvite(token)
@@ -40,7 +51,7 @@ internal fun TestFeedApp(
       override fun revokeDevice(deviceId: String) = onRevokeDevice(deviceId)
     }
   }
-  val platformActions = remember(store) { StablePlatformActions.noOp(onSignIn = onSignIn) }
+  val platformActions = remember(store, onSignIn) { StablePlatformActions.noOp(onSignIn = onSignIn) }
   FeedApp(
     store = selectorStore,
     commands = commands,

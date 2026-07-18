@@ -169,8 +169,12 @@ and pure reducers. Family-content results continue to flow
 may publish directly to Redux. Effects may originate either in middleware or in
 runtime-owned commands/feature engines, but remain cancellable and off-main.
 Store subscriber delivery is serial and FIFO on the platform UI thread, and
-Compose receives a stable store boundary with the narrowest practical
-route/feature/leaf subscriptions.
+Compose receives the stable `SelectorStore` selection-and-dispatch capability,
+not the raw store. Route connectors bind the narrowest practical projections;
+leaves receive finished data and callbacks. Application intents cross the
+method-only `DayfoldCommandPort`, whose implementations are runtime-owned and
+declared stable in the UI compiler configuration rather than wrapped in a
+second forwarding adapter.
 
 `DayfoldRuntime` is the shared composition and lifecycle root, not a second
 state store or domain-service container. It owns structured process, identity,

@@ -21,7 +21,7 @@ class DayfoldCommands internal constructor(
   private val sessionCoordinator: SessionCoordinator? = null,
   private val externalHubTargets: PendingExternalHubTargetCoordinator? = null,
   private val bindSelectedFamily: suspend () -> Unit = {},
-) {
+) : DayfoldCommandPort {
   companion object {
     /** Creates a side-effect-free command set that still performs pure Redux navigation. */
     fun navigationOnly(store: Store<AppState>): DayfoldCommands = DayfoldCommands(store)
@@ -47,13 +47,13 @@ class DayfoldCommands internal constructor(
   }
 
   fun devSignIn() = launchEffect { authEngine?.devSignIn(); bindSelectedFamily() }
-  fun retryAuth() = launchEffect { authEngine?.restore(); bindSelectedFamily() }
-  fun createFamily(name: String) = launchIdentity {
+  override fun retryAuth() = launchEffect { authEngine?.restore(); bindSelectedFamily() }
+  override fun createFamily(name: String) = launchIdentity {
     authEngine?.createFamily(it, name)
     bindSelectedFamily()
   }
-  fun signOut() = launchIdentity { authEngine?.signOut(it) }
-  fun redeemInvite(token: String) = launchIdentity {
+  override fun signOut() = launchIdentity { authEngine?.signOut(it) }
+  override fun redeemInvite(token: String) = launchIdentity {
     authEngine?.redeemInvite(it, token)
     bindSelectedFamily()
   }
@@ -69,49 +69,49 @@ class DayfoldCommands internal constructor(
     launchEffect { authEngine?.openDeviceLink(raw, context) }
   }
 
-  fun loadApprovals(familyId: String) = launchFamily(familyId) { authEngine?.loadApprovals(it, familyId) }
-  fun approveMember(familyId: String, userId: String) =
+  override fun loadApprovals(familyId: String) = launchFamily(familyId) { authEngine?.loadApprovals(it, familyId) }
+  override fun approveMember(familyId: String, userId: String) =
     launchFamily(familyId) { authEngine?.approveMember(it, userId) }
-  fun declineMember(familyId: String, userId: String) =
+  override fun declineMember(familyId: String, userId: String) =
     launchFamily(familyId) { authEngine?.declineMember(it, userId) }
-  fun loadMembers(familyId: String) = launchFamily(familyId) { authEngine?.loadMembers(it, familyId) }
-  fun removeMember(familyId: String, userId: String) =
+  override fun loadMembers(familyId: String) = launchFamily(familyId) { authEngine?.loadMembers(it, familyId) }
+  override fun removeMember(familyId: String, userId: String) =
     launchFamily(familyId) { authEngine?.removeMember(it, familyId, userId) }
-  fun mintInvite(familyId: String, mode: String) =
+  override fun mintInvite(familyId: String, mode: String) =
     launchFamily(familyId) { authEngine?.mintInvite(it, mode) }
-  fun revokeInvite(familyId: String, inviteId: String) =
+  override fun revokeInvite(familyId: String, inviteId: String) =
     launchFamily(familyId) { authEngine?.revokeInvite(it, inviteId) }
 
-  fun updateAvatar(color: String?, avatarRef: String?) = launchIdentity {
+  override fun updateAvatar(color: String?, avatarRef: String?) = launchIdentity {
     authEngine?.updateAvatar(it, color, avatarRef)
   }
-  fun updateDisplayName(name: String) = launchIdentity { authEngine?.updateDisplayName(it, name) }
-  fun loadDevices() = launchIdentity { authEngine?.loadDevices(it) }
-  fun revokeDevice(deviceId: String) = launchIdentity { authEngine?.revokeDevice(it, deviceId) }
-  fun lookupDevice(userCode: String) = launchIdentity { authEngine?.lookupDevice(it, userCode) }
-  fun approveDevice(familyId: String, userCode: String, hubIds: List<String>?) {
+  override fun updateDisplayName(name: String) = launchIdentity { authEngine?.updateDisplayName(it, name) }
+  override fun loadDevices() = launchIdentity { authEngine?.loadDevices(it) }
+  override fun revokeDevice(deviceId: String) = launchIdentity { authEngine?.revokeDevice(it, deviceId) }
+  override fun lookupDevice(userCode: String) = launchIdentity { authEngine?.lookupDevice(it, userCode) }
+  override fun approveDevice(familyId: String, userCode: String, hubIds: List<String>?) {
     val selectedHubIds = hubIds?.toList()
     launchIdentity { authEngine?.approveDevice(it, familyId, userCode, selectedHubIds) }
   }
-  fun denyDevice(familyId: String, userCode: String) =
+  override fun denyDevice(familyId: String, userCode: String) =
     launchIdentity { authEngine?.denyDevice(it, familyId, userCode) }
 
-  fun refresh() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
-  fun loadHubs() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
-  fun nowShown(subjectKeys: Set<String>) { nowEngine?.noteShown(subjectKeys.toSet()) }
+  override fun refresh() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
+  override fun loadHubs() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
+  override fun nowShown(subjectKeys: Set<String>) { nowEngine?.noteShown(subjectKeys.toSet()) }
 
   /** Opens the list with its return destination represented by one atomic Redux action. */
-  fun openHubs(returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST) {
+  override fun openHubs(returnDestination: HubReturnDestination) {
     store.dispatch(OpenHubs(returnDestination))
     loadHubs()
   }
 
   /** Opens one Hub using the family generation and IDs captured at the command edge. */
-  fun openHub(
+  override fun openHub(
     familyId: String,
     hubId: String,
-    focusBlockId: String? = null,
-    returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
+    focusBlockId: String?,
+    returnDestination: HubReturnDestination,
   ) {
     if (hubEngine == null) {
       store.dispatch(OpenHubs(returnDestination))
@@ -155,32 +155,32 @@ class DayfoldCommands internal constructor(
    * Atomically navigates away from [expectedHubId], then performs correlated subscription cleanup.
    * A delayed cleanup for Hub A cannot cancel the collector installed for Hub B.
    */
-  fun closeHub(expectedHubId: String, destination: HubReturnDestination) {
+  override fun closeHub(expectedHubId: String, destination: HubReturnDestination) {
     if (store.state.hubs.currentHubId != expectedHubId) return
     val expectedRequest = store.state.hubs.currentHubRequest
     store.dispatch(if (destination == HubReturnDestination.FEED_DETAIL) CloseHubToFeed else CloseHub)
     launchEffect { hubEngine?.closeHub(expectedHubId, expectedRequest) }
   }
 
-  fun loadAudience(familyId: String, hubId: String) =
+  override fun loadAudience(familyId: String, hubId: String) =
     launchFamily(familyId) { hubEngine?.loadAudience(it, hubId) }
-  fun setHubRole(familyId: String, hubId: String, userId: String, role: String) =
+  override fun setHubRole(familyId: String, hubId: String, userId: String, role: String) =
     launchFamily(familyId) { hubEngine?.setParticipant(it, hubId, userId, role) }
-  fun removeHubParticipant(familyId: String, hubId: String, userId: String) =
+  override fun removeHubParticipant(familyId: String, hubId: String, userId: String) =
     launchFamily(familyId) { hubEngine?.removeParticipant(it, hubId, userId) }
-  fun setHubVisibility(familyId: String, hubId: String, visibility: String) =
+  override fun setHubVisibility(familyId: String, hubId: String, visibility: String) =
     launchFamily(familyId) { hubEngine?.setVisibility(it, hubId, visibility) }
-  fun toggleItem(familyId: String, blockId: String, itemId: String, done: Boolean) =
+  override fun toggleItem(familyId: String, blockId: String, itemId: String, done: Boolean) =
     launchFamily(familyId) { hubEngine?.toggleItem(it, blockId, itemId, done) }
-  fun retryBlock(familyId: String, blockId: String) =
+  override fun retryBlock(familyId: String, blockId: String) =
     launchFamily(familyId) { hubEngine?.retryBlock(it, blockId) }
-  fun deleteBlock(familyId: String, blockId: String) =
+  override fun deleteBlock(familyId: String, blockId: String) =
     launchFamily(familyId) { hubEngine?.deleteBlock(it, blockId) }
-  fun hideBlock(familyId: String, blockId: String) =
+  override fun hideBlock(familyId: String, blockId: String) =
     launchFamily(familyId) { hubEngine?.hideBlock(it, blockId) }
-  fun unhideBlock(familyId: String, blockId: String) =
+  override fun unhideBlock(familyId: String, blockId: String) =
     launchFamily(familyId) { hubEngine?.unhideBlock(it, blockId) }
-  fun setNotificationConfig(config: NotifConfig) = launchEffect { contentStore?.setNotifConfig(config) }
+  override fun setNotificationConfig(config: NotifConfig) = launchEffect { contentStore?.setNotifConfig(config) }
 
   private fun launchIdentity(block: suspend (AuthSessionContext) -> Unit) {
     val context = sessionCoordinator?.authSnapshot() ?: return

@@ -37,7 +37,6 @@ fun main() = application {
   }
   val platformActions = remember { com.sloopworks.dayfold.client.cards.PlatformActions() }
   val selectorStore = rememberSelectorStore(graph.store)
-  val stableCommands = remember(graph.commands) { StableDayfoldCommands(graph.commands) }
   val stablePlatformActions = remember(platformActions, devSecret) {
     StablePlatformActions(
       platformActions = platformActions,
@@ -68,7 +67,7 @@ fun main() = application {
   ) {
     FeedApp(
       store = selectorStore,
-      commands = stableCommands,
+      commands = graph.commands,
       platformActions = stablePlatformActions,
     )
   }

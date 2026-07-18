@@ -54,8 +54,8 @@ class FeedAppHostTest {
       debug = false,
     )
     var opened: Pair<String, String>? = null
-    val base = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
-    val commands = object : StableDayfoldCommands by base {
+    val base = DayfoldCommands.navigationOnly(store)
+    val commands = object : DayfoldCommandPort by base {
       override fun openHub(
         familyId: String,
         hubId: String,
@@ -117,19 +117,19 @@ class FeedAppHostTest {
     val store = createTestAppStore(debug = false)
     store.dispatch(CardsLoaded(listOf(typed())))
     var performed: CardAction? = null
-    val commands = StableDayfoldCommands(DayfoldCommands.navigationOnly(store))
+    val commands = DayfoldCommands.navigationOnly(store)
     val platformActions = StablePlatformActions.noOp(onPerform = { performed = it })
     lateinit var selectorStore: SelectorStore<AppState>
     setContent { selectorStore = rememberSelectorStore(store) }
     waitForIdle()
 
     // OpenDetail → in-app nav (store), NOT the platform layer
-    routeCardAction(selectorStore, commands, platformActions, CardAction.OpenDetail("f"))
+    routeCardAction(selectorStore, commands, platformActions, null, false, CardAction.OpenDetail("f"))
     assertTrue(currentDetailCard(store.state)?.id == "f")
     assertTrue(performed == null)
 
     // every other CardAction → the shell's PlatformActions, NOT the store
-    routeCardAction(selectorStore, commands, platformActions, CardAction.Call("+15550142"))
+    routeCardAction(selectorStore, commands, platformActions, null, false, CardAction.Call("+15550142"))
     assertTrue(performed is CardAction.Call)
     assertTrue(store.state.navigation.detailStack == listOf("f")) // unchanged by the handoff
   }

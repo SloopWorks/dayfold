@@ -32,6 +32,9 @@ at all — it's a plain Gradle/JVM module (`./gradlew test`); see
   bound subtree, and use `store.selectorState { ... }` / `store.fieldState(...)`.
   Do not escape back to the raw store with `StableStore.value`, and use the
   keyed selector overload for projections that capture changing Compose values.
+  Compose hosts pass the method-only `DayfoldCommandPort`; do not recreate a
+  forwarding stable-command wrapper. Its stability promise is configured in
+  `apps/ui/compose-stability.conf` and guarded by `RenderIsolationTest`.
   The compose artifact brings granular bindings transitively; keep the explicit
   granular dependency only where non-Compose granular APIs are used.
 - **`rk` CLI `1.0.0-alpha02`** (NOW PUBLISHED — Homebrew `reduxkotlin/tap/rk`):
