@@ -173,7 +173,17 @@ DRY-ness, not a trade this pass should make silently. **`apps/api` dedup queue
 spot-checked `ownerGate` (7×, confirmed) and the validation-error shape (68×
 via grep, matches the ~70 estimate) directly in `apps/api/src/app.ts`; same
 call as all 11 prior passes (live auth-gate code, zero compile/test capability
-in this sandbox).
+in this sandbox). **The verify-by-PR-CI bet on the composite action paid
+off immediately:** the first push (`8ad5db7`, PR #350) failed the
+`firebase-emulator` job — "Can't find 'action.yml' ... Did you forget to run
+actions/checkout" — because a local action (`uses: ./path`) can't be
+resolved until the repo containing it is already checked out in that job;
+the composite action's own internal `checkout` step ran too late to help its
+caller. Fixed (`addbdbe`) by moving `checkout` back into each job and having
+the composite action own only `setup-java`; re-verified job-by-job on the
+second run (all 7 `ci.yml` jobs, incl. `firebase-emulator`, completed clean).
+Left as a live example of why this queue insists on real verification before
+calling anything "safe," even changes judged safe going in.
 
 ## Design-first gate (ADR 0008) — status
 
