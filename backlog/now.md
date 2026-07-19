@@ -28,7 +28,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   (capability-blocked: 4k-in/256-out, no JSON schema, no tools, foreground-only,
   per-device output variance breaks the shared-briefing wedge). First check
   ~2026-10. → `research/2026-07-13-on-device-llm-assessment.md`.
-- **Next P0 viability review due 2026-07-18** (or +10 iterations).
+- **P0 viability review is OVERDUE.** Was due 2026-07-18 (or +10 loop
+  iterations); today is 2026-07-19 and it has not run — per
+  `planning/workstreams.md`'s own standing-track policy ("Overdue review
+  blocks all other loop work"), it should be the next loop iteration's
+  selection. **Found 2026-07-19:** the planning loop itself has logged
+  exactly one iteration since bootstrap (`processes/loop-journal.md`
+  Iteration 0, 2026-06-18) — all work since has been operator-directed
+  build-loop iterations plus docs-only repo-maintenance passes (this series),
+  neither of which is a planning-loop iteration. CLAUDE.md's "Current stage"
+  and README.md's status banner both describe the planning loop as an
+  ongoing process, which is accurate as a description of how strategy work
+  *is meant to* happen, but no iteration has actually executed past
+  bootstrap — flagged to the operator (`backlog/operator-inbox.md` INB-33)
+  rather than agent-run, since prioritizing/resuming the loop is a
+  direction call, not a docs fix.
 
 ## Current state (as of 2026-07-10)
 

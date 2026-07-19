@@ -16,6 +16,28 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-33 · 2026-07-19 · med · open — planning loop hasn't iterated since
+  bootstrap; P0 viability review is now overdue.** Found during the 13th
+  repo-maintenance pass. `processes/loop-journal.md` has exactly one entry
+  (Iteration 0, 2026-06-18, the bootstrap run) — zero planning-loop
+  iterations since. `planning/workstreams.md`'s P0 Viability & feasibility
+  review standing track states it was due 2026-07-18 "or +10 iterations,"
+  and that "overdue review blocks all other loop work"; today is 2026-07-19,
+  so by the board's own policy it's overdue and should be the very next
+  loop selection. This isn't a red flag on the work itself — the 12 (now
+  13) repo-maintenance passes plus operator-directed build-loop iterations
+  have kept the codebase and docs in good shape — but neither of those is a
+  *planning*-loop iteration (strategy/GTM/risk/spec deepening over the
+  waterfall board), so the board hasn't moved and the confidence-bar/
+  kill-switch register hasn't been re-scored since validation round 1
+  (2026-06-18). **Proposed default: next session run "run a loop iteration"**
+  (per `processes/planning-loop.md`) to execute the overdue P0 review — no
+  content decision implied, this just asks whether resuming the loop is the
+  right next priority vs. continuing build-first/maintenance work, which is
+  a direction call for the operator, not something a docs-audit pass should
+  decide unilaterally. Context: `backlog/now.md` time-sensitive section
+  (updated this pass to reflect overdue status).
+
 - **INB-32 · 2026-07-13 · low · open — flip ADR 0054/0055/0056/0057 status text from "Proposed" to "Accepted"?**
   Found during a repo-maintenance pass (code-dedup/docs/CI/values audit): ADR 0054 (SWIP bug
   reporter), 0055 (SWIP analytics), 0056 (SloopLogging), and 0057 (SWIP debug inspector) are all
