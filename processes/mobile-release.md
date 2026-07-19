@@ -85,10 +85,12 @@ Restrict who can push `android-*` tags (operator), like `cli-v*`.
 
 ## iOS (not yet — G8)
 
-There is no Xcode/Swift host app yet (only the KMP framework compiles), so there is no iOS
-pipeline. When the host exists: TestFlight-internal is the iOS "alpha" (no merge-time
-auto-publish — Apple processing/review latency); fastlane `match` (signing) + `pilot`
-(TestFlight) / `deliver` (App Store) authenticated by an **App Store Connect API key**
-(`.p8` + issuer/key ids), on a **macOS runner** (~10× the minute cost). Tags drive it:
-`android-beta-v*`-equivalent → TestFlight, final tag → App Store submit (Apple review +
-operator submit). Tracked as backlog tasks.
+The Xcode/Swift host (`apps/iosApp`, SwiftUI/xcodegen) has existed and been sim-verified
+since 2026-07-01 — it is not the gap. What's missing is the **release pipeline**:
+TestFlight-internal as the iOS "alpha" (no merge-time auto-publish — Apple processing/
+review latency); fastlane `match` (signing) + `pilot` (TestFlight) / `deliver` (App
+Store) authenticated by an **App Store Connect API key** (`.p8` + issuer/key ids), on a
+**macOS runner** (~10× the minute cost). Tags would drive it: `android-beta-v*`-equivalent
+→ TestFlight, final tag → App Store submit (Apple review + operator submit). Also blocked
+on the operator's Mac + an Apple Developer account ($99/yr spend). Tracked as backlog
+tasks (`TASK-ios-pipeline`, `backlog/next.md`).

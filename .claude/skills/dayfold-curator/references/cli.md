@@ -61,6 +61,16 @@ in-place re-scope; a 403 from insufficient scope means the operator must
 `dayfold logout` and `dayfold login` again with broader access approved on
 the phone, not something the skill can work around.
 
+**`content:delete` is a fourth, separate scope — not implied by `content:write`.**
+It gates only `dayfold delete --block` (block delete requires this exact global
+scope). Card delete uses `content:write`; hub delete uses `hub:<id>:write` —
+those two are covered by the scopes above. **No per-hub login can grant
+`content:delete`** — per-hub device grants only ever mint `hub:<id>:read`/
+`hub:<id>:write` pairs; only a full, unscoped device approval includes
+`content:delete` by default. So if `dayfold delete --block` 403s, re-logging in
+with "broader access" scoped to a specific hub will **not** fix it — the operator
+must approve a blanket (not per-hub) login on the phone.
+
 **Per-hub role (ADR 0053) — a second, independent 403 source.** Having the
 right `hub:<id>:write` *scope* is not by itself enough to push a **section**
 or **block** into a hub the signed-in identity didn't create: the server also
@@ -155,6 +165,8 @@ dayfold rm <id>                # alias for delete
   will be removed.
 - No section delete route (MVP); to drop a stray section, delete its hub and
   re-push the tree.
+- `--block` needs the `content:delete` scope (see Scope above) — a per-hub-scoped
+  credential's 403 here can't be fixed by re-logging in scoped to that hub again.
 
 ## Notes
 

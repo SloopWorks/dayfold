@@ -52,7 +52,7 @@ Kotlin, redux-kotlin pins — see that file for exact versions) + the cheap feed
 snapshot PNGs, devtools). It's Compose/KMP-heavy — skip it for `apps/cli`-only
 work (a plain standalone Gradle/JVM module, no special gotchas: `cd apps/cli
 && ./gradlew test`; packaging/release is `processes/cli-release.md`) or
-`apps/api`-only work (that file's own `## API` section is ~20 lines — jump
+`apps/api`-only work (that file's own `## API` section is ~60 lines — jump
 straight there). The M0 prototype is **built + live** (Vercel+Neon; Android
 renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 
