@@ -195,9 +195,11 @@ pixel↔composable inspector.
   vetted keep-rules — redux-kotlin/Firebase/Compose/kotlinx-serialization/
   ktor; currently `isMinifyEnabled=false`); **TASK-mobile-sdk-firstrun** (G9,
   validate the GitHub-runner Android-SDK setup on the first real CI run —
-  small, do at first run); **TASK-ios-pipeline** (G8, **BLOCKED** on building
-  the Xcode/Swift host app first — needs the operator's Mac + an Apple
-  Developer account, $99/yr spend).
+  small, do at first run); **TASK-ios-pipeline** (G8 — the Xcode/Swift host app
+  itself already exists and is sim-verified (`apps/iosApp`, since 2026-07-01);
+  what's **BLOCKED** is the release *pipeline* (fastlane `match`+`pilot` →
+  TestFlight) — needs the operator's Mac + an Apple Developer account, $99/yr
+  spend. `processes/mobile-release.md` §iOS.).
 
 ## Believed-shipped, pending one verification pass (not build-verified this sandbox — no Gradle registry egress)
 
@@ -220,44 +222,55 @@ in `next-history.md`).
   its own `apps/iosApp` module, meeting the task's stated DoD; not
   re-verified against a live `./gradlew build` in this pass.
 
-## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16, re-verified 2026-07-17)
+## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16,
+re-verified 2026-07-17, applied 2026-07-20)
 
 Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify passes.
-**Still open — needs a build-capable toolchain to verify; counts below are as of
-2026-07-17, re-verify against current `app.ts` line numbers before extracting:**
 
-- **`apps/api`** — auth-route boilerplate (`bearer(c)` + lazy `verifyAccess` +
-  the revoked-credential check) is still repeated **11×** (unchanged count,
-  `app.ts` untouched since 2026-07-15) — `app.ts:211,223,241,259,303,324,340,362,385,
-  914,1043`. **2026-07-17 re-check:** all 11 sites are byte-identical prologues
-  (only the destructured field varies) — a dedicated pass assessed this as
-  mechanically safe to extract into one `requireCred(c)` helper by careful
-  diff-read alone. **Still deferred, deliberately**: this is live-production
-  auth code with zero ability to compile or run the test suite in this sandbox
-  (`npx tsc --noEmit` fails even locally — missing `@types/node`, `./gradlew`
-  can't tunnel to `services.gradle.org`), and an unverified auth refactor is
-  the wrong place to spend that risk. Land it in a session with real
-  `npm test`/`tsc` access.
-- **`apps/api`** — "fetch hub, check visible, else 404" is still **8×**: the 3
-  original GETs (`/hubs/:id`, `/hubs/:id/tree`, `/hubs/:id/audience`), the hub
-  PUT, participants PUT/DELETE, the visibility PUT, and `DELETE
-  /families/:fid/blocks/:id` (`app.ts:568,581,597,624,643,662,708,863`).
-  **2026-07-17 re-check:** 7 of the 8 (all but line 708, the hub PUT) are
-  textually identical and safe to extract into a `resolveVisibleHub(fid, id,
-  caller)` helper by inspection; line 708 reuses its `allow`/`permitted`
-  closure for more state later in the same handler and should NOT be folded
-  into the same helper without a build to catch a subtle capture miss. Same
-  no-toolchain deferral as above. `app.ts` itself is now **1275 lines** / 48+
-  inline route handlers — the route-splitting item is more overdue, not less.
-- **`apps/api`** (new, 2026-07-17) — `ownerGate` boilerplate (`const g = await
-  ownerGate(c, fid); if ("status" in g) return c.body(null, g.status);`)
-  repeated **7×**, verbatim: `app.ts:951,1003,1015,1082,1105,1133,1141`. Same
-  profile as the auth-boilerplate item above (trivial, no branching variation)
-  — safe to fold into the same extraction pass. Also new: `hubWriteGate`'s
-  3-line `invisible`/`denied`/`absent` → 404/403/409 status mapping is
-  duplicated verbatim at `app.ts:762-764` and `797-799` — a 1-line helper
-  candidate, lowest risk of anything in this list. Both deferred with the rest
-  pending a build-capable session.
+**2026-07-20 update — the auth-boilerplate and hub-visibility items below are APPLIED,
+not just assessed.** This session had PR+CI access (unlike prior passes, which only had
+a sandbox with no npm/Gradle registry egress) — GitHub Actions CI runs `npm test`/`tsc`
+for real, so the "needs a build-capable session" blocker that deferred these 12 times is
+closed by verifying via the PR's own CI run instead of locally. See PR for the actual
+diff; this entry records what shipped and one correction to the prior counts.
+
+- **`apps/api` auth-route boilerplate — APPLIED as `requireCred(c)`.** Reading the
+  source directly (not just the queue's prior count) found the "11× byte-identical"
+  claim was slightly overstated: only **7 of the 11** sites
+  (`app.ts` `/auth/me` GET/PATCH, `/auth/me/export`, `/auth/me/credentials` GET/DELETE,
+  `/auth/me` DELETE, `/device/pending`) share the exact bearer→verifyAccess→
+  credential-exists-check shape and were folded into `requireCred(c)`. The other 4
+  (`/auth/signout` — cid only, no exists-check; `/auth/whoami` — folds the exists-check
+  into its own `family_scope` query; `POST /families` and `/invites:redeem` — sub only,
+  no cid/exists-check) are genuinely different shapes and were correctly left alone.
+- **`apps/api` hub-visibility gate — APPLIED as `resolveVisibleHub(fid, hubId, caller)`.**
+  All 7 of the previously-identified safe sites (`GET /hubs/:id`, `GET .../tree`,
+  `GET .../audience`, participants PUT/DELETE, visibility PUT, `DELETE
+  /families/:fid/blocks/:id`) now use the helper. The hub PUT route (the 8th site) was
+  deliberately left untouched, per the prior assessment — it interleaves the same
+  fetch+visibility check with default-from-existing logic and reuses the `allow`/
+  `permitted` closure for more state afterward.
+- **`apps/api` `hubWriteGate` mapping — APPLIED as `hubWriteGateResponse(c, gate,
+  missingDetail)`.** Both sites (section PUT, block PUT) now call it; `missingDetail`
+  stays a parameter since the two sites' 409 messages differ ("parent hub" vs "parent
+  section missing or deleted").
+- **`apps/api` `ownerGate` boilerplate (7×) — ASSESSED, NOT further extracted.**
+  `ownerGate` already IS the extraction (added before this queue existed); the residual
+  `const g = await ownerGate(c, fid); if ("status" in g) return c.body(null, g.status);`
+  two-liner is the same idiom `authorizeTenant` uses at every other route in the file
+  (also ~2 lines, also not flagged as duplication) — folding it further would need a
+  route-wrapper/middleware restructure, a bigger and riskier change for a 2-line save.
+  Leaving as-is; remove this bullet if a future pass agrees, or make the case for the
+  wrapper if someone still wants it.
+- **`apps/api` misplaced test — APPLIED.** `src/generated/content.timeline.test.ts`
+  (hand-written, sitting inside the codegen-output `generated/` dir) moved to
+  `src/content.timeline.test.ts`; import path updated. Confirmed the codegen script
+  (`packages/schema/codegen.mjs`) only writes specific files into `generated/`, never
+  clears the directory — so this wasn't at risk of the *current* generator, but was
+  still a latent trap for a future `rm -rf generated && regen` cleanup, per the
+  original finding.
+- **`apps/cli`** — the `postStatus`/`putStatus`/`getStatus`/`deleteStatus` /
+  `authedPut` / device-creds-or-legacy-env `Triple` items below (next bullet) — APPLIED.
 - **`apps/api`** — credential-minting (`INSERT INTO credentials` + `grantScopes`
   with the same 3 default scopes) is near-duplicated across `/auth/dev-token`,
   `auth/identity.ts:mintCredentialFor`, `auth/device.ts:redeem`. Lower priority —
@@ -294,21 +307,16 @@ Not urgent (CI is green, nothing broken) — surfaced by repo-wide simplify pass
   `content-model.md` and pointing `templates/README.md` there), checklist
   id-stamping (repeated near-verbatim in `cli.md` + `content-model.md` + the
   `templates/README.md` table note).
-- **`apps/cli`** (2026-07-15 audit, re-verified 2026-07-17 against `Main.kt`
-  post-PR-#347 — Help.kt's routing shim shifted these ~4 lines but didn't
-  resolve any of them): `Main.kt:27-66`: `postStatus`/`putStatus`/`getStatus`/
-  `deleteStatus` are four near-identical ~8-line functions differing only by
-  HTTP method/body; `Main.kt:284-289`: `push`'s inline PUT call re-implements
-  the same "retry once on 401" pattern `authedGet`/`authedDelete` already share
-  (no `authedPut` exists, so the retry logic now lives in 3 places) —
-  extracting `authedPut` and merging the four `*Status` helpers into one
-  method-parameterized function are both mechanical Kotlin changes assessed as
-  safe-to-hand-verify-by-diff-read; `Main.kt:201-203` vs `229-231`: the
-  device-creds-or-legacy-env `Triple` resolution is copy-pasted between `pull`
-  and `delete` (2 sites, minor, also safe-by-inspection). Same no-build-toolchain
-  caveat as the `apps/api` items above (confirmed 2026-07-17: `./gradlew
-  --version` still can't tunnel through the proxy) — assessed as mechanically
-  safe but unverified, needs a real Gradle build to land safely.
+- **`apps/cli`** (2026-07-15 audit, re-verified 2026-07-17, APPLIED 2026-07-20)
+  — `postStatus`/`putStatus`/`getStatus`/`deleteStatus` collapsed into one
+  `httpStatus(method, url, token, body?)` + four one-line wrappers (call sites
+  unchanged); `authedPut` extracted, mirroring `authedGet`/`authedDelete`, and
+  `push`'s inline 401-retry replaced with a call to it; the device-creds-or-
+  legacy-env `Triple` resolution in `pull`/`delete` replaced with a shared
+  `resolveAuth(creds)` (`push` keeps its own two-branch shape — its else-branch
+  also re-resolves a `secret` var the shared helper doesn't need). Verified via
+  this PR's own CI run (real Gradle/JVM), not local build — this sandbox still
+  has no Gradle registry egress.
 - **`apps/api`** — the ad-hoc validation-error-shape footprint is broader than
   every prior count: **2026-07-17 correction — ~70 sites, not ~23.** The
   2026-07-16 count (~23) only tallied the validation/id-error literal shapes;

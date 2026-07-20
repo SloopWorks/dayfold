@@ -7,7 +7,7 @@ an agent verify changes with *text + on-demand image reads* instead of
 device-screencap-every-iteration → faster, fewer tokens.
 
 **Scope / jump table** — most of this file is Compose/KMP (client+Android+iOS)
-detail. If you're only touching `apps/api`, read just `## API` below (~20
+detail. If you're only touching `apps/api`, read just `## API` below (~60
 lines) and stop. If you're only touching `apps/cli`, you don't need this file
 at all — it's a plain Gradle/JVM module (`./gradlew test`); see
 `processes/cli-release.md` for packaging.
