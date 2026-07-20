@@ -188,6 +188,39 @@ second run (all 7 `ci.yml` jobs, incl. `firebase-emulator`, completed clean).
 Left as a live example of why this queue insists on real verification before
 calling anything "safe," even changes judged safe going in.
 
+**2026-07-20 repo-maintenance pass (14th)** — the first to land `apps/api`/
+`apps/cli` **code** changes, not just docs. Confirmed CI green on `main` at
+`0df8f76` (13th pass) before starting. This session has PR+CI access (unlike
+the prior 13 passes' docs-only sandbox), which closes the "needs a build-
+capable session" blocker that had deferred `backlog/next.md`'s well-vetted
+`apps/api`/`apps/cli` dedup queue since 2026-07-01: verified via **this PR's
+own CI run** instead of a local `tsc`/`gradle`. Landed `requireCred`,
+`resolveVisibleHub`, and `hubWriteGateResponse` in `apps/api/src/app.ts`
+(re-reading the source directly found the prior "11× auth-boilerplate" count
+included 4 sites with a genuinely different shape — corrected to the 7 that
+are actually byte-identical); collapsed the CLI's four `*Status` HTTP
+functions into one + extracted `authedPut` + deduped a `Triple` auth-
+resolution snippet in `apps/cli/.../Main.kt`; moved a hand-written test out
+of the codegen `generated/` dir it was mistakenly sitting in. All three
+independently confirmed behavior-preserving by two audit agents (CLI `--help`
+/ skill-doc cross-check; README/architecture/CHANGELOG cross-check — no
+CHANGELOG entry needed, internal-only). Three doc-drift fixes from a fresh
+agentic-docs audit: a second stale copy of the "iOS host app is the blocker"
+claim the 13th pass had already corrected once (`backlog/next.md` +
+`processes/mobile-release.md`'s own "Known follow-ups" bullet); `processes/
+agent-dev-loop.md`'s `## API` line-count estimate (~20) never updated to
+match CLAUDE.md's 13th-pass correction (~60); `backlog/now.md` (this file)
+carrying a ~15-line duplicate of `operator-inbox.md`'s INB-33 narrative,
+against this file's own "kept short on purpose" convention — trimmed to a
+pointer. **CI hiccup + self-heal, live example #2:** the first push's CI
+failed the "api bundle is up to date" gate (`apps/api/api/index.js`, the
+committed Vercel function bundle, drifted from source after the `app.ts`
+edit) — exactly the scenario `.github/workflows/rebuild-api-bundle.yml` was
+built for (2026-07-07/09 incident, see `backlog/now-history.md`). Triggered
+it against this branch; it rebuilt and pushed the fix in ~15s. Values/privacy
+spot-check: no secrets, no new data collection, no behavior change in either
+code commit.
+
 ## Design-first gate (ADR 0008) — status
 
 The **feed-only** M0 slice was built **build-first** (operator-directed) from the
