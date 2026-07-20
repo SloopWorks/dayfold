@@ -217,9 +217,16 @@ failed the "api bundle is up to date" gate (`apps/api/api/index.js`, the
 committed Vercel function bundle, drifted from source after the `app.ts`
 edit) — exactly the scenario `.github/workflows/rebuild-api-bundle.yml` was
 built for (2026-07-07/09 incident, see `backlog/now-history.md`). Triggered
-it against this branch; it rebuilt and pushed the fix in ~15s. Values/privacy
-spot-check: no secrets, no new data collection, no behavior change in either
-code commit.
+it against this branch; it rebuilt and pushed the fix in ~15s. **One CI flake,
+confirmed not caused by this pass:** the "Client core + feed UI" job's golden-
+snapshot gate mismatched 15 screenshots (`account-*`, `detail-*`,
+`members-roster*`, `scan-denied*`) on the first run — none touched by this
+pass's `apps/api`/`apps/cli`-only diff, and the same job was green on `main`
+at `0df8f76` twelve hours earlier. `rerun_failed_jobs` came back 100% clean
+(golden-dashboard step skipped — zero mismatches) on retry, confirming
+environment nondeterminism rather than a real regression. **PR #352: all 7 CI
+jobs green** (final head `2228ca4`). Values/privacy spot-check: no secrets, no
+new data collection, no behavior change in either code commit.
 
 ## Design-first gate (ADR 0008) — status
 
