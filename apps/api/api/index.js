@@ -4992,8 +4992,28 @@ function problem(c, status, type, detail) {
     { "content-type": "application/problem+json" }
   );
 }
+function hubWriteGateResponse(c, gate, missingDetail) {
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: missingDetail }, 409);
+  return null;
+}
 function callerFrom(a) {
   return { userId: a.userId, legacy: a.legacy, cred: a.cred };
+}
+async function requireCred(c) {
+  const t = bearer(c);
+  if (!t) return { status: 401 };
+  let sub, cid;
+  try {
+    const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
+    ({ sub, cid } = await verifyAccess2(t));
+  } catch {
+    return { status: 401 };
+  }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return { status: 401 };
+  return { sub, cid };
 }
 function parseVisibilityAudience(raw) {
   if (raw.visibility !== void 0 && raw.visibility !== "family" && raw.visibility !== "restricted")
@@ -5015,6 +5035,13 @@ function devAuthAllowed(_c) {
   const env = process.env.VERCEL_ENV;
   if (env === "production" || env === "preview") return false;
   return true;
+}
+async function resolveVisibleHub(fid, hubId, caller) {
+  const hub = await getHub(fid, hubId);
+  if (!hub) return null;
+  const allow = await allowListFor(fid, hubId);
+  if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return null;
+  return { hub, allow };
 }
 async function ownerGate(c, fid) {
   const a = await authorizeTenant(c, fid);
@@ -5171,33 +5198,17 @@ var init_app = __esm({
       return c.json({ family_id, families: r.rows, grants });
     });
     app.get("/auth/me", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!cred || cred.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const u = (await q(`SELECT id, display_name, avatar_color, avatar_ref FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
       if (!u) return c.body(null, 401);
       return c.json({ user_id: u.id, display_name: u.display_name, avatar_color: u.avatar_color, avatar_ref: u.avatar_ref });
     });
     app.patch("/auth/me", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!cred || cred.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const parsed = await c.req.json().catch(() => null);
       const body = parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
       const hasName = typeof body?.display_name === "string";
@@ -5237,17 +5248,9 @@ var init_app = __esm({
       return c.json(r.rows[0]);
     });
     app.get("/auth/me/export", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!cred || cred.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const user = (await q(`SELECT id, display_name, created_at FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
       if (!user) return c.body(null, 401);
       const identities = (await q(`SELECT provider, email_verified, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at`, [sub])).rows;
@@ -5263,17 +5266,9 @@ var init_app = __esm({
       return c.json({ exported_at: (/* @__PURE__ */ new Date()).toISOString(), user, identities, memberships, credentials });
     });
     app.get("/auth/me/credentials", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!self || self.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub, cid } = rc;
       const rows = (await q(
         `SELECT id, kind, label, scopes, family_scope, last_used_at, last_used_ip, created_at
        FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST, created_at DESC`,
@@ -5282,17 +5277,9 @@ var init_app = __esm({
       return c.json({ credentials: rows.map((r) => ({ ...r, current: r.id === cid })) });
     });
     app.delete("/auth/me/credentials/:id", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!self || self.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const target = c.req.param("id");
       const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
       if (r.rowCount === 0) return c.body(null, 404);
@@ -5300,17 +5287,9 @@ var init_app = __esm({
       return c.body(null, 204);
     });
     app.delete("/auth/me", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!self || self.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const blocked = await q(
         `SELECT m.family_id, f.name FROM memberships m JOIN families f ON f.id=m.family_id
       WHERE m.user_id=$1 AND m.role='owner' AND m.status='active'
@@ -5469,23 +5448,17 @@ var init_app = __esm({
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
       if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
-      const hub = await getHub(fid, id3);
-      const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
-      return c.json(hub);
+      const resolved = await resolveVisibleHub(fid, id3, callerFrom(a));
+      if (!resolved) return c.body(null, 404);
+      return c.json(resolved.hub);
     });
     app.get("/families/:fid/hubs/:id/tree", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
       if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
-      const hub = await getHub(fid, id3);
-      const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      const resolved = await resolveVisibleHub(fid, id3, callerFrom(a));
+      if (!resolved) return c.body(null, 404);
       return c.json(await getHubTree(fid, id3));
     });
     app.get("/families/:fid/hubs/:id/audience", async (c) => {
@@ -5493,13 +5466,11 @@ var init_app = __esm({
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
       if (!await requireScope(a.cred.id, `hub:${id3}`, "read")) return c.body(null, 404);
-      const hub = await getHub(fid, id3);
       const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      const resolved = await resolveVisibleHub(fid, id3, caller);
+      if (!resolved) return c.body(null, 404);
       const canManage = await canManageHub(fid, id3, caller);
-      return c.json({ visibility: hub.visibility, members: await hubAudience(fid, id3), can_manage: canManage });
+      return c.json({ visibility: resolved.hub.visibility, members: await hubAudience(fid, id3), can_manage: canManage });
     });
     PARTICIPANT_ROLES = /* @__PURE__ */ new Set(["viewer", "contributor", "co_owner"]);
     HUB_VISIBILITIES = /* @__PURE__ */ new Set(["family", "restricted"]);
@@ -5507,11 +5478,10 @@ var init_app = __esm({
       const fid = c.req.param("fid"), id3 = c.req.param("id"), uid = c.req.param("uid");
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
-      const hub = await getHub(fid, id3);
       const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      const resolved = await resolveVisibleHub(fid, id3, caller);
+      if (!resolved) return c.body(null, 404);
+      const { hub } = resolved;
       if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
       if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
       if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
@@ -5525,11 +5495,10 @@ var init_app = __esm({
       const fid = c.req.param("fid"), id3 = c.req.param("id"), uid = c.req.param("uid");
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
-      const hub = await getHub(fid, id3);
       const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      const resolved = await resolveVisibleHub(fid, id3, caller);
+      if (!resolved) return c.body(null, 404);
+      const { hub } = resolved;
       if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
       if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
       if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
@@ -5539,11 +5508,9 @@ var init_app = __esm({
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
-      const hub = await getHub(fid, id3);
       const caller = callerFrom(a);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, id3);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      const resolved = await resolveVisibleHub(fid, id3, caller);
+      if (!resolved) return c.body(null, 404);
       if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
       if (!await canManageHub(fid, id3, caller)) return c.json({ type: "forbidden" }, 403);
       const raw = await c.req.json().catch(() => null);
@@ -5625,9 +5592,8 @@ var init_app = __esm({
       const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
       if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
       const gate = await hubWriteGate(fid, hubId, callerFrom(a));
-      if (gate === "invisible") return c.body(null, 404);
-      if (gate === "denied") return c.json({ type: "forbidden" }, 403);
-      if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
+      const gateResponse = hubWriteGateResponse(c, gate, "parent hub missing or deleted");
+      if (gateResponse) return gateResponse;
       const { hubId: _h, ...rest } = raw;
       const parsed = SectionSchema.safeParse({ ...rest, id: id3 });
       if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
@@ -5655,9 +5621,8 @@ var init_app = __esm({
       const hubId = await liveHubOfSection(fid, sectionId);
       if (!hubId) return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
       const gate = await hubWriteGate(fid, hubId, caller);
-      if (gate === "invisible") return c.body(null, 404);
-      if (gate === "denied") return c.json({ type: "forbidden" }, 403);
-      if (gate === "absent") return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+      const gateResponse = hubWriteGateResponse(c, gate, "parent section missing or deleted");
+      if (gateResponse) return gateResponse;
       const { sectionId: _s, ...rest } = raw;
       const body = stampProvenance(rest, a.cred.id);
       const parsed = BlockSchema.safeParse({ ...body, id: id3 });
@@ -5704,10 +5669,7 @@ var init_app = __esm({
       if (!blk) return c.body(null, 404);
       const hubId = await liveHubOfSection(fid, blk.section_id);
       if (!hubId) return c.body(null, 404);
-      const hub = await getHub(fid, hubId);
-      if (!hub) return c.body(null, 404);
-      const allow = await allowListFor(fid, hubId);
-      if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+      if (!await resolveVisibleHub(fid, hubId, caller)) return c.body(null, 404);
       if (!await requireScope(a.cred.id, "content", "delete")) return c.json({ type: "forbidden" }, 403);
       if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
       if (blk.deleted) {
@@ -5750,17 +5712,9 @@ var init_app = __esm({
       return c.json({ error: out.error }, 400);
     });
     app.get("/device/pending", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub, cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        ({ sub, cid } = await verifyAccess2(t));
-      } catch {
-        return c.body(null, 401);
-      }
-      const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-      if (!self || self.rowCount === 0) return c.body(null, 401);
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const { isLocked: isLocked2, recordFailure: recordFailure2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
       const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
       const lockKey = `account:approve:${sub}`;

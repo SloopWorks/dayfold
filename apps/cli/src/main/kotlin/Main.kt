@@ -23,47 +23,27 @@ private fun client() = HttpClient.newHttpClient()
 
 private val J = Json { ignoreUnknownKeys = true }
 
-/** POST; returns Pair<statusCode, body>. */
-private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> {
+/** Shared HTTP call; returns Pair<statusCode, body>. `postStatus`/`putStatus`/
+ *  `getStatus`/`deleteStatus` below were four near-identical ~8-line functions
+ *  differing only by method — collapsed by a repo-maintenance pass. */
+private fun httpStatus(method: String, url: String, token: String?, body: String? = null): Pair<Int, String> {
   val b = HttpRequest.newBuilder(URI.create(url))
-    .header("content-type", "application/json")
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .POST(HttpRequest.BodyPublishers.ofString(body))
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
+  if (token != null) b.header("authorization", "Bearer $token")
+  when (method) {
+    "GET" -> b.GET()
+    "DELETE" -> b.DELETE()
+    "POST" -> { b.header("content-type", "application/json"); b.POST(HttpRequest.BodyPublishers.ofString(body!!)) }
+    "PUT" -> { b.header("content-type", "application/json"); b.PUT(HttpRequest.BodyPublishers.ofString(body!!)) }
+    else -> error("unsupported method: $method")
+  }
+  val res = client().send(b.build(), HttpResponse.BodyHandlers.ofString())
   return Pair(res.statusCode(), res.body())
 }
 
-/** PUT; returns Pair<statusCode, body>. */
-private fun putStatus(url: String, body: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .header("content-type", "application/json")
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .PUT(HttpRequest.BodyPublishers.ofString(body))
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
-
-/** GET; returns Pair<statusCode, body>. */
-private fun getStatus(url: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .GET()
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
-
-/** DELETE; returns Pair<statusCode, body>. */
-private fun deleteStatus(url: String, token: String?): Pair<Int, String> {
-  val b = HttpRequest.newBuilder(URI.create(url))
-    .apply { if (token != null) header("authorization", "Bearer $token") }
-    .DELETE()
-    .build()
-  val res = client().send(b, HttpResponse.BodyHandlers.ofString())
-  return Pair(res.statusCode(), res.body())
-}
+private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("POST", url, token, body)
+private fun putStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("PUT", url, token, body)
+private fun getStatus(url: String, token: String?): Pair<Int, String> = httpStatus("GET", url, token)
+private fun deleteStatus(url: String, token: String?): Pair<Int, String> = httpStatus("DELETE", url, token)
 
 private fun signout(c: Creds) {
   postStatus("${c.api}/auth/signout", "{}", c.accessToken)
@@ -117,6 +97,20 @@ private fun authedDelete(
   return Pair(code, body)
 }
 
+/** Authed PUT with one transparent refresh on 401 (mirrors authedGet/authedDelete;
+ *  was inlined in `push` before this extraction). */
+private fun authedPut(
+  store: Credentials?, keychain: SecretStore?,
+  api: String, token: String, refreshable: Creds?, path: String, requestBody: String,
+): Pair<Int, String> {
+  var (code, body) = putStatus("$api$path", requestBody, token)
+  if (code == 401 && store != null && refreshable != null) {
+    val newAccess = refreshAccessToken(store, keychain)
+    val retry = putStatus("$api$path", requestBody, newAccess); code = retry.first; body = retry.second
+  }
+  return Pair(code, body)
+}
+
 /** The build version embedded by Gradle (generateVersionResource) — what a
  *  brew-installed user reports in a bug. Falls back to "unknown" if absent. */
 internal fun cliVersion(): String =
@@ -143,6 +137,13 @@ private fun requireAuthSetup(signedInDevice: Boolean) {
     System.err.println(NOT_SIGNED_IN_HINT); exitProcess(2)
   }
 }
+
+/** Resolve (api, familyId, token) from a device login, else the legacy env vars —
+ *  shared by `pull`/`delete` (was copy-pasted between the two; `push` keeps its own
+ *  two-branch shape since its else-branch also re-resolves `secret` for the legacy PUT). */
+private fun resolveAuth(creds: Creds?): Triple<String, String, String> =
+  if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
+  else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
 
 /** A human-readable message for a failed payload-file read — pure, so it's tested.
  *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
@@ -198,9 +199,7 @@ fun main(args: Array<String>) {
       val store = Credentials(); val keychain = resolveKeychain()
       val creds = loadCreds(store, keychain)
       requireAuthSetup(creds != null)
-      val (api, fam, tok) =
-        if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
-        else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
+      val (api, fam, tok) = resolveAuth(creds)
       val s = store.takeIf { creds != null }
       val hub = flagValue(args, "--hub")
       if (hub != null) {
@@ -226,9 +225,7 @@ fun main(args: Array<String>) {
       val store = Credentials(); val keychain = resolveKeychain()
       val creds = loadCreds(store, keychain)
       requireAuthSetup(creds != null)
-      val (api, fam, tok) =
-        if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
-        else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
+      val (api, fam, tok) = resolveAuth(creds)
       val (code, body) = authedDelete(store.takeIf { creds != null }, keychain, api, tok, creds, "/families/$fam/$resource/$id")
       if (code !in 200..299) { System.err.println("delete failed ($code): $body"); exitProcess(1) }
       println("deleted $resource/$id")
@@ -280,13 +277,7 @@ fun main(args: Array<String>) {
       val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
       requireAuthSetup(creds != null)
       if (creds != null) {
-        var access = creds.accessToken
-        var (code, body) = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
-        if (code == 401) {
-          access = refreshAccessToken(store, keychain)
-          val retry = putStatus("${creds.api}/families/${creds.familyId}/$resource/$id", stamped, access)
-          code = retry.first; body = retry.second
-        }
+        val (code, body) = authedPut(store, keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
         println("push $resource/$id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       } else {

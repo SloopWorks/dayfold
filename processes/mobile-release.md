@@ -79,9 +79,10 @@ Restrict who can push `android-*` tags (operator), like `cli-v*`.
 ## Known follow-ups (ADR 0034 gaps)
 
 - **G6** promote-the-tested-artifact instead of rebuild-from-tag · **G7** enable R8 with
-  vetted keep-rules · **G8** iOS (needs the Xcode/Swift host first → TestFlight via
-  fastlane `match`+`pilot`) · **G9** first-CI-run check of the runner SDK platform name
-  (`android-37` vs `android-37.0`).
+  vetted keep-rules · **G8** iOS release pipeline (the Xcode/Swift host itself already
+  exists, sim-verified — see below; G8 needs fastlane `match`+`pilot` → TestFlight) ·
+  **G9** first-CI-run check of the runner SDK platform name (`android-37` vs
+  `android-37.0`).
 
 ## iOS (not yet — G8)
 

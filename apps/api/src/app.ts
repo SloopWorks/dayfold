@@ -73,6 +73,17 @@ function problem(c: any, status: number, type: string, detail?: string) {
     status, { "content-type": "application/problem+json" });
 }
 
+// Maps a hubWriteGate() outcome (content/write-guard.ts) to its HTTP response — shared
+// by the section and block PUT routes below (was repeated inline 2x). Returns null for
+// "ok" (caller proceeds); `missingDetail` differs per caller (parent hub vs. parent
+// section), so it stays a parameter rather than folding into hubWriteGate itself.
+function hubWriteGateResponse(c: any, gate: "ok" | "absent" | "invisible" | "denied", missingDetail: string) {
+  if (gate === "invisible") return c.body(null, 404);
+  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
+  if (gate === "absent") return c.json({ type: "conflict", detail: missingDetail }, 409);
+  return null;
+}
+
 // [F8] body-size cap (cost-DoS floor for the <$50/mo cap). Raw 1 MB.
 app.use("*", bodyLimit({ maxSize: 1024 * 1024, onError: (c) => problem(c, 413, "payload-too-large") }));
 
@@ -81,6 +92,20 @@ app.use("*", bodyLimit({ maxSize: 1024 * 1024, onError: (c) => problem(c, 413, "
 // (structural typing) — one shape for every call site.
 function callerFrom(a: { userId: string | null; legacy: boolean; cred: any }) {
   return { userId: a.userId, legacy: a.legacy, cred: a.cred };
+}
+
+// Bearer → verified access token → live (non-revoked) credential, the prologue shared
+// by every /auth/me* + /device/pending route below (was repeated inline 7x, byte-
+// identical but for the destructured field — extracted by a repo-maintenance pass,
+// safe-by-inspection since each call site already relied on exactly this 401 shape).
+async function requireCred(c: any): Promise<{ sub: string; cid: string } | { status: number }> {
+  const t = bearer(c); if (!t) return { status: 401 };
+  let sub: string, cid: string;
+  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
+  catch { return { status: 401 }; }
+  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
+  if (!cred || cred.rowCount === 0) return { status: 401 };
+  return { sub, cid };
 }
 
 // ADR 0030: visibility + author-stamped audience are authoring fields OUTSIDE the
@@ -238,12 +263,8 @@ app.get("/auth/whoami", async (c) => {
 
 // Profile — the caller's own display name. (Memberships live in /auth/whoami.)
 app.get("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const u = (await q(`SELECT id, display_name, avatar_color, avatar_ref FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!u) return c.body(null, 401);
   return c.json({ user_id: u.id, display_name: u.display_name, avatar_color: u.avatar_color, avatar_ref: u.avatar_ref });
@@ -256,12 +277,8 @@ app.get("/auth/me", async (c) => {
 // avatar_color/avatar_ref clears it — distinct from omitting the key, hence the
 // `"x" in body` presence check rather than `body.x !== undefined`.
 app.patch("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const parsed = await c.req.json().catch(() => null);
   // A non-object (or null) parsed body — e.g. raw JSON `42` or `"x"` — must not
   // reach the `in` operator below (throws TypeError on primitives). Treat it as
@@ -300,12 +317,8 @@ app.patch("/auth/me", async (c) => {
 // Data export (guardrail #4 — honor data-export on request). The caller's own
 // data only; NO secrets (refresh hashes, token hashes) ever leave. Read-only.
 app.get("/auth/me/export", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const cred = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!cred || cred.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const user = (await q(`SELECT id, display_name, created_at FROM users WHERE id=$1 AND deleted_at IS NULL`, [sub])).rows[0];
   if (!user) return c.body(null, 401);
   const identities = (await q(`SELECT provider, email_verified, created_at FROM user_identities WHERE user_id=$1 ORDER BY created_at`, [sub])).rows;
@@ -321,12 +334,8 @@ app.get("/auth/me/export", async (c) => {
 // sessions + CLI grants) with last-used metadata; `current` flags this session.
 // No secrets. Read-only.
 app.get("/auth/me/credentials", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub, cid } = rc;
   const rows = (await q(
     `SELECT id, kind, label, scopes, family_scope, last_used_at, last_used_ip, created_at
        FROM credentials WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST, created_at DESC`, [sub])).rows;
@@ -337,12 +346,8 @@ app.get("/auth/me/credentials", async (c) => {
 // within one request — the per-request not-revoked check gates every token tied
 // to it. Revoking the current credential signs this device out on its next call.
 app.delete("/auth/me/credentials/:id", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const target = c.req.param("id");
   // own credentials only — never another user's (anti-IDOR)
   const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
@@ -359,12 +364,8 @@ app.delete("/auth/me/credentials/:id", async (c) => {
 // (every session/CLI dies on its next request via the not-revoked gate). A purge
 // job hard-deletes later. Apple revokeToken folds in at S2 (Apple not built yet).
 app.delete("/auth/me", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   // families where the caller is the SOLE active owner AND others still belong
   const blocked = await q(
     `SELECT m.family_id, f.name FROM memberships m JOIN families f ON f.id=m.family_id
@@ -546,6 +547,20 @@ const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const idError = (id: string) =>
   RESOURCE_ID.test(id) ? null : { type: "validation", issues: [{ path: ["id"], message: "id must match [A-Za-z0-9_-]{1,128}" }] };
 
+// "Fetch hub, check visible, else uniform 404" — the read-side visibility gate shared
+// by the hub GET/tree/audience/participants/visibility routes below (was repeated
+// inline 7x; extracted by a repo-maintenance pass). Deliberately NOT used by the hub
+// PUT route (line ~672 below), which interleaves this same fetch+visibility check
+// with default-from-existing logic and reuses its `allow`/`permitted` closure for more
+// state afterward — folding it in here would risk a subtle capture miss.
+async function resolveVisibleHub(fid: string, hubId: string, caller: { userId: string | null; legacy: boolean }) {
+  const hub = await hubs.getHub(fid, hubId);
+  if (!hub) return null;
+  const allow = await hubs.allowListFor(fid, hubId);
+  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return null;
+  return { hub, allow };
+}
+
 app.get("/families/:fid/hubs", async (c) => {
   const fid = c.req.param("fid");
   const a = await authorizeTenant(c, fid);
@@ -561,12 +576,9 @@ app.get("/families/:fid/hubs/:id", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404); // uniform 404 on scope-miss
-  const hub = await hubs.getHub(fid, id);
-  const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
-  return c.json(hub);
+  const resolved = await resolveVisibleHub(fid, id, callerFrom(a));
+  if (!resolved) return c.body(null, 404);
+  return c.json(resolved.hub);
 });
 
 app.get("/families/:fid/hubs/:id/tree", async (c) => {
@@ -574,11 +586,8 @@ app.get("/families/:fid/hubs/:id/tree", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
-  const hub = await hubs.getHub(fid, id);
-  const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  const resolved = await resolveVisibleHub(fid, id, callerFrom(a));
+  if (!resolved) return c.body(null, 404);
   return c.json(await hubs.getHubTree(fid, id));   // sections/blocks inherit hub visibility (gated above)
 });
 
@@ -590,15 +599,13 @@ app.get("/families/:fid/hubs/:id/audience", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "read"))) return c.body(null, 404);
-  const hub = await hubs.getHub(fid, id);
   const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  const resolved = await resolveVisibleHub(fid, id, caller);
+  if (!resolved) return c.body(null, 404);
   // can_manage (ADR 0053 DC2): lets the client show/hide participant-management
   // controls (add/set-role/remove, visibility toggle) without a second round-trip.
   const canManage = await hubs.canManageHub(fid, id, caller);
-  return c.json({ visibility: hub.visibility, members: await hubs.hubAudience(fid, id), can_manage: canManage });
+  return c.json({ visibility: resolved.hub.visibility, members: await hubs.hubAudience(fid, id), can_manage: canManage });
 });
 
 const PARTICIPANT_ROLES = new Set(["viewer", "contributor", "co_owner"]);
@@ -617,11 +624,10 @@ app.put("/families/:fid/hubs/:id/participants/:uid", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const hub = await hubs.getHub(fid, id);
   const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  const resolved = await resolveVisibleHub(fid, id, caller);
+  if (!resolved) return c.body(null, 404);
+  const { hub } = resolved;
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
@@ -636,11 +642,10 @@ app.delete("/families/:fid/hubs/:id/participants/:uid", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id"), uid = c.req.param("uid");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const hub = await hubs.getHub(fid, id);
   const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  const resolved = await resolveVisibleHub(fid, id, caller);
+  if (!resolved) return c.body(null, 404);
+  const { hub } = resolved;
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   if (uid === hub.created_by) return c.json({ type: "author-immutable" }, 400);
@@ -655,11 +660,9 @@ app.put("/families/:fid/hubs/:id/visibility", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const hub = await hubs.getHub(fid, id);
   const caller = callerFrom(a);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, id);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  const resolved = await resolveVisibleHub(fid, id, caller);
+  if (!resolved) return c.body(null, 404);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
   if (!(await hubs.canManageHub(fid, id, caller))) return c.json({ type: "forbidden" }, 403);
   const raw = await c.req.json().catch(() => null);
@@ -759,9 +762,8 @@ app.put("/families/:fid/sections/:id", async (c) => {
   // parent hub → 409 give-up (§6.2, matches the existing parent-must-exist contract);
   // 403 only visible-but-scope-denied.
   const gate = await hubWriteGate(fid, hubId, callerFrom(a));
-  if (gate === "invisible") return c.body(null, 404);
-  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
-  if (gate === "absent") return c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
+  const gateResponse = hubWriteGateResponse(c, gate, "parent hub missing or deleted");
+  if (gateResponse) return gateResponse;
   const { hubId: _h, ...rest } = raw;
   const parsed = SectionSchema.safeParse({ ...rest, id });
   if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
@@ -794,9 +796,8 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   // (`absent` can't happen here — liveHubOfSection only resolves a live hub — but map it
   // to the same parent-gone 409 defensively against a delete race.)
   const gate = await hubWriteGate(fid, hubId, caller);
-  if (gate === "invisible") return c.body(null, 404);
-  if (gate === "denied") return c.json({ type: "forbidden" }, 403);
-  if (gate === "absent") return c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
+  const gateResponse = hubWriteGateResponse(c, gate, "parent section missing or deleted");
+  if (gateResponse) return gateResponse;
   const { sectionId: _s, ...rest } = raw;
   const body = stampProvenance(rest, a.cred.id);     // un-forgeable provenance
   const parsed = BlockSchema.safeParse({ ...body, id });
@@ -857,10 +858,7 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   // regardless of scope. Resolve the parent hub via the (possibly tombstoned) section.
   const hubId = await hubs.liveHubOfSection(fid, blk.section_id);
   if (!hubId) return c.body(null, 404);                                // parent gone → unreachable
-  const hub = await hubs.getHub(fid, hubId);
-  if (!hub) return c.body(null, 404);
-  const allow = await hubs.allowListFor(fid, hubId);
-  if (!hubs.hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return c.body(null, 404);
+  if (!(await resolveVisibleHub(fid, hubId, caller))) return c.body(null, 404);
   // content:delete is its OWN scope (not implied by content:write).
   if (!(await requireScope(a.cred.id, "content", "delete"))) return c.json({ type: "forbidden" }, 403);
   // Author-gate: a member may delete only what they authored. Loop/CLI authoring (legacy
@@ -911,12 +909,8 @@ app.post("/device/token", async (c) => {
 // `account:approve:<sub>` lockout with approve (lookup+approve = one abuse surface),
 // uniform 404 on miss/expired, never leaks device_code/user_id/credential.
 app.get("/device/pending", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string, cid: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); ({ sub, cid } = await verifyAccess(t)); }
-  catch { return c.body(null, 401); }
-  const self = await q(`SELECT 1 FROM credentials WHERE id=$1 AND revoked_at IS NULL`, [cid]);
-  if (!self || self.rowCount === 0) return c.body(null, 401);
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const { isLocked, recordFailure } = await import("./auth/ratelimit.ts");
   const { audit } = await import("./auth/audit.ts");
   const lockKey = `account:approve:${sub}`;
