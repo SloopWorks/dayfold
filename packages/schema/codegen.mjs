@@ -54,12 +54,28 @@ console.log(`TS  codegen OK → ${tsPath} (${out.length} bytes, ${order.length} 
 // quicktype needs a root type; our schema is $defs-only, so build a wrapper
 // root that references every top-level entity, then generate kotlinx classes.
 import { execSync } from "node:child_process";
+
+// Strip `format` before handing the schema to quicktype. Newer quicktype
+// versions infer a native date/time type (e.g. java.time.OffsetDateTime) from
+// `format: "date-time"` — but java.time isn't available outside the JVM, which
+// breaks the KMP commonMain build (iOS/desktop), and it diverges from the TS/
+// zod emit above (format-agnostic already) and every existing Kotlin consumer,
+// which all treat these fields as plain ISO-8601 strings. Deep-clone so this
+// only affects the Kotlin emit, not the shared `defs` used above.
+function stripFormat(node) {
+  if (Array.isArray(node)) return node.map(stripFormat);
+  if (node && typeof node === "object") {
+    const { format, ...rest } = node;
+    return Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, stripFormat(v)]));
+  }
+  return node;
+}
 const topLevel = ["Hub", "Section", "Block", "BriefingCard", "Place", "SyncResponse"];
 const wrapper = {
   $schema: schema.$schema,
   type: "object",
   properties: Object.fromEntries(topLevel.map((n) => [n, { $ref: `#/$defs/${n}` }])),
-  $defs: defs,
+  $defs: stripFormat(defs),
 };
 const wrapPath = resolve(here, ".wrapper.schema.json");
 writeFileSync(wrapPath, JSON.stringify(wrapper));

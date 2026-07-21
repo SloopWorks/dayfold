@@ -471,7 +471,7 @@ app.get("/invite/:token", (c) => {
 
 app.put("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
@@ -482,15 +482,16 @@ app.put("/families/:fid/cards/:id", async (c) => {
     const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
     if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
   }
-  const raw = await c.req.json().catch(() => null);
-  if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+  const rb = await requireJsonObject(c);
+  if ("error" in rb) return rb.error;
+  const raw = rb.value;
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
   const { visibility, audience, rest } = va;
   let body: any = stripServerManaged(rest);          // mass-assignment: drop server fields
   body = stampProvenance(body, a.cred.id);           // un-forgeable provenance
   const parsed = BriefingCardSchema.safeParse({ ...body, id }); // path id wins
-  if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
   // CL-2: type↔payload cross-check (zod validates the two independently).
   const cross = crossValidateCard(parsed.data as any);
   if (cross.length) return c.json({ type: "validation", issues: cross }, 422);
@@ -529,7 +530,7 @@ app.get("/families/:fid/members", async (c) => {
 
 app.delete("/families/:fid/cards/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
@@ -546,6 +547,25 @@ app.delete("/families/:fid/cards/:id", async (c) => {
 const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const idError = (id: string) =>
   RESOURCE_ID.test(id) ? null : { type: "validation", issues: [{ path: ["id"], message: "id must match [A-Za-z0-9_-]{1,128}" }] };
+
+// idError → 422, else null (was repeated 7x; extracted by a repo-maintenance pass).
+function idErrorResponse(c: any, id: string) {
+  const e = idError(id);
+  return e ? c.json(e, 422) : null;
+}
+
+// Parse + type-check a JSON body, else a uniform 400 (was repeated 4x; extracted by a
+// repo-maintenance pass).
+async function requireJsonObject(c: any): Promise<{ value: any } | { error: Response }> {
+  const raw = await c.req.json().catch(() => null);
+  return raw && typeof raw === "object" ? { value: raw } : { error: c.json({ type: "bad-json" }, 400) };
+}
+
+// zod safeParse failure → 422 validation-issues body, else null (was repeated 4x;
+// extracted by a repo-maintenance pass).
+function validationIssuesResponse(c: any, parsed: { success: boolean; error?: any }) {
+  return parsed.success ? null : c.json({ type: "validation", issues: parsed.error.issues }, 422);
+}
 
 // "Fetch hub, check visible, else uniform 404" — the read-side visibility gate shared
 // by the hub GET/tree/audience/participants/visibility routes below (was repeated
@@ -674,19 +694,20 @@ app.put("/families/:fid/hubs/:id/visibility", async (c) => {
 
 app.put("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
-  const raw = await c.req.json().catch(() => null);
-  if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+  const rb = await requireJsonObject(c);
+  if ("error" in rb) return rb.error;
+  const raw = rb.value;
   // visibility + allow-list authoring (outside the strict hub schema).
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
   let { visibility, audience } = va;
   const { rest, visibilityProvided, audienceProvided } = va;
   const parsed = HubSchema.safeParse({ ...rest, id });
-  if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
   // ADR 0036: hardened image-URL + curated-icon + accent validation.
   const hubMediaIssues = validateHubMedia((parsed.data as any).media);
   if (hubMediaIssues.length) return c.json({ type: "validation", issues: hubMediaIssues }, 422);
@@ -742,7 +763,7 @@ app.delete("/families/:fid/hubs/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
   // validate BEFORE building the `hub:${id}` scope string — a ':' in the id could
   // otherwise ambiguate the grant check (same reason the hub PUT guards the id).
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, `hub:${id}`, "write"))) return c.json({ type: "forbidden" }, 403);
@@ -751,11 +772,12 @@ app.delete("/families/:fid/hubs/:id", async (c) => {
 
 app.put("/families/:fid/sections/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const raw = await c.req.json().catch(() => null);
-  if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+  const rb = await requireJsonObject(c);
+  if ("error" in rb) return rb.error;
+  const raw = rb.value;
   const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
   if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
   // Visibility-on-write (ADR 0038): restricted-invisible hub → 404 (no oracle); absent
@@ -766,7 +788,7 @@ app.put("/families/:fid/sections/:id", async (c) => {
   if (gateResponse) return gateResponse;
   const { hubId: _h, ...rest } = raw;
   const parsed = SectionSchema.safeParse({ ...rest, id });
-  if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
   // If-Match optimistic concurrency: stale base version → 412 (ADR 0038 §6.2).
   const ifMatch = c.req.header("if-match");
   if (ifMatch) {
@@ -779,11 +801,12 @@ app.put("/families/:fid/sections/:id", async (c) => {
 
 app.put("/families/:fid/blocks/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
-  const raw = await c.req.json().catch(() => null);
-  if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+  const rb = await requireJsonObject(c);
+  if ("error" in rb) return rb.error;
+  const raw = rb.value;
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
   const caller = callerFrom(a);
@@ -801,7 +824,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const { sectionId: _s, ...rest } = raw;
   const body = stampProvenance(rest, a.cred.id);     // un-forgeable provenance
   const parsed = BlockSchema.safeParse({ ...body, id });
-  if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+  { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
   // BlockSchema.payload is z.any() (codegen stub) — validate the payload here (ADR 0035;
   // gated to plaintext-M0: a ciphertext payload is opaque, ADR 0038 §6.2).
   const payloadIssues = blockPayloadIssues(parsed.data);
@@ -844,7 +867,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
 // §7). op_id idempotency makes a drained/retried delete safe (a re-delete is 204, not 404).
 app.delete("/families/:fid/blocks/:id", async (c) => {
   const fid = c.req.param("fid"), id = c.req.param("id");
-  { const e = idError(id); if (e) return c.json(e, 422); }
+  { const e = idErrorResponse(c, id); if (e) return e; }
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   const caller = callerFrom(a);

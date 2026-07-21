@@ -5036,6 +5036,17 @@ function devAuthAllowed(_c) {
   if (env === "production" || env === "preview") return false;
   return true;
 }
+function idErrorResponse(c, id3) {
+  const e = idError(id3);
+  return e ? c.json(e, 422) : null;
+}
+async function requireJsonObject(c) {
+  const raw = await c.req.json().catch(() => null);
+  return raw && typeof raw === "object" ? { value: raw } : { error: c.json({ type: "bad-json" }, 400) };
+}
+function validationIssuesResponse(c, parsed) {
+  return parsed.success ? null : c.json({ type: "validation", issues: parsed.error.issues }, 422);
+}
 async function resolveVisibleHub(fid, hubId, caller) {
   const hub = await getHub(fid, hubId);
   if (!hub) return null;
@@ -5374,8 +5385,8 @@ var init_app = __esm({
     app.put("/families/:fid/cards/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
@@ -5384,15 +5395,19 @@ var init_app = __esm({
         const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
         if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
       }
-      const raw = await c.req.json().catch(() => null);
-      if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+      const rb = await requireJsonObject(c);
+      if ("error" in rb) return rb.error;
+      const raw = rb.value;
       const va = parseVisibilityAudience(raw);
       if ("error" in va) return c.json(va.error, 422);
       const { visibility, audience, rest } = va;
       let body = stripServerManaged(rest);
       body = stampProvenance(body, a.cred.id);
       const parsed = BriefingCardSchema.safeParse({ ...body, id: id3 });
-      if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+      {
+        const ve = validationIssuesResponse(c, parsed);
+        if (ve) return ve;
+      }
       const cross = crossValidateCard(parsed.data);
       if (cross.length) return c.json({ type: "validation", issues: cross }, 422);
       const media = parsed.data.media;
@@ -5424,8 +5439,8 @@ var init_app = __esm({
     app.delete("/families/:fid/cards/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
@@ -5522,20 +5537,24 @@ var init_app = __esm({
     app.put("/families/:fid/hubs/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
       if (!await requireScope(a.cred.id, `hub:${id3}`, "write")) return c.json({ type: "forbidden" }, 403);
-      const raw = await c.req.json().catch(() => null);
-      if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+      const rb = await requireJsonObject(c);
+      if ("error" in rb) return rb.error;
+      const raw = rb.value;
       const va = parseVisibilityAudience(raw);
       if ("error" in va) return c.json(va.error, 422);
       let { visibility, audience } = va;
       const { rest, visibilityProvided, audienceProvided } = va;
       const parsed = HubSchema.safeParse({ ...rest, id: id3 });
-      if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+      {
+        const ve = validationIssuesResponse(c, parsed);
+        if (ve) return ve;
+      }
       const hubMediaIssues = validateHubMedia(parsed.data.media);
       if (hubMediaIssues.length) return c.json({ type: "validation", issues: hubMediaIssues }, 422);
       {
@@ -5571,8 +5590,8 @@ var init_app = __esm({
     app.delete("/families/:fid/hubs/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
@@ -5582,13 +5601,14 @@ var init_app = __esm({
     app.put("/families/:fid/sections/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
-      const raw = await c.req.json().catch(() => null);
-      if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+      const rb = await requireJsonObject(c);
+      if ("error" in rb) return rb.error;
+      const raw = rb.value;
       const hubId = typeof raw.hubId === "string" ? raw.hubId : null;
       if (!hubId) return c.json({ type: "validation", issues: [{ path: ["hubId"], message: "required" }] }, 422);
       const gate = await hubWriteGate(fid, hubId, callerFrom(a));
@@ -5596,7 +5616,10 @@ var init_app = __esm({
       if (gateResponse) return gateResponse;
       const { hubId: _h, ...rest } = raw;
       const parsed = SectionSchema.safeParse({ ...rest, id: id3 });
-      if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+      {
+        const ve = validationIssuesResponse(c, parsed);
+        if (ve) return ve;
+      }
       const ifMatch = c.req.header("if-match");
       if (ifMatch) {
         const cur = await q(`SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
@@ -5608,13 +5631,14 @@ var init_app = __esm({
     app.put("/families/:fid/blocks/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
-      const raw = await c.req.json().catch(() => null);
-      if (!raw || typeof raw !== "object") return c.json({ type: "bad-json" }, 400);
+      const rb = await requireJsonObject(c);
+      if ("error" in rb) return rb.error;
+      const raw = rb.value;
       const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
       if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
       const caller = callerFrom(a);
@@ -5626,7 +5650,10 @@ var init_app = __esm({
       const { sectionId: _s, ...rest } = raw;
       const body = stampProvenance(rest, a.cred.id);
       const parsed = BlockSchema.safeParse({ ...body, id: id3 });
-      if (!parsed.success) return c.json({ type: "validation", issues: parsed.error.issues }, 422);
+      {
+        const ve = validationIssuesResponse(c, parsed);
+        if (ve) return ve;
+      }
       const payloadIssues = blockPayloadIssues(parsed.data);
       if (payloadIssues.length) return c.json({ type: "validation", issues: payloadIssues }, 422);
       const blockMediaIssues = validateBlockPayloadMedia(parsed.data.type, parsed.data.payload);
@@ -5657,8 +5684,8 @@ var init_app = __esm({
     app.delete("/families/:fid/blocks/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
-        const e = idError(id3);
-        if (e) return c.json(e, 422);
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
       }
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
