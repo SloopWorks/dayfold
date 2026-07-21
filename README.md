@@ -27,8 +27,9 @@ detail:
 
 <img src="apps/ui/src/desktopTest/resources/snapshots/linux/feed-enriched-pair.png" width="200" alt="Now feed — today's cards plus a Later section"> <img src="apps/ui/src/desktopTest/resources/snapshots/linux/feed-enriched-pair-dark.png" width="200" alt="Now feed, dark mode"> <img src="apps/ui/src/desktopTest/resources/snapshots/linux/hub-detail-canonical.png" width="200" alt="Hub detail — dates, contacts, links, map, budget">
 
-These are CI-verified golden images (131 snapshots gate every PR, ADR 0019),
-so they stay accurate as the UI evolves — not hand-picked marketing shots.
+These are CI-verified golden images (the golden-snapshot suite gates every PR,
+ADR 0019), so they stay accurate as the UI evolves — not hand-picked marketing
+shots.
 Early on-device proof that the CLI → cloud DB → render loop works end-to-end
 on a real Pixel: [`specs/prototype/g1a-pixel10-cloud.png`](specs/prototype/g1a-pixel10-cloud.png).
 For the full design system and every screen, see the hi-fi mockups in

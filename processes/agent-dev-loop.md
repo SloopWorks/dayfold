@@ -312,9 +312,11 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:compileKotlinIosArm64 \
 - Targets: **iosArm64** (device) + **iosSimulatorArm64** (Apple-Silicon sim).
   **No iosX64** (intel sim) — redux-kotlin-granular alpha01 has no iosX64 publish.
 - `MainViewController()` (iosMain in `:ui`) = `ComposeUIViewController { FeedApp(store) }`,
-  the entry a Swift `@main` app embeds. **No Xcode project yet** — the runnable
-  iosApp shell (Swift host + signing + sim run) + iOS sync-config = operator-gated
-  / TASK-SYNC. Xcode 26.2 + Kotlin/Native 2.3.20 confirmed present on this Mac.
+  the entry a Swift `@main` app embeds. The Xcode/Swift host (`apps/iosApp`,
+  SwiftUI/xcodegen) exists and has been sim-verified since 2026-07-01 — what's
+  still gated is the *release pipeline* (`processes/mobile-release.md`'s "iOS
+  (not yet — G8)" section) plus iOS sync-config (TASK-SYNC). Xcode 26.2 +
+  Kotlin/Native 2.3.20 confirmed present on this Mac.
 
 ## Observe the redux loop (cheap, text-first)
 - **Action log → stdout/logcat** (the `[redux] <Action> → cards=… syncing=… error=…`
