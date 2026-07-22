@@ -11,16 +11,15 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **⚠ `main` was RED as of 2026-07-21** (head `d589193`, the 14th pass's own
-  merge commit — the break wasn't caused by that pass's diff; see the 15th
-  pass entry below for root cause: unpinned `quicktype` version drift). Fix
-  is in PR #353 (`claude/upbeat-fermat-e3htjo`) — confirm this PR's CI is
-  green and it's merged before trusting `main` again; update this bullet once
-  re-confirmed live. Was also red 2026-07-05→07-07; PR #291 added
-  `.github/workflows/rebuild-api-bundle.yml` (`workflow_dispatch`,
-  `contents: write`) as a standing self-heal tool for the next time the
-  committed API bundle drifts from source — see `backlog/now-history.md`
-  (2026-07-07/07-09 entries) for that incident + fix if you need it.
+- `main` was RED 2026-07-21 (head `d589193`, the 14th pass's own merge
+  commit — root cause: unpinned `quicktype` version drift, see 15th-pass
+  entry below); fixed by PR #353, merged, and **re-confirmed green** at head
+  `4aa645b` (CI run 29846190029, success) by the 16th pass. Was also red
+  2026-07-05→07-07; PR #291 added `.github/workflows/rebuild-api-bundle.yml`
+  (`workflow_dispatch`, `contents: write`) as a standing self-heal tool for
+  the next time the committed API bundle drifts from source — see
+  `backlog/now-history.md` (2026-07-07/07-09 entries) for that incident + fix
+  if you need it.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Quarterly:** re-check whether **Gemini Nano 4 has shipped structured output
@@ -120,75 +119,6 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-18 repo-maintenance pass** (scheduled — the 12th in this series;
-prior passes: `backlog/now-history.md`). Same no-npm/no-Gradle-registry-egress
-sandbox as every prior pass (re-confirmed: `npm ping` 403s, no `gradlew`
-present at the sandbox's expected path, `npx tsc --noEmit` in `apps/api`
-still fails on missing `@types/node`) — no logic changes to
-`apps/api`/`apps/cli`/`apps/client`. Confirmed **CI green** on `main` at head
-`53799cb` (#349, success) before starting; still green after this pass's push.
-Four parallel read-only audits covered agentic-doc duplication, CLI/skill-doc
-completeness vs. `Help.kt`/`apps/api` source, README/architecture/CHANGELOG
-accuracy, and code-dedup-queue soundness + a values/privacy spot-check on the
-last 48h of commits — **skill docs and CLI `--help` came back clean** (no gaps;
-the `cli.md` "defer to `dayfold help --json`" pattern from pass #11 is holding),
-as did the **values/privacy check** (no secrets, no new PII logging, no
-ADR-uncovered data collection, no dark patterns in the last 48h of commits).
-**Doc fixes applied:** `processes/deploy-m0.md` retitled/trimmed to
-`ARCHIVED` (its one-time Neon/Vercel setup finished 2026-06-19; it still ended
-with a "what I need from you to start" section asking the operator to create
-accounts that already exist — removed, section kept for its still-useful
-`.ts`-import bundling gotcha); `processes/agent-dev-loop.md`'s "Now available"
-section deleted (100% restated the Toolchain block two screens up, zero new
-info) and its Gradle-version restatement pointed at Toolchain instead;
-`processes/build-loop-prompt.md`'s commit-trailer template had a hardcoded
-`Claude Opus 4.8 (1M context)` model name (this session runs Sonnet 5) that
-would silently misattribute every commit and drift every model release —
-genericized to `Claude <noreply@anthropic.com>`; `processes/agent-routing.md`'s
-"Software build (post-spec)" row paraphrased an "8-phase workflow" that didn't
-match `build-loop-prompt.md`'s actual 6-step-per-task structure — replaced the
-paraphrase with a direct pointer (the row's own established pattern for every
-other entry). `docs/architecture.md`'s ADR 0058 status paragraph was stale
-against `backlog/now.md`'s own narrative — it said only "UI-notification and
-database-serialization" were built and listed the runtime/session
-coordinator + narrow Compose subscriptions as still-staged, when `now.md`
-already described those as implemented+verified after commits e562835/
-6e867f4/53799cb; corrected to name what's actually staged (per-row isolation,
-Task 15, PR 5/6) instead. Also added the 2026-07-11 per-hub scoped
-CLI/device-token grant (missing from the Auth section's device-login bullet)
-and bumped the doc's self-declared "as of" date. **CHANGELOG.md: no entry
-added for e562835/6e867f4/53799cb** (client-runtime reducer-decomposition/
-state-slice/Compose-boundary refactors) despite one audit flagging it as a
-gap — reversed that call on review: all three are internal-architecture-only
-(no product/API/behavior change), which is exactly what this file's own header
-and CLAUDE.md's end-of-session routine say does NOT need an entry; the
-existing 2026-07-15 "fixed two production deadlocks" entry already covers the
-one user-visible fact from this same ADR 0058 thread. **New safe dedup found
-and applied (the first applied dedup in 12 passes):** `.github/workflows/ci.yml`
-repeated an identical `actions/checkout@v4` + `actions/setup-java@v4`
-(temurin 17) pair across 5 jobs — pure YAML with no compiler/type-checker
-dependency, unlike the `apps/api` findings, so verifiable by the PR's own CI
-run rather than blocked on this sandbox's missing toolchain. Extracted to
-`.github/actions/setup-jvm/`; `release-*.yml`'s deliberately-SHA-pinned inline
-checkout/setup-java (see that file's own comment) was left untouched — folding
-it into the same composite would trade its stated auditability rationale for
-DRY-ness, not a trade this pass should make silently. **`apps/api` dedup queue
-(`backlog/next.md`): reasoning re-confirmed sound, still not applied** —
-spot-checked `ownerGate` (7×, confirmed) and the validation-error shape (68×
-via grep, matches the ~70 estimate) directly in `apps/api/src/app.ts`; same
-call as all 11 prior passes (live auth-gate code, zero compile/test capability
-in this sandbox). **The verify-by-PR-CI bet on the composite action paid
-off immediately:** the first push (`8ad5db7`, PR #350) failed the
-`firebase-emulator` job — "Can't find 'action.yml' ... Did you forget to run
-actions/checkout" — because a local action (`uses: ./path`) can't be
-resolved until the repo containing it is already checked out in that job;
-the composite action's own internal `checkout` step ran too late to help its
-caller. Fixed (`addbdbe`) by moving `checkout` back into each job and having
-the composite action own only `setup-java`; re-verified job-by-job on the
-second run (all 7 `ci.yml` jobs, incl. `firebase-emulator`, completed clean).
-Left as a live example of why this queue insists on real verification before
-calling anything "safe," even changes judged safe going in.
-
 **2026-07-21 repo-maintenance pass (15th)** — scheduled, broadest scope yet
 (simplify/dedup, agentic-doc + CLI/skill-doc audits, README/architecture/
 CHANGELOG accuracy, CI health, values/privacy). Unlike every prior pass,
@@ -233,6 +163,44 @@ figure had drifted (127 linux baseline PNGs vs. 130 `@Test` methods — the
 two don't even agree with each other) — replaced the magic number with a
 description so it can't silently go stale again. No CHANGELOG entry needed
 (all internal-only). CLI/skill-doc and values/privacy audits found nothing.
+
+**2026-07-22 repo-maintenance pass (16th)** — scheduled, same six-point scope
+(simplify/dedup, agentic-doc context-efficiency, CLI/skill-doc completeness,
+README/architecture/CHANGELOG accuracy, CI health, values/privacy). **`main`
+was already green** at head `4aa645b` (the 15th pass's own merge, CI run
+29846190029, success) — no break to fix this time, and zero commits had
+landed since that pass (this one started <24h later). Four parallel
+independent audits (not just re-reading the 15th pass's self-report) found
+three small, real, previously-missed gaps and otherwise confirmed passes
+10-15 had already done the real work:
+1. **`apps/cli/.../Help.kt` was missing the `content:delete` scope** —
+   `login`/`whoami`/`delete --help` output only ever mentioned
+   `content:read`/`content:write`/`hub:<id>:read`/`hub:<id>:write`, never the
+   fourth scope that specifically gates `delete --block` and requires a
+   blanket (not per-hub) login. This fact was already correct in the skill's
+   `references/cli.md` (added by the 13th pass) but never carried into the
+   newer `Help.kt` registry (added by PR #347, same day) — an agent that
+   followed `cli.md`'s own advice to "prefer `--help`/`--json` over
+   guessing" would hit an undiagnosed 403. Added the same fact to all three
+   commands' `details`.
+2. **`docs/architecture.md`'s Deploy section only documented 4 of 7**
+   `.github/workflows/*.yml` files — missing `secret-scan.yml` (gitleaks,
+   runs every PR), `migrate.yml` (manual prod-migration runner), and
+   `rebuild-api-bundle.yml` (the bundle-drift self-heal tool, which has
+   actually fired three times per this file's own history). Added a bullet
+   for each.
+3. **`backlog/now.md` itself had re-grown past its own stated pruning
+   policy** — it was stacking two full repo-maintenance-pass paragraphs (12th
+   + 15th) under one "Current state" header instead of moving the superseded
+   one to `now-history.md`, the same self-inflicted bloat a July pass fixed
+   once already. Moved the 2026-07-18 (12th pass) paragraph to
+   `now-history.md` verbatim; this file drops from 302 to ~250 lines.
+No CHANGELOG entry (all three fixes are internal/doc-accuracy, not
+product/API/feature changes). Values/privacy spot-check on the 48h window
+(just the 15th pass's own two commits) independently re-confirmed clean: no
+secrets, no new PII, no ADR-uncovered data collection, no dark patterns.
+README, CHANGELOG, CLAUDE.md, AGENTS.md, and `processes/*.md` all
+independently re-audited clean — no action needed.
 
 ## Design-first gate (ADR 0008) — status
 

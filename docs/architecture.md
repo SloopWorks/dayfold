@@ -240,6 +240,16 @@ debug inspector panel), `adr/0058` (client runtime and effect ownership),
   service container, client desktop tests + Compose snapshot tests, codegen +
   bundle drift guards, expect/actual parity check for KMP targets. Runs on
   every push to `main` and on pull requests.
+- **Secret scan** (`.github/workflows/secret-scan.yml`): gitleaks, runs on
+  every pull request (ADR 0032).
+- **DB migrations** (`.github/workflows/migrate.yml`): manual
+  `workflow_dispatch` runner that applies pending migrations against prod
+  Neon, serialized via a `migrate-production` concurrency group (ADR 0033).
+- **API bundle self-heal** (`.github/workflows/rebuild-api-bundle.yml`):
+  manual `workflow_dispatch` that rebuilds the committed Vercel bundle
+  (`apps/api/api/index.js`) when it drifts from `apps/api/src`. Has fired for
+  three real drift incidents (2026-07-05→07, and twice more in the 14th/15th
+  repo-maintenance passes — see `backlog/now-history.md`).
 - **CLI:** Homebrew tap distribution is spec'd (`release-cli.yml`,
   `release-cli-edge.yml`) but gated on a licensing decision (ADR 0031/0032,
   operator + counsel) before the first tagged release.

@@ -997,3 +997,72 @@ architecture.md`, `backlog/now.md`, `backlog/now-history.md`, `.claude/
 skills/dayfold-curator/references/{cli,content-model}.md`, `apps/cli/.../
 Main.kt` USAGE only) — no secrets, no PII, no child-account or
 restricted-scope-Gmail surface touched.
+
+**2026-07-18 repo-maintenance pass** (scheduled — the 12th in this series;
+prior passes above). Same no-npm/no-Gradle-registry-egress
+sandbox as every prior pass (re-confirmed: `npm ping` 403s, no `gradlew`
+present at the sandbox's expected path, `npx tsc --noEmit` in `apps/api`
+still fails on missing `@types/node`) — no logic changes to
+`apps/api`/`apps/cli`/`apps/client`. Confirmed **CI green** on `main` at head
+`53799cb` (#349, success) before starting; still green after this pass's push.
+Four parallel read-only audits covered agentic-doc duplication, CLI/skill-doc
+completeness vs. `Help.kt`/`apps/api` source, README/architecture/CHANGELOG
+accuracy, and code-dedup-queue soundness + a values/privacy spot-check on the
+last 48h of commits — **skill docs and CLI `--help` came back clean** (no gaps;
+the `cli.md` "defer to `dayfold help --json`" pattern from pass #11 is holding),
+as did the **values/privacy check** (no secrets, no new PII logging, no
+ADR-uncovered data collection, no dark patterns in the last 48h of commits).
+**Doc fixes applied:** `processes/deploy-m0.md` retitled/trimmed to
+`ARCHIVED` (its one-time Neon/Vercel setup finished 2026-06-19; it still ended
+with a "what I need from you to start" section asking the operator to create
+accounts that already exist — removed, section kept for its still-useful
+`.ts`-import bundling gotcha); `processes/agent-dev-loop.md`'s "Now available"
+section deleted (100% restated the Toolchain block two screens up, zero new
+info) and its Gradle-version restatement pointed at Toolchain instead;
+`processes/build-loop-prompt.md`'s commit-trailer template had a hardcoded
+`Claude Opus 4.8 (1M context)` model name (this session runs Sonnet 5) that
+would silently misattribute every commit and drift every model release —
+genericized to `Claude <noreply@anthropic.com>`; `processes/agent-routing.md`'s
+"Software build (post-spec)" row paraphrased an "8-phase workflow" that didn't
+match `build-loop-prompt.md`'s actual 6-step-per-task structure — replaced the
+paraphrase with a direct pointer (the row's own established pattern for every
+other entry). `docs/architecture.md`'s ADR 0058 status paragraph was stale
+against `backlog/now.md`'s own narrative — it said only "UI-notification and
+database-serialization" were built and listed the runtime/session
+coordinator + narrow Compose subscriptions as still-staged, when `now.md`
+already described those as implemented+verified after commits e562835/
+6e867f4/53799cb; corrected to name what's actually staged (per-row isolation,
+Task 15, PR 5/6) instead. Also added the 2026-07-11 per-hub scoped
+CLI/device-token grant (missing from the Auth section's device-login bullet)
+and bumped the doc's self-declared "as of" date. **CHANGELOG.md: no entry
+added for e562835/6e867f4/53799cb** (client-runtime reducer-decomposition/
+state-slice/Compose-boundary refactors) despite one audit flagging it as a
+gap — reversed that call on review: all three are internal-architecture-only
+(no product/API/behavior change), which is exactly what this file's own header
+and CLAUDE.md's end-of-session routine say does NOT need an entry; the
+existing 2026-07-15 "fixed two production deadlocks" entry already covers the
+one user-visible fact from this same ADR 0058 thread. **New safe dedup found
+and applied (the first applied dedup in 12 passes):** `.github/workflows/ci.yml`
+repeated an identical `actions/checkout@v4` + `actions/setup-java@v4`
+(temurin 17) pair across 5 jobs — pure YAML with no compiler/type-checker
+dependency, unlike the `apps/api` findings, so verifiable by the PR's own CI
+run rather than blocked on this sandbox's missing toolchain. Extracted to
+`.github/actions/setup-jvm/`; `release-*.yml`'s deliberately-SHA-pinned inline
+checkout/setup-java (see that file's own comment) was left untouched — folding
+it into the same composite would trade its stated auditability rationale for
+DRY-ness, not a trade this pass should make silently. **`apps/api` dedup queue
+(`backlog/next.md`): reasoning re-confirmed sound, still not applied** —
+spot-checked `ownerGate` (7×, confirmed) and the validation-error shape (68×
+via grep, matches the ~70 estimate) directly in `apps/api/src/app.ts`; same
+call as all 11 prior passes (live auth-gate code, zero compile/test capability
+in this sandbox). **The verify-by-PR-CI bet on the composite action paid
+off immediately:** the first push (`8ad5db7`, PR #350) failed the
+`firebase-emulator` job — "Can't find 'action.yml' ... Did you forget to run
+actions/checkout" — because a local action (`uses: ./path`) can't be
+resolved until the repo containing it is already checked out in that job;
+the composite action's own internal `checkout` step ran too late to help its
+caller. Fixed (`addbdbe`) by moving `checkout` back into each job and having
+the composite action own only `setup-java`; re-verified job-by-job on the
+second run (all 7 `ci.yml` jobs, incl. `firebase-emulator`, completed clean).
+Left as a live example of why this queue insists on real verification before
+calling anything "safe," even changes judged safe going in.
