@@ -59,6 +59,9 @@ val COMMANDS: List<HelpCommand> = listOf(
       "The credential's scope is fixed at login time: content:read / content:write (family-wide) " +
         "or hub:<id>:read / hub:<id>:write (per-hub, ADR 0029). There is no in-place re-scope — " +
         "run `login` again to change it. See `dayfold whoami` for the resolved scope.",
+      "content:delete is a fourth, separate scope, not implied by content:write — it gates only " +
+        "`delete --block`. No per-hub login can grant it; only a full, unscoped device approval " +
+        "does. A `delete --block` 403 needs a blanket (not per-hub) re-login, not broader per-hub access.",
     ),
     options = listOf(
       HelpOption("--allow-env-key", description =
@@ -78,8 +81,8 @@ val COMMANDS: List<HelpCommand> = listOf(
     summary = "Show the current sign-in: family, api, device/legacy, and resolved scope.",
     details = listOf(
       "Prints `scope=<grants>` for the signed-in credential — content:read / content:write " +
-        "(family-wide) or hub:<id>:read / hub:<id>:write (per-hub, ADR 0029). With no sign-in it " +
-        "prints how to set one up.",
+        "(family-wide), hub:<id>:read / hub:<id>:write (per-hub, ADR 0029), or content:delete " +
+        "(blanket logins only; gates `delete --block`). With no sign-in it prints how to set one up.",
     ),
     examples = listOf("dayfold whoami"),
   ),
@@ -156,6 +159,8 @@ val COMMANDS: List<HelpCommand> = listOf(
     ),
     details = listOf(
       "There is no section-delete route (MVP): to drop a stray section, delete its hub and re-push the tree.",
+      "--block requires the content:delete scope specifically (see `login`/`whoami`) — a blanket " +
+        "device login, not a per-hub one. Card delete uses content:write; hub delete uses hub:<id>:write.",
     ),
     examples = listOf("dayfold delete 01J…HUB", "dayfold delete 01J…CARD --card"),
   ),
