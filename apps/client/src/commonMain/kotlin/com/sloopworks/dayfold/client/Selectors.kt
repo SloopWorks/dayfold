@@ -1,7 +1,5 @@
 package com.sloopworks.dayfold.client
 
-import kotlin.time.Instant
-
 // [review F1] Feed render order = the API's list contract: not_before NULLS
 // LAST, then id. The reducer keeps sync (arrival) order in state; the feed
 // order is derived here at render time (the redux-kotlin select{}/selector
@@ -14,13 +12,11 @@ import kotlin.time.Instant
 // hides on bad data. not_before stays ordering-only (documented as a sort key,
 // not a visibility gate).
 fun feedCards(state: AppState, nowIso: String): List<Card> {
-  val now = parseTs(nowIso)
+  val now = parseOrNull(nowIso)
   return state.content.cards
-    .filter { card -> now == null || card.expiresAt == null || (parseTs(card.expiresAt)?.let { it > now } ?: true) }
+    .filter { card -> now == null || card.expiresAt == null || (parseOrNull(card.expiresAt)?.let { it > now } ?: true) }
     .sortedWith(compareBy({ it.notBefore == null }, { it.notBefore }, { it.id }))
 }
-
-private fun parseTs(s: String?): Instant? = normalizeTs(s)?.let { runCatching { Instant.parse(it) }.getOrNull() }
 
 // CL-6: the card at the top of the detail stack, or null (→ feed). Null also when
 // the open card synced away — the host gracefully falls back to the feed.
