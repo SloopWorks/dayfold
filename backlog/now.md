@@ -119,88 +119,75 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-21 repo-maintenance pass (15th)** — scheduled, broadest scope yet
-(simplify/dedup, agentic-doc + CLI/skill-doc audits, README/architecture/
-CHANGELOG accuracy, CI health, values/privacy). Unlike every prior pass,
-**`main` was RED at the start** (`d589193`, the 14th pass's own merge commit)
-— not caused by that pass's diff. Root cause: `packages/schema/codegen.mjs`
-calls unpinned `npx --yes quicktype`, and a newer quicktype release started
-inferring `java.time.OffsetDateTime` from `format: "date-time"` in the
-Kotlin/kotlinx emit. That's a live regression, not a benign refresh —
-`java.time` isn't available outside the JVM (would break the KMP
-`commonMain` build for iOS/desktop), and every existing Kotlin consumer
-(`apps/client`, `apps/ui`) already treats these fields as ISO-8601 strings
-(confirmed via grep before deciding not to just accept quicktype's new
-output). Fixed by stripping `format` before the Kotlin quicktype pass only
-(the TS/zod emit is unaffected and was already format-agnostic) — pins the
-field types to `String` regardless of future quicktype version drift, a
-permanent fix for this exact class of break. **CI hiccup + self-heal, live
-example #3:** the follow-up `app.ts` dedup commit drifted the committed
-Vercel bundle again (same "api bundle is up to date" gate as pass 14's
-example #2) — `rebuild-api-bundle.yml` fixed it, but the bot-authored push
-landed its own CI run stuck in GitHub's `action_required` state (a new
-wrinkle: a workflow-token-authored commit's downstream `pull_request` run
-needs manual approval rather than running automatically) — worked around by
-pushing this file's own update as a normal, non-gated commit to get a clean
-run. Five parallel read-only audits (apps/api+cli dedup, agentic-docs
-context-efficiency, CLI `--help`/skill-doc completeness, README/architecture/
-CHANGELOG accuracy, values/privacy) came back clean except two: the dedup
-audit found three more byte-identical `app.ts` boilerplate blocks the 14th
-pass's sweep had missed (a resource-id 422 guard × 7, a JSON-object body
-guard × 4, a zod-validation-issues response × 4) — extracted to
-`idErrorResponse`/`requireJsonObject`/`validationIssuesResponse`, verified by
-inspection (byte-identical strings) + this PR's CI; the agentic-docs audit
-found three fixed: `processes/agent-dev-loop.md`'s iOS section still said
-"No Xcode project yet" (false since 2026-07-01, contradicted
-`processes/mobile-release.md`'s own accurate framing) — corrected;
-`CLAUDE.md`'s directory map omitted `designs/` despite the same file's own
-ADR-0008 gate citing it as the mockup source of truth — added a row;
-`processes/deploy-m0.md`'s "nothing here is actionable anymore" banner
-overstated its own obsolescence against this file's live pointer to its §2
-Vercel-env mechanics — softened. Also fixed a sub-threshold nitpick the
-README/architecture audit flagged: the screenshot caption's "131 snapshots"
-figure had drifted (127 linux baseline PNGs vs. 130 `@Test` methods — the
-two don't even agree with each other) — replaced the magic number with a
-description so it can't silently go stale again. No CHANGELOG entry needed
-(all internal-only). CLI/skill-doc and values/privacy audits found nothing.
+**2026-07-24 repo-maintenance pass (17th)** — scheduled, same six-point scope.
+Zero commits had landed since the 16th pass (2026-07-22, `792eab0`), but
+**`main`'s CI was RED at the start** — run 30023130215 (`792eab0`, run #800)
+failed on `:client:desktopTest`'s `SessionBoundaryTest > sign out invalidates
+and joins a blocked cached reconcile before tenant cleanup`
+(`AssertionFailedError`), even though that commit's own diff was
+docs/CLI-help-text only (no client code touched) — ruling out a code cause.
+Re-ran the same failed jobs against the same commit/SHA with zero code
+changed: **green** on attempt 2 — confirms a flaky/nondeterministic test, not
+a regression; `main` is healthy. Worth watching if it recurs (the test uses
+`CompletableDeferred` ordering that's meant to be deterministic; a repeat
+would point at a real coroutine-scheduling race worth a closer look).
 
-**2026-07-22 repo-maintenance pass (16th)** — scheduled, same six-point scope
-(simplify/dedup, agentic-doc context-efficiency, CLI/skill-doc completeness,
-README/architecture/CHANGELOG accuracy, CI health, values/privacy). **`main`
-was already green** at head `4aa645b` (the 15th pass's own merge, CI run
-29846190029, success) — no break to fix this time, and zero commits had
-landed since that pass (this one started <24h later). Four parallel
-independent audits (not just re-reading the 15th pass's self-report) found
-three small, real, previously-missed gaps and otherwise confirmed passes
-10-15 had already done the real work:
-1. **`apps/cli/.../Help.kt` was missing the `content:delete` scope** —
-   `login`/`whoami`/`delete --help` output only ever mentioned
-   `content:read`/`content:write`/`hub:<id>:read`/`hub:<id>:write`, never the
-   fourth scope that specifically gates `delete --block` and requires a
-   blanket (not per-hub) login. This fact was already correct in the skill's
-   `references/cli.md` (added by the 13th pass) but never carried into the
-   newer `Help.kt` registry (added by PR #347, same day) — an agent that
-   followed `cli.md`'s own advice to "prefer `--help`/`--json` over
-   guessing" would hit an undiagnosed 403. Added the same fact to all three
-   commands' `details`.
-2. **`docs/architecture.md`'s Deploy section only documented 4 of 7**
-   `.github/workflows/*.yml` files — missing `secret-scan.yml` (gitleaks,
-   runs every PR), `migrate.yml` (manual prod-migration runner), and
-   `rebuild-api-bundle.yml` (the bundle-drift self-heal tool, which has
-   actually fired three times per this file's own history). Added a bullet
-   for each.
-3. **`backlog/now.md` itself had re-grown past its own stated pruning
-   policy** — it was stacking two full repo-maintenance-pass paragraphs (12th
-   + 15th) under one "Current state" header instead of moving the superseded
-   one to `now-history.md`, the same self-inflicted bloat a July pass fixed
-   once already. Moved the 2026-07-18 (12th pass) paragraph to
-   `now-history.md` verbatim; this file drops from 302 to ~250 lines.
-No CHANGELOG entry (all three fixes are internal/doc-accuracy, not
-product/API/feature changes). Values/privacy spot-check on the 48h window
-(just the 15th pass's own two commits) independently re-confirmed clean: no
-secrets, no new PII, no ADR-uncovered data collection, no dark patterns.
-README, CHANGELOG, CLAUDE.md, AGENTS.md, and `processes/*.md` all
-independently re-audited clean — no action needed.
+Four parallel independent audits:
+1. **Dedup/simplification** — `apps/api`/`apps/cli` clean (11 prior passes
+   already worked that queue). `apps/client` had two new, real findings,
+   applied: (a) `Selectors.kt`'s private `parseTs` was byte-identical to
+   `DateLabels.kt`'s private `parseOrNull` — deleted the duplicate, widened
+   `parseOrNull` to `internal`, `Selectors.kt` now calls it directly; (b)
+   `AuthClient.kt`/`HubClient.kt` repeated
+   `if (resp.status.value != 200/!in range) throw AuthHttpException(...)`
+   ~16 times — extracted a shared `HttpResponse.requireStatus(endpoint, ok)`
+   extension (in `AuthClient.kt`, both files are the same package); the five
+   `when`-block `else ->` branches with distinct success/404/else handling
+   were correctly left alone (genuine control flow, not duplication). **This
+   sandbox has no JDK 17 (only 21), no toolchain auto-provisioning
+   configured, and `apt-get install openjdk-17-jdk` 403s through the proxy**
+   — unlike `apps/api`'s TS (locally type-checkable), these Kotlin changes
+   could not be compile-verified in-session. Verified by careful inspection
+   instead (every call site regex-matched then hand-checked, imports/
+   visibility confirmed, confirmed no other caller of the removed private
+   symbol) and left to CI as the verification oracle — the same
+   "verify-by-PR-CI" posture the 12th pass used for its `ci.yml`
+   composite-action dedup, now applied to `:client` for the first time.
+2. **Agentic-docs accuracy** — three stale facts + one over-promise, fixed:
+   `processes/agent-dev-loop.md` said "Compose-MP 1.9.3" (actual pinned:
+   1.11.1, `apps/build.gradle.kts:10` — the process doc had inherited a stale
+   number from that same file's own outdated header comment); two "alpha04"
+   mentions of `redux-kotlin-snapshot` were stale (bumped to alpha05 in
+   `fce7503`, 2026-07-16, but two mentions were missed in the same doc);
+   "131 goldens committed" was a stale magic number (currently 136 macOS /
+   127 linux, neither matches — same class of drift the 15th pass already
+   fixed once in the README caption; given the same treatment here: describe
+   instead of hardcode). `processes/build-loop-prompt.md` told agents to
+   read `agent-dev-loop.md` for a "pinned SQLDelight version" that doc never
+   actually pins — removed the over-promise.
+3. **CLI --help / skill-doc completeness** — clean; the 16th pass's
+   `content:delete` scope fix verified intact and correct end-to-end
+   (`Help.kt`, `cli.md`, `HelpTest.kt` all agree).
+4. **Values/privacy + CHANGELOG completeness** — clean on both. Zero new
+   commits to check; the last 3 commits re-confirmed no secrets/PII/dark
+   patterns. CHANGELOG cross-referenced against this file's shipped-feature
+   narrative and 60 commits of history — every product/API/feature change has
+   an entry; the three newest commits (`53799cb`/`6e867f4`/`fce7503`) are
+   correctly internal-only (client-state-plumbing refactors) and don't need
+   one.
+
+README/architecture.md checked directly (not delegated) — already carries
+screenshots (an earlier pass's work) and all 7 `.github/workflows/*.yml`
+files are documented in the Deploy section (the 16th pass's own fix,
+re-confirmed accurate) — no new findings.
+
+`backlog/now.md` self-pruned again per its own stated policy: moved the
+16th-pass paragraph to `now-history.md`, leaving only this pass's write-up
+current — routine housekeeping this file needs almost every pass now that
+maintenance passes run near-daily.
+
+No CHANGELOG entry — all changes this pass are internal (dedup + doc
+accuracy), no product/API/feature surface touched.
 
 ## Design-first gate (ADR 0008) — status
 

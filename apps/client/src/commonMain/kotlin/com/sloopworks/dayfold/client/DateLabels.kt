@@ -33,7 +33,7 @@ internal fun normalizeTs(s: String?): String? {
   return t
 }
 
-private fun parseOrNull(s: String?): Instant? = normalizeTs(s)?.let { runCatching { Instant.parse(it) }.getOrNull() }
+internal fun parseOrNull(s: String?): Instant? = normalizeTs(s)?.let { runCatching { Instant.parse(it) }.getOrNull() }
 private fun parseDate(s: String?, tz: TimeZone): LocalDate? = parseOrNull(s)?.toLocalDateTime(tz)?.date
 
 // The "when" badge for an event hub. An explicit countdown_to wins; otherwise, for
