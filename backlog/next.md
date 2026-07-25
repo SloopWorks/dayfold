@@ -160,6 +160,21 @@ pixel↔composable inspector.
 
 ## Small queued/blocked items
 
+- **CLI/skill-doc gap — undocumented third `push --hub` 403 source** (found by
+  the 2026-07-25 repo-maintenance pass's CLI/skill-doc audit, code-verified,
+  not yet fixed). `apps/api/src/app.ts`'s hub PUT route (~line 735) has an
+  ADR-0030 §6 author/allow-list gate that 403s any non-legacy caller
+  re-authoring an *existing* hub they didn't create and aren't a
+  participant/co-owner on — independent of scope and of the per-hub-role gate
+  that `apps/cli/.../Help.kt`'s `push --help` and
+  `.claude/skills/dayfold-curator/references/cli.md` already document, and
+  (unlike the block-delete author-gate) not exempted for CLI/device
+  credentials. An agent hitting this 403 would rule out the wrong cause.
+  Needs one `HelpCommand.details` line added to `push` in `Help.kt` + the
+  mirrored paragraph in `cli.md` — held back from a mechanical same-pass fix
+  only because the exact wording (and whether it's actually reachable under
+  the single-approving-owner flow the curator skill assumes) wants a
+  maintainer/API-owner sign-off first, not because it's ADR-class.
 - **CL-9b — real static-map images** (deferred to M1, ADR-gated). M0 keeps the
   stylized `MapStrip()` placeholder; a real author-time-stamped map image needs
   a new ADR (third-party map-provider disclosure + provider-logging exposure).
