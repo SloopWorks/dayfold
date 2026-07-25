@@ -26,13 +26,13 @@ class HubClient(
 ) {
   suspend fun familyHubs(access: String, fid: String): List<Hub> {
     val resp = http.get("$api/families/$fid/hubs") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "family-hubs")
+    resp.requireStatus("family-hubs")
     return json.decodeFromString(ListSerializer(Hub.serializer()), resp.bodyAsText())
   }
 
   suspend fun audience(access: String, fid: String, hubId: String): HubAudience {
     val resp = http.get("$api/families/$fid/hubs/$hubId/audience") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-audience")
+    resp.requireStatus("hub-audience")
     return json.decodeFromString(HubAudience.serializer(), resp.bodyAsText())
   }
 
@@ -59,7 +59,7 @@ class HubClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(SetParticipantReq.serializer(), SetParticipantReq(role)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-set-participant")
+    resp.requireStatus("hub-set-participant")
   }
 
   /** DELETE .../participants/:uid — drop one member's allow-list row. */
@@ -67,7 +67,7 @@ class HubClient(
     val resp = http.delete("$api/families/$fid/hubs/$hubId/participants/$uid") {
       header("authorization", "Bearer $access")
     }
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "hub-remove-participant")
+    resp.requireStatus("hub-remove-participant", 200..204)
   }
 
   /** PUT .../visibility {visibility} — flip family<->restricted. */
@@ -77,7 +77,7 @@ class HubClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(SetVisibilityReq.serializer(), SetVisibilityReq(visibility)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "hub-set-visibility")
+    resp.requireStatus("hub-set-visibility")
   }
 }
 

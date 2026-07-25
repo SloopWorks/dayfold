@@ -7,6 +7,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -28,6 +29,12 @@ import kotlinx.serialization.json.Json
 // 401 → refresh-and-retry (the access token is short-lived, 5m).
 class AuthHttpException(val status: Int, val endpoint: String) :
   Exception("$endpoint HTTP $status")
+
+// Shared by AuthClient and HubClient — both throw AuthHttpException on an
+// unexpected status and otherwise ignore the response beyond its body.
+internal fun HttpResponse.requireStatus(endpoint: String, ok: IntRange = 200..200) {
+  if (status.value !in ok) throw AuthHttpException(status.value, endpoint)
+}
 
 class AuthClient(
   private val api: String,
@@ -85,7 +92,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(DevTokenReq.serializer(), DevTokenReq(provider, providerUid)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "dev-token")
+    resp.requireStatus("dev-token")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
     return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
@@ -100,7 +107,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(FirebaseTokenReq.serializer(), FirebaseTokenReq(idToken)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "firebase")
+    resp.requireStatus("firebase")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
     return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
@@ -108,7 +115,7 @@ class AuthClient(
   /** GET /auth/whoami (Bearer access) → the caller's memberships. */
   suspend fun whoami(access: String): WhoamiResponse {
     val resp = http.get("$api/auth/whoami") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "whoami")
+    resp.requireStatus("whoami")
     return json.decodeFromString(WhoamiResponse.serializer(), resp.bodyAsText())
   }
 
@@ -119,7 +126,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(CreateFamilyReq.serializer(), CreateFamilyReq(name)))
     }
-    if (resp.status.value !in 200..201) throw AuthHttpException(resp.status.value, "create-family")
+    resp.requireStatus("create-family", 200..201)
     return json.decodeFromString(CreateFamilyResp.serializer(), resp.bodyAsText()).familyId
   }
 
@@ -129,7 +136,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(RefreshReq.serializer(), RefreshReq(refreshToken)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "refresh")
+    resp.requireStatus("refresh")
     val t = json.decodeFromString(TokenResp.serializer(), resp.bodyAsText())
     return Session(access = t.access, refresh = t.refresh, userId = jwtSub(t.access))
   }
@@ -137,7 +144,7 @@ class AuthClient(
   /** POST /auth/signout (Bearer access) — revokes the credential + all its refresh tokens. */
   suspend fun signout(access: String) {
     val resp = http.post("$api/auth/signout") { header("authorization", "Bearer $access") }
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "signout")
+    resp.requireStatus("signout", 200..204)
   }
 
   /**
@@ -167,7 +174,7 @@ class AuthClient(
    *  pending-approval queue, in ONE call (the server returns both arrays). */
   suspend fun familyApprovals(access: String, fid: String): InviteQueue {
     val resp = http.get("$api/families/$fid/invites") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "family-invites")
+    resp.requireStatus("family-invites")
     val r = json.decodeFromString(ApprovalsResp.serializer(), resp.bodyAsText())
     return InviteQueue(r.invites, r.pending)
   }
@@ -195,7 +202,7 @@ class AuthClient(
   /** DELETE /families/{fid}/invites/{id} (owner) — revoke an outstanding invite (204, sticky). */
   suspend fun revokeInvite(access: String, fid: String, id: String) {
     val resp = http.delete("$api/families/$fid/invites/$id") { header("authorization", "Bearer $access") }
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "revoke-invite")
+    resp.requireStatus("revoke-invite", 200..204)
   }
 
   /** Owner approves a pending member → their membership goes active. */
@@ -207,40 +214,40 @@ class AuthClient(
   private suspend fun memberAction(access: String, fid: String, uid: String, action: String) {
     val resp = http.post("$api/families/$fid/members/$uid:$action") { header("authorization", "Bearer $access") }
     // 204 done · 200 already-active (idempotent) — both fine; 4xx/5xx surface.
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "member-$action")
+    resp.requireStatus("member-$action", 200..204)
   }
 
   /** GET /families/{fid}/members (member-gated) → the active roster. */
   suspend fun familyMembers(access: String, fid: String): List<FamilyMember> {
     val resp = http.get("$api/families/$fid/members") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "family-members")
+    resp.requireStatus("family-members")
     return json.decodeFromString(MembersResp.serializer(), resp.bodyAsText()).members
   }
 
   /** DELETE /families/{fid}/members/{uid} — owner removes a member (409 = last owner). */
   suspend fun removeMember(access: String, fid: String, uid: String) {
     val resp = http.delete("$api/families/$fid/members/$uid") { header("authorization", "Bearer $access") }
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "remove-member")
+    resp.requireStatus("remove-member", 200..204)
   }
 
   /** GET /auth/me/credentials → the caller's connected devices/apps (sessions + CLI). */
   suspend fun credentials(access: String): List<DeviceCredential> {
     val resp = http.get("$api/auth/me/credentials") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "credentials")
+    resp.requireStatus("credentials")
     return json.decodeFromString(CredsResp.serializer(), resp.bodyAsText()).credentials
   }
 
   /** DELETE /auth/me/credentials/{id} — revoke one of the caller's own credentials (404 = not yours). */
   suspend fun revokeCredential(access: String, id: String) {
     val resp = http.delete("$api/auth/me/credentials/$id") { header("authorization", "Bearer $access") }
-    if (resp.status.value !in 200..204) throw AuthHttpException(resp.status.value, "revoke-credential")
+    resp.requireStatus("revoke-credential", 200..204)
   }
 
   /** GET /auth/me — the caller's own profile (name + avatar). Loaded on restore
    *  (AuthEngine) so the account surface renders without a separate round-trip. */
   suspend fun getMe(access: String): MeProfile {
     val resp = http.get("$api/auth/me") { header("authorization", "Bearer $access") }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "me")
+    resp.requireStatus("me")
     return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
   }
 
@@ -252,7 +259,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(UpdateAvatarReq.serializer(), UpdateAvatarReq(avatarColor, avatarRef)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "update-avatar")
+    resp.requireStatus("update-avatar")
     return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
   }
 
@@ -263,7 +270,7 @@ class AuthClient(
       contentType(ContentType.Application.Json)
       setBody(json.encodeToString(UpdateNameReq.serializer(), UpdateNameReq(name)))
     }
-    if (resp.status.value != 200) throw AuthHttpException(resp.status.value, "update-name")
+    resp.requireStatus("update-name")
     return json.decodeFromString(MeDto.serializer(), resp.bodyAsText()).toModel()
   }
 

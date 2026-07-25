@@ -24,7 +24,7 @@ at all — it's a plain Gradle/JVM module (`./gradlew test`); see
   (the version-independent brew symlink — use this, NOT the `Cellar/openjdk@17/17.0.x`
   path, which breaks on every patch bump, e.g. 17.0.18→17.0.19). Gradle's own daemon may
   be JDK 26; Kotlin needs 17. Each Kotlin module has a wrapper (`./gradlew`).
-- **Kotlin 2.3.20** · Compose-MP 1.9.3 (desktop) · **AGP 9.2.1** · **Gradle 9.4.1**
+- **Kotlin 2.3.20** · Compose-MP 1.11.1 (desktop) · **AGP 9.2.1** · **Gradle 9.4.1**
   (the single `apps/` wrapper; PR #26 upgraded from the old 8.7.2/8.11.1) · compileSdk
   37 (Android 16) · Node 24 + local Postgres (`psql`) running.
 - **redux-kotlin `1.0.0-alpha05`:** create one `SelectorStore` with
@@ -206,7 +206,7 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugrepor
 an agent to *see* what a change produced and to catch visual regressions.
 
 **Status (CL-SNAP, delivered):**
-- Dep: `org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha04` (Maven Central),
+- Dep: `org.reduxkotlin:redux-kotlin-snapshot:1.0.0-alpha05` (Maven Central),
   scoped `desktopTest` in `apps/ui/build.gradle.kts` (relocated `:client`→`:ui`
   in the modularize merge — the scenes render Compose, which lives in `:ui`).
 - Scene registry: `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/snapshot/SnapshotScenes.kt`
@@ -217,8 +217,10 @@ an agent to *see* what a change produced and to catch visual regressions.
   `timeline-detail` (run `--list` for presets). State fixtures come from
   `SnapshotStates.kt` (hand-built `AppState` literals — reuses the tests'
   existing fixtures, **not** `FakeScenarios`).
-- 131 goldens committed in `apps/ui/src/desktopTest/resources/snapshots/`
-  (light + selected dark variants per surface).
+- Goldens committed per-OS in `apps/ui/src/desktopTest/resources/snapshots/`
+  (light + selected dark variants per surface; `macos/` and `linux/` counts
+  drift independently — see that directory for the current count, not a
+  number pinned here).
 
 **CLI entry (Gradle — NOT the brew `rk` binary):**
 The brew `rk` binary only carries its own demo scenes. Our scenes run via the
@@ -235,7 +237,7 @@ Render one state → PNG, then `Read` it:
 ```
 cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--scene feed --preset busy --out /tmp/x.png"
 ```
-Semantics smoke (Tier-0, **zero vision tokens** — confirmed working in alpha04):
+Semantics smoke (Tier-0, **zero vision tokens** — confirmed working in alpha05):
 ```
 cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--scene feed --preset busy --semantics --out /tmp/x.png"
 ```
