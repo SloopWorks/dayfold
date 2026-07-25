@@ -4345,6 +4345,67 @@ var init_sweep = __esm({
   }
 });
 
+// src/auth/audit.ts
+var audit_exports = {};
+__export(audit_exports, {
+  audit: () => audit
+});
+async function audit(event, opts = {}) {
+  await q(
+    `INSERT INTO audit_log(event, actor_user_id, family_id, detail) VALUES ($1,$2,$3,$4)`,
+    [event, opts.actorUserId ?? null, opts.familyId ?? null, JSON.stringify(opts.detail ?? {})]
+  );
+}
+var init_audit = __esm({
+  "src/auth/audit.ts"() {
+    "use strict";
+    init_db();
+  }
+});
+
+// src/auth/ratelimit.ts
+function clientIp(c) {
+  return c.req.header("x-vercel-forwarded-for") || c.req.header("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
+}
+async function hit(key, windowSecs, cap) {
+  const r = await q(
+    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
+     ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
+     RETURNING count`,
+    [key, windowSecs]
+  );
+  const count = r.rows[0].count;
+  return { ok: count <= cap, count };
+}
+async function isLocked(key) {
+  const r = await q(`SELECT 1 FROM rate_limits WHERE key=$1 AND locked_until > now() LIMIT 1`, [key]);
+  return (r.rowCount ?? 0) > 0;
+}
+async function recordFailure(key, windowSecs, threshold, lockSecs) {
+  await q(
+    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
+     ON CONFLICT (key, window_start) DO UPDATE SET
+       count = rate_limits.count + 1,
+       locked_until = CASE
+         WHEN rate_limits.count + 1 >= $3
+         THEN now() + ($4 || ' seconds')::interval
+         ELSE rate_limits.locked_until
+       END`,
+    [key, windowSecs, threshold, String(lockSecs)]
+  );
+}
+async function resetFailures(key) {
+  await q(`DELETE FROM rate_limits WHERE key=$1`, [key]);
+}
+var winSql;
+var init_ratelimit = __esm({
+  "src/auth/ratelimit.ts"() {
+    "use strict";
+    init_db();
+    winSql = `to_timestamp(floor(extract(epoch from now())/$2)*$2)`;
+  }
+});
+
 // src/auth/identity.ts
 var identity_exports = {};
 __export(identity_exports, {
@@ -4461,24 +4522,6 @@ var init_identity = __esm({
       }
     };
     id = (p) => p + "_" + randomBytes(9).toString("hex");
-  }
-});
-
-// src/auth/audit.ts
-var audit_exports = {};
-__export(audit_exports, {
-  audit: () => audit
-});
-async function audit(event, opts = {}) {
-  await q(
-    `INSERT INTO audit_log(event, actor_user_id, family_id, detail) VALUES ($1,$2,$3,$4)`,
-    [event, opts.actorUserId ?? null, opts.familyId ?? null, JSON.stringify(opts.detail ?? {})]
-  );
-}
-var init_audit = __esm({
-  "src/auth/audit.ts"() {
-    "use strict";
-    init_db();
   }
 });
 
@@ -4626,57 +4669,6 @@ var init_refresh = __esm({
     init_db();
     ABS_TTL_DAYS = 45;
     hashToken = (s) => createHash2("sha256").update(s, "utf8").digest("hex");
-  }
-});
-
-// src/auth/ratelimit.ts
-var ratelimit_exports = {};
-__export(ratelimit_exports, {
-  clientIp: () => clientIp,
-  hit: () => hit,
-  isLocked: () => isLocked,
-  recordFailure: () => recordFailure,
-  resetFailures: () => resetFailures
-});
-function clientIp(c) {
-  return c.req.header("x-vercel-forwarded-for") || c.req.header("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
-}
-async function hit(key, windowSecs, cap) {
-  const r = await q(
-    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
-     ON CONFLICT (key, window_start) DO UPDATE SET count = rate_limits.count + 1
-     RETURNING count`,
-    [key, windowSecs]
-  );
-  const count = r.rows[0].count;
-  return { ok: count <= cap, count };
-}
-async function isLocked(key) {
-  const r = await q(`SELECT 1 FROM rate_limits WHERE key=$1 AND locked_until > now() LIMIT 1`, [key]);
-  return (r.rowCount ?? 0) > 0;
-}
-async function recordFailure(key, windowSecs, threshold, lockSecs) {
-  await q(
-    `INSERT INTO rate_limits(key, window_start, count) VALUES ($1, ${winSql}, 1)
-     ON CONFLICT (key, window_start) DO UPDATE SET
-       count = rate_limits.count + 1,
-       locked_until = CASE
-         WHEN rate_limits.count + 1 >= $3
-         THEN now() + ($4 || ' seconds')::interval
-         ELSE rate_limits.locked_until
-       END`,
-    [key, windowSecs, threshold, String(lockSecs)]
-  );
-}
-async function resetFailures(key) {
-  await q(`DELETE FROM rate_limits WHERE key=$1`, [key]);
-}
-var winSql;
-var init_ratelimit = __esm({
-  "src/auth/ratelimit.ts"() {
-    "use strict";
-    init_db();
-    winSql = `to_timestamp(floor(extract(epoch from now())/$2)*$2)`;
   }
 });
 
@@ -5079,6 +5071,8 @@ var init_app = __esm({
     init_sweep();
     init_hubs();
     init_content();
+    init_audit();
+    init_ratelimit();
     init_swip();
     app = new Hono();
     app.use("*", swipErrors());
@@ -5153,8 +5147,7 @@ var init_app = __esm({
       if (!out) return c.body(null, 401);
       if ("refresh" in out) {
         if (out.graced) {
-          const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
-          await audit2("refresh.grace_reissued", {});
+          await audit("refresh.grace_reissued", {});
         }
       } else {
         return c.body(null, 401);
@@ -5294,7 +5287,7 @@ var init_app = __esm({
       const target = c.req.param("id");
       const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
       if (r.rowCount === 0) return c.body(null, 404);
-      (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
+      audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
       return c.body(null, 204);
     });
     app.delete("/auth/me", async (c) => {
@@ -5313,7 +5306,7 @@ var init_app = __esm({
       await q(`UPDATE users SET deleted_at=now() WHERE id=$1 AND deleted_at IS NULL`, [sub]);
       await q(`UPDATE memberships SET status='removed', updated_at=now() WHERE user_id=$1 AND status<>'removed'`, [sub]);
       await q(`UPDATE credentials SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [sub]);
-      (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("account.soft_delete", { actorUserId: sub });
+      audit("account.soft_delete", { actorUserId: sub });
       return c.body(null, 204);
     });
     app.post("/families", async (c) => {
@@ -5708,22 +5701,19 @@ var init_app = __esm({
       return c.body(null, ok ? 204 : 404);
     });
     app.post("/device/authorize", async (c) => {
-      const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      const ip = clientIp2(c);
-      const rl = await hit2(`ip:authorize:${ip}`, 600, 10);
+      const ip = clientIp(c);
+      const rl = await hit(`ip:authorize:${ip}`, 600, 10);
       if (!rl.ok) return c.body(null, 429);
       const body = await c.req.json().catch(() => ({}));
       const { createAuthorization: createAuthorization2 } = await Promise.resolve().then(() => (init_device(), device_exports));
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
       const { device_code, user_code } = await createAuthorization2(body?.client ?? "dayfold-cli", ip, c.req.header("user-agent") ?? null);
-      await audit2("device.authorize", { detail: { ip } });
+      await audit("device.authorize", { detail: { ip } });
       const base = `${new URL(c.req.url).origin}/device`;
       return c.json({ device_code, user_code, verification_uri: base, verification_uri_complete: `${base}?user_code=${user_code}`, expires_in: 600, interval: 5 });
     });
     app.post("/device/token", async (c) => {
-      const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      const ip = clientIp2(c);
-      const rl = await hit2(`ip:token:${ip}`, 600, 600);
+      const ip = clientIp(c);
+      const rl = await hit(`ip:token:${ip}`, 600, 600);
       if (!rl.ok) return c.body(null, 429);
       const body = await c.req.json().catch(() => null);
       if (!body?.device_code) return c.json({ error: "invalid_request" }, 400);
@@ -5732,8 +5722,7 @@ var init_app = __esm({
       const { issueRefresh: issueRefresh2 } = await Promise.resolve().then(() => (init_refresh(), refresh_exports));
       const out = await redeem3(body.device_code, mintAccess2, issueRefresh2);
       if ("tokens" in out) {
-        const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
-        await audit2("device.token.redeemed", { detail: { device_code: body.device_code } });
+        await audit("device.token.redeemed", { detail: { device_code: body.device_code } });
         return c.json(out.tokens, 200);
       }
       return c.json({ error: out.error }, 400);
@@ -5742,11 +5731,9 @@ var init_app = __esm({
       const rc = await requireCred(c);
       if ("status" in rc) return c.body(null, rc.status);
       const { sub } = rc;
-      const { isLocked: isLocked2, recordFailure: recordFailure2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
       const lockKey = `account:approve:${sub}`;
-      if (await isLocked2(lockKey)) {
-        await audit2("device.lockout", { actorUserId: sub });
+      if (await isLocked(lockKey)) {
+        await audit("device.lockout", { actorUserId: sub });
         return c.body(null, 429);
       }
       const userCode = c.req.query("user_code");
@@ -5757,12 +5744,12 @@ var init_app = __esm({
         [userCode]
       );
       if (r.rowCount !== 1) {
-        await recordFailure2(lockKey, 900, 5, 900);
+        await recordFailure(lockKey, 900, 5, 900);
         return c.json({ type: "not-found" }, 404);
       }
       const row = r.rows[0];
       const { classifyOrigin: classifyOrigin2 } = await Promise.resolve().then(() => (init_origin(), origin_exports));
-      await audit2("device.lookup", { actorUserId: sub, detail: { user_code: userCode } });
+      await audit("device.lookup", { actorUserId: sub, detail: { user_code: userCode } });
       return c.json({
         user_code: row.user_code,
         client: row.client,
@@ -5777,11 +5764,9 @@ var init_app = __esm({
       const fid = c.req.param("fid");
       const g = await ownerGate(c, fid);
       if ("status" in g) return c.body(null, g.status);
-      const { isLocked: isLocked2, recordFailure: recordFailure2, resetFailures: resetFailures2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
       const lockKey = `account:approve:${g.sub}`;
-      if (await isLocked2(lockKey)) {
-        await audit2("device.lockout", { actorUserId: g.sub });
+      if (await isLocked(lockKey)) {
+        await audit("device.lockout", { actorUserId: g.sub });
         return c.body(null, 429);
       }
       const body = await c.req.json().catch(() => null);
@@ -5811,12 +5796,11 @@ var init_app = __esm({
         [g.sub, fid, body.user_code, grantedScopes]
       );
       if (r.rowCount !== 1) {
-        await recordFailure2(lockKey, 900, 5, 900);
+        await recordFailure(lockKey, 900, 5, 900);
         return c.body(null, 404);
       }
-      await resetFailures2(lockKey);
-      const { clientIp: clientIp2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      await audit2("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp2(c), scope: mode ?? "full" } });
+      await resetFailures(lockKey);
+      await audit("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp(c), scope: mode ?? "full" } });
       return c.body(null, 204);
     });
     app.post("/families/:fid/device/deny", async (c) => {
@@ -5826,8 +5810,7 @@ var init_app = __esm({
       const body = await c.req.json().catch(() => null);
       if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
       const r = await q(`UPDATE device_authorizations SET status='denied' WHERE user_code=$1 AND status='pending' AND expires_at > now() RETURNING device_code`, [body.user_code]);
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
-      if (r.rowCount === 1) await audit2("device.deny", { actorUserId: g.sub, familyId: fid });
+      if (r.rowCount === 1) await audit("device.deny", { actorUserId: g.sub, familyId: fid });
       return c.body(null, r.rowCount === 1 ? 204 : 404);
     });
     app.post("/families/:fid/invites", async (c) => {
@@ -5841,8 +5824,7 @@ var init_app = __esm({
       if (role !== "adult") return c.json({ type: "bad-role" }, 400);
       const maxUses = mode === "qr" ? 1 : Math.trunc(body?.max_uses ?? 1);
       if (maxUses < 1 || maxUses > 10) return c.json({ type: "bad-max-uses" }, 400);
-      const { clientIp: clientIp2, hit: hit2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
-      if (!(await hit2(`owner:mint:${g.sub}`, 600, 20)).ok) return c.body(null, 429);
+      if (!(await hit(`owner:mint:${g.sub}`, 600, 20)).ok) return c.body(null, 429);
       const caps = await q(
         `SELECT (SELECT count(*) FROM invites WHERE family_id=$1 AND status='active' AND expires_at>now()) AS inv,
             (SELECT count(*) FROM memberships WHERE family_id=$1 AND status='pending') AS pend`,
@@ -5851,8 +5833,7 @@ var init_app = __esm({
       if (Number(caps.rows[0].inv) >= 10 || Number(caps.rows[0].pend) >= 20) return c.body(null, 429);
       const { createInvite: createInvite2 } = await Promise.resolve().then(() => (init_invites(), invites_exports));
       const { inviteId, token } = await createInvite2(fid, g.sub, mode, role, maxUses);
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
-      await audit2("invite.mint", { actorUserId: g.sub, familyId: fid, detail: { mode, role, max_uses: maxUses } });
+      await audit("invite.mint", { actorUserId: g.sub, familyId: fid, detail: { mode, role, max_uses: maxUses } });
       const expires = await q(`SELECT expires_at FROM invites WHERE id=$1`, [inviteId]);
       c.header("cache-control", "no-store, no-transform");
       return c.json({ invite_id: inviteId, token, url: `${new URL(c.req.url).origin}/invite/${token}`, role, mode, expires_at: expires.rows[0].expires_at }, 201);
@@ -5867,26 +5848,24 @@ var init_app = __esm({
       } catch {
         return c.body(null, 401);
       }
-      const { isLocked: isLocked2, recordFailure: recordFailure2, resetFailures: resetFailures2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
       const key = `account:redeem:${sub}`;
-      if (await isLocked2(key)) return c.body(null, 429);
+      if (await isLocked(key)) return c.body(null, 429);
       const body = await c.req.json().catch(() => null);
       if (!body?.token) return c.json({ type: "bad-request" }, 400);
       const { redeem: redeem3 } = await Promise.resolve().then(() => (init_invites(), invites_exports));
       const out = await redeem3(body.token, sub);
-      const { audit: audit2 } = await Promise.resolve().then(() => (init_audit(), audit_exports));
       if ("notfound" in out) {
-        await recordFailure2(key, 900, 5, 900);
+        await recordFailure(key, 900, 5, 900);
         return c.body(null, 404);
       }
       if ("capfull" in out) return c.body(null, 429);
-      await resetFailures2(key);
+      await resetFailures(key);
       if ("conflict" in out) {
         if (out.conflict === "pending") return c.json({ status: "pending" }, 200);
         return c.json({ type: out.conflict === "active" ? "already-member" : "removed" }, 409);
       }
       const fam = await q(`SELECT name FROM families WHERE id=$1`, [out.family_id]);
-      await audit2("invite.redeem", { actorUserId: sub, familyId: out.family_id });
+      await audit("invite.redeem", { actorUserId: sub, familyId: out.family_id });
       return c.json({ family_id: out.family_id, family_name: fam.rows[0]?.name, role: out.role, status: "pending" }, 200);
     });
     app.post("/families/:fid/members/*", async (c) => {
@@ -5904,7 +5883,7 @@ var init_app = __esm({
       if (action === "promote") {
         const r = await q(`UPDATE memberships SET role='owner', updated_at=now() WHERE user_id=$1 AND family_id=$2 AND status='active' AND role<>'owner' RETURNING 1`, [uid, fid]);
         if (r.rowCount === 1) {
-          (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("member.promote", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+          audit("member.promote", { actorUserId: g.sub, familyId: fid, detail: { uid } });
           return c.body(null, 204);
         }
         const cur = await q(`SELECT role, status FROM memberships WHERE user_id=$1 AND family_id=$2`, [uid, fid]);
@@ -5913,7 +5892,7 @@ var init_app = __esm({
       } else if (action === "approve") {
         const r = await q(`UPDATE memberships SET status='active', joined_at=now() WHERE user_id=$1 AND family_id=$2 AND status='pending' RETURNING 1`, [uid, fid]);
         if (r.rowCount === 1) {
-          (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("invite.approve", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+          audit("invite.approve", { actorUserId: g.sub, familyId: fid, detail: { uid } });
           return c.body(null, 204);
         }
         const cur = await q(`SELECT status FROM memberships WHERE user_id=$1 AND family_id=$2`, [uid, fid]);
@@ -5921,7 +5900,7 @@ var init_app = __esm({
         return c.body(null, cur.rows[0].status === "active" ? 200 : 409);
       } else {
         const r = await q(`UPDATE memberships SET status='removed' WHERE user_id=$1 AND family_id=$2 AND status='pending' RETURNING 1`, [uid, fid]);
-        if (r.rowCount === 1) (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("invite.decline", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+        if (r.rowCount === 1) audit("invite.decline", { actorUserId: g.sub, familyId: fid, detail: { uid } });
         return c.body(null, r.rowCount === 1 ? 204 : 404);
       }
     });
@@ -5953,7 +5932,7 @@ var init_app = __esm({
       } finally {
         client.release();
       }
-      (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("member.remove", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+      audit("member.remove", { actorUserId: g.sub, familyId: fid, detail: { uid } });
       return c.body(null, 204);
     });
     app.delete("/families/:fid/invites/:id", async (c) => {
@@ -5961,7 +5940,7 @@ var init_app = __esm({
       const g = await ownerGate(c, fid);
       if ("status" in g) return c.body(null, g.status);
       const r = await q(`UPDATE invites SET status='revoked' WHERE id=$1 AND family_id=$2 AND status='active' RETURNING 1`, [iid, fid]);
-      if (r.rowCount === 1) (await Promise.resolve().then(() => (init_audit(), audit_exports))).audit("invite.revoke", { actorUserId: g.sub, familyId: fid, detail: { invite_id: iid } });
+      if (r.rowCount === 1) audit("invite.revoke", { actorUserId: g.sub, familyId: fid, detail: { invite_id: iid } });
       return c.body(null, 204);
     });
     app.get("/families/:fid/invites", async (c) => {
