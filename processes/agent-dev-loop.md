@@ -119,8 +119,8 @@ manual-apply process is **ADR 0033** (tracked migration runner; Proposed).
 **Dependency:** `:ui` `api(project(":client"))` — `:ui` sees all of `:client`; `:client` has no Compose dependency.
 
 **Build from `apps/`** (one Gradle root — pins in Toolchain above):
-- `:client` logic/data edit → only `:client` recompiles (~7,348 lines, ~2.4s)
-- `:ui` composable edit → `:ui` recompiles (~7,434 lines, ~2.6s); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
+- `:client` logic/data edit → only `:client` recompiles (source has grown past its original split-day size — check `find apps/client/src -name '*.kt' | xargs wc -l` for the current count rather than trusting a number here)
+- `:ui` composable edit → `:ui` recompiles (same caveat); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
 - Both modules: KT-62686 still fires (full recompile within module) — KMP + Kotlin 2.3.20 project-level issue, not Compose-specific
 
 ```
@@ -179,8 +179,8 @@ models (so field names are correct by construction).
 
 ## Client core + desktop (`:client` + `:ui` — KMP modules, post-split 2026-07-02)
 ```
-cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest   # 440 tests: logic/data/reducers
-cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # 329 tests: Compose snapshots + UI (incl. CL-SNAP golden suite)
+cd apps && JAVA_HOME=<jdk17> ./gradlew :client:desktopTest   # logic/data/reducers — count drifts, see gradle output, not a number pinned here
+cd apps && JAVA_HOME=<jdk17> ./gradlew :ui:desktopTest       # Compose snapshots + UI (incl. CL-SNAP golden suite) — count drifts, see gradle output
 cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugreport slice registry + MANDATORY sanitizer leak test (ADR 0054)
 ```
 - **`:client` tests:** reducer/selector/sync/engine unit tests — Compose-free. Run when editing logic, reducers, engines, data clients, store, ContentStore.
@@ -190,7 +190,7 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugrepor
   or sanitizer in `apps/swip-wiring/`. Resolving `works.sloop.swip:*` needs GitHub
   Packages credentials: `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties`
   (read:packages PAT) or `SLOOPWORKS_PACKAGES_TOKEN` env (CI secret).
-- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Post-merge of CL-SNAP (#277): 440 + 329 = 769 (CL-SNAP's 18 snapshot tests relocated to `:ui`).
+- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest`; touching `:ui` → `./gradlew :ui:desktopTest` (`:client` recompiled first due to jar dependency). Since CL-SNAP (#277) relocated its snapshot tests from `:client` to `:ui`, both suites have grown with later refactors — check gradle's own test-summary line for the current count rather than trusting a number here.
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
   **silently NOT run** (JUnit ignores non-void test methods). Use
@@ -210,11 +210,13 @@ an agent to *see* what a change produced and to catch visual regressions.
   scoped `desktopTest` in `apps/ui/build.gradle.kts` (relocated `:client`→`:ui`
   in the modularize merge — the scenes render Compose, which lives in `:ui`).
 - Scene registry: `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/snapshot/SnapshotScenes.kt`
-  — `clientSnapshots` with 20 scenes covering every client surface: `feed`,
+  — `clientSnapshots` with 22 scenes covering every client surface: `feed`,
   `hub-detail`, `hub-list`, `detail`, `auth`, `account`, `join`, `members`,
   `devices`, `device-approval`, `scan`, `notif`, `privacy`, `places`,
   `proximity`, `permission`, `offline-banner`, `kit`, `timeline-card`,
-  `timeline-detail` (run `--list` for presets). State fixtures come from
+  `timeline-detail`, `avatar-picker`, `hub-people` (run `--list` for presets;
+  the scene count itself drifts — check `SnapshotScenes.kt` rather than
+  trusting a number here). State fixtures come from
   `SnapshotStates.kt` (hand-built `AppState` literals — reuses the tests'
   existing fixtures, **not** `FakeScenarios`).
 - Goldens committed per-OS in `apps/ui/src/desktopTest/resources/snapshots/`
@@ -273,7 +275,8 @@ docker run --rm --memory=7g -v "$(git rev-parse --show-toplevel)":/repo -w /repo
 ```
 Then **eyeball the changed PNGs** before committing.
 
-**Golden dashboard (HTML):** render all 131 shots + verify against a golden
+**Golden dashboard (HTML):** render all shots (count drifts — see
+`apps/ui/snapshot-shots.json` for the current total) + verify against a golden
 set + emit a self-contained `index.html` (per-shot image, verdict + diff%,
 magenta diff overlay on mismatch, failures sorted first):
 ```

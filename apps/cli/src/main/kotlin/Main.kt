@@ -24,8 +24,8 @@ private fun client() = HttpClient.newHttpClient()
 private val J = Json { ignoreUnknownKeys = true }
 
 /** Shared HTTP call; returns Pair<statusCode, body>. `postStatus`/`putStatus`/
- *  `getStatus`/`deleteStatus` below were four near-identical ~8-line functions
- *  differing only by method — collapsed by a repo-maintenance pass. */
+ *  `getStatus` below were near-identical ~8-line functions differing only by
+ *  method — collapsed by a repo-maintenance pass. */
 private fun httpStatus(method: String, url: String, token: String?, body: String? = null): Pair<Int, String> {
   val b = HttpRequest.newBuilder(URI.create(url))
   if (token != null) b.header("authorization", "Bearer $token")
@@ -43,7 +43,6 @@ private fun httpStatus(method: String, url: String, token: String?, body: String
 private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("POST", url, token, body)
 private fun putStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("PUT", url, token, body)
 private fun getStatus(url: String, token: String?): Pair<Int, String> = httpStatus("GET", url, token)
-private fun deleteStatus(url: String, token: String?): Pair<Int, String> = httpStatus("DELETE", url, token)
 
 private fun signout(c: Creds) {
   postStatus("${c.api}/auth/signout", "{}", c.accessToken)
@@ -52,8 +51,8 @@ private fun signout(c: Creds) {
 /**
  * Refresh the access token via `/auth/refresh`, persist the rotated access+refresh
  * pair, and return the new access token — exits with actionable `dayfold login`
- * guidance on any failure. Shared by authedGet/authedDelete/push's 401-retry path
- * (was inlined three times, byte-for-byte, before this extraction).
+ * guidance on any failure. Shared by authedCall's 401-retry path (was inlined
+ * three times, byte-for-byte, before this extraction).
  */
 private fun refreshAccessToken(store: Credentials, keychain: SecretStore?): String =
   store.withRefreshLock {
@@ -69,44 +68,21 @@ private fun refreshAccessToken(store: Credentials, keychain: SecretStore?): Stri
   }
 
 /**
- * Authed GET with one transparent refresh on 401 (device creds only; the legacy
- * env path has no refresh). Returns Pair<statusCode, body>.
+ * Authed call with one transparent refresh on 401 (device creds only; the legacy
+ * env path has no refresh). Returns Pair<statusCode, body>. Collapses what were
+ * three near-identical GET/DELETE/PUT wrapper functions differing only by method
+ * (and PUT's request body) — collapsed by a repo-maintenance pass onto the same
+ * `httpStatus` primitive the `*Status` wrappers below it were already built on.
  */
-private fun authedGet(
+private fun authedCall(
   store: Credentials?, keychain: SecretStore?,
-  api: String, token: String, refreshable: Creds?, path: String,
+  api: String, token: String, refreshable: Creds?, method: String, path: String,
+  requestBody: String? = null,
 ): Pair<Int, String> {
-  var (code, body) = getStatus("$api$path", token)
+  var (code, body) = httpStatus(method, "$api$path", token, requestBody)
   if (code == 401 && store != null && refreshable != null) {
     val newAccess = refreshAccessToken(store, keychain)
-    val retry = getStatus("$api$path", newAccess); code = retry.first; body = retry.second
-  }
-  return Pair(code, body)
-}
-
-/** Authed DELETE with one transparent refresh on 401 (mirrors authedGet). */
-private fun authedDelete(
-  store: Credentials?, keychain: SecretStore?,
-  api: String, token: String, refreshable: Creds?, path: String,
-): Pair<Int, String> {
-  var (code, body) = deleteStatus("$api$path", token)
-  if (code == 401 && store != null && refreshable != null) {
-    val newAccess = refreshAccessToken(store, keychain)
-    val retry = deleteStatus("$api$path", newAccess); code = retry.first; body = retry.second
-  }
-  return Pair(code, body)
-}
-
-/** Authed PUT with one transparent refresh on 401 (mirrors authedGet/authedDelete;
- *  was inlined in `push` before this extraction). */
-private fun authedPut(
-  store: Credentials?, keychain: SecretStore?,
-  api: String, token: String, refreshable: Creds?, path: String, requestBody: String,
-): Pair<Int, String> {
-  var (code, body) = putStatus("$api$path", requestBody, token)
-  if (code == 401 && store != null && refreshable != null) {
-    val newAccess = refreshAccessToken(store, keychain)
-    val retry = putStatus("$api$path", requestBody, newAccess); code = retry.first; body = retry.second
+    val retry = httpStatus(method, "$api$path", newAccess, requestBody); code = retry.first; body = retry.second
   }
   return Pair(code, body)
 }
@@ -185,7 +161,7 @@ fun main(args: Array<String>) {
       println(whoamiStatus(dev, tok.isNotEmpty(), fam, api))
       // ADR 0029: show the credential's RESOLVED scope (server-side grant rows).
       if (api.isNotEmpty() && tok.isNotEmpty()) {
-        val (code, body) = authedGet(store.takeIf { dev }, keychain, api, tok, creds, "/auth/whoami")
+        val (code, body) = authedCall(store.takeIf { dev }, keychain, api, tok, creds, "GET", "/auth/whoami")
         if (code == 200) {
           val grants = runCatching { J.parseToJsonElement(body).jsonObject["grants"]?.jsonArray?.map { it.jsonPrimitive.content } }.getOrNull()
           if (grants != null) println("scope=${if (grants.isEmpty()) "(none)" else grants.joinToString(",")}")
@@ -203,13 +179,13 @@ fun main(args: Array<String>) {
       val s = store.takeIf { creds != null }
       val hub = flagValue(args, "--hub")
       if (hub != null) {
-        val (code, body) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs/$hub/tree")
+        val (code, body) = authedCall(s, keychain, api, tok, creds, "GET", "/families/$fam/hubs/$hub/tree")
         if (code != 200) { System.err.println("pull failed ($code): $body"); exitProcess(1) }
         println(body)
       } else {
-        val (cc, cards) = authedGet(s, keychain, api, tok, creds, "/families/$fam/cards")
+        val (cc, cards) = authedCall(s, keychain, api, tok, creds, "GET", "/families/$fam/cards")
         if (cc != 200) { System.err.println("pull cards failed ($cc): $cards"); exitProcess(1) }
-        val (hc, hubs) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs")
+        val (hc, hubs) = authedCall(s, keychain, api, tok, creds, "GET", "/families/$fam/hubs")
         if (hc != 200) { System.err.println("pull hubs failed ($hc): $hubs"); exitProcess(1) }
         println("""{"cards":$cards,"hubs":$hubs}""")
       }
@@ -226,7 +202,7 @@ fun main(args: Array<String>) {
       val creds = loadCreds(store, keychain)
       requireAuthSetup(creds != null)
       val (api, fam, tok) = resolveAuth(creds)
-      val (code, body) = authedDelete(store.takeIf { creds != null }, keychain, api, tok, creds, "/families/$fam/$resource/$id")
+      val (code, body) = authedCall(store.takeIf { creds != null }, keychain, api, tok, creds, "DELETE", "/families/$fam/$resource/$id")
       if (code !in 200..299) { System.err.println("delete failed ($code): $body"); exitProcess(1) }
       println("deleted $resource/$id")
     }
@@ -277,7 +253,7 @@ fun main(args: Array<String>) {
       val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
       requireAuthSetup(creds != null)
       if (creds != null) {
-        val (code, body) = authedPut(store, keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
+        val (code, body) = authedCall(store, keychain, creds.api, creds.accessToken, creds, "PUT", "/families/${creds.familyId}/$resource/$id", stamped)
         println("push $resource/$id -> $code")
         if (code != 200) { System.err.println(body); exitProcess(1) }
       } else {

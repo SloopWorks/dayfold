@@ -121,7 +121,7 @@ private fun PrimingBody(prompt: PermissionPrompt) {
   Spacer(Modifier.height(16.dp))
   cfg.reasons.forEach { r ->
     Row(Modifier.fillMaxWidth().padding(bottom = 11.dp), verticalAlignment = Alignment.Top) {
-      IconTile(r.icon, cs.surfaceContainerHigh, cs.secondary)
+      IconTile(r.icon, cs.surfaceContainerHigh, cs.secondary, tile = 38.dp, corner = 12.dp, iconSize = 20.dp)
       Spacer(Modifier.width(12.dp))
       Column(Modifier.weight(1f)) {
         Text(r.title, style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
@@ -180,7 +180,7 @@ private fun LimitedBody() {
   Spacer(Modifier.height(8.dp))
   StatusPill("Location · while using the app", DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer)
   Spacer(Modifier.height(20.dp))
-  IconTile(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, big = true)
+  IconTile(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, tile = 84.dp, corner = 26.dp, iconSize = 42.dp)
   Spacer(Modifier.height(20.dp))
   Text("Open Dayfold to see what's nearby", style = MaterialTheme.typography.headlineSmall, color = cs.onSurface)
   Spacer(Modifier.height(8.dp))
@@ -212,7 +212,7 @@ private fun DowngradedBody() {
   Spacer(Modifier.height(8.dp))
   StatusPill("Background access turned off", DayfoldIcons.LocationOff, cs.surfaceContainerHigh, cs.onSurfaceVariant)
   Spacer(Modifier.height(20.dp))
-  IconTile(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, big = true)
+  IconTile(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, tile = 84.dp, corner = 26.dp, iconSize = 42.dp)
   Spacer(Modifier.height(20.dp))
   Text("Back to while-using only", style = MaterialTheme.typography.headlineSmall, color = cs.onSurface)
   Spacer(Modifier.height(8.dp))
@@ -230,7 +230,7 @@ private fun DeniedBody() {
   Spacer(Modifier.height(8.dp))
   StatusPill("Location · off", DayfoldIcons.LocationOff, cs.surfaceContainerHigh, cs.onSurfaceVariant)
   Spacer(Modifier.height(20.dp))
-  IconTile(DayfoldIcons.PauseCircle, cs.surfaceContainerHigh, cs.onSurfaceVariant, big = true)
+  IconTile(DayfoldIcons.PauseCircle, cs.surfaceContainerHigh, cs.onSurfaceVariant, tile = 84.dp, corner = 26.dp, iconSize = 42.dp)
   Spacer(Modifier.height(20.dp))
   Text("Place reminders are paused", style = MaterialTheme.typography.headlineSmall, color = cs.onSurface)
   Spacer(Modifier.height(8.dp))
@@ -244,7 +244,7 @@ private fun DeniedBody() {
       Text("STILL WORKS — JUST NOT TIMED", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = cs.onSurfaceVariant)
       Spacer(Modifier.height(10.dp))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        IconTile(DayfoldIcons.Today, cs.surfaceContainerHigh, cs.secondary)
+        IconTile(DayfoldIcons.Today, cs.surfaceContainerHigh, cs.secondary, tile = 38.dp, corner = 12.dp, iconSize = 20.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
           Text("Party shopping list", style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
@@ -298,12 +298,18 @@ private fun StatusPill(text: String, icon: ImageVector, bg: androidx.compose.ui.
   }
 }
 
+/** Shared by PermissionLadder and ProximitySettings (both `client` package) —
+ *  was two near-byte-identical composables (`IconTile`/`IconTileS`) differing
+ *  only in their dp constants; collapsed by a repo-maintenance pass. Callers
+ *  keep their own tile/corner/icon dp triples so rendered output is unchanged. */
 @Composable
-private fun IconTile(icon: ImageVector, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color, big: Boolean = false) {
-  val tile = if (big) 84.dp else 38.dp
-  Surface(shape = RoundedCornerShape(if (big) 26.dp else 12.dp), color = bg, modifier = Modifier.size(tile)) {
+internal fun IconTile(
+  icon: ImageVector, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color,
+  tile: androidx.compose.ui.unit.Dp, corner: androidx.compose.ui.unit.Dp, iconSize: androidx.compose.ui.unit.Dp,
+) {
+  Surface(shape = RoundedCornerShape(corner), color = bg, modifier = Modifier.size(tile)) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-      Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(if (big) 42.dp else 20.dp))
+      Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(iconSize))
     }
   }
 }

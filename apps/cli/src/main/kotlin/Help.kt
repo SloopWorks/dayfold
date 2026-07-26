@@ -138,6 +138,11 @@ val COMMANDS: List<HelpCommand> = listOf(
       "A 403 on `push --section`/`--block` into a hub you don't own is the per-hub role gate (ADR " +
         "0053), independent of login/scope: a Viewer can't write, a Contributor can't manage people. " +
         "Only the hub owner / a Co-owner can promote you in-app — re-login will NOT fix it.",
+      "A 403 on `push --hub` re-authoring a hub you don't own is a THIRD, separate gate (ADR 0030 " +
+        "§6): only the hub's author, an existing participant (any role — viewer/contributor/co-owner), " +
+        "or a legacy credential may re-PUT it, even with correct hub:<id>:write scope. Fix: have the " +
+        "author push it, or have the author/a co-owner add you as a participant first (PUT " +
+        ".../participants/:uid) — re-login will NOT fix it either.",
     ),
     examples = listOf(
       "dayfold push 01J…CARD card.json --type file",

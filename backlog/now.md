@@ -119,72 +119,77 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-24 repo-maintenance pass (17th)** — scheduled, same six-point scope.
-Zero commits had landed since the 16th pass (2026-07-22, `792eab0`), but
-**`main`'s CI was RED at the start** — run 30023130215 (`792eab0`, run #800)
-failed on `:client:desktopTest`'s `SessionBoundaryTest > sign out invalidates
-and joins a blocked cached reconcile before tenant cleanup`
-(`AssertionFailedError`), even though that commit's own diff was
-docs/CLI-help-text only (no client code touched) — ruling out a code cause.
-Re-ran the same failed jobs against the same commit/SHA with zero code
-changed: **green** on attempt 2 — confirms a flaky/nondeterministic test, not
-a regression; `main` is healthy. Worth watching if it recurs (the test uses
-`CompletableDeferred` ordering that's meant to be deterministic; a repeat
-would point at a real coroutine-scheduling race worth a closer look).
+**2026-07-26 repo-maintenance pass (18th)** — scheduled, same six-point scope.
+`main`'s CI was confirmed green at the pass's start (head `715a486`, the 17th
+pass's own merge via #355 — run 30172033791, success). Five parallel
+independent audits, this time actually run concurrently as background agents
+rather than sequentially:
 
-Four parallel independent audits:
-1. **Dedup/simplification** — `apps/api`/`apps/cli` clean (11 prior passes
-   already worked that queue). `apps/client` had two new, real findings,
-   applied: (a) `Selectors.kt`'s private `parseTs` was byte-identical to
-   `DateLabels.kt`'s private `parseOrNull` — deleted the duplicate, widened
-   `parseOrNull` to `internal`, `Selectors.kt` now calls it directly; (b)
-   `AuthClient.kt`/`HubClient.kt` repeated
-   `if (resp.status.value != 200/!in range) throw AuthHttpException(...)`
-   ~16 times — extracted a shared `HttpResponse.requireStatus(endpoint, ok)`
-   extension (in `AuthClient.kt`, both files are the same package); the five
-   `when`-block `else ->` branches with distinct success/404/else handling
-   were correctly left alone (genuine control flow, not duplication). **This
-   sandbox has no JDK 17 (only 21), no toolchain auto-provisioning
-   configured, and `apt-get install openjdk-17-jdk` 403s through the proxy**
-   — unlike `apps/api`'s TS (locally type-checkable), these Kotlin changes
-   could not be compile-verified in-session. Verified by careful inspection
-   instead (every call site regex-matched then hand-checked, imports/
-   visibility confirmed, confirmed no other caller of the removed private
-   symbol) and left to CI as the verification oracle — the same
-   "verify-by-PR-CI" posture the 12th pass used for its `ci.yml`
-   composite-action dedup, now applied to `:client` for the first time.
-2. **Agentic-docs accuracy** — three stale facts + one over-promise, fixed:
-   `processes/agent-dev-loop.md` said "Compose-MP 1.9.3" (actual pinned:
-   1.11.1, `apps/build.gradle.kts:10` — the process doc had inherited a stale
-   number from that same file's own outdated header comment); two "alpha04"
-   mentions of `redux-kotlin-snapshot` were stale (bumped to alpha05 in
-   `fce7503`, 2026-07-16, but two mentions were missed in the same doc);
-   "131 goldens committed" was a stale magic number (currently 136 macOS /
-   127 linux, neither matches — same class of drift the 15th pass already
-   fixed once in the README caption; given the same treatment here: describe
-   instead of hardcode). `processes/build-loop-prompt.md` told agents to
-   read `agent-dev-loop.md` for a "pinned SQLDelight version" that doc never
-   actually pins — removed the over-promise.
-3. **CLI --help / skill-doc completeness** — clean; the 16th pass's
-   `content:delete` scope fix verified intact and correct end-to-end
-   (`Help.kt`, `cli.md`, `HelpTest.kt` all agree).
-4. **Values/privacy + CHANGELOG completeness** — clean on both. Zero new
-   commits to check; the last 3 commits re-confirmed no secrets/PII/dark
-   patterns. CHANGELOG cross-referenced against this file's shipped-feature
-   narrative and 60 commits of history — every product/API/feature change has
-   an entry; the three newest commits (`53799cb`/`6e867f4`/`fce7503`) are
-   correctly internal-only (client-state-plumbing refactors) and don't need
-   one.
-
-README/architecture.md checked directly (not delegated) — already carries
-screenshots (an earlier pass's work) and all 7 `.github/workflows/*.yml`
-files are documented in the Deploy section (the 16th pass's own fix,
-re-confirmed accurate) — no new findings.
-
-`backlog/now.md` self-pruned again per its own stated policy: moved the
-16th-pass paragraph to `now-history.md`, leaving only this pass's write-up
-current — routine housekeeping this file needs almost every pass now that
-maintenance passes run near-daily.
+1. **Dedup/simplification** — three real findings, all applied:
+   (a) `apps/api/src/app.ts` still had 10 `await import(...)` call sites for
+   `auth/audit.ts`/`auth/ratelimit.ts`, kept lazy under a comment explaining
+   the laziness exists to dodge `auth/tokens.ts`'s module-level `AUTH_*`-env
+   throw (so `api.test.ts`, which runs with no `AUTH_*` env, can still load
+   `app.ts`). Confirmed both modules only import the already-static `db.ts`
+   and carry no such guard — converted both to static top-of-file imports,
+   removing all 10 dynamic-import call sites; `node --check` passes.
+   (b) `apps/cli/.../Main.kt`'s `authedGet`/`authedDelete`/`authedPut` were
+   three ~14-line functions differing only by HTTP method (and PUT's request
+   body) — collapsed into one `authedCall(..., method, path, requestBody =
+   null)` built on the existing `httpStatus` primitive; the now-unused
+   `deleteStatus` wrapper was removed, six call sites updated.
+   (c) `apps/ui`'s `PermissionLadder.kt` (`IconTile`) and
+   `ProximitySettings.kt` (`IconTileS`) were near-byte-identical composables
+   differing only in their tile/corner/icon dp constants (a copy-paste with
+   retuned sizes, including an apparent off-by-one: 20dp vs 21dp icon size
+   that was preserved, not "fixed", since visual behavior wasn't in scope) —
+   collapsed into one `internal fun IconTile(..., tile, corner, iconSize)` in
+   `PermissionLadder.kt`, `ProximitySettings.kt`'s duplicate deleted, both
+   files' call sites now pass their original dp values explicitly so
+   rendered output is unchanged. **Same JDK-17/no-toolchain-provisioning
+   sandbox constraint as the 17th pass** — the two Kotlin changes could not
+   be compile-verified locally (bracket/paren/brace balance checked instead,
+   every call site hand-verified); the TS change was `node --check`-verified.
+   Left to CI as the verification oracle, same posture as the 12th/17th
+   passes. **Note:** an independent, still-open, unmerged PR #356 (a
+   different concurrent session's "17th pass," based on the pre-#355 `main`)
+   proposes overlapping (a)/(b) fixes — this pass's fixes are independent and
+   may conflict with #356 if both land; whichever merges second will need a
+   trivial re-resolve since the end states are equivalent.
+2. **Agentic-docs accuracy** — `processes/agent-dev-loop.md` had re-drifted
+   after the mid-July client-state refactor wave (same class of staleness
+   the 15th/17th passes already fixed once each, on different facts): test
+   counts ("440"/"329"/"769 total") were ~53% low vs. actual `@Test` counts;
+   recompile line-count estimates ("~7,348"/"~7,434") were ~45-47% low vs.
+   actual `wc -l`; the CL-SNAP scene list enumerated 20 scenes but
+   `SnapshotScenes.kt` has 22 (missing `avatar-picker`/`hub-people`); the
+   golden-shot count ("131") is now 136 per `snapshot-shots.json`. All four
+   replaced with either corrected numbers or a pointer to the live source
+   (matching how this same doc already handles its per-OS goldens count) so
+   they don't re-drift silently next time. No context-bloat findings — the
+   CLI/API vs. Compose/KMP scoping boundary is still honored, and no other
+   process/skill doc had a verifiable stale fact.
+3. **CLI --help / skill-doc completeness** — one real, confirmed gap: `push
+   --hub` re-authoring an *existing* hub has a third, independent 403 source
+   (ADR 0030 §6's author/allow-list gate in `apps/api/src/app.ts`'s hub PUT
+   route) beyond scope and beyond the ADR-0053 per-hub role check — and
+   `cli.md` read as if hub-body PUT had no extra write-gate at all beyond
+   scope, which would lead an agent hitting this 403 to misdiagnose it as a
+   scope problem and wrongly suggest re-login. Documented in both
+   `Help.kt`'s `push` command details and `.claude/skills/dayfold-curator/
+   references/cli.md`'s per-hub-role section (this was flagged-but-deferred
+   by the unmerged PR #356 above; fixed here instead). Everything else
+   checked (command/flag coverage, exit codes, prior passes' fixes) was
+   clean.
+4. **README / architecture.md / CHANGELOG accuracy** — clean, no findings.
+   Screenshots exist, versions match `build.gradle.kts`, all 7 workflow files
+   are documented, every product/API commit back through the 11th pass has a
+   CHANGELOG entry.
+5. **Values/privacy** — clean, no findings (18th consecutive clean pass on
+   this dimension). No secrets, export/delete endpoints intact, SWIP
+   analytics/error-reporting still structurally debug-only
+   (`src/debug`-scoped, not just a runtime flag), no child-data/OAuth-scope/
+   external-messaging drift in the last 15 commits.
 
 No CHANGELOG entry — all changes this pass are internal (dedup + doc
 accuracy), no product/API/feature surface touched.

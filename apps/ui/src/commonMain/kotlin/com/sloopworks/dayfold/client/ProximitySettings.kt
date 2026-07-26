@@ -66,7 +66,7 @@ fun ProximitySettingsScreen(
     // device-local banner — the never-synced posture, stated up front.
     Surface(shape = RoundedCornerShape(18.dp), color = cs.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
       Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconTileS(DayfoldIcons.Smartphone, cs.surfaceContainerHigh, cs.onSurfaceVariant)
+        IconTile(DayfoldIcons.Smartphone, cs.surfaceContainerHigh, cs.onSurfaceVariant, tile = 38.dp, corner = 12.dp, iconSize = 21.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
           Text("These settings live on this phone", style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
@@ -132,7 +132,7 @@ fun ProximitySettingsScreen(
               .semantics { contentDescription = "Location access. Opens system settings." },
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            IconTileS(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, big = true)
+            IconTile(DayfoldIcons.MyLocation, cs.secondaryContainer, cs.onSecondaryContainer, tile = 40.dp, corner = 13.dp, iconSize = 22.dp)
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
               Text("Location access", style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
@@ -232,16 +232,6 @@ private fun TimeCell(label: String, value: String, modifier: Modifier, onClick: 
       Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = cs.onSurfaceVariant)
       Spacer(Modifier.size(2.dp))
       Text(value, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
-    }
-  }
-}
-
-@Composable
-private fun IconTileS(icon: ImageVector, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color, big: Boolean = false) {
-  val tile = if (big) 40.dp else 38.dp
-  Surface(shape = RoundedCornerShape(if (big) 13.dp else 12.dp), color = bg, modifier = Modifier.size(tile)) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-      Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(if (big) 22.dp else 21.dp))
     }
   }
 }

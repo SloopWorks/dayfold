@@ -80,8 +80,20 @@ scope. If a `push --section`/`--block` 403s but `whoami` shows the expected
 `hub:<id>:write` scope, the fix is different from the scope case above — the
 hub's owner or a Co-owner needs to raise the identity's role to Contributor or
 Co-owner (in-app hub People management), not re-login. The hub's author is
-always an implicit Co-owner. This role check does not apply to a plain hub
-body PUT (`--hub`), only to section/block writes.
+always an implicit Co-owner. This *role* check does not apply to a plain hub
+body PUT (`--hub`), only to section/block writes — but see the next item,
+a separate gate that does apply to `--hub`.
+
+**Author/allow-list gate on hub PUT (ADR 0030 §6) — a third, independent 403
+source.** Re-authoring an *existing* hub with `push --hub` (any visibility,
+not just restricted) is blocked for anyone who isn't the hub's author, an
+existing participant of any role (viewer/contributor/co-owner), or a legacy
+credential — even with correct `hub:<id>:write` scope and regardless of the
+ADR-0053 role check above (which this route doesn't apply to). If `push
+--hub` 403s but `whoami` shows the expected scope, this is almost certainly
+why: have the hub's author push it, or have the author/a co-owner add you as
+a participant first (`PUT .../hubs/:id/participants/:uid`) — re-login and
+role changes from the ADR-0053 paragraph above will **not** fix this one.
 
 **Exit codes** (all commands): `0` = success (including `help`); `1` = the
 server rejected the request (non-200 — see Push below); `2` = local misuse
