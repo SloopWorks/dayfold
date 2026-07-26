@@ -143,6 +143,10 @@ val COMMANDS: List<HelpCommand> = listOf(
         "or a legacy credential may re-PUT it, even with correct hub:<id>:write scope. Fix: have the " +
         "author push it, or have the author/a co-owner add you as a participant first (PUT " +
         ".../participants/:uid) — re-login will NOT fix it either.",
+      "A 403 on `push --hub` when the pushed body CHANGES visibility/audience is a FOURTH gate " +
+        "(ADR 0053 item 5): that PUT counts as hub management, so it needs author/co-owner even if " +
+        "you're allow-listed. Fix: omit visibility/audience (omitting preserves the stored values) " +
+        "for a content-only push, or have the author/a co-owner use PUT .../hubs/:id/visibility.",
     ),
     examples = listOf(
       "dayfold push 01J…CARD card.json --type file",

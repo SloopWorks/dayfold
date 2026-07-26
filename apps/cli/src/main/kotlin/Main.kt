@@ -32,8 +32,11 @@ private fun httpStatus(method: String, url: String, token: String?, body: String
   when (method) {
     "GET" -> b.GET()
     "DELETE" -> b.DELETE()
-    "POST" -> { b.header("content-type", "application/json"); b.POST(HttpRequest.BodyPublishers.ofString(body!!)) }
-    "PUT" -> { b.header("content-type", "application/json"); b.PUT(HttpRequest.BodyPublishers.ofString(body!!)) }
+    // `body` is nullable because GET/DELETE don't take one; a null here for POST/PUT is
+    // a caller bug (authedCall's `requestBody` defaults to null for the bodyless methods),
+    // so fail with the method name rather than a bare NPE from `!!`.
+    "POST" -> { b.header("content-type", "application/json"); b.POST(HttpRequest.BodyPublishers.ofString(requireNotNull(body) { "POST requires a request body" })) }
+    "PUT" -> { b.header("content-type", "application/json"); b.PUT(HttpRequest.BodyPublishers.ofString(requireNotNull(body) { "PUT requires a request body" })) }
     else -> error("unsupported method: $method")
   }
   val res = client().send(b.build(), HttpResponse.BodyHandlers.ofString())

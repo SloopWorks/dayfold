@@ -1195,7 +1195,11 @@ private fun LinkRow(block: HubBlock) {
         accentHex = p.accentColor, alt = p.thumbnailAlt, size = 48.dp, corner = 12.dp,
       )
     } else {
-      IconTile(if (block.type == "document") DayfoldIcons.Document else DayfoldIcons.Link, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+      IconTile(
+        if (block.type == "document") DayfoldIcons.Document else DayfoldIcons.Link,
+        MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer,
+        tile = 38.dp, corner = 11.dp, iconSize = 20.dp,
+      )
     }
     Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
       // document ref is the canonical schema name; docRef is the client alias (ADR 0035)
@@ -1287,12 +1291,6 @@ private fun BudgetBar(p: BlockPayload?) {
     }
   }
 }
-
-@Composable
-private fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, bg: androidx.compose.ui.graphics.Color, tint: androidx.compose.ui.graphics.Color) =
-  Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(bg), contentAlignment = Alignment.Center) {
-    androidx.compose.material3.Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-  }
 
 // `label` is the screen-reader name for the action affordance (was a bare emoji before).
 @Composable

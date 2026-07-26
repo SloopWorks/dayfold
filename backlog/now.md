@@ -194,6 +194,35 @@ rather than sequentially:
 No CHANGELOG entry — all changes this pass are internal (dedup + doc
 accuracy), no product/API/feature surface touched.
 
+**Review round on the pass's own PR (#357), same day** — the pass shipped its
+Kotlin changes unverified (no JDK 17 in that sandbox). Review re-ran the real
+toolchain and closed the gap: `apps/cli` `./gradlew test` green, `:ui:desktopTest`
+green (525 tests, 0 failures — including all 127 committed macOS goldens, so the
+"rendered output unchanged" claim on the `IconTile` dedup is now empirically
+confirmed, not inspection-only), `apps/api` 398 vitest tests green, and
+`audit.ts`/`ratelimit.ts` re-confirmed to import only `db.ts` (no `AUTH_*`
+env-guard) so the static-import conversion is sound. Five findings fixed on top:
+(a) the `IconTile` dedup missed a **third** near-identical private copy in
+`HubScreens.kt` — same `client` package — which left two same-named overloads
+(one `private`, one `internal`) as a resolution trap; folded it into the shared
+composable (`Box`+`clip`+`background` → `Surface`, verified pixel-identical by
+the hub-detail goldens). (b) `ProximitySettings.kt` kept two now-dead imports
+(`Box`, `ImageVector`) after `IconTileS` was deleted. (c) collapsing
+`authedPut`'s non-null `requestBody` into `authedCall`'s nullable one lost the
+compile-time guarantee behind `httpStatus`'s `body!!` — a bodyless `"PUT"` call
+now fails via `requireNotNull` with the method name instead of a bare NPE.
+(d) `cli.md`'s new 403 paragraph said "role changes will not fix this one,"
+which contradicts its own remedy — *adding* an allow-list row at any role does
+fix it; only *raising* an existing participant's role doesn't. Also noted the
+restricted-hub 404-before-403 precedence. (e) a **fourth** `push --hub` 403
+source was undocumented: ADR 0053 item 5's `canManageHub` gate, which fires
+when the pushed body actually changes `visibility`/`audience` — added to both
+`cli.md` and `Help.kt`. Plus `agent-dev-loop.md`: the anti-drift rewrite pointed
+at `find apps/client/src` for a *recompile* line count, which is >2× the real
+figure (it sweeps test sources) — scoped to `commonMain`, and the scene list no
+longer states "22 scenes" one clause before telling readers not to trust
+hardcoded scene counts.
+
 ## Design-first gate (ADR 0008) — status
 
 The **feed-only** M0 slice was built **build-first** (operator-directed) from the

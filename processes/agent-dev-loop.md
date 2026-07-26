@@ -119,8 +119,8 @@ manual-apply process is **ADR 0033** (tracked migration runner; Proposed).
 **Dependency:** `:ui` `api(project(":client"))` — `:ui` sees all of `:client`; `:client` has no Compose dependency.
 
 **Build from `apps/`** (one Gradle root — pins in Toolchain above):
-- `:client` logic/data edit → only `:client` recompiles (source has grown past its original split-day size — check `find apps/client/src -name '*.kt' | xargs wc -l` for the current count rather than trusting a number here)
-- `:ui` composable edit → `:ui` recompiles (same caveat); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
+- `:client` logic/data edit → only `:client` recompiles (~2–3s; source has grown well past its original split-day size — for the current main-source count run `find apps/client/src/commonMain -name '*.kt' | xargs wc -l | tail -1` rather than trusting a number here. Scope it to `commonMain`: the whole of `src/` is >2× that, most of it test sources a main-only build doesn't recompile)
+- `:ui` composable edit → `:ui` recompiles (~2–3s; same counting caveat, `apps/ui/src/commonMain`); `:client` stays UP-TO-DATE for main-only builds; recompiles when targeting `compileTestKotlinDesktop` due to Gradle upstream jar-dependency chain
 - Both modules: KT-62686 still fires (full recompile within module) — KMP + Kotlin 2.3.20 project-level issue, not Compose-specific
 
 ```
@@ -210,13 +210,13 @@ an agent to *see* what a change produced and to catch visual regressions.
   scoped `desktopTest` in `apps/ui/build.gradle.kts` (relocated `:client`→`:ui`
   in the modularize merge — the scenes render Compose, which lives in `:ui`).
 - Scene registry: `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/snapshot/SnapshotScenes.kt`
-  — `clientSnapshots` with 22 scenes covering every client surface: `feed`,
-  `hub-detail`, `hub-list`, `detail`, `auth`, `account`, `join`, `members`,
-  `devices`, `device-approval`, `scan`, `notif`, `privacy`, `places`,
-  `proximity`, `permission`, `offline-banner`, `kit`, `timeline-card`,
-  `timeline-detail`, `avatar-picker`, `hub-people` (run `--list` for presets;
-  the scene count itself drifts — check `SnapshotScenes.kt` rather than
-  trusting a number here). State fixtures come from
+  — `clientSnapshots`, one scene per client surface: `feed`, `hub-detail`,
+  `hub-list`, `detail`, `auth`, `account`, `join`, `members`, `devices`,
+  `device-approval`, `scan`, `notif`, `privacy`, `places`, `proximity`,
+  `permission`, `offline-banner`, `kit`, `timeline-card`, `timeline-detail`,
+  `avatar-picker`, `hub-people` (22 as of 2026-07-26 — the set grows with new
+  surfaces, so run `--list` for the live scene + preset list rather than
+  trusting this enumeration). State fixtures come from
   `SnapshotStates.kt` (hand-built `AppState` literals — reuses the tests'
   existing fixtures, **not** `FakeScenarios`).
 - Goldens committed per-OS in `apps/ui/src/desktopTest/resources/snapshots/`

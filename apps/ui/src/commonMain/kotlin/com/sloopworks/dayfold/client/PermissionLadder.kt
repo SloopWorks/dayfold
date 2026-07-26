@@ -298,8 +298,9 @@ private fun StatusPill(text: String, icon: ImageVector, bg: androidx.compose.ui.
   }
 }
 
-/** Shared by PermissionLadder and ProximitySettings (both `client` package) —
- *  was two near-byte-identical composables (`IconTile`/`IconTileS`) differing
+/** The one icon-tile primitive for the `client` package — shared by
+ *  PermissionLadder, ProximitySettings and HubScreens, which each carried a
+ *  near-byte-identical private copy (`IconTile`/`IconTileS`/`IconTile`) differing
  *  only in their dp constants; collapsed by a repo-maintenance pass. Callers
  *  keep their own tile/corner/icon dp triples so rendered output is unchanged. */
 @Composable

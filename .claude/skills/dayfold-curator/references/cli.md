@@ -87,13 +87,29 @@ a separate gate that does apply to `--hub`.
 **Author/allow-list gate on hub PUT (ADR 0030 §6) — a third, independent 403
 source.** Re-authoring an *existing* hub with `push --hub` (any visibility,
 not just restricted) is blocked for anyone who isn't the hub's author, an
-existing participant of any role (viewer/contributor/co-owner), or a legacy
-credential — even with correct `hub:<id>:write` scope and regardless of the
-ADR-0053 role check above (which this route doesn't apply to). If `push
---hub` 403s but `whoami` shows the expected scope, this is almost certainly
-why: have the hub's author push it, or have the author/a co-owner add you as
-a participant first (`PUT .../hubs/:id/participants/:uid`) — re-login and
-role changes from the ADR-0053 paragraph above will **not** fix this one.
+existing participant of *any* role (viewer/contributor/co-owner), or a legacy
+credential — even with correct `hub:<id>:write` scope, and independent of the
+section/block role gate above (which this route doesn't run). If `push --hub`
+403s but `whoami` shows the expected scope, this is almost certainly why:
+have the hub's author push it, or have the author/a co-owner add you as a
+participant (`PUT .../hubs/:id/participants/:uid`) — **re-login will not fix
+it**. Note what *does* fix it: being added to the allow list at all, at any
+role. Merely *raising* an existing participant's role (the fix for the
+section/block gate above) changes nothing here, because a `viewer` row
+already satisfies this gate. Caveat: on a **restricted** hub the caller can't
+see, the visibility check fires first and you get a uniform `404`, not a
+`403`.
+
+**Management gate on hub PUT (ADR 0053 item 5) — a fourth 403 source, only on
+an actual visibility/audience change.** If the pushed hub body carries a
+`visibility`/`audience` that *differs* from what's stored, that PUT counts as
+a management action and additionally requires author/co-owner (`canManageHub`)
+— so an allow-listed `viewer`/`contributor` who clears gate 3 still 403s.
+A content-only push (title/body/media edits that leave visibility + audience
+untouched, or that omit both fields entirely — omitting preserves the stored
+values, it does not declassify) never trips this one. Fix: drop the
+`visibility`/`audience` fields from the pushed body, or use the dedicated
+`PUT .../hubs/:id/visibility` route as the author/a co-owner.
 
 **Exit codes** (all commands): `0` = success (including `help`); `1` = the
 server rejected the request (non-200 — see Push below); `2` = local misuse
