@@ -7,6 +7,18 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-27 — Auth revocation check closed on 3 endpoints (18th repo-maintenance pass)
+
+### Fixed (API)
+- **`/auth/signout`, `POST /families`, and `/invites:redeem` now reject an
+  already-revoked credential.** All three verified the bearer JWT's signature
+  but skipped the DB revocation check every other authenticated route uses
+  (`requireCred`), so a credential revoked from another device (e.g. after a
+  lost-device signout elsewhere) could still create a family or redeem an
+  invite until its short-lived access token expired. All three now go through
+  the same shared `requireCred` helper as the other 7 call sites — no
+  behavior change for a live credential, closes the gap for a revoked one.
+
 ## 2026-07-16 — Roadmap NOW placement + open-at-NOW
 
 ### Added

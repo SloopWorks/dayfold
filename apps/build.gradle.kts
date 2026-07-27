@@ -1,7 +1,7 @@
 // Plugin versions declared once for the whole build (no version catalog yet).
 // Subprojects apply these without a version. Matrix (don't drift — see
-// processes/agent-dev-loop.md): Kotlin 2.3.20 · Compose-MP 1.9.3 · AGP 8.7.2 ·
-// Gradle 8.11.1 · SQLDelight 2.3.2.
+// processes/agent-dev-loop.md): Kotlin 2.3.20 · Compose-MP 1.11.1 · AGP 9.2.1 ·
+// Gradle 9.4.1 · SQLDelight 2.3.2.
 plugins {
   kotlin("multiplatform") version "2.3.20" apply false
   kotlin("android") version "2.3.20" apply false

@@ -233,12 +233,8 @@ app.post("/auth/refresh", async (c) => {
 });
 
 app.post("/auth/signout", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let cid: string;
-  try {
-    const { verifyAccess } = await import("./auth/tokens.ts");
-    cid = (await verifyAccess(t)).cid;
-  } catch { return c.body(null, 401); }
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { cid } = rc;
   await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
   await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
   return c.body(null, 204);
@@ -383,12 +379,8 @@ app.delete("/auth/me", async (c) => {
 });
 
 app.post("/families", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string;
-  try {
-    const { verifyAccess } = await import("./auth/tokens.ts");
-    sub = (await verifyAccess(t)).sub;
-  } catch { return c.body(null, 401); }
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const body = await c.req.json().catch(() => null);
   if (!body?.name || typeof body.name !== "string") return c.json({ type: "bad-name" }, 400);
   const { createFamily } = await import("./auth/identity.ts");
@@ -1057,10 +1049,8 @@ app.post("/families/:fid/invites", async (c) => {
 });
 
 app.post("/invites:redeem", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string;
-  try { const { verifyAccess } = await import("./auth/tokens.ts"); sub = (await verifyAccess(t)).sub; }
-  catch { return c.body(null, 401); }
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const { isLocked, recordFailure, resetFailures } = await import("./auth/ratelimit.ts");
   const key = `account:redeem:${sub}`;
   if (await isLocked(key)) return c.body(null, 429);

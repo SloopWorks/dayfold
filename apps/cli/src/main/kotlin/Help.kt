@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 // alias, positional arg, and option carries a description so `dayfold help`,
 // `dayfold <command> --help`, and `dayfold help --json` fully describe the tool (for a
 // person AND the dayfold-curator agent). Adding a command means adding a registry entry —
-// HelpModelTest fails if any command/arg/option lacks a description or example.
+// HelpTest fails if any command/arg/option lacks a description or example.
 
 @Serializable
 data class HelpArg(val name: String, val description: String, val required: Boolean = true)

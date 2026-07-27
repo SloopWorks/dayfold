@@ -119,75 +119,69 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-24 repo-maintenance pass (17th)** — scheduled, same six-point scope.
-Zero commits had landed since the 16th pass (2026-07-22, `792eab0`), but
-**`main`'s CI was RED at the start** — run 30023130215 (`792eab0`, run #800)
-failed on `:client:desktopTest`'s `SessionBoundaryTest > sign out invalidates
-and joins a blocked cached reconcile before tenant cleanup`
-(`AssertionFailedError`), even though that commit's own diff was
-docs/CLI-help-text only (no client code touched) — ruling out a code cause.
-Re-ran the same failed jobs against the same commit/SHA with zero code
-changed: **green** on attempt 2 — confirms a flaky/nondeterministic test, not
-a regression; `main` is healthy. Worth watching if it recurs (the test uses
-`CompletableDeferred` ordering that's meant to be deterministic; a repeat
-would point at a real coroutine-scheduling race worth a closer look).
+**2026-07-27 repo-maintenance pass (18th)** — scheduled, same six-point scope.
+Zero commits had landed since the 17th pass (2026-07-25, `715a486`); `main`'s
+CI was **already green** across all 4 push-triggered workflows (CI, Secret
+Scan, Release CLI (edge), Release Android — all `completed`/`success` at
+head) — no break to fix. Four parallel independent audits + one direct
+follow-up found the queue genuinely thin (17 prior passes have worked it
+hard) but not empty:
+1. **Dedup/simplification** — `apps/api`, `apps/cli`, and `apps/client` all
+   confirmed clean of *new* duplication (prior passes already cleared the
+   queue; the 17th pass's client-side `HttpResponse.requireStatus`/
+   `parseOrNull` fixes verified intact). One real, non-duplication
+   correctness gap found and fixed instead: `POST /auth/signout`,
+   `POST /families`, and `POST /invites:redeem` in `apps/api/src/app.ts`
+   each hand-rolled a bearer→`verifyAccess`→401 check that — unlike the
+   `requireCred` helper used at 7 other call sites — never checked
+   `credentials.revoked_at`, so a credential revoked from another device
+   could still create a family or redeem an invite until its short-lived
+   access token expired. Switched all three to `requireCred` (same
+   `{sub,cid}|{status}` shape already used elsewhere in the file); consistent
+   with the revocation invariant `auth-e2e.test.ts`'s "I1" test already
+   asserts for `/auth/refresh`. **`npm install` failed in this sandbox**
+   (`registry.npmjs.org` 403 on `esbuild` — distinct from the already-
+   documented JDK-17/apt-get limitation, and notably `registry.npmjs.org` is
+   in the proxy's own `noProxy` bypass list, so this wasn't a proxy policy
+   block) — could not run `tsc`/`vitest` locally. Verified by inspection
+   (identical helper/shape to 7 existing call sites, no variable-scope
+   conflicts in any of the three handlers) and left to this PR's CI as the
+   oracle, same posture the 14th/17th passes used. CHANGELOG entry added
+   (API/security-relevant, not internal-only).
+2. **Agentic-docs accuracy** — one real root-cause fix, two trivial ones:
+   `apps/build.gradle.kts:1-4`'s own header comment still said "Compose-MP
+   1.9.3 · AGP 8.7.2 · Gradle 8.11.1" opposite its own declared plugin
+   versions six lines below (1.11.1/9.2.1) — this was the actual source the
+   17th pass's `processes/agent-dev-loop.md` fix was patching *downstream*
+   of; fixed at the root this time (now reads 1.11.1/9.2.1/9.4.1, matching
+   both the plugin block and the Gradle wrapper). `docs/architecture.md`'s
+   self-dated freshness line was 9 calendar days stale (said 2026-07-18)
+   though its content wasn't (zero commits since 715a486) — bumped to
+   2026-07-27. `apps/cli/.../Help.kt:12`'s own comment named a nonexistent
+   `HelpModelTest` class (the real test class is `HelpTest`) — cosmetic,
+   fixed.
+3. **CLI --help / skill-doc completeness** — clean; all 10 commands/aliases
+   and every flag in `.claude/skills/dayfold-curator/references/cli.md`
+   verified line-for-line against `Help.kt`'s `COMMANDS` registry, and
+   `content-model.md`'s icon/host/hex rules verified against
+   `MediaValidation.kt`. `HelpTest.kt` still CI-enforces every command/arg/
+   option carries a description + example.
+4. **README/architecture/CHANGELOG** — clean. README's 4 screenshots
+   confirmed to exist on disk and be real CI-gated golden-snapshot PNGs (not
+   `designs/` mockups, which are correctly labeled separately).
+   `docs/architecture.md`'s mermaid diagram + component table cover every
+   major piece (api/cli/client/ui/android/ios/db/vercel/SWIP-observability/
+   auth/sync). CHANGELOG cross-referenced against 30 commits of `git log` —
+   no gaps, no missing entries.
 
-Four parallel independent audits:
-1. **Dedup/simplification** — `apps/api`/`apps/cli` clean (11 prior passes
-   already worked that queue). `apps/client` had two new, real findings,
-   applied: (a) `Selectors.kt`'s private `parseTs` was byte-identical to
-   `DateLabels.kt`'s private `parseOrNull` — deleted the duplicate, widened
-   `parseOrNull` to `internal`, `Selectors.kt` now calls it directly; (b)
-   `AuthClient.kt`/`HubClient.kt` repeated
-   `if (resp.status.value != 200/!in range) throw AuthHttpException(...)`
-   ~16 times — extracted a shared `HttpResponse.requireStatus(endpoint, ok)`
-   extension (in `AuthClient.kt`, both files are the same package); the five
-   `when`-block `else ->` branches with distinct success/404/else handling
-   were correctly left alone (genuine control flow, not duplication). **This
-   sandbox has no JDK 17 (only 21), no toolchain auto-provisioning
-   configured, and `apt-get install openjdk-17-jdk` 403s through the proxy**
-   — unlike `apps/api`'s TS (locally type-checkable), these Kotlin changes
-   could not be compile-verified in-session. Verified by careful inspection
-   instead (every call site regex-matched then hand-checked, imports/
-   visibility confirmed, confirmed no other caller of the removed private
-   symbol) and left to CI as the verification oracle — the same
-   "verify-by-PR-CI" posture the 12th pass used for its `ci.yml`
-   composite-action dedup, now applied to `:client` for the first time.
-2. **Agentic-docs accuracy** — three stale facts + one over-promise, fixed:
-   `processes/agent-dev-loop.md` said "Compose-MP 1.9.3" (actual pinned:
-   1.11.1, `apps/build.gradle.kts:10` — the process doc had inherited a stale
-   number from that same file's own outdated header comment); two "alpha04"
-   mentions of `redux-kotlin-snapshot` were stale (bumped to alpha05 in
-   `fce7503`, 2026-07-16, but two mentions were missed in the same doc);
-   "131 goldens committed" was a stale magic number (currently 136 macOS /
-   127 linux, neither matches — same class of drift the 15th pass already
-   fixed once in the README caption; given the same treatment here: describe
-   instead of hardcode). `processes/build-loop-prompt.md` told agents to
-   read `agent-dev-loop.md` for a "pinned SQLDelight version" that doc never
-   actually pins — removed the over-promise.
-3. **CLI --help / skill-doc completeness** — clean; the 16th pass's
-   `content:delete` scope fix verified intact and correct end-to-end
-   (`Help.kt`, `cli.md`, `HelpTest.kt` all agree).
-4. **Values/privacy + CHANGELOG completeness** — clean on both. Zero new
-   commits to check; the last 3 commits re-confirmed no secrets/PII/dark
-   patterns. CHANGELOG cross-referenced against this file's shipped-feature
-   narrative and 60 commits of history — every product/API/feature change has
-   an entry; the three newest commits (`53799cb`/`6e867f4`/`fce7503`) are
-   correctly internal-only (client-state-plumbing refactors) and don't need
-   one.
-
-README/architecture.md checked directly (not delegated) — already carries
-screenshots (an earlier pass's work) and all 7 `.github/workflows/*.yml`
-files are documented in the Deploy section (the 16th pass's own fix,
-re-confirmed accurate) — no new findings.
+**Values/privacy spot-check** — clean: no secrets/credentials in the last 5
+commits (only env-var lookups and obviously-fake test tokens), no tracked
+`.env` files, `.gitignore` correctly excludes secrets/Firebase configs, and
+`secret-scan.yml`'s gitleaks CI scan is active. No PII, no dark patterns.
 
 `backlog/now.md` self-pruned again per its own stated policy: moved the
-16th-pass paragraph to `now-history.md`, leaving only this pass's write-up
-current — routine housekeeping this file needs almost every pass now that
-maintenance passes run near-daily.
-
-No CHANGELOG entry — all changes this pass are internal (dedup + doc
-accuracy), no product/API/feature surface touched.
+17th-pass paragraph to `now-history.md`, leaving only this pass's write-up
+current.
 
 ## Design-first gate (ADR 0008) — status
 
