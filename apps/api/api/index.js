@@ -5171,15 +5171,9 @@ var init_app = __esm({
       return c.json({ access, refresh: out.refresh });
     });
     app.post("/auth/signout", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let cid;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        cid = (await verifyAccess2(t)).cid;
-      } catch {
-        return c.body(null, 401);
-      }
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { cid } = rc;
       await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
       await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
       return c.body(null, 204);
@@ -5317,15 +5311,9 @@ var init_app = __esm({
       return c.body(null, 204);
     });
     app.post("/families", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        sub = (await verifyAccess2(t)).sub;
-      } catch {
-        return c.body(null, 401);
-      }
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const body = await c.req.json().catch(() => null);
       if (!body?.name || typeof body.name !== "string") return c.json({ type: "bad-name" }, 400);
       const { createFamily: createFamily2 } = await Promise.resolve().then(() => (init_identity(), identity_exports));
@@ -5858,15 +5846,9 @@ var init_app = __esm({
       return c.json({ invite_id: inviteId, token, url: `${new URL(c.req.url).origin}/invite/${token}`, role, mode, expires_at: expires.rows[0].expires_at }, 201);
     });
     app.post("/invites:redeem", async (c) => {
-      const t = bearer(c);
-      if (!t) return c.body(null, 401);
-      let sub;
-      try {
-        const { verifyAccess: verifyAccess2 } = await Promise.resolve().then(() => (init_tokens(), tokens_exports));
-        sub = (await verifyAccess2(t)).sub;
-      } catch {
-        return c.body(null, 401);
-      }
+      const rc = await requireCred(c);
+      if ("status" in rc) return c.body(null, rc.status);
+      const { sub } = rc;
       const { isLocked: isLocked2, recordFailure: recordFailure2, resetFailures: resetFailures2 } = await Promise.resolve().then(() => (init_ratelimit(), ratelimit_exports));
       const key = `account:redeem:${sub}`;
       if (await isLocked2(key)) return c.body(null, 429);
