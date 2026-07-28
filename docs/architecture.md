@@ -1,9 +1,12 @@
 # Architecture
 
-A map of the system as it actually runs today (2026-07-18). For product framing
-see `README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for
-live build status see `backlog/now.md`. This file is descriptive (what's built),
-not a design doc — update it when a component's shape changes, not on every PR.
+A map of the system as it actually runs today. For product framing see
+`README.md` / `adr/0004-product-framing.md`; for decisions see `adr/`; for live
+build status see `backlog/now.md`. This file is descriptive (what's built), not
+a design doc — update it when a component's shape changes, not on every PR.
+(No hardcoded "as of" date here on purpose — a prior pass's date went stale when
+a later edit touched the Deploy section without bumping it; `git log -1 --
+docs/architecture.md` gives the real answer.)
 
 ## System overview
 

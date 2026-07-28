@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { applyAllMigrations } from "./_migrations.ts";
 
-const here = dirname(fileURLToPath(import.meta.url));
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 process.env.HOUSEHOLD_SECRET = "test-secret-123";
 process.env.HOUSEHOLD_CREDENTIAL_ID = "hcred";
@@ -22,9 +19,7 @@ async function put(fid: string, id: string, body: any, headers = AUTH) {
 }
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"]) // typed-card + related cols
-    await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
+  await applyAllMigrations(q);
   await q(`INSERT INTO families(id,name) VALUES ('fam1','Test')`);
   await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','fam1','{content:read,content:write}')`);
   await q(`INSERT INTO credential_grants(credential_id,scope) VALUES ('hcred','content:read'),('hcred','content:write')`);

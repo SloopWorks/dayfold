@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { HubSchema } from "./generated/content";
+import { HubSchema } from "../src/generated/content.ts";
 
 describe("generated Hub.timeline", () => {
   it("accepts a hub with a valid timeline", () => {

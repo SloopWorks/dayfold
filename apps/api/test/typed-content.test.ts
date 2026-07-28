@@ -1,12 +1,9 @@
 // CL-2 — typed content storage end-to-end vs live Postgres (extend
-// briefing_cards in place, ADR 0022 D2). Applies 0001 + 0005 only (household-
-// token path; no auth migrations). Mirrors the api.test.ts harness.
+// briefing_cards in place, ADR 0022 D2). Exercises the household-token path
+// (no auth migrations used). Mirrors the api.test.ts harness.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { applyAllMigrations } from "./_migrations.ts";
 
-const here = dirname(fileURLToPath(import.meta.url));
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 process.env.HOUSEHOLD_SECRET = "test-secret-123";
 process.env.HOUSEHOLD_CREDENTIAL_ID = "hcred";
@@ -36,9 +33,7 @@ const typedCard = (type: string, over: any = {}) =>
   ({ kind: "action", title: `${type} card`, provenance: prov, type, payload: TYPED[type], ...over });
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"])
-    await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
+  await applyAllMigrations(q);
   await q(`INSERT INTO families(id,name) VALUES ('famA','A'),('famB','B')`);
   await q(`INSERT INTO credentials(id,kind,family_scope,scopes) VALUES ('hcred','cli','famA','{content:read,content:write}')`);
   await q(`INSERT INTO credential_grants(credential_id,scope) VALUES ('hcred','content:read'),('hcred','content:write')`);

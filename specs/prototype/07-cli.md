@@ -5,6 +5,20 @@
 > blocks / markdown / triggers / places to the API (`03-api.md`). Kotlin/JVM
 > (ADR 0013 — CLI stays Kotlin), **types codegen'd from the JSON schema** so
 > the CLI and client share one content contract.
+>
+> **⚠ SUPERSEDED BY THE SHIPPED CLI (18th repo-maintenance pass, 2026-07-28).**
+> This is an early prototype spec; the built CLI has diverged in ways that would
+> mislead an agent reading this for "how auth/authoring actually works" —
+> notably the env var is `DAYFOLD_API`/`FAMILY_ID`/`HOUSEHOLD_SECRET`, not
+> `FAMILYAI_TOKEN` (§Auth below); `dayfold login` is a plain RFC 8628 device
+> grant with **no** X25519/E2EE key bootstrap (E2EE is deferred, ADR 0017); and
+> there is no declarative git-backed directory-authoring model — content is
+> authored per-file via `dayfold push <id> <file.json>`. For the CURRENT CLI,
+> use `dayfold help` / `dayfold <command> --help --json` (self-documenting,
+> tested — `apps/cli/src/test/kotlin/.../HelpTest.kt`), `apps/cli/README.md`,
+> `apps/cli/templates/README.md`, and `.claude/skills/dayfold-curator/`. Kept
+> here only as historical record of the original M1 design intent (E2EE +
+> declarative authoring), not as an accurate how-it-works doc.
 
 ## Auth
 

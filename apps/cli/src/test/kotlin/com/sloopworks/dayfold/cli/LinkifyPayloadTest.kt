@@ -1,4 +1,5 @@
-import com.sloopworks.dayfold.cli.linkifyPayload
+package com.sloopworks.dayfold.cli
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

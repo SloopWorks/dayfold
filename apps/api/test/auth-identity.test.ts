@@ -1,16 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-const here = dirname(fileURLToPath(import.meta.url));
+import { applyAllMigrations } from "./_migrations.ts";
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 const { pool, q } = await import("../src/db.ts");
 const { findOrCreateUser, createFamily } = await import("../src/auth/identity.ts");
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  await q(readFileSync(resolve(here, "../migrations/0001_m0_init.sql"), "utf8"));
-  await q(readFileSync(resolve(here, "../migrations/0002_auth.sql"), "utf8"));
+  await applyAllMigrations(q);
 });
 afterAll(async () => { await pool.end(); });
 

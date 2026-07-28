@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { generateKeyPair, exportJWK } from "jose";
-const here = dirname(fileURLToPath(import.meta.url));
+import { applyAllMigrations } from "./_migrations.ts";
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 process.env.AUTH_ISS = "https://fad.test/auth"; process.env.AUTH_AUD = "fad-api-test";
 process.env.HOUSEHOLD_SECRET = "legacy-secret"; process.env.HOUSEHOLD_CREDENTIAL_ID = "hcred";
@@ -19,9 +16,7 @@ const { authorizeTenant } = await import("../src/auth/middleware.ts");
 const ctx = (token?: string) => ({ req: { header: (h: string) => h.toLowerCase() === "authorization" && token ? `Bearer ${token}` : undefined } });
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  await q(readFileSync(resolve(here, "../migrations/0001_m0_init.sql"), "utf8"));
-  await q(readFileSync(resolve(here, "../migrations/0002_auth.sql"), "utf8"));
+  await applyAllMigrations(q);
   await q(`INSERT INTO families(id,name) VALUES ('famA','A'),('famB','B')`);
   await q(`INSERT INTO users(id) VALUES ('uA')`);
   await q(`INSERT INTO memberships(user_id,family_id,role,status) VALUES ('uA','famA','owner','active')`);

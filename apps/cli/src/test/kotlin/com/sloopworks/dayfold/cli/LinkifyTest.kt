@@ -1,3 +1,5 @@
+package com.sloopworks.dayfold.cli
+
 import com.sloopworks.dayfold.client.cards.linkify
 import kotlin.test.Test
 import kotlin.test.assertEquals
