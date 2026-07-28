@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { generateKeyPair, exportJWK } from "jose";
-const here = dirname(fileURLToPath(import.meta.url));
+import { applyAllMigrations } from "./_migrations.ts";
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 process.env.AUTH_ISS = "https://fad.test/auth"; process.env.AUTH_AUD = "fad-api-test";
 process.env.ENABLE_DEV_AUTH = "1"; process.env.DEV_AUTH_SECRET = "dev"; delete process.env.VERCEL_ENV;
@@ -15,9 +12,7 @@ const { app } = await import("../src/app.ts");
 const { sweep } = await import("../src/auth/sweep.ts");
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0004_refresh_grace.sql","0005_invites.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql","0015_two_way_reserve.sql"])
-    await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
+  await applyAllMigrations(q);
 });
 afterAll(async () => { await pool.end(); });
 

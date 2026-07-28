@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hubTimelineIssues } from "./content-validation";
+import { hubTimelineIssues } from "../src/content-validation.ts";
 
 describe("hubTimelineIssues", () => {
   it("no timeline → no issues", () => { expect(hubTimelineIssues({})).toEqual([]); });

@@ -1,12 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import {
   generateKeyPair, exportJWK, SignJWT, createLocalJWKSet, decodeJwt, type JWTVerifyGetKey,
 } from "jose";
+import { applyAllMigrations } from "./_migrations.ts";
 
-const here = dirname(fileURLToPath(import.meta.url));
 const PROJECT = "dayfold-test";
 
 // Backend signing env (same shape as auth-e2e) so importing app.ts/tokens.ts is happy.
@@ -53,10 +50,7 @@ function unsignedToken(claims: Record<string, unknown>): string {
 }
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0003_device_grant.sql",
-    "0004_refresh_grace.sql", "0005_invites.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"])
-    await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
+  await applyAllMigrations(q);
 });
 
 describe("FirebaseVerifier — signed (RS256) path", () => {

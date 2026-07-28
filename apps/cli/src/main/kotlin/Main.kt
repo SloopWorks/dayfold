@@ -145,6 +145,15 @@ private fun resolveAuth(creds: Creds?): Triple<String, String, String> =
   if (creds != null) Triple(creds.api, creds.familyId, creds.accessToken)
   else Triple(env("DAYFOLD_API"), env("FAMILY_ID"), env("HOUSEHOLD_SECRET"))
 
+/** The OS-keychain handle + on-disk credentials — shared prologue for
+ *  whoami/pull/delete/push (was `Credentials()` + `resolveKeychain()` + `loadCreds()`
+ *  copy-pasted 4x). */
+private class Session(val store: Credentials, val keychain: SecretStore?, val creds: Creds?)
+private fun loadSession(): Session {
+  val store = Credentials(); val keychain = resolveKeychain()
+  return Session(store, keychain, loadCreds(store, keychain))
+}
+
 /** A human-readable message for a failed payload-file read — pure, so it's tested.
  *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
 internal fun fileReadError(file: String, e: Exception): String = when (e) {
@@ -176,8 +185,8 @@ fun main(args: Array<String>) {
     }
 
     "whoami" -> {
-      val store = Credentials(); val keychain = resolveKeychain()
-      val creds = loadCreds(store, keychain)
+      val session = loadSession()
+      val creds = session.creds
       val dev = creds != null
       val api = creds?.api ?: System.getenv("DAYFOLD_API") ?: ""
       val fam = creds?.familyId ?: System.getenv("FAMILY_ID") ?: ""
@@ -185,7 +194,7 @@ fun main(args: Array<String>) {
       println(whoamiStatus(dev, tok.isNotEmpty(), fam, api))
       // ADR 0029: show the credential's RESOLVED scope (server-side grant rows).
       if (api.isNotEmpty() && tok.isNotEmpty()) {
-        val (code, body) = authedGet(store.takeIf { dev }, keychain, api, tok, creds, "/auth/whoami")
+        val (code, body) = authedGet(session.store.takeIf { dev }, session.keychain, api, tok, creds, "/auth/whoami")
         if (code == 200) {
           val grants = runCatching { J.parseToJsonElement(body).jsonObject["grants"]?.jsonArray?.map { it.jsonPrimitive.content } }.getOrNull()
           if (grants != null) println("scope=${if (grants.isEmpty()) "(none)" else grants.joinToString(",")}")
@@ -196,20 +205,19 @@ fun main(args: Array<String>) {
     // dayfold pull [--hub <id>]  — read content back (proves the author→read loop).
     // No --hub: prints {"cards":[...],"hubs":[...]}. --hub: prints that hub's tree.
     "pull" -> {
-      val store = Credentials(); val keychain = resolveKeychain()
-      val creds = loadCreds(store, keychain)
-      requireAuthSetup(creds != null)
-      val (api, fam, tok) = resolveAuth(creds)
-      val s = store.takeIf { creds != null }
+      val session = loadSession()
+      requireAuthSetup(session.creds != null)
+      val (api, fam, tok) = resolveAuth(session.creds)
+      val s = session.store.takeIf { session.creds != null }
       val hub = flagValue(args, "--hub")
       if (hub != null) {
-        val (code, body) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs/$hub/tree")
+        val (code, body) = authedGet(s, session.keychain, api, tok, session.creds, "/families/$fam/hubs/$hub/tree")
         if (code != 200) { System.err.println("pull failed ($code): $body"); exitProcess(1) }
         println(body)
       } else {
-        val (cc, cards) = authedGet(s, keychain, api, tok, creds, "/families/$fam/cards")
+        val (cc, cards) = authedGet(s, session.keychain, api, tok, session.creds, "/families/$fam/cards")
         if (cc != 200) { System.err.println("pull cards failed ($cc): $cards"); exitProcess(1) }
-        val (hc, hubs) = authedGet(s, keychain, api, tok, creds, "/families/$fam/hubs")
+        val (hc, hubs) = authedGet(s, session.keychain, api, tok, session.creds, "/families/$fam/hubs")
         if (hc != 200) { System.err.println("pull hubs failed ($hc): $hubs"); exitProcess(1) }
         println("""{"cards":$cards,"hubs":$hubs}""")
       }
@@ -222,11 +230,10 @@ fun main(args: Array<String>) {
     "delete", "rm" -> {
       val id = deleteId(args) ?: usage()
       val resource = deleteResource(args)
-      val store = Credentials(); val keychain = resolveKeychain()
-      val creds = loadCreds(store, keychain)
-      requireAuthSetup(creds != null)
-      val (api, fam, tok) = resolveAuth(creds)
-      val (code, body) = authedDelete(store.takeIf { creds != null }, keychain, api, tok, creds, "/families/$fam/$resource/$id")
+      val session = loadSession()
+      requireAuthSetup(session.creds != null)
+      val (api, fam, tok) = resolveAuth(session.creds)
+      val (code, body) = authedDelete(session.store.takeIf { session.creds != null }, session.keychain, api, tok, session.creds, "/families/$fam/$resource/$id")
       if (code !in 200..299) { System.err.println("delete failed ($code): $body"); exitProcess(1) }
       println("deleted $resource/$id")
     }
@@ -272,21 +279,18 @@ fun main(args: Array<String>) {
         System.err.println("validation failed:\n  " + preErrors.joinToString("\n  "))
         exitProcess(1)
       }
-      val store = Credentials()
-      val keychain = resolveKeychain()
-      val creds = loadCreds(store, keychain)        // refresh token comes from the keychain
+      val session = loadSession()        // refresh token comes from the keychain
+      val creds = session.creds
       requireAuthSetup(creds != null)
-      if (creds != null) {
-        val (code, body) = authedPut(store, keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
-        println("push $resource/$id -> $code")
-        if (code != 200) { System.err.println(body); exitProcess(1) }
+      val (code, body) = if (creds != null) {
+        authedPut(session.store, session.keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
       } else {
         // legacy env path (unchanged)
         val api = env("DAYFOLD_API"); val fam = env("FAMILY_ID"); val secret = env("HOUSEHOLD_SECRET")
-        val (code, body) = putStatus("$api/families/$fam/$resource/$id", stamped, secret)
-        println("push $resource/$id -> $code")
-        if (code != 200) { System.err.println(body); exitProcess(1) }
+        putStatus("$api/families/$fam/$resource/$id", stamped, secret)
       }
+      println("push $resource/$id -> $code")
+      if (code != 200) { System.err.println(body); exitProcess(1) }
       maybeNudgeUpdate()   // ADR 0037: throttled once/day update nudge (interactive only)
     }
 

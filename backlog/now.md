@@ -119,75 +119,139 @@ on-device durable queue (SQLite/WAL) instead of being lost on a process kill.
 screenshot blanking, chrome insets) is still pending** (operator, physical
 device) — the only item from this window not yet operator-verified.
 
-**2026-07-24 repo-maintenance pass (17th)** — scheduled, same six-point scope.
-Zero commits had landed since the 16th pass (2026-07-22, `792eab0`), but
-**`main`'s CI was RED at the start** — run 30023130215 (`792eab0`, run #800)
-failed on `:client:desktopTest`'s `SessionBoundaryTest > sign out invalidates
-and joins a blocked cached reconcile before tenant cleanup`
-(`AssertionFailedError`), even though that commit's own diff was
-docs/CLI-help-text only (no client code touched) — ruling out a code cause.
-Re-ran the same failed jobs against the same commit/SHA with zero code
-changed: **green** on attempt 2 — confirms a flaky/nondeterministic test, not
-a regression; `main` is healthy. Worth watching if it recurs (the test uses
-`CompletableDeferred` ordering that's meant to be deterministic; a repeat
-would point at a real coroutine-scheduling race worth a closer look).
+**2026-07-28 repo-maintenance pass (18th)** — scheduled, same six-point scope,
+but deeper than usual: three dedicated Explore agents (one per app/dimension)
+did a from-scratch audit of `apps/api`, `apps/cli`, and docs/skills instead of
+the usual quick pass, since it had been 4 days (17th pass, 2026-07-24) with no
+new commits to re-check. This surfaced real findings 11-17 prior passes'
+lighter touch had missed:
 
-Four parallel independent audits:
-1. **Dedup/simplification** — `apps/api`/`apps/cli` clean (11 prior passes
-   already worked that queue). `apps/client` had two new, real findings,
-   applied: (a) `Selectors.kt`'s private `parseTs` was byte-identical to
-   `DateLabels.kt`'s private `parseOrNull` — deleted the duplicate, widened
-   `parseOrNull` to `internal`, `Selectors.kt` now calls it directly; (b)
-   `AuthClient.kt`/`HubClient.kt` repeated
-   `if (resp.status.value != 200/!in range) throw AuthHttpException(...)`
-   ~16 times — extracted a shared `HttpResponse.requireStatus(endpoint, ok)`
-   extension (in `AuthClient.kt`, both files are the same package); the five
-   `when`-block `else ->` branches with distinct success/404/else handling
-   were correctly left alone (genuine control flow, not duplication). **This
-   sandbox has no JDK 17 (only 21), no toolchain auto-provisioning
-   configured, and `apt-get install openjdk-17-jdk` 403s through the proxy**
-   — unlike `apps/api`'s TS (locally type-checkable), these Kotlin changes
-   could not be compile-verified in-session. Verified by careful inspection
-   instead (every call site regex-matched then hand-checked, imports/
-   visibility confirmed, confirmed no other caller of the removed private
-   symbol) and left to CI as the verification oracle — the same
-   "verify-by-PR-CI" posture the 12th pass used for its `ci.yml`
-   composite-action dedup, now applied to `:client` for the first time.
-2. **Agentic-docs accuracy** — three stale facts + one over-promise, fixed:
-   `processes/agent-dev-loop.md` said "Compose-MP 1.9.3" (actual pinned:
-   1.11.1, `apps/build.gradle.kts:10` — the process doc had inherited a stale
-   number from that same file's own outdated header comment); two "alpha04"
-   mentions of `redux-kotlin-snapshot` were stale (bumped to alpha05 in
-   `fce7503`, 2026-07-16, but two mentions were missed in the same doc);
-   "131 goldens committed" was a stale magic number (currently 136 macOS /
-   127 linux, neither matches — same class of drift the 15th pass already
-   fixed once in the README caption; given the same treatment here: describe
-   instead of hardcode). `processes/build-loop-prompt.md` told agents to
-   read `agent-dev-loop.md` for a "pinned SQLDelight version" that doc never
-   actually pins — removed the over-promise.
-3. **CLI --help / skill-doc completeness** — clean; the 16th pass's
-   `content:delete` scope fix verified intact and correct end-to-end
-   (`Help.kt`, `cli.md`, `HelpTest.kt` all agree).
-4. **Values/privacy + CHANGELOG completeness** — clean on both. Zero new
-   commits to check; the last 3 commits re-confirmed no secrets/PII/dark
-   patterns. CHANGELOG cross-referenced against this file's shipped-feature
-   narrative and 60 commits of history — every product/API/feature change has
-   an entry; the three newest commits (`53799cb`/`6e867f4`/`fce7503`) are
-   correctly internal-only (client-state-plumbing refactors) and don't need
-   one.
+1. **Dedup/simplification — real findings in both apps this time** (unusual;
+   the 17th pass found `apps/api`/`apps/cli` "clean, 11 prior passes already
+   worked that queue"):
+   - **`apps/api` test-suite migration drift (highest-impact finding of this
+     pass).** 32 of ~35 DB-backed Vitest suites each hardcoded their own
+     subset of `migrations/*.sql` filenames in `beforeAll` — inconsistent
+     across files, most skipping newer migrations (0010/0011/0019 etc.).
+     `test/migrations.test.ts`'s own header comment already named this as
+     the exact failure class behind a real prod outage (`briefing_cards`
+     missing columns no suite's hardcoded list ever applied — fixed
+     reactively by `0014_card_columns_repair.sql`). Added
+     `apps/api/test/_migrations.ts` (`applyAllMigrations(q)` — applies every
+     file in `migrations/`, sorted, matching what `migrations.test.ts`
+     already proved safe) and converted all 32 suites to call it instead of
+     hand-listing files; preserved each suite's own post-migration seed SQL
+     untouched. Hand-verified the full migration chain applies cleanly via a
+     local Postgres 16 cluster (`pg_ctlcluster`) + `psql` before rolling
+     this out — this sandbox has psql/docker but **no npm registry access at
+     all** (org policy 403s both `registry.npmjs.org` and
+     `npm.pkg.github.com`, confirmed via the proxy's own status endpoint),
+     so `vitest`/`tsc` could not run; left to CI as the verification oracle
+     (same posture prior passes used for Kotlin).
+   - **`apps/api/src/app.ts`: 35 of 45 dynamic `await import(...)` sites had
+     no reason to be lazy.** The file's own comment said auth imports were
+     dynamic so `api.test.ts` (no `AUTH_*` env) could load `app.ts` without
+     tripping a module-scope throw — but only `tokens.ts` actually throws at
+     module scope; `audit.ts`/`ratelimit.ts`/`refresh.ts`/`identity.ts`/
+     `invites.ts`/`device.ts`/`origin.ts`/`sweep.ts`'s `sweep` export do not.
+     Hoisted all of those to static top-of-file imports (aliasing the two
+     colliding `redeem` exports from `device.ts`/`invites.ts` as
+     `redeemDevice`/`redeemInvite`); left only `tokens.ts` dynamic, with an
+     accurate comment. Net -27 lines in `app.ts`.
+   - **Three call sites re-implemented `requireCred()`'s bearer→JWT→live-
+     credential prologue inline** instead of calling the already-extracted
+     helper — `/auth/signout` and `POST /families` now use `requireCred(c)`
+     (closes a real gap: `POST /families` previously never checked whether
+     the backing credential was revoked, unlike every other mutating route);
+     `/auth/whoami` left alone as the report recommended (it needs an extra
+     column from the same query, restructuring would add a second round-
+     trip for no benefit). Also extracted `isDeployedEnv()` for 3
+     independently-written copies of the same prod/preview gate check
+     (debug routes, dev-token, Firebase-emulator bypass).
+   - **Two stray unit tests lived in `apps/api/src/` instead of `test/`**
+     (`content.timeline.test.ts`, `content-validation.timeline.test.ts`) —
+     moved to `test/hub-timeline-schema.test.ts` /
+     `test/hub-timeline-validation.test.ts`, import paths updated to match
+     every other file in `test/`.
+   - **`apps/cli/Main.kt`: the same `Credentials()` + `resolveKeychain()` +
+     `loadCreds()` prologue was copy-pasted 4x** (whoami/pull/delete/push) —
+     extracted a `Session`/`loadSession()` pair; all four call sites now use
+     it. `push`'s two branches (device-creds vs. legacy-env) also had
+     identical duplicated `println("push ...")` + error-exit blocks —
+     collapsed to one shared block after an `if/else` that only computes
+     `(code, body)`. Four CLI test files had a stray-location/missing-
+     package inconsistency (`LinkifyTest.kt`/`LinkifyPayloadTest.kt` had no
+     `package` declaration at all; those two plus `QrTest.kt`/
+     `UpdateVersionTest.kt` lived directly under `src/test/kotlin/` instead
+     of the `com/sloopworks/dayfold/cli/` package dir every other CLI test
+     uses) — moved all four, added the missing package line to the two that
+     lacked one. **This sandbox still has no working path to a Kotlin
+     compile check** (JDK 21 only, and this time even the Gradle wrapper's
+     own distribution download 403s through the proxy) — same
+     verify-by-PR-CI posture as the 14th/17th passes' Kotlin work, applied
+     here after careful line-by-line inspection of every call site.
+   - `apps/cli`'s `main()`-as-one-150-line-`when`-block, the untested
+     network/auth-orchestration layer (401-retry, legacy/device branch
+     selection — zero test coverage since it's inlined into `main()`), and
+     `apps/api`'s dead `places` table (created by 0001, referenced by the
+     generated sync schema, never read/written by any route or test) are
+     real but larger findings **left for a future pass** — noted here so
+     they aren't rediscovered from scratch: extracting `main()`'s branches
+     into named `cmd*()` functions is the prerequisite for testing the auth
+     layer; `places` needs an explicit build-it-or-drop-it call, not a
+     silent removal.
+2. **Agentic-docs accuracy** — two small findings, fixed: `docs/architecture.md`'s
+   hardcoded "as of (2026-07-18)" header had gone stale again (the Deploy
+   section was edited 2026-07-23 by the 16th pass without bumping the date —
+   the exact drift class a prior pass already hit once) — this time removed
+   the hardcoded date entirely rather than just re-bumping it, so it can't
+   drift the same way a third time; pointed readers at `git log` instead.
+   `specs/prototype/07-cli.md` (an early M1 design spec) still described a
+   materially different, unbuilt CLI — wrong env var name (`FAMILYAI_TOKEN`
+   vs. the real `DAYFOLD_API`/`FAMILY_ID`/`HOUSEHOLD_SECRET`), an X25519/E2EE
+   device-login key bootstrap that was never built (E2EE is deferred, ADR
+   0017), and a declarative git-backed directory-authoring model with no
+   shipped counterpart — added a superseded-status banner pointing to the
+   real sources of truth (`dayfold help`, the new `apps/cli/README.md`,
+   `templates/README.md`, the curator skill) instead of rewriting/deleting a
+   historical design doc. `AGENTS.md`, `CLAUDE.md`, and every `processes/*.md`
+   file re-audited clean (no stale facts found) — `processes/deploy-m0.md`
+   is archived-but-still-referenced-live (an open operator action item in
+   this file's own "pending" section links its §2 for Vercel env setup), so
+   it was deliberately NOT relocated despite being noise for a cold agent
+   scanning `processes/` — moving it would break that live link for a
+   one-pass tidiness win.
+3. **CLI --help / skill-doc completeness** — verified clean, line-by-line
+   against the live `Help.kt` command registry, the generated content
+   schema, and the server-side icon allowlist: every command, flag, enum
+   value, and scope-gating rule in `.claude/skills/dayfold-curator/` matches
+   the shipped CLI exactly. Added `apps/cli/README.md` (the module had no
+   entry point doc — `templates/README.md` existed one level down but
+   nothing linked a cold reader to `dayfold help`/examples/the skill from
+   `apps/cli/` itself).
+4. **README/CHANGELOG/architecture** — all current, no edits needed beyond
+   the architecture.md date fix above. Screenshots exist and are correctly
+   referenced (`apps/ui/.../snapshots/linux/*.png`, CI-golden-verified); no
+   CHANGELOG gap (last entry 2026-07-16 is accurate — every commit since is
+   either an internal client-runtime refactor or a maintenance pass, neither
+   of which the established convention gives an entry).
+5. **CI** — no live break found. Best-evidence check only (no `gh`/GitHub-API
+   access from this sandbox): `backlog/now.md`'s own time-sensitive section
+   already recorded `main` green as of `715a486` (17th pass), no newer
+   red-CI note exists, no unresolved CI-fix commits in `git log`, and all 7
+   `.github/workflows/*.yml` files' referenced paths/scripts still resolve
+   to real files — cross-checked, none stale.
+6. **Values/privacy spot-check** — clean. Diff-scanned for secret-shaped
+   strings (API-key/PEM-key patterns) — none found. No PII added, no new
+   data collection, no dark patterns; the one behavior change with security
+   surface (`POST /families` now checks credential revocation) tightens
+   toward the existing pattern every other mutating route already follows,
+   doesn't loosen anything.
 
-README/architecture.md checked directly (not delegated) — already carries
-screenshots (an earlier pass's work) and all 7 `.github/workflows/*.yml`
-files are documented in the Deploy section (the 16th pass's own fix,
-re-confirmed accurate) — no new findings.
-
-`backlog/now.md` self-pruned again per its own stated policy: moved the
-16th-pass paragraph to `now-history.md`, leaving only this pass's write-up
-current — routine housekeeping this file needs almost every pass now that
-maintenance passes run near-daily.
-
-No CHANGELOG entry — all changes this pass are internal (dedup + doc
-accuracy), no product/API/feature surface touched.
+No CHANGELOG entry — every change this pass is internal (test-suite
+correctness hardening, dedup, doc accuracy); no product/API surface, request/
+response shape, or feature changed. `backlog/now.md` self-pruned per its own
+policy: moved the 17th-pass paragraph to `now-history.md`.
 
 ## Design-first gate (ADR 0008) — status
 

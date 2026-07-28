@@ -1,17 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-const here = dirname(fileURLToPath(import.meta.url));
+import { applyAllMigrations } from "./_migrations.ts";
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 const { pool, q } = await import("../src/db.ts");
 const { hit, isLocked, recordFailure, resetFailures, clientIp } = await import("../src/auth/ratelimit.ts");
 const { audit } = await import("../src/auth/audit.ts");
 
 beforeAll(async () => {
-  await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-  for (const m of ["0001_m0_init.sql","0002_auth.sql","0003_device_grant.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"])
-    await q(readFileSync(resolve(here, "../migrations/"+m), "utf8"));
+  await applyAllMigrations(q);
 });
 afterAll(async () => { await pool.end(); });
 

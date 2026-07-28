@@ -8,14 +8,22 @@ import { BriefingCardSchema } from "./generated/content.ts";
 import { crossValidateCard, blockPayloadIssues, hubTimelineIssues } from "./content-validation.ts";
 import { validateHubMedia, validateCardMedia, validateBlockPayloadMedia, normalizedAccent } from "./media-validation.ts";
 import * as repo from "./repo.ts";
-// Auth imports are lazy (dynamic) so that api.test.ts (no AUTH_* env) can still
-// load app.ts without triggering the module-level env-guard throws in tokens.ts.
 import { authorizeTenant, bearer } from "./auth/middleware.ts";
 import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds, hubGrantsFor } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
-import { CONTENT_TOMBSTONE_RETENTION_DAYS } from "./auth/sweep.ts";
+import { CONTENT_TOMBSTONE_RETENTION_DAYS, sweep } from "./auth/sweep.ts";
+import { audit } from "./auth/audit.ts";
+import { clientIp, hit, isLocked, recordFailure, resetFailures } from "./auth/ratelimit.ts";
+import { issueRefresh, rotate, hashToken } from "./auth/refresh.ts";
+import { StubVerifier, FirebaseVerifier, findOrCreateUser, createFamily, mintCredentialFor } from "./auth/identity.ts";
+import { createInvite, redeem as redeemInvite } from "./auth/invites.ts";
+import { createAuthorization, redeem as redeemDevice } from "./auth/device.ts";
+import { classifyOrigin } from "./auth/origin.ts";
+// tokens.ts alone stays a lazy (dynamic) import: it throws at module scope if
+// AUTH_SIGNING_KEY/AUTH_ISS/AUTH_AUD are unset, and api.test.ts loads app.ts with
+// no AUTH_* env — every other auth module below is import-safe with no env set.
 import * as hubs from "./content/hubs.ts";
 import { HubSchema, SectionSchema, BlockSchema } from "./generated/content.ts";
 // SWIP: the facade + the middleware only. This module imports no vendor SDK (ADR 0059) —
@@ -39,11 +47,7 @@ app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
 // They exist so the flush can be PROVEN end-to-end against the real Sentry + PostHog
 // projects (processes/agent-dev-loop.md § API) — a green unit test cannot see a lost
 // event, which is the entire failure mode.
-if (
-  process.env.ENABLE_DEV_ERRORS === "1" &&
-  process.env.VERCEL_ENV !== "production" &&
-  process.env.VERCEL_ENV !== "preview"
-) {
+if (process.env.ENABLE_DEV_ERRORS === "1" && !isDeployedEnv()) {
   app.get("/debug/boom", () => {
     throw new Error("dayfold api smoke: deliberate unhandled route error", {
       cause: new Error("connection terminated unexpectedly"),
@@ -63,9 +67,17 @@ app.get("/cron/sweep", async (c) => {
   const secret = process.env.CRON_SECRET || "";
   if (!secret) return c.body(null, 404);
   if (!constantTimeEqual(bearer(c) ?? "", secret)) return c.body(null, 401);
-  const { sweep } = await import("./auth/sweep.ts");
   return c.json(await sweep());
 });
+
+// True in a live Vercel deploy (production or preview) — shared by every gate that
+// must disappear once deployed (debug smoke routes, dev-token, Firebase-emulator
+// bypass). Was three independently-written, comment-linked copies of the same
+// two-line check; one drifting would silently widen a dev-only surface into prod.
+function isDeployedEnv(): boolean {
+  const env = process.env.VERCEL_ENV;
+  return env === "production" || env === "preview";
+}
 
 // [F9] RFC 9457 problem+json error helper.
 function problem(c: any, status: number, type: string, detail?: string) {
@@ -143,10 +155,7 @@ function parseVisibilityAudience(raw: any):
 // per request from `credential_grants`, never from the token or `a.scopes`.
 
 function devAuthAllowed(_c: any): boolean {
-  if (process.env.ENABLE_DEV_AUTH !== "1") return false;
-  const env = process.env.VERCEL_ENV;
-  if (env === "production" || env === "preview") return false;
-  return true;
+  return process.env.ENABLE_DEV_AUTH === "1" && !isDeployedEnv();
 }
 
 // Gated, local-only: mint a real token from a dev identity (kills local hardcoding).
@@ -154,7 +163,6 @@ app.post("/auth/dev-token", async (c) => {
   if (!devAuthAllowed(c)) return c.body(null, 404);                 // invisible in prod/preview
   if (bearer(c) !== (process.env.DEV_AUTH_SECRET || "\0")) return c.body(null, 401);
   const body = await c.req.json().catch(() => null);
-  const { StubVerifier, findOrCreateUser } = await import("./auth/identity.ts");
   const idn = await new StubVerifier().verify(body).catch(() => null);
   if (!idn) return c.json({ type: "bad-identity" }, 400);
   const { userId } = await findOrCreateUser(idn);
@@ -169,7 +177,6 @@ app.post("/auth/dev-token", async (c) => {
   // each to their OWN authored blocks (operator-ratified 2026-06-29; ADR 0038 §W4).
   await grantScopes(credentialId, ["content:read", "content:write", "content:delete"]);   // ADR 0029 grant rows
   const { mintAccess } = await import("./auth/tokens.ts");
-  const { issueRefresh } = await import("./auth/refresh.ts");
   const access = await mintAccess({ sub: userId, cid: credentialId });
   const refresh = await issueRefresh(credentialId);
   return c.json({ access, refresh });
@@ -184,11 +191,9 @@ app.post("/auth/firebase", async (c) => {
   if (!idToken || typeof idToken !== "string") return c.json({ type: "missing-id-token" }, 400);
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) return c.json({ type: "auth-unconfigured" }, 503);
-  const { FirebaseVerifier, findOrCreateUser, mintCredentialFor } = await import("./auth/identity.ts");
   // Emulator mode skips signature verification — NEVER honor it in prod/preview,
   // even if the host env var leaks in (defense in depth; mirrors the dev-token gate).
-  const env = process.env.VERCEL_ENV;
-  const emulator = !!process.env.FIREBASE_AUTH_EMULATOR_HOST && env !== "production" && env !== "preview";
+  const emulator = !!process.env.FIREBASE_AUTH_EMULATOR_HOST && !isDeployedEnv();
   const verifier = new FirebaseVerifier({ projectId, emulator });
   const idn = await verifier.verify(idToken).catch((e) => {
     console.warn(`[auth/firebase] verify failed: ${e?.message}`);
@@ -198,7 +203,6 @@ app.post("/auth/firebase", async (c) => {
   const { userId } = await findOrCreateUser(idn);
   const { credentialId } = await mintCredentialFor(userId);
   const { mintAccess } = await import("./auth/tokens.ts");
-  const { issueRefresh } = await import("./auth/refresh.ts");
   const access = await mintAccess({ sub: userId, cid: credentialId });
   const refresh = await issueRefresh(credentialId);
   return c.json({ access, refresh });
@@ -206,12 +210,10 @@ app.post("/auth/firebase", async (c) => {
 
 app.post("/auth/refresh", async (c) => {
   const body = await c.req.json().catch(() => null);
-  const { rotate, hashToken } = await import("./auth/refresh.ts");
   const out = await rotate(body?.refresh || "");
   if (!out) return c.body(null, 401);
   if ("refresh" in out) {
     if ((out as any).graced) {
-      const { audit } = await import("./auth/audit.ts");
       await audit("refresh.grace_reissued", {});
     }
     // fall through to the existing access re-mint (works for graced rows too)
@@ -233,12 +235,8 @@ app.post("/auth/refresh", async (c) => {
 });
 
 app.post("/auth/signout", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let cid: string;
-  try {
-    const { verifyAccess } = await import("./auth/tokens.ts");
-    cid = (await verifyAccess(t)).cid;
-  } catch { return c.body(null, 401); }
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { cid } = rc;
   await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1`, [cid]);
   await q(`UPDATE refresh_tokens SET consumed_at=now() WHERE credential_id=$1 AND consumed_at IS NULL`, [cid]);
   return c.body(null, 204);
@@ -352,7 +350,7 @@ app.delete("/auth/me/credentials/:id", async (c) => {
   // own credentials only — never another user's (anti-IDOR)
   const r = await q(`UPDATE credentials SET revoked_at=now() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL RETURNING 1`, [target, sub]);
   if (r.rowCount === 0) return c.body(null, 404);   // not yours / already revoked / unknown
-  (await import("./auth/audit.ts")).audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
+  audit("credential.revoke", { actorUserId: sub, detail: { credential_id: target } });
   return c.body(null, 204);
 });
 
@@ -378,20 +376,15 @@ app.delete("/auth/me", async (c) => {
   await q(`UPDATE users SET deleted_at=now() WHERE id=$1 AND deleted_at IS NULL`, [sub]);
   await q(`UPDATE memberships SET status='removed', updated_at=now() WHERE user_id=$1 AND status<>'removed'`, [sub]);
   await q(`UPDATE credentials SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [sub]);
-  (await import("./auth/audit.ts")).audit("account.soft_delete", { actorUserId: sub });
+  audit("account.soft_delete", { actorUserId: sub });
   return c.body(null, 204);
 });
 
 app.post("/families", async (c) => {
-  const t = bearer(c); if (!t) return c.body(null, 401);
-  let sub: string;
-  try {
-    const { verifyAccess } = await import("./auth/tokens.ts");
-    sub = (await verifyAccess(t)).sub;
-  } catch { return c.body(null, 401); }
+  const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
+  const { sub } = rc;
   const body = await c.req.json().catch(() => null);
   if (!body?.name || typeof body.name !== "string") return c.json({ type: "bad-name" }, 400);
-  const { createFamily } = await import("./auth/identity.ts");
   const { familyId } = await createFamily(sub, body.name);
   return c.json({ familyId });
 });
@@ -894,13 +887,10 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
 });
 
 app.post("/device/authorize", async (c) => {
-  const { clientIp, hit } = await import("./auth/ratelimit.ts");
   const ip = clientIp(c);
   const rl = await hit(`ip:authorize:${ip}`, 600, 10);
   if (!rl.ok) return c.body(null, 429);
   const body = await c.req.json().catch(() => ({})); // permissive [E2EE hook]
-  const { createAuthorization } = await import("./auth/device.ts");
-  const { audit } = await import("./auth/audit.ts");
   const { device_code, user_code } = await createAuthorization(body?.client ?? "dayfold-cli", ip, c.req.header("user-agent") ?? null);
   await audit("device.authorize", { detail: { ip } });
   const base = `${new URL(c.req.url).origin}/device`;
@@ -908,18 +898,14 @@ app.post("/device/authorize", async (c) => {
 });
 
 app.post("/device/token", async (c) => {
-  const { clientIp, hit } = await import("./auth/ratelimit.ts");
   const ip = clientIp(c);
   const rl = await hit(`ip:token:${ip}`, 600, 600);   // [I-2] anti-DoS, generous
   if (!rl.ok) return c.body(null, 429);
   const body = await c.req.json().catch(() => null);
   if (!body?.device_code) return c.json({ error: "invalid_request" }, 400);
-  const { redeem } = await import("./auth/device.ts");
   const { mintAccess } = await import("./auth/tokens.ts");
-  const { issueRefresh } = await import("./auth/refresh.ts");
-  const out = await redeem(body.device_code, mintAccess, issueRefresh);
+  const out = await redeemDevice(body.device_code, mintAccess, issueRefresh);
   if ("tokens" in out) {
-    const { audit } = await import("./auth/audit.ts");
     await audit("device.token.redeemed", { detail: { device_code: body.device_code } });
     return c.json(out.tokens, 200);
   }
@@ -934,8 +920,6 @@ app.post("/device/token", async (c) => {
 app.get("/device/pending", async (c) => {
   const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
   const { sub } = rc;
-  const { isLocked, recordFailure } = await import("./auth/ratelimit.ts");
-  const { audit } = await import("./auth/audit.ts");
   const lockKey = `account:approve:${sub}`;
   if (await isLocked(lockKey)) { await audit("device.lockout", { actorUserId: sub }); return c.body(null, 429); }
   const userCode = c.req.query("user_code");
@@ -947,7 +931,6 @@ app.get("/device/pending", async (c) => {
   );
   if (r.rowCount !== 1) { await recordFailure(lockKey, 900, 5, 900); return c.json({ type: "not-found" }, 404); } // uniform
   const row = r.rows[0];
-  const { classifyOrigin } = await import("./auth/origin.ts");
   await audit("device.lookup", { actorUserId: sub, detail: { user_code: userCode } });
   return c.json({
     user_code: row.user_code, client: row.client,
@@ -969,8 +952,6 @@ app.post("/families/:fid/device/approve", async (c) => {
   const fid = c.req.param("fid");
   const g = await ownerGate(c, fid);
   if ("status" in g) return c.body(null, g.status);
-  const { isLocked, recordFailure, resetFailures } = await import("./auth/ratelimit.ts");
-  const { audit } = await import("./auth/audit.ts");
   const lockKey = `account:approve:${g.sub}`;
   if (await isLocked(lockKey)) { await audit("device.lockout", { actorUserId: g.sub }); return c.body(null, 429); }
   const body = await c.req.json().catch(() => null);
@@ -1012,7 +993,6 @@ app.post("/families/:fid/device/approve", async (c) => {
   );
   if (r.rowCount !== 1) { await recordFailure(lockKey, 900, 5, 900); return c.body(null, 404); } // uniform
   await resetFailures(lockKey);
-  const { clientIp } = await import("./auth/ratelimit.ts");
   await audit("device.approve", { actorUserId: g.sub, familyId: fid, detail: { ip: clientIp(c), scope: mode ?? "full" } });
   return c.body(null, 204);
 });
@@ -1024,7 +1004,6 @@ app.post("/families/:fid/device/deny", async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body?.user_code) return c.json({ type: "bad-request" }, 400);
   const r = await q(`UPDATE device_authorizations SET status='denied' WHERE user_code=$1 AND status='pending' AND expires_at > now() RETURNING device_code`, [body.user_code]);
-  const { audit } = await import("./auth/audit.ts");
   if (r.rowCount === 1) await audit("device.deny", { actorUserId: g.sub, familyId: fid });
   return c.body(null, r.rowCount === 1 ? 204 : 404);
 });
@@ -1040,16 +1019,13 @@ app.post("/families/:fid/invites", async (c) => {
   if (role !== "adult") return c.json({ type: "bad-role" }, 400);          // never owner/teen
   const maxUses = mode === "qr" ? 1 : Math.trunc(body?.max_uses ?? 1);
   if (maxUses < 1 || maxUses > 10) return c.json({ type: "bad-max-uses" }, 400);
-  const { clientIp, hit } = await import("./auth/ratelimit.ts");
   if (!(await hit(`owner:mint:${g.sub}`, 600, 20)).ok) return c.body(null, 429);
   // live-invite + pending caps (expires_at-filtered) [I3]
   const caps = await q(
     `SELECT (SELECT count(*) FROM invites WHERE family_id=$1 AND status='active' AND expires_at>now()) AS inv,
             (SELECT count(*) FROM memberships WHERE family_id=$1 AND status='pending') AS pend`, [fid]);
   if (Number(caps.rows[0].inv) >= 10 || Number(caps.rows[0].pend) >= 20) return c.body(null, 429);
-  const { createInvite } = await import("./auth/invites.ts");
   const { inviteId, token } = await createInvite(fid, g.sub, mode, role, maxUses);
-  const { audit } = await import("./auth/audit.ts");
   await audit("invite.mint", { actorUserId: g.sub, familyId: fid, detail: { mode, role, max_uses: maxUses } });
   const expires = await q(`SELECT expires_at FROM invites WHERE id=$1`, [inviteId]);
   c.header("cache-control", "no-store, no-transform");                    // BREACH: raw token
@@ -1061,14 +1037,11 @@ app.post("/invites:redeem", async (c) => {
   let sub: string;
   try { const { verifyAccess } = await import("./auth/tokens.ts"); sub = (await verifyAccess(t)).sub; }
   catch { return c.body(null, 401); }
-  const { isLocked, recordFailure, resetFailures } = await import("./auth/ratelimit.ts");
   const key = `account:redeem:${sub}`;
   if (await isLocked(key)) return c.body(null, 429);
   const body = await c.req.json().catch(() => null);
   if (!body?.token) return c.json({ type: "bad-request" }, 400);
-  const { redeem } = await import("./auth/invites.ts");
-  const out = await redeem(body.token, sub);
-  const { audit } = await import("./auth/audit.ts");
+  const out = await redeemInvite(body.token, sub);
   if ("notfound" in out) { await recordFailure(key, 900, 5, 900); return c.body(null, 404); }
   if ("capfull" in out) return c.body(null, 429);
   await resetFailures(key);
@@ -1100,19 +1073,19 @@ app.post("/families/:fid/members/*", async (c) => {
     // Transfer/share ownership: promote an active member to owner so a sole owner
     // can delete/leave (ADR 0011 last-owner invariant). Idempotent.
     const r = await q(`UPDATE memberships SET role='owner', updated_at=now() WHERE user_id=$1 AND family_id=$2 AND status='active' AND role<>'owner' RETURNING 1`, [uid, fid]);
-    if (r.rowCount === 1) { (await import("./auth/audit.ts")).audit("member.promote", { actorUserId: g.sub, familyId: fid, detail:{ uid } }); return c.body(null, 204); }
+    if (r.rowCount === 1) { audit("member.promote", { actorUserId: g.sub, familyId: fid, detail:{ uid } }); return c.body(null, 204); }
     const cur = await q(`SELECT role, status FROM memberships WHERE user_id=$1 AND family_id=$2`, [uid, fid]);
     if (cur.rowCount === 0 || cur.rows[0].status !== "active") return c.body(null, 404);
     return c.body(null, 200);   // already an owner
   } else if (action === "approve") {
     const r = await q(`UPDATE memberships SET status='active', joined_at=now() WHERE user_id=$1 AND family_id=$2 AND status='pending' RETURNING 1`, [uid, fid]);  // role unused — only rowCount matters (S4 follow-2)
-    if (r.rowCount === 1) { (await import("./auth/audit.ts")).audit("invite.approve", { actorUserId: g.sub, familyId: fid, detail:{ uid } }); return c.body(null, 204); }
+    if (r.rowCount === 1) { audit("invite.approve", { actorUserId: g.sub, familyId: fid, detail:{ uid } }); return c.body(null, 204); }
     const cur = await q(`SELECT status FROM memberships WHERE user_id=$1 AND family_id=$2`, [uid, fid]);
     if (cur.rowCount === 0) return c.body(null, 404);
     return c.body(null, cur.rows[0].status === "active" ? 200 : 409);
   } else {
     const r = await q(`UPDATE memberships SET status='removed' WHERE user_id=$1 AND family_id=$2 AND status='pending' RETURNING 1`, [uid, fid]);
-    if (r.rowCount === 1) (await import("./auth/audit.ts")).audit("invite.decline", { actorUserId: g.sub, familyId: fid, detail:{ uid } });
+    if (r.rowCount === 1) audit("invite.decline", { actorUserId: g.sub, familyId: fid, detail:{ uid } });
     return c.body(null, r.rowCount === 1 ? 204 : 404);
   }
 });
@@ -1141,7 +1114,7 @@ app.delete("/families/:fid/members/:uid", async (c) => {
     await client.query("COMMIT");
     if ((r.rowCount ?? 0) !== 1) return c.body(null, 404);
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
-  (await import("./auth/audit.ts")).audit("member.remove", { actorUserId: g.sub, familyId: fid, detail: { uid } });
+  audit("member.remove", { actorUserId: g.sub, familyId: fid, detail: { uid } });
   return c.body(null, 204);
 });
 
@@ -1149,7 +1122,7 @@ app.delete("/families/:fid/invites/:id", async (c) => {
   const fid = c.req.param("fid"), iid = c.req.param("id");
   const g = await ownerGate(c, fid); if ("status" in g) return c.body(null, g.status);
   const r = await q(`UPDATE invites SET status='revoked' WHERE id=$1 AND family_id=$2 AND status='active' RETURNING 1`, [iid, fid]);
-  if (r.rowCount === 1) (await import("./auth/audit.ts")).audit("invite.revoke", { actorUserId: g.sub, familyId: fid, detail:{ invite_id: iid } });
+  if (r.rowCount === 1) audit("invite.revoke", { actorUserId: g.sub, familyId: fid, detail:{ invite_id: iid } });
   return c.body(null, 204);                                               // sticky: no-op if already non-active
 });
 

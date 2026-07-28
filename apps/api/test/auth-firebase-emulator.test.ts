@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import { generateKeyPair, exportJWK } from "jose";
+import { applyAllMigrations } from "./_migrations.ts";
 
 // Real-path integration test (ADR 0027 test topology): drive an ACTUAL Firebase
 // Auth Emulator end-to-end — mint a real emulator-issued Google ID token, POST it
@@ -17,7 +15,6 @@ import { generateKeyPair, exportJWK } from "jose";
 const HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "dayfold-test";
 
-const here = dirname(fileURLToPath(import.meta.url));
 process.env.DATABASE_URL ||= "postgres:///fad_test";
 process.env.AUTH_ISS = "https://fad.test/auth"; process.env.AUTH_AUD = "fad-api-test";
 process.env.HOUSEHOLD_SECRET = "legacy-secret"; process.env.HOUSEHOLD_CREDENTIAL_ID = "hcred";
@@ -51,10 +48,7 @@ async function emulatorGoogleIdToken(sub: string, email: string): Promise<string
 
 describe.skipIf(!HOST)("POST /auth/firebase — real Firebase Auth Emulator", () => {
   beforeAll(async () => {
-    await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-    for (const m of ["0001_m0_init.sql", "0002_auth.sql", "0003_device_grant.sql",
-      "0004_refresh_grace.sql", "0005_invites.sql", "0006_typed_content.sql", "0007_related.sql","0008_credential_grants.sql","0009_visibility.sql","0013_visual_enrichment.sql"])
-      await q(readFileSync(resolve(here, "../migrations/" + m), "utf8"));
+    await applyAllMigrations(q);
   });
 
   it("emulator-issued Google token → mints a session + creates the user", async () => {
