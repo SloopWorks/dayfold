@@ -145,6 +145,30 @@ Block `link`/`document` may carry `thumbnailUrl`; block `contact` may carry `ava
 - Lowest-risk enrichment: `icon` + `accentColor` (no URL → nothing to allowlist). See the
   worked example in `apps/cli/examples/hub-college/hub.json`.
 
+## Link-first authoring — which field carries which link
+
+The source of truth lives outside dayfold (SKILL.md → **What a hub is**), so most
+authoring is *pointing*, not copying. What you're pointing at determines the field:
+
+| Point at | Field |
+|---|---|
+| A site, a Drive doc, a Gmail thread | an `https` link in `body_md`; or a `link` block (`payload.link.url`) / `link` card for a first-class row |
+| A file the family keeps | `file` card `payload.file.docRef`, or a `document` block `payload.document.ref` |
+| Other dayfold content | `target` `{hubId, sectionId?, blockId?}` (the card's own deep link), `related[]` + `relatedKicker` (sibling rows), or a timeline `attachments[]` entry with `kind: "open"` + `ref` |
+| An email quote | `email` card `payload.email.bodyExcerpt` — **own mail only** (guardrail 2) |
+| A person | `contact` card/block payload; bare phone/email inside ANY `body_md` auto-linkify to `tel:`/`mailto:` on push — write them plain, never hand-roll the markdown link |
+| A place | `location` block `payload.location.mapUrl`, or a `geo` card payload; timeline `attachments[]` `kind: "nav"` + `query` |
+
+**Scheme allowlist** (`packages/linkrules/Schemes.kt`, shared by the renderer, the
+action layer, and the author-side linkifier): `https`, `mailto`, `tel`, `geo`,
+`sms`. A `body_md` link on any other scheme — including plain `http` — is dropped
+to inert plain text at render. It will not error; it will just quietly not be a
+link, so check the scheme yourself.
+
+**Timing is a field, not a phrasing.** Content that arrives too late to act on has
+failed regardless of how well written it is: `triggers[].when.at` + `alert_offset`
+for the lead time, `not_before` / `expires_at` for the window.
+
 ## Choosing card vs hub content
 
 - **BriefingCard** = surfaces NOW in the feed (time/place-relevant, short-lived).

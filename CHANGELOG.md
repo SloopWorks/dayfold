@@ -7,6 +7,27 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-30 — Curator skill: authoring doctrine + one source of truth
+
+### Added
+- **The curator skill now says what a hub is *for*.** It authored valid content
+  before, but nothing told it what belonged in a hub or how it should read.
+  It now works from a stated doctrine: a hub is one area of a family's life and a
+  jumping-off point, never the family's only copy — the source of truth stays in
+  the email thread, the Drive doc, the venue's site. Content is chosen by walking
+  the family's day beat by beat, written concise and link-first (with a field-by-field
+  map of which link goes where), and timed to arrive early enough to act on.
+- **Two review rounds before anything reaches you.** Every proposed card or hub is
+  now reviewed for correctness and duplication, then again for usefulness and form,
+  before it's shown for approval — content that fails the second round is cut rather
+  than proposed. A thinner dashboard you trust beats a full one you scroll past.
+
+### Changed
+- **One skill, two agent harnesses.** The curator skill lives at
+  `.agents/skills/dayfold-curator/` and is read by both Claude Code and Codex from
+  the same files, so the two can no longer drift apart mid-project. `provenance`
+  bylines now name whichever agent actually authored a card ("Added by Codex").
+
 ## 2026-07-16 — Roadmap NOW placement + open-at-NOW
 
 ### Added
