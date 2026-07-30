@@ -52,6 +52,7 @@ class CardRenderTest {
     assertEquals("Action", kindLabel("action"))
     assertNull(kindLabel("info"))
     assertEquals("Added by Claude", sourceLabel("claude"))
+    assertEquals("Added by Codex", sourceLabel("codex"))
     assertEquals("From your email", sourceLabel("email"))
     assertNull(sourceLabel("user"))
     assertNull(sourceLabel(null))

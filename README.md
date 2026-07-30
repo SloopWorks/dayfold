@@ -79,17 +79,22 @@ RevenueCatch projects). Process inspiration also drawn from the sibling
 `ambient-ai` spec repo ("render, don't reason"; ADR + open-questions
 discipline; persona-driven key moments).
 
-## Curator skill (Claude Code)
+## Curator skill
 
-`.claude/skills/dayfold-curator/` is the authoring wedge — a Claude Code skill
-that analyzes your context, runs an onboarding questionnaire, and authors dayfold
+`.agents/skills/dayfold-curator/` is the authoring wedge — an agent skill that
+analyzes your context, runs an onboarding questionnaire, and authors dayfold
 Hubs + BriefingCards through the `dayfold` CLI (propose-confirm before every push).
 
-Install globally (all projects on this machine):
+One source of truth, two harnesses: `.agents/skills/` is Codex's repo skills
+root, and `.claude/skills/dayfold-curator` is a symlink to it, so Claude Code
+finds the same files. Edit only the `.agents/` copy.
+
+Install globally (all projects on this machine — links into `~/.claude/skills/`
+and `~/.codex/skills/`, skipping whichever harness isn't installed):
 
 ```
-sh .claude/skills/dayfold-curator/install.sh
+sh .agents/skills/dayfold-curator/install.sh
 ```
 
-Or per-project: copy `.claude/skills/dayfold-curator/` into another repo's
-`.claude/skills/`. Requires `dayfold` on PATH and `dayfold login` done first.
+Or per-project: copy `.agents/skills/dayfold-curator/` into another repo's
+`.agents/skills/`. Requires `dayfold` on PATH and `dayfold login` done first.

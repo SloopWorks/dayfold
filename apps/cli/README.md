@@ -25,8 +25,11 @@ JDK 17+ toolchain (`build.gradle.kts`); Gradle auto-provisions it if missing.
   the hub-tree model, block-payload field tables.
 - **`examples/README.md`** — worked example pushes (a full hub tree, a feed of
   cards) you can copy from or push as-is against a test family.
-- **`../../.claude/skills/dayfold-curator/`** — the Claude Skill that wraps this
+- **`../../.agents/skills/dayfold-curator/`** — the agent skill that wraps this
   CLI for agent-authored content (onboarding, hub authoring, guardrails).
+  Harness-neutral: Claude Code reads it through the
+  `.claude/skills/dayfold-curator` symlink, Codex reads `.agents/skills`
+  directly.
 - **`../../processes/cli-release.md`** — cutting a release (tag, Homebrew tap).
 
 ## Layout

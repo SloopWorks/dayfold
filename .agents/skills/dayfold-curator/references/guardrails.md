@@ -43,10 +43,14 @@ author content that collects a child's personal info as if from the child.
 
 ## 5. Provenance on everything
 
-Every authored card/block: `provenance.source = "claude"` and an `at` ISO-8601
-timestamp. Author from `dayfold template` (starters include `kind` +
-`provenance.at`) — the local validator requires `kind` and `provenance.at` even
-where the server relaxes them, so bare hand-written stubs fail validation.
+Every authored card/block: `provenance.source` naming **the agent that actually
+authored it** — `"claude"`, `"codex"`, or whatever harness is running this skill —
+plus an `at` ISO-8601 timestamp. The client renders that string as a byline chip
+("Added by Claude"), so a wrong value is a dishonest chip, not a cosmetic detail;
+never inherit another agent's name. Author from `dayfold template` (starters
+include `kind` + `provenance.at`) — the local validator requires `kind` and
+`provenance.at` even where the server relaxes them, so bare hand-written stubs
+fail validation.
 
 ## 6. Server is the authority
 

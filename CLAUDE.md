@@ -7,7 +7,7 @@ email, lists/tasks, weather, location — and renders a single sleek daily
 links ("party Saturday — ordered groceries? [list]"; "school email needs an
 RSVP Thursday [reply]"; "rain at soccer 4pm — pack jackets"). Built mobile-
 first on Compose Multiplatform (Android/iOS/Web). The MVP wedge is a
-**content API + CLI + Claude skill** so external AI loops and scheduled
+**content API + CLI + agent skill** so external AI loops and scheduled
 tasks author/update the cards — the dashboard renders intelligence produced
 elsewhere; it is not an open-ended chatbot. Primary purpose is a
 **learning lab**; durable side income is a co-goal. Dogfooded on the
@@ -62,6 +62,7 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 |---|---|---|
 | `CLAUDE.md` | This file — session protocol, governance | Source of truth |
 | `AGENTS.md` | Thin pointer to this file, for agent tooling that looks for `AGENTS.md` by convention, plus a cold-agent orientation index | Redirect only — no restated policy |
+| `.agents/skills/` | Agent skills, harness-neutral (Codex's repo skills root). `dayfold-curator` — the content-authoring skill — lives here; `.claude/skills/dayfold-curator` is a symlink to it, so **edit only the `.agents/` copy** | Source of truth for skill content |
 | `adr/` | Decision records + `decisions-index.md` | Source of truth (immutable once Accepted) |
 | `context/` | Values & direction (operator-owned), constitution, goals/constraints, kill switches, open questions, operating lessons | Source of truth |
 | `planning/` | Waterfall workstream board the loop executes | Live working state |

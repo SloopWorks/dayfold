@@ -14,7 +14,7 @@ docs/architecture.md` gives the real answer.)
 flowchart TB
     subgraph Authoring["Authoring (operator + AI, off-device)"]
         CLI["dayfold CLI (Kotlin)\napps/cli"]
-        Skill["Claude skill: dayfold-curator\n.claude/skills/dayfold-curator"]
+        Skill["Agent skill: dayfold-curator\n.agents/skills/dayfold-curator"]
         Skill -- "drives" --> CLI
     end
 
@@ -80,7 +80,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
 | Content API | `apps/api` | TypeScript, Hono, `pg`, Zod, deployed on Vercel | Auth (mint/verify tokens, device grant, Firebase verify), family/membership CRUD, hub/card/section/block CRUD with visibility + author-gate enforcement, `/sync` cursor feed, cron sweep (tombstone GC), always-on error reporting through SWIP (ADR 0059) |
 | Database | Postgres (Neon, pooled) | — | System of record: families, memberships, credentials, hubs/sections/blocks, briefing_cards, `op_log` (idempotency), `resource_visibility` (incl. per-hub `role` — viewer/contributor/co_owner, ADR 0053), `device_authorizations`, `invites`, `refresh_tokens` |
 | CLI | `apps/cli` | Kotlin, hand-rolled `java.net.http.HttpClient` (no framework) | `login` (device grant + OS keychain) / `push` / `pull` / `delete` / `template` / `whoami` / `update` — the authoring surface for operators and AI loops. `Help.kt` is a single command registry driving three renderers: the top-level index, per-command `--help`, and a `--json` machine-readable model for agents |
-| Curator skill | `.claude/skills/dayfold-curator` | Claude Code skill (Markdown + `install.sh`) | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
+| Curator skill | `.agents/skills/dayfold-curator` (`.claude/skills/dayfold-curator` is a symlink to it) | Agent skill (Markdown + `install.sh`), harness-neutral — Claude Code and Codex read the same files | Turns a person's context (email/calendar/notes) into Hubs + BriefingCards via the CLI, propose-confirm before every push/delete |
 | Client core | `apps/client` | Kotlin Multiplatform (ADR 0047: Compose-free) | `commonMain` logic: sync engine, offline cache (incl. a local-only cached-membership table for the DB-first cold-start route gate, ADR 0052), the Now priority/ranking engine, notification selection, redux-kotlin store. Targets: Android, desktop (dev/test), iOS |
 | UI | `apps/ui` | Compose Multiplatform, depends on `:client` (ADR 0047) | Feed/hub/detail rendering, screens, theme, the CL-SNAP golden-snapshot harness; also hosts the iOS framework build target |
 | Android host | `apps/androidApp` | Thin Android app depending on `:ui`/`:client` | The dogfood install target; owns the manifest + calls into `:client`'s `androidMain` notification/geofence glue (`AndroidLocalNotifier`, `AndroidGeofenceController`, `AndroidExactNotificationScheduler`) |
