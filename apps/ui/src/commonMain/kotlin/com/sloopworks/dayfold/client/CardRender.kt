@@ -30,6 +30,7 @@ fun kindLabel(kind: String): String? = when (kind) {
 fun sourceLabel(source: String?): String? = when {
   source == null || source == "user" -> null
   source == "claude" -> "Added by Claude"
+  source == "codex" -> "Added by Codex"
   source == "email" -> "From your email"
   source.startsWith("http") -> "From a linked source"
   else -> "Added by $source"

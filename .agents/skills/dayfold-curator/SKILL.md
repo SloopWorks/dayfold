@@ -62,7 +62,8 @@ For each agreed hub:
 For each signal worth surfacing **now**:
 - Author a BriefingCard of the right `type` from `dayfold template <type>`, set
   `target` to deep-link its hub, add `triggers` for time/place relevance, set an
-  honest `privacy.storage` chip, `provenance.source = "claude"`. Validate + show
+  honest `privacy.storage` chip, `provenance.source` = the agent authoring it
+  (`"claude"`, `"codex"`, … — guardrails §5). Validate + show
   JSON, push on approval: `dayfold push <cardId> card.json --type <type>`.
   A place `trigger` only reaches background notify via `place_ref` to a saved
   place — a plain lat/lng `trigger` is foreground-only (see `references/

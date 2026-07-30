@@ -157,7 +157,7 @@ dayfold pull --hub lillian-butler-2026     # confirm the rendered tree
 ## What the local validator checks
 
 A fast **structural** pre-check, not a full replica of the server gate — see
-`.claude/skills/dayfold-curator/references/cli.md` (Push section) for exactly
+`.agents/skills/dayfold-curator/references/cli.md` (Push section) for exactly
 what it does and doesn't catch, including the `kind`/`provenance.at` codegen
 asymmetry. The server (CL-2) remains the authority for format rules
 (`url()`, ISO-8601, length/int caps) and is always the final word on a 422.
@@ -166,12 +166,12 @@ asymmetry. The server (CL-2) remains the authority for format rules
 card's `visibility`/`audience` fields are real, server-accepted access
 control — not content — so `--type`'s strict decode rejects them as an
 unknown field. Push a `restricted`/`audience`-scoped card **without
-`--type`**. See `.claude/skills/dayfold-curator/references/content-model.md`
+`--type`**. See `.agents/skills/dayfold-curator/references/content-model.md`
 → "Visibility & audience" for the field shapes.
 
 ## Guardrails (binding)
 
 Own-mail-only email content, honest `privacy.storage` chips, propose-confirm,
 and the rest of the binding authoring rules live in one place — see
-`.claude/skills/dayfold-curator/references/guardrails.md`. Don't restate them
+`.agents/skills/dayfold-curator/references/guardrails.md`. Don't restate them
 here; that file is canonical.

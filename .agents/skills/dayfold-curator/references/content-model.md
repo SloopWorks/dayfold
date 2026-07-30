@@ -39,7 +39,8 @@ Required: `id`, `kind`, `title`, `provenance`.
   author-controlled position; don't treat it as a way to pin a card to the top.
 - `not_before` / `expires_at` — show/hide window (ISO-8601).
 - `privacy.storage` — honest chip (see guardrails).
-- `provenance` — `{ "source": "claude", "at": <ISO-8601> }`.
+- `provenance` — `{ "source": <authoring agent>, "at": <ISO-8601> }`; `source` is
+  the agent running this skill (`"claude"`, `"codex"`, …) — see guardrails §5.
 - `visibility` / `audience` — see **Visibility & audience** below.
 
 Per-type payload keys (the common ones):

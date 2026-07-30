@@ -269,6 +269,16 @@ API enforcement is built (PRs #34/#35). Hub render is build-ready.
 
 ## Operator actions pending
 
+- [ ] **Restart Claude Code once and confirm `dayfold-curator` still lists as a
+  skill** (2026-07-30, harness-neutral skill move). The skill's real files moved
+  to `.agents/skills/dayfold-curator/` — Codex's repo skills root, so one copy
+  now serves both harnesses — and `.claude/skills/dayfold-curator` is a committed
+  symlink to it. Codex discovery is verified (`codex exec` lists it); the one
+  thing a test can't prove without a restart is that Claude Code's skill loader
+  follows a symlinked skill directory. If it doesn't, the fallback is a generated
+  `.claude/` copy plus a CI drift check — see
+  `docs/superpowers/specs/2026-07-30-harness-neutral-skill-source-design.md`.
+  **Edit only the `.agents/` copy from now on.**
 - [ ] **API error reporting (ADR 0059) — PR #336 merged (`c65c0d4`, 2026-07-15);
   set Vercel env before the next prod deploy.**
   `apps/api` is wired to the SWIP error pillar (PostHog + Sentry,
