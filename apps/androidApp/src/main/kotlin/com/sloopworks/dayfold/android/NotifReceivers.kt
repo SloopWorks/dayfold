@@ -37,7 +37,14 @@ class BootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val pending = goAsync()
     Thread {
-      try { reRegisterGeofences(context.applicationContext) } finally { pending.finish() }
+      try {
+        reRegisterGeofences(context.applicationContext)
+        // ADR 0020 R3 — WorkManager persists work across reboots, but re-enqueueing with KEEP is
+        // free and covers an install whose work was cleared (force-stop, app data clear).
+        com.sloopworks.dayfold.client.ensurePeriodicRefresh(context.applicationContext)
+      } finally {
+        pending.finish()
+      }
     }.start()
   }
 }

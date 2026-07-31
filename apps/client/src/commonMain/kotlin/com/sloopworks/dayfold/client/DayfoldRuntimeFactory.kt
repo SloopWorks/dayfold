@@ -50,6 +50,19 @@ class DayfoldRuntimeGraph internal constructor(
   /** Waits until every owned child and the shared HTTP client have closed. */
   suspend fun awaitClosed() = runtime.awaitClosed()
 
+  /**
+   * Requests a silent background sync pass — for a headless caller (WorkManager, BGAppRefreshTask)
+   * that finds this graph already live in-process and must delegate to it rather than build its own
+   * refresher (ADR 0020 R3; see AndroidRuntimeHandleHolder). Uses [SyncReason.BACKGROUND], never
+   * MANUAL_REFRESH: that reason publishes a user-facing sync status, and a background wake must be
+   * silent. Like any [SyncCoordinator.requestSync] call, this only runs a pass while the coordinator
+   * is resumed (foreground) — while paused it is a safe no-op, not a forced network call, which is
+   * correct here: the point is to never spend an independent token refresh, not to guarantee a sync.
+   */
+  fun requestBackgroundSync() {
+    syncCoordinator.requestSync(SyncReason.BACKGROUND)
+  }
+
   /** Replaces the active family with close, join, wipe, and restart ordering. */
   suspend fun replaceFamily(familyId: String?): FamilySessionContext? {
     ensureOpen()
