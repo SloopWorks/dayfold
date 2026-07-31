@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration:none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(39,24,20,0.16); }
+  a:focus-visible, .card:focus-visible { outline: 3px solid #C0381E; outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { a.card { transition: none; } }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F3E9E5;font-family:'Figtree',sans-serif;color:#271814;padding:60px 40px 80px;">
+  <div style="max-width:1060px;margin:0 auto;">
+
+    <!-- hero -->
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:22px;flex-wrap:wrap;">
+      <a href="../now-derived/Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Now · derived</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">ADR 0008 design gate · weather ADR not yet written</span>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:clamp(38px,5.5vw,56px);line-height:1.05;letter-spacing:-0.025em;margin:0 0 16px;max-width:16ch;">Weather-conditional content</h1>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 14px;">Dayfold is not becoming a weather app. Weather never produces a forecast readout — it <b>qualifies content the family already cares about</b>. The curator authors a card, attaches a condition and what to do about it; the device fetches a forecast for that <b>place</b>, decides whether the condition holds, and if it does the card surfaces with one quiet chip. If it doesn’t, the card isn’t there.</p>
+    <p style="font-family:'Figtree';font-size:17px;line-height:1.55;color:#5A423C;max-width:66ch;margin:0 0 26px;">The bar these screens are built against: <b>a family with a rained-out soccer game opens Dayfold and immediately knows what changed and what to do</b> — without reading a forecast, without hunting, and without ever being shown weather the app didn’t confirm.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:46px;">
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FFDAD2;color:#5A1100;padding:7px 13px;border-radius:999px;">Material 3 Expressive</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#9DF2E4;color:#00201C;padding:7px 13px;border-radius:999px;">Light + dark</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#ECDCFF;color:#23005C;padding:7px 13px;border-radius:999px;">Extends now-derived</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FCEBE6;color:#7A2615;padding:7px 13px;border-radius:999px;border:1px solid #EBD3CB;">Visuals only</span>
+      <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:#FFF8F6;color:#5A423C;padding:7px 13px;border-radius:999px;border:1px solid #D8C2BB;">Sign-off ≠ build authorization</span>
+    </div>
+
+    <!-- link cards -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:40px;">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+        <a class="card" href="{{ l.href }}" style="background:{{ l.bg }};border:1px solid {{ l.border }};border-radius:28px;padding:28px;display:flex;flex-direction:column;min-height:216px;color:inherit;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:auto;">
+            <div style="width:54px;height:54px;border-radius:17px;background:{{ l.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:28px;color:{{ l.iconFg }};">{{ l.icon }}</span></div>
+            <span class="msr" style="font-size:24px;color:{{ l.arrow }};">arrow_outward</span>
+          </div>
+          <div style="margin-top:24px;">
+            <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ l.kicker }};margin-bottom:6px;">{{ l.kick }}</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;margin-bottom:6px;">{{ l.title }}</div>
+            <div style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ l.body }};">{{ l.desc }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+
+    <!-- the four decisions -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:30px 32px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:#C0381E;">gavel</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Four gaps the spec left open</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 6px;">Resolved here — these are the answer, not the options</h2>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 24px;max-width:74ch;">Full reasoning in <code style="font-family:monospace;background:#FCEBE6;padding:1px 6px;border-radius:5px;font-size:12.5px;">RATIONALE.md</code>, including what the brief left underspecified.</p>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="4">
+          <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:1px solid #F0DFDA;">
+            <span style="flex:0 0 108px;font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ d.fg }};background:{{ d.bg }};border-radius:8px;padding:5px 9px;text-align:center;">{{ d.tag }}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:17px;line-height:1.25;margin-bottom:4px;">{{ d.headline }}</div>
+              <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">{{ d.body }}</div>
+            </div>
+            <a href="{{ d.href }}" style="flex:0 0 auto;align-self:center;display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-family:'Figtree';font-size:12.5px;font-weight:600;color:#C0381E;">See it<span class="msr" style="font-size:15px;">arrow_forward</span></a>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- hard constraints checklist -->
+    <div style="background:#E2F4EF;border:1px solid #BFE3DC;border-radius:28px;padding:30px 32px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:#0B5048;">verified_user</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#0B5048;">The seven hard constraints</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 20px;color:#062F2A;">How each one is met</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 30px;">
+        <sc-for list="{{ constraints }}" as="k" hint-placeholder-count="7">
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;">
+            <span class="msr" style="font-size:18px;color:#0B5048;margin-top:1px;">check_circle</span>
+            <span style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#0B3B35;"><b>{{ k.what }}</b> — {{ k.how }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Compose component map -->
+    <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:30px 32px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:#1C6E8C;">view_in_ar</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Maps 1:1 to Compose</span></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 6px;">M3 component map</h2>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:72ch;">Nothing new is invented. The cause group is a <code style="font-family:monospace;background:#FCEBE6;padding:1px 6px;border-radius:5px;font-size:12.5px;">Surface</code> holding stock cards; the weather chip is the existing <code style="font-family:monospace;background:#FCEBE6;padding:1px 6px;border-radius:5px;font-size:12.5px;">AssistChip</code> with a new glyph.</p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px 28px;">
+        <sc-for list="{{ compose }}" as="m" hint-placeholder-count="10">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #F0DFDA;">
+            <span class="msr" style="font-size:19px;color:#C0381E;margin-top:1px;">{{ m.icon }}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:#271814;">{{ m.ui }}</div>
+              <div style="font-family:'Figtree';font-size:12.5px;color:#5A423C;">{{ m.label }}</div>
+            </div>
+            <code style="font-family:monospace;font-size:11.5px;color:#6438AE;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:7px;padding:4px 8px;white-space:nowrap;align-self:flex-start;">{{ m.compose }}</code>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      links: [
+        { href:'Qualified.dc.html', kick:'01 · VERIFIED & UNVERIFIED', kicker:'#7A2615', title:'One card, two truths',
+          desc:'The core case and the honesty case side by side — a confirmed match with its chip, the same card with no forecast, and a card that never had a condition. Plus the four placeholders this design refuses to draw.',
+          icon:'rainy', iconBg:'#C0381E', iconFg:'#fff', bg:'#FFE7E0', border:'#F4CDC2', arrow:'#C0381E', body:'#7A3322' },
+        { href:'Glyphs.dc.html', kick:'02 · GLYPHS & PRECEDENCE', kicker:'#0C5168', title:'Six conditions, one slot',
+          desc:'rain · snow · wind · hot · cold · clear, with the intensity the device picks. And the resolution of the authored-icon-vs-weather-glyph gap: they never share a slot, so neither wins.',
+          icon:'category', iconBg:'#1C6E8C', iconFg:'#fff', bg:'#E2F0F5', border:'#BFDDE8', arrow:'#1C6E8C', body:'#1A4654' },
+        { href:'Aggregate.dc.html', kick:'03 · THE AGGREGATE', kicker:'#005048', title:'A cause and its effects',
+          desc:'The new collapse shape, contrasted with the existing dedup inset; bands and the calm budget; where an authored recommendation sits; the forecast link and the reserved attribution line. Flagged, default off.',
+          icon:'merge', iconBg:'#00796F', iconFg:'#fff', bg:'#D8F5EE', border:'#A8E5DA', arrow:'#00796F', body:'#1A4540' },
+        { href:'Provenance.dc.html', kick:'04 · PROVENANCE & ABSENCE', kicker:'#4C2092', title:'Two claims, no wall',
+          desc:'How one group carries a derived header and authored children without flattening either — the chip that compresses to its glyph and grows back. Plus the argument for showing nothing when a condition fails.',
+          icon:'verified_user', iconBg:'#6438AE', iconFg:'#fff', bg:'#EFE4FB', border:'#DECBF3', arrow:'#6438AE', body:'#3F2A6E' },
+      ],
+      decisions: [
+        { tag:'§3.3 Icons', fg:'#0C5168', bg:'#E2F0F5', href:'Glyphs.dc.html',
+          headline:'Neither wins — an authored icon and a weather glyph never share a slot',
+          body:'media.icon already owns the kind chip and the leading tile (what this card is); the weather glyph owns the why chip (why it is here now). The device never writes into an authored slot and no author writes a weather glyph. A card with no authored icon does not promote the glyph, and accentColor never tints it.' },
+        { tag:'§3.4 Collapse', fg:'#005048', bg:'#D8F5EE', href:'Aggregate.dc.html',
+          headline:'Recessed means “the same thing”; the aggregate is raised',
+          body:'The dedup inset is right only where the child is another view of one subject. An aggregate’s children are different subjects, so it is not a card with children — it is a well with a header, and each constituent keeps its own card surface a tier above it, with its own shadow, chevron and origin.' },
+        { tag:'§3.5 Provenance', fg:'#4C2092', bg:'#F4ECFB', href:'Provenance.dc.html',
+          headline:'Provenance attaches to the claim, never to the container',
+          body:'The header claims only the match and never speaks for a child. The wall is avoided by weight, not omission: a collapsed child shows the chip’s glyph alone, and on expand the mark grows into the full chip. One visible surface, one claim, one mark.' },
+        { tag:'§3.6 Absence', fg:'#7A2615', bg:'#FCEBE6', href:'Provenance.dc.html',
+          headline:'Silence in Now — the discovery need belongs to the hub',
+          body:'No row, no count, no “a plan is waiting on the weather”. Such an affordance is a second feed, and it is itself a weather claim. The genuine need is answered upstream: hubs keep the card visible with its condition, the debug drawer answers the curator, and the authoring rule is to write both branches.' },
+      ],
+      constraints: [
+        { what:'Never render unverified weather', how:'no chip, no glyph, no reserved row. The caption row is absent, so nothing implies a missing value.' },
+        { what:'No forecast readouts', how:'no hourly strip, no 7-day row, no current conditions. The app-bar “68°F, rain later” subtitle from the earlier prototype is retired.' },
+        { what:'Glyphs are device-derived', how:'they live only in the derived why chip, on neutral roles, never on an authored tile and never tinted by accentColor.' },
+        { what:'Recommendations are authored', how:'advice renders inside the constituent card, under its own title and above its own “Added by Claude”. The derived header never advises.' },
+        { what:'The aggregate never replaces', how:'constituents collapse to rows and expand back to the full cards the curator wrote — reachable in one tap, in both states.' },
+        { what:'±1 hour at best', how:'every window reads “3–6 pm”. No minute precision anywhere, in any chip, title or sheet.' },
+        { what:'Light + dark for every screen', how:'both themes drawn for every surface, including the raised/recessed relationship, which is verified to read correctly in each.' },
+      ],
+      compose: [
+        { icon:'sell', ui:'Weather chip', label:'Derived why chip, new glyph set', compose:'AssistChip' },
+        { icon:'crop_square', ui:'Qualified card', label:'Unchanged authored card', compose:'FilledCard' },
+        { icon:'inbox', ui:'Cause group well', label:'Lower tier, holds raised children', compose:'Surface(tonalElevation)' },
+        { icon:'view_agenda', ui:'Constituent card', label:'Raised, keeps its own identity', compose:'ElevatedCard' },
+        { icon:'unfold_more', ui:'Collapse toggle', label:'Row ↔ card, height animates', compose:'AnimatedVisibility + animateContentSize' },
+        { icon:'auto_awesome', ui:'Origin mark', label:'The chip compressed to its glyph', compose:'Icon (provenance role)' },
+        { icon:'article', ui:'Why-you-see-this sheet', label:'Three claims, spelled out', compose:'ModalBottomSheet' },
+        { icon:'link', ui:'Forecast link', label:'One outbound affordance', compose:'TextButton' },
+        { icon:'short_text', ui:'Attribution slot', label:'Last element, reflows nothing', compose:'Text(labelSmall)' },
+        { icon:'expand_more', ui:'Overflow tail', label:'A whole group folds to one row', compose:'TextButton + ListItem' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

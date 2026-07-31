@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <!-- header -->
+  <div style="margin-bottom:34px;max-width:860px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Weather-conditional</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">01 · Verified &amp; unverified</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;max-width:20ch;">One card, two truths</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 12px;max-width:78ch;">The curator authors one card and attaches a condition. When the device confirms the condition against a fresh forecast for that <b>place</b>, the card carries a <b>weather chip</b> — one quiet caption-row chip naming the match, in the same derived family as “Pickup at 3:00”. When there is no forecast, a stale one, or a provider error, the gate <b>fails open</b>: the card still shows, and the chip is <b>gone</b> — not greyed, not dashed, not “unavailable”.</p>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:78ch;">The whole design rests on one authoring rule: <b>the card’s own copy is condition-neutral.</b> The title and body are true on a dry day. The forecast only ever <i>adds</i> a line of evidence, so removing it leaves an ordinary card behind rather than a hole where a claim used to be.</p>
+  </div>
+
+  <!-- A/B/C card-scale proof -->
+  <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px 30px;margin-bottom:40px;max-width:1180px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:20px;color:#00796F;">compare</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">The honesty proof</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 8px;">Cover the labels. Two of these three are the same picture.</h2>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 24px;max-width:80ch;"><b>B</b> is the weather-conditional card with no forecast. <b>C</b> is a card that never had a condition at all. They are pixel-identical in structure — same surface tier, same radius, same type, same footer — because B does not reserve the caption row it isn’t using. Nothing about B says a value is missing, because to the user nothing is.</p>
+
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div style="margin-bottom:26px;">
+        <div style="display:flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ t.onVar }};background:{{ t.tagBg }};border-radius:999px;padding:4px 11px;width:fit-content;margin-bottom:16px;"><span class="msr" style="font-size:15px;">{{ t.modeIcon }}</span>{{ t.modeLabel }}</div>
+        <div style="display:flex;gap:18px;align-items:flex-start;background:{{ t.surface }};border-radius:24px;padding:20px;">
+          <sc-for list="{{ t.abc }}" as="k" hint-placeholder-count="3">
+            <div style="flex:0 0 330px;">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:11px;">
+                <span style="font-family:'Outfit';font-weight:700;font-size:15px;color:{{ k.tagFg }};">{{ k.tag }}</span>
+                <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ t.onSurface }};">{{ k.name }}</span>
+              </div>
+              <!-- the card -->
+              <div style="background:{{ t.surfaceContainer }};border-radius:26px;padding:17px 19px 15px;">
+                <sc-if value="{{ k.hasChip }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:11px;">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ t.surfaceContainerHigh }};color:{{ t.onVar }};padding:5px 11px 5px 9px;border-radius:999px;"><span class="msr" style="font-size:15px;">{{ k.chipIcon }}</span>{{ k.chipText }}</span>
+                  </div>
+                </sc-if>
+                <div style="font-family:'Outfit';font-weight:600;font-size:17px;line-height:1.18;color:{{ t.onSurface }};margin-bottom:5px;">{{ k.title }}</div>
+                <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ t.onVar }};">{{ k.body }}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;color:{{ t.primary }};font-family:'Figtree';font-weight:600;font-size:13.5px;">Open day<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ t.provFg }};background:{{ t.provBg }};border:1px solid {{ t.provBorder }};border-radius:8px;padding:5px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added by Claude</span>
+                </div>
+              </div>
+              <div style="font-family:'Figtree';font-size:12px;line-height:1.5;color:{{ t.onVar }};margin-top:12px;">{{ k.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- what we refused to draw -->
+  <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px 30px;margin-bottom:40px;max-width:1180px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:20px;color:#BA1A1A;">block</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Rejected</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 8px;">Every placeholder is a claim</h2>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:82ch;">These are the four shapes a designer reaches for when a value is missing. Each one tells the family the app <i>tried</i> to know the weather — which is a fact about the app, not about their day, and which invites a retry the user cannot perform. The correct treatment is the fourth column of the row above: render nothing, and let the card be a card.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <sc-for list="{{ rejected }}" as="r" hint-placeholder-count="4">
+        <div style="flex:0 0 250px;background:#FFF1ED;border:1px dashed #D9A79C;border-radius:20px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:13px;min-height:28px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ r.bg }};color:{{ r.fg }};border:{{ r.border }};padding:5px 11px 5px 9px;border-radius:999px;opacity:{{ r.op }};">
+              <sc-if value="{{ r.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="msr" style="font-size:15px;">{{ r.icon }}</span></sc-if>{{ r.text }}</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:7px;">
+            <span class="msr" style="font-size:17px;color:#BA1A1A;margin-top:1px;">close</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#5A423C;">{{ r.why }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- phone frames -->
+  <div style="max-width:1180px;">
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:26px;letter-spacing:-0.015em;margin:0 0 8px;">In the feed</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;margin:0 0 26px;max-width:80ch;">A confirmed match is what puts the card in <b>NOW</b> — the boost is expressed by <i>position</i>, never by extra ornament. There is no ring, no tint, no urgency colour. The unverified feed below is the same day with the forecast unavailable: the card holds its place and simply says less. Note also what is <b>not</b> in the app bar — the old prototype’s “68°F, rain later” subtitle is retired here. A standing readout is a weather widget, and it is unverifiable copy on every other day.</p>
+    <div style="display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap;">
+      <sc-for list="{{ frames }}" as="f" hint-placeholder-count="4">
+        <div style="flex:none;width:390px;margin-bottom:34px;">
+          <div style="margin-bottom:12px;">
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ f.tagFg }};background:{{ f.tagBg }};border-radius:999px;padding:3px 10px;">{{ f.tag }}</span>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#5A423C;margin-top:9px;max-width:38ch;">{{ f.note }}</div>
+          </div>
+          <dc-import name="Weather-Phone" mode="{{ f.mode }}" scenario="{{ f.scenario }}" hint-size="390px,844px"></dc-import>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const TITLE = "Pack jackets for Leo's 4 pm game";
+    const BODY  = "Kickoff at Riverside. Jackets and the big towel are in the hall closet.";
+
+    const build = (c, modeLabel, modeIcon, tagBg) => ({
+      modeLabel, modeIcon, tagBg,
+      surface:c.surface, surfaceContainer:c.surfaceContainer, surfaceContainerHigh:c.surfaceContainerHigh,
+      onSurface:c.onSurface, onVar:c.onSurfaceVar, primary:c.primary,
+      provFg:c.provFg, provBg:c.provBg, provBorder:c.provBorder,
+      abc: [
+        { tag:'A', tagFg:c.primary, name:'Condition confirmed', hasChip:true,
+          chipIcon:'rainy_heavy', chipText:'Heavy rain 3–6 pm · Riverside',
+          title:TITLE, body:BODY,
+          note:'The device matched a fresh forecast for the field. The chip names the window at hourly resolution — “3–6 pm”, never “3:12”. The glyph is picked by the device from the intensity it read.' },
+        { tag:'B', tagFg:c.onSurfaceVar, name:'Condition unconfirmed', hasChip:false,
+          title:TITLE, body:BODY,
+          note:'No forecast, stale beyond TTL, or the provider failed. The gate fails open; the caption row is absent rather than empty. The card is 27 px shorter and otherwise unchanged.' },
+        { tag:'C', tagFg:c.onSurfaceVar, name:'Never conditional', hasChip:false,
+          title:"Pack Leo's kit for the 4 pm game", body:"Kickoff at Riverside. Boots and the big towel are in the hall closet.",
+          note:'A plain authored card the curator wrote with no condition on it at all. Structurally identical to B — which is the requirement, not a coincidence.' },
+      ],
+    });
+
+    const light = { surface:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', primary:'#C0381E',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5' };
+    const dark = { surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', primary:'#FFB4A3',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092' };
+
+    return {
+      themes: [
+        build(light, 'Light', 'light_mode', '#FCEBE6'),
+        build(dark,  'Dark',  'dark_mode',  '#F0DFDA'),
+      ],
+      rejected: [
+        { bg:'#F6E5E0', fg:'#A98B84', border:'none', op:'0.5', hasIcon:true, icon:'rainy', text:'Rain 3–6 pm',
+          why:'Greyed out. Says the app knows and is withholding it. A disabled control implies an enabled state the user could reach.' },
+        { bg:'#F6E5E0', fg:'#5A423C', border:'none', op:'1', hasIcon:true, icon:'rainy', text:'—',
+          why:'The em-dash. A field with no value is still a field: it asserts that weather is part of this card even on a day it is not.' },
+        { bg:'#FFF8F6', fg:'#8C726B', border:'1px dashed #C5A59D', op:'1', hasIcon:true, icon:'cloud_off', text:'Weather unavailable',
+          why:'The status message. Reports on the app’s plumbing in a surface that exists to report on the family’s day.' },
+        { bg:'#F6E5E0', fg:'#5A423C', border:'none', op:'1', hasIcon:true, icon:'sync', text:'Checking…',
+          why:'The pending state. A background pass is not a foreground event; a spinner turns an opportunistic refresh into a promise.' },
+      ],
+      frames: [
+        { tag:'Verified · light', mode:'light', scenario:'verified', tagFg:'#7A2615', tagBg:'#FCEBE6',
+          note:'Confirmed match → the card is in NOW, carrying one derived weather chip.' },
+        { tag:'Verified · dark', mode:'dark', scenario:'verified', tagFg:'#D3BBFF', tagBg:'#2A1F3D',
+          note:'Same card, dark theme. The chip stays in the neutral derived family; weather is never accent-coloured.' },
+        { tag:'Unverified · light', mode:'light', scenario:'unverified', tagFg:'#7A2615', tagBg:'#FCEBE6',
+          note:'No forecast. The card holds its position and its content; only the chip is gone.' },
+        { tag:'Unverified · dark', mode:'dark', scenario:'unverified', tagFg:'#D3BBFF', tagBg:'#2A1F3D',
+          note:'Same in dark. Nothing in the frame indicates a failure occurred, because from the family’s side none did.' },
+        { tag:'Never conditional · light', mode:'light', scenario:'never', tagFg:'#7A2615', tagBg:'#FCEBE6',
+          note:'A day with no weather-conditional content anywhere. Compare with the unverified frame: the feeds are the same shape.' },
+        { tag:'Condition, no recommendation · light', mode:'light', scenario:'noRec', tagFg:'#7A2615', tagBg:'#FCEBE6',
+          note:'The curator attached a condition but wrote no advice. The card is simply itself with the match named — no empty slot, no generic hedge.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
