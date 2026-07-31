@@ -15,14 +15,19 @@ class BackgroundRefreshTest {
   // It must NOT attempt a network call it cannot authorize.
   @Test fun `no cached family is a clean no-op`() = runBlocking {
     var synced = false
+    var reconciled = false
     val outcome = backgroundRefreshPass(
-      deps = deps(memberships = emptyList(), sync = { synced = true }),
+      deps = deps(memberships = emptyList(), sync = { synced = true }, reconcile = { reconciled = true }),
       budget = 30.seconds,
     )
 
     assertFalse(synced)
     assertFalse(outcome.synced)
     assertEquals("no-family", outcome.skippedReason)
+    // Reconcile is load-bearing on every exit path, including this early return
+    // (schedules going stale is a worse failure than content going stale).
+    assertTrue(reconciled)
+    assertTrue(outcome.reconciled)
   }
 
   // Reconcile MUST still run when sync overruns the budget: schedules going stale is a
@@ -62,8 +67,9 @@ class BackgroundRefreshTest {
   @Test fun `delegates to the live runtime instead of syncing headlessly`() = runBlocking {
     var delegated = false
     var headless = false
+    var reconciled = false
     val outcome = backgroundRefreshPass(
-      deps = deps(delegate = { delegated = true }, sync = { headless = true }),
+      deps = deps(delegate = { delegated = true }, sync = { headless = true }, reconcile = { reconciled = true }),
       budget = 30.seconds,
     )
 
@@ -71,6 +77,9 @@ class BackgroundRefreshTest {
     assertFalse(headless)
     assertTrue(outcome.delegated)
     assertTrue(outcome.synced)
+    // Reconcile is load-bearing on every exit path, including the delegate return.
+    assertTrue(reconciled)
+    assertTrue(outcome.reconciled)
   }
 
   private fun deps(
