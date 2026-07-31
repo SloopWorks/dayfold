@@ -77,6 +77,25 @@ fun ensurePeriodicRefresh(context: Context) {
  */
 internal suspend fun runBackgroundRefresh(context: Context): RefreshOutcome {
   val cs = AndroidContentStoreHolder.get(context)
+  // BOTH halves, mirroring iOS's bgReconcile(). Geofences alone would leave the exact
+  // (time-triggered) lane un-armed: a card whose trigger syncs in at 3am has no alarm set until the
+  // user next opens MainActivity, so the reminder the sync just made possible never fires — which is
+  // the whole point of the pass.
+  val reconcile = { reRegisterGeofences(context); reconcileExactSchedules(context) }
+
+  // A `fake://` base is a debug-drawer scenario served by an in-process MockEngine that only the
+  // foreground graph holds. There is no network backend to drain, and syncing anyway would write
+  // one backend's rows + cursor into the cache the operator is dogfooding another backend against.
+  // Reconcile is local and cheap, so it still runs — mirroring the pass's own skip shape.
+  val api = AndroidApiConfigHolder.apiBase
+  if (api == null || api.startsWith("fake://")) {
+    reconcile()
+    return RefreshOutcome(
+      reconciled = true,
+      skippedReason = if (api == null) "no-android-api-base" else "fake-backend",
+    )
+  }
+
   val http = HttpClient()
   return try {
     // headlessRefreshPass, NOT backgroundRefreshPass: this worker is a cache WRITER, so it must
@@ -89,12 +108,8 @@ internal suspend fun runBackgroundRefresh(context: Context): RefreshOutcome {
         memberships = { cs.cachedMemberships() },
         session = { AndroidTokenStore(context).load() },
         delegateToRuntime = AndroidRuntimeHandleHolder.get(),
-        syncOnce = { familyId, session -> androidHeadlessSync(context, cs, http, familyId, session) },
-        // BOTH halves, mirroring iOS's bgReconcile(). Geofences alone would leave the exact
-        // (time-triggered) lane un-armed: a card whose trigger syncs in at 3am has no alarm set
-        // until the user next opens MainActivity, so the reminder the sync just made possible
-        // never fires — which is the whole point of the pass.
-        reconcile = { reRegisterGeofences(context); reconcileExactSchedules(context) },
+        syncOnce = { familyId, session -> androidHeadlessSync(context, cs, http, api, familyId, session) },
+        reconcile = reconcile,
       ),
       budget = 60.seconds,
     )
@@ -112,12 +127,10 @@ private suspend fun androidHeadlessSync(
   context: Context,
   contentStore: ContentStore,
   http: HttpClient,
+  api: String,
   familyId: String,
   session: Session,
 ) {
-  val api = requireNotNull(AndroidApiConfigHolder.apiBase) {
-    "AndroidApiConfigHolder.apiBase must be set (DayfoldApp.onCreate) before RefreshWorker runs"
-  }
   headlessSync(
     contentStore = contentStore,
     syncClient = SyncClient(api, http),
