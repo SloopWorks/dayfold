@@ -61,6 +61,9 @@ class SyncCoordinator internal constructor(
   private var pending = false
   private var pendingReason: SyncReason? = null
   private var closed = false
+  // Lets ONE already-claimed pending pass through claimPass() while paused, without changing
+  // what [resumed] means for anyone else. See [requestSyncOnce].
+  private var oneShotArmed = false
 
   /**
    * Starts or resumes the worker in [ownerScope], requests one immediate pass, and starts polling.
@@ -131,6 +134,38 @@ class SyncCoordinator internal constructor(
     return true
   }
 
+  /**
+   * Runs exactly one pass through the worker for the current generation even while [pause] has
+   * stopped the 45s poll loop. [pause] exists to stop that POLL LOOP for battery, not to refuse
+   * work outright — a headless background wake (WorkManager, BGAppRefreshTask) is exactly the
+   * legitimate one-shot the poll loop was paused in favour of.
+   *
+   * Never starts or restarts the poller and never flips [resumed] — a caller cannot observe this
+   * coordinator as "resumed" afterward, and no polling resumes as a side effect. Serialized
+   * through the SAME worker Job, generation, and `pending`/`pendingReason` conflation slot as
+   * every other pass: [syncPass] is still ever invoked by exactly one coroutine at a time (the
+   * ADR 0058 invariant this file depends on) — a request made while a pass is already in flight
+   * (started by [resume]'s worker or an earlier call to this method) conflates into that pass's
+   * existing rerun loop rather than starting a second, concurrent one.
+   *
+   * If [resume] has never been called yet for this coordinator (no worker exists for any
+   * generation), this only records the pending request and returns — exactly what [requestSync]
+   * already does in that state. That state means no family session has ever been bound, so there
+   * is nothing to sync yet regardless; the request is picked up, tagged with whatever reason a
+   * subsequent [resume] assigns, same as today.
+   */
+  fun requestSyncOnce(reason: SyncReason): Boolean {
+    val worker = synchronized(gate) {
+      if (closed) return false
+      pending = true
+      pendingReason = reason
+      oneShotArmed = true
+      active?.takeIf { it.worker.isActive }
+    }
+    worker?.signal?.trySend(Unit)
+    return true
+  }
+
   /** Cancels the worker and poller, rejects future requests, and clears any pending rerun. */
   fun close() {
     val previous = synchronized(gate) {
@@ -139,6 +174,7 @@ class SyncCoordinator internal constructor(
       resumed = false
       pending = false
       pendingReason = null
+      oneShotArmed = false
       active.also { active = null }
     }
     previous?.signal?.close()
@@ -174,10 +210,11 @@ class SyncCoordinator internal constructor(
   }
 
   private fun claimPass(expectedGeneration: Long): SyncReason? = synchronized(gate) {
-    if (closed || !resumed || !pending || active?.generation != expectedGeneration) {
+    if (closed || active?.generation != expectedGeneration || !pending || !(resumed || oneShotArmed)) {
       null
     } else {
       pending = false
+      oneShotArmed = false
       checkNotNull(pendingReason.also { pendingReason = null }) {
         "A pending sync pass must have a reason"
       }

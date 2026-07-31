@@ -55,12 +55,16 @@ class DayfoldRuntimeGraph internal constructor(
    * that finds this graph already live in-process and must delegate to it rather than build its own
    * refresher (ADR 0020 R3; see AndroidRuntimeHandleHolder). Uses [SyncReason.BACKGROUND], never
    * MANUAL_REFRESH: that reason publishes a user-facing sync status, and a background wake must be
-   * silent. Like any [SyncCoordinator.requestSync] call, this only runs a pass while the coordinator
-   * is resumed (foreground) — while paused it is a safe no-op, not a forced network call, which is
-   * correct here: the point is to never spend an independent token refresh, not to guarantee a sync.
+   * silent.
+   *
+   * Uses [SyncCoordinator.requestSyncOnce], not [SyncCoordinator.requestSync]: the runtime is very
+   * often live but PAUSED at exactly this moment (app backgrounded, no Activity in the foreground —
+   * the common case a background wake exists for), and `requestSync` deliberately does nothing but
+   * conflate while paused. `requestSyncOnce` runs one pass through the same worker regardless of
+   * paused state, without restarting the poll loop or flipping the coordinator back to resumed.
    */
   fun requestBackgroundSync() {
-    syncCoordinator.requestSync(SyncReason.BACKGROUND)
+    syncCoordinator.requestSyncOnce(SyncReason.BACKGROUND)
   }
 
   /** Replaces the active family with close, join, wipe, and restart ordering. */
