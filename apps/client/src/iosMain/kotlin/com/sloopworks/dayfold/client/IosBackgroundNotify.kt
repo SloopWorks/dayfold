@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import io.ktor.client.HttpClient
+import kotlin.concurrent.Volatile // multiplatform @Volatile (bare resolves to kotlin.jvm → fails on K/Native)
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
@@ -8,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -129,7 +129,11 @@ fun bgReconcile() {
 // exactly why the Swift side must complete the BGTask from inside [onComplete], never right after
 // this call returns — see the doc there.
 private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-private var refreshJob: Job? = null
+// @Volatile — review round 2: written on the BGTask handler's thread, read by bgCancelRefresh()
+// from iOS's expiration-handler thread (a different one). Kotlin/Native gives no visibility
+// guarantee across threads without this; a stale read here would make cancel() a silent no-op,
+// letting the coroutine keep running past the task's expiration.
+@Volatile private var refreshJob: Job? = null
 
 // Real API base is unset on-device this slice (iOS run config is operator-gated on Mac/Xcode) —
 // mirrors the literal MainViewController already uses for the foreground graph. No config holder
@@ -143,23 +147,26 @@ private const val IOS_API_BASE = ""
  * would let iOS suspend the app mid-work (silently — no error, no log) and, worse, it teaches iOS
  * that this task's work can be killed safely, which reduces how often it gets scheduled again.
  *
- * [onComplete] MUST run on every path except a real cancellation (see below), not just the happy
- * path — including `IosContentStoreHolder.get()` throwing (a SQLite driver-creation failure),
- * `deps.memberships()`/`deps.session()` throwing (Keychain/NSUserDefaults reads that
- * [backgroundRefreshPass] does not wrap in `runCatching`), or `deps.reconcile()` throwing. All of
- * that construction and every suspend call now runs INSIDE the launched coroutine, wrapped by a
- * single outer `try`/`catch`/`finally` — a structural guarantee rather than one `runCatching` per
- * call site, which would need to be re-added correctly at every future call site added here.
+ * [onComplete] runs UNCONDITIONALLY on every path — success, any thrown exception (including
+ * `IosContentStoreHolder.get()` throwing, a SQLite driver-creation failure; `deps.memberships()`/
+ * `deps.session()` throwing, Keychain/NSUserDefaults reads that [backgroundRefreshPass] does not
+ * wrap in `runCatching`; or `deps.reconcile()` throwing), and cancellation ([bgCancelRefresh],
+ * called from the BGTask's `expirationHandler`). All of that construction and every suspend call
+ * now runs INSIDE the launched coroutine, wrapped by a single outer `try`/`catch`/`finally` — a
+ * structural guarantee rather than one `runCatching` per call site, which would need to be
+ * re-added correctly at every future call site added here.
  *
- * The one path that deliberately does NOT call [onComplete] here is real cancellation
- * ([bgCancelRefresh], which the BGTask's `expirationHandler` calls): that path completes the task
- * itself (`success: false`) on the Swift side, so calling [onComplete] too would call
- * `task.setTaskCompleted` a second time — undefined per `BGTaskScheduler`'s own contract. The
- * `isActive` check in the `finally` block distinguishes the two: `cancel()` flips the coroutine's
- * own Job to non-active BEFORE throwing `CancellationException` at the next suspension point, so
- * by the time our `finally` runs, `isActive` is already false only on that path — never on a
- * normal return or on an unrelated thrown exception, both of which still occur while the Job is
- * still active.
+ * Review round 2 — an earlier version tried to skip [onComplete] specifically on the cancellation
+ * path (`expirationHandler` already calls `setTaskCompleted(success: false)` itself, so calling
+ * this too looked like a double completion) by checking `isActive` in the `finally` block. That
+ * check races `expirationHandler` on a DIFFERENT thread with no synchronization between them —
+ * `isActive` can read `true` right as expiration fires elsewhere, and [onComplete] would then call
+ * `task.setTaskCompleted(success: true)` after the handler's `success: false`, which crashes.
+ * There is no reliable single-threaded signal here to gate on. The robust fix lives on the Swift
+ * side instead (`App.swift`'s `TaskCompletionGuard`): an atomic already-completed flag around
+ * `task.setTaskCompleted` makes whichever caller (this callback or `expirationHandler`) arrives
+ * first win and the other a no-op — which is what makes calling [onComplete] unconditionally,
+ * from every path including cancellation, safe.
  */
 fun bgRefresh(onComplete: () -> Unit) {
   refreshJob = refreshScope.launch {
@@ -214,7 +221,8 @@ fun bgRefresh(onComplete: () -> Unit) {
     } catch (t: Throwable) {
       Log.e("refresh") { "background pass threw: $t" }
     } finally {
-      if (isActive) onComplete()
+      // Unconditional — see the doc above for why the previous isActive-gated version was unsafe.
+      onComplete()
     }
   }
 }

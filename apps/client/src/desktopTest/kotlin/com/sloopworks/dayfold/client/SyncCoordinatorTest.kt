@@ -439,4 +439,23 @@ class SyncCoordinatorTest {
     awaiter.join()
     owner.cancelAndJoin()
   }
+
+  // Review round 2, finding A (regression) — IosRuntimeHandleHolder/AndroidRuntimeHandleHolder
+  // register a delegate as soon as a runtime graph is CONSTRUCTED, before any resume() call binds
+  // a family session. A delegated background wake into a live-but-signed-out (or pre-family-bind)
+  // runtime therefore calls requestSyncOnceAndAwait with no worker ever created. Before this fix,
+  // that state still registered a waiter and awaited it forever (until the caller's own outer
+  // budget timeout), burning the ENTIRE wake budget doing nothing. A tight withTimeout here proves
+  // it now returns promptly instead.
+  @Test fun `requestSyncOnceAndAwait returns immediately when no worker has ever been created`() = runBlocking<Unit> {
+    val passCount = AtomicInteger()
+    val coordinator = SyncCoordinator(syncPass = { _, _ -> passCount.incrementAndGet() }, pollIntervalMs = Long.MAX_VALUE)
+
+    // resume() is never called — active is null for the lifetime of this coordinator.
+    val result = withTimeout(200) { coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND) }
+
+    assertTrue(result)
+    assertEquals(0, passCount.get())   // nothing ran — there was no worker to run it, and none should
+    coordinator.close()
+  }
 }

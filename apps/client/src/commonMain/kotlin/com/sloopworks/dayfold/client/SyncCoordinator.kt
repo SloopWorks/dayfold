@@ -195,11 +195,28 @@ class SyncCoordinator internal constructor(
    *   loop calls [claimPass] again, drains this waiter along with the pending reason, and runs
    *   the conflated rerun — completing this waiter only once THAT pass finishes, never the one
    *   already running when it registered.
-   * - No worker has ever been created ([resume] never called): registers and returns instantly
-   *   like [requestSyncOnce] does today, and the caller's own `await()` blocks until a later
-   *   [resume] creates a worker that eventually claims it, or this coordinator is [close]d, or
-   *   the caller's own surrounding timeout (e.g. `backgroundRefreshPass`'s budget) cancels it.
-   *   None of those are a coordinator-internal deadlock.
+   * - No worker has ever been created ([resume] never called): arms [pending]/[pendingReason]
+   *   exactly like [requestSyncOnce] does today (a later [resume] will eventually pick it up),
+   *   but returns WITHOUT awaiting — see the second review round below for why this branch must
+   *   not block.
+   *
+   * ADR 0020 R3 review round 2 — the delegate holders (`IosRuntimeHandleHolder`,
+   * `AndroidRuntimeHandleHolder`) register the moment a runtime graph is CONSTRUCTED, not once a
+   * family session is bound (`resumeSync` only calls [resume] after that). So a live-but-signed-
+   * out or pre-family-bind runtime takes the `delegateToRuntime` branch with `active == null` —
+   * no worker exists, nothing will ever claim this request until some future [resume]. Awaiting
+   * in that state previously stalled the caller for its ENTIRE budget (~25s iOS, ~60s Android)
+   * doing nothing, which is worse than the pre-await regression this method was added to fix.
+   * When [active] is null at registration time, this returns `true` immediately without adding a
+   * waiter or suspending — there is nothing to wait FOR yet.
+   *
+   * Also removes its own waiter from [oneShotWaiters] in a `finally` around `await()`: if the
+   * caller itself is cancelled before any [claimPass] call drains this request (e.g. the
+   * surrounding `withTimeoutOrNull(budget)` in `backgroundRefreshPass` elapses while a slow pass
+   * is still running), an unremoved entry would sit in [oneShotWaiters] until some later pass
+   * eventually claims and uselessly completes it — harmless on its own, but combined with
+   * repeated timed-out callers it accumulates one orphaned entry per wake. Removing it here is a
+   * no-op when [claimPass] already drained it (the normal completion path).
    */
   suspend fun requestSyncOnceAndAwait(reason: SyncReason): Boolean {
     val done = CompletableDeferred<Unit>()
@@ -208,11 +225,21 @@ class SyncCoordinator internal constructor(
       pending = true
       pendingReason = reason
       oneShotArmed = true
-      oneShotWaiters += done
-      active?.takeIf { it.worker.isActive }
+      val selected = active?.takeIf { it.worker.isActive }
+      if (selected != null) oneShotWaiters += done
+      selected
     }
-    worker?.signal?.trySend(Unit)
-    done.await()
+    if (worker == null) {
+      // Nothing will service this until a later resume() creates a worker — do not block a
+      // budget-limited caller waiting on that, which may never happen this wake.
+      return true
+    }
+    worker.signal.trySend(Unit)
+    try {
+      done.await()
+    } finally {
+      synchronized(gate) { oneShotWaiters.remove(done) }
+    }
     return true
   }
 
