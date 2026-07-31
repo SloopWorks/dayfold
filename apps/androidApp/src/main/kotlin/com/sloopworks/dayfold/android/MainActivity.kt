@@ -10,6 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.sloopworks.dayfold.client.AndroidApiConfigHolder
 import com.sloopworks.dayfold.client.AndroidGeofenceController
 import com.sloopworks.dayfold.client.AndroidLocalNotifier
 import com.sloopworks.dayfold.client.AndroidLocationPermissionController
@@ -156,6 +157,12 @@ class MainActivity : ComponentActivity() {
     // API base routes through the drawer's backend override (falls back to the
     // build-time DAYFOLD_API). Switching backend in the drawer applies on restart.
     val apiBase = DebugDrawer.backendUrl(BuildConfig.DAYFOLD_API)
+    // ADR 0020 R3 — the headless RefreshWorker shares this process's single ContentStore, so it
+    // must talk to the SAME backend the foreground graph does. DayfoldApp.onCreate seeds the
+    // holder with the raw BuildConfig value (a cold worker dispatch never reaches this Activity);
+    // overwrite it with the EFFECTIVE base once the drawer override is known, or a dogfood session
+    // on a local/fake backend would have prod rows and a prod cursor written into the same cache.
+    AndroidApiConfigHolder.apiBase = apiBase
     val appContext = applicationContext
     // Fake backend (debug UI testing): a `fake://<scenario>` selection routes ALL
     // transport through an in-process MockEngine instead of the network. fakeHttp is

@@ -6,10 +6,13 @@ package com.sloopworks.dayfold.client
 // way DayfoldRuntimeFactory.create() does. DayfoldApp.onCreate sets this from BuildConfig.DAYFOLD_API
 // before any other component in the process can run, so RefreshWorker always sees a non-null value.
 //
-// Deliberately NOT kept in sync with the debug-drawer backend override MainActivity may apply at
-// runtime (fake-backend scenarios, the emulator-alias switch): that override is a debug-only
-// convenience, and this path already promises no fixed cadence, so it is not worth a second source
-// of truth to make a background wake respect a UI-only backend switch.
+// MainActivity then OVERWRITES it with the EFFECTIVE base — `DebugDrawer.backendUrl(...)`, which in
+// a debug build may be a local host or a `fake://` scenario. That is not optional polish: the worker
+// and the foreground graph share one process-global ContentStore, so a worker still pointed at prod
+// during a local-backend dogfood session would write prod rows into the shared cache AND advance the
+// shared sync cursor, leaving the operator's next `/sync?since=<prod-cursor>` meaningless to the
+// local server. A `fake://` base means "no network at all this session" — RefreshWorker skips the
+// sync step outright rather than resolving it as a URL (see runBackgroundRefresh).
 object AndroidApiConfigHolder {
   @Volatile var apiBase: String? = null
 }
