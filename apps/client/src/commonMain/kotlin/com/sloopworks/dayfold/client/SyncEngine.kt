@@ -168,42 +168,26 @@ class SyncEngine(
     }
   }
 
-  /** Drain all /sync pages into the DB in order (each page is its own atomic applyDelta). */
+  /** Drain all /sync pages into the DB in order (each page is its own atomic applyDelta).
+   *  The loop itself lives in [SyncDrainer] so the background pass reuses it (ADR 0020 R3). */
   private suspend fun drain(
     context: FamilySessionContext,
     onActivity: () -> Unit,
   ) {
-    var hasMore = true
-    while (hasMore) {
-      val cursor = withContext(databaseDispatcher) { contentStore.cursor() }
-      val resp = sessionCoordinator.authorizedCall(context) { current ->
-        current.withFamilyAndAccessToken { familyId, accessToken ->
-          syncClient.fetchPage(familyId, accessToken, cursor)
+    SyncDrainer(
+      contentStore = contentStore,
+      databaseDispatcher = databaseDispatcher,
+      nowIso = nowProvider,
+      fetch = { since ->
+        sessionCoordinator.authorizedCall(context) { current ->
+          current.withFamilyAndAccessToken { familyId, accessToken ->
+            syncClient.fetchPage(familyId, accessToken, since)
+          }
         }
-      }
-      if (resp.hasMaterialChanges()) onActivity()
-      // ADR 0040 §3 — stale-cursor directive: the server reset the scan to -∞ because our cursor
-      // was older than the tombstone-retention floor (a needed delete may be GC'd). Wipe the
-      // synced cache (keeping the outbox + hidden) before applying, so this page rebuilds clean.
-      // Only the first rebuild page carries the flag; subsequent pages resume from a fresh cursor.
-      val committed = withContext(databaseDispatcher) {
-        sessionCoordinator.commitIfCurrent(context) {
-          if (resp.fullResync) contentStore.wipeForResync()
-          contentStore.applyDelta(
-            changedCards = resp.changes.cards,
-            changedHubs = resp.changes.hubs,
-            changedSections = resp.changes.sections,
-            changedBlocks = resp.changes.blocks,
-            tombstones = resp.tombstones,
-            nextCursor = resp.nextCursor,
-            nowIso = nowProvider(),
-            changedPlaces = resp.changes.places,
-          )
-        }
-      }
-      if (!committed) throw CancellationException("Family session replaced")
-      hasMore = resp.hasMore
-    }
+      },
+      commit = { block -> sessionCoordinator.commitIfCurrent(context) { block() } },
+      onActivity = onActivity,
+    ).drain()
   }
 
   /**
@@ -296,15 +280,6 @@ class SyncEngine(
       publishFailed(context, "HTTP ${e.status}")
     }
   }
-
-  private fun SyncResponse.hasMaterialChanges(): Boolean =
-    fullResync ||
-      changes.cards.isNotEmpty() ||
-      changes.hubs.isNotEmpty() ||
-      changes.sections.isNotEmpty() ||
-      changes.blocks.isNotEmpty() ||
-      changes.places.isNotEmpty() ||
-      tombstones.isNotEmpty()
 
   /** Clears a prior family generation's busy flag only from a currently admitted family pass. */
   private fun adoptStatusBoundary(context: FamilySessionContext) {
