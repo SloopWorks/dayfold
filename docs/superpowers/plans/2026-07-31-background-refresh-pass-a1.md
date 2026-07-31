@@ -18,6 +18,22 @@
 - **No new ADR needed for this slice** — ADR 0020 R3 was Accepted 2026-07-31. Do not widen scope into weather (slices B1–B3) or push (FCM/APNs).
 - **Nothing in this slice may promise freshness.** No UI copy, log line, or comment may state a guaranteed cadence. See spec A.6.
 - `SyncReason.BACKGROUND` already exists in the enum and is currently never called. Use it; do not add a new reason.
+- **ONE syncer per process — this is a correctness rule, not an optimization.**
+  `AuthClient.kt:133` documents that `POST /auth/refresh` rotates the session and
+  **reuse-detection revokes the lineage server-side**. WorkManager runs in the app's
+  main process, so if a live runtime is holding the session in memory and the
+  background pass independently refreshes from the persisted token, the second use of
+  the rotated token is treated as reuse and **the user is signed out**. The background
+  pass must therefore delegate to the live runtime when one exists and take the
+  headless path only when the process has none. The same rule removes a cursor
+  read-fetch-apply race between the 45s foreground poll and the worker.
+- **DB work goes through `databaseDispatcher`.** `ContentStore.applyDelta` is
+  `withWriteGate`-serialized so concurrency can't corrupt, but the convention (and
+  ADR 0058's serialization posture) is that store work is dispatched, not run on
+  whatever thread the caller happened to be on.
+- **Do not add any "notify the store" step.** `ContentBridge` already collects
+  `contentStore.activeCardsFlow(databaseDispatcher)` (and hubs/hidden), so a
+  background DB write propagates into a live Redux store on its own.
 - Branch from latest `main`. Commits and PR text written normally (not caveman).
 
 ---
@@ -39,6 +55,13 @@
 
 ---
 
+> **Reviewed 2026-07-31** (correctness / boundaries / concurrency / redux / mobile). Six
+> corrections are folded in below: the one-syncer-per-process delegation rule (token-rotation
+> reuse detection would sign the user out), the iOS async-completion fix, the drainer seam
+> moved so page→DB isn't duplicated, `activeFamilyIdFor` reused instead of restated,
+> dispatched DB work, and the note that `ContentBridge` already propagates background writes
+> into a live Redux store.
+
 ## Task 1: Extract `SyncDrainer` from `SyncEngine`
 
 Pure refactor. Behavior must not change; the existing sync tests are the proof.
@@ -50,7 +73,7 @@ Pure refactor. Behavior must not change; the existing sync tests are the proof.
 
 **Interfaces:**
 - Consumes: `SyncClient.fetchPage(familyId: String, accessToken: String, since: String?): SyncResponse`; `ContentStore.cursor()`, `.applyDelta(...)`, `.wipeForResync()`.
-- Produces: `class SyncDrainer(cursor, fetch, commit, onActivity, onWipeForResync, onApply)` with `suspend fun drain()`. Exact parameter types are in Step 3; Tasks 2 and 5 construct it.
+- Produces: `class SyncDrainer(contentStore, databaseDispatcher, nowIso, fetch, commit, onActivity)` with `suspend fun drain()`. It owns page→DB concretely; only the session concerns (`fetch`, `commit`) are injected. Task 5 constructs it for the headless path.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -71,17 +94,12 @@ class SyncDrainerTest {
   @Test fun `drains every page in order`() = runTest {
     val cursors = mutableListOf<String?>()
     var page = 0
-    val drainer = SyncDrainer(
-      cursor = { if (page == 0) null else "c1" },
-      fetch = { since ->
-        cursors += since
-        page++
-        if (page == 1) syncResponse(nextCursor = "c1", hasMore = true)
-        else syncResponse(nextCursor = "c2", hasMore = false)
-      },
-      commit = { block -> block(); true },
-      onActivity = {},
-    )
+    val drainer = drainerFor(inMemoryContentStore(), fetch = { since ->
+      cursors += since
+      page++
+      if (page == 1) syncResponse(nextCursor = "c1", hasMore = true)
+      else syncResponse(nextCursor = "c2", hasMore = false)
+    })
 
     drainer.drain()
 
@@ -93,11 +111,10 @@ class SyncDrainerTest {
   // abort rather than apply a page into the wrong tenant's cache.
   @Test fun `aborts when a commit is rejected`() = runTest {
     var fetches = 0
-    val drainer = SyncDrainer(
-      cursor = { null },
+    val drainer = drainerFor(
+      inMemoryContentStore(),
       fetch = { fetches++; syncResponse(nextCursor = "c1", hasMore = true) },
       commit = { false },
-      onActivity = {},
     )
 
     val error = runCatching { drainer.drain() }.exceptionOrNull()
@@ -107,22 +124,35 @@ class SyncDrainerTest {
   }
 
   // A page carrying full_resync wipes the synced cache before applying, so the rebuild
-  // starts clean (ADR 0040 stale-cursor directive).
+  // starts clean (ADR 0040 stale-cursor directive). Uses a real in-memory ContentStore
+  // because the drainer now owns page->DB directly.
   @Test fun `full resync page wipes before applying`() = runTest {
-    val calls = mutableListOf<String>()
-    val drainer = SyncDrainer(
-      cursor = { null },
-      fetch = { syncResponse(nextCursor = "c1", hasMore = false, fullResync = true) },
-      commit = { block -> block(); true },
-      onActivity = {},
-      onWipeForResync = { calls += "wipe" },
-      onApply = { calls += "apply" },
+    val store = inMemoryContentStore()
+    store.applyDelta(
+      changedCards = listOf(card(id = "stale")), changedHubs = emptyList(),
+      changedSections = emptyList(), changedBlocks = emptyList(), tombstones = emptyList(),
+      nextCursor = "c0", nowIso = "2026-07-31T00:00:00Z", changedPlaces = emptyList(),
     )
 
-    drainer.drain()
+    drainerFor(store, fetch = { syncResponse(nextCursor = "c1", hasMore = false, fullResync = true) }).drain()
 
-    assertEquals(listOf("wipe", "apply"), calls)
+    // The pre-existing card is gone: the wipe ran before the (empty) page was applied.
+    assertTrue(store.activeCards().none { it.id == "stale" })
+    assertEquals("c1", store.cursor())
   }
+
+  private fun drainerFor(
+    store: ContentStore,
+    fetch: suspend (String?) -> SyncResponse,
+    commit: suspend (block: () -> Unit) -> Boolean = { block -> block(); true },
+  ) = SyncDrainer(
+    contentStore = store,
+    databaseDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+    nowIso = { "2026-07-31T12:00:00Z" },
+    fetch = fetch,
+    commit = commit,
+    onActivity = {},
+  )
 
   private fun syncResponse(
     nextCursor: String,
@@ -138,7 +168,12 @@ class SyncDrainerTest {
 }
 ```
 
-Before running, open `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/SyncClient.kt` and confirm the exact constructor parameter names of `SyncResponse` and `SyncChanges`; adjust the `syncResponse` helper to match. Do not change those classes.
+Before running: confirm the constructor parameter names of `SyncResponse` and `SyncChanges` in
+`SyncClient.kt` and adjust the `syncResponse` helper to match — do not change those classes. For
+`inMemoryContentStore()` and `card(...)`, reuse the existing test helpers: grep the desktopTest
+sources (`grep -rn "ContentStore(" apps/client/src/desktopTest | head`) for how `ContentStoreTest`
+and `BackgroundNotifyTest` build a store over an in-memory JDBC driver, and use that same helper
+rather than writing a second one.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -164,13 +199,14 @@ import kotlinx.coroutines.CancellationException
 // the foreground supplies epoch-fenced authorize/commit (ADR 0058), the background supplies
 // pass-throughs, and neither knows about the other.
 class SyncDrainer(
-  private val cursor: suspend () -> String?,
+  private val contentStore: ContentStore,
+  private val databaseDispatcher: CoroutineDispatcher,
+  private val nowIso: () -> String,
+  /** Fetch one page. Foreground wraps this in the coordinator's authorizedCall. */
   private val fetch: suspend (since: String?) -> SyncResponse,
   /** Applies [block] iff the session is still current; false = replaced mid-pass. */
   private val commit: suspend (block: () -> Unit) -> Boolean,
   private val onActivity: () -> Unit,
-  private val onWipeForResync: () -> Unit = {},
-  private val onApply: (SyncResponse) -> Unit = {},
 ) {
   /**
    * Drain pages until the server reports no more. Each page is its own atomic apply, and the
@@ -181,12 +217,27 @@ class SyncDrainer(
   suspend fun drain() {
     var hasMore = true
     while (hasMore) {
-      val since = cursor()
+      val since = withContext(databaseDispatcher) { contentStore.cursor() }
       val resp = fetch(since)
       if (resp.hasMaterialChanges()) onActivity()
-      val committed = commit {
-        if (resp.fullResync) onWipeForResync()
-        onApply(resp)
+      // page -> DB is IDENTICAL in both paths, so it lives here concretely. Only the
+      // session concerns (fetch/commit) are injected; duplicating the applyDelta
+      // mapping at each call site is what this extraction exists to prevent.
+      val committed = withContext(databaseDispatcher) {
+        commit {
+          // ADR 0040 stale-cursor directive: rebuild clean when the server reset the scan.
+          if (resp.fullResync) contentStore.wipeForResync()
+          contentStore.applyDelta(
+            changedCards = resp.changes.cards,
+            changedHubs = resp.changes.hubs,
+            changedSections = resp.changes.sections,
+            changedBlocks = resp.changes.blocks,
+            tombstones = resp.tombstones,
+            nextCursor = resp.nextCursor,
+            nowIso = nowIso(),
+            changedPlaces = resp.changes.places,
+          )
+        }
       }
       if (!committed) throw CancellationException("Family session replaced")
       hasMore = resp.hasMore
@@ -216,7 +267,9 @@ In `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/SyncEngine.k
     onActivity: () -> Unit,
   ) {
     SyncDrainer(
-      cursor = { withContext(databaseDispatcher) { contentStore.cursor() } },
+      contentStore = contentStore,
+      databaseDispatcher = databaseDispatcher,
+      nowIso = nowProvider,
       fetch = { since ->
         sessionCoordinator.authorizedCall(context) { current ->
           current.withFamilyAndAccessToken { familyId, accessToken ->
@@ -224,25 +277,8 @@ In `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/SyncEngine.k
           }
         }
       },
-      commit = { block ->
-        withContext(databaseDispatcher) {
-          sessionCoordinator.commitIfCurrent(context) { block() }
-        }
-      },
+      commit = { block -> sessionCoordinator.commitIfCurrent(context) { block() } },
       onActivity = onActivity,
-      onWipeForResync = { contentStore.wipeForResync() },
-      onApply = { resp ->
-        contentStore.applyDelta(
-          changedCards = resp.changes.cards,
-          changedHubs = resp.changes.hubs,
-          changedSections = resp.changes.sections,
-          changedBlocks = resp.changes.blocks,
-          tombstones = resp.tombstones,
-          nextCursor = resp.nextCursor,
-          nowIso = nowProvider(),
-          changedPlaces = resp.changes.places,
-        )
-      },
     ).drain()
   }
 ```
@@ -336,14 +372,32 @@ class BackgroundRefreshTest {
     assertEquals(null, outcome.skippedReason)
   }
 
+  // A live runtime must be delegated to — never bypassed. Two independent refreshers
+  // race token rotation and the server's reuse detection signs the user out.
+  @Test fun `delegates to the live runtime instead of syncing headlessly`() = runTest {
+    var delegated = false
+    var headless = false
+    val outcome = backgroundRefreshPass(
+      deps = deps(delegate = { delegated = true }, sync = { headless = true }),
+      budget = 30.seconds,
+    )
+
+    assertTrue(delegated)
+    assertFalse(headless)
+    assertTrue(outcome.delegated)
+    assertTrue(outcome.synced)
+  }
+
   private fun deps(
     memberships: List<FamilyMembership> = listOf(FamilyMembership(familyId = "f1")),
     session: Session? = Session(access = "a", refresh = "r"),
+    delegate: (suspend () -> Unit)? = null,
     sync: suspend () -> Unit = {},
     reconcile: () -> Unit = {},
   ) = RefreshDeps(
     memberships = { memberships },
     session = { session },
+    delegateToRuntime = delegate,
     syncOnce = { _, _ -> sync() },
     reconcile = reconcile,
   )
@@ -379,6 +433,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 class RefreshDeps(
   val memberships: () -> List<FamilyMembership>,
   val session: () -> Session?,
+  /**
+   * The live runtime's sync entry point when this process HAS one, else null.
+   * Delegating is mandatory, not an optimization: two independent refreshers race
+   * refresh-token rotation, and the server's reuse detection revokes the lineage —
+   * signing the user out. See Global Constraints.
+   */
+  val delegateToRuntime: (suspend () -> Unit)?,
   val syncOnce: suspend (familyId: String, session: Session) -> Unit,
   val reconcile: () -> Unit,
 )
@@ -388,11 +449,26 @@ data class RefreshOutcome(
   val synced: Boolean = false,
   val budgetExhausted: Boolean = false,
   val reconciled: Boolean = false,
+  val delegated: Boolean = false,
   val skippedReason: String? = null,
 )
 
 suspend fun backgroundRefreshPass(deps: RefreshDeps, budget: Duration): RefreshOutcome {
-  val familyId = deps.memberships().firstOrNull { it.status == "active" }?.familyId
+  // A live runtime owns the session and the cursor. Hand it the work and stop.
+  deps.delegateToRuntime?.let { delegate ->
+    val done = withTimeoutOrNull(budget) { runCatching { delegate() }.isSuccess }
+    deps.reconcile()
+    return RefreshOutcome(
+      synced = done == true, budgetExhausted = done == null,
+      reconciled = true, delegated = true,
+    )
+  }
+
+  // Reuse the reducer's selection rule rather than restating it (Reducer.kt:23).
+  // Known limitation: activeFamilyId is in-memory only, so a multi-family user's
+  // explicit selection is not visible here — this picks the first active membership,
+  // which is what the reducer does today.
+  val familyId = activeFamilyIdFor(deps.memberships())
   val session = deps.session()
   if (familyId == null || session == null) {
     // Nothing to sync, but reconcile is local and still worth doing.
@@ -622,9 +698,12 @@ In `apps/iosApp/Sources/App.swift`, replace the `register` block (currently line
         IosBackgroundNotifyKt.bgCancelRefresh()
         task.setTaskCompleted(success: false)
       }
-      IosBackgroundNotifyKt.bgRefresh()
-      self?.submitReconcile()               // re-arm the next opportunistic run
-      task.setTaskCompleted(success: true)
+      // bgRefresh is ASYNC. Completing the task here would let iOS suspend the app before
+      // the work finished — silently, with no error and no log. Complete in the callback.
+      IosBackgroundNotifyKt.bgRefresh {
+        self?.submitReconcile()             // re-arm the next opportunistic run
+        task.setTaskCompleted(success: true)
+      }
     }
 ```
 
@@ -638,7 +717,9 @@ In `apps/client/src/iosMain/kotlin/com/sloopworks/dayfold/client/IosBackgroundNo
 private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 private var refreshJob: Job? = null
 
-fun bgRefresh() {
+/** [onComplete] is invoked on the last line of the pass — the Swift side must call
+ *  setTaskCompleted only from there, never immediately after this returns. */
+fun bgRefresh(onComplete: () -> Unit) {
   val cs = IosContentStoreHolder.get()
   refreshJob = refreshScope.launch {
     val outcome = backgroundRefreshPass(
@@ -660,6 +741,7 @@ fun bgRefresh() {
       budget = 25.seconds,
     )
     Log.i("refresh") { "background pass: $outcome" }
+    onComplete()
   }
 }
 
@@ -710,10 +792,12 @@ Append to `BackgroundRefreshTest.kt`:
   // The headless path must use the SAME drainer as the foreground: pages applied in order,
   // cursor advanced per page, no Redux involvement.
   @Test fun `headless sync drains pages through the shared drainer`() = runTest {
-    val applied = mutableListOf<String>()
+    val store = inMemoryContentStore()
     var page = 0
-    val drainer = SyncDrainer(
-      cursor = { if (page == 0) null else "c1" },
+    SyncDrainer(
+      contentStore = store,
+      databaseDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+      nowIso = { "2026-07-31T12:00:00Z" },
       fetch = {
         page++
         SyncResponse(
@@ -723,12 +807,11 @@ Append to `BackgroundRefreshTest.kt`:
       },
       commit = { block -> block(); true },
       onActivity = {},
-      onApply = { applied += it.nextCursor },
-    )
+    ).drain()
 
-    drainer.drain()
-
-    assertEquals(listOf("c1", "c2"), applied)
+    // Both pages applied through the SHARED drainer, cursor left at the last one.
+    assertEquals(2, page)
+    assertEquals("c2", store.cursor())
   }
 ```
 
@@ -757,6 +840,7 @@ Append to `BackgroundRefresh.kt`:
 suspend fun headlessSync(
   contentStore: ContentStore,
   syncClient: SyncClient,
+  databaseDispatcher: CoroutineDispatcher,
   familyId: String,
   session: Session,
   refreshAccess: suspend (refresh: String) -> Session?,
@@ -765,32 +849,24 @@ suspend fun headlessSync(
   var current = session
   var refreshed = false
   SyncDrainer(
-    cursor = { contentStore.cursor() },
+    contentStore = contentStore,
+    databaseDispatcher = databaseDispatcher,
+    nowIso = nowIso,
     fetch = { since ->
       try {
         syncClient.fetchPage(familyId, current.access, since)
       } catch (e: AuthHttpException) {
+        // ONE refresh attempt. Only reachable when no live runtime exists (see the
+        // delegation rule) so there is exactly one refresher and no rotation race.
         if (e.status != 401 || refreshed) throw e
         refreshed = true
         current = refreshAccess(current.refresh) ?: throw e
         syncClient.fetchPage(familyId, current.access, since)
       }
     },
+    // No epochs to fence in a headless process: one family, one credential, one wake.
     commit = { block -> block(); true },
     onActivity = {},
-    onWipeForResync = { contentStore.wipeForResync() },
-    onApply = { resp ->
-      contentStore.applyDelta(
-        changedCards = resp.changes.cards,
-        changedHubs = resp.changes.hubs,
-        changedSections = resp.changes.sections,
-        changedBlocks = resp.changes.blocks,
-        tombstones = resp.tombstones,
-        nextCursor = resp.nextCursor,
-        nowIso = nowIso(),
-        changedPlaces = resp.changes.places,
-      )
-    },
   ).drain()
 }
 ```
