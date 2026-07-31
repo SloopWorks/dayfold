@@ -2,11 +2,21 @@
 
 ## Status
 
-**Proposed** 2026-06-19 (operator-directed). Extends ADR 0013 (KMP/CMP +
-redux-kotlin) and the sync design in `specs/prototype/08-mobile-client.md`.
-Build gap acknowledged: the shipped M0 client is **in-memory only** (redux store
-fed directly by the network); this ADR is the target to build toward in the
-**Persistence & Sync** slice.
+**Accepted** 2026-07-31 (operator, in-session). Was **Proposed** 2026-06-19
+(operator-directed). Extends ADR 0013 (KMP/CMP + redux-kotlin) and the sync
+design in `specs/prototype/08-mobile-client.md`. Immutable — supersede, do not
+edit.
+
+R1/R2/R4 shipped in the Persistence & Sync slice (2026-06-19): SQLDelight
+DB-as-source-of-truth, the unidirectional `network→DB→store→UI` flow, foreground
+polling (~45 s) via `SyncCoordinator`, and the persisted `sync_meta` keyset
+cursor. **R3 (background freshness) remains unbuilt** — no `WorkManager` /
+`PeriodicWorkRequest` wiring exists, iOS runs a reconcile-only `BGAppRefreshTask`
+that never calls the sync engine, and `SyncReason.BACKGROUND` / `SyncReason.PUSH`
+are declared but never invoked. Acceptance here ratifies R3 as the target;
+`docs/superpowers/specs/2026-07-31-background-refresh-and-weather-design.md`
+is the build spec. Accepting this ADR also closes the status inconsistency
+whereby the **Accepted** ADR 0040 already builds on this one's R3.
 
 ## Context
 
