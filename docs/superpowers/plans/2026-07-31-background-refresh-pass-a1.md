@@ -27,6 +27,12 @@
   pass must therefore delegate to the live runtime when one exists and take the
   headless path only when the process has none. The same rule removes a cursor
   read-fetch-apply race between the 45s foreground poll and the worker.
+  **Amended 2026-07-31 (operator ruling):** delegating via `requestSync` alone is
+  insufficient — `SyncCoordinator.pause()` (called when the app backgrounds) makes
+  `requestSync` a no-op, so a warm-backgrounded process would never sync. The
+  coordinator gains a one-shot entry that runs a single pass even while paused,
+  serialized through the same mutex and without restarting the poll loop. `pause()`
+  governs the POLL LOOP, not the coordinator's willingness to do one-shot work.
 - **DB work goes through `databaseDispatcher`.** `ContentStore.applyDelta` is
   `withWriteGate`-serialized so concurrency can't corrupt, but the convention (and
   ADR 0058's serialization posture) is that store work is dispatched, not run on
