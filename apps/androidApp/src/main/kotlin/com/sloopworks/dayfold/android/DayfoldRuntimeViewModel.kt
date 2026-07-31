@@ -3,7 +3,7 @@ package com.sloopworks.dayfold.android
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.sloopworks.dayfold.client.AndroidRuntimeHandleHolder
+import com.sloopworks.dayfold.client.RuntimeHandleHolder
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.DayfoldCommands
 import com.sloopworks.dayfold.client.DayfoldRuntimeGraph
@@ -82,12 +82,15 @@ internal class DayfoldRuntimeViewModel(
   private val retained = factory.create()
   private val runtime = retained.handle
 
+  /** This ViewModel's own registration token — only [close] may clear it (see [RuntimeHandleHolder.clear]). */
+  private val runtimeHandleRegistration: suspend () -> Unit
+
   init {
     // ADR 0020 R3 — register as soon as this runtime is live, mirroring AndroidContentStoreHolder's
     // process-global pattern. A headless caller (WorkManager) in this same process must find this
     // handle and delegate to it rather than build an independent refresher — see
-    // AndroidRuntimeHandleHolder's doc for the reuse-detection sign-out this avoids.
-    AndroidRuntimeHandleHolder.register { runtime.requestBackgroundSync() }
+    // RuntimeHandleHolder's doc for the reuse-detection sign-out this avoids.
+    runtimeHandleRegistration = RuntimeHandleHolder.register { runtime.requestBackgroundSync() }
   }
 
   private val ownerLock = Any()
@@ -146,10 +149,11 @@ internal class DayfoldRuntimeViewModel(
 
   /** Starts idempotent non-blocking cancellation and returns the owned resource-join job. */
   internal fun close(): Job = synchronized(closeLock) {
-    // Clear FIRST and unconditionally (idempotent) — a stale handle pointing at a runtime that is
-    // now closing/closed is worse than none, since a worker racing this teardown could delegate
-    // into a graph that will never finish the pass.
-    AndroidRuntimeHandleHolder.clear()
+    // Clear FIRST — a stale handle pointing at a runtime that is now closing/closed is worse than
+    // none, since a worker racing this teardown could delegate into a graph that will never finish
+    // the pass. Compare-and-clear, so a replacement ViewModel that already registered keeps its
+    // live handle instead of being wiped by this outgoing one.
+    RuntimeHandleHolder.clear(runtimeHandleRegistration)
     closeJob?.let { return@synchronized it }
     runtime.cancel()
     val created = teardownScope.launch(start = CoroutineStart.LAZY) { runtime.awaitClosed() }

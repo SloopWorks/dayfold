@@ -440,7 +440,7 @@ class SyncCoordinatorTest {
     owner.cancelAndJoin()
   }
 
-  // Review round 2, finding A (regression) — IosRuntimeHandleHolder/AndroidRuntimeHandleHolder
+  // Review round 2, finding A (regression) — RuntimeHandleHolder
   // register a delegate as soon as a runtime graph is CONSTRUCTED, before any resume() call binds
   // a family session. A delegated background wake into a live-but-signed-out (or pre-family-bind)
   // runtime therefore calls requestSyncOnceAndAwait with no worker ever created. Before this fix,

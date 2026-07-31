@@ -66,9 +66,9 @@ fun ensurePeriodicRefresh(context: Context) {
  * Wire the commonMain pass to Android's store + notify glue. Budget is generous relative to
  * iOS because WorkManager allows ~10 minutes; the cap exists to bound a hung network call.
  *
- * [AndroidRuntimeHandleHolder.get] supplies `delegateToRuntime`: when a live runtime is retained
- * in this process, backgroundRefreshPass hands the pass to it and never builds its own
- * SyncClient/AuthClient below — see that holder's doc for why a second refresher is unsafe.
+ * [RuntimeHandleHolder.get] supplies `delegateToRuntime`: when a live runtime is retained in this
+ * process, backgroundRefreshPass hands the pass to it and never builds its own SyncClient/AuthClient
+ * below — see that holder's doc for why a second refresher is unsafe.
  *
  * Builds and closes its own [HttpClient] for the lifetime of this one wake. The worker has no
  * WorkerFactory-injected graph to borrow a client from (no Configuration.Provider — see the
@@ -107,7 +107,7 @@ internal suspend fun runBackgroundRefresh(context: Context): RefreshOutcome {
       deps = RefreshDeps(
         memberships = { cs.cachedMemberships() },
         session = { AndroidTokenStore(context).load() },
-        delegateToRuntime = AndroidRuntimeHandleHolder.get(),
+        delegateToRuntime = RuntimeHandleHolder.get(),
         syncOnce = { familyId, session -> androidHeadlessSync(context, cs, http, api, familyId, session) },
         reconcile = reconcile,
       ),

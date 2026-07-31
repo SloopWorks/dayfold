@@ -200,8 +200,8 @@ class SyncCoordinator internal constructor(
    *   but returns WITHOUT awaiting — see the second review round below for why this branch must
    *   not block.
    *
-   * ADR 0020 R3 review round 2 — the delegate holders (`IosRuntimeHandleHolder`,
-   * `AndroidRuntimeHandleHolder`) register the moment a runtime graph is CONSTRUCTED, not once a
+   * ADR 0020 R3 review round 2 — the delegate holder (`RuntimeHandleHolder`) registers the
+   * moment a runtime graph is CONSTRUCTED, not once a
    * family session is bound (`resumeSync` only calls [resume] after that). So a live-but-signed-
    * out or pre-family-bind runtime takes the `delegateToRuntime` branch with `active == null` —
    * no worker exists, nothing will ever claim this request until some future [resume]. Awaiting
