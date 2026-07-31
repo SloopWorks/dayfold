@@ -3,10 +3,10 @@ package com.sloopworks.dayfold.android
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.sloopworks.dayfold.client.RuntimeHandleHolder
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.DayfoldCommands
 import com.sloopworks.dayfold.client.DayfoldRuntimeGraph
+import com.sloopworks.dayfold.client.RuntimeHandleHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -33,12 +33,12 @@ internal interface DayfoldRuntimeHandle {
   suspend fun awaitClosed()
 
   /**
-   * Delegates a headless caller's background-sync request to this live runtime. `suspend`
-   * because the caller (WorkManager's `doWork`) reports completion right after this returns —
-   * it must not return until the delegated pass has actually finished (see
-   * `DayfoldRuntimeGraph.requestBackgroundSync`'s doc).
+   * Delegates a headless caller's background-sync request to this live runtime, reporting whether
+   * a sync actually happened. `suspend` because the caller (WorkManager's `doWork`) reports
+   * completion right after this returns — it must not return until the delegated pass has actually
+   * finished (see `DayfoldRuntimeGraph.requestBackgroundSync`'s doc).
    */
-  suspend fun requestBackgroundSync()
+  suspend fun requestBackgroundSync(): Boolean
 }
 
 /** Adapts the common runtime graph without adding any Android UI dependency. */
@@ -53,7 +53,7 @@ internal class GraphDayfoldRuntimeHandle(
   override suspend fun pause() = graph.pause()
   override fun cancel() = graph.cancel()
   override suspend fun awaitClosed() = graph.awaitClosed()
-  override suspend fun requestBackgroundSync() = graph.requestBackgroundSync()
+  override suspend fun requestBackgroundSync(): Boolean = graph.requestBackgroundSync()
 }
 
 /** Runtime plus immutable host configuration created once per retained ViewModel. */
@@ -83,7 +83,7 @@ internal class DayfoldRuntimeViewModel(
   private val runtime = retained.handle
 
   /** This ViewModel's own registration token — only [close] may clear it (see [RuntimeHandleHolder.clear]). */
-  private val runtimeHandleRegistration: suspend () -> Unit
+  private val runtimeHandleRegistration: suspend () -> Boolean
 
   init {
     // ADR 0020 R3 — register as soon as this runtime is live, mirroring AndroidContentStoreHolder's

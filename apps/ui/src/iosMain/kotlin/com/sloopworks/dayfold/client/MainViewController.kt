@@ -58,7 +58,7 @@ fun MainViewController(): UIViewController {
 private fun IosControllerContent(
   graph: DayfoldRuntimeGraph,
   contentStore: ContentStore,
-  runtimeHandleRegistration: suspend () -> Unit,
+  runtimeHandleRegistration: suspend () -> Boolean,
 ) {
   // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.

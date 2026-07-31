@@ -30,6 +30,7 @@ class SyncCoordinatorTest {
     val coordinator = SyncCoordinator(syncPass = { _, _ ->
       started.send(passCount.incrementAndGet())
       releases.receive()
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -61,6 +62,7 @@ class SyncCoordinatorTest {
     val coordinator = SyncCoordinator(syncPass = { _, _ ->
       started.send(passCount.incrementAndGet())
       releases.receive()
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -90,6 +92,7 @@ class SyncCoordinatorTest {
       started.send(passCount.incrementAndGet())
       releases.receive()
       finished.send(Unit)
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -123,6 +126,7 @@ class SyncCoordinatorTest {
       } catch (error: Exception) {
         mappedToFailure = true
       }
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -148,6 +152,7 @@ class SyncCoordinatorTest {
     val coordinator = SyncCoordinator(syncPass = { _, _ ->
       if (passCount.incrementAndGet() == 1) error("unexpected worker failure")
       recovered.complete(Unit)
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -176,6 +181,7 @@ class SyncCoordinatorTest {
       passCount.incrementAndGet()
       releases.receive()
       finished.send(Unit)
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -215,6 +221,7 @@ class SyncCoordinatorTest {
       started.send(reason)
       passCount.incrementAndGet()
       releases.receive()
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -255,6 +262,7 @@ class SyncCoordinatorTest {
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
       started.send(reason)
       passCount.incrementAndGet()
+      true
     }, pollIntervalMs = 20L)
 
     coordinator.resume(ownerScope)
@@ -286,6 +294,7 @@ class SyncCoordinatorTest {
       started.send(reason)
       passCount.incrementAndGet()
       releases.receive()
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -316,7 +325,7 @@ class SyncCoordinatorTest {
   @Test fun `requestSyncOnceAndAwait is rejected after close`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
-    val coordinator = SyncCoordinator(syncPass = { _, _ -> }, pollIntervalMs = Long.MAX_VALUE)
+    val coordinator = SyncCoordinator(syncPass = { _, _ -> true }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
     coordinator.close()
@@ -342,6 +351,7 @@ class SyncCoordinatorTest {
       passCount.incrementAndGet()
       releases.receive()
       finished.send(Unit)
+      true
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -386,6 +396,7 @@ class SyncCoordinatorTest {
         started.send(reason)
         passCount.incrementAndGet()
         releases.receive()
+        true
       }, pollIntervalMs = Long.MAX_VALUE)
 
       coordinator.resume(ownerScope)
@@ -432,7 +443,7 @@ class SyncCoordinatorTest {
     val started = CompletableDeferred<Unit>()
     val coordinator = SyncCoordinator(syncPass = { _, _ ->
       started.complete(Unit)
-      CompletableDeferred<Unit>().await()   // never releases on its own — close() must cut this off
+      CompletableDeferred<Boolean>().await()   // never releases on its own — close() must cut this off
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)
@@ -463,12 +474,17 @@ class SyncCoordinatorTest {
   // it now returns promptly instead.
   @Test fun `requestSyncOnceAndAwait returns immediately when no worker has ever been created`() = runBlocking<Unit> {
     val passCount = AtomicInteger()
-    val coordinator = SyncCoordinator(syncPass = { _, _ -> passCount.incrementAndGet() }, pollIntervalMs = Long.MAX_VALUE)
+    val coordinator = SyncCoordinator(
+      syncPass = { _, _ -> passCount.incrementAndGet(); true },
+      pollIntervalMs = Long.MAX_VALUE,
+    )
 
     // resume() is never called — active is null for the lifetime of this coordinator.
     val result = withTimeout(200) { coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND) }
 
-    assertTrue(result)
+    // False, and false HONESTLY: no worker existed, so no pass ran. The caller (a headless wake)
+    // logs this as "not synced" rather than claiming a refresh that never happened.
+    assertFalse(result)
     assertEquals(0, passCount.get())   // nothing ran — there was no worker to run it, and none should
     coordinator.close()
   }

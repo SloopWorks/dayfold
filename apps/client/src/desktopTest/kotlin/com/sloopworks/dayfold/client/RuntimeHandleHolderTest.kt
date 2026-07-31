@@ -22,7 +22,7 @@ class RuntimeHandleHolderTest {
   @Test fun `get returns the registered delegate and null once it is cleared`() = runBlocking {
     assertNull(RuntimeHandleHolder.get(), "must start clear")
     var calls = 0
-    val registration = RuntimeHandleHolder.register { calls++ }
+    val registration = RuntimeHandleHolder.register { calls++; true }
 
     assertNotNull(RuntimeHandleHolder.get()).invoke()
     assertEquals(1, calls, "the handle must call through to the runtime that registered it")
@@ -38,8 +38,8 @@ class RuntimeHandleHolderTest {
   @Test fun `a late teardown must not clear a newer runtime's live registration`() = runBlocking {
     var firstCalls = 0
     var secondCalls = 0
-    val first = RuntimeHandleHolder.register { firstCalls++ }
-    val second = RuntimeHandleHolder.register { secondCalls++ }   // replacement registers first...
+    val first = RuntimeHandleHolder.register { firstCalls++; true }
+    val second = RuntimeHandleHolder.register { secondCalls++; true }   // replacement registers first...
 
     RuntimeHandleHolder.clear(first)                              // ...then the outgoing one disposes
 
@@ -52,13 +52,13 @@ class RuntimeHandleHolderTest {
   // Teardown is called more than once in practice (onCleared plus an explicit close, a re-entered
   // onDispose). Clearing must stay idempotent and must not resurrect anything.
   @Test fun `clearing twice is a no-op and clearing an unregistered token is safe`() {
-    val registration = RuntimeHandleHolder.register { }
+    val registration = RuntimeHandleHolder.register { true }
 
     RuntimeHandleHolder.clear(registration)
     RuntimeHandleHolder.clear(registration)
     assertNull(RuntimeHandleHolder.get())
 
-    val later = RuntimeHandleHolder.register { }
+    val later = RuntimeHandleHolder.register { true }
     RuntimeHandleHolder.clear(registration)   // a token that was never the live one
     assertSame(later, RuntimeHandleHolder.get())
   }

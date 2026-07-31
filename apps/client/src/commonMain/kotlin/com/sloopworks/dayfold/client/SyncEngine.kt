@@ -135,13 +135,18 @@ class SyncEngine(
   /**
    * Performs one full captured-context pass: inbound pages then rebased outbox writes.
    * Production callers use [requestSync]; direct invocation is retained for deterministic tests.
+   *
+   * Returns whether the pass actually synced. False when there is nothing to sync (no family bound,
+   * or its session snapshot is gone) and when the pass failed — a headless background wake reports
+   * that verbatim in its one log line (`RefreshOutcome.synced`), so "the call returned" must not be
+   * mistaken for "content was refreshed".
    */
   internal suspend fun syncNow(
     reason: SyncReason = SyncReason.MANUAL_REFRESH,
     isConflatedRerun: Boolean = false,
-  ) {
-    val familyId = store.state.session.activeFamilyId ?: return
-    val context = sessionCoordinator.familySnapshot(familyId) ?: return
+  ): Boolean {
+    val familyId = store.state.session.activeFamilyId ?: return false
+    val context = sessionCoordinator.familySnapshot(familyId) ?: return false
     adoptStatusBoundary(context)
     var statusStarted = false
     val startStatus = {
@@ -150,21 +155,25 @@ class SyncEngine(
     // Direct user refresh gives immediate feedback. Poll/resume/background work and conflated
     // reruns stay silent unless they discover a real delta or outbox operation.
     if (reason == SyncReason.MANUAL_REFRESH && !isConflatedRerun) startStatus()
-    try {
+    return try {
       drain(context, startStatus)
       drainOutbox(context, startStatus) // ADR 0038 — push local member writes after pulling fresh remote
       Log.i("sync") { "sync succeeded" }
       if (statusStarted) publishSucceeded(context)
+      true
     } catch (e: SyncHttpException) {
       onSyncHttpError(context, e)
+      false
     } catch (e: AuthHttpException) {
       if (e.status == 401 && sessionCoordinator.isCurrent(context)) onSessionInvalidated(context, true)
       else publishFailed(context, e.message ?: "sync error")
+      false
     } catch (e: CancellationException) {
       if (statusStarted) publishStopped(context)
       throw e
     } catch (e: Exception) {
       publishFailed(context, e.message ?: "sync error")
+      false
     }
   }
 

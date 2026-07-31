@@ -81,7 +81,11 @@ class BackgroundRefreshTest {
     var headless = false
     var reconciled = false
     val outcome = backgroundRefreshPass(
-      deps = deps(delegate = { delegated = true }, sync = { headless = true }, reconcile = { reconciled = true }),
+      deps = deps(
+        delegate = { delegated = true; true },
+        sync = { headless = true },
+        reconcile = { reconciled = true },
+      ),
       budget = 30.seconds,
     )
 
@@ -155,10 +159,39 @@ class BackgroundRefreshTest {
 
   private fun card(id: String) = Card(id = id, kind = "info", title = id, provenance = Provenance("claude"))
 
+  // MINOR (final review) — `synced` used to be set from "the delegate returned without throwing",
+  // which is true even when the delegate short-circuits (no worker bound yet) or its pass finds no
+  // family and no-ops. The Log.i("refresh") line is this feature's only on-device observability, so
+  // it must carry the delegate's own answer.
+  @Test fun `a delegate that did not sync is not reported as synced`() = runBlocking {
+    var reconciled = false
+    val outcome = backgroundRefreshPass(
+      deps = deps(delegate = { false }, reconcile = { reconciled = true }),
+      budget = 30.seconds,
+    )
+
+    assertTrue(outcome.delegated)
+    assertFalse(outcome.synced, "the delegate reported it did not sync")
+    assertFalse(outcome.budgetExhausted, "it returned in time — it just had nothing to do")
+    assertTrue(reconciled)
+  }
+
+  // A delegate that throws is also not a sync, and must not be reported as one.
+  @Test fun `a delegate that throws is not reported as synced`() = runBlocking {
+    val outcome = backgroundRefreshPass(
+      deps = deps(delegate = { error("delegate blew up") }),
+      budget = 30.seconds,
+    )
+
+    assertTrue(outcome.delegated)
+    assertFalse(outcome.synced)
+    assertTrue(outcome.reconciled)
+  }
+
   private fun deps(
     memberships: List<FamilyMembership> = listOf(FamilyMembership(familyId = "f1")),
     session: Session? = Session(access = "a", refresh = "r"),
-    delegate: (suspend () -> Unit)? = null,
+    delegate: (suspend () -> Boolean)? = null,
     sync: suspend () -> Unit = {},
     reconcile: () -> Unit = {},
   ) = RefreshDeps(

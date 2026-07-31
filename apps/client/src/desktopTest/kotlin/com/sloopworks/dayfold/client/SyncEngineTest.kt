@@ -482,8 +482,9 @@ class SyncEngineTest {
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
     val finished = Channel<Unit>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, rerun ->
-      engine.syncNow(reason, rerun)
+      val didSync = engine.syncNow(reason, rerun)
       finished.send(Unit)
+      didSync
     }, pollIntervalMs = Long.MAX_VALUE)
 
     coordinator.resume(ownerScope)

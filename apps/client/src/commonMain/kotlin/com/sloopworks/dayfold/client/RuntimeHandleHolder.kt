@@ -20,13 +20,13 @@ import kotlinx.atomicfu.locks.synchronized
 // callers MUST clear on close/cancel, not just on success.
 object RuntimeHandleHolder {
   private val gate = SynchronizedObject()
-  @Volatile private var delegate: (suspend () -> Unit)? = null
+  @Volatile private var delegate: (suspend () -> Boolean)? = null
 
   /**
    * Registers the live runtime's background-sync entry point, replacing any prior registration.
    * Returns the registration token the owner must hand back to [clear] at teardown.
    */
-  fun register(requestBackgroundSync: suspend () -> Unit): suspend () -> Unit {
+  fun register(requestBackgroundSync: suspend () -> Boolean): suspend () -> Boolean {
     synchronized(gate) { delegate = requestBackgroundSync }
     return requestBackgroundSync
   }
@@ -40,10 +40,10 @@ object RuntimeHandleHolder {
    * sign-out this whole scheme exists to prevent. Safe to call with a stale token or with nothing
    * registered: both are no-ops.
    */
-  fun clear(registration: (suspend () -> Unit)?) {
+  fun clear(registration: (suspend () -> Boolean)?) {
     synchronized(gate) { if (delegate === registration) delegate = null }
   }
 
   /** The live runtime's background-sync entry point for this process, or null if none is retained. */
-  fun get(): (suspend () -> Unit)? = delegate
+  fun get(): (suspend () -> Boolean)? = delegate
 }

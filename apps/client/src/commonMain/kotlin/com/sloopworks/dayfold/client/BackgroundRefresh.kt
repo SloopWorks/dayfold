@@ -16,17 +16,18 @@ class RefreshDeps(
   val memberships: () -> List<FamilyMembership>,
   val session: () -> Session?,
   /**
-   * The live runtime's sync entry point when this process HAS one, else null.
-   * Delegating is mandatory, not an optimization: two independent refreshers race
-   * refresh-token rotation, and the server's reuse detection revokes the lineage —
-   * signing the user out. See Global Constraints.
+   * The live runtime's sync entry point when this process HAS one, else null; it reports whether it
+   * actually synced. Delegating is mandatory, not an optimization: two independent refreshers race
+   * refresh-token rotation, and the server's reuse detection revokes the lineage — signing the user
+   * out. See Global Constraints.
    */
-  val delegateToRuntime: (suspend () -> Unit)?,
+  val delegateToRuntime: (suspend () -> Boolean)?,
   val syncOnce: suspend (familyId: String, session: Session) -> Unit,
   val reconcile: () -> Unit,
 )
 
-/** What actually happened — for the Log line. Never rendered as a freshness promise. */
+/** What actually happened — for the Log line. Never rendered as a freshness promise.
+ *  [synced] means content was actually refreshed, NOT merely that the sync step returned. */
 data class RefreshOutcome(
   val synced: Boolean = false,
   val budgetExhausted: Boolean = false,
@@ -66,10 +67,13 @@ suspend fun headlessRefreshPass(
 suspend fun backgroundRefreshPass(deps: RefreshDeps, budget: Duration): RefreshOutcome {
   // A live runtime owns the session and the cursor. Hand it the work and stop.
   deps.delegateToRuntime?.let { delegate ->
-    val done = withTimeoutOrNull(budget) { runCatching { delegate() }.isSuccess }
+    // The delegate's OWN answer, not merely "it returned without throwing": it short-circuits when
+    // no worker is bound yet (live-but-signed-out runtime) and its pass no-ops when no family is
+    // bound. Reporting either as synced would make this pass's one log line lie.
+    val synced = withTimeoutOrNull(budget) { runCatching { delegate() }.getOrDefault(false) }
     deps.reconcile()
     return RefreshOutcome(
-      synced = done == true, budgetExhausted = done == null,
+      synced = synced == true, budgetExhausted = synced == null,
       reconciled = true, delegated = true,
     )
   }
