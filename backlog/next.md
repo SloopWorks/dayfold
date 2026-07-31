@@ -177,10 +177,14 @@ pixel↔composable inspector.
   racing refresh-token rotation). The iOS `BGTaskScheduler` `BGAppRefreshTask`
   side is also built, scheduled, and cancellation-safe, but it is **not
   functioning yet** — `IosBackgroundNotify.kt`'s `IOS_API_BASE` is a
-  compile-time `""`, so every wake short-circuits with
-  `skippedReason = "no-ios-api-base"` and only reconciles local reminders, no
-  network pull. iOS R3 stays blocked until the **iOS sync-config** plumbing
-  below lands — do not read iOS background sync as working. Still open:
+  compile-time `""`, and so is `MainViewController`'s `api`. With the app
+  installed, a wake takes the DELEGATE branch (the controller registers a
+  runtime handle on construction) and logs `delegated=true`; the explicit
+  `skippedReason = "no-ios-api-base"` skip is only reached when no runtime is
+  retained in the process. Either way the result is the same: local reminders
+  are reconciled, no network pull happens. iOS R3 stays blocked until the
+  **iOS sync-config** plumbing below lands — do not read iOS background sync
+  as working. Still open:
   **push** (FCM/APNs/SSE → `syncNow` hook); **iOS sync-config** plumbing
   (api/family/secret, the BuildConfig analogue).
 - **hub-visibility-flip child fan-out trigger** (from hub-sync PR2 / migration

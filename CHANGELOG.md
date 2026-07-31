@@ -26,9 +26,12 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   `backlog/next.md`).
 
 ### Fixed
-- **Background notifications no longer fire from stale content.** They
-  previously ran against whatever was last synced while the app was open, so
-  a reminder could reflect content hours out of date.
+- **Android background notifications no longer fire from stale content.**
+  They previously ran against whatever was last synced while the app was
+  open, so a reminder could reflect content hours out of date; the scheduled
+  wake now pulls first and re-arms both the place- and time-triggered
+  reminders against what it just pulled. iOS is unchanged here until its
+  background refresh actually pulls (see above).
 - **An iOS background task could be killed mid-run** and quietly reduce how
   often the system scheduled it afterwards; it now yields cleanly.
 
