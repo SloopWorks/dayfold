@@ -63,7 +63,7 @@ class SyncCoordinator internal constructor(
   private var pendingReason: SyncReason? = null
   private var closed = false
   // Lets ONE already-claimed pending pass through claimPass() while paused, without changing
-  // what [resumed] means for anyone else. See [requestSyncOnce].
+  // what [resumed] means for anyone else. See [requestSyncOnceAndAwait].
   private var oneShotArmed = false
   // Waiters registered by [requestSyncOnceAndAwait], drained by whichever [claimPass] call
   // actually consumes the pending request they registered under — never completed early. See
@@ -142,9 +142,12 @@ class SyncCoordinator internal constructor(
 
   /**
    * Runs exactly one pass through the worker for the current generation even while [pause] has
-   * stopped the 45s poll loop. [pause] exists to stop that POLL LOOP for battery, not to refuse
-   * work outright — a headless background wake (WorkManager, BGAppRefreshTask) is exactly the
-   * legitimate one-shot the poll loop was paused in favour of.
+   * stopped the 45s poll loop, and SUSPENDS until the pass that actually services this request has
+   * finished (or this coordinator [close]s first). [pause] exists to stop that POLL LOOP for
+   * battery, not to refuse work outright — a headless background wake (WorkManager,
+   * BGAppRefreshTask) is exactly the legitimate one-shot the poll loop was paused in favour of, and
+   * it has a completion promise to keep: the OS is only told "done" once this returns (see
+   * `DayfoldRuntimeGraph.requestBackgroundSync`'s doc and `RefreshDeps.delegateToRuntime`).
    *
    * Never starts or restarts the poller and never flips [resumed] — a caller cannot observe this
    * coordinator as "resumed" afterward, and no polling resumes as a side effect. Serialized
@@ -153,32 +156,6 @@ class SyncCoordinator internal constructor(
    * ADR 0058 invariant this file depends on) — a request made while a pass is already in flight
    * (started by [resume]'s worker or an earlier call to this method) conflates into that pass's
    * existing rerun loop rather than starting a second, concurrent one.
-   *
-   * If [resume] has never been called yet for this coordinator (no worker exists for any
-   * generation), this only records the pending request and returns — exactly what [requestSync]
-   * already does in that state. That state means no family session has ever been bound, so there
-   * is nothing to sync yet regardless; the request is picked up, tagged with whatever reason a
-   * subsequent [resume] assigns, same as today.
-   */
-  fun requestSyncOnce(reason: SyncReason): Boolean {
-    val worker = synchronized(gate) {
-      if (closed) return false
-      pending = true
-      pendingReason = reason
-      oneShotArmed = true
-      active?.takeIf { it.worker.isActive }
-    }
-    worker?.signal?.trySend(Unit)
-    return true
-  }
-
-  /**
-   * Same arming contract as [requestSyncOnce], but SUSPENDS until the pass that actually services
-   * this request has finished (or this coordinator [close]s first) — [requestSyncOnce] only arms
-   * state and returns instantly, which is wrong for a caller with a completion promise to keep
-   * (a delegated headless wake, where the OS is only told "done" once this returns; see
-   * `DayfoldRuntimeGraph.requestBackgroundSync`'s doc and `RefreshDeps.delegateToRuntime`'s type,
-   * `suspend () -> Unit`, which this honors).
    *
    * Registers a private [CompletableDeferred] in [oneShotWaiters] in the SAME synchronized block
    * that arms [pending]/[pendingReason]/[oneShotArmed], then awaits it OUTSIDE that block — never
@@ -196,13 +173,12 @@ class SyncCoordinator internal constructor(
    *   the conflated rerun — completing this waiter only once THAT pass finishes, never the one
    *   already running when it registered.
    * - No worker has ever been created ([resume] never called): arms [pending]/[pendingReason]
-   *   exactly like [requestSyncOnce] does today (a later [resume] will eventually pick it up),
-   *   but returns WITHOUT awaiting — see the second review round below for why this branch must
-   *   not block.
+   *   exactly like [requestSync] does in that state (a later [resume] will eventually pick it
+   *   up), but returns WITHOUT awaiting — see the second review round below for why this branch
+   *   must not block.
    *
-   * ADR 0020 R3 review round 2 — the delegate holder (`RuntimeHandleHolder`) registers the
-   * moment a runtime graph is CONSTRUCTED, not once a
-   * family session is bound (`resumeSync` only calls [resume] after that). So a live-but-signed-
+   * ADR 0020 R3 review round 2 — the delegate holder (`RuntimeHandleHolder`) registers the moment
+   * a runtime graph is CONSTRUCTED, not once a family session is bound (`resumeSync` only calls [resume] after that). So a live-but-signed-
    * out or pre-family-bind runtime takes the `delegateToRuntime` branch with `active == null` —
    * no worker exists, nothing will ever claim this request until some future [resume]. Awaiting
    * in that state previously stalled the caller for its ENTIRE budget (~25s iOS, ~60s Android)
