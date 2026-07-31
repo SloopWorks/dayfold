@@ -52,6 +52,10 @@ kotlin {
         // live position never leaves the device — only saved-place coords (already family content) are
         // handed to the OS. No Maps SDK, no network — just the Location API.
         implementation("com.google.android.gms:play-services-location:21.3.0")
+        // ADR 0020 R3 — periodic background refresh (AndroidBackgroundRefresh.kt lives in this
+        // sourceset). Default androidx.startup init; no custom WorkerFactory, so no
+        // Configuration.Provider is needed on the Application class.
+        implementation("androidx.work:work-runtime-ktx:2.9.1")
       }
     }
     val desktopMain by getting {

@@ -87,6 +87,7 @@ class RuntimeRecreationTest {
     val maxActivePollers = AtomicInteger()
     val cancelCalls = AtomicInteger()
     val awaitClosedCalls = AtomicInteger()
+    val requestBackgroundSyncCalls = AtomicInteger()
     var detailStackAtStart: List<String> = emptyList()
     private val closed = CompletableDeferred<Unit>()
 
@@ -114,6 +115,10 @@ class RuntimeRecreationTest {
     override suspend fun awaitClosed() {
       awaitClosedCalls.incrementAndGet()
       closed.await()
+    }
+
+    override fun requestBackgroundSync() {
+      requestBackgroundSyncCalls.incrementAndGet()
     }
   }
 }
