@@ -137,22 +137,9 @@ private suspend fun androidHeadlessSync(
     databaseDispatcher = Dispatchers.Default,
     familyId = familyId,
     session = session,
-    refreshAccess = { refresh -> androidRefreshAccess(context, api, http, refresh) },
+    refreshAccess = { refresh ->
+      headlessRefreshAccess(AuthClient(api, http), AndroidTokenStore(context), refresh)
+    },
     nowIso = { kotlin.time.Clock.System.now().toString() },
   )
 }
-
-/**
- * The one refresh attempt [headlessSync] is allowed on a 401. MUST persist the rotated session
- * before returning: `POST /auth/refresh` has already rotated the lineage server-side by the time
- * this call returns (AuthClient.kt:134), so if the new refresh token is not written back to
- * [AndroidTokenStore], the NEXT wake (or the next foreground sign-in) would present the
- * now-superseded token and trip reuse detection — the exact sign-out this delegation scheme
- * exists to avoid. A thrown [AuthHttpException] here (e.g. the lineage really was revoked) is
- * swallowed to null on purpose: headlessSync then re-throws the ORIGINAL 401 rather than this
- * refresh's own error, and does not retry.
- */
-private suspend fun androidRefreshAccess(context: Context, api: String, http: HttpClient, refresh: String): Session? =
-  runCatching { AuthClient(api, http).refresh(refresh) }
-    .onSuccess { AndroidTokenStore(context).save(it) }
-    .getOrNull()

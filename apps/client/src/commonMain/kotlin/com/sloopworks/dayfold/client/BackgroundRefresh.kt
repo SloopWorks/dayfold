@@ -110,6 +110,23 @@ suspend fun backgroundRefreshPass(deps: RefreshDeps, budget: Duration): RefreshO
 }
 
 /**
+ * The ONE refresh attempt [headlessSync] is allowed on a 401, shared by both platforms because the
+ * invariant it encodes must never drift: it MUST persist the rotated session before returning.
+ * `POST /auth/refresh` has already rotated the lineage server-side by the time [AuthClient.refresh]
+ * returns, so if the new refresh token is not written back to [tokenStore], the NEXT wake (or the
+ * next foreground sign-in) presents the now-superseded token and trips the server's reuse
+ * detection — the exact sign-out the whole delegation scheme exists to avoid.
+ *
+ * A thrown [AuthHttpException] (e.g. the lineage really was revoked) is swallowed to null on
+ * purpose: [headlessSync] then re-throws the ORIGINAL 401 rather than this refresh's own error, and
+ * does not retry.
+ */
+suspend fun headlessRefreshAccess(auth: AuthClient, tokenStore: TokenStore, refresh: String): Session? =
+  runCatching { auth.refresh(refresh) }
+    .onSuccess { tokenStore.save(it) }
+    .getOrNull()
+
+/**
  * Drain /sync with no Redux store. Uses the SAME [SyncDrainer] the foreground uses; the session
  * lambdas are pass-throughs because a background process has no epochs to fence against — it
  * holds one family and one credential for the life of the wake.

@@ -340,6 +340,47 @@ class BackgroundRefreshTest {
     assertEquals(1, refreshCalls)
   }
 
+  // The shared 401 helper both platforms use. Persisting the rotated session is the invariant that
+  // must never drift: /auth/refresh has already rotated the lineage server-side by the time it
+  // returns, so a session that is not written back means the NEXT wake presents a superseded token
+  // and trips reuse detection — signing the user out.
+  @Test fun `the shared refresh helper persists the rotated session`() = runBlocking {
+    val tokens = MemoryTokenStore(Session(access = "old-access", refresh = "old-refresh"))
+    val auth = AuthClient(
+      "https://api.test",
+      HttpClient(
+        MockEngine {
+          respond(
+            """{"access":"new-access","refresh":"new-refresh"}""",
+            HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"),
+          )
+        },
+      ),
+    )
+
+    val rotated = headlessRefreshAccess(auth, tokens, "old-refresh")
+
+    assertEquals("new-access", rotated?.access)
+    assertEquals("new-refresh", tokens.session?.refresh, "the rotated session must be persisted")
+  }
+
+  // A revoked lineage must come back as null (headlessSync then re-throws the ORIGINAL 401 and does
+  // not retry) and must NOT overwrite the stored session with anything.
+  @Test fun `the shared refresh helper returns null and keeps the stored session when refresh fails`() = runBlocking {
+    val stored = Session(access = "old-access", refresh = "old-refresh")
+    val tokens = MemoryTokenStore(stored)
+    val auth = AuthClient("https://api.test", HttpClient(MockEngine { respond("", HttpStatusCode.Unauthorized) }))
+
+    assertNull(headlessRefreshAccess(auth, tokens, "old-refresh"))
+    assertEquals(stored, tokens.session)
+  }
+
+  private class MemoryTokenStore(var session: Session? = null) : TokenStore {
+    override fun load(): Session? = session
+    override fun save(session: Session) { this.session = session }
+    override fun clear() { session = null }
+  }
+
   private fun inMemoryContentStore(): ContentStore =
     ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
 
