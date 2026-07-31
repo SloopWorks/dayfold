@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withTimeoutOrNull
 
 // ADR 0020 R3 — the headless refresh pass both platforms call (Android WorkManager,
@@ -73,4 +74,49 @@ suspend fun backgroundRefreshPass(deps: RefreshDeps, budget: Duration): RefreshO
     budgetExhausted = completed == null,
     reconciled = true,
   )
+}
+
+/**
+ * Drain /sync with no Redux store. Uses the SAME [SyncDrainer] the foreground uses; the session
+ * lambdas are pass-throughs because a background process has no epochs to fence against — it
+ * holds one family and one credential for the life of the wake.
+ *
+ * A 401 refreshes once via [refreshAccess] and retries; a second failure gives up and lets the
+ * next foreground open handle re-auth (a background wake must never drive a sign-out — see
+ * the "NEVER agent-decided" reuse-detection note on AuthClient.refresh).
+ *
+ * Note: [SyncClient.fetchPage] throws [SyncHttpException] (not [AuthHttpException]) on a
+ * non-200, including 401 — that's the type caught here.
+ */
+suspend fun headlessSync(
+  contentStore: ContentStore,
+  syncClient: SyncClient,
+  databaseDispatcher: CoroutineDispatcher,
+  familyId: String,
+  session: Session,
+  refreshAccess: suspend (refresh: String) -> Session?,
+  nowIso: () -> String,
+) {
+  var current = session
+  var refreshed = false
+  SyncDrainer(
+    contentStore = contentStore,
+    databaseDispatcher = databaseDispatcher,
+    nowIso = nowIso,
+    fetch = { since ->
+      try {
+        syncClient.fetchPage(familyId, current.access, since)
+      } catch (e: SyncHttpException) {
+        // ONE refresh attempt. Only reachable when no live runtime exists (see the
+        // delegation rule) so there is exactly one refresher and no rotation race.
+        if (e.status != 401 || refreshed) throw e
+        refreshed = true
+        current = refreshAccess(current.refresh) ?: throw e
+        syncClient.fetchPage(familyId, current.access, since)
+      }
+    },
+    // No epochs to fence in a headless process: one family, one credential, one wake.
+    commit = { block -> block(); true },
+    onActivity = {},
+  ).drain()
 }
