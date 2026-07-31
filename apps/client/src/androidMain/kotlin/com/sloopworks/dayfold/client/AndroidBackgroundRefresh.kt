@@ -1,0 +1,145 @@
+package com.sloopworks.dayfold.client
+
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import io.ktor.client.HttpClient
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+
+// ADR 0020 R3 — Android glue. All decision logic is in commonMain (backgroundRefreshPass);
+// this is a thin OS bridge, mirroring AndroidBackgroundNotify.
+
+const val REFRESH_WORK_NAME = "dayfold.refresh"
+
+// 30 minutes, not the 15-minute floor: the OS runs periodic work inside a flex window subject
+// to Doze and standby buckets, so a shorter request buys jitter, not freshness. NEVER treat
+// this as a guaranteed cadence (spec A.6).
+private const val REFRESH_INTERVAL_MINUTES = 30L
+private const val REFRESH_FLEX_MINUTES = 10L
+
+class RefreshWorker(
+  context: Context,
+  params: WorkerParameters,
+) : CoroutineWorker(context, params) {
+
+  override suspend fun doWork(): Result {
+    val outcome = runBackgroundRefresh(applicationContext)
+    Log.i("refresh") { "background pass: $outcome" }
+    // A budget overrun is not a failure — the cursor resumes next wake. Returning retry()
+    // here would burn standby-bucket quota on a problem waiting solves.
+    return Result.success()
+  }
+}
+
+/**
+ * Enqueue the periodic refresh. KEEP so repeated calls (app start, BOOT_COMPLETED) are free
+ * rather than duplicative — WorkManager already persists its own work across reboots, so the
+ * boot re-enqueue is belt-and-braces. Switch to UPDATE only if the interval/constraints change.
+ */
+fun ensurePeriodicRefresh(context: Context) {
+  val request = PeriodicWorkRequestBuilder<RefreshWorker>(
+    REFRESH_INTERVAL_MINUTES, TimeUnit.MINUTES,
+    REFRESH_FLEX_MINUTES, TimeUnit.MINUTES,
+  )
+    // CONNECTED + BatteryNotLow ONLY. RequiresCharging/DeviceIdle would starve it: an unmet
+    // constraint can skip a run entirely, not merely delay it.
+    .setConstraints(
+      Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .setRequiresBatteryNotLow(true)
+        .build(),
+    )
+    .build()
+
+  WorkManager.getInstance(context.applicationContext)
+    .enqueueUniquePeriodicWork(REFRESH_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+}
+
+/**
+ * Wire the commonMain pass to Android's store + notify glue. Budget is generous relative to
+ * iOS because WorkManager allows ~10 minutes; the cap exists to bound a hung network call.
+ *
+ * [RuntimeHandleHolder.get] supplies `delegateToRuntime`: when a live runtime is retained in this
+ * process, backgroundRefreshPass hands the pass to it and never builds its own SyncClient/AuthClient
+ * below — see that holder's doc for why a second refresher is unsafe.
+ *
+ * Builds and closes its own [HttpClient] for the lifetime of this one wake. The worker has no
+ * WorkerFactory-injected graph to borrow a client from (no Configuration.Provider — see the
+ * dependency comment in androidApp/build.gradle.kts), and never closing it would leak an OkHttp
+ * engine every ~30 minutes for as long as the process stays alive.
+ */
+internal suspend fun runBackgroundRefresh(context: Context): RefreshOutcome {
+  val cs = AndroidContentStoreHolder.get(context)
+  // BOTH halves, mirroring iOS's bgReconcile(). Geofences alone would leave the exact
+  // (time-triggered) lane un-armed: a card whose trigger syncs in at 3am has no alarm set until the
+  // user next opens MainActivity, so the reminder the sync just made possible never fires — which is
+  // the whole point of the pass.
+  val reconcile = { reRegisterGeofences(context); reconcileExactSchedules(context) }
+
+  // A `fake://` base is a debug-drawer scenario served by an in-process MockEngine that only the
+  // foreground graph holds. There is no network backend to drain, and syncing anyway would write
+  // one backend's rows + cursor into the cache the operator is dogfooding another backend against.
+  // Reconcile is local and cheap, so it still runs — mirroring the pass's own skip shape.
+  val api = AndroidApiConfigHolder.apiBase
+  if (api == null || api.startsWith("fake://")) {
+    reconcile()
+    return RefreshOutcome(
+      reconciled = true,
+      skippedReason = if (api == null) "no-android-api-base" else "fake-backend",
+    )
+  }
+
+  val http = HttpClient()
+  return try {
+    // headlessRefreshPass, NOT backgroundRefreshPass: this worker is a cache WRITER, so it must
+    // heal an older-schema cache before it stamps the running build's version over it. See that
+    // function's doc for the overnight-app-update failure this ordering prevents.
+    headlessRefreshPass(
+      contentStore = cs,
+      databaseDispatcher = Dispatchers.Default,
+      deps = RefreshDeps(
+        memberships = { cs.cachedMemberships() },
+        session = { AndroidTokenStore(context).load() },
+        delegateToRuntime = RuntimeHandleHolder.get(),
+        syncOnce = { familyId, session -> androidHeadlessSync(context, cs, http, api, familyId, session) },
+        reconcile = reconcile,
+      ),
+      budget = 60.seconds,
+    )
+  } finally {
+    http.close()
+  }
+}
+
+/**
+ * Supplies the platform pieces to the shared headless drain ([headlessSync], which reuses
+ * [SyncDrainer] — no second paging loop). [databaseDispatcher] matches DayfoldRuntimeFactory's own
+ * default (Dispatchers.Default is never overridden by the foreground graph either).
+ */
+private suspend fun androidHeadlessSync(
+  context: Context,
+  contentStore: ContentStore,
+  http: HttpClient,
+  api: String,
+  familyId: String,
+  session: Session,
+) {
+  headlessSync(
+    contentStore = contentStore,
+    syncClient = SyncClient(api, http),
+    databaseDispatcher = Dispatchers.Default,
+    familyId = familyId,
+    session = session,
+    refreshAccess = { refresh ->
+      headlessRefreshAccess(AuthClient(api, http), AndroidTokenStore(context), refresh)
+    },
+    nowIso = { kotlin.time.Clock.System.now().toString() },
+  )
+}

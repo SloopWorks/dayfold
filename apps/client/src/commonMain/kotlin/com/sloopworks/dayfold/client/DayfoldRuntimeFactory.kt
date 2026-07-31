@@ -50,6 +50,31 @@ class DayfoldRuntimeGraph internal constructor(
   /** Waits until every owned child and the shared HTTP client have closed. */
   suspend fun awaitClosed() = runtime.awaitClosed()
 
+  /**
+   * Requests a silent background sync pass — for a headless caller (WorkManager, BGAppRefreshTask)
+   * that finds this graph already live in-process and must delegate to it rather than build its own
+   * refresher (ADR 0020 R3; see RuntimeHandleHolder). Uses [SyncReason.BACKGROUND], never
+   * MANUAL_REFRESH: that reason publishes a user-facing sync status, and a background wake must be
+   * silent.
+   *
+   * Uses [SyncCoordinator.requestSyncOnceAndAwait], not [SyncCoordinator.requestSync]: the runtime
+   * is very often live but PAUSED at exactly this moment (app backgrounded, no Activity in the
+   * foreground — the common case a background wake exists for), and `requestSync` deliberately does
+   * nothing but conflate while paused. `requestSyncOnceAndAwait` runs one pass through the same
+   * worker regardless of paused state, without restarting the poll loop or flipping the coordinator
+   * back to resumed — AND suspends until that pass has actually finished, which this method's own
+   * `suspend` signature promises to its caller (`RefreshDeps.delegateToRuntime`): a headless wake
+   * (WorkManager's `doWork`, iOS's `BGAppRefreshTask`) tells the OS "done" right after this returns,
+   * so returning as soon as the pass was merely ARMED would report success before the sync it
+   * triggered had actually run.
+   *
+   * Returns whether that pass actually SYNCED — false when it short-circuits (no worker bound yet,
+   * this graph is closed) or when the pass itself found no family / failed. The headless wake logs
+   * this verbatim, and a log line claiming a sync that never happened is worse than no log line.
+   */
+  suspend fun requestBackgroundSync(): Boolean =
+    syncCoordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
+
   /** Replaces the active family with close, join, wipe, and restart ordering. */
   suspend fun replaceFamily(familyId: String?): FamilySessionContext? {
     ensureOpen()

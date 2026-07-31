@@ -27,6 +27,12 @@
   pass must therefore delegate to the live runtime when one exists and take the
   headless path only when the process has none. The same rule removes a cursor
   read-fetch-apply race between the 45s foreground poll and the worker.
+  **Amended 2026-07-31 (operator ruling):** delegating via `requestSync` alone is
+  insufficient — `SyncCoordinator.pause()` (called when the app backgrounds) makes
+  `requestSync` a no-op, so a warm-backgrounded process would never sync. The
+  coordinator gains a one-shot entry that runs a single pass even while paused,
+  serialized through the same mutex and without restarting the poll loop. `pause()`
+  governs the POLL LOOP, not the coordinator's willingness to do one-shot work.
 - **DB work goes through `databaseDispatcher`.** `ContentStore.applyDelta` is
   `withWriteGate`-serialized so concurrency can't corrupt, but the convention (and
   ADR 0058's serialization posture) is that store work is dispatched, not run on
@@ -159,7 +165,7 @@ class SyncDrainerTest {
     hasMore: Boolean,
     fullResync: Boolean = false,
   ) = SyncResponse(
-    changes = SyncChanges(),
+    changes = Changes(),
     tombstones = emptyList(),
     nextCursor = nextCursor,
     hasMore = hasMore,
@@ -168,7 +174,7 @@ class SyncDrainerTest {
 }
 ```
 
-Before running: confirm the constructor parameter names of `SyncResponse` and `SyncChanges` in
+Before running: confirm the constructor parameter names of `SyncResponse` and `Changes` in
 `SyncClient.kt` and adjust the `syncResponse` helper to match — do not change those classes. For
 `inMemoryContentStore()` and `card(...)`, reuse the existing test helpers: grep the desktopTest
 sources (`grep -rn "ContentStore(" apps/client/src/desktopTest | head`) for how `ContentStoreTest`
@@ -784,9 +790,11 @@ git commit -m "feat(ios): sync in the background refresh task; add the missing e
 - Consumes: `SyncDrainer` (Task 1), `SyncClient.fetchPage`, `ContentStore.cursor()/applyDelta()/wipeForResync()`, `AuthClient` refresh.
 - Produces: `suspend fun headlessSync(...)` referenced by Tasks 3 and 4.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the regression guard**
 
-Append to `BackgroundRefreshTest.kt`:
+This one is deliberately NOT a TDD red step — it exercises Task 1's `SyncDrainer` directly and
+must pass immediately. Its job is to fail later if anyone gives the background path its own
+paging loop. Append to `BackgroundRefreshTest.kt`:
 
 ```kotlin
   // The headless path must use the SAME drainer as the foreground: pages applied in order,
@@ -801,7 +809,7 @@ Append to `BackgroundRefreshTest.kt`:
       fetch = {
         page++
         SyncResponse(
-          changes = SyncChanges(), tombstones = emptyList(),
+          changes = Changes(), tombstones = emptyList(),
           nextCursor = "c$page", hasMore = page < 2, fullResync = false,
         )
       },
@@ -822,7 +830,7 @@ cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/H
   ./gradlew :client:desktopTest --tests '*BackgroundRefreshTest*'
 ```
 
-Expected: PASS (this test exercises Task 1's class directly and should pass immediately — it is a regression guard that the background path has no separate loop).
+Expected: PASS immediately — see Step 1. If it FAILS, Task 1's drainer is wrong; fix that, not this test.
 
 - [ ] **Step 3: Implement `headlessSync`**
 

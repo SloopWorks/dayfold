@@ -135,13 +135,18 @@ class SyncEngine(
   /**
    * Performs one full captured-context pass: inbound pages then rebased outbox writes.
    * Production callers use [requestSync]; direct invocation is retained for deterministic tests.
+   *
+   * Returns whether the pass actually synced. False when there is nothing to sync (no family bound,
+   * or its session snapshot is gone) and when the pass failed — a headless background wake reports
+   * that verbatim in its one log line (`RefreshOutcome.synced`), so "the call returned" must not be
+   * mistaken for "content was refreshed".
    */
   internal suspend fun syncNow(
     reason: SyncReason = SyncReason.MANUAL_REFRESH,
     isConflatedRerun: Boolean = false,
-  ) {
-    val familyId = store.state.session.activeFamilyId ?: return
-    val context = sessionCoordinator.familySnapshot(familyId) ?: return
+  ): Boolean {
+    val familyId = store.state.session.activeFamilyId ?: return false
+    val context = sessionCoordinator.familySnapshot(familyId) ?: return false
     adoptStatusBoundary(context)
     var statusStarted = false
     val startStatus = {
@@ -150,60 +155,48 @@ class SyncEngine(
     // Direct user refresh gives immediate feedback. Poll/resume/background work and conflated
     // reruns stay silent unless they discover a real delta or outbox operation.
     if (reason == SyncReason.MANUAL_REFRESH && !isConflatedRerun) startStatus()
-    try {
+    return try {
       drain(context, startStatus)
       drainOutbox(context, startStatus) // ADR 0038 — push local member writes after pulling fresh remote
       Log.i("sync") { "sync succeeded" }
       if (statusStarted) publishSucceeded(context)
+      true
     } catch (e: SyncHttpException) {
       onSyncHttpError(context, e)
+      false
     } catch (e: AuthHttpException) {
       if (e.status == 401 && sessionCoordinator.isCurrent(context)) onSessionInvalidated(context, true)
       else publishFailed(context, e.message ?: "sync error")
+      false
     } catch (e: CancellationException) {
       if (statusStarted) publishStopped(context)
       throw e
     } catch (e: Exception) {
       publishFailed(context, e.message ?: "sync error")
+      false
     }
   }
 
-  /** Drain all /sync pages into the DB in order (each page is its own atomic applyDelta). */
+  /** Drain all /sync pages into the DB in order (each page is its own atomic applyDelta).
+   *  The loop itself lives in [SyncDrainer] so the background pass reuses it (ADR 0020 R3). */
   private suspend fun drain(
     context: FamilySessionContext,
     onActivity: () -> Unit,
   ) {
-    var hasMore = true
-    while (hasMore) {
-      val cursor = withContext(databaseDispatcher) { contentStore.cursor() }
-      val resp = sessionCoordinator.authorizedCall(context) { current ->
-        current.withFamilyAndAccessToken { familyId, accessToken ->
-          syncClient.fetchPage(familyId, accessToken, cursor)
+    SyncDrainer(
+      contentStore = contentStore,
+      databaseDispatcher = databaseDispatcher,
+      nowIso = nowProvider,
+      fetch = { since ->
+        sessionCoordinator.authorizedCall(context) { current ->
+          current.withFamilyAndAccessToken { familyId, accessToken ->
+            syncClient.fetchPage(familyId, accessToken, since)
+          }
         }
-      }
-      if (resp.hasMaterialChanges()) onActivity()
-      // ADR 0040 §3 — stale-cursor directive: the server reset the scan to -∞ because our cursor
-      // was older than the tombstone-retention floor (a needed delete may be GC'd). Wipe the
-      // synced cache (keeping the outbox + hidden) before applying, so this page rebuilds clean.
-      // Only the first rebuild page carries the flag; subsequent pages resume from a fresh cursor.
-      val committed = withContext(databaseDispatcher) {
-        sessionCoordinator.commitIfCurrent(context) {
-          if (resp.fullResync) contentStore.wipeForResync()
-          contentStore.applyDelta(
-            changedCards = resp.changes.cards,
-            changedHubs = resp.changes.hubs,
-            changedSections = resp.changes.sections,
-            changedBlocks = resp.changes.blocks,
-            tombstones = resp.tombstones,
-            nextCursor = resp.nextCursor,
-            nowIso = nowProvider(),
-            changedPlaces = resp.changes.places,
-          )
-        }
-      }
-      if (!committed) throw CancellationException("Family session replaced")
-      hasMore = resp.hasMore
-    }
+      },
+      commit = { block -> sessionCoordinator.commitIfCurrent(context) { block() } },
+      onActivity = onActivity,
+    ).drain()
   }
 
   /**
@@ -296,15 +289,6 @@ class SyncEngine(
       publishFailed(context, "HTTP ${e.status}")
     }
   }
-
-  private fun SyncResponse.hasMaterialChanges(): Boolean =
-    fullResync ||
-      changes.cards.isNotEmpty() ||
-      changes.hubs.isNotEmpty() ||
-      changes.sections.isNotEmpty() ||
-      changes.blocks.isNotEmpty() ||
-      changes.places.isNotEmpty() ||
-      tombstones.isNotEmpty()
 
   /** Clears a prior family generation's busy flag only from a currently admitted family pass. */
   private fun adoptStatusBoundary(context: FamilySessionContext) {

@@ -7,6 +7,34 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-07-31 — Background refresh: live on Android, not yet on iOS
+
+### Added
+- **Android now refreshes content while the app is closed.** The device
+  pulls changes on a schedule and re-arms its reminders in the same pass, so
+  opening dayfold shows the current day rather than the last one you looked
+  at. If dayfold is already running in the background when the scheduled
+  wake fires, it hands the sync to that running copy instead of syncing
+  independently — otherwise two refreshers could race and sign you out.
+  This is best-effort by design: the OS throttles how often it runs, and the
+  app never claims a guaranteed refresh cadence.
+- **iOS background refresh is built but not doing anything yet.** The task
+  is scheduled and runs safely, but it has no server address configured, so
+  each wake currently just re-arms local reminders and skips the network
+  pull entirely. iOS content still only updates when you open the app. This
+  turns on once the remaining iOS configuration work lands (tracked in
+  `backlog/next.md`).
+
+### Fixed
+- **Android background notifications no longer fire from stale content.**
+  They previously ran against whatever was last synced while the app was
+  open, so a reminder could reflect content hours out of date; the scheduled
+  wake now pulls first and re-arms both the place- and time-triggered
+  reminders against what it just pulled. iOS is unchanged here until its
+  background refresh actually pulls (see above).
+- **An iOS background task could be killed mid-run** and quietly reduce how
+  often the system scheduled it afterwards; it now yields cleanly.
+
 ## 2026-07-16 — Roadmap NOW placement + open-at-NOW
 
 ### Added

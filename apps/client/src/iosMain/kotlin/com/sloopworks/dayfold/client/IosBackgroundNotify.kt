@@ -1,6 +1,15 @@
 package com.sloopworks.dayfold.client
 
+import io.ktor.client.HttpClient
+import kotlin.concurrent.Volatile // multiplatform @Volatile (bare resolves to kotlin.jvm → fails on K/Native)
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import platform.UserNotifications.UNNotificationRequest
@@ -104,10 +113,134 @@ fun reRegisterGeofences() {
   }
 }
 
-// BGTaskScheduler handler entry (registered in Swift AppDelegate). Reconcile-only: neither lane needs a
-// BGTask to DELIVER (region monitoring wakes the app; scheduled local notifs fire directly) — this just
-// keeps the region set + exact schedules fresh opportunistically. Re-submit is done on the Swift side.
+// The reconcile half of a background wake, called by [bgRefresh] (ADR 0020 R3) — it was the whole BGTask
+// handler before the refresh lane existed. Neither notification lane needs a BGTask to DELIVER (region
+// monitoring wakes the app; scheduled local notifs fire directly); this just keeps the region set + the
+// exact schedules fresh opportunistically. Both halves are mandatory and must stay in step with Android's
+// reconcile lambda (reRegisterGeofences + reconcileExactSchedules) — dropping either silently regresses
+// ADR 0044: geofences go stale as places sync in, or freshly-synced timed triggers never get armed.
 fun bgReconcile() {
   reRegisterGeofences()
   reconcileExactSchedules()
+}
+
+// ── BGAppRefreshTask entry — sync + reconcile ──────────────────────────────────────────────────────
+// ADR 0020 R3 — the iOS BGAppRefreshTask entry point. Bounded at 25s, comfortably inside the
+// ~30s the system grants, so the expiration handler (bgCancelRefresh, below) is a backstop rather
+// than the normal exit. It CONTAINS the old reconcile-only lane (it calls bgReconcile on every exit
+// path, including the skip) rather than replacing it; the difference is that this one is genuinely
+// asynchronous (network I/O), which is exactly why the Swift side must complete the BGTask from
+// inside [onComplete], never right after this call returns — see the doc there.
+private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+// @Volatile — review round 2: written on the BGTask handler's thread, read by bgCancelRefresh()
+// from iOS's expiration-handler thread (a different one). Kotlin/Native gives no visibility
+// guarantee across threads without this; a stale read here would make cancel() a silent no-op,
+// letting the coroutine keep running past the task's expiration.
+@Volatile private var refreshJob: Job? = null
+
+// Real API base is unset on-device this slice (iOS run config is operator-gated on Mac/Xcode) —
+// mirrors the literal MainViewController already uses for the foreground graph. No config holder
+// exists yet because iOS has exactly one hardcoded value, unlike Android's runtime-set
+// AndroidApiConfigHolder.
+private const val IOS_API_BASE = ""
+
+/**
+ * [onComplete] is invoked on the last line of the pass — the Swift side must call
+ * `task.setTaskCompleted` only from there, never immediately after this returns. Calling it early
+ * would let iOS suspend the app mid-work (silently — no error, no log) and, worse, it teaches iOS
+ * that this task's work can be killed safely, which reduces how often it gets scheduled again.
+ *
+ * [onComplete] runs UNCONDITIONALLY on every path — success, any thrown exception (including
+ * `IosContentStoreHolder.get()` throwing, a SQLite driver-creation failure; `deps.memberships()`/
+ * `deps.session()` throwing, Keychain/NSUserDefaults reads that [backgroundRefreshPass] does not
+ * wrap in `runCatching`; or `deps.reconcile()` throwing), and cancellation ([bgCancelRefresh],
+ * called from the BGTask's `expirationHandler`). All of that construction and every suspend call
+ * now runs INSIDE the launched coroutine, wrapped by a single outer `try`/`catch`/`finally` — a
+ * structural guarantee rather than one `runCatching` per call site, which would need to be
+ * re-added correctly at every future call site added here.
+ *
+ * Review round 2 — an earlier version tried to skip [onComplete] specifically on the cancellation
+ * path (`expirationHandler` already calls `setTaskCompleted(success: false)` itself, so calling
+ * this too looked like a double completion) by checking `isActive` in the `finally` block. That
+ * check races `expirationHandler` on a DIFFERENT thread with no synchronization between them —
+ * `isActive` can read `true` right as expiration fires elsewhere, and [onComplete] would then call
+ * `task.setTaskCompleted(success: true)` after the handler's `success: false`, which crashes.
+ * There is no reliable single-threaded signal here to gate on. The robust fix lives on the Swift
+ * side instead (`App.swift`'s `TaskCompletionGuard`): an atomic already-completed flag around
+ * `task.setTaskCompleted` makes whichever caller (this callback or `expirationHandler`) arrives
+ * first win and the other a no-op — which is what makes calling [onComplete] unconditionally,
+ * from every path including cancellation, safe.
+ */
+fun bgRefresh(onComplete: () -> Unit) {
+  refreshJob = refreshScope.launch {
+    try {
+      val cs = IosContentStoreHolder.get()
+      val delegate = RuntimeHandleHolder.get()
+      val outcome = if (delegate == null && IOS_API_BASE.isBlank()) {
+        // No live runtime to delegate to, and no configured API base for a direct sync: ktor
+        // resolves a schemeless/empty base against its own http://localhost default, so building
+        // a SyncClient here would fire a real (and always-broken, on-device) request every wake,
+        // then have it swallowed by headlessSync's own runCatching as an indistinguishable
+        // "sync failed" — not the honest, clearly-labelled skip this state actually is.
+        // backlog/next.md's TASK-SYNC REMAINING already tracks "iOS sync-config plumbing (the
+        // BuildConfig analogue)" as the open gap; until it lands, reconcile is still local and
+        // cheap, so it still runs — mirrors backgroundRefreshPass's own no-family/no-session
+        // skip shape.
+        bgReconcile()
+        RefreshOutcome(reconciled = true, skippedReason = "no-ios-api-base")
+      } else {
+        val http = HttpClient()
+        try {
+          // headlessRefreshPass, NOT backgroundRefreshPass: this task is a cache WRITER, so it
+          // must heal an older-schema cache before it stamps the running build's version over it.
+          // See that function's doc for the overnight-app-update failure this ordering prevents.
+          headlessRefreshPass(
+            contentStore = cs,
+            databaseDispatcher = Dispatchers.Default,
+            deps = RefreshDeps(
+              memberships = { cs.cachedMemberships() },
+              session = { IosTokenStore().load() },
+              // A live runtime (MainViewController's composition) owns the one refresh-token use
+              // for this wake when one is retained — see RuntimeHandleHolder's doc for why a
+              // second, independent refresher here would trip the server's reuse detection.
+              delegateToRuntime = delegate,
+              syncOnce = { familyId, session ->
+                headlessSync(
+                  contentStore = cs,
+                  syncClient = SyncClient(IOS_API_BASE, http),
+                  databaseDispatcher = Dispatchers.Default,
+                  familyId = familyId,
+                  session = session,
+                  refreshAccess = { refresh ->
+                    headlessRefreshAccess(AuthClient(IOS_API_BASE, http), IosTokenStore(), refresh)
+                  },
+                  nowIso = { Clock.System.now().toString() },
+                )
+              },
+              // bgReconcile(), not reconcileExactSchedules() alone — the refresh lane must keep
+              // doing everything the reconcile-only BGTask lane did before it (ADR 0044's
+              // opportunistic geofence re-registration), and it must match Android's reconcile.
+              reconcile = { bgReconcile() },
+            ),
+            budget = 25.seconds,
+          )
+        } finally {
+          http.close()
+        }
+      }
+      Log.i("refresh") { "background pass: $outcome" }
+    } catch (c: CancellationException) {
+      throw c
+    } catch (t: Throwable) {
+      Log.e("refresh") { "background pass threw: $t" }
+    } finally {
+      // Unconditional — see the doc above for why the previous isActive-gated version was unsafe.
+      onComplete()
+    }
+  }
+}
+
+/** Called from the BGTask expirationHandler — stop immediately so iOS is not forced to kill us. */
+fun bgCancelRefresh() {
+  refreshJob?.cancel()
 }
