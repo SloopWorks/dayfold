@@ -1,6 +1,13 @@
 package com.sloopworks.dayfold.client
 
+import io.ktor.client.HttpClient
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import platform.UserNotifications.UNNotificationRequest
@@ -110,4 +117,82 @@ fun reRegisterGeofences() {
 fun bgReconcile() {
   reRegisterGeofences()
   reconcileExactSchedules()
+}
+
+// ── BGAppRefreshTask entry — sync + reconcile ──────────────────────────────────────────────────────
+// ADR 0020 R3 — the iOS BGAppRefreshTask entry point. Bounded at 25s, comfortably inside the
+// ~30s the system grants, so the expiration handler (bgCancelRefresh, below) is a backstop rather
+// than the normal exit. Kept separate from bgReconcile: that lane stays synchronous for its existing
+// callers (region-enter delegate), while this one is genuinely asynchronous (network I/O), which is
+// exactly why the Swift side must complete the BGTask from inside [onComplete], never right after
+// this call returns — see the doc there.
+private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+private var refreshJob: Job? = null
+
+// Real API base is unset on-device this slice (iOS run config is operator-gated on Mac/Xcode) —
+// mirrors the literal MainViewController already uses for the foreground graph. No config holder
+// exists yet because iOS has exactly one hardcoded value, unlike Android's runtime-set
+// AndroidApiConfigHolder.
+private const val IOS_API_BASE = ""
+
+/**
+ * [onComplete] is invoked on the last line of the pass — the Swift side must call
+ * `task.setTaskCompleted` only from there, never immediately after this returns. Calling it early
+ * would let iOS suspend the app mid-work (silently — no error, no log) and, worse, it teaches iOS
+ * that this task's work can be killed safely, which reduces how often it gets scheduled again.
+ */
+fun bgRefresh(onComplete: () -> Unit) {
+  val cs = IosContentStoreHolder.get()
+  refreshJob = refreshScope.launch {
+    val http = HttpClient()
+    val outcome = try {
+      backgroundRefreshPass(
+        deps = RefreshDeps(
+          memberships = { cs.cachedMemberships() },
+          session = { IosTokenStore().load() },
+          // A live runtime (MainViewController's composition) owns the one refresh-token use for
+          // this wake when one is retained — see IosRuntimeHandleHolder's doc for why a second,
+          // independent refresher here would trip the server's reuse detection.
+          delegateToRuntime = IosRuntimeHandleHolder.get(),
+          syncOnce = { familyId, session ->
+            headlessSync(
+              contentStore = cs,
+              syncClient = SyncClient(IOS_API_BASE, http),
+              databaseDispatcher = Dispatchers.Default,
+              familyId = familyId,
+              session = session,
+              refreshAccess = { refresh -> iosRefreshAccess(http, refresh) },
+              nowIso = { Clock.System.now().toString() },
+            )
+          },
+          reconcile = { reconcileExactSchedules() },
+        ),
+        budget = 25.seconds,
+      )
+    } finally {
+      http.close()
+    }
+    Log.i("refresh") { "background pass: $outcome" }
+    onComplete()
+  }
+}
+
+/**
+ * The one refresh attempt [headlessSync] is allowed on a 401. MUST persist the rotated session
+ * before returning: `POST /auth/refresh` has already rotated the lineage server-side by the time
+ * this call returns (AuthClient.kt), so if the new refresh token is not written back to
+ * [IosTokenStore], the NEXT wake (or the next foreground sign-in) would present the
+ * now-superseded token and trip reuse detection — the exact sign-out this delegation scheme
+ * exists to avoid. A thrown [AuthHttpException] here (e.g. the lineage really was revoked) is
+ * swallowed to null on purpose: headlessSync then re-throws the ORIGINAL 401 rather than this
+ * refresh's own error, and does not retry.
+ */
+private suspend fun iosRefreshAccess(http: HttpClient, refresh: String): Session? =
+  runCatching { AuthClient(IOS_API_BASE, http).refresh(refresh) }
+    .onSuccess { IosTokenStore().save(it) }
+    .getOrNull()
+
+/** Called from the BGTask expirationHandler — stop immediately so iOS is not forced to kill us. */
+fun bgCancelRefresh() {
+  refreshJob?.cancel()
 }

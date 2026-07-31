@@ -24,13 +24,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // Reconcile-only BGTask — neither lane needs it to DELIVER (region monitoring wakes the app; scheduled
-    // local notifs fire directly); it just keeps the region set + exact schedules fresh opportunistically.
-    // register() MUST happen before didFinishLaunching returns.
+    // ADR 0020 R3 — the BGTask now also drives the headless refresh pass (sync + reconcile), not
+    // reconcile alone. register() MUST happen before didFinishLaunching returns.
     BGTaskScheduler.shared.register(forTaskWithIdentifier: bgTaskId, using: nil) { [weak self] task in
-      IosBackgroundNotifyKt.bgReconcile()
-      self?.submitReconcile()               // re-arm the next opportunistic run
-      task.setTaskCompleted(success: true)
+      // iOS grants ~30s. Without an expirationHandler an overrun kills the app AND reduces how
+      // often the system schedules this task afterwards — a self-inflicted freshness penalty.
+      task.expirationHandler = {
+        IosBackgroundNotifyKt.bgCancelRefresh()
+        task.setTaskCompleted(success: false)
+      }
+      // bgRefresh is ASYNC. Completing the task here would let iOS suspend the app before
+      // the work finished — silently, with no error and no log. Complete in the callback.
+      IosBackgroundNotifyKt.bgRefresh {
+        self?.submitReconcile()             // re-arm the next opportunistic run
+        task.setTaskCompleted(success: true)
+      }
     }
 
     // Main thread. Sets the (retained) UN + CL delegates, warms the shared ContentStore, requests notif auth.

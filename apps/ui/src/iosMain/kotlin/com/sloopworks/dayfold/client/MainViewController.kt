@@ -34,6 +34,12 @@ fun MainViewController(): UIViewController {
     notificationContext = mainNotificationContext(),
     debug = kotlin.native.Platform.isDebugBinary,
   ).create()
+  // ADR 0020 R3 — register as soon as this runtime is live, mirroring the Android ViewModel's
+  // AndroidRuntimeHandleHolder registration. A headless caller (the BGAppRefreshTask, same process)
+  // must find this handle and delegate to it rather than build an independent refresher — see
+  // IosRuntimeHandleHolder's doc for the reuse-detection sign-out this avoids. Cleared in this
+  // controller's DisposableEffect teardown (IosControllerContent), never left to a delay.
+  IosRuntimeHandleHolder.register { graph.requestBackgroundSync() }
 
   return ComposeUIViewController {
     IosControllerContent(graph = graph, contentStore = contentStore)
@@ -137,6 +143,10 @@ private fun IosControllerContent(
     )
 
     onDispose {
+      // Clear FIRST and unconditionally (idempotent) — a stale handle pointing at a runtime that is
+      // now cancelling/cancelled is worse than none, since bgRefresh racing this teardown could
+      // delegate into a graph that will never finish the pass.
+      IosRuntimeHandleHolder.clear()
       nc.removeObserver(resumeToken)
       nc.removeObserver(pauseToken)
       lifecycle.dispose()
