@@ -164,7 +164,7 @@ class SyncCoordinatorTest {
   // ADR 0020 R3 — a headless background wake finds the runtime already live but PAUSED (the
   // common case: app backgrounded, no Activity foreground) and must still get its one pass run.
   // pause() only ever stopped the 45s poll loop for battery, never refused work outright.
-  @Test fun `requestSyncOnce runs a pass while paused`() = runBlocking<Unit> {
+  @Test fun `requestSyncOnceAndAwait runs a pass while paused`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
     val passCount = AtomicInteger()
@@ -184,12 +184,19 @@ class SyncCoordinatorTest {
     withTimeout(2_000) { finished.receive() }   // worker back to idle/parked before pausing
     coordinator.pause()
 
-    assertTrue(coordinator.requestSyncOnce(SyncReason.BACKGROUND))
+    // The await variant only returns once its pass has finished, so the request has to be made
+    // from another coroutine to observe the pass mid-flight.
+    val accepted = CompletableDeferred<Boolean>()
+    val awaiter = launch(Dispatchers.Default) {
+      accepted.complete(coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND))
+    }
     assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })
     assertEquals(2, passCount.get())
 
     releases.send(Unit)
     withTimeout(2_000) { finished.receive() }
+    assertTrue(withTimeout(2_000) { accepted.await() })
+    awaiter.join()
     coordinator.close()
     owner.cancelAndJoin()
   }
@@ -198,7 +205,7 @@ class SyncCoordinatorTest {
   // pass is still running, and 100 concurrent background wakes land during that window. None may
   // start a second, concurrent syncPass call (ADR 0058's one-caller invariant) — they must all
   // conflate into the single pending slot the in-flight pass's own rerun loop drains afterward.
-  @Test fun `requestSyncOnce conflates into a pass already in flight rather than running twice`() = runBlocking<Unit> {
+  @Test fun `requestSyncOnceAndAwait conflates into a pass already in flight rather than running twice`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
     val passCount = AtomicInteger()
@@ -214,18 +221,21 @@ class SyncCoordinatorTest {
     assertEquals(SyncReason.RESUME, withTimeout(2_000) { started.receive() })   // pass #1 in flight
     coordinator.pause()   // paused mid-pass — the exact window the review called out
 
-    coroutineScope {
-      List(100) {
-        launch(Dispatchers.Default) { assertTrue(coordinator.requestSyncOnce(SyncReason.BACKGROUND)) }
-      }.joinAll()
+    // Each of these stays suspended until the pass servicing it finishes, so they cannot be joined
+    // before the assertion below — give them room to register instead, which is the state under
+    // test (100 requests outstanding while a pass is in flight).
+    val oneShots = List(100) {
+      launch(Dispatchers.Default) { assertTrue(coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)) }
     }
+    delay(100)
     assertEquals(1, passCount.get())   // none of the 100 concurrent one-shots started a second pass
 
     releases.send(Unit)   // let pass #1 finish
     assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })   // one conflated rerun
     assertEquals(2, passCount.get())
 
-    releases.send(Unit)
+    releases.send(Unit)   // let the conflated rerun finish, releasing all 100 waiters
+    withTimeout(2_000) { oneShots.joinAll() }
     coordinator.pause()
     assertEquals(2, passCount.get())   // no third pass — 100 one-shots collapsed into one pending slot
 
@@ -233,11 +243,11 @@ class SyncCoordinatorTest {
     owner.cancelAndJoin()
   }
 
-  // requestSyncOnce must not leave the coordinator polling: it exists to run ONE pass without
-  // undoing pause()'s battery-saving effect. A short interval + a bounded wait with no further
-  // pass proves the poller was never restarted (a restarted poller would have fired several times
-  // in the wait window).
-  @Test fun `requestSyncOnce does not restart the poller`() = runBlocking<Unit> {
+  // requestSyncOnceAndAwait must not leave the coordinator polling: it exists to run ONE pass
+  // without undoing pause()'s battery-saving effect. A short interval + a bounded wait with no
+  // further pass proves the poller was never restarted (a restarted poller would have fired several
+  // times in the wait window).
+  @Test fun `requestSyncOnceAndAwait does not restart the poller`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
     val passCount = AtomicInteger()
@@ -251,11 +261,11 @@ class SyncCoordinatorTest {
     assertEquals(SyncReason.RESUME, withTimeout(2_000) { started.receive() })
     coordinator.pause()
 
-    assertTrue(coordinator.requestSyncOnce(SyncReason.BACKGROUND))
+    assertTrue(coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND))
     assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })
     assertEquals(2, passCount.get())
 
-    // 10x the poll interval: if requestSyncOnce had restarted the poller, several more POLL
+    // 10x the poll interval: if the one-shot had restarted the poller, several more POLL
     // passes would have fired by now. pause() must still mean "polling is off."
     delay(200)
     assertEquals(2, passCount.get())
@@ -283,9 +293,12 @@ class SyncCoordinatorTest {
     releases.send(Unit)
     coordinator.pause()
 
-    assertTrue(coordinator.requestSyncOnce(SyncReason.BACKGROUND))
+    val oneShot = launch(Dispatchers.Default) {
+      assertTrue(coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND))
+    }
     assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })
     releases.send(Unit)
+    withTimeout(2_000) { oneShot.join() }
 
     coordinator.resume(ownerScope)
     assertEquals(SyncReason.RESUME, withTimeout(2_000) { started.receive() })
@@ -297,9 +310,10 @@ class SyncCoordinatorTest {
     owner.cancelAndJoin()
   }
 
-  // Mirrors "close cancels an active pass and rejects late requests" for the new entry point:
-  // a closed coordinator must reject requestSyncOnce exactly like requestSync.
-  @Test fun `requestSyncOnce is rejected after close`() = runBlocking<Unit> {
+  // Mirrors "close cancels an active pass and rejects late requests" for the one-shot entry point:
+  // a closed coordinator must reject requestSyncOnceAndAwait exactly like requestSync, and must do
+  // so without suspending — a rejected request has no pass to wait for.
+  @Test fun `requestSyncOnceAndAwait is rejected after close`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)
     val coordinator = SyncCoordinator(syncPass = { _, _ -> }, pollIntervalMs = Long.MAX_VALUE)
@@ -307,15 +321,15 @@ class SyncCoordinatorTest {
     coordinator.resume(ownerScope)
     coordinator.close()
 
-    assertFalse(coordinator.requestSyncOnce(SyncReason.BACKGROUND))
+    assertFalse(withTimeout(2_000) { coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND) })
     owner.cancelAndJoin()
   }
 
   // IMPORTANT review finding — DayfoldRuntimeGraph.requestBackgroundSync() delegates through this
   // method, and its `suspend` return is what a headless caller (WorkManager, BGAppRefreshTask)
-  // uses to decide it's safe to report task completion. requestSyncOnce alone returns instantly,
-  // long before the pass it armed has run — this proves the awaiting version genuinely blocks
-  // until ITS pass has finished, not merely until it was armed.
+  // uses to decide it's safe to report task completion. Merely ARMING a one-shot returns instantly,
+  // long before the pass it armed has run — this proves this method genuinely blocks until ITS pass
+  // has finished, not merely until it was armed.
   @Test fun `requestSyncOnceAndAwait suspends until the pass it triggers actually finishes`() = runBlocking<Unit> {
     val owner = SupervisorJob()
     val ownerScope = CoroutineScope(owner + Dispatchers.Default)

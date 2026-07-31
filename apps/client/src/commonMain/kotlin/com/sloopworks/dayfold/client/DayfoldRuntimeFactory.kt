@@ -65,8 +65,8 @@ class DayfoldRuntimeGraph internal constructor(
    * back to resumed — AND suspends until that pass has actually finished, which this method's own
    * `suspend` signature promises to its caller (`RefreshDeps.delegateToRuntime`): a headless wake
    * (WorkManager's `doWork`, iOS's `BGAppRefreshTask`) tells the OS "done" right after this returns,
-   * so returning early — as the non-suspending [SyncCoordinator.requestSyncOnce] would if called
-   * directly — would report success before the sync it triggered had actually run.
+   * so returning as soon as the pass was merely ARMED would report success before the sync it
+   * triggered had actually run.
    */
   suspend fun requestBackgroundSync() {
     syncCoordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
