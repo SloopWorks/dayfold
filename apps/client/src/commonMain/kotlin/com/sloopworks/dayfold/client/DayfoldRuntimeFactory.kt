@@ -67,10 +67,13 @@ class DayfoldRuntimeGraph internal constructor(
    * (WorkManager's `doWork`, iOS's `BGAppRefreshTask`) tells the OS "done" right after this returns,
    * so returning as soon as the pass was merely ARMED would report success before the sync it
    * triggered had actually run.
+   *
+   * Returns whether that pass actually SYNCED — false when it short-circuits (no worker bound yet,
+   * this graph is closed) or when the pass itself found no family / failed. The headless wake logs
+   * this verbatim, and a log line claiming a sync that never happened is worse than no log line.
    */
-  suspend fun requestBackgroundSync() {
+  suspend fun requestBackgroundSync(): Boolean =
     syncCoordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
-  }
 
   /** Replaces the active family with close, join, wipe, and restart ordering. */
   suspend fun replaceFamily(familyId: String?): FamilySessionContext? {
