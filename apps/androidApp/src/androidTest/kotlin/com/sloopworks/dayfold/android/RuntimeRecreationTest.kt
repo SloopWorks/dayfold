@@ -192,7 +192,7 @@ class RuntimeRecreationTest {
       closed.await()
     }
 
-    override fun requestBackgroundSync() {
+    override suspend fun requestBackgroundSync() {
       requestBackgroundSyncCalls.incrementAndGet()
     }
   }
