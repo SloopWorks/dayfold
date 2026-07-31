@@ -33,7 +33,7 @@ nothing lost, every full write-up is unchanged in its own file.)
 | 0017 | E2E Key-Authenticity + Deploy Trust-Root Boundary | Proposed 2026-06-18 | M1 security gate: fake-key MITM + trust-root concentration risks for a future E2EE flip. |
 | 0018 | API Host — TypeScript on Vercel | Accepted 2026-06-18 | Content API in TypeScript/Hono on Vercel; CLI/client stay Kotlin; types codegen from schema. |
 | 0019 | Client Observability & Tooling (devtools/snapshots/CLI) | Accepted 2026-06-19 | redux-kotlin devtools + in-app debug drawer + Compose snapshot testing toolchain. |
-| 0020 | Offline-First Client Data + Freshness (DB-as-source-of-truth) | Proposed 2026-06-19 | network→DB(SQLDelight)→store→UI unidirectional flow; instant offline cold start; foreground poll. |
+| 0020 | Offline-First Client Data + Freshness (DB-as-source-of-truth) | Accepted 2026-07-31 | network→DB(SQLDelight)→store→UI unidirectional flow; instant offline cold start; foreground poll + R3 background refresh (R3 unbuilt). |
 | 0021 | Auth Pulled Into Active Build — S1–S6 Decomposition + Dev-Token Posture | Accepted 2026-06-19 | Sequences the auth build (S1 tenancy → S3 CLI device-grant → S2 Firebase → S4 invites → S5/S6 UI). |
 | 0022 | Typed Content Library, Detail View & the Fold Gesture | Accepted 2026-06-19 | 6 typed content types with one renderer, container-transform detail gesture, provenance+privacy chips, Dayfold M3 theme. |
 | 0023 | S2 Firebase Identity — Google + Apple, Phone-OTP deferred | Accepted 2026-06-20 | Firebase sign-in narrowed to Google + Apple (free tier); phone/OTP deferred. |
