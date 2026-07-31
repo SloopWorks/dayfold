@@ -1,7 +1,11 @@
 # Background refresh (ADR 0020 R3) + weather-conditional content
 
 **Date:** 2026-07-31
-**Status:** Design approved in-session; Part B gated on a new ADR + a design-first mockup.
+**Status:** Part A **built and merged** (PR #364). **Part B is PARKED as of
+2026-07-31** — the design pass ran (`designs/weather/`) and the operator did
+**not** sign off, so the ADR 0008 gate is unmet and no build may start. The
+document stays as the record of what was designed and what the design pass found;
+resuming means a fresh design round, then the ADR, then B1–B3.
 **Scope:** `:client` commonMain + Android/iOS glue, content schema, CLI, curator skill.
 **Depends on:** ADR 0020 (Accepted 2026-07-31), ADR 0040, ADR 0043, ADR 0044, ADR 0014, ADR 0049.
 
