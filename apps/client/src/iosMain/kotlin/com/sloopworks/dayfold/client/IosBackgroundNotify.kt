@@ -3,10 +3,12 @@ package com.sloopworks.dayfold.client
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -140,40 +142,80 @@ private const val IOS_API_BASE = ""
  * `task.setTaskCompleted` only from there, never immediately after this returns. Calling it early
  * would let iOS suspend the app mid-work (silently — no error, no log) and, worse, it teaches iOS
  * that this task's work can be killed safely, which reduces how often it gets scheduled again.
+ *
+ * [onComplete] MUST run on every path except a real cancellation (see below), not just the happy
+ * path — including `IosContentStoreHolder.get()` throwing (a SQLite driver-creation failure),
+ * `deps.memberships()`/`deps.session()` throwing (Keychain/NSUserDefaults reads that
+ * [backgroundRefreshPass] does not wrap in `runCatching`), or `deps.reconcile()` throwing. All of
+ * that construction and every suspend call now runs INSIDE the launched coroutine, wrapped by a
+ * single outer `try`/`catch`/`finally` — a structural guarantee rather than one `runCatching` per
+ * call site, which would need to be re-added correctly at every future call site added here.
+ *
+ * The one path that deliberately does NOT call [onComplete] here is real cancellation
+ * ([bgCancelRefresh], which the BGTask's `expirationHandler` calls): that path completes the task
+ * itself (`success: false`) on the Swift side, so calling [onComplete] too would call
+ * `task.setTaskCompleted` a second time — undefined per `BGTaskScheduler`'s own contract. The
+ * `isActive` check in the `finally` block distinguishes the two: `cancel()` flips the coroutine's
+ * own Job to non-active BEFORE throwing `CancellationException` at the next suspension point, so
+ * by the time our `finally` runs, `isActive` is already false only on that path — never on a
+ * normal return or on an unrelated thrown exception, both of which still occur while the Job is
+ * still active.
  */
 fun bgRefresh(onComplete: () -> Unit) {
-  val cs = IosContentStoreHolder.get()
   refreshJob = refreshScope.launch {
-    val http = HttpClient()
-    val outcome = try {
-      backgroundRefreshPass(
-        deps = RefreshDeps(
-          memberships = { cs.cachedMemberships() },
-          session = { IosTokenStore().load() },
-          // A live runtime (MainViewController's composition) owns the one refresh-token use for
-          // this wake when one is retained — see IosRuntimeHandleHolder's doc for why a second,
-          // independent refresher here would trip the server's reuse detection.
-          delegateToRuntime = IosRuntimeHandleHolder.get(),
-          syncOnce = { familyId, session ->
-            headlessSync(
-              contentStore = cs,
-              syncClient = SyncClient(IOS_API_BASE, http),
-              databaseDispatcher = Dispatchers.Default,
-              familyId = familyId,
-              session = session,
-              refreshAccess = { refresh -> iosRefreshAccess(http, refresh) },
-              nowIso = { Clock.System.now().toString() },
-            )
-          },
-          reconcile = { reconcileExactSchedules() },
-        ),
-        budget = 25.seconds,
-      )
+    try {
+      val cs = IosContentStoreHolder.get()
+      val delegate = IosRuntimeHandleHolder.get()
+      val outcome = if (delegate == null && IOS_API_BASE.isBlank()) {
+        // No live runtime to delegate to, and no configured API base for a direct sync: ktor
+        // resolves a schemeless/empty base against its own http://localhost default, so building
+        // a SyncClient here would fire a real (and always-broken, on-device) request every wake,
+        // then have it swallowed by headlessSync's own runCatching as an indistinguishable
+        // "sync failed" — not the honest, clearly-labelled skip this state actually is.
+        // backlog/next.md's TASK-SYNC REMAINING already tracks "iOS sync-config plumbing (the
+        // BuildConfig analogue)" as the open gap; until it lands, reconcile is still local and
+        // cheap, so it still runs — mirrors backgroundRefreshPass's own no-family/no-session
+        // skip shape.
+        reconcileExactSchedules()
+        RefreshOutcome(reconciled = true, skippedReason = "no-ios-api-base")
+      } else {
+        val http = HttpClient()
+        try {
+          backgroundRefreshPass(
+            deps = RefreshDeps(
+              memberships = { cs.cachedMemberships() },
+              session = { IosTokenStore().load() },
+              // A live runtime (MainViewController's composition) owns the one refresh-token use
+              // for this wake when one is retained — see IosRuntimeHandleHolder's doc for why a
+              // second, independent refresher here would trip the server's reuse detection.
+              delegateToRuntime = delegate,
+              syncOnce = { familyId, session ->
+                headlessSync(
+                  contentStore = cs,
+                  syncClient = SyncClient(IOS_API_BASE, http),
+                  databaseDispatcher = Dispatchers.Default,
+                  familyId = familyId,
+                  session = session,
+                  refreshAccess = { refresh -> iosRefreshAccess(http, refresh) },
+                  nowIso = { Clock.System.now().toString() },
+                )
+              },
+              reconcile = { reconcileExactSchedules() },
+            ),
+            budget = 25.seconds,
+          )
+        } finally {
+          http.close()
+        }
+      }
+      Log.i("refresh") { "background pass: $outcome" }
+    } catch (c: CancellationException) {
+      throw c
+    } catch (t: Throwable) {
+      Log.e("refresh") { "background pass threw: $t" }
     } finally {
-      http.close()
+      if (isActive) onComplete()
     }
-    Log.i("refresh") { "background pass: $outcome" }
-    onComplete()
   }
 }
 

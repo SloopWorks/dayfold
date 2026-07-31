@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -64,6 +65,11 @@ class SyncCoordinator internal constructor(
   // Lets ONE already-claimed pending pass through claimPass() while paused, without changing
   // what [resumed] means for anyone else. See [requestSyncOnce].
   private var oneShotArmed = false
+  // Waiters registered by [requestSyncOnceAndAwait], drained by whichever [claimPass] call
+  // actually consumes the pending request they registered under — never completed early. See
+  // that method's doc for why this is safe under conflation, and [close] for how a waiter still
+  // outstanding when the coordinator closes is failed rather than left hanging.
+  private val oneShotWaiters = mutableListOf<CompletableDeferred<Unit>>()
 
   /**
    * Starts or resumes the worker in [ownerScope], requests one immediate pass, and starts polling.
@@ -166,17 +172,68 @@ class SyncCoordinator internal constructor(
     return true
   }
 
+  /**
+   * Same arming contract as [requestSyncOnce], but SUSPENDS until the pass that actually services
+   * this request has finished (or this coordinator [close]s first) — [requestSyncOnce] only arms
+   * state and returns instantly, which is wrong for a caller with a completion promise to keep
+   * (a delegated headless wake, where the OS is only told "done" once this returns; see
+   * `DayfoldRuntimeGraph.requestBackgroundSync`'s doc and `RefreshDeps.delegateToRuntime`'s type,
+   * `suspend () -> Unit`, which this honors).
+   *
+   * Registers a private [CompletableDeferred] in [oneShotWaiters] in the SAME synchronized block
+   * that arms [pending]/[pendingReason]/[oneShotArmed], then awaits it OUTSIDE that block — never
+   * holding [gate] while suspended. [claimPass] drains the current waiters list at the exact
+   * moment it claims a pending request (single shared `pending` flag, exactly like every other
+   * conflation path here), so a waiter is only ever completed by the pass that runs AFTER its
+   * registration:
+   * - Already resumed and idle: the signal wakes the worker, [claimPass] claims immediately, this
+   *   waiter's pass runs next.
+   * - A pass is already in flight when this is called (the race the review flagged): this only
+   *   adds to [pending]/[oneShotWaiters] and sends a signal that conflates harmlessly — no second
+   *   concurrent [syncPass] call is ever made (ADR 0058's one-caller invariant is unchanged by
+   *   this method). When the in-flight pass returns, the SAME worker's existing inner conflation
+   *   loop calls [claimPass] again, drains this waiter along with the pending reason, and runs
+   *   the conflated rerun — completing this waiter only once THAT pass finishes, never the one
+   *   already running when it registered.
+   * - No worker has ever been created ([resume] never called): registers and returns instantly
+   *   like [requestSyncOnce] does today, and the caller's own `await()` blocks until a later
+   *   [resume] creates a worker that eventually claims it, or this coordinator is [close]d, or
+   *   the caller's own surrounding timeout (e.g. `backgroundRefreshPass`'s budget) cancels it.
+   *   None of those are a coordinator-internal deadlock.
+   */
+  suspend fun requestSyncOnceAndAwait(reason: SyncReason): Boolean {
+    val done = CompletableDeferred<Unit>()
+    val worker = synchronized(gate) {
+      if (closed) return false
+      pending = true
+      pendingReason = reason
+      oneShotArmed = true
+      oneShotWaiters += done
+      active?.takeIf { it.worker.isActive }
+    }
+    worker?.signal?.trySend(Unit)
+    done.await()
+    return true
+  }
+
   /** Cancels the worker and poller, rejects future requests, and clears any pending rerun. */
   fun close() {
-    val previous = synchronized(gate) {
+    val (previous, waiters) = synchronized(gate) {
       if (closed) return
       closed = true
       resumed = false
       pending = false
       pendingReason = null
       oneShotArmed = false
-      active.also { active = null }
+      val waiters = oneShotWaiters.toList()
+      oneShotWaiters.clear()
+      (active.also { active = null }) to waiters
     }
+    // Fail rather than complete: a waiter still outstanding here never got its pass run, and
+    // completing it as "done" would tell a delegated caller a sync happened when it didn't.
+    // CancellationException so it flows through the SAME `runCatching` path a real cancellation
+    // would (see backgroundRefreshPass's delegate branch) rather than surfacing as a novel error.
+    waiters.forEach { it.completeExceptionally(CancellationException("SyncCoordinator closed")) }
     previous?.signal?.close()
     previous?.poller?.cancel()
     previous?.worker?.cancel()
@@ -190,9 +247,15 @@ class SyncCoordinator internal constructor(
       while (signal.receiveCatching().isSuccess) {
         var isConflatedRerun = false
         while (true) {
-          val reason = claimPass(expectedGeneration) ?: break
-          Log.d("sync") { "running conflated pass: ${reason.name}" }
-          syncPass(reason, isConflatedRerun)
+          val claimed = claimPass(expectedGeneration) ?: break
+          Log.d("sync") { "running conflated pass: ${claimed.reason.name}" }
+          try {
+            syncPass(claimed.reason, isConflatedRerun)
+          } catch (error: Throwable) {
+            claimed.waiters.forEach { it.completeExceptionally(error) }
+            throw error
+          }
+          claimed.waiters.forEach { it.complete(Unit) }
           isConflatedRerun = true
         }
       }
@@ -209,15 +272,22 @@ class SyncCoordinator internal constructor(
     }
   }
 
-  private fun claimPass(expectedGeneration: Long): SyncReason? = synchronized(gate) {
+  /** A pending request claimed by [claimPass], paired with the [requestSyncOnceAndAwait] waiters
+   *  (if any) that this specific claim is responsible for completing. */
+  private class ClaimedPass(val reason: SyncReason, val waiters: List<CompletableDeferred<Unit>>)
+
+  private fun claimPass(expectedGeneration: Long): ClaimedPass? = synchronized(gate) {
     if (closed || active?.generation != expectedGeneration || !pending || !(resumed || oneShotArmed)) {
       null
     } else {
       pending = false
       oneShotArmed = false
-      checkNotNull(pendingReason.also { pendingReason = null }) {
+      val reason = checkNotNull(pendingReason.also { pendingReason = null }) {
         "A pending sync pass must have a reason"
       }
+      val waiters = oneShotWaiters.toList()
+      oneShotWaiters.clear()
+      ClaimedPass(reason, waiters)
     }
   }
 

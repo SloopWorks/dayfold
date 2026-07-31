@@ -310,4 +310,133 @@ class SyncCoordinatorTest {
     assertFalse(coordinator.requestSyncOnce(SyncReason.BACKGROUND))
     owner.cancelAndJoin()
   }
+
+  // IMPORTANT review finding — DayfoldRuntimeGraph.requestBackgroundSync() delegates through this
+  // method, and its `suspend` return is what a headless caller (WorkManager, BGAppRefreshTask)
+  // uses to decide it's safe to report task completion. requestSyncOnce alone returns instantly,
+  // long before the pass it armed has run — this proves the awaiting version genuinely blocks
+  // until ITS pass has finished, not merely until it was armed.
+  @Test fun `requestSyncOnceAndAwait suspends until the pass it triggers actually finishes`() = runBlocking<Unit> {
+    val owner = SupervisorJob()
+    val ownerScope = CoroutineScope(owner + Dispatchers.Default)
+    val passCount = AtomicInteger()
+    val started = Channel<SyncReason>(Channel.UNLIMITED)
+    val releases = Channel<Unit>(Channel.UNLIMITED)
+    val finished = Channel<Unit>(Channel.UNLIMITED)
+    val coordinator = SyncCoordinator(syncPass = { reason, _ ->
+      started.send(reason)
+      passCount.incrementAndGet()
+      releases.receive()
+      finished.send(Unit)
+    }, pollIntervalMs = Long.MAX_VALUE)
+
+    coordinator.resume(ownerScope)
+    assertEquals(SyncReason.RESUME, withTimeout(2_000) { started.receive() })
+    releases.send(Unit)
+    withTimeout(2_000) { finished.receive() }   // worker back to idle/parked before pausing
+    coordinator.pause()
+
+    val awaitReturned = CompletableDeferred<Unit>()
+    val awaiter = launch(Dispatchers.Default) {
+      coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
+      awaitReturned.complete(Unit)
+    }
+    assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })
+
+    // The BACKGROUND pass is running but has not released yet — requestSyncOnceAndAwait must
+    // still be suspended, exactly the bug the review flagged for the non-suspending version.
+    delay(50)
+    assertFalse(awaitReturned.isCompleted, "must not return before its own pass has finished")
+
+    releases.send(Unit)
+    withTimeout(2_000) { finished.receive() }
+    withTimeout(2_000) { awaitReturned.await() }
+    awaiter.join()
+
+    assertEquals(2, passCount.get())
+    coordinator.close()
+    owner.cancelAndJoin()
+  }
+
+  // The conflation case the review specifically asked to be covered: a waiter that registers
+  // while an EARLIER pass is already in flight must not be satisfied by that earlier pass — only
+  // by the conflated rerun that actually claims its request.
+  @Test fun `requestSyncOnceAndAwait completes only when the conflated rerun finishes, not the pass already in flight`() =
+    runBlocking<Unit> {
+      val owner = SupervisorJob()
+      val ownerScope = CoroutineScope(owner + Dispatchers.Default)
+      val passCount = AtomicInteger()
+      val started = Channel<SyncReason>(Channel.UNLIMITED)
+      val releases = Channel<Unit>(Channel.UNLIMITED)
+      val coordinator = SyncCoordinator(syncPass = { reason, _ ->
+        started.send(reason)
+        passCount.incrementAndGet()
+        releases.receive()
+      }, pollIntervalMs = Long.MAX_VALUE)
+
+      coordinator.resume(ownerScope)
+      assertEquals(SyncReason.RESUME, withTimeout(2_000) { started.receive() })   // pass #1 in flight
+      coordinator.pause()   // paused mid-pass — the same window the earlier CRITICAL review flagged
+
+      val awaitReturned = CompletableDeferred<Unit>()
+      val awaiter = launch(Dispatchers.Default) {
+        coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
+        awaitReturned.complete(Unit)
+      }
+      delay(50)   // let the registration run while pass #1 is still holding releases.receive()
+      assertFalse(
+        awaitReturned.isCompleted,
+        "must not complete from pass #1, which started before this request registered",
+      )
+
+      releases.send(Unit)   // let pass #1 finish
+      assertEquals(SyncReason.BACKGROUND, withTimeout(2_000) { started.receive() })   // conflated rerun
+      assertEquals(2, passCount.get())
+
+      delay(50)
+      assertFalse(
+        awaitReturned.isCompleted,
+        "must not complete until the conflated rerun itself finishes",
+      )
+
+      releases.send(Unit)   // let the conflated rerun (the one servicing this request) finish
+      withTimeout(2_000) { awaitReturned.await() }
+      awaiter.join()
+
+      coordinator.pause()
+      assertEquals(2, passCount.get())
+      coordinator.close()
+      owner.cancelAndJoin()
+    }
+
+  // The other race the review named explicitly: close() must not leave an outstanding
+  // requestSyncOnceAndAwait caller hanging forever when the pass that would have serviced it
+  // never gets to run because the coordinator shuts down first.
+  @Test fun `close fails an outstanding requestSyncOnceAndAwait rather than hanging it`() = runBlocking<Unit> {
+    val owner = SupervisorJob()
+    val ownerScope = CoroutineScope(owner + Dispatchers.Default)
+    val started = CompletableDeferred<Unit>()
+    val coordinator = SyncCoordinator(syncPass = { _, _ ->
+      started.complete(Unit)
+      CompletableDeferred<Unit>().await()   // never releases on its own — close() must cut this off
+    }, pollIntervalMs = Long.MAX_VALUE)
+
+    coordinator.resume(ownerScope)
+    withTimeout(2_000) { started.await() }   // the RESUME pass is in flight and will never finish itself
+    coordinator.pause()
+
+    val outcome = CompletableDeferred<Result<Boolean>>()
+    val awaiter = launch(Dispatchers.Default) {
+      outcome.complete(runCatching { coordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND) })
+    }
+    // Give the registration a moment, then close while the request is still unclaimed — the
+    // conflated rerun that would have serviced it will now never run.
+    delay(50)
+    coordinator.close()
+
+    val result = withTimeout(2_000) { outcome.await() }
+    assertTrue(result.isFailure, "an outstanding waiter must fail, not hang, when close() races it")
+    awaiter.join()
+    owner.cancelAndJoin()
+  }
 }

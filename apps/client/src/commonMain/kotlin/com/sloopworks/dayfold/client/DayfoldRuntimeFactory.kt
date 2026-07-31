@@ -57,14 +57,19 @@ class DayfoldRuntimeGraph internal constructor(
    * MANUAL_REFRESH: that reason publishes a user-facing sync status, and a background wake must be
    * silent.
    *
-   * Uses [SyncCoordinator.requestSyncOnce], not [SyncCoordinator.requestSync]: the runtime is very
-   * often live but PAUSED at exactly this moment (app backgrounded, no Activity in the foreground —
-   * the common case a background wake exists for), and `requestSync` deliberately does nothing but
-   * conflate while paused. `requestSyncOnce` runs one pass through the same worker regardless of
-   * paused state, without restarting the poll loop or flipping the coordinator back to resumed.
+   * Uses [SyncCoordinator.requestSyncOnceAndAwait], not [SyncCoordinator.requestSync]: the runtime
+   * is very often live but PAUSED at exactly this moment (app backgrounded, no Activity in the
+   * foreground — the common case a background wake exists for), and `requestSync` deliberately does
+   * nothing but conflate while paused. `requestSyncOnceAndAwait` runs one pass through the same
+   * worker regardless of paused state, without restarting the poll loop or flipping the coordinator
+   * back to resumed — AND suspends until that pass has actually finished, which this method's own
+   * `suspend` signature promises to its caller (`RefreshDeps.delegateToRuntime`): a headless wake
+   * (WorkManager's `doWork`, iOS's `BGAppRefreshTask`) tells the OS "done" right after this returns,
+   * so returning early — as the non-suspending [SyncCoordinator.requestSyncOnce] would if called
+   * directly — would report success before the sync it triggered had actually run.
    */
-  fun requestBackgroundSync() {
-    syncCoordinator.requestSyncOnce(SyncReason.BACKGROUND)
+  suspend fun requestBackgroundSync() {
+    syncCoordinator.requestSyncOnceAndAwait(SyncReason.BACKGROUND)
   }
 
   /** Replaces the active family with close, join, wipe, and restart ordering. */
