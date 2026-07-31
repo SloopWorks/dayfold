@@ -53,7 +53,7 @@ class DayfoldRuntimeGraph internal constructor(
   /**
    * Requests a silent background sync pass — for a headless caller (WorkManager, BGAppRefreshTask)
    * that finds this graph already live in-process and must delegate to it rather than build its own
-   * refresher (ADR 0020 R3; see AndroidRuntimeHandleHolder). Uses [SyncReason.BACKGROUND], never
+   * refresher (ADR 0020 R3; see RuntimeHandleHolder). Uses [SyncReason.BACKGROUND], never
    * MANUAL_REFRESH: that reason publishes a user-facing sync status, and a background wake must be
    * silent.
    *

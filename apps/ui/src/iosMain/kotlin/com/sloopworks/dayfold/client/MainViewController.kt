@@ -35,14 +35,21 @@ fun MainViewController(): UIViewController {
     debug = kotlin.native.Platform.isDebugBinary,
   ).create()
   // ADR 0020 R3 — register as soon as this runtime is live, mirroring the Android ViewModel's
-  // AndroidRuntimeHandleHolder registration. A headless caller (the BGAppRefreshTask, same process)
-  // must find this handle and delegate to it rather than build an independent refresher — see
-  // IosRuntimeHandleHolder's doc for the reuse-detection sign-out this avoids. Cleared in this
-  // controller's DisposableEffect teardown (IosControllerContent), never left to a delay.
-  IosRuntimeHandleHolder.register { graph.requestBackgroundSync() }
+  // RuntimeHandleHolder registration. A headless caller (the BGAppRefreshTask, same process) must
+  // find this handle and delegate to it rather than build an independent refresher — see
+  // RuntimeHandleHolder's doc for the reuse-detection sign-out this avoids. Cleared in this
+  // controller's DisposableEffect teardown (IosControllerContent), never left to a delay. The
+  // returned token is carried into the composition so that teardown clears THIS registration and
+  // not a newer controller's — registration and disposal are far apart here, and a second
+  // controller can register in between.
+  val runtimeHandleRegistration = RuntimeHandleHolder.register { graph.requestBackgroundSync() }
 
   return ComposeUIViewController {
-    IosControllerContent(graph = graph, contentStore = contentStore)
+    IosControllerContent(
+      graph = graph,
+      contentStore = contentStore,
+      runtimeHandleRegistration = runtimeHandleRegistration,
+    )
   }
 }
 
@@ -51,6 +58,7 @@ fun MainViewController(): UIViewController {
 private fun IosControllerContent(
   graph: DayfoldRuntimeGraph,
   contentStore: ContentStore,
+  runtimeHandleRegistration: suspend () -> Unit,
 ) {
   // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
@@ -143,10 +151,11 @@ private fun IosControllerContent(
     )
 
     onDispose {
-      // Clear FIRST and unconditionally (idempotent) — a stale handle pointing at a runtime that is
-      // now cancelling/cancelled is worse than none, since bgRefresh racing this teardown could
-      // delegate into a graph that will never finish the pass.
-      IosRuntimeHandleHolder.clear()
+      // Clear FIRST — a stale handle pointing at a runtime that is now cancelling/cancelled is
+      // worse than none, since bgRefresh racing this teardown could delegate into a graph that will
+      // never finish the pass. Compare-and-clear: if a replacement controller registered before
+      // this one disposed, its live handle must survive this teardown.
+      RuntimeHandleHolder.clear(runtimeHandleRegistration)
       nc.removeObserver(resumeToken)
       nc.removeObserver(pauseToken)
       lifecycle.dispose()

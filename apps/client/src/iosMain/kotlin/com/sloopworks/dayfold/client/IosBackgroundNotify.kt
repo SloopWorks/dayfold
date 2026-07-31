@@ -175,7 +175,7 @@ fun bgRefresh(onComplete: () -> Unit) {
   refreshJob = refreshScope.launch {
     try {
       val cs = IosContentStoreHolder.get()
-      val delegate = IosRuntimeHandleHolder.get()
+      val delegate = RuntimeHandleHolder.get()
       val outcome = if (delegate == null && IOS_API_BASE.isBlank()) {
         // No live runtime to delegate to, and no configured API base for a direct sync: ktor
         // resolves a schemeless/empty base against its own http://localhost default, so building
@@ -201,7 +201,7 @@ fun bgRefresh(onComplete: () -> Unit) {
               memberships = { cs.cachedMemberships() },
               session = { IosTokenStore().load() },
               // A live runtime (MainViewController's composition) owns the one refresh-token use
-              // for this wake when one is retained — see IosRuntimeHandleHolder's doc for why a
+              // for this wake when one is retained — see RuntimeHandleHolder's doc for why a
               // second, independent refresher here would trip the server's reuse detection.
               delegateToRuntime = delegate,
               syncOnce = { familyId, session ->
