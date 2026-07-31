@@ -170,13 +170,19 @@ pixel↔composable inspector.
   `:ui`/`:client` split shipped (2026-07-02, see `next-history.md`); this
   further split is still queued if the measured payoff isn't enough on its own.
 - **TASK-SYNC REMAINING** (core shipped 2026-06-19, see `next-history.md`) —
-  **R3 background sync**: Android `WorkManager` `PeriodicWorkRequest` + iOS
-  `BGTaskScheduler` `BGAppRefreshTask` (both call the shared
-  `SyncEngine.syncNow`; iOS needs the Xcode iosApp shell first); **push**
-  (FCM/APNs/SSE → `syncNow` hook); **iOS sync-config** plumbing
-  (api/family/secret, the BuildConfig analogue). No `WorkManager`/
-  `PeriodicWorkRequest` wiring found in the tree as of 2026-07-14 — genuinely
-  open.
+  ~~**R3 background sync**~~ landed 2026-07-31 (ADR 0020 R3) **on Android**:
+  `WorkManager` `PeriodicWorkRequest` calls the shared `backgroundRefreshPass`,
+  which drains `/sync` headlessly and reconciles geofences/exact schedules
+  (or delegates to the live app runtime if one is already running, to avoid
+  racing refresh-token rotation). The iOS `BGTaskScheduler` `BGAppRefreshTask`
+  side is also built, scheduled, and cancellation-safe, but it is **not
+  functioning yet** — `IosBackgroundNotify.kt`'s `IOS_API_BASE` is a
+  compile-time `""`, so every wake short-circuits with
+  `skippedReason = "no-ios-api-base"` and only reconciles local reminders, no
+  network pull. iOS R3 stays blocked until the **iOS sync-config** plumbing
+  below lands — do not read iOS background sync as working. Still open:
+  **push** (FCM/APNs/SSE → `syncNow` hook); **iOS sync-config** plumbing
+  (api/family/secret, the BuildConfig analogue).
 - **hub-visibility-flip child fan-out trigger** (from hub-sync PR2 / migration
   0010) — add with the visibility-toggle authoring slice (no M0 actor flips
   hub visibility; authoring is ADR-0016/0029-deferred).
