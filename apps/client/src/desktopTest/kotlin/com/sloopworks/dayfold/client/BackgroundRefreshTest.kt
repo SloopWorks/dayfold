@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -19,6 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 
 class BackgroundRefreshTest {
+
+  private val NOW = "2026-07-31T12:00:00Z"
 
   // No cached family (fresh install, or signed out) → the pass does nothing at all.
   // It must NOT attempt a network call it cannot authorize.
@@ -90,6 +93,67 @@ class BackgroundRefreshTest {
     assertTrue(reconciled)
     assertTrue(outcome.reconciled)
   }
+
+  // CRITICAL (final review) — the headless writer must not disarm the client cache heal.
+  // applyDelta stamps CLIENT_SCHEMA_VERSION unconditionally and reconcileSchemaVersion skips its
+  // wipe once the stored tag is >= current, so a drain onto an un-healed cache permanently strands
+  // the old-model rows. This test pins the mechanism the fix exists to prevent: it asserts the
+  // WRONG (pre-fix) end state, so it fails the moment anyone routes a headless writer through
+  // backgroundRefreshPass directly again.
+  @Test fun `an unhealed headless drain stamps the version and strands stale rows forever`() = runBlocking {
+    val (store, driver) = staleSchemaStore()
+
+    backgroundRefreshPass(
+      deps = deps(sync = { store.applyDelta(listOf(card("fresh")), emptyList(), emptyList(), emptyList(), emptyList(), "c2", NOW) }),
+      budget = 30.seconds,
+    )
+
+    // The drain stamped the running build's version over a cache written by the older model...
+    assertEquals(CLIENT_SCHEMA_VERSION, store.schemaVersion())
+    // ...so the foreground heal on the next app open is now a no-op and the stale row survives.
+    store.reconcileSchemaVersion()
+    assertTrue(store.activeCards().any { it.id == "stale" }, "the heal never gets a second chance")
+    driver.close()
+  }
+
+  // The fix: the headless entry point heals FIRST, so the drain rebuilds from -∞ instead of
+  // stamping over old-model rows.
+  @Test fun `headlessRefreshPass heals an older-schema cache before the drain writes`() = runBlocking {
+    val (store, driver) = staleSchemaStore()
+    var cursorSeenBySync: String? = "not-called"
+
+    headlessRefreshPass(
+      contentStore = store,
+      databaseDispatcher = Dispatchers.Unconfined,
+      deps = deps(
+        sync = {
+          cursorSeenBySync = store.cursor()
+          store.applyDelta(listOf(card("fresh")), emptyList(), emptyList(), emptyList(), emptyList(), "c2", NOW)
+        },
+      ),
+      budget = 30.seconds,
+    )
+
+    // Heal ran BEFORE the sync: the cursor was reset, so the drain asked for everything again.
+    assertNull(cursorSeenBySync)
+    assertFalse(store.activeCards().any { it.id == "stale" }, "old-model row wiped by the heal")
+    assertTrue(store.activeCards().any { it.id == "fresh" }, "the drain still applied after the heal")
+    assertEquals(CLIENT_SCHEMA_VERSION, store.schemaVersion())
+    driver.close()
+  }
+
+  /** A cache seeded by an "older build": real rows + cursor, tagged one schema version behind. */
+  private fun staleSchemaStore(): Pair<ContentStore, JdbcSqliteDriver> {
+    val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+    val store = ContentStore.create(driver)
+    store.applyDelta(listOf(card("stale")), emptyList(), emptyList(), emptyList(), emptyList(), "c1", NOW)
+    // applyDelta stamps the CURRENT version; rewrite the tag to what the previous build would have
+    // left, which is the only state reconcileSchemaVersion is supposed to heal.
+    driver.execute(null, "UPDATE sync_meta SET client_schema_version = ${CLIENT_SCHEMA_VERSION - 1} WHERE id = 0", 0)
+    return store to driver
+  }
+
+  private fun card(id: String) = Card(id = id, kind = "info", title = id, provenance = Provenance("claude"))
 
   private fun deps(
     memberships: List<FamilyMembership> = listOf(FamilyMembership(familyId = "f1")),

@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client
 
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 // ADR 0020 R3 — the headless refresh pass both platforms call (Android WorkManager,
@@ -33,6 +34,34 @@ data class RefreshOutcome(
   val delegated: Boolean = false,
   val skippedReason: String? = null,
 )
+
+/**
+ * THE entry point for a headless wake that may WRITE to the cache (Android's RefreshWorker, iOS's
+ * BGAppRefreshTask). Heals a cache written under an older content-schema
+ * ([ContentStore.reconcileSchemaVersion], issue #283) and only then runs [backgroundRefreshPass].
+ *
+ * The ordering is not a nicety, it is the whole point. [ContentStore.applyDelta] ends by stamping
+ * the cache with the RUNNING build's [CLIENT_SCHEMA_VERSION], and `reconcileSchemaVersion` skips
+ * its wipe once the stored tag is >= the current one. So a headless drain onto an un-healed cache
+ * stamps the new version over old-model rows and permanently disarms the one-shot heal: the app
+ * updates overnight (3 → 4), WorkManager work survives the update, the worker fires before the user
+ * ever opens the app, and the foreground `reconcileSchemaVersion` then reads 4 == 4 and does
+ * nothing — leaving exactly the stale rows it exists to purge, with no second chance on that
+ * install. Until this pass existed every headless path was read-only, which is why the foreground
+ * callers ([SyncEngine.start], `DayfoldRuntimeFactory`) were the only ones that needed to heal.
+ *
+ * Runs on [databaseDispatcher] because the heal is a synchronous multi-statement DB transaction
+ * (it enters the store's own write gate, so it cannot overlap a foreground writer).
+ */
+suspend fun headlessRefreshPass(
+  contentStore: ContentStore,
+  databaseDispatcher: CoroutineDispatcher,
+  deps: RefreshDeps,
+  budget: Duration,
+): RefreshOutcome {
+  withContext(databaseDispatcher) { contentStore.reconcileSchemaVersion() }
+  return backgroundRefreshPass(deps, budget)
+}
 
 suspend fun backgroundRefreshPass(deps: RefreshDeps, budget: Duration): RefreshOutcome {
   // A live runtime owns the session and the cursor. Hand it the work and stop.
