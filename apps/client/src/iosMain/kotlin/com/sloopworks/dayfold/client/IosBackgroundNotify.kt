@@ -211,7 +211,9 @@ fun bgRefresh(onComplete: () -> Unit) {
                   databaseDispatcher = Dispatchers.Default,
                   familyId = familyId,
                   session = session,
-                  refreshAccess = { refresh -> iosRefreshAccess(http, refresh) },
+                  refreshAccess = { refresh ->
+                    headlessRefreshAccess(AuthClient(IOS_API_BASE, http), IosTokenStore(), refresh)
+                  },
                   nowIso = { Clock.System.now().toString() },
                 )
               },
@@ -237,21 +239,6 @@ fun bgRefresh(onComplete: () -> Unit) {
     }
   }
 }
-
-/**
- * The one refresh attempt [headlessSync] is allowed on a 401. MUST persist the rotated session
- * before returning: `POST /auth/refresh` has already rotated the lineage server-side by the time
- * this call returns (AuthClient.kt), so if the new refresh token is not written back to
- * [IosTokenStore], the NEXT wake (or the next foreground sign-in) would present the
- * now-superseded token and trip reuse detection — the exact sign-out this delegation scheme
- * exists to avoid. A thrown [AuthHttpException] here (e.g. the lineage really was revoked) is
- * swallowed to null on purpose: headlessSync then re-throws the ORIGINAL 401 rather than this
- * refresh's own error, and does not retry.
- */
-private suspend fun iosRefreshAccess(http: HttpClient, refresh: String): Session? =
-  runCatching { AuthClient(IOS_API_BASE, http).refresh(refresh) }
-    .onSuccess { IosTokenStore().save(it) }
-    .getOrNull()
 
 /** Called from the BGTask expirationHandler — stop immediately so iOS is not forced to kill us. */
 fun bgCancelRefresh() {
