@@ -144,7 +144,29 @@ freshness claim in the UI must derive from `last_synced_at` and the forecast TTL
 never from "the worker should have run." We document the buckets rather than
 designing around them; the timeliness-critical path stays the exact alarm.
 
-### A.7 Testing
+### A.7 Network inside a background wake
+
+A forecast fetch is the first network call the pass makes that isn't the sync
+engine, and both platforms punish overrun differently — iOS kills the app and
+reduces future scheduling, Android burns quota.
+
+- **Ktor timeouts must be explicit and shorter than the wake budget.** The
+  default is effectively unbounded for this purpose. A request timeout of a few
+  seconds per cell, with the whole forecast step capped well inside the ~30 s iOS
+  grant.
+- **A timeout is "no forecast", not a retry.** Retrying inside the wake spends
+  the budget that the reconcile step (which must run) still needs. The fail-open
+  gate (B.6) already handles an absent forecast correctly, so the cheapest
+  correct behavior is to give up and let the next wake try.
+- **Jitter the TTL per device.** Every install refreshing on the same wall-clock
+  boundary is a self-inflicted spike against a free-tier provider. A few minutes
+  of per-device jitter removes it at no cost.
+- **Skip forecast refresh on metered networks when nothing needs it soon** — if
+  the nearest weather-conditioned window is more than a few hours out, the fetch
+  can wait for the next wake. Sync itself still runs; this defers only the
+  forecast step.
+
+### A.8 Testing
 
 `backgroundRefreshPass` is pure orchestration over injected seams — fake sync
 engine, fake weather provider, fake reconciler — so budget exhaustion, partial
@@ -223,6 +245,92 @@ WeatherCache     (SQLDelight table)      — cell → hourly forecast + fetchedA
 weatherMatches() (pure fn)               — condition × forecast × window → Boolean
 ```
 
+#### B.4.1 The provider boundary normalizes time and units — non-negotiable
+
+**Open-Meteo returns naked local datetimes**: `"time": ["2026-07-31T15:00", …]`,
+with no offset, whose meaning depends on the `timezone` request parameter.
+Feeding those strings to the existing helpers **fails silently**: `normalizeTs`
+only repairs offset *formats* (`-07` → `-07:00`), so `Instant.parse` rejects an
+offset-less value, and `parseInstantFlexible`'s date-only fallback rejects it too
+because it carries a time component. The result is `null` for every forecast
+hour. Combined with the fail-open gate in B.6, **nothing would hide, nothing
+would error, and the feature would appear to work while never matching once.**
+
+So the rule is absolute: **the provider impl converts to absolute `Instant` at
+the seam. A naked local-datetime string never enters the domain model.** The
+normalized `Forecast` is:
+
+```
+Forecast(
+  cell: GridCell,
+  zone: String,            // IANA, e.g. "America/New_York" — see B.4.2
+  fetchedAt: Instant,
+  hours: List<ForecastHour>            // each: startsAt: Instant (see B.4.3)
+)
+ForecastHour(startsAt, precipMm, snowCm, windKph, tempC, code)
+```
+
+Units are normalized here too, because vendors disagree: Open-Meteo reports
+`snowfall` in **cm** while precipitation is in **mm**, and NWS reports SI values
+tagged with `unitCode` strings and requires a two-step (`/points` →
+`/gridpoints`) lookup. Normalizing at the seam is what keeps the authored
+vocabulary vendor-neutral and the swap a one-class change.
+
+#### B.4.2 A wall-clock window resolves in the *place's* zone, not the device's
+
+`window: { from: "14:00", to: "18:00" }` is wall-clock, and the two candidate
+zones genuinely differ in dayfold's core case: a `vacation` hub whose places are
+in another timezone. "Rain at soccer 2–6 pm" means 2–6 pm **at the field**.
+
+`Place` carries no timezone (`id, kind, label, lat, lng, radius_m`). Rather than
+add one, take it from the forecast: Open-Meteo with `timezone=auto` returns the
+IANA `timezone` for the queried point, which we cache on the `Forecast`.
+Resolution order: **the forecast's IANA zone → the hub's `timeline.tz`** (already
+required there, ADR 0045) **→ the device zone**, with the fallback recorded so a
+window resolved against the device zone can be excluded from the honesty chip.
+
+**Store the IANA zone string, never `utc_offset_seconds`.** The offset is a
+single value for the whole response; a 7-day horizon can cross a DST boundary,
+after which every hour computed from that offset is an hour wrong. kotlinx-datetime
+resolves DST correctly from the zone id.
+
+#### B.4.3 Precipitation is backward-looking — the hour label is not the start
+
+Open-Meteo defines precipitation as the **"sum of preceding hour"**: the hour
+labeled `15:00` contains rain that fell between 14:00 and 15:00. Treating the
+label as the moment rain begins makes every "leave before the rain" alert
+systematically **up to an hour late**, which is the entire value of the feature.
+
+`ForecastHour.startsAt` is therefore the **start of the covered interval**
+(label − 1 h for accumulations), computed in the provider impl, and "the first
+instant the condition becomes true" (B.5) uses `startsAt`. Instantaneous
+variables (`temperature_2m`, `wind_speed_10m`) are point samples at the label and
+are converted accordingly — another reason this arithmetic belongs in the impl
+rather than in the matcher.
+
+Resolution is hourly, so weather timing is ±1 h at best. The UI must not render
+minute-precision weather times, and `alert_offset` on a weather trigger is
+documented as relative to the hour start.
+
+#### B.4.4 Vocabulary maps to derived quantities, not vendor variables
+
+Open-Meteo's `rain` covers "rain from large scale weather systems" and
+**excludes** `showers` (convective) — so a summer thunderstorm downpour would not
+match `condition: "rain"` if mapped naively to the same-named field. The mapping
+is therefore explicit and lives in the impl:
+
+| Condition | Derived from | Threshold field | Unit |
+|---|---|---|---|
+| `rain` | `rain + showers` | `min_mm` | mm |
+| `snow` | `snowfall` | `min_cm` | **cm**, not mm |
+| `wind` | `wind_speed_10m` | `min_kph` | km/h |
+| `hot` / `cold` | `temperature_2m` | `min_c` / `max_c` | °C |
+| `clear` | `weather_code ∈ {0, 1}` | — | WMO |
+
+`clear` is the one condition with no numeric threshold and therefore the only
+vendor-coupled one; the coupling is isolated in the impl, and a future provider
+without WMO codes derives it from "no precipitation and low cloud cover."
+
 `nowFeed(state, nowIso, location, **weather**, …)` gains a fourth injected
 ambient input: a `WeatherSnapshot` of already-fetched forecasts keyed by grid
 cell. It stays pure — no IO enters the selector, mirroring how location is
@@ -235,6 +343,72 @@ Fetching lives in `refreshForecasts` (Part A step 2): the distinct grid cells
 referenced by weather conditions in *active* content, typically under ten per
 family, refreshed when older than a 1–3 h TTL. Roughly 40 calls/day/family — both
 candidate providers' free tiers are orders of magnitude clear of that.
+
+### B.4.5 Storage — migration, resync, and the wipe taxonomy
+
+Two changes to the cache, and they follow **opposite** rules. Migration `12.sqm`
+states the distinction explicitly: *"No `CLIENT_SCHEMA_VERSION` bump: this is not
+synced content, so no resync is needed. Additive."*
+
+**`weather_cache` — local, derived, not synced.** New table in `13.sqm`,
+additive, **no** version bump. Keyed by grid cell:
+
+```sql
+CREATE TABLE weather_cache (
+  cell        TEXT NOT NULL PRIMARY KEY,   -- rounded "lat,lng", the query key
+  zone        TEXT NOT NULL,               -- IANA (B.4.2)
+  hours       TEXT NOT NULL,               -- JSON [{startsAt,precipMm,snowCm,windKph,tempC,code}]
+  fetched_at  TEXT NOT NULL
+);
+```
+
+JSON-in-a-TEXT-column matches how `card.triggers`, `payload`, and `media` are
+already stored and decoded at projection.
+
+**`show_when` — a decoded field on synced content. This one needs a
+`CLIENT_SCHEMA_VERSION` bump, 3 → 4.** The precedent is exact: version 2 → 3 was
+the same situation for `triggers` (#299). `ContentStore.kt:249` explains why —
+an older content model dropped the unknown field via `ignoreUnknownKeys` *and
+advanced the cursor past those rows*, so the incremental cursor can never
+backfill it; only a forced full resync heals the cache.
+
+Skipping this bump is the second silent failure in this design: every card
+already in the cache would carry `show_when = NULL`, so its gate would never
+evaluate, and because the gate fails open (B.6) the cards would all simply keep
+showing. No error, no missing data, no symptom — just a feature that quietly does
+nothing for existing content while working perfectly on anything authored after
+the upgrade.
+
+The weather *trigger* variant needs **no** migration: `card.triggers` and
+`hub_block.triggers` are already JSON TEXT columns, so a fourth variant rides
+free — the same reason `activity` cost nothing to reserve.
+
+**Scope call: cards only in v1.** `show_when` goes on `card`; `hub_block` gets it
+later if wanted. Hiding a block inside a hub the user deliberately opened is more
+confusing than filtering a feed, and it doubles the surface for no proven need.
+
+**Wipe taxonomy** — three wipes exist and the weather cache belongs to a
+different class than either existing group:
+
+| Wipe | Purpose | `weather_cache` |
+|---|---|---|
+| `wipe()` | Tenancy revocation | **Cleared.** The cells are derived from that family's places. |
+| `wipeForResync()` | Staleness reset; preserves `hidden` + `surfacing_state` | **Preserved.** A content resync says nothing about the weather at a grid cell, and re-fetching would be a pointless network round-trip. |
+| `wipeSyncedContent()` | Schema-version heal | **Preserved**, same reasoning. |
+
+**Pruning is mandatory, and there is a cautionary precedent in the tree.**
+`notification_log` is inserted into on every notification and cleared *only* by
+the full `wipe()` — `planBackgroundNotifications` then loads the entire table on
+every background wake just to count today's rows. It grows without bound for the
+life of the install. `weather_cache` must not repeat this: every write deletes
+rows whose `fetched_at` is older than the TTL, keeping the table bounded by the
+number of active cells (typically under ten) rather than by time. Filing the
+`notification_log` prune as a separate small fix is recommended; it is a
+pre-existing bug, not one this work introduces.
+
+**Writes are per-cell atomic.** Each cell commits as it is fetched rather than
+one transaction at the end, so a background wake killed mid-pass keeps the cells
+it already got — the same resumability the keyset cursor gives sync.
 
 ### B.5 Scheduling — a forecast converts weather into a known instant
 
@@ -336,8 +510,8 @@ snapshot suite (macOS + Linux sets; see `processes/agent-dev-loop.md`).
 | Slice | Contents | Gate |
 |---|---|---|
 | **A1** | `backgroundRefreshPass` + Android WorkManager + iOS BGTask sync + expiration-handler fix | None — ADR 0020 R3 Accepted |
-| **B1** | `WeatherProvider` seam, cache, pure matcher, fake provider | New ADR |
-| **B2** | `show_when` gate + `weather` trigger through `nowFeed`, schema, CLI template, curator skill | New ADR |
+| **B1** | `WeatherProvider` seam (instant/unit normalization at the boundary), `weather_cache` table in `13.sqm`, pure matcher, fake provider | New ADR |
+| **B2** | `show_when` gate + `weather` trigger through `nowFeed`, **`CLIENT_SCHEMA_VERSION` 3→4**, schema, CLI template, curator skill | New ADR |
 | **B3** | Aggregate card + iconography, behind `WeatherConfig` | New ADR + design mockup |
 
 A1 is independently valuable and ships alone: it makes cold start fresh, and it
@@ -347,8 +521,8 @@ fixes background notifications firing off unsynced content.
 
 - **OQ-weather-vendor** — Open-Meteo (licensing cliff at monetization) vs NWS
   (US-only). Operator + ADR.
-- **OQ-weather-tz** — a condition's `window` (`"14:00"–"18:00"`) is wall-clock;
-  resolve it in the hub's timeline `tz` where one exists, else the device zone.
-  Needs confirming against how `DeriveTimeline` already handles `tz`.
+- ~~**OQ-weather-tz**~~ — **resolved in B.4.2**: resolve in the forecast's IANA
+  zone (from `timezone=auto`), falling back to the hub's `timeline.tz`, then the
+  device zone. `Place` needs no new column.
 - **OQ-refresh-interval** — 30 min is a starting point, not a measurement. Revisit
   against real battery and bucket data from dogfood.
