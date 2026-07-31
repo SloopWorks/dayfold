@@ -113,9 +113,12 @@ fun reRegisterGeofences() {
   }
 }
 
-// BGTaskScheduler handler entry (registered in Swift AppDelegate). Reconcile-only: neither lane needs a
-// BGTask to DELIVER (region monitoring wakes the app; scheduled local notifs fire directly) — this just
-// keeps the region set + exact schedules fresh opportunistically. Re-submit is done on the Swift side.
+// The reconcile half of a background wake, called by [bgRefresh] (ADR 0020 R3) — it was the whole BGTask
+// handler before the refresh lane existed. Neither notification lane needs a BGTask to DELIVER (region
+// monitoring wakes the app; scheduled local notifs fire directly); this just keeps the region set + the
+// exact schedules fresh opportunistically. Both halves are mandatory and must stay in step with Android's
+// reconcile lambda (reRegisterGeofences + reconcileExactSchedules) — dropping either silently regresses
+// ADR 0044: geofences go stale as places sync in, or freshly-synced timed triggers never get armed.
 fun bgReconcile() {
   reRegisterGeofences()
   reconcileExactSchedules()
@@ -124,10 +127,10 @@ fun bgReconcile() {
 // ── BGAppRefreshTask entry — sync + reconcile ──────────────────────────────────────────────────────
 // ADR 0020 R3 — the iOS BGAppRefreshTask entry point. Bounded at 25s, comfortably inside the
 // ~30s the system grants, so the expiration handler (bgCancelRefresh, below) is a backstop rather
-// than the normal exit. Kept separate from bgReconcile: that lane stays synchronous for its existing
-// callers (region-enter delegate), while this one is genuinely asynchronous (network I/O), which is
-// exactly why the Swift side must complete the BGTask from inside [onComplete], never right after
-// this call returns — see the doc there.
+// than the normal exit. It CONTAINS the old reconcile-only lane (it calls bgReconcile on every exit
+// path, including the skip) rather than replacing it; the difference is that this one is genuinely
+// asynchronous (network I/O), which is exactly why the Swift side must complete the BGTask from
+// inside [onComplete], never right after this call returns — see the doc there.
 private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 // @Volatile — review round 2: written on the BGTask handler's thread, read by bgCancelRefresh()
 // from iOS's expiration-handler thread (a different one). Kotlin/Native gives no visibility
@@ -183,12 +186,17 @@ fun bgRefresh(onComplete: () -> Unit) {
         // BuildConfig analogue)" as the open gap; until it lands, reconcile is still local and
         // cheap, so it still runs — mirrors backgroundRefreshPass's own no-family/no-session
         // skip shape.
-        reconcileExactSchedules()
+        bgReconcile()
         RefreshOutcome(reconciled = true, skippedReason = "no-ios-api-base")
       } else {
         val http = HttpClient()
         try {
-          backgroundRefreshPass(
+          // headlessRefreshPass, NOT backgroundRefreshPass: this task is a cache WRITER, so it
+          // must heal an older-schema cache before it stamps the running build's version over it.
+          // See that function's doc for the overnight-app-update failure this ordering prevents.
+          headlessRefreshPass(
+            contentStore = cs,
+            databaseDispatcher = Dispatchers.Default,
             deps = RefreshDeps(
               memberships = { cs.cachedMemberships() },
               session = { IosTokenStore().load() },
@@ -207,7 +215,10 @@ fun bgRefresh(onComplete: () -> Unit) {
                   nowIso = { Clock.System.now().toString() },
                 )
               },
-              reconcile = { reconcileExactSchedules() },
+              // bgReconcile(), not reconcileExactSchedules() alone — the refresh lane must keep
+              // doing everything the reconcile-only BGTask lane did before it (ADR 0044's
+              // opportunistic geofence re-registration), and it must match Android's reconcile.
+              reconcile = { bgReconcile() },
             ),
             budget = 25.seconds,
           )

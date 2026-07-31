@@ -79,13 +79,22 @@ internal suspend fun runBackgroundRefresh(context: Context): RefreshOutcome {
   val cs = AndroidContentStoreHolder.get(context)
   val http = HttpClient()
   return try {
-    backgroundRefreshPass(
+    // headlessRefreshPass, NOT backgroundRefreshPass: this worker is a cache WRITER, so it must
+    // heal an older-schema cache before it stamps the running build's version over it. See that
+    // function's doc for the overnight-app-update failure this ordering prevents.
+    headlessRefreshPass(
+      contentStore = cs,
+      databaseDispatcher = Dispatchers.Default,
       deps = RefreshDeps(
         memberships = { cs.cachedMemberships() },
         session = { AndroidTokenStore(context).load() },
         delegateToRuntime = AndroidRuntimeHandleHolder.get(),
         syncOnce = { familyId, session -> androidHeadlessSync(context, cs, http, familyId, session) },
-        reconcile = { reRegisterGeofences(context) },
+        // BOTH halves, mirroring iOS's bgReconcile(). Geofences alone would leave the exact
+        // (time-triggered) lane un-armed: a card whose trigger syncs in at 3am has no alarm set
+        // until the user next opens MainActivity, so the reminder the sync just made possible
+        // never fires — which is the whole point of the pass.
+        reconcile = { reRegisterGeofences(context); reconcileExactSchedules(context) },
       ),
       budget = 60.seconds,
     )
