@@ -1,7 +1,11 @@
 # Background refresh (ADR 0020 R3) + weather-conditional content
 
 **Date:** 2026-07-31
-**Status:** Design approved in-session; Part B gated on a new ADR + a design-first mockup.
+**Status:** Part A **built and merged** (PR #364). **Part B is PARKED as of
+2026-07-31** — the design pass ran (`designs/weather/`) and the operator did
+**not** sign off, so the ADR 0008 gate is unmet and no build may start. The
+document stays as the record of what was designed and what the design pass found;
+resuming means a fresh design round, then the ADR, then B1–B3.
 **Scope:** `:client` commonMain + Android/iOS glue, content schema, CLI, curator skill.
 **Depends on:** ADR 0020 (Accepted 2026-07-31), ADR 0040, ADR 0043, ADR 0044, ADR 0014, ADR 0049.
 
@@ -327,6 +331,13 @@ is therefore explicit and lives in the impl:
 | `hot` / `cold` | `temperature_2m` | `min_c` / `max_c` | °C |
 | `clear` | `weather_code ∈ {0, 1}` | — | WMO |
 
+**The weather glyph names must stay disjoint from the `media.icon` enum, and the
+server must reject a weather name in `media.icon`.** ADR 0036 validates `icon`
+against a curated set; if a weather name were ever added to it, a curator could
+author a weather glyph as a card's identity icon, which would eventually
+contradict live conditions — the exact failure device-derived glyphs exist to
+prevent. State this in the ADR.
+
 `clear` is the one condition with no numeric threshold and therefore the only
 vendor-coupled one; the coupling is isolated in the impl, and a future provider
 without WMO codes derives it from "no precipitation and low cloud cover."
@@ -418,6 +429,13 @@ inside the forecast horizon. That is a `triggerAtIso`, which flows into the
 **existing** `planExactSchedules` → `ExactNotificationScheduler`. No new wake
 mechanism, no polling loop for the notify path.
 
+**One cause must not fire two notifications.** `planExactSchedules` schedules
+per *item*, so two cards gated on the same rain window would each arm their own
+alert — the aggregate solves this in the feed but not in the notification lane.
+The grouping predicate that builds the aggregate has to be shared with
+`planExactSchedules` so a single cause produces a single notification. (Design
+pass, 2026-07-31; the shared predicate is B3 work.)
+
 **iOS needs one extra step, and it is in scope.** Android re-runs the full pass
 at fire time, so a forecast that changed self-corrects. iOS pre-bakes the spec at
 schedule time (`IosBackgroundNotify.kt:16`) and fires it as-authored — a 3 pm rain
@@ -438,6 +456,21 @@ is worse than showing it when it isn't.
   icon render **only** on a fresh confirmed match. Unverified means no chip, not
   a guessed one. This keeps ADR 0014's honesty posture intact.
 - Stale beyond TTL is treated as absent rather than trusted.
+
+**The rule above governs rendering, not the curator's copy — and that gap is a
+blocking gate on B2.** (Found by the design pass, 2026-07-31.) Suppressing the
+chip stops *the app* claiming unverified weather, but it does nothing about a
+card whose authored title says "Rain at soccer 4 pm — pack jackets." On a
+fail-open dry day that prose is still on screen, asserting weather nobody
+confirmed, and no client-side rule can retract it.
+
+So weather-conditional copy must be authored **condition-neutral — true on a dry
+day** ("Pack jackets for soccer", not "Rain at soccer 4 pm"). The weather claim
+is carried *only* by the chip and glyph, which the device controls: the chip then
+only ever **adds** evidence, and removing it leaves an ordinary, still-true card
+rather than a hole. This has to be an enforced rule in the curator skill and the
+`dayfold template` starter, plus an author-side `dayfold push` check — not a
+convention someone remembers.
 
 ### B.7 The aggregate card (flagged, default off)
 
@@ -479,7 +512,12 @@ chosen here; this is a vendor decision for the ADR.
   market.
 - **Apple WeatherKit** — 500 k calls/month free on the $99/yr Apple Developer
   Program already required for iOS distribution, commercially licensed, and its
-  mandatory attribution link doubles as the forecast link. **Rejected as the first
+  mandatory attribution link doubles as the forecast link. **But attribution is
+  not aggregate-only** (design pass, 2026-07-31): its terms require attribution
+  wherever weather data is displayed, and a qualified card showing a weather chip
+  *is* displaying weather data — so WeatherKit means an attribution line on every
+  such card, not just the aggregate. That is a real, recurring calm cost and it
+  belongs in the vendor decision rather than being discovered after it. **Rejected as the first
   impl** because REST requires ES256-signed JWTs: a private key cannot ship in an
   app binary and Android has no native path, so it forces a server proxy. That
   proxy is harmless today (E2EE is Proposed; the server already holds place
@@ -501,7 +539,13 @@ snapshot suite (macOS + Linux sets; see `processes/agent-dev-loop.md`).
 2. **ADR 0008 design-first** — the aggregate card and the weather chip need a
    `designs/` mockup with operator sign-off before build.
 3. **Curator skill + CLI** — new authoring section, a `dayfold template` starter,
-   and the rule that weather-sensitive content authors both branches.
+   the rule that weather-sensitive content authors both branches, and the
+   **condition-neutral copy rule** from B.6 with a `dayfold push` check behind it.
+   The design pass treats that rule as blocking B2, and so does this spec.
+4. **Retire the standing forecast readout.** `Now-Phone.dc.html` carries a
+   subtitle reading "68°F, rain later" — a forecast readout that predates this
+   design and contradicts its first constraint. The design pass removed it in
+   `designs/weather/`; the build must not inherit it.
 
 ---
 

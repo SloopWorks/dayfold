@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;">
+
+  <div style="margin-bottom:34px;max-width:880px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Weather-conditional</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">04 · Mixed provenance &amp; the hidden card</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 10px;max-width:22ch;">Two claims, one group, no wall of chips</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0;max-width:82ch;">The aggregate is derived, so its honest chip is <b>“Matched on your device.”</b> Its constituents are authored, so theirs read <b>“Added by Claude.”</b> Flattening those into one label would be a lie in whichever direction it went. Printing all three at once would be the chip wall the calm feed exists to prevent.</p>
+  </div>
+
+  <!-- the decision -->
+  <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px 30px;margin-bottom:40px;max-width:1180px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:20px;color:#C0381E;">gavel</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Resolved · the spec gap</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:26px;letter-spacing:-0.015em;margin:0 0 10px;max-width:34ch;">Provenance attaches to the claim, not to the container</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;margin:0 0 8px;max-width:86ch;">The group header makes exactly one claim — <i>this condition matched</i> — and carries exactly one chip for it. It never speaks for its children. Each child makes its own claim and carries its own chip. There is no group-level provenance, because a group is not a source.</p>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;margin:0 0 8px;max-width:86ch;">The wall is avoided by <b>weight, not by omission</b>. While a child is collapsed to a row, its origin renders as the chip’s glyph alone — the same <code style="font-family:monospace;background:#FCEBE6;padding:1px 6px;border-radius:5px;font-size:12.5px;">auto_awesome</code> mark, in the same violet provenance role, without the pill and the words. Expand the child and the mark <i>grows into</i> the full chip. Nothing is ever hidden and nothing is ever merged; the same claim is simply said at the volume the row can carry.</p>
+    <p style="font-family:'Outfit';font-weight:600;font-size:19px;line-height:1.4;color:#271814;margin:0 0 24px;max-width:50ch;">One visible surface, one claim, one mark. Never two chips describing one thing, never one chip describing two.</p>
+
+    <!-- ladder -->
+    <div style="display:flex;gap:22px;flex-wrap:wrap;">
+      <sc-for list="{{ ladder }}" as="l" hint-placeholder-count="2">
+        <div style="flex:0 0 366px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ l.tagFg }};background:{{ l.tagBg }};border-radius:999px;padding:3px 10px;width:fit-content;margin-bottom:12px;">{{ l.tag }}</div>
+          <div style="background:{{ l.wellBg }};border:1px solid {{ l.wellBorder }};border-radius:28px;padding:16px 12px 12px;">
+            <div style="padding:0 7px;">
+              <div style="display:flex;align-items:flex-start;gap:13px;">
+                <span style="width:42px;height:42px;flex:0 0 42px;border-radius:14px;background:{{ l.tileBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:{{ l.tileFg }};">rainy_heavy</span></span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'Outfit';font-weight:600;font-size:19px;line-height:1.18;color:{{ l.onSurface }};margin-bottom:4px;">Rain 3–6 pm — affects two things</div>
+                </div>
+              </div>
+              <div style="margin-top:12px;">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ l.privFg }};background:{{ l.privBg }};border:1px solid {{ l.privBorder }};border-radius:8px;padding:5px 8px;"><span class="msr fill" style="font-size:13px;">verified_user</span>Matched on your device</span>
+                <span style="font-family:'Figtree';font-size:10.5px;color:{{ l.onVar }};margin-left:8px;">← the header’s only claim</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin:15px 7px 10px;">
+              <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.07em;color:{{ l.onVar }};">WHAT IT CHANGES</span>
+              <span style="flex:1;height:1px;background:{{ l.rule }};"></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px;">
+              <sc-for list="{{ l.kids }}" as="k" hint-placeholder-count="2">
+                <sc-if value="{{ k.isRow }}" hint-placeholder-val="{{ true }}">
+                  <div style="background:{{ l.childBg }};border-radius:18px;padding:12px 13px;box-shadow:{{ l.childShadow }};display:flex;align-items:center;gap:11px;">
+                    <span style="flex:1;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ l.onSurface }};">{{ k.title }}</span>
+                    <span class="msr" style="font-size:15px;color:{{ l.provFg }};">auto_awesome</span>
+                    <span class="msr" style="font-size:19px;color:{{ l.onVar }};">chevron_right</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ k.isCard }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:{{ l.childBg }};border-radius:20px;padding:14px 15px 12px;box-shadow:{{ l.childShadow }};">
+                    <div style="font-family:'Outfit';font-weight:600;font-size:16px;line-height:1.2;color:{{ l.onSurface }};margin-bottom:5px;">{{ k.title }}</div>
+                    <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ l.onVar }};">{{ k.rec }}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;">
+                      <span style="display:inline-flex;align-items:center;gap:6px;color:{{ l.primary }};font-family:'Figtree';font-weight:600;font-size:13px;">{{ k.act }}<span class="msr" style="font-size:15px;">arrow_outward</span></span>
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:10.5px;font-weight:500;color:{{ l.provFg }};background:{{ l.provBg }};border:1px solid {{ l.provBorder }};border-radius:8px;padding:5px 8px;"><span class="msr" style="font-size:13px;">auto_awesome</span>Added by Claude</span>
+                    </div>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:#5A423C;margin-top:13px;max-width:40ch;">{{ l.note }}</div>
+        </div>
+      </sc-for>
+
+      <!-- rules -->
+      <div style="flex:0 0 330px;">
+        <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;margin-bottom:14px;">The rules that follow</div>
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="5">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:15px;">
+            <span class="msr" style="font-size:18px;color:#00796F;margin-top:1px;">check_circle</span>
+            <span style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#3D2D28;"><b>{{ r.what }}</b> — {{ r.why }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- the sheet -->
+  <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px 30px;margin-bottom:40px;max-width:1180px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:20px;color:#0B5048;">verified_user</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Tap any chip or mark</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:24px;letter-spacing:-0.015em;margin:0 0 8px;">The words are one tap away, and they include the network</h2>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 24px;max-width:88ch;">The same ModalBottomSheet the other honesty chips already open, extended with a weather section. This is where the two claims are spelled out in full and where the sheet has to be careful: a forecast fetch is the <b>first request this app makes to a third party</b>, so the “on your device” language that is literally true of the match must not be allowed to imply nothing left the device. The sheet says exactly what was sent, and to whom.</p>
+    <div style="display:flex;gap:34px;flex-wrap:wrap;">
+      <sc-for list="{{ sheets }}" as="s" hint-placeholder-count="2">
+        <div style="flex:none;width:390px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ s.tagFg }};background:{{ s.tagBg }};border-radius:999px;padding:3px 10px;width:fit-content;margin-bottom:12px;">{{ s.tag }}</div>
+          <div style="width:390px;height:560px;border-radius:44px;overflow:hidden;background:{{ s.scrim }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div style="background:{{ s.sheetBg }};border-radius:28px 28px 0 0;padding:12px 0 30px;">
+              <div style="width:32px;height:4px;border-radius:2px;background:{{ s.handle }};margin:0 auto 18px;"></div>
+              <div style="padding:0 24px;">
+                <h3 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ s.onSurface }};margin:0 0 6px;">Why you're seeing this</h3>
+                <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ s.onVar }};margin:0 0 20px;">Three things came together. Each one is listed separately because they came from different places.</p>
+                <sc-for list="{{ s.entries }}" as="e" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:flex-start;gap:13px;padding:13px 0;border-top:1px solid {{ s.rule }};">
+                    <span style="width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:{{ e.tileBg }};display:flex;align-items:center;justify-content:center;"><span class="msr {{ e.fill }}" style="font-size:18px;color:{{ e.tileFg }};">{{ e.icon }}</span></span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ s.onSurface }};margin-bottom:3px;">{{ e.title }}</div>
+                      <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ s.onVar }};">{{ e.body }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;color:{{ s.primary }};font-family:'Figtree';font-weight:600;font-size:13.5px;">Weather &amp; privacy<span class="msr" style="font-size:16px;">arrow_outward</span></span>
+                  <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ s.primary }};padding:10px 8px;">Got it</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- HIDDEN CARD -->
+  <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:28px;padding:28px 30px;max-width:1180px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:20px;color:#C0381E;">visibility_off</span><span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Recommendation · §3.6</span></div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:26px;letter-spacing:-0.015em;margin:0 0 10px;max-width:34ch;">The feed stays silent. The need is real, and it is not the feed’s.</h2>
+    <p style="font-family:'Figtree';font-size:14.5px;line-height:1.55;color:#5A423C;margin:0 0 22px;max-width:88ch;"><b>Recommendation: no affordance in Now, on any day.</b> A condition that does not hold produces nothing — no row, no count, no “1 plan waiting on the weather”. The family’s worry (“did the curator write us a rainy-day plan?”) is genuine, but answering it in the feed costs more than it pays, and there is a better place to answer it.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">
+      <div>
+        <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;margin-bottom:14px;">Why silence</div>
+        <sc-for list="{{ silence }}" as="sil" hint-placeholder-count="4">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+            <span class="msr" style="font-size:18px;color:#00796F;margin-top:1px;">check_circle</span>
+            <span style="font-family:'Figtree';font-size:13px;line-height:1.55;color:#3D2D28;"><b>{{ sil.what }}</b> — {{ sil.why }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div>
+        <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8C726B;margin-bottom:14px;">Where the need goes instead</div>
+        <sc-for list="{{ instead }}" as="i" hint-placeholder-count="3">
+          <div style="background:#FFF1ED;border:1px solid #EBD3CB;border-radius:18px;padding:16px 18px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">
+              <span class="msr" style="font-size:19px;color:{{ i.fg }};">{{ i.icon }}</span>
+              <span style="font-family:'Outfit';font-weight:600;font-size:15px;">{{ i.who }}</span>
+              <span style="font-family:'Figtree';font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:{{ i.fg }};background:{{ i.bg }};border-radius:7px;padding:3px 8px;margin-left:auto;">{{ i.scope }}</span>
+            </div>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.55;color:#5A423C;">{{ i.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const KIDS = [
+      { title:'Pack jackets for the 4 pm game', rec:'Jackets and the big towel are in the hall closet.', act:'Open day' },
+      { title:'Move the party setup indoors', rec:'The garage is cleared — the long tables fit along the back wall.', act:'Open party hub' },
+    ];
+    const rung = (c, tag, tagFg, tagBg, expanded, note) => Object.assign({
+      tag, tagFg, tagBg, note,
+      kids: KIDS.map(k => Object.assign({}, k, { isRow: !expanded, isCard: expanded })),
+    }, c);
+
+    const light = {
+      wellBg:'#FFF1ED', wellBorder:'#EBD3CB', rule:'#E6D2CB', tileBg:'#F0DFDA', tileFg:'#3D2D28',
+      childBg:'#F6E5E0', childShadow:'0 1px 3px rgba(39,24,20,0.10)',
+      onSurface:'#271814', onVar:'#5A423C', primary:'#C0381E',
+      provFg:'#4C2092', provBg:'#F4ECFB', provBorder:'#E0CDF5',
+      privFg:'#0B5048', privBg:'#E2F4EF', privBorder:'#BFE3DC',
+    };
+    const dark = {
+      wellBg:'#231A16', wellBorder:'#3D322E', rule:'#3D322E', tileBg:'#3D322E', tileFg:'#E6D2CB',
+      childBg:'#322824', childShadow:'0 1px 4px rgba(0,0,0,0.32)',
+      onSurface:'#F0DFDA', onVar:'#D8C2BB', primary:'#FFB4A3',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', provBorder:'#4C2092',
+      privFg:'#A8F4E7', privBg:'#14322D', privBorder:'#1E5048',
+    };
+
+    const sheetEntries = (t) => ([
+      { icon:'verified_user', fill:'fill', tileBg:t.privBg, tileFg:t.privFg,
+        title:'Your device matched the condition',
+        body:'It compared an hourly forecast for Riverside Field against a condition Claude wrote. The match happened here — no card, no calendar and no location of yours was sent anywhere to make it.' },
+      { icon:'cloud', fill:'', tileBg:t.neutralBg, tileFg:t.onVar,
+        title:'A forecast was fetched for the field',
+        body:'Riverside Field’s saved coordinates, rounded to about 10 km, went to the forecast provider. Never your live position, and never with anything else attached.' },
+      { icon:'auto_awesome', fill:'', tileBg:t.provBg, tileFg:t.provFg,
+        title:'Claude wrote both plans in advance',
+        body:'The jackets note and the indoor setup were authored before today, each attached to the condition it answers. Nothing here was composed just now.' },
+    ]);
+
+    const sheetLight = { scrim:'rgba(39,24,20,0.42)', sheetBg:'#FFF8F6', handle:'#D8C2BB', rule:'#F0DFDA',
+      onSurface:'#271814', onVar:'#5A423C', primary:'#C0381E', neutralBg:'#F0DFDA',
+      provFg:'#4C2092', provBg:'#F4ECFB', privFg:'#0B5048', privBg:'#E2F4EF' };
+    const sheetDark = { scrim:'rgba(0,0,0,0.60)', sheetBg:'#231A16', handle:'#53433E', rule:'#3D322E',
+      onSurface:'#F0DFDA', onVar:'#D8C2BB', primary:'#FFB4A3', neutralBg:'#3D322E',
+      provFg:'#D3BBFF', provBg:'#2A1F3D', privFg:'#A8F4E7', privBg:'#14322D' };
+
+    return {
+      ladder: [
+        rung(light, 'Collapsed · 1 chip + 2 marks', '#7A2615', '#FCEBE6', false,
+          'Three claims are present and none is merged. The header states the match; each row carries the violet origin mark. Total pill count on screen: one.'),
+        rung(light, 'Expanded · 1 chip + 2 chips', '#7A2615', '#FCEBE6', true,
+          'Each mark has grown into the chip it always was. Three chips, but each one is attached to its own visible card, so no surface carries a claim that is not about itself.'),
+      ],
+      rules: [
+        { what:'The header never speaks for a child', why:'“Matched on your device” describes the match and only the match. It is never widened to cover authored copy underneath it.' },
+        { what:'A child never inherits the header', why:'unlike the dedup collapse, where the nudge is absorbed and the head’s provenance covers it. Different subjects keep different origins.' },
+        { what:'The mark is the chip, quieter', why:'same glyph, same violet provenance role, no pill. It is a compression of the label, not a substitute for it — so nothing is asserted that the chip would not assert.' },
+        { what:'The mark grows, it does not swap', why:'on expand the glyph animates into the chip rather than cross-fading out and a chip in. Continuity of the mark is continuity of the claim.' },
+        { what:'Never more than one pill per surface', why:'the header has one, each expanded child has one, each collapsed row has none. The wall is impossible by construction, not by editing.' },
+      ],
+      sheets: [
+        Object.assign({ tag:'Light', tagFg:'#7A2615', tagBg:'#FCEBE6', entries: sheetEntries(sheetLight) }, sheetLight),
+        Object.assign({ tag:'Dark', tagFg:'#D3BBFF', tagBg:'#2A1F3D', entries: sheetEntries(sheetDark) }, sheetDark),
+      ],
+      silence: [
+        { what:'A not-shown list is a second feed', why:'the calm budget exists to bound how much a family has to read. An inverse feed unbounds it again, and it grows with every condition the curator ever wrote.' },
+        { what:'The affordance is itself a weather claim', why:'“your rainy-day plan is waiting” tells the family it is not raining. That is a forecast readout with extra steps, and it is exactly what §4.2 rules out.' },
+        { what:'It contradicts the fail-open gate', why:'on an unverified day the conditional card is showing. A “hidden” list would have to either lie about it or expose the gate’s internal state — both worse than saying nothing.' },
+        { what:'Absence is the feature working', why:'the promise is that Dayfold shows what changed today. A day where nothing changed should look like a day where nothing changed.' },
+      ],
+      instead: [
+        { icon:'dashboard', fg:'#2C3E73', bg:'#D9E2F5', who:'The hub', scope:'Follow-on brief',
+          body:'Hubs are the browse surface; Now is the triage surface. A weather-conditional card should stay visible in its hub with a quiet condition line — “shows if it rains at Riverside”. Out of scope for this pass (§5), and the right home for the need.' },
+        { icon:'bug_report', fg:'#7A2615', bg:'#FCEBE6', who:'The debug drawer', scope:'Dogfood',
+          body:'“Did my condition actually fire?” is the curator’s question, not the family’s. The existing SWIP inspector (ADR 0057) is where an evaluated-gates panel belongs — debug-only, never shipped to a family.' },
+        { icon:'edit_note', fg:'#4C2092', bg:'#F4ECFB', who:'The curator skill', scope:'Authoring rule',
+          body:'The real fix is upstream: a weather-sensitive plan is authored in both branches, so one of them always shows. A family that never sees a rainy-day plan is a plan that was written with only one branch.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

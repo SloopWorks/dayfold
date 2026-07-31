@@ -43,3 +43,45 @@ Level-2 source-info needs the Compose compiler flag left on (debug keeps it).
 
 Design/plan lineage: `specs/cl-snap-agent-snapshot-loop-design.md`,
 `docs/superpowers/plans/2026-07-02-cl-snap-agent-snapshot-loop.md`, PR #277.
+
+
+## TASK-WEATHER — weather-conditional content (PARKED 2026-07-31)
+
+**Parked at the ADR 0008 design gate.** The design pass ran and the operator did
+not sign off, so nothing may be built. Resuming means a fresh design round first,
+then the weather ADR, then the B1–B3 slices.
+
+Everything needed to pick it up is written down:
+
+- **Spec** — `docs/superpowers/specs/2026-07-31-background-refresh-and-weather-design.md`
+  Part B. Content-places-only forecasts (ADR 0014's live-position promise stays
+  intact), a closed condition vocabulary, `show_when` as an AND-gate distinct from
+  `triggers[]`'s OR-boosters, fail-open on a missing forecast, and a flagged
+  aggregate card.
+- **Design + rationale** — `designs/weather/` and its `RATIONALE.md`. Not approved,
+  but its four resolved questions (icon precedence, aggregate collapse shape, mixed
+  provenance, hidden-card silence) are reasoned and worth reading before redesigning.
+- **Design brief** — `designs/DESIGN-BRIEF-weather-conditional.md`, reusable for the
+  next round.
+
+**Three things that must not be lost when this resumes:**
+
+1. **Condition-neutral copy is a blocking gate on B2.** The "never render
+   unverified weather" rule governs the app's rendering, not the curator's prose —
+   a card titled "Rain at soccer 4pm" still asserts weather on a fail-open dry day,
+   and no client-side rule can retract authored text. Copy must be true on a dry
+   day; the chip only adds evidence.
+2. **`CLIENT_SCHEMA_VERSION` must go 3 → 4 when `show_when` lands.** It is a
+   behavior-affecting decoded field on synced content, so `ignoreUnknownKeys`
+   dropped it on already-cached rows and the cursor cannot backfill. Without the
+   bump every cached card gates on `NULL` and — because the gate fails open — they
+   all silently keep showing. Same class as the heal bug the A1 whole-branch review
+   caught.
+3. **Weather glyph names must stay disjoint from the ADR 0036 `media.icon` enum**
+   and be server-rejected there, or a curator can author a weather glyph as a
+   card's identity icon and eventually contradict live conditions.
+
+Open questions carried forward: vendor (Open-Meteo's free tier bars commercial use,
+so it has a licensing cliff at monetization; NWS is unrestricted but US-only), and
+that WeatherKit attribution would appear on *every* card showing a weather chip,
+not just the aggregate — a recurring calm cost to price into that decision.
