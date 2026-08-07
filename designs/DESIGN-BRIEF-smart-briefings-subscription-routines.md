@@ -75,9 +75,12 @@ an explicit provider confirmation; do not hide that boundary.
 - The provider initiates OAuth **to Dayfold** when connecting the Dayfold
   connector. That grant lets the provider call Dayfold; it does not let Dayfold
   manage the provider account.
-- Activation is confirmed when the connected routine calls Dayfold's one-time
-  `complete_enrollment` tool. Until that happens, the honest state is
-  **Waiting for {provider}**, not “Connected.”
+- Activation is confirmed by the first idempotent `dayfold_run_finish` receipt
+  for the enrollment attempt. The receipt proves that the routine used its
+  Dayfold grant, completed a low-risk dry run, and reported structured source
+  outcomes. Replaying the same attempt/run returns the original receipt; there
+  is no separate `complete_enrollment` tool. Until that receipt exists, the
+  honest state is **Waiting for {provider}**, not “Connected.”
 - Schedule controls remain in the provider. Dayfold may show the schedule the
   user requested during setup, labeled **Requested schedule · managed in
   Claude/ChatGPT**, and the last observed run. Do not claim an authoritative
@@ -121,8 +124,10 @@ an explicit provider confirmation; do not hide that boundary.
 - Dayfold cannot query either provider for a reliable connector inventory. Keep
   two statuses distinct:
   - **Requested sources** — what the user chose in Dayfold.
-  - **Observed sources** — a source that a routine successfully used and reported
-    to Dayfold, with a last-observed time.
+  - **Observed sources** — a source whose low-risk query succeeded and was
+    reported by the routine, with a last-observed time. A successful query that
+    returns zero items still counts as observed; content presence is not an auth
+    test.
 - Do not show a green Connected check merely because the user returned from the
   provider. A source becomes observed only after a real low-risk read succeeds.
 - The provider's Google permission grant may be broader than Dayfold's desired
@@ -183,14 +188,23 @@ journey board:
    and first-safe-read steps. Provide **Open
    {provider}**, **Copy instructions**, and **Cancel setup**. Do not spin forever;
    pairing expiry is visible.
-11. **Active:** the first successful low-risk source read followed by
-    `complete_enrollment` changes the status to
+11. **Verify:** the provider routine performs a low-risk dry run and calls
+    `dayfold_run_finish` with the enrollment-attempt ID, run outcome, and one
+    closed-enum result per requested source. A successful zero-result query is a
+    success. For **Dayfold only**, a successful Dayfold context read + validation
+    is sufficient; do not wait for a nonexistent external source.
+12. **Active:** an idempotent successful finish receipt changes the status to
     **Active · Review drafts first**. Show provider, requested schedule, selected
     hubs, requested vs observed sources, last observed run, recent drafts,
-    **Manage sources in {provider}**, and **Manage schedule in {provider}**.
-12. **First result:** a quiet in-app review receipt summarizes proposed changes
-    per hub with provenance and Accept / Reject / Review detail. Reuse the
-    `designs/two-way/` visual grammar; do not invent a second mutation UI.
+    **Manage sources in {provider}**, and **Manage schedule in {provider}**. If
+    only some requested sources succeeded, use **Needs source attention** and let
+    the owner either repair them or explicitly **Continue with available
+    sources** in review-only mode. Never silently treat a partial source set as
+    complete.
+13. **First result:** a quiet in-app receipt either summarizes proposed changes
+    per hub with provenance and Accept / Reject / Review detail, or says **No new
+    updates this time**. Reuse the `designs/two-way/` visual grammar; do not
+    invent a second mutation UI or present an empty changeset as failure.
 
 ### 2.1 Provider-specific connector beats for the journey board
 
@@ -209,6 +223,46 @@ These are annotated external beats, not Dayfold-owned pixel mockups:
 - In both branches, the final proof is not a checkbox the user taps. It is a
   low-risk first run that successfully reads each selected source and reports
   the observed set to Dayfold.
+
+### 2.2 Recovery contract — every error ends in an honest next action
+
+Design from a structured Dayfold status contract, never from raw provider error
+text. Every failed or incomplete operation has:
+
+- `phase` — `enrollment`, `provider_handoff`, `source_probe`, `context_read`,
+  `analysis`, `validation`, `stage`, `apply`, `finish`, or `revoke`;
+- a closed `reason` code, never a free-text provider response;
+- `retryability` — automatic, user action required, or final;
+- one recommended action — Retry, Resume in provider, Manage source, Review
+  conflict, Continue with available sources, or Contact support;
+- a content-free support code derived from an enrollment-attempt/run trace ID;
+- the last successful receipt and content, which remain visible after activation.
+
+Recovery behavior:
+
+- Treat provider cancellation/denial, wrong Dayfold family or provider context,
+  lost app return, duplicate/late callback, expired enrollment, admin-disabled
+  source, provider quota, connector reauthorization, gateway outage, invalid
+  model output, policy rejection, optimistic-concurrency conflict, and revoke
+  failure as distinct conditions.
+- Automatically retry only transient network/gateway failures with bounded
+  backoff. Show **Retrying** without asking the user to act; after the policy-set
+  limit, stop and offer one explicit Retry. OAuth denial, scope mismatch,
+  conflicts, and policy rejection never auto-retry.
+- All retries and callbacks are idempotent. A repeated handoff, finish, stage,
+  apply, or revoke must resolve to the original receipt or current authority
+  state, never duplicate a routine/draft/write.
+- A partial-source run names the sources actually used. Review-mode drafts may
+  continue only after the user accepts the reduced source set; bounded automatic
+  publishing pauses rather than acting on an unexpected partial set.
+- Once active, failures appear as a calm status card/banner over the last good
+  Dayfold content, not as a full-screen dead end. Do not notify for one transient
+  miss. Use one quiet needs-attention signal only after the policy threshold or
+  an immediate user action is required.
+- Revocation is **Pending** until Dayfold confirms it. Only then say Dayfold
+  access is revoked. Provider-task cleanup remains a separate external step.
+- Technical details may offer **Copy support code**. Never copy source content,
+  provider error bodies, OAuth codes, tokens, hub IDs, or family/member IDs.
 
 ## 3. Screens and states to deliver
 
@@ -251,44 +305,75 @@ Every Dayfold-owned phone view below must render in light + dark.
 17. `provider-unavailable` — task/routine or requested source connector is
     missing, disabled by an
     admin, or unsupported by the plan; no upsell invented by Dayfold.
+18. `handoff-preparation-failed` — Dayfold could not create the enrollment;
+    Retry is idempotent and no external setup has started.
+19. `provider-authorization-denied` — the user canceled/denied provider-to-Dayfold
+    OAuth; offer Resume in provider or Cancel setup without blame.
+20. `authorization-context-mismatch` — wrong provider/family/scope or a late
+    callback; do not widen or reuse the old grant. Restart with the intended
+    context.
+21. `return-recovery` — the provider app opened but the app return/deep link was
+    lost. Resume from durable setup state; never make the user start over if the
+    enrollment remains live.
+22. `source-verification-partial` — which requested sources succeeded, returned
+    zero results, are syncing, need reauthorization, or are admin-blocked;
+    repair or explicitly continue review-only with the observed subset.
 
 ### C. Active and observable
 
-18. `active-claude` and `active-chatgpt` — status, provider-managed schedule,
+23. `active-claude` and `active-chatgpt` — status, provider-managed schedule,
     requested vs observed sources, selected hubs, review mode, last observed
     run, recent receipts, and Manage sources in provider.
-19. `first-draft` — proposed Dayfold changes, source provenance, and review
+24. `first-draft` — proposed Dayfold changes, source provenance, and review
     actions.
-20. `source-not-observed` — requested source was never successfully read; offer
+25. `first-run-no-changes` — successful run and source probes, but nothing new to
+    draft. Show the next provider-managed schedule request; this is not failure.
+26. `partial-source-result` — last result used only a named subset; keep it in
+    review mode and make the reduced provenance prominent.
+27. `source-not-observed` — requested source was never successfully read; offer
     provider-specific setup help without claiming the Google grant's state.
-21. `source-needs-reauth` — a routine explicitly reported authorization failure;
+28. `source-needs-reauth` — a routine explicitly reported authorization failure;
     open provider connector settings. Do not route Google OAuth through Dayfold.
-22. `no-recent-checkin` — “We haven't heard from this routine recently.” Do not
+29. `no-recent-checkin` — “We haven't heard from this routine recently.” Do not
     assert that the provider task failed or was deleted; Dayfold cannot know.
-23. `connector-needs-attention` — Dayfold OAuth grant expired/revoked or a tool
+30. `connector-needs-attention` — Dayfold OAuth grant expired/revoked or a tool
     call was denied; reconnect without widening the old grant.
-24. `run-reported-failed` — only when the provider routine explicitly called a
-    failure tool; distinguish this from unknown/missed status.
-25. `offline` — cached status and receipts render; setup/security mutations are
+31. `run-reported-failed` — only when `dayfold_run_finish` reported a structured
+    failure; distinguish this from unknown/missed status and map the reason to a
+    safe recovery action.
+32. `draft-stale-or-conflicted` — a human/newer run changed the target. Preserve
+    the old draft as read-only and offer **Refresh draft**; never silently merge.
+33. `apply-retrying` and `apply-failed` — use the existing saving/offline/retrying/
+    couldn't-save vocabulary, preserve the draft, and make Retry idempotent.
+34. `routine-auto-paused` — repeated failures, conflicts, unexpected source set,
+    volume anomaly, or expired policy review paused automation. Explain the
+    closed reason and require owner review before Resume.
+35. `support-details` — last safe status, timestamps, app/provider versions where
+    known, and Copy support code; no content or stable family/resource IDs.
+36. `offline` — cached status and receipts render; setup/security mutations are
     disabled until reconnected.
 
 ### D. Stop and revoke
 
-26. `stop-confirm` — three distinct responsibilities:
-    - **Revoke Dayfold access now** stops future Dayfold reads/writes
-      immediately.
+37. `stop-confirm` — three distinct responsibilities:
+    - **Revoke Dayfold access now** sends the server-side revoke request. Once
+      Dayfold confirms it, future Dayfold reads/writes stop immediately.
     - **Remove the scheduled task in {provider}** stops the provider from
       attempting future runs.
     - **Disconnect Google sources in {provider}** is optional and affects other
       provider uses too; Dayfold cannot perform it.
 
     Dayfold cannot promise to delete the provider task. Provide an **Open
-    {provider}** step and an immediate Dayfold revoke action. Avoid cancellation
+    {provider}** step and an immediate Dayfold revoke request. Avoid cancellation
     friction or guilt copy.
-27. `revoked-provider-task-remains` — access is safely revoked; the external
+38. `revoke-pending` — the request is being retried or its result is unknown.
+    Keep the routine visibly active until confirmed; offer Retry when online.
+39. `revoke-failed` — Dayfold still shows the last confirmed authority state and
+    one Retry action. Never claim the grant is gone on a timeout/5xx.
+40. `revoked-provider-task-remains` — access is safely revoked; the external
     task may still exist and will fail if it calls Dayfold. Show how to remove
     it in the provider.
-28. `adult-active-readonly` — adult sees provider, owner/manager, last observed
+41. `adult-active-readonly` — adult sees provider, owner/manager, last observed
     run, and review results; no grant/schedule/revoke controls.
 
 ## 4. Optional advanced path — “Run from Dayfold”
@@ -349,6 +434,13 @@ Use these exact or near-exact anchors wherever the statement appears:
 - Default mode: **“Review drafts first.”**
 - Schedule: **“Requested schedule · managed in {provider}.”**
 - Unknown health: **“We haven't heard from this routine recently.”**
+- No-op success: **“No new updates this time.”**
+- Partial result: “This draft used {observed sources}. {missing sources} need
+  attention.”
+- Transient recovery: **“Keeping your last briefing · retrying.”**
+- Conflict: “Dayfold changed since this draft was prepared. Refresh it before
+  applying.”
+- Support: **“Copy support code.”**
 - Revoke: **“Revoke Dayfold access now.”**
 - Provider cleanup: “Remove the scheduled task in {provider} to stop future
   attempts.”
@@ -396,7 +488,7 @@ Dayfold consent
   -> Dayfold scope approval
   -> back to provider to save schedule
   -> first safe source read
-  -> provider routine reports observed sources + calls complete_enrollment
+  -> provider routine reports observed sources + calls dayfold_run_finish
   -> Dayfold Active / first-draft review
 ```
 
@@ -415,7 +507,8 @@ mockups in place:
   Dayfold-owned states in light + dark with short captions.
 - `designs/routine-integration/Journey.dc.html` — annotated two-surface journey.
 - `designs/routine-integration/NOTES.md` — decisions, unresolved provider-owned
-  UI dependencies, and a state/view inventory.
+  UI dependencies, state/view inventory, and a matrix mapping each recovery state
+  to its closed phase/reason, CTA, durable receipt, and content-free analytics hook.
 - `designs/routine-integration/support.js` only if the standard local runtime
   requires it.
 - Update `designs/README.md` and `designs/Index.dc.html` to link the new gallery.
@@ -439,6 +532,19 @@ approval grammar without silently changing those approved source files.
 - Source-intent selection, provider-owned Google OAuth, organization-admin
   blocks, Drive syncing, first-safe-read verification, requested-vs-observed
   status, reauthorization, and provider-managed disconnect are all represented.
+- Activation is backed by an idempotent `dayfold_run_finish` receipt; Dayfold-only
+  and zero-result probes complete honestly, while partial source sets require
+  repair or explicit review-only continuation.
+- Provider denial/cancel, wrong context, lost return, duplicate/late callbacks,
+  no-op success, partial results, conflicts, apply retry/failure, auto-pause, and
+  revoke pending/failure all have distinct calm recovery states.
+- Every displayed failure is derived from a closed phase/reason/action contract;
+  raw provider errors and source content never enter copy or support details.
+- Active failures preserve the last good content, automatic retries are bounded,
+  and all Retry/Resume/Revoke actions are idempotent.
+- `NOTES.md` maps every golden/sad-path transition to the durable state and
+  content-free event hook; expected user/provider conditions are not labeled as
+  Sentry defects.
 - The mock never implies that Dayfold stores Google tokens or can inspect/revoke
   a Claude/ChatGPT Google connector.
 - Hub scope, restricted-resource behavior, review-first default, adult read-only

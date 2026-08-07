@@ -2,7 +2,8 @@
 
 > **Status:** Planning draft. Do not start customer-data handling, hosted
 > decryption, auto-write, or provider provisioning until Proposed ADR 0061 is
-> accepted. Two fresh-context adversarial reviews are still required.
+> accepted. Routine telemetry also remains gated by Proposed ADR 0062. Two
+> fresh-context adversarial reviews are still required.
 
 **Goal:** Prove a scheduled, connected-source Dayfold curation loop while keeping
 long-lived credentials and `FCK` on a K1/K3 Dayfold-controlled gateway, using the
@@ -32,6 +33,10 @@ product boundary; this link does not ratify Proposed ADR 0061.
   widening, roles/invites, member-block edits, messages, or external actions.
 - Source bodies and decrypted content never enter Git, test fixtures, audit logs,
   analytics, error reports, or task notes.
+- Durable enrollment/run records—not PostHog, logs, or Sentry—drive user-visible
+  state and recovery.
+- Expected failures are structured run outcomes, not Sentry defects. The K3 gateway
+  must not reuse ADR 0059's content-blind `stripMessage=false` configuration.
 - Any new enrollment/revoke/run-history UI is ADR 0008 design-gated.
 
 ## Sequence and gates
@@ -59,6 +64,8 @@ created.
 - [ ] Run adversarial review 2 with fresh context: simplify components, remove
   speculative portability, test the <2 hr/week steady-state constraint.
 - [ ] Operator accepts/rejects ADR 0061 and answers INB-34.
+- [ ] Operator accepts/rejects ADR 0062 and answers INB-35 before gateway telemetry
+  or any release-client collection is enabled.
 - [ ] If E2EE is in the first implementation scope, accept/supersede ADRs 0015 and
   0017 first. Otherwise state plainly that the dogfood slice processes M0 plaintext.
 - [ ] Privacy/counsel pass: connected-provider Gmail/Drive data flow, disclosure,
@@ -86,7 +93,15 @@ bounded changeset; no provider integration and no Dayfold write.
   permitted hubs/resources, source window, operation cap, forbidden actions.
 - [ ] Define changeset fields: `runId`, `baseCursor`, operations, stable `opId`,
   action/kind/id, expected version, target hub, source references, body, provenance.
-- [ ] Specify canonical validation errors and redacted run summaries.
+- [ ] Define idempotent `dayfold_run_finish`: attempt/run identity, success/no-change/
+  partial/rejected/failed outcome, phase, closed reason, retryability, recommended
+  action, per-source status, safe counts, and original-receipt replay behavior.
+- [ ] Specify canonical validation/runtime errors and redacted run summaries. No raw
+  provider message may cross the contract.
+- [ ] Define requested-source states and explicitly treat a successful zero-result
+  query as observed. Define Dayfold-only activation without an external-source probe.
+- [ ] Define the content-free support-code mapping to an opaque per-attempt/run trace;
+  no stable family/resource identifier may be encoded or emitted to telemetry.
 - [ ] Extract a pure routine-policy validator shared by CLI/gateway/API tests.
 - [ ] Add prompt-injection fixtures where email/doc text asks the agent to reveal
   secrets, widen scope, call arbitrary URLs, or delete content. Expected result is a
@@ -102,6 +117,10 @@ bounded changeset; no provider integration and no Dayfold write.
 - [ ] Property test: no accepted changeset contains a forbidden action.
 - [ ] Property test: audience(result) is a subset of allowed audience.
 - [ ] Replay fixture: duplicate `runId/opId` is recognized before apply exists.
+- [ ] Enrollment fixture: duplicate/late finish and callback return the original
+  receipt and create no second grant, routine, draft, or write.
+- [ ] Source fixtures: zero-result success, partial set, syncing, reauth, admin block,
+  and Dayfold-only completion produce the expected structured state.
 - [ ] Secret/PII canary test: raw source content cannot enter the run summary/audit
   serialization.
 
@@ -158,15 +177,17 @@ met without adding K3 maintenance.
 - [ ] Run
   `designs/DESIGN-BRIEF-smart-briefings-subscription-routines.md`: mock the
   provider-owned subscription handoff, provider-to-Dayfold OAuth approval,
-  per-hub scope/privacy review, waiting/active/unknown-health states, first-draft
-  review, two-step revoke, and optional Claude “Run from Dayfold” credential
-  paste; obtain operator sign-off (ADR 0008).
+  per-hub scope/privacy review, durable resume, waiting/active/unknown-health,
+  partial/no-change/conflict/apply-retry/auto-pause states, first-draft review,
+  revoke pending/failure/provider cleanup, content-free support details, and optional
+  Claude “Run from Dayfold” credential paste; obtain operator sign-off (ADR 0008).
 
 ### API/data model
 
 - [ ] Add tracked migrations for `routine_principals`, `routine_assertion_jti`,
-  `routine_runs`, and `routine_changesets` (or prove an existing table can safely
-  own each concern).
+  `routine_enrollment_attempts`, `routine_runs`, and `routine_changesets` (or prove
+  an existing table can safely own each concern). Persist every user-visible state;
+  telemetry must never be the recovery database.
 - [ ] Add owner-only enrollment/approve/revoke endpoints. Reuse the device approval
   ceremony and origin/fingerprint language where possible.
 - [ ] Add a short-lived Ed25519 client-assertion exchange. Verify `aud`, expiry,
@@ -184,13 +205,32 @@ met without adding K3 maintenance.
 - [ ] Store the routine private key and, after E2EE, the unwrap key in OS keychain/
   TPM/KMS; never in repo/config/plaintext env files.
 - [ ] Expose four tools only: context-get, changeset-validate, changeset-stage,
-  run-finish. No arbitrary shell/path/URL tool.
+  run-finish. `run-finish` owns idempotent enrollment completion and all terminal
+  outcomes; there is no separate completion tool. No arbitrary shell/path/URL tool.
 - [ ] Authenticate provider calls with expiring, audience-bound tokens. Bind the
   provider run identity to `runId`; reject replays.
 - [ ] Minimize and size-cap plaintext returned per tool call/run.
 - [ ] Domain-allowlist outbound traffic; URL fetch remains with provider connectors
   or a separately sandboxed fetcher.
 - [ ] Wipe ephemeral plaintext on success, failure, timeout, and restart recovery.
+
+### Recovery and observability
+
+- [ ] Implement the closed phase/reason/retryability/recommended-action envelope and
+  client mapping. Unknown codes use generic owned copy, never raw provider text.
+- [ ] Bound transient retries with backoff under the same attempt/run id. Do not
+  auto-retry OAuth denial, context/scope mismatch, policy rejection, or conflict.
+- [ ] Keep the last successful briefing/run receipt visible during active failures.
+- [ ] Add generated SWIP dogfood events for setup, handoff, grant, enrollment, first
+  run, resume/cancel, recovery action, draft review, pause, and confirmed revoke.
+  Closed enums/counts only; the API analytics scope remains denied.
+- [ ] Add a gateway-specific generated SWIP source/config. Sentry is unexpected
+  defects only, `stripMessage=true`, no request/body/header/query/extra capture, and
+  no stable family/resource identifiers or support code.
+- [ ] Use structured SloopLogging milestones with value-free/closed fields. Do not
+  pass provider responses, source metadata, prompts, changesets, or auth material.
+- [ ] Keep all client routine analytics/errors debug/dogfood-only until a separately
+  accepted release consent/disclosure ADR and `CollectionMode` UI exist.
 
 ### Verification
 
@@ -201,6 +241,12 @@ met without adding K3 maintenance.
   source URLs, prompt-injection content.
 - [ ] Canary secrets placed in gateway env/keychain never appear in tool output,
   logs, exceptions, SWIP/PostHog/Sentry, or provider-visible files.
+- [ ] Content/metadata canaries prove source bodies/titles/URLs, prompts, changesets,
+  OAuth material, stable family/member/hub/resource IDs, and support codes never
+  enter logs, SWIP/PostHog/Sentry, crash artifacts, or provider-visible diagnostics.
+- [ ] Telemetry routing tests: expected outcomes never reach Sentry; an injected
+  invariant exception reaches the gateway Sentry source with stripped message and
+  only allowed closed tags.
 - [ ] Kill gateway mid-run: no orphaned token/plaintext; run becomes failed/expired.
 
 ## Phase 4 — Staged, transactional apply
@@ -223,6 +269,9 @@ conflict-safe through CLI/gateway.
   is applicable.
 - [ ] Add rollback/recovery guidance. Prefer compensating upserts/tombstones only if
   they preserve authorship and audit; do not promise magic undo.
+- [ ] Add user states for no-change success, partial-source review, stale/conflicted
+  draft, apply retrying/final failure, and content-free support code. Reuse the
+  signed-off five-rung saving/offline/retrying/couldn't-save vocabulary.
 
 ### Verification
 
@@ -248,6 +297,8 @@ approval and remains easy to disable.
   switch.
 - [ ] Auto-pause after repeated failures, conflicts, unusual source/write volume,
   or an expired policy review date.
+- [ ] Unexpected partial sources always pause bounded-auto. Review-only continuation
+  requires explicit owner acceptance and names the sources actually used.
 - [ ] Keep delete, ACL/visibility changes, roles/invites, messages, and external
   actions permanently outside this tier.
 
@@ -285,6 +336,13 @@ connected sources. The other provider remains unbuilt.
   settings used by the pilot.
 - [ ] Test manually before scheduling; run remote shadow first.
 - [ ] Document pause/revoke/provider-offboarding and task-history deletion.
+- [ ] Execute the complete recovery matrix: canceled/denied OAuth, wrong context,
+  lost return, duplicate/late callback, expired pairing, zero-result probe, partial
+  sources, quota, reauth/admin block, gateway timeout, invalid output, policy reject,
+  conflict, failed/duplicate apply, no check-in, auto-pause, revoke timeout, confirmed
+  revoke with provider task remaining, and provider cleanup unavailable.
+- [ ] Verify every condition yields one accurate CTA, preserves last-good content,
+  and produces the intended durable record/log/analytics/Sentry routing.
 
 ## Phase 7 — E2EE integration
 
@@ -333,5 +391,13 @@ The integration is complete for the first production-worthy tier only when:
 - selected provider plaintext processing is disclosed;
 - raw source/content is absent from logs/audits/task artifacts;
 - routine revoke/expiry/kill switch work;
+- activation and every retry/callback/apply/revoke are idempotent;
+- no-change, partial-source, conflict, auto-pause, unknown-health, and revoke-pending
+  states recover without losing the last good briefing or draft;
+- durable run records—not telemetry—fully explain the user-visible state;
+- expected failures stay out of Sentry; unexpected gateway defects are message-
+  stripped and joinable to a content-free internal trace;
+- SWIP/log/Sentry leak-canary and routing suites pass, and non-operator client
+  collection remains off until its consent/disclosure gate is accepted;
 - adversarial security + simplification reviews pass;
 - operator maintenance stays within the project constraint.

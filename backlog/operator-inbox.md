@@ -16,6 +16,19 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-35 · 2026-08-07 · high · open — approve the routine recovery and
+  observability boundary?** The end-to-end UX review found that current SWIP
+  postures do not cover a plaintext-processing routine gateway: client collection is
+  debug/dogfood-only, release logging is unscrubbed, and ADR 0059 keeps API exception
+  messages only because that API is content-blind. **Proposed default: accept
+  Proposed ADR 0062 after its two reviews** — durable Dayfold records own recovery;
+  closed phase/reason/action enums drive UI; expected auth/quota/conflict/policy
+  outcomes stay out of Sentry; a gateway-specific generated SWIP source strips
+  messages/requests and passes leak canaries; anonymous closed analytics remains
+  dogfood-only until a separate release consent/disclosure ADR. This does not enable
+  collection for another family. Context:
+  `docs/superpowers/specs/2026-08-07-routine-integration-design.md`.
+
 - **INB-34 · 2026-08-07 · high · open — where may scheduled routines decrypt
   family content?** Operator asked to plan Claude/OpenAI cloud routines that read
   Dayfold + connected email/docs/calendar and author smart updates. Current accepted

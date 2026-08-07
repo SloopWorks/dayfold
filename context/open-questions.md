@@ -6,6 +6,16 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
 ## Build / infra
 
+- **OQ-routine-observability-boundary** *(NEW 2026-08-07; customer-data + vendor
+  telemetry)*: may existing API/client SWIP postures be reused for scheduled
+  routines, or does the plaintext-processing K3 gateway require a separate source
+  and stricter contract? Proposed default = durable Dayfold run records as truth,
+  closed recovery enums, expected outcomes out of Sentry, gateway
+  `stripMessage=true` with no request/extra fields, leak canaries, and dogfood-only
+  anonymous analytics until a separate release consent/disclosure decision. →
+  Proposed ADR 0062 / INB-35 /
+  `docs/superpowers/specs/2026-08-07-routine-integration-design.md`.
+
 - **OQ-cloud-routine-boundary** *(NEW 2026-08-07; customer-data + vendor + E2EE
   posture)*: should Claude/OpenAI scheduled routines call a K1/K3
   Dayfold-controlled gateway that holds credentials/`FCK`, or may a provider cloud

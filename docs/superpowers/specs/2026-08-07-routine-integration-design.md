@@ -296,7 +296,7 @@ The scheduled agent gets tools, not a shell with secrets:
 dayfold_context_get(window, allowed_hubs)
 dayfold_changeset_validate(changeset)
 dayfold_changeset_stage(changeset)
-dayfold_run_finish(summary, source_refs)
+dayfold_run_finish(finish_receipt)
 ```
 
 Auto-apply is absent initially. When enabled, it is one constrained tool:
@@ -307,6 +307,33 @@ dayfold_changeset_apply(staged_id, expected_versions)
 
 The gateway implements these using the CLI/library. A local agent can use the same
 contract directly as CLI commands.
+
+`dayfold_run_finish` is the single idempotent terminal operation for success,
+no-change, partial, rejection, and failure. It also completes a pending enrollment;
+there is no separate `complete_enrollment` tool. Its content-free payload includes:
+
+```json
+{
+  "runId": "run_...",
+  "enrollmentAttemptId": "enr_...",
+  "outcome": "success",
+  "phase": "finish",
+  "reason": null,
+  "sourceOutcomes": [
+    { "source": "gmail", "status": "observed" },
+    { "source": "drive", "status": "syncing" }
+  ],
+  "operationCounts": { "proposed": 2, "staged": 2, "applied": 0 }
+}
+```
+
+The API/gateway returns the original receipt for a repeated
+`enrollmentAttemptId + runId`; late or duplicate callbacks cannot create a second
+routine or result. A source is `observed` when a low-risk connector query succeeds,
+including a successful zero-result query. A Dayfold-only enrollment completes after
+a successful context read and dry-run validation, with an empty `sourceOutcomes`
+array. An unexpected partial source set does not silently satisfy enrollment or
+bounded-auto policy.
 
 ### Changeset
 
@@ -343,11 +370,142 @@ Required enforcement:
 - all-or-nothing transaction for an approved changeset;
 - provenance includes provider, routine, run, and source references without raw
   source content in the audit log;
-- a complete run result (`shadow`, `staged`, `applied`, `rejected`, `failed`).
+- a complete run result (`success`, `no_changes`, `partial`, `rejected`, `failed`)
+  plus mode (`shadow`, `staged`, `bounded_auto`) and apply state where relevant.
 
 This is the unattended equivalent of curator propose-confirm: the operator approves
 the **policy envelope**, and the server enforces every run against it. Shadow and
 staged modes retain per-run review.
+
+## User-visible state and recovery contract
+
+The UI must not infer behavior from free-text errors. The API persists a durable,
+content-free state transition for every enrollment attempt and run:
+
+```text
+off
+  -> preparing
+  -> awaiting_provider
+  -> awaiting_dayfold_approval
+  -> verifying
+  -> active_review
+  -> active_bounded_auto
+  -> paused | revoked
+```
+
+Provider task health is not authoritative because Dayfold cannot inspect the user's
+task list. It remains an orthogonal observation (`never_seen`, `last_seen`,
+`reported_failed`, `stale`) rather than pretending the provider task is enabled or
+disabled. Requested schedule is similarly separate from observed runs.
+
+Each requested source has its own state:
+
+```text
+requested | probing | observed | syncing | reauth_required |
+admin_blocked | unavailable | removed
+```
+
+Each incomplete/failed transition carries only:
+
+- `phase`: `enrollment`, `provider_handoff`, `source_probe`, `context_read`,
+  `analysis`, `validation`, `stage`, `apply`, `finish`, or `revoke`;
+- a closed `reason` code such as `expired`, `denied`, `context_mismatch`,
+  `provider_quota`, `source_reauth`, `admin_blocked`, `gateway_unreachable`,
+  `invalid_output`, `policy_rejected`, `write_cap`, `conflict`, `rate_limited`,
+  `timeout`, or `internal`;
+- `retryability`: `automatic`, `user_action`, or `final`;
+- `recommendedAction`: `retry`, `resume_provider`, `manage_source`,
+  `restart_enrollment`, `continue_review_only`, `refresh_draft`,
+  `review_policy`, or `contact_support`;
+- timestamps, safe counts, and an opaque per-attempt/run trace ID.
+
+No provider exception text, source title/body, URL, OAuth code/token, family/member
+ID, hub/resource ID, prompt, or model output is part of this envelope. The client maps
+the enums to owned localized copy. Unknown codes render a generic recoverable state
+and support code, not the raw value.
+
+Recovery semantics:
+
+- bounded automatic retry is limited to transient network/gateway/rate-limit
+  outcomes and reuses the same idempotency identity;
+- OAuth denial, context/scope mismatch, policy rejection, and optimistic conflict
+  require explicit user action and never auto-retry;
+- active surfaces retain the last successful briefing/receipt while showing a calm
+  needs-attention state;
+- `no_changes` is a successful run;
+- a partial source run records exactly which sources contributed. It may produce a
+  review-only draft after explicit owner acceptance of the reduced set; bounded-auto
+  pauses instead;
+- a stale/conflicted draft remains readable but cannot apply. Refresh/regeneration
+  uses current versions rather than silently rebasing model output;
+- revoke is `pending` until the API confirms the principal is revoked. A timeout or
+  5xx never produces a false success state. Provider task/source cleanup remains
+  separately owned by the provider;
+- after the policy-set repeated-failure/conflict/volume threshold, the routine
+  auto-pauses and requires owner review. Exact thresholds remain operator policy.
+
+The owner can copy a support code derived from the opaque attempt/run trace ID. The
+Dayfold database maps it back to the durable run record; the copied value contains no
+stable family/resource identifier or content.
+
+## Observability and diagnostics boundary
+
+The durable `routine_runs`/enrollment records are the source of truth for product UI,
+recovery, and support. PostHog, logs, and Sentry are lossy operational signals, never
+the state machine and never the only copy of a failure.
+
+### SWIP analytics / PostHog
+
+Add generated, closed-schema events for the dogfood funnel:
+
+```text
+routine_setup_started
+routine_provider_handoff_opened
+routine_dayfold_grant_approved
+routine_enrollment_completed
+routine_first_run_completed
+routine_setup_resumed
+routine_setup_cancelled
+routine_recovery_action_selected
+routine_draft_reviewed
+routine_paused
+routine_revoke_confirmed
+```
+
+Properties are closed enums/counts only: phase, outcome, reason, recovery action,
+provider enum where approved, source count, and duration bucket. Never emit source
+names/refs, hub/resource IDs, schedule text, provider error text, support code, or any
+content. The current client SWIP integration is debug/dogfood-only; measuring any
+non-operator family requires a separately accepted consent/disclosure ADR and a real
+`CollectionMode` surface. The API's SWIP handle continues to deny the analytics scope.
+
+### SloopLogging
+
+Client and gateway logs use structured milestone names plus closed phase/outcome,
+duration buckets, safe counts, and an ephemeral trace suffix only. Never interpolate
+provider responses, request bodies, source/document metadata, prompts, changesets, or
+auth material. The current release client logger is an unscrubbed WARN+ fallback, so
+routine release call sites must remain value-free until a scrubbed release sink is
+separately approved.
+
+### SWIP errors / Sentry
+
+Expected domain outcomes—OAuth denial, expiry, offline, provider quota, connector
+reauth, admin block, validation/policy rejection, conflict, rate limit, and no-change—
+are run states and analytics/log signals, not Sentry defects. Sentry receives only
+unexpected exceptions/invariant failures.
+
+ADR 0059's API configuration cannot be copied to the K3 gateway: it assumes the API
+is content-blind and keeps exception messages. A gateway-specific generated SWIP
+source must use `stripMessage=true`, attach no request/body/headers/query/extra, and
+allow only closed tags such as component, phase, provider enum, release, environment,
+and reason=`internal`. It must have product-owned canary tests proving raw content,
+tokens, source metadata, stable family/resource IDs, and support codes never reach
+SWIP/PostHog/Sentry, local logs, crash artifacts, or provider-visible output.
+
+This boundary is recorded separately in Proposed ADR 0062 because widening client
+analytics/error collection to real families and instrumenting a plaintext-processing
+gateway are customer-data and vendor decisions, not implementation details.
 
 ## End-to-end flow
 
@@ -374,9 +532,11 @@ staged modes retain per-run review.
 8. **Stage/apply.** Shadow mode stores only the redacted diff/run summary. Staged
    mode waits for operator approval. Bounded-auto mode applies the whole changeset
    transactionally with replay protection.
-9. **Close.** Erase the ephemeral plaintext working directory, emit a content-free
-   audit record, and report counts/IDs/status. Do not retain raw source bodies in
-   logs, Git, task notes, or prompt feedback.
+9. **Close.** Erase the ephemeral plaintext working directory and call idempotent
+   `dayfold_run_finish` with the outcome, phase/reason when needed, per-source status,
+   and safe counts. The API stores the durable content-free run receipt and, for a
+   valid pending attempt, completes enrollment. Do not retain raw source bodies in
+   logs, Git, task notes, telemetry, crash artifacts, or prompt feedback.
 
 ## Claude and OpenAI adapter notes
 
@@ -414,7 +574,10 @@ staged modes retain per-run review.
 5. **K3 bounded auto-upserts:** no deletes/ACL/actions; alert on every policy reject.
 6. **One cloud adapter:** Claude or OpenAI based on the better connected-source
    experience; keep the Dayfold contract unchanged.
-7. **K4 experiment only if explicitly accepted:** direct cloud-held key, commercial
+7. **Dogfood observability:** durable run states + content-free SWIP schemas and
+   gateway error configuration; prove recovery and vendor leak canaries before any
+   non-operator rollout.
+8. **K4 experiment only if explicitly accepted:** direct cloud-held key, commercial
    plan/retention review, new disclosure, separate dogfood flag, no W3 member intents.
 
 Do not build both providers first. The portability boundary is the manifest,
@@ -430,6 +593,9 @@ changeset, and gateway tool contract; the scheduler prompt is thin.
 5. Decide the user disclosure and eligible account tiers/retention settings with
    privacy counsel before processing a second family's data.
 6. Accept ADRs 0015/0017 before implementing E2EE or routine key wrapping.
+7. Accept/reject Proposed ADR 0062's routine observability boundary; any release
+   client analytics/error collection also needs the consent/disclosure surface that
+   existing SWIP ADRs reserve.
 
 ## Review status
 

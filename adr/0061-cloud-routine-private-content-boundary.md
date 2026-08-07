@@ -8,6 +8,7 @@ model, and disclosure posture. It does not take effect by merging this draft.
 
 Design and evidence:
 `docs/superpowers/specs/2026-08-07-routine-integration-design.md`.
+Recovery and diagnostic handling are separately constrained by Proposed ADR 0062.
 
 Extends ADRs 0012 (agent-operated build), 0015/0017 (proposed E2EE and key
 authenticity), 0029 (resource-scoped grants), 0030 (visibility), and 0039
@@ -185,6 +186,8 @@ Before this ADR can be Accepted:
 4. ADR 0017 key-authenticity details are reconciled with routine enrollment.
 5. The first auto-write action matrix and policy constants are operator-ratified.
 6. UI work remains gated on ADR 0008 mockups/sign-off.
+7. Gateway observability and any routine analytics follow Proposed ADR 0062 (or an
+   accepted successor); ADR 0059's content-blind API error posture is not reused.
 
 ## Revisit triggers
 
