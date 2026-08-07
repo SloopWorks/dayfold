@@ -16,6 +16,21 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-34 · 2026-08-07 · high · open — where may scheduled routines decrypt
+  family content?** Operator asked to plan Claude/OpenAI cloud routines that read
+  Dayfold + connected email/docs/calendar and author smart updates. Current accepted
+  ADRs keep W3 reasoning in K1/K3 and reserve hosted K4; M0 is plaintext, while E2EE
+  ADRs 0015/0017 remain Proposed. The design found that putting `FCK` in a provider
+  secret store makes that provider a durable family key-holder; encryption at rest
+  does not change the workload trust boundary. **Proposed default: accept the
+  K3-gateway-first direction in Proposed ADR 0061** — start K1/K3 shadow/staged,
+  expose narrow audited tools and minimum selected plaintext to the provider, keep
+  `FCK`/long-lived Dayfold credentials out of the cloud job, and leave direct K4
+  disabled. Separately choose the first provider only after a connector-quality
+  spike. This answer authorizes architecture direction only, not external
+  provisioning, customer-data processing, spend, or auto-write. Context:
+  `docs/superpowers/specs/2026-08-07-routine-integration-design.md`.
+
 - **INB-33 · 2026-07-19 · med · open — planning loop hasn't iterated since
   bootstrap; P0 viability review is now overdue.** Found during the 13th
   repo-maintenance pass. `processes/loop-journal.md` has exactly one entry

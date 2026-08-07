@@ -12,6 +12,31 @@ actually still queued or genuinely blocked.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-ROUTINE-INTEGRATION — scheduled connected-source curation through a K1/K3 gateway
+
+**Added 2026-08-07 (operator-requested planning). Status: design draft; blocked on
+Proposed ADR 0061 + two adversarial reviews + operator decision (INB-34).** Build a
+provider-neutral routine flow: trigger → current Dayfold state + connected
+email/docs/calendar deltas → `dayfold-curator` analysis → structured changeset →
+shadow/staged/bounded update. Reuse the Kotlin CLI, resource-scoped grants,
+visibility, and provenance.
+
+Privacy default: long-lived Dayfold credentials and `FCK` stay on the operator Mac
+(K1), then an always-on Dayfold-controlled gateway (K3). Claude/OpenAI sessions may
+receive the minimum selected plaintext through narrow tools but do not receive the
+durable family key. Direct cloud-held decryption keys are reserved K4 and remain
+off unless explicitly accepted/disclosed. No Dayfold-owned Gmail OAuth, delete,
+audience widening, roles/invites, outbound messages, or W3/member intents in the
+first tier.
+
+Sequence: contract fixtures → K1 manual/scheduled shadow → routine principal + K3
+gateway → staged transactional apply → bounded auto-upserts → one provider adapter
+→ optional separately-gated K4 experiment. Design:
+`docs/superpowers/specs/2026-08-07-routine-integration-design.md`; plan:
+`docs/superpowers/plans/2026-08-07-routine-integration.md`; Claude Design prompt:
+`designs/DESIGN-BRIEF-smart-briefings-subscription-routines.md` (provider-owned
+subscription UX; run + operator sign-off required before deeper planning/build).
+
 ## TASK-SWIP-BUGREPORT-FOLLOWUPS — dayfold ↔ swip integration improvements
 
 **Added 2026-07-11 (operator, after the first on-device smoke).** The swip bug

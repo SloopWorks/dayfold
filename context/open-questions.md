@@ -6,6 +6,16 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
 ## Build / infra
 
+- **OQ-cloud-routine-boundary** *(NEW 2026-08-07; customer-data + vendor + E2EE
+  posture)*: should Claude/OpenAI scheduled routines call a K1/K3
+  Dayfold-controlled gateway that holds credentials/`FCK`, or may a provider cloud
+  job hold a routine unwrap key directly (K4)? Gateway-first preserves the durable
+  key boundary but the provider still processes selected plaintext; K4 is simpler
+  but makes the provider a durable key-holder and conflicts with current W3
+  placement until separately superseded. Proposed default = K3 gateway, shadow then
+  staged/bounded upserts; K4 off. → Proposed ADR 0061 / INB-34 /
+  `docs/superpowers/specs/2026-08-07-routine-integration-design.md`.
+
 - **OQ-migration-verify:** `verifyCommonMainContentDbMigration` (SQLDelight `verifyMigrations`)
   fails on `main` — the committed `1.db`/`2.db` schema snapshots are stale relative to the
   `card` table's later ALTERs (7.sqm importance, 11.sqm triggers) — and the task is **not in the
