@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  a { color: #7A2615; } a:hover { color: #C0381E; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;">
+
+  <div style="margin-bottom:38px;max-width:940px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Smart Briefings · subscription routines</span>
+      <a href="Journey.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#00504B;background:#D8F5EE;border:1px solid #A8E5DA;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">route</span>Journey board →</a>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Smart Briefings — setup, status &amp; revoke</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 16px;max-width:95ch;">A family owner uses their <b>existing Claude or ChatGPT subscription</b> to run a provider-owned routine that drafts Dayfold updates. The provider owns the schedule, usage, and Google connections; Dayfold owns a revocable, hub-scoped grant, review controls and run receipts. Setup is an honest two-surface ceremony — <b>“You'll finish setup in {provider}”</b> — and activation is proven only by the first idempotent <code style="font-family:monospace;background:#FCEBE6;padding:1px 5px;border-radius:5px;font-size:13px;">dayfold_run_finish</code> receipt. Every failure below derives from a closed phase/reason contract, never raw provider errors. Default-off · review-first · least privilege · reversible.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;padding:5px 11px;border-radius:999px;">Runs on the user's plan</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#00504B;background:#D8F5EE;padding:5px 11px;border-radius:999px;">Requested vs observed sources</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#4C2092;background:#EFE4FB;padding:5px 11px;border-radius:999px;">Review drafts first</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#5A423C;background:#F3E0DA;padding:5px 11px;border-radius:999px;">Light + dark · every state</span>
+    </div>
+  </div>
+
+  <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="5">
+    <div style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">{{ sec.num }}</span>
+        <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">{{ sec.kick }}</span>
+      </div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.015em;color:#271814;margin:0 0 6px;">{{ sec.title }}</h2>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:88ch;">{{ sec.desc }}</p>
+      <div style="display:flex;gap:36px;align-items:flex-start;">
+        <sc-for list="{{ sec.frames }}" as="f" hint-placeholder-count="4">
+          <div style="flex:none;width:390px;">
+            <div style="margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:#271814;">{{ f.title }}</span>
+                <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.provFg }};background:{{ f.provBg }};border-radius:999px;padding:3px 9px;">{{ f.provLabel }}</span>
+                <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.modeFg }};background:{{ f.modeBg }};border-radius:999px;padding:3px 9px;">{{ f.modeLabel }}</span>
+              </div>
+              <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:#8C726B;">{{ f.note }}</div>
+            </div>
+            <dc-import name="Smart-Briefings-Phone" mode="{{ f.mode }}" view="{{ f.view }}" provider="{{ f.provider }}" hint-size="390px,844px"></dc-import>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+
+  <div style="max-width:940px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
+    <span class="msr" style="font-size:22px;color:#6438AE;margin-top:1px;">auto_awesome</span>
+    <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">Provider screens (Claude / ChatGPT routine creation, Google OAuth consent, connector settings) are deliberately <b>not</b> mocked as Dayfold surfaces — see <a href="Journey.dc.html">Journey.dc.html</a> for the annotated cross-surface storyboard, and <b>NOTES.md</b> for the recovery matrix mapping every state to its closed phase / reason / action contract. Per ADR 0008 this gallery gates deeper planning until operator sign-off.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const L = { mode:'light', modeLabel:'Light', modeFg:'#5A423C', modeBg:'#F3E0DA' };
+    const D = { mode:'dark', modeLabel:'Dark', modeFg:'#D3BBFF', modeBg:'#2A1F3D' };
+    const provMeta = {
+      claude:  { provLabel:'Claude', provFg:'#7A3A15', provBg:'#F7E8DC' },
+      chatgpt: { provLabel:'ChatGPT', provFg:'#0F5B4E', provBg:'#DDF2EB' },
+      both:    { provLabel:'Provider-agnostic', provFg:'#5A423C', provBg:'#EDE2DC' },
+    };
+    // [title, view, provider ('claude'|'chatgpt'|'both'→claude mount), note]
+    const mk = (defs) => defs.flatMap(([title, view, prov, note]) => {
+      const p = provMeta[prov];
+      const mount = prov === 'chatgpt' ? 'chatgpt' : 'claude';
+      return [ { title, view, provider: mount, note, ...p, ...L }, { title, view, provider: mount, note, ...p, ...D } ];
+    });
+    const sections = [
+      { num:'A', kick:'Discovery & consent', title:'From off to an informed yes',
+        desc:'Default off. The owner picks a provider and source intent (nothing is authorized yet), scopes hubs and authority, and reads an honest data-flow review. An adult sees a calm read-only explanation. Cancel and Not now are calm peers throughout.',
+        frames: mk([
+          ['Entry — off · owner','entry-off-owner','both','Hero anchor + three truths: your plan pays, setup finishes in the provider, drafts are reviewed first.'],
+          ['Entry — off · adult','entry-off-adult','both','Read-only: only a family owner can connect an AI subscription; names who can.'],
+          ['Provider choice','provider-choice','both','Claude vs ChatGPT cards — “Uses your existing subscription” · “Setup finishes in {provider}”. No fake account discovery.'],
+          ['Source intent','source-intent','claude','Gmail / Calendar / Drive / Dayfold-only. Each row: “Connected later in Claude.” Selection only prepares instructions.'],
+          ['Two separate connections','source-permission-explainer','claude','Provider↔Google vs provider→Dayfold; least-connector guidance; no-external-writes attributed to routine policy, not Google’s grant.'],
+          ['Briefing preset','briefing-preset','claude','Daily family briefing hero preset, weekday cadence + “around 6:30 AM” — labeled a setup request confirmed in the provider.'],
+          ['Hub scope & authority','hub-scope','claude','Per-hub selection, restricted hub off-by-default with lock, Read+drafts default, auto-publish locked, explicit can-never list.'],
+          ['Privacy review','privacy-review','claude','Both data directions, plaintext disclosure, the two grants, requested schedule, and “Continue to Claude”.'],
+          ['Privacy review','privacy-review','chatgpt','Same contract with ChatGPT named as the plaintext processor and setup destination.'],
+          ['Technical details','technical-details','claude','Secondary sheet: grant ID, key fingerprint, scopes, timestamps — verification, never the main ceremony.'],
+        ]) },
+      { num:'B', kick:'Handoff & authorization', title:'The provider boundary, honestly',
+        desc:'Dayfold prepares a one-time enrollment and hands off. The provider initiates OAuth back to Dayfold (the one Dayfold-owned approval), then Dayfold waits — status is “Waiting for {provider}”, never “Connected”, until the first idempotent run receipt. Every incomplete path ends in an honest next action.',
+        frames: mk([
+          ['Prepared handoff','handoff','claude','Open Claude + Copy setup instructions; numbered expectations; one-time code, 60-min expiry.'],
+          ['Prepared handoff','handoff','chatgpt','ChatGPT variant — Scheduled Task framing.'],
+          ['OAuth approval','oauth-approval','claude','“Claude wants to connect to Dayfold” — family, exact hub grants, draft authority, revocation, Deny/Allow.'],
+          ['OAuth approval','oauth-approval','chatgpt','ChatGPT variant of the provider-to-Dayfold grant.'],
+          ['Waiting','waiting','claude','Connector ✓ · first safe reads · schedule — separate steps, visible pairing TTL, Open / Copy / Cancel.'],
+          ['Waiting','waiting','chatgpt','ChatGPT variant.'],
+          ['Source setup help','source-setup-help','claude','Claude connector steps + the “ask your organization owner” branch.'],
+          ['Source setup help','source-setup-help','chatgpt','Settings → Apps steps + plan/region/admin availability and Drive-sync caveats.'],
+          ['Drive still syncing','source-syncing','chatgpt','Authorized ≠ indexed. Continue with an honest first-brief caveat, or wait.'],
+          ['Pairing expired','pairing-expired','both','Calm restart — nothing connected, no stale grant left active, no blame.'],
+          ['Returned incomplete','returned-incomplete','claude','Came back without a confirmed routine: resume, copy instructions, or cancel.'],
+          ['Provider unavailable','provider-unavailable','claude','Org owner disabled Google connectors — honest, no invented upsell.'],
+          ['Provider unavailable','provider-unavailable','chatgpt','Scheduled Tasks or a source app missing / admin-disabled on this plan.'],
+          ['Preparation failed','handoff-preparation-failed','both','enrollment · gateway_unreachable — nothing started externally; Retry is idempotent; support code.'],
+          ['Authorization denied','authorization-denied','claude','User canceled provider→Dayfold OAuth. Nothing granted; resume or cancel without blame. Never auto-retries.'],
+          ['Context mismatch','authorization-context-mismatch','both','Wrong family/scope or late callback — the approval is discarded, the old grant never widened or reused.'],
+          ['Return recovery','return-recovery','claude','App return lost, enrollment still live — resume from durable state, never start over.'],
+          ['Source verification — partial','source-verification-partial','claude','Per-source closed results: observed · zero-items-still-observed · needs reauth. Repair, or explicitly continue review-only.'],
+        ]) },
+      { num:'C', kick:'Active & observable', title:'Status Dayfold can actually prove',
+        desc:'Active shows requested vs observed sources, the requested schedule (managed in the provider), hubs, and receipts. Failures arrive as calm banners over the last good content — bounded auto-retry, one quiet attention signal, closed reasons only. The adult view is read-only.',
+        frames: mk([
+          ['Active','active','claude','Active · Review drafts first — schedule labeled “managed in Claude”, per-source observed pills, receipts, manage-in-provider, advanced disclosure.'],
+          ['Active','active','chatgpt','ChatGPT variant — no Run-from-Dayfold disclosure (no external trigger exists).'],
+          ['First draft','first-draft','claude','Per-hub proposals with source provenance + Added-by chip; Reject / Review / Accept per the two-way grammar.'],
+          ['No new updates','first-run-no-changes','claude','“No new updates this time.” — a successful run and probes with nothing to draft. Not a failure.'],
+          ['Partial-source result','partial-source-result','chatgpt','“This draft used Gmail. Google Calendar needs attention.” Review-only until repaired or explicitly accepted.'],
+          ['Source not observed','source-not-observed','claude','Requested · never observed — provider-side repair offered without claiming Google-grant state.'],
+          ['Source needs reauth','source-needs-reauth','chatgpt','The routine reported an auth failure — open provider connector settings; Google OAuth never routes through Dayfold.'],
+          ['No recent check-in','no-recent-checkin','claude','“We haven\u2019t heard from this routine recently.” Unknown ≠ failed; Dayfold can\u2019t see the provider task.'],
+          ['Connector needs attention','connector-needs-attention','both','Dayfold grant expired/denied — reconnect keeps the same scope, never wider.'],
+          ['Run reported failed','run-reported-failed','claude','Only when dayfold_run_finish carried a structured failure — closed reason, last good briefing kept.'],
+          ['Draft stale / conflicted','draft-stale-or-conflicted','both','Dayfold changed since the draft — read-only + Refresh draft; never a silent merge.'],
+          ['Apply — retrying','apply-retrying','both','The saving/retrying vocabulary from the two-way spec; automatic, bounded, draft safe.'],
+          ['Apply — failed','apply-failed','both','“Couldn\u2019t save” — draft preserved, Retry idempotent.'],
+          ['Auto-paused','routine-auto-paused','both','Repeated conflicts hit the policy limit — paused with a closed reason; owner review to resume.'],
+          ['Support details','support-details','both','Content-free snapshot + Copy support code. Never tokens, bodies, or IDs.'],
+          ['Offline','offline','both','Cached status and receipts render; setup/security mutations wait for reconnect.'],
+        ]) },
+      { num:'D', kick:'Stop & revoke', title:'Reversible, without guilt',
+        desc:'Turning off is three separate responsibilities and the UI says which one Dayfold can actually perform. Revocation stays Pending until the server confirms — never claimed on a timeout. The provider task cleanup is an explicit external step.',
+        frames: mk([
+          ['Stop — confirm','stop-confirm','claude','Revoke Dayfold access now / remove the task in Claude / optionally disconnect Google there. Calm peers, no guilt copy.'],
+          ['Revoke — pending','revoke-pending','both','Unconfirmed = still visibly active. Bounded auto-retry + manual Retry when online.'],
+          ['Revoke — failed','revoke-failed','both','5xx/timeout never claims the grant is gone — last confirmed authority + one idempotent Retry.'],
+          ['Revoked — task remains','revoked-provider-task-remains','claude','Access safely revoked; the external task may live on and will fail against Dayfold — removal steps in the provider.'],
+          ['Adult — read-only','adult-active-readonly','claude','Provider, owner/manager, last observed run and results — no grant, schedule, or revoke controls.'],
+        ]) },
+      { num:'E', kick:'Advanced · optional', title:'Run from Dayfold',
+        desc:'Not part of onboarding — an Advanced disclosure on the active screen. Claude supports one secure paste of a per-routine trigger; testing honestly consumes a paid run. ChatGPT has no external trigger, and the UI says so instead of inventing one.',
+        frames: mk([
+          ['Claude connection — paste','advanced-run-claude','claude','One “Paste Claude connection” field; parse-preview shows only routine suffix + “can trigger this routine only”; token never re-shown.'],
+          ['Test run — confirm','advanced-test-claude','claude','“Start one test run?” — a real run against Claude plan usage, not a free validation.'],
+          ['Connected','advanced-claude-connected','claude','Run now + last trigger receipt + rotate/remove; warns provider retries aren\u2019t duplicate-proof.'],
+          ['ChatGPT — unavailable','advanced-run-chatgpt-unavailable','chatgpt','No external trigger exists; native scheduling and the connector stay active. Workspace-agent footnote only.'],
+        ]) },
+    ];
+    return { sections };
+  }
+}
+</script>
+</body>
+</html>

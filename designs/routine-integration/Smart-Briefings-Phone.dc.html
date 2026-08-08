@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  @keyframes sbspin { to { transform: rotate(360deg); } }
+  @keyframes sbshimmer { 0%,100% { opacity:0.55; } 50% { opacity:1; } }
+  .sb-scroll::-webkit-scrollbar { width:0; height:0; }
+  a { color: inherit; } a:hover { color: inherit; }
+</style>
+</helmet>
+<div data-screen-label="{{ screenLabel }}" style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <sc-if value="{{ isOfflineBar }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">signal_cellular_off</span></sc-if>
+      <sc-if value="{{ onlineBar }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ ENTRY — OFF (owner / adult) ============ -->
+  <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ true }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Smart Briefings</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Devices &amp; connections</div></div>
+        <span style="margin-left:auto;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:5px 11px;border-radius:8px;">Off</span>
+      </div>
+      <div style="padding:10px 18px 26px;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin:10px 0 22px;">
+          <span style="width:64px;height:64px;border-radius:20px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr" style="font-size:32px;color:{{ c.onTertiaryContainer }};">auto_awesome</span></span>
+          <h1 style="font-family:'Outfit';font-weight:600;font-size:26px;line-height:1.14;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 8px;max-width:17ch;">Let your AI subscription keep Dayfold useful.</h1>
+          <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;max-width:32ch;">Claude or ChatGPT can turn the sources you've connected there into Dayfold drafts for your family.</p>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:16px;">
+          <sc-for list="{{ entryRows }}" as="r" hint-placeholder-count="3">
+            <sc-if value="{{ r.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+              <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ r.fg }};">{{ r.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ r.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ isEntryOwner }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};margin-bottom:11px;"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Set up Smart Briefings</span></div>
+          <div style="display:flex;align-items:center;justify-content:center;height:48px;"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurfaceVar }};">Not now</span></div>
+          <p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:8px 10px 0;">Runs count against your Claude or ChatGPT plan. Off by default · drafts are reviewed first · revocable in one tap.</p>
+        </sc-if>
+        <sc-if value="{{ isEntryAdult }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:11px;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">shield_person</span>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};"><b style="color:{{ c.onSurface }};">Only a family owner can connect an AI subscription.</b><br>Pat Jackson is the owner of the Jacksons. If this would help your family, ask Pat to set it up.</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PROVIDER CHOICE ============ -->
+  <sc-if value="{{ isProviderChoice }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Choose your AI</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Step 1 of 5</div></div>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 16px;">Pick the subscription you already pay for. Dayfold doesn't run the AI — your plan does.</p>
+        <sc-for list="{{ providerCards }}" as="p" hint-placeholder-count="2">
+          <div style="background:{{ c.surfaceContainer }};border:2px solid {{ p.border }};border-radius:20px;padding:16px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:13px;margin-bottom:12px;">
+              <span style="width:44px;height:44px;border-radius:13px;background:{{ p.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:20px;color:{{ p.tileFg }};">{{ p.letter }}</span>
+              <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onSurface }};">{{ p.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ p.kind }}</div></div>
+              <span style="width:24px;height:24px;border-radius:999px;border:2px solid {{ p.radioBorder }};background:{{ p.radioBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ p.radioCheck }};">check</span></span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;">
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};border-radius:8px;padding:5px 10px;"><span class="msr" style="font-size:14px;">credit_card_off</span>Uses your existing subscription</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};border-radius:8px;padding:5px 10px;"><span class="msr" style="font-size:14px;">open_in_new</span>Setup finishes in {{ p.name }}</span>
+            </div>
+          </div>
+        </sc-for>
+        <p style="font-family:'Figtree';font-size:11.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:2px 6px 18px;">Dayfold can't see your account, plan, or existing tasks in either app — nothing is discovered or connected yet. Codex is part of the broader ChatGPT subscription; this setup uses ChatGPT itself.</p>
+        <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};margin-bottom:11px;"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Continue</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;height:44px;"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurfaceVar }};">Not now</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SOURCE INTENT ============ -->
+  <sc-if value="{{ isSourceIntent }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Sources</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Step 2 of 5</div></div>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 16px;">What should the briefing draw from? You'll connect this Google account in {{ prov.name }} — choosing here only prepares the instructions.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+          <sc-for list="{{ sourceIntentRows }}" as="s" hint-placeholder-count="3">
+            <sc-if value="{{ s.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+              <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ s.fg }};">{{ s.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ s.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Connected later in {{ prov.name }}</div></div>
+              <span style="width:24px;height:24px;border-radius:7px;border:2px solid {{ s.boxBorder }};background:{{ s.boxBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ s.boxCheck }};">check</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 14px;margin-bottom:16px;">
+          <span style="width:38px;height:38px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.primary }};">home</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Dayfold only</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">No outside sources — briefings from your hubs alone</div></div>
+          <span style="width:24px;height:24px;border-radius:999px;border:2px solid {{ c.outline }};"></span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;margin-bottom:18px;">
+          <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Nothing is authorized yet. Google sign-in happens inside {{ prov.name }} — Dayfold never sees that account or its permissions.</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Continue</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;height:46px;margin-top:4px;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.primary }};">How do these connections work?</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SOURCE PERMISSION EXPLAINER ============ -->
+  <sc-if value="{{ isSourceExplainer }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Two separate connections</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span style="width:36px;height:36px;border-radius:11px;background:{{ prov.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;color:{{ prov.tileFg }};">{{ prov.letter }}</span>
+            <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">sync_alt</span>
+            <span style="width:36px;height:36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span style="width:19px;height:19px;border-radius:999px;background:conic-gradient(#EA4335 0 25%,#FBBC05 25% 50%,#34A853 50% 75%,#4285F4 75% 100%);"></span></span>
+            <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};margin-left:2px;">{{ prov.name }} ↔ Google</span>
+          </div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;">You sign in to Google <b style="color:{{ c.onSurface }};">inside {{ prov.name }}</b> and approve Google's own consent screen there. Dayfold never receives that sign-in and can't inspect or revoke it.</p>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span style="width:36px;height:36px;border-radius:11px;background:{{ prov.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:16px;color:{{ prov.tileFg }};">{{ prov.letter }}</span>
+            <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">arrow_forward</span>
+            <span style="width:36px;height:36px;border-radius:11px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><span style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></span></span>
+            <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onSurface }};margin-left:2px;">{{ prov.name }} → Dayfold</span>
+          </div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;">A separate grant <b style="color:{{ c.onSurface }};">you approve in Dayfold</b>. It lets the routine read your chosen hubs and submit drafts — and you can revoke it here in one tap.</p>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.tertiaryContainer }};border-radius:14px;padding:12px 14px;margin-bottom:10px;">
+          <span class="msr" style="font-size:18px;color:{{ c.onTertiaryContainer }};margin-top:1px;">checklist</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onTertiaryContainer }};"><b>Keep it minimal.</b> In {{ prov.name }}, include only the Dayfold connector and the sources you chose — remove anything else from the routine.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;margin-bottom:18px;">
+          <span class="msr" style="font-size:18px;color:{{ c.secondary }};margin-top:1px;">edit_off</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">The routine's instructions forbid sending email, changing calendar events, or editing files. That's a rule written into the routine — Google's own permission grant may be broader, so review it in {{ prov.name }}.</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Got it</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ BRIEFING PRESET ============ -->
+  <sc-if value="{{ isPreset }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Your briefing</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Step 3 of 5</div></div>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border:2px solid {{ c.primary }};border-radius:20px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:10px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.onPrimaryContainer }};">wb_twilight</span></span>
+            <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Daily family briefing</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">The recommended start</div></div>
+            <span style="width:24px;height:24px;border-radius:999px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ c.onPrimary }};">check</span></span>
+          </div>
+          <div style="background:{{ c.surface }};border-radius:14px;padding:13px 14px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:6px;">EXAMPLE</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};margin-bottom:4px;">3 things for Thursday</div>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin-bottom:9px;">Picture-day forms due · snack duty is yours · practice moved to 5 PM.</div>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.tertiary }};"><span class="msr" style="font-size:14px;">auto_awesome</span>Drafted by {{ prov.name }} · you review first</span>
+          </div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">WHEN SHOULD IT RUN?</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:500;background:{{ c.secondaryContainer }};color:{{ c.onSecondaryContainer }};padding:9px 15px;border-radius:10px;"><span class="msr" style="font-size:16px;">check</span>Weekdays</span>
+          <span style="font-family:'Figtree';font-size:13px;font-weight:500;background:{{ c.surface }};border:1px solid {{ c.outline }};color:{{ c.onSurface }};padding:9px 15px;border-radius:10px;">Every day</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:14px;">
+          <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">schedule</span>
+          <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Around 6:30 AM</div>
+          <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;margin-bottom:18px;">
+          <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">This is a setup request — you'll confirm the schedule in {{ prov.name }}, and {{ prov.name }} owns it from then on.</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Continue</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ HUB SCOPE ============ -->
+  <sc-if value="{{ isHubScope }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Dayfold access</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Step 4 of 5</div></div>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">HUBS THIS ROUTINE CAN READ</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:16px;">
+          <sc-for list="{{ hubRows }}" as="h" hint-placeholder-count="4">
+            <sc-if value="{{ h.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;opacity:{{ h.opacity }};">
+              <span style="width:38px;height:38px;border-radius:11px;background:{{ h.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ h.fg }};">{{ h.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ h.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ h.subColor }};">{{ h.sub }}</div></div>
+              <span style="width:24px;height:24px;border-radius:7px;border:2px solid {{ h.boxBorder }};background:{{ h.boxBg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ h.boxCheck }};">check</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">WHAT IT CAN DO</div>
+        <sc-for list="{{ authorityRows }}" as="a" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border:2px solid {{ a.border }};border-radius:16px;padding:13px 15px;margin-bottom:9px;">
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ a.title }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ a.sub }}</div></div>
+            <span style="width:24px;height:24px;border-radius:999px;border:2px solid {{ a.radioBorder }};background:{{ a.radioBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ a.radioCheck }};">check</span></span>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:16px;opacity:0.55;">
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Automatic publishing</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Available after you review initial runs</div></div>
+          <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">lock</span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;margin-bottom:18px;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:9px;">THIS ROUTINE CAN NEVER</div>
+          <sc-for list="{{ forbidden }}" as="f" hint-placeholder-count="4">
+            <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:7px;">
+              <span class="msr" style="font-size:16px;color:{{ c.error }};margin-top:1px;">block</span>
+              <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ f }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Continue</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PRIVACY REVIEW (+ technical details sheet) ============ -->
+  <sc-if value="{{ isPrivacy }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Review &amp; continue</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Step 5 of 5</div></div>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">HOW YOUR DATA MOVES</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+          <sc-for list="{{ privacyFlows }}" as="p" hint-placeholder-count="3">
+            <sc-if value="{{ p.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:flex-start;gap:13px;padding:13px 14px;">
+              <span style="width:36px;height:36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span class="msr" style="font-size:19px;color:{{ p.fg }};">{{ p.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};margin-bottom:2px;">{{ p.title }}</div><div style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ p.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">TWO SEPARATE PERMISSIONS</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">sync_alt</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ prov.name }} ↔ Google</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Approved and managed inside {{ prov.name }}</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">key</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ prov.name }} → Dayfold</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">You approve it next · revoke anytime in one tap</div></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 14px;margin-bottom:12px;">
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">schedule</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Weekdays around 6:30 AM</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Requested schedule · managed in {{ prov.name }}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 14px;margin-bottom:14px;">
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">manufacturing</span>
+          <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Technical details</div>
+          <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:16px;background:{{ c.primary }};margin-bottom:8px;"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Continue to {{ prov.name }}</span><span class="msr" style="font-size:19px;color:{{ c.onPrimary }};">open_in_new</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;height:46px;"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurfaceVar }};">Back</span></div>
+        <p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:6px 10px 0;">You'll finish setup in {{ prov.name }}. Runs count against your {{ prov.name }} plan.</p>
+      </div>
+    </div>
+    <sc-if value="{{ isTechSheet }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+        <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 6px;">Technical details</h2>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 16px;">So you can verify exactly what will be granted. Nothing here is secret.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:16px;">
+          <sc-for list="{{ techRows }}" as="t" hint-placeholder-count="5">
+            <sc-if value="{{ t.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;">
+              <div style="flex:0 0 108px;font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};">{{ t.label }}</div>
+              <div style="flex:1;font-family:{{ t.font }};font-size:12.5px;line-height:1.4;color:{{ c.onSurface }};">{{ t.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:50px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Close</span></div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- ============ OAUTH APPROVAL (Dayfold-owned) ============ -->
+  <sc-if value="{{ isOauth }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 22px 10px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onSurface }};">Connect to Dayfold</span>
+        <span style="width:25px;"></span>
+      </div>
+      <div style="padding:6px 20px 22px;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="width:52px;height:52px;border-radius:16px;background:{{ prov.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:23px;color:{{ prov.tileFg }};">{{ prov.letter }}</span>
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">link</span>
+            <span style="width:52px;height:52px;border-radius:16px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><span style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></span></span>
+          </div>
+          <h1 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.02em;line-height:1.15;color:{{ c.onSurface }};margin:0 0 6px;">{{ prov.name }} wants to connect to Dayfold</h1>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:0;max-width:32ch;">This lets {{ prov.name }} call Dayfold. It does not let Dayfold see or manage your {{ prov.name }} account.</p>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:18px;">
+          <sc-for list="{{ oauthRows }}" as="r" hint-placeholder-count="4">
+            <sc-if value="{{ r.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;">
+              <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">{{ r.icon }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ r.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;border:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Deny</span></div>
+          <div style="flex:1.2;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onPrimary }};">Allow</span></div>
+        </div>
+        <p style="font-family:'Figtree';font-size:11.5px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:12px 6px 0;">Only allow if <b style="color:{{ c.onSurface }};">you</b> just set this up in {{ prov.name }} yourself.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ GENERIC STATUS VIEW ============ -->
+  <sc-if value="{{ isStatus }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">{{ sv.headerIcon }}</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">{{ sv.header }}</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin:8px 0 18px;">
+          <span style="width:58px;height:58px;border-radius:18px;background:{{ sv.iconBg }};display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><span class="msr {{ sv.iconClass }}" style="font-size:30px;color:{{ sv.iconFg }};animation:{{ sv.iconAnim }};">{{ sv.icon }}</span></span>
+          <h1 style="font-family:'Outfit';font-weight:600;font-size:23px;letter-spacing:-0.02em;line-height:1.15;color:{{ c.onSurface }};margin:0 0 6px;max-width:20ch;">{{ sv.title }}</h1>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;max-width:34ch;">{{ sv.body }}</p>
+        </div>
+        <sc-for list="{{ sv.banners }}" as="b" hint-placeholder-count="0">
+          <div style="display:flex;align-items:flex-start;gap:10px;background:{{ b.bg }};border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+            <span class="msr fill" style="font-size:19px;color:{{ b.fg }};margin-top:1px;">{{ b.icon }}</span>
+            <div style="flex:1;font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ b.fg }};"><b>{{ b.lead }}</b> {{ b.text }}</div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ sv.stepsLabel }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:4px 4px 9px;">{{ sv.stepsLabel }}</div></sc-if>
+        <sc-if value="{{ sv.hasSteps }}" hint-placeholder-val="{{ false }}">
+          <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:14px;">
+            <sc-for list="{{ sv.steps }}" as="t" hint-placeholder-count="4">
+              <sc-if value="{{ t.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+                <sc-if value="{{ t.num }}" hint-placeholder-val="{{ false }}"><span style="width:26px;height:26px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:700;font-size:12.5px;color:{{ c.onSurface }};flex:0 0 auto;">{{ t.num }}</span></sc-if>
+                <sc-if value="{{ t.icon }}" hint-placeholder-val="{{ true }}"><span class="msr {{ t.iconClass }}" style="font-size:21px;color:{{ t.iconColor }};animation:{{ t.anim }};flex:0 0 auto;">{{ t.icon }}</span></sc-if>
+                <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ t.label }}</div><sc-if value="{{ t.sub }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ t.subColor }};">{{ t.sub }}</div></sc-if></div>
+                <sc-if value="{{ t.trail }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ t.trailFg }};background:{{ t.trailBg }};padding:4px 9px;border-radius:8px;">{{ t.trail }}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sv.code }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 15px;margin-bottom:14px;">
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">support_agent</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:2px;">SUPPORT CODE</div><div style="font-family:'Roboto Mono';font-weight:500;font-size:13.5px;color:{{ c.onSurface }};">{{ sv.code }}</div></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.primary }};"><span class="msr" style="font-size:16px;">content_copy</span>Copy</span>
+          </div>
+        </sc-if>
+        <sc-for list="{{ sv.buttons }}" as="b" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:16px;background:{{ b.bg }};border:{{ b.border }};margin-bottom:10px;">
+            <sc-if value="{{ b.icon }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:19px;color:{{ b.fg }};">{{ b.icon }}</span></sc-if>
+            <span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ b.fg }};">{{ b.label }}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{ sv.footnote }}" hint-placeholder-val="{{ false }}"><p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:6px 10px 0;">{{ sv.footnote }}</p></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ GENERIC ACTIVE VIEW (+ stop-confirm sheet) ============ -->
+  <sc-if value="{{ isActive }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Smart Briefings</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ av.headerSub }}</div></div>
+        <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ av.chipFg }};background:{{ av.chipBg }};padding:5px 11px;border-radius:8px;">{{ av.chip }}</span>
+      </div>
+      <div style="padding:6px 18px 26px;">
+        <sc-if value="{{ av.offline }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:11px;background:{{ c.surfaceContainerHigh }};border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">cloud_off</span>
+            <span style="font-family:'Figtree';font-size:13px;line-height:1.4;color:{{ c.onSurface }};"><b>You're offline.</b> Showing the last synced status — setup and security changes wait until you reconnect.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ av.banner }}" hint-placeholder-val="{{ false }}">
+          <div style="background:{{ av.banner.bg }};border-radius:16px;padding:14px 15px;margin-bottom:12px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <span class="msr fill" style="font-size:20px;color:{{ av.banner.fg }};margin-top:1px;">{{ av.banner.icon }}</span>
+              <div style="flex:1;font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ av.banner.fg }};"><b>{{ av.banner.lead }}</b> {{ av.banner.text }}</div>
+            </div>
+            <sc-if value="{{ av.banner.action }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;background:{{ av.banner.actionBg }};margin-top:12px;">
+                <sc-if value="{{ av.banner.actionIcon }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;color:{{ av.banner.actionFg }};">{{ av.banner.actionIcon }}</span></sc-if>
+                <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ av.banner.actionFg }};">{{ av.banner.action }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ av.managedBy }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+            <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};margin-top:1px;">shield_person</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ av.managedBy }}</span>
+          </div>
+        </sc-if>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;margin-bottom:12px;opacity:{{ av.dim }};">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ prov.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:18px;color:{{ prov.tileFg }};">{{ prov.letter }}</span>
+            <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:16px;color:{{ c.onSurface }};">Daily family briefing</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Runs on your {{ prov.name }} subscription</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid {{ c.outlineVar }};">
+            <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">schedule</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};">Weekdays around 6:30 AM</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Requested schedule · managed in {{ prov.name }}</div></div>
+            <sc-if value="{{ av.locks }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">lock</span></sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0 2px;border-top:1px solid {{ c.outlineVar }};">
+            <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">history</span>
+            <div style="flex:1;font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Last observed run · <b style="color:{{ c.onSurface }};">{{ av.lastRun }}</b></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 9px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">SOURCES</span>
+          <span style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">Requested vs observed</span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;opacity:{{ av.dim }};">
+          <sc-for list="{{ av.sources }}" as="s" hint-placeholder-count="3">
+            <sc-if value="{{ s.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+              <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">{{ s.icon }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ s.name }}</div><sc-if value="{{ s.sub }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Figtree';font-size:11.5px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ s.sub }}</div></sc-if></div>
+              <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ s.pillFg }};background:{{ s.pillBg }};padding:4px 9px;border-radius:8px;text-align:right;">{{ s.pill }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">DAYFOLD ACCESS</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:12px;opacity:{{ av.dim }};">
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px;">
+            <sc-for list="{{ av.hubs }}" as="h" hint-placeholder-count="3">
+              <span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.onSurface }};background:{{ c.surfaceContainerHigh }};border-radius:8px;padding:5px 10px;">{{ h }}</span>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 10px;border-radius:8px;"><span class="msr" style="font-size:14px;">edit_note</span>Read + submit drafts</span>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:4px 10px;border-radius:8px;">Review drafts first</span>
+          </div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">RECENT RUNS</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:14px;opacity:{{ av.dim }};">
+          <sc-for list="{{ av.receipts }}" as="r" hint-placeholder-count="2">
+            <sc-if value="{{ r.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+              <span class="msr {{ r.iconClass }}" style="font-size:20px;color:{{ r.iconColor }};">{{ r.icon }}</span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ r.title }}</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">{{ r.sub }}</div></div>
+              <sc-if value="{{ r.chevron }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">chevron_right</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ av.manage }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:9px;margin-bottom:9px;">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:14px;border:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurface }};">Manage sources</span><span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">open_in_new</span></div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:14px;border:1.5px solid {{ c.outline }};"><span style="font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurface }};">Manage schedule</span><span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">open_in_new</span></div>
+          </div>
+          <p style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin:0 0 12px;">Both open {{ prov.name }} — sources and schedule live there.</p>
+        </sc-if>
+        <sc-if value="{{ av.advanced }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:12px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">bolt</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Run from Dayfold</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Advanced · optional</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ av.showStopRow }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align:center;padding:4px 0;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Turn off Smart Briefings</span></div>
+        </sc-if>
+      </div>
+    </div>
+    <sc-if value="{{ isStopSheet }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+        <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 6px;">Turn off Smart Briefings?</h2>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Three separate things — Dayfold can only do the first for you.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:16px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.error }};margin-top:1px;">key_off</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Revoke Dayfold access now</div><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">Once Dayfold confirms it, future reads and drafts stop immediately.</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">event_busy</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Remove the scheduled task in {{ prov.name }}</div><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">Stops future run attempts. Dayfold can't do this for you.</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">link_off</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Disconnect Google sources in {{ prov.name }} — optional</div><div style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">Affects your other {{ prov.name }} uses too. Dayfold can't do it or see it.</div></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.errorContainer }};margin-bottom:9px;"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onErrorContainer }};">Revoke Dayfold access now</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:7px;height:50px;border-radius:16px;background:{{ c.surfaceContainerHigh }};margin-bottom:9px;"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Open {{ prov.name }}</span><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">open_in_new</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;height:46px;"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurfaceVar }};">Keep it on</span></div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- ============ GENERIC DRAFT / RESULT VIEW ============ -->
+  <sc-if value="{{ isDraft }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <div><div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">{{ dv.title }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ dv.sub }}</div></div>
+      </div>
+      <div style="padding:6px 18px 26px;">
+        <sc-if value="{{ dv.provLine }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.surfaceContainer }};border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+            <span class="msr" style="font-size:18px;color:{{ c.tertiary }};margin-top:1px;">auto_awesome</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ dv.provLine }}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ dv.banner }}" hint-placeholder-val="{{ false }}">
+          <div style="background:{{ dv.banner.bg }};border-radius:16px;padding:14px 15px;margin-bottom:12px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <span class="msr fill" style="font-size:20px;color:{{ dv.banner.fg }};margin-top:1px;">{{ dv.banner.icon }}</span>
+              <div style="flex:1;font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ dv.banner.fg }};"><b>{{ dv.banner.lead }}</b> {{ dv.banner.text }}</div>
+            </div>
+            <sc-if value="{{ dv.banner.action }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;background:{{ dv.banner.actionBg }};margin-top:12px;">
+                <sc-if value="{{ dv.banner.actionIcon }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;color:{{ dv.banner.actionFg }};">{{ dv.banner.actionIcon }}</span></sc-if>
+                <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ dv.banner.actionFg }};">{{ dv.banner.action }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ dv.empty }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;background:{{ c.surfaceContainer }};border-radius:20px;padding:30px 22px;margin-bottom:14px;">
+            <span style="width:56px;height:56px;border-radius:18px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><span class="msr" style="font-size:29px;color:{{ c.onSecondaryContainer }};">check</span></span>
+            <div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin-bottom:6px;">No new updates this time.</div>
+            <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0;max-width:32ch;">{{ dv.emptyBody }}</p>
+          </div>
+        </sc-if>
+        <sc-for list="{{ dv.changes }}" as="ch" hint-placeholder-count="2">
+          <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:14px 15px;margin-bottom:11px;opacity:{{ ch.opacity }};">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurface }};background:{{ c.surfaceContainerHigh }};border-radius:8px;padding:4px 9px;"><span class="msr" style="font-size:14px;color:{{ c.onSurfaceVar }};">{{ ch.hubIcon }}</span>{{ ch.hub }}</span>
+              <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ ch.kindFg }};background:{{ ch.kindBg }};padding:4px 8px;border-radius:7px;">{{ ch.kind }}</span>
+              <sc-if value="{{ ch.pill }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Figtree';font-size:11px;font-weight:600;color:{{ ch.pillFg }};background:{{ ch.pillBg }};padding:4px 8px;border-radius:7px;margin-left:auto;"><sc-if value="{{ ch.pillIcon }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:13px;animation:{{ ch.pillAnim }};">{{ ch.pillIcon }}</span></sc-if>{{ ch.pill }}</span></sc-if>
+            </div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};margin-bottom:4px;">{{ ch.title }}</div>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurfaceVar }};margin-bottom:10px;">{{ ch.body }}</div>
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:{{ ch.srcMb }};">
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};border:1px solid {{ c.outlineVar }};border-radius:8px;padding:4px 9px;"><span class="msr" style="font-size:14px;">{{ ch.srcIcon }}</span>{{ ch.src }}</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.tertiary }};"><span class="msr" style="font-size:14px;">auto_awesome</span>Added by {{ prov.name }}</span>
+            </div>
+            <sc-if value="{{ ch.actions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:8px;border-top:1px solid {{ c.outlineVar }};padding-top:11px;">
+                <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurfaceVar }};padding:9px 10px;">Reject</span>
+                <span style="margin-left:auto;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:9px 16px;border-radius:999px;">Review</span>
+                <span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onPrimary }};background:{{ c.primary }};padding:9px 16px;border-radius:999px;">Accept</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ ch.refresh }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;background:{{ c.primary }};margin-top:4px;"><span class="msr" style="font-size:17px;color:{{ c.onPrimary }};">refresh</span><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onPrimary }};">Refresh draft</span></div>
+            </sc-if>
+            <sc-if value="{{ ch.retry }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;background:{{ c.secondaryContainer }};margin-top:4px;"><span class="msr" style="font-size:17px;color:{{ c.onSecondaryContainer }};">refresh</span><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSecondaryContainer }};">Retry</span></div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ dv.footer }}" hint-placeholder-val="{{ false }}"><p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:8px 10px 0;">{{ dv.footer }}</p></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ADVANCED — RUN FROM DAYFOLD (Claude paste) ============ -->
+  <sc-if value="{{ isAdvRun }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Run from Dayfold</span>
+        <span style="margin-left:auto;font-family:'Figtree';font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};padding:4px 9px;border-radius:7px;">ADVANCED</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 16px;">Adds a deliberate <b style="color:{{ c.onSurface }};">Run now</b> button so Dayfold can start your already-created Claude routine. Optional — your schedule keeps working without it.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;margin-bottom:14px;">
+          <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:8px;">IN CLAUDE, FIRST</div>
+          <div style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">Open your routine → add an <b style="color:{{ c.onSurface }};">API trigger</b> → copy the whole generated command.</div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin:0 4px 7px;">PASTE CLAUDE CONNECTION</div>
+        <div style="min-height:92px;border-radius:16px;background:{{ c.surfaceContainer }};border:2px solid {{ c.primary }};padding:13px 15px;margin-bottom:8px;">
+          <span style="font-family:'Roboto Mono';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">Paste the whole command Claude generated…</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;"><span class="msr" style="font-size:16px;color:{{ c.secondary }};">encrypted</span><span style="font-family:'Figtree';font-size:12px;line-height:1.4;color:{{ c.onSurfaceVar }};">One secure paste. The token is stored, never shown again, and never asked for by support.</span></div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;">
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">verified</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};">Claude routine ····3F7A</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Recognized from your paste</div></div>
+            <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 9px;border-radius:8px;">Valid</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;">
+            <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">key</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};">Can trigger this routine only</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Not your Claude account, password, or other routines</div></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};margin-bottom:8px;"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onPrimary }};">Save connection</span></div>
+        <p style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;margin:0 10px;">Saving stores the connection — it doesn't start a run.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ ADVANCED — CONNECTED (+ test-run sheet) ============ -->
+  <sc-if value="{{ isAdvConnected }}" hint-placeholder-val="{{ false }}">
+    <div class="sb-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Run from Dayfold</span>
+        <span style="margin-left:auto;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:5px 11px;border-radius:8px;">Connected</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ prov.tileBg }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:700;font-size:18px;color:{{ prov.tileFg }};">C</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Claude routine ····3F7A</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Can trigger this routine only</div></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:14px;background:{{ c.primary }};"><span class="msr fill" style="font-size:19px;color:{{ c.onPrimary }};">play_arrow</span><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onPrimary }};">Run now</span></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;background:{{ c.tertiaryContainer }};border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+          <span class="msr" style="font-size:18px;color:{{ c.onTertiaryContainer }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onTertiaryContainer }};">Each run counts against your Claude plan. Claude may retry on errors — runs aren't duplicate-proof.</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">LAST TRIGGER</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+            <span class="msr fill" style="font-size:20px;color:{{ c.secondary }};">check_circle</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">Triggered · Tue 4:12 PM</div><div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">Run completed · 2 drafts submitted</div></div>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:4px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">autorenew</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Rotate connection</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.error }};">delete</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.error }};">Remove connection</div>
+          </div>
+        </div>
+        <p style="font-family:'Figtree';font-size:11.5px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:0 6px;">If a run fails as invalid, paused, or over quota, the result appears here — the token itself is never shown.</p>
+      </div>
+    </div>
+    <sc-if value="{{ isTestSheet }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+        <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Start one test run?</h2>
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;">This starts a <b style="color:{{ c.onSurface }};">real run</b> of your Claude routine right now, and it counts against your Claude plan usage. It's not a free validation check.</p>
+        <div style="display:flex;gap:11px;">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Cancel</span></div>
+          <div style="flex:1.2;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onPrimary }};">Start test run</span></div>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:6;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;provider&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;claude&quot;,&quot;chatgpt&quot;],&quot;default&quot;:&quot;claude&quot;,&quot;tsType&quot;:&quot;'claude' | 'chatgpt'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;entry-off-owner&quot;,&quot;entry-off-adult&quot;,&quot;provider-choice&quot;,&quot;source-intent&quot;,&quot;source-permission-explainer&quot;,&quot;briefing-preset&quot;,&quot;hub-scope&quot;,&quot;privacy-review&quot;,&quot;technical-details&quot;,&quot;handoff&quot;,&quot;oauth-approval&quot;,&quot;waiting&quot;,&quot;source-setup-help&quot;,&quot;source-syncing&quot;,&quot;pairing-expired&quot;,&quot;returned-incomplete&quot;,&quot;provider-unavailable&quot;,&quot;handoff-preparation-failed&quot;,&quot;authorization-denied&quot;,&quot;authorization-context-mismatch&quot;,&quot;return-recovery&quot;,&quot;source-verification-partial&quot;,&quot;active&quot;,&quot;first-draft&quot;,&quot;first-run-no-changes&quot;,&quot;partial-source-result&quot;,&quot;source-not-observed&quot;,&quot;source-needs-reauth&quot;,&quot;no-recent-checkin&quot;,&quot;connector-needs-attention&quot;,&quot;run-reported-failed&quot;,&quot;draft-stale-or-conflicted&quot;,&quot;apply-retrying&quot;,&quot;apply-failed&quot;,&quot;routine-auto-paused&quot;,&quot;support-details&quot;,&quot;offline&quot;,&quot;stop-confirm&quot;,&quot;revoke-pending&quot;,&quot;revoke-failed&quot;,&quot;revoked-provider-task-remains&quot;,&quot;adult-active-readonly&quot;,&quot;advanced-run-claude&quot;,&quot;advanced-test-claude&quot;,&quot;advanced-claude-connected&quot;,&quot;advanced-run-chatgpt-unavailable&quot;],&quot;default&quot;:&quot;entry-off-owner&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'entry-off-owner';
+    const provider = this.props.provider === 'chatgpt' ? 'chatgpt' : 'claude';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA', surfaceContainerHighest:'#EDD9D2',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      error:'#BA1A1A', onError:'#FFFFFF', errorContainer:'#FFDAD6', onErrorContainer:'#410002', errorOutline:'#E7A9A2',
+      scrim:'rgba(39,24,20,0.42)', skeleton:'#F0DFDA',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322D',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      error:'#FFB4AB', onError:'#690005', errorContainer:'#93000A', onErrorContainer:'#FFDAD6', errorOutline:'#5C1410',
+      scrim:'rgba(0,0,0,0.55)', skeleton:'#322824',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const prov = provider === 'chatgpt'
+      ? { name:'ChatGPT', letter:'G', tileBg: mode==='dark' ? '#14382F' : '#DDF2EB', tileFg: mode==='dark' ? '#5AD0B5' : '#0F7B6C' }
+      : { name:'Claude', letter:'C', tileBg: mode==='dark' ? '#3A2A20' : '#F7E8DC', tileFg: mode==='dark' ? '#E8A87E' : '#B0561F' };
+    const N = prov.name;
+
+    // helpers
+    const btn = (label, kind, icon) => {
+      if (kind==='filled') return { label, icon, bg:c.primary, fg:c.onPrimary, border:'none' };
+      if (kind==='tonal') return { label, icon, bg:c.secondaryContainer, fg:c.onSecondaryContainer, border:'none' };
+      if (kind==='outlined') return { label, icon, bg:'transparent', fg:c.onSurface, border:'1.5px solid '+c.outline };
+      if (kind==='error') return { label, icon, bg:c.errorContainer, fg:c.onErrorContainer, border:'none' };
+      return { label, icon, bg:'transparent', fg:c.onSurfaceVar, border:'none' };
+    };
+    const ban = (tone, icon, lead, text, action, actionIcon) => {
+      const t = tone==='error' ? { bg:c.errorContainer, fg:c.onErrorContainer }
+        : tone==='warn' ? { bg:c.tertiaryContainer, fg:c.onTertiaryContainer }
+        : tone==='ok' ? { bg:c.secondaryContainer, fg:c.onSecondaryContainer }
+        : { bg:c.surfaceContainerHigh, fg:c.onSurface };
+      const b = { ...t, icon, lead, text };
+      if (action) { b.action = action; b.actionIcon = actionIcon || ''; b.actionBg = tone==='error' ? c.onErrorContainer : c.primary; b.actionFg = tone==='error' ? c.errorContainer : c.onPrimary; }
+      return b;
+    };
+    const step = (state, label, sub, trail, divider) => {
+      const m = {
+        done:    { icon:'check_circle', iconClass:'fill', iconColor:c.secondary, anim:'none' },
+        active:  { icon:'progress_activity', iconClass:'', iconColor:c.primary, anim:'sbspin 1.1s linear infinite' },
+        pending: { icon:'radio_button_unchecked', iconClass:'', iconColor:c.outline, anim:'none' },
+        warn:    { icon:'error', iconClass:'fill', iconColor:c.tertiary, anim:'none' },
+        fail:    { icon:'cancel', iconClass:'fill', iconColor:c.error, anim:'none' },
+        info:    { icon:'info', iconClass:'', iconColor:c.onSurfaceVar, anim:'none' },
+      }[state];
+      return { ...m, label, sub: sub||'', subColor:c.onSurfaceVar, trail: trail||'', trailFg:c.onSurfaceVar, trailBg:c.surfaceContainerHigh, divider: divider!==false };
+    };
+    const nstep = (num, label, sub, divider) => ({ num:String(num), icon:'', label, sub:sub||'', subColor:c.onSurfaceVar, divider: divider!==false });
+    const srcpill = (kind, label) => {
+      if (kind==='ok') return { fg:c.onSecondaryContainer, bg:c.secondaryContainer, label };
+      if (kind==='warn') return { fg:c.onTertiaryContainer, bg:c.tertiaryContainer, label };
+      if (kind==='err') return { fg:c.onErrorContainer, bg:c.errorContainer, label };
+      return { fg:c.onSurfaceVar, bg:c.surfaceContainerHigh, label };
+    };
+    const src = (icon, name, kind, pillLabel, sub, divider) => ({ icon, name, sub: sub||'', divider: divider!==false, pill: pillLabel, pillFg: srcpill(kind,'').fg, pillBg: srcpill(kind,'').bg });
+
+    // ---------- status-view configs ----------
+    let sv = null;
+    const svBase = { header:'Smart Briefings', headerIcon:'arrow_back', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar, iconClass:'', iconAnim:'none', banners:[], stepsLabel:'', hasSteps:false, steps:[], code:'', buttons:[], footnote:'' };
+    if (view==='handoff') sv = { ...svBase, header:'Finish in '+N, icon:'open_in_new', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer,
+      title:"You'll finish setup in "+N, body:'Dayfold prepared a one-time setup instruction for your routine. Open '+N+' and follow it — about two minutes.',
+      stepsLabel:'WHAT HAPPENS IN '+N.toUpperCase(), hasSteps:true,
+      steps:[ nstep(1,'Connect the Dayfold connector','It will ask to connect back to Dayfold — you approve that here', false), nstep(2,'Connect Gmail & Google Calendar',"You'll connect this Google account in "+N+'.'), nstep(3,'Keep only these + Dayfold','Remove unrelated connectors from the routine'), nstep(4,'Review the routine & confirm its schedule','Weekdays around 6:30 AM — as you requested') ],
+      buttons:[ btn('Open '+N,'filled','open_in_new'), btn('Copy setup instructions','tonal','content_copy'), btn('Cancel setup','text') ],
+      footnote:'The instruction holds a one-time code — never your Dayfold content or keys. It expires in 60 minutes.' };
+    if (view==='waiting') sv = { ...svBase, header:'Setting up', icon:'hourglass_top', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer,
+      title:'Waiting for '+N+' to finish setup', body:'Dayfold turns this on only after the routine proves itself with a safe first run.',
+      banners:[ ban('info','timer','','This setup link expires in 43 minutes.') ],
+      stepsLabel:'PROGRESS', hasSteps:true,
+      steps:[ step('done',N+' connected to Dayfold','Grant approved by you · just now','', false), step('active','First safe read of Gmail','A low-risk check — nothing is changed'), step('pending','First safe read of Google Calendar'), step('pending','Schedule confirmed in '+N,'Weekdays around 6:30 AM · requested') ],
+      buttons:[ btn('Open '+N,'tonal','open_in_new'), btn('Copy instructions','outlined','content_copy'), btn('Cancel setup','text') ],
+      footnote:'Zero results still count — a source is verified by a successful read, not by content.' };
+    if (view==='source-setup-help') {
+      const claudeSteps = [ nstep(1,'Open Claude → Settings → Connectors','', false), nstep(2,'Connect your Google account',"Google's own consent screen — Dayfold never sees it"), nstep(3,'Turn on Gmail and Google Calendar','Only the sources you chose'), nstep(4,'Back in the routine, include Dayfold + those sources','Remove any unrelated connectors'), nstep(5,'Save and run the routine','The first safe read confirms each source') ];
+      const gptSteps = [ nstep(1,'Open ChatGPT → Settings → Apps','Or the app directory', false), nstep(2,'Connect Gmail, Calendar, and/or Drive',"Google's own consent screen — Dayfold never sees it"), nstep(3,'Let Google Drive finish syncing if offered','Authorized isn\u2019t the same as fully indexed'), nstep(4,'Attach those apps + Dayfold to the Scheduled Task','Remove anything unrelated'), nstep(5,'Confirm the task and its schedule','The first safe read confirms each source') ];
+      sv = { ...svBase, header:'Source setup', icon:'help', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar,
+        title:'Connecting sources in '+N, body:'These steps happen inside '+N+' — Dayfold can\u2019t see or do them for you.',
+        banners: provider==='claude'
+          ? [ ban('warn','apartment','On a Team or Enterprise plan?','Your organization owner may need to enable Google connectors first — ask them if the option is missing.') ]
+          : [ ban('warn','apartment','Availability varies.','Apps can depend on your plan, region, or workspace admin settings. Google Drive may keep syncing after you approve it.') ],
+        stepsLabel:'IN '+N.toUpperCase(), hasSteps:true, steps: provider==='claude' ? claudeSteps : gptSteps,
+        buttons:[ btn('Open '+N,'filled','open_in_new'), btn('Copy instructions','tonal','content_copy'), btn('Back','text') ], footnote:'' };
+    }
+    if (view==='source-syncing') sv = { ...svBase, header:'Setting up', icon:'sync', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer, iconAnim:'sbspin 2.2s linear infinite',
+      title:'Google Drive is still syncing', body:'Drive is authorized in ChatGPT but may still be indexing your files. Setup can continue.',
+      stepsLabel:'SOURCES', hasSteps:true,
+      steps:[ step('done','Gmail','Observed in a successful run · 6:31 AM','', false), step('done','Google Calendar','Observed in a successful run · 6:31 AM'), step('active','Google Drive','Authorized · ChatGPT is still indexing') ],
+      buttons:[ btn('Continue anyway','filled'), btn('Wait for the sync','text') ],
+      footnote:'If you continue, the first briefing may not see every Drive file yet — later runs catch up.' };
+    if (view==='pairing-expired') sv = { ...svBase, header:'Setup', icon:'timer_off',
+      title:'This setup link expired', body:'Nothing was connected and no access was granted. Start again whenever you\u2019re ready — it only takes a minute.',
+      buttons:[ btn('Start again','filled'), btn('Not now','text') ], footnote:'' };
+    if (view==='returned-incomplete') sv = { ...svBase, header:'Setup', icon:'undo',
+      title:'Almost there', body:'It looks like the routine wasn\u2019t created or confirmed in '+N+' yet. Your setup is saved — pick up where you left off.',
+      stepsLabel:'PROGRESS', hasSteps:true,
+      steps:[ step('done',N+' connected to Dayfold','','', false), step('pending','Routine created and confirmed in '+N), step('pending','First safe read') ],
+      buttons:[ btn('Resume in '+N,'filled','open_in_new'), btn('Copy setup instructions','tonal','content_copy'), btn('Cancel setup','text') ], footnote:'' };
+    if (view==='provider-unavailable') sv = { ...svBase, header:'Setup', icon:'do_not_disturb_on',
+      title:'Not available on this '+N+' plan or workspace', body:'Something this setup needs is missing there — Dayfold can\u2019t change that.',
+      stepsLabel:'WHAT '+N.toUpperCase()+' REPORTED', hasSteps:true,
+      steps: provider==='claude'
+        ? [ step('fail','Google connectors','Disabled by your organization owner','', false), step('done','Dayfold connector','Available') ]
+        : [ step('fail','Scheduled Tasks','Not available on this plan or workspace','', false), step('warn','Google Drive','Disabled by a workspace admin') ],
+      buttons:[ btn('Check in '+N,'tonal','open_in_new'), btn('Choose different sources','outlined'), btn('Cancel setup','text') ],
+      footnote:'If an admin manages your '+N+' workspace, they may be able to enable this.' };
+    if (view==='handoff-preparation-failed') sv = { ...svBase, header:'Setup', icon:'cloud_off', iconBg:c.errorContainer, iconFg:c.onErrorContainer,
+      title:'Couldn\u2019t prepare setup', body:'Dayfold couldn\u2019t create the enrollment. Nothing was started in '+N+' — retrying is safe and won\u2019t duplicate anything.',
+      banners:[ ban('error','report','enrollment · gateway_unreachable','We\u2019ll keep this reason with the support code below.') ],
+      code:'DF-SB-4T2N-K9RW',
+      buttons:[ btn('Retry','filled','refresh'), btn('Cancel','text') ], footnote:'' };
+    if (view==='authorization-denied') sv = { ...svBase, header:'Setup', icon:'block',
+      title:'Connection not approved', body:'The '+N+'-to-Dayfold connection was canceled before it finished. Nothing was granted — no harm done.',
+      buttons:[ btn('Resume in '+N,'filled','open_in_new'), btn('Cancel setup','text') ],
+      footnote:'If you denied it on purpose, you\u2019re done — this setup grants nothing until you approve it.' };
+    if (view==='authorization-context-mismatch') sv = { ...svBase, header:'Setup', icon:'shield_question', iconBg:c.errorContainer, iconFg:c.onErrorContainer,
+      title:'That approval didn\u2019t match this setup', body:'The connection came back for a different family or scope, or arrived after this setup ended. To stay safe, Dayfold didn\u2019t use it.',
+      stepsLabel:'WHAT DIDN\u2019T MATCH', hasSteps:true,
+      steps:[ step('info','This setup expected','The Jacksons · 3 hubs · read + drafts','', false), step('fail','The approval carried','A different family or an expired attempt') ],
+      buttons:[ btn('Start again with this family','filled'), btn('Cancel','text') ],
+      footnote:'The old grant was not widened or reused.' };
+    if (view==='return-recovery') sv = { ...svBase, header:'Setup', icon:'restore',
+      title:'Welcome back', body:'We lost the return trip from '+N+', but your setup is still live — continue from where you were.',
+      stepsLabel:'PROGRESS', hasSteps:true,
+      steps:[ step('done',N+' connected to Dayfold','','', false), step('active','Waiting on the first safe read'), step('pending','Schedule confirmed in '+N) ],
+      buttons:[ btn('Continue setup','filled'), btn('Copy instructions','tonal','content_copy'), btn('Cancel setup','text') ], footnote:'' };
+    if (view==='source-verification-partial') sv = { ...svBase, header:'Setting up', icon:'rule', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer,
+      title:'Some sources need attention', body:'The first run finished. Each requested source reported its own result:',
+      stepsLabel:'REQUESTED SOURCES', hasSteps:true,
+      steps:[ step('done','Gmail','Observed in a successful run · 6:31 AM','', false), step('done','Google Calendar','Returned zero items — still observed'), step('warn','Google Drive','Needs reauthorization in '+N) ],
+      buttons:[ btn('Open '+N+' to repair','filled','open_in_new'), btn('Continue with available sources','tonal'), btn('Cancel setup','text') ],
+      footnote:'Continuing keeps review-only drafts from Gmail and Calendar until Drive is repaired.' };
+    if (view==='support-details') sv = { ...svBase, header:'Support details', icon:'support_agent',
+      title:'For support', body:'A safe snapshot — no hub content, names, or IDs are included.',
+      stepsLabel:'LAST KNOWN STATE', hasSteps:true,
+      steps:[ step('info','Status','Active · run observed Tue 6:31 AM','', false), step('info','Enrollment','Confirmed by first run receipt · Jun 12'), step('info','Provider',N+' · consumer plan'), step('info','App','Dayfold 1.0 (build 142)') ],
+      code:'DF-SB-7Q3K-R2M8',
+      buttons:[ btn('Copy support code','tonal','content_copy'), btn('Done','text') ],
+      footnote:'The code is derived from the run trace — content-free and safe to share.' };
+    if (view==='revoke-pending') sv = { ...svBase, header:'Turning off', icon:'progress_activity', iconAnim:'sbspin 1.1s linear infinite', iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer,
+      title:'Revoking Dayfold access\u2026', body:'We\u2019re confirming the revoke with Dayfold. Until it\u2019s confirmed, the routine can still call Dayfold — so we won\u2019t say it\u2019s off yet.',
+      banners:[ ban('info','autorenew','Retrying automatically.','You can also retry now if you\u2019re back online.') ],
+      buttons:[ btn('Retry now','tonal','refresh'), btn('Close','text') ], footnote:'' };
+    if (view==='revoke-failed') sv = { ...svBase, header:'Turning off', icon:'key', iconBg:c.errorContainer, iconFg:c.onErrorContainer,
+      title:'Couldn\u2019t confirm the revoke', body:'Dayfold access is still active. We only say it\u2019s revoked once the server confirms — try again.',
+      banners:[ ban('error','report','revoke · gateway_timeout','Retrying is safe — a repeated revoke can\u2019t double-revoke or re-grant.') ],
+      code:'DF-SB-9M1C-T4QA',
+      buttons:[ btn('Retry revoke','filled','refresh'), btn('Close','text') ], footnote:'' };
+    if (view==='revoked-provider-task-remains') sv = { ...svBase, header:'Smart Briefings', icon:'check_circle', iconClass:'fill', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer,
+      title:'Dayfold access revoked', body:'New reads and drafts stop now. One thing may remain outside Dayfold:',
+      stepsLabel:'WHERE THINGS STAND', hasSteps:true,
+      steps:[ step('done','Dayfold access','Revoked · confirmed 9:12 AM','', false), step('warn','Scheduled task in '+N,'May still exist — future runs will fail when they call Dayfold'), step('info','Google sources','Still connected to '+N+' · optional to disconnect there') ],
+      buttons:[ btn('Open '+N,'filled','open_in_new'), btn('Done','text') ],
+      footnote:'Remove the scheduled task in '+N+' to stop future attempts.' };
+    if (view==='advanced-run-chatgpt-unavailable') sv = { ...svBase, header:'Run from Dayfold', icon:'bolt',
+      title:'Not available for ChatGPT', body:'ChatGPT Scheduled Tasks don\u2019t currently provide an external trigger. Your schedule keeps running natively in ChatGPT, and the Dayfold connector stays active.',
+      buttons:[ btn('Back','tonal') ],
+      footnote:'Managed workspaces: published Workspace Agents have a separate administrator trigger setup — not part of this flow.' };
+
+    // ---------- active-view configs ----------
+    let av = null;
+    const receipts3 = [
+      { icon:'draft', iconClass:'', iconColor:c.onSurfaceVar, title:'Today 6:31 AM · 3 drafts submitted', sub:'Waiting for your review', chevron:true, divider:false },
+      { icon:'check_circle', iconClass:'fill', iconColor:c.secondary, title:'Yesterday 6:30 AM', sub:'No new updates this time.', chevron:false, divider:true },
+    ];
+    const srcOk = [ src('mail','Gmail','ok','Observed · 6:31 AM','', false), src('calendar_month','Google Calendar','ok','Observed · 6:31 AM') ];
+    const avBase = { headerSub: N+' · Devices & connections', chip:'Active · Review drafts first', chipBg:c.secondaryContainer, chipFg:c.onSecondaryContainer, dim:'1', offline:false, banner:null, managedBy:'', locks:false, lastRun:'Today 6:31 AM', sources:srcOk, hubs:['Groceries & meals','School week','Soccer season'], receipts:receipts3, manage:true, advanced: provider==='claude', showStopRow:true };
+    if (view==='active' || view==='stop-confirm') av = { ...avBase };
+    if (view==='source-not-observed') av = { ...avBase, chip:'Needs source attention', chipBg:c.tertiaryContainer, chipFg:c.onTertiaryContainer,
+      banner: ban('warn','visibility_off','Google Drive hasn\u2019t been read yet.','It\u2019s requested, but no successful run has observed it. Open '+N+' to review or reconnect this source.','Open '+N,'open_in_new'),
+      sources:[ ...srcOk, src('folder','Google Drive','warn','Requested · not yet observed','No successful read so far') ] };
+    if (view==='source-needs-reauth') av = { ...avBase, chip:'Needs source attention', chipBg:c.tertiaryContainer, chipFg:c.onTertiaryContainer,
+      banner: ban('warn','key','Gmail needs to be reconnected.','The last run reported an authorization failure for Gmail. Open '+N+' to review or reconnect this source — Google sign-in never happens in Dayfold.','Open '+N+' connector settings','open_in_new'),
+      sources:[ src('mail','Gmail','err','Needs reauthorization','Reported by the last run · 6:31 AM', false), src('calendar_month','Google Calendar','ok','Observed · 6:31 AM') ] };
+    if (view==='no-recent-checkin') av = { ...avBase, chip:'No recent check-in', chipBg:c.surfaceContainerHigh, chipFg:c.onSurfaceVar, lastRun:'Tue 6:31 AM · 4 days ago',
+      banner: ban('info','schedule','We haven\u2019t heard from this routine recently.','Dayfold can\u2019t see the schedule inside '+N+' — the task may have been paused, changed, or removed there. Your last briefing is kept below.','Open '+N,'open_in_new') };
+    if (view==='connector-needs-attention') av = { ...avBase, chip:'Needs attention', chipBg:c.errorContainer, chipFg:c.onErrorContainer,
+      banner: ban('error','key_off','Dayfold access needs attention.','The grant expired or a call was denied, so runs can\u2019t reach Dayfold. Reconnecting keeps the same hubs and authority — never wider.','Reconnect Dayfold access') };
+    if (view==='run-reported-failed') av = { ...avBase, chip:'Last run failed', chipBg:c.errorContainer, chipFg:c.onErrorContainer,
+      banner: ban('error','report','The last run reported a failure.','finish · invalid_output — the draft didn\u2019t pass validation and was set aside. Your last good briefing is kept.','View support details'),
+      receipts:[ { icon:'cancel', iconClass:'fill', iconColor:c.error, title:'Today 6:31 AM · run failed', sub:'Reported by the routine · nothing was changed', chevron:true, divider:false }, ...receipts3.map((r,i)=>({ ...r, divider:true })) ] };
+    if (view==='routine-auto-paused') av = { ...avBase, chip:'Paused by Dayfold', chipBg:c.tertiaryContainer, chipFg:c.onTertiaryContainer,
+      banner: ban('warn','pause_circle','Automation paused after repeated conflicts.','Three runs in a row hit stale drafts (policy limit). Nothing was published. Review what changed, then resume.','Review & resume') };
+    if (view==='offline') av = { ...avBase, offline:true, dim:'0.55', manage:false, advanced:false, showStopRow:false,
+      receipts: receipts3.map(r => ({ ...r, sub: r.sub + ' · cached 2h ago' })) };
+    if (view==='adult-active-readonly') av = { ...avBase, manage:false, advanced:false, showStopRow:false, locks:true,
+      managedBy:'Managed by Pat Jackson (owner). You can see what\u2019s shared and review results — only an owner can change or revoke AI access.' };
+
+    // ---------- draft-view configs ----------
+    let dv = null;
+    const change = (hub, hubIcon, kind, title, body, srcIcon, srcLabel, extra) => ({
+      hub, hubIcon, kind, kindBg: kind==='Update' ? c.tertiaryContainer : c.secondaryContainer, kindFg: kind==='Update' ? c.onTertiaryContainer : c.onSecondaryContainer,
+      title, body, srcIcon, src:srcLabel, actions:true, opacity:'1', srcMb:'0', pill:'', refresh:false, retry:false, divider:false, ...extra });
+    const changes3 = [
+      change('School week','school','Addition','Picture day is Thursday','Order forms are due Wednesday — the school email has the link.','mail','From Gmail · read 6:31 AM'),
+      change('Groceries & meals','grocery','Update','Add snacks for Saturday\u2019s game','You\u2019re on snack duty per the team calendar.','calendar_month','From Google Calendar'),
+      change('Soccer season','sports_soccer','Addition','Practice moved to 5 PM Friday','Coach\u2019s email moved this week\u2019s practice an hour later.','mail','From Gmail · read 6:31 AM'),
+    ];
+    if (view==='first-draft') dv = { title:'Briefing drafts', sub:'Today 6:31 AM · '+N, provLine:'This draft used Gmail and Google Calendar.', banner:null, empty:false, changes:changes3,
+      footer:'Accepting publishes to the hub with provenance. Rejecting discards the draft — nothing publishes without you.' };
+    if (view==='first-run-no-changes') dv = { title:'Today\u2019s run', sub:'6:31 AM · '+N, provLine:'', banner:null, empty:true,
+      emptyBody:'The routine ran and read Gmail and Google Calendar successfully — there was simply nothing new to draft. Next requested run: weekdays around 6:30 AM · managed in '+N+'.', changes:[], footer:'' };
+    if (view==='partial-source-result') dv = { title:'Briefing drafts', sub:'Today 6:31 AM · '+N, provLine:'',
+      banner: ban('warn','rule','This draft used Gmail.','Google Calendar needs attention — it wasn\u2019t read this run. Drafts stay review-only until you repair it or accept the reduced set.','Open '+N+' to repair','open_in_new'),
+      empty:false, changes:[ changes3[0], changes3[2] ], footer:'Provenance on each card names exactly what was read.' };
+    if (view==='draft-stale-or-conflicted') dv = { title:'Briefing drafts', sub:'Today 6:31 AM · '+N, provLine:'',
+      banner: ban('info','history','Dayfold changed since this draft was prepared.','Refresh it before applying — Dayfold never merges silently.'),
+      empty:false, changes:[ change('Groceries & meals','grocery','Update','Add snacks for Saturday\u2019s game','You\u2019re on snack duty per the team calendar.','calendar_month','From Google Calendar', { actions:false, opacity:'1', pill:'Read-only · out of date', pillFg:c.onSurfaceVar, pillBg:c.surfaceContainerHigh, refresh:true, srcMb:'10px' }) ], footer:'' };
+    if (view==='apply-retrying') dv = { title:'Briefing drafts', sub:'Today 6:31 AM · '+N, provLine:'',
+      banner: ban('info','autorenew','Keeping your last briefing · retrying.','Saving is taking longer than usual — retrying automatically. Your draft is safe.'),
+      empty:false, changes:[ change('School week','school','Addition','Picture day is Thursday','Order forms are due Wednesday — the school email has the link.','mail','From Gmail · read 6:31 AM', { actions:false, pill:'Saving\u2026', pillIcon:'progress_activity', pillAnim:'sbspin 1.1s linear infinite', pillFg:c.onSurfaceVar, pillBg:c.surfaceContainerHigh, srcMb:'0' }) ], footer:'' };
+    if (view==='apply-failed') dv = { title:'Briefing drafts', sub:'Today 6:31 AM · '+N, provLine:'',
+      banner: ban('error','error','Couldn\u2019t save this change.','The draft is kept exactly as it was. Retry is safe — it can\u2019t apply twice.'),
+      empty:false, changes:[ change('School week','school','Addition','Picture day is Thursday','Order forms are due Wednesday — the school email has the link.','mail','From Gmail · read 6:31 AM', { actions:false, pill:'Couldn\u2019t save', pillFg:c.onErrorContainer, pillBg:c.errorContainer, retry:true, srcMb:'10px' }) ], footer:'' };
+
+    // ---------- small bespoke data ----------
+    const sel = { boxBorder:c.primary, boxBg:c.primary, boxCheck:c.onPrimary };
+    const unsel = { boxBorder:c.outline, boxBg:'transparent', boxCheck:'transparent' };
+    const entryRows = [
+      { icon:'credit_card_off', fg:c.primary, title:'Runs on your subscription', sub:'Runs count against your Claude or ChatGPT plan — Dayfold doesn\u2019t sell AI usage.', divider:false },
+      { icon:'open_in_new', fg:c.secondary, title:'You\u2019ll finish setup in Claude or ChatGPT', sub:'Your email and files stay connected there. Dayfold receives only the updates the routine submits.', divider:true },
+      { icon:'rate_review', fg:c.tertiary, title:'Review drafts first', sub:'Nothing publishes to your hubs without you. Revoke access in one tap, anytime.', divider:true },
+    ];
+    const chosen = provider;
+    const providerCards = ['claude','chatgpt'].map(k => {
+      const isSel = k===chosen;
+      const p = k==='chatgpt'
+        ? { name:'ChatGPT', letter:'G', tileBg: mode==='dark' ? '#14382F' : '#DDF2EB', tileFg: mode==='dark' ? '#5AD0B5' : '#0F7B6C', kind:'Scheduled Tasks' }
+        : { name:'Claude', letter:'C', tileBg: mode==='dark' ? '#3A2A20' : '#F7E8DC', tileFg: mode==='dark' ? '#E8A87E' : '#B0561F', kind:'Routines' };
+      return { ...p, border: isSel ? c.primary : 'transparent', radioBorder: isSel ? c.primary : c.outline, radioBg: isSel ? c.primary : 'transparent', radioCheck: isSel ? c.onPrimary : 'transparent' };
+    });
+    const sourceIntentRows = [
+      { icon:'mail', fg:c.primary, name:'Gmail', divider:false, ...sel },
+      { icon:'calendar_month', fg:c.secondary, name:'Google Calendar', divider:true, ...sel },
+      { icon:'folder', fg:c.tertiary, name:'Google Drive', divider:true, ...unsel },
+    ];
+    const hubRows = [
+      { icon:'grocery', bg:c.primaryContainer, fg:c.onPrimaryContainer, name:'Groceries & meals', sub:'Family hub', subColor:c.onSurfaceVar, opacity:'1', divider:false, ...sel },
+      { icon:'school', bg:c.secondaryContainer, fg:c.onSecondaryContainer, name:'School week', sub:'Family hub', subColor:c.onSurfaceVar, opacity:'1', divider:true, ...sel },
+      { icon:'sports_soccer', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, name:'Soccer season', sub:'Family hub', subColor:c.onSurfaceVar, opacity:'1', divider:true, ...sel },
+      { icon:'lock', bg:c.surfaceContainerHigh, fg:c.onSurfaceVar, name:'Health & appointments', sub:'Restricted hub · stays off unless you turn it on', subColor:c.tertiary, opacity:'0.8', divider:true, ...unsel },
+    ];
+    const authorityRows = [
+      { title:'Read + submit drafts', sub:'Recommended · you review everything first', border:c.primary, radioBorder:c.primary, radioBg:c.primary, radioCheck:c.onPrimary },
+      { title:'Read only', sub:'No drafts — the routine can only look', border:'transparent', radioBorder:c.outline, radioBg:'transparent', radioCheck:'transparent' },
+    ];
+    const forbidden = [
+      'Publish to a hub without your review',
+      'See hubs you didn\u2019t pick — restricted hubs stay invisible',
+      'Change members, roles, or settings',
+      'Send email or change your calendar — forbidden by the routine\u2019s instructions',
+    ];
+    const privacyFlows = [
+      { icon:'upload', fg:c.primary, title:'Dayfold → '+N, sub:'Selected Dayfold content is shared with '+N+' for this routine: Groceries & meals, School week, Soccer season. '+N+' processes it as plaintext and its retention terms apply.', divider:false },
+      { icon:'download', fg:c.secondary, title:N+' → Dayfold', sub:'Drafts for your review — the only thing Dayfold receives back.', divider:true },
+      { icon:'mail', fg:c.tertiary, title:'Your Google sources', sub:'Your email and files stay connected to '+N+'. Dayfold receives only the updates the routine submits.', divider:true },
+    ];
+    const techRows = [
+      { label:'Provider', value:N+' · consumer subscription', font:"'Figtree'", divider:false },
+      { label:'Grant ID', value:'DF-G-7Q3K-R2M8', font:"'Roboto Mono'", divider:true },
+      { label:'Key fingerprint', value:'SHA256 A4:9B:EE:12:07:C4:5D:21', font:"'Roboto Mono'", divider:true },
+      { label:'Scopes', value:'hubs.read: groceries, school-week, soccer · drafts.submit', font:"'Roboto Mono'", divider:true },
+      { label:'Created / last use', value:'At approval · none yet', font:"'Figtree'", divider:true },
+    ];
+    const oauthRows = [
+      { icon:'groups', title:'For The Jacksons', sub:'You\u2019re an owner here', divider:false },
+      { icon:'visibility', title:'Read 3 hubs', sub:'Groceries & meals · School week · Soccer season — nothing else', divider:true },
+      { icon:'edit_note', title:'Submit drafts for your review', sub:'Can\u2019t publish, invite, or change settings', divider:true },
+      { icon:'key', title:'Lasts until you revoke it', sub:'One tap in Settings → Smart Briefings', divider:true },
+    ];
+
+    const statusViews = sv !== null;
+    const activeViews = av !== null;
+    const draftViews = dv !== null;
+    return {
+      c, prov, screenLabel: 'Smart Briefings · ' + view + ' · ' + provider + ' · ' + mode,
+      isOfflineBar: view==='offline', onlineBar: view!=='offline',
+      isEntry: view==='entry-off-owner' || view==='entry-off-adult',
+      isEntryOwner: view==='entry-off-owner', isEntryAdult: view==='entry-off-adult',
+      isProviderChoice: view==='provider-choice',
+      isSourceIntent: view==='source-intent',
+      isSourceExplainer: view==='source-permission-explainer',
+      isPreset: view==='briefing-preset',
+      isHubScope: view==='hub-scope',
+      isPrivacy: view==='privacy-review' || view==='technical-details',
+      isTechSheet: view==='technical-details',
+      isOauth: view==='oauth-approval',
+      isStatus: statusViews, sv: sv || {},
+      isActive: activeViews, av: av || {},
+      isStopSheet: view==='stop-confirm',
+      isDraft: draftViews, dv: dv || {},
+      isAdvRun: view==='advanced-run-claude',
+      isAdvConnected: view==='advanced-claude-connected' || view==='advanced-test-claude',
+      isTestSheet: view==='advanced-test-claude',
+      entryRows, providerCards, sourceIntentRows, hubRows, authorityRows, forbidden, privacyFlows, techRows, oauthRows,
+    };
+  }
+}
+</script>
+</body>
+</html>
