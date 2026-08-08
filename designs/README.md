@@ -4,11 +4,13 @@ Hi-fi mockups for **family-ai-dashboard** (working name *Dayfold*). Material 3
 Expressive, adaptive — vibrant visuals, calm behavior. Light is the hero;
 dark is first-class. Component names map 1:1 to Compose M3.
 
-**Open [`Index.dc.html`](Index.dc.html)** to click through everything.
+**Open the [legacy gallery index](Family%20AI%20dashboard%20design%20brief/designs/Index.dc.html)**
+for the original product surfaces. Newer area-specific galleries are linked below.
 
 | Area | File | Contents |
 |---|---|---|
-| Index | `Index.dc.html` | Landing — links every surface |
+| Index | `Family AI dashboard design brief/designs/Index.dc.html` | Legacy landing — links the original product surfaces |
+| Smart Briefings | [`routine-integration/Index.dc.html`](routine-integration/Index.dc.html) | Imported setup, privacy, provider handoff, status, draft-review, recovery, and revoke flows; source-of-truth preview is explicitly non-live |
 | Design system | `Design-System.dc.html` | Color roles + tonal palettes (L+D), type scale, shape, elevation/surface tiers, motion, component inventory (L+D), provenance & accessibility |
 | Now (briefing) | `Now.dc.html` | Feed, empty, loading — light + dark |
 | Hubs (dossiers) | `Hubs.dc.html` | List, detail (all 8 block types), deep-link arrival (highlight pulse), graceful fallback, empty — light + dark |

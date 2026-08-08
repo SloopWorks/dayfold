@@ -100,6 +100,28 @@ class GoldenSnapshotTest {
   @Test fun accountDefault() = golden("account", "default")
   @Test fun accountDefaultDark() = golden("account", "default", theme = "dark")
   @Test fun accountSignOutBusy() = golden("account", "signout-busy")
+  @Test fun accountSmartBriefings() = golden("account", "smart-briefings")
+
+  // Smart Briefings safe preview.
+  @Test fun smartBriefingsEntry() = golden("smart-briefings", "entry")
+  @Test fun smartBriefingsAdult() = golden("smart-briefings", "adult")
+  @Test fun smartBriefingsProvider() = golden("smart-briefings", "provider")
+  @Test fun smartBriefingsSources() = golden("smart-briefings", "sources")
+  @Test fun smartBriefingsAccess() = golden("smart-briefings", "access")
+  @Test fun smartBriefingsSchedule() = golden("smart-briefings", "schedule")
+  @Test fun smartBriefingsPrivacy() = golden("smart-briefings", "privacy")
+  @Test fun smartBriefingsHandoff() = golden("smart-briefings", "handoff")
+  @Test fun smartBriefingsWaiting() = golden("smart-briefings", "waiting")
+  @Test fun smartBriefingsActive() = golden("smart-briefings", "active")
+  @Test fun smartBriefingsActiveDark() = golden("smart-briefings", "active", theme = "dark")
+  @Test fun smartBriefingsConflict() = golden("smart-briefings", "conflict")
+  @Test fun smartBriefingsDraft() = golden("smart-briefings", "draft")
+  @Test fun smartBriefingsPartial() = golden("smart-briefings", "partial")
+  @Test fun smartBriefingsOffline() = golden("smart-briefings", "offline")
+  @Test fun smartBriefingsRevokePending() = golden("smart-briefings", "revoke-pending")
+  @Test fun smartBriefingsRevokeFailed() = golden("smart-briefings", "revoke-failed")
+  @Test fun smartBriefingsRevoke() = golden("smart-briefings", "revoke")
+  @Test fun smartBriefingsRevoked() = golden("smart-briefings", "revoked")
 
   // ── invitee join ──────────────────────────────────────────────────────────
   @Test fun joinEntry() = golden("join", "entry")

@@ -1,0 +1,15 @@
+{
+  "manifest": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo",
+    "executionMode": "shadow", "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"], "requestedSources": ["dayfold"],
+    "sourceWindow": { "lookbackDays": 7, "maxRecordsPerSource": 50 }, "maxOperations": 0,
+    "authority": { "allowedOperations": ["create_card"], "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"] }
+  },
+  "changeset": { "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo", "operations": [] },
+  "finish": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo", "runId": "run_partial_no_recovery", "result": "partial",
+    "sourceOutcomes": [{ "source": "dayfold", "outcome": "unavailable", "recordsObserved": 0 }],
+    "counts": { "operationsProposed": 0, "creates": 0, "noChanges": 0, "conflicts": 0, "rejected": 0 }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dayfold.dev/schemas/routine-manifest.schema.json",
+  "title": "Dayfold local shadow routine manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "routineId",
+    "familyId",
+    "executionMode",
+    "requestedPublicationMode",
+    "selectedTargetHubIds",
+    "requestedSources",
+    "sourceWindow",
+    "maxOperations",
+    "authority"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "routineId": { "$ref": "#/$defs/resourceId" },
+    "familyId": { "$ref": "#/$defs/resourceId" },
+    "executionMode": { "const": "shadow" },
+    "requestedPublicationMode": {
+      "const": "review",
+      "description": "Non-authoritative future publication intent. This shadow manifest grants no apply authority."
+    },
+    "selectedTargetHubIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resourceId" }
+    },
+    "requestedSources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "sourceWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lookbackDays", "maxRecordsPerSource"],
+      "properties": {
+        "lookbackDays": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "maxRecordsPerSource": { "type": "integer", "minimum": 1, "maximum": 200 }
+      }
+    },
+    "maxOperations": { "type": "integer", "minimum": 0, "maximum": 25 },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowedOperations", "forbiddenOperations"],
+      "properties": {
+        "allowedOperations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [{ "const": "create_card" }],
+          "items": false
+        },
+        "forbiddenOperations": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "prefixItems": [
+            { "const": "update_card" },
+            { "const": "delete" },
+            { "const": "change_acl" },
+            { "const": "change_role" },
+            { "const": "invite" },
+            { "const": "message" }
+          ],
+          "items": false,
+          "description": "Disclosure only. Authority is derived solely from allowedOperations."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "source": {
+      "enum": ["dayfold", "gmail", "google_calendar", "google_drive"]
+    }
+  }
+}

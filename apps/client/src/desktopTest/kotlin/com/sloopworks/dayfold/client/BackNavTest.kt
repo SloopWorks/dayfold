@@ -55,6 +55,38 @@ class BackNavTest {
     assertEquals(CloseAccount, backAction(st(Route.Account)))
   }
 
+  @Test fun `smart briefings closes overlays then steps then returns to Account`() {
+    val base = st(Route.SmartBriefings).copy(routines = RoutineState.preview().copy(
+      destination = RoutineDestination.PRIVACY,
+      detailsOpen = true,
+      revokeSheetOpen = true,
+    ))
+    assertEquals(CloseRoutineDetails, backAction(base))
+    assertEquals(CloseRoutineRevokeSheet, backAction(base.copy(routines = base.routines.copy(detailsOpen = false))))
+    assertEquals(RoutineNavigateBack, backAction(base.copy(routines = base.routines.copy(detailsOpen = false, revokeSheetOpen = false))))
+
+    for (destination in listOf(RoutineDestination.ENTRY, RoutineDestination.ACTIVE)) {
+      assertEquals(
+        CloseSmartBriefings,
+        backAction(base.copy(routines = base.routines.copy(destination = destination, detailsOpen = false, revokeSheetOpen = false))),
+      )
+    }
+  }
+
+  @Test fun `Back applies the smart briefings overlay and route precedence`() {
+    var current = st(Route.SmartBriefings).copy(routines = RoutineState.preview().copy(
+      destination = RoutineDestination.PROVIDER,
+      detailsOpen = true,
+    ))
+    current = rootReducer(current, Back)
+    assertFalse(current.routines.detailsOpen)
+    assertEquals(Route.SmartBriefings, current.navigation.route)
+    current = rootReducer(current, Back)
+    assertEquals(RoutineDestination.ENTRY, current.routines.destination)
+    current = rootReducer(current, Back)
+    assertEquals(Route.Account, current.navigation.route)
+  }
+
   @Test fun `members and devices resolve to OpenAccount`() {
     assertEquals(OpenAccount, backAction(st(Route.Members)))
     assertEquals(OpenAccount, backAction(st(Route.Devices)))

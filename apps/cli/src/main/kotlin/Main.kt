@@ -154,6 +154,46 @@ private fun loadSession(): Session {
   return Session(store, keychain, loadCreds(store, keychain))
 }
 
+/**
+ * Build the production-shaped `changeset diff` adapter around an injected GET.
+ * The transport has no method argument and receives exactly one cards URL, so a
+ * test can prove that the adapter cannot select refresh, PUT, DELETE, or apply.
+ */
+internal fun getOnlyRoutineCardReader(
+  api: String,
+  family: String,
+  token: String,
+  get: (url: String, token: String?) -> Pair<Int, String>,
+): RoutineCardReader = RoutineCardReader {
+  val (code, body) = get("$api/families/$family/cards", token)
+  RoutineReadResponse(code, body)
+}
+
+/**
+ * Production adapter for `changeset diff` without --current. Unlike normal CLI
+ * reads, this safety-bounded path deliberately does not use `authedGet`: a 401 is
+ * returned to the command and fails closed without POST /auth/refresh or local
+ * credential rotation.
+ */
+private fun routineCardReader(): RoutineCardReader {
+  val session = loadSession()
+  requireAuthSetup(session.creds != null)
+  val (api, family, token) = resolveAuth(session.creds)
+  return getOnlyRoutineCardReader(api, family, token, ::getStatus)
+}
+
+private fun routineFile(file: String): String = try {
+  Files.readString(Path.of(file))
+} catch (e: Exception) {
+  System.err.println(fileReadError(file, e)); exitProcess(2)
+}
+
+private fun emitRoutineResult(result: RoutineCommandResult) {
+  if (result.stdout.isNotEmpty()) println(result.stdout)
+  if (result.stderr.isNotEmpty()) System.err.println(result.stderr)
+  if (result.exitCode != 0) exitProcess(result.exitCode)
+}
+
 /** A human-readable message for a failed payload-file read — pure, so it's tested.
  *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
 internal fun fileReadError(file: String, e: Exception): String = when (e) {
@@ -200,6 +240,27 @@ fun main(args: Array<String>) {
           if (grants != null) println("scope=${if (grants.isEmpty()) "(none)" else grants.joinToString(",")}")
         }
       }
+    }
+
+    // Local/read-only routine shadow tooling. Validation never constructs a
+    // network reader. Diff is offline with --current; otherwise its injected
+    // reader exposes only GET /cards. There is intentionally no apply command.
+    "changeset" -> when (val invocation = parseChangesetInvocation(args)) {
+      is ChangesetInvocation.Validate -> emitRoutineResult(
+        validateChangesetCommand(
+          routineFile(invocation.manifestFile),
+          routineFile(invocation.changesetFile),
+        ),
+      )
+      is ChangesetInvocation.Diff -> emitRoutineResult(
+        diffChangesetCommand(
+          manifestRaw = routineFile(invocation.manifestFile),
+          changesetRaw = routineFile(invocation.changesetFile),
+          currentRaw = invocation.currentFile?.let(::routineFile),
+          readerFactory = if (invocation.currentFile == null) ({ routineCardReader() }) else null,
+        ),
+      )
+      ChangesetInvocation.Invalid -> usage()
     }
 
     // dayfold pull [--hub <id>]  — read content back (proves the author→read loop).

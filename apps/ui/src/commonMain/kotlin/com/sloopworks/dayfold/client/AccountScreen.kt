@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +57,8 @@ fun AccountScreen(
   onOpenProximity: () -> Unit = {},   // ADR 0044 Phase B — device-local background-proximity settings
   onUpdateAvatar: (String?, String?) -> Unit = { _, _ -> },  // Delta A / Task 5 — sheet Save → AuthEngine.updateAvatar
   onUpdateName: (String) -> Unit = {},                        // profile name edit → AuthEngine.updateDisplayName
+  smartBriefingsPreviewAvailable: Boolean = false,
+  onOpenSmartBriefings: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.activeFamily
@@ -212,6 +216,48 @@ fun AccountScreen(
         androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
+      if (smartBriefingsPreviewAvailable) {
+        Spacer(Modifier.height(22.dp))
+        SectionLabel("CONNECTIONS")
+        Row(
+          Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(RoundedCornerShape(16.dp))
+            .background(cs.surfaceContainer).clickable(onClick = onOpenSmartBriefings)
+            .testTag("account-smart-briefings")
+            .semantics {
+              contentDescription = "Smart Briefings. Interactive preview. Nothing connects or saves."
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(cs.primaryContainer),
+            contentAlignment = Alignment.Center,
+          ) {
+            androidx.compose.material3.Icon(
+              DayfoldIcons.AutoAwesome,
+              contentDescription = null,
+              tint = cs.onPrimaryContainer,
+              modifier = Modifier.size(23.dp),
+            )
+          }
+          Column(Modifier.weight(1f)) {
+            Text("Smart Briefings", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+            Text(
+              "Interactive preview · nothing connects or saves",
+              style = MaterialTheme.typography.bodySmall,
+              color = cs.onSurfaceVariant,
+            )
+          }
+          androidx.compose.material3.Icon(
+            DayfoldIcons.ChevronRight,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+          )
+        }
+      }
+
       Spacer(Modifier.height(22.dp))
       SectionLabel("ON THIS DEVICE")
       Row(
@@ -264,6 +310,18 @@ fun AccountScreen(
     }
   }
 }
+
+@Immutable
+internal data class AccountRoutineRouteViewState(
+  val account: AccountViewState,
+  val smartBriefingsPreviewAvailable: Boolean,
+)
+
+internal fun accountRoutineRouteViewState(state: AppState): AccountRoutineRouteViewState =
+  AccountRoutineRouteViewState(
+    account = accountViewState(state),
+    smartBriefingsPreviewAvailable = routinePreviewAvailable(state),
+  )
 
 @Composable
 private fun SectionLabel(text: String) {

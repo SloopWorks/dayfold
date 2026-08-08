@@ -17,6 +17,107 @@
    "preset": "signout-busy"
   },
   {
+   "id": "account-smart-briefings",
+   "scene": "account",
+   "preset": "smart-briefings"
+  },
+  {
+   "id": "smart-briefings-access",
+   "scene": "smart-briefings",
+   "preset": "access"
+  },
+  {
+   "id": "smart-briefings-active-dark",
+   "scene": "smart-briefings",
+   "preset": "active",
+   "theme": "dark"
+  },
+  {
+   "id": "smart-briefings-active",
+   "scene": "smart-briefings",
+   "preset": "active"
+  },
+  {
+   "id": "smart-briefings-adult",
+   "scene": "smart-briefings",
+   "preset": "adult"
+  },
+  {
+   "id": "smart-briefings-conflict",
+   "scene": "smart-briefings",
+   "preset": "conflict"
+  },
+  {
+   "id": "smart-briefings-draft",
+   "scene": "smart-briefings",
+   "preset": "draft"
+  },
+  {
+   "id": "smart-briefings-entry",
+   "scene": "smart-briefings",
+   "preset": "entry"
+  },
+  {
+   "id": "smart-briefings-handoff",
+   "scene": "smart-briefings",
+   "preset": "handoff"
+  },
+  {
+   "id": "smart-briefings-offline",
+   "scene": "smart-briefings",
+   "preset": "offline"
+  },
+  {
+   "id": "smart-briefings-privacy",
+   "scene": "smart-briefings",
+   "preset": "privacy"
+  },
+  {
+   "id": "smart-briefings-provider",
+   "scene": "smart-briefings",
+   "preset": "provider"
+  },
+  {
+   "id": "smart-briefings-partial",
+   "scene": "smart-briefings",
+   "preset": "partial"
+  },
+  {
+   "id": "smart-briefings-revoke",
+   "scene": "smart-briefings",
+   "preset": "revoke"
+  },
+  {
+   "id": "smart-briefings-revoke-pending",
+   "scene": "smart-briefings",
+   "preset": "revoke-pending"
+  },
+  {
+   "id": "smart-briefings-revoke-failed",
+   "scene": "smart-briefings",
+   "preset": "revoke-failed"
+  },
+  {
+   "id": "smart-briefings-sources",
+   "scene": "smart-briefings",
+   "preset": "sources"
+  },
+  {
+   "id": "smart-briefings-revoked",
+   "scene": "smart-briefings",
+   "preset": "revoked"
+  },
+  {
+   "id": "smart-briefings-schedule",
+   "scene": "smart-briefings",
+   "preset": "schedule"
+  },
+  {
+   "id": "smart-briefings-waiting",
+   "scene": "smart-briefings",
+   "preset": "waiting"
+  },
+  {
    "id": "auth-createfamily-dark",
    "scene": "auth",
    "preset": "createfamily",

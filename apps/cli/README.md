@@ -15,6 +15,28 @@ cd apps/cli
 
 JDK 17+ toolchain (`build.gradle.kts`); Gradle auto-provisions it if missing.
 
+## Local routine shadow loop
+
+`changeset` is an output-only, create-card proposal tool. It has no push/apply
+branch and prints counts or stable `path code` diagnostics rather than content:
+
+```sh
+dayfold changeset validate routine-manifest.json routine-changeset.json
+DAYFOLD_NO_UPDATE_CHECK=1 dayfold changeset diff \
+  routine-manifest.json routine-changeset.json --current pull.json
+```
+
+`--current` keeps diff entirely offline. Without it, diff uses the existing
+credential for exactly one GET of the family card collection; a hub-only
+credential fails closed because the current API requires family-wide
+`content:read` for cards. This bounded path never widens access, calls PUT or
+DELETE, refreshes the session, or rotates local credentials. A 401 fails closed
+with explicit `dayfold login` guidance.
+
+The safe unattended recipe is: sanitized operator-owned source records plus
+`dayfold pull` → dayfold-curator no-push changeset output → `changeset validate`
+→ `changeset diff`. No step in that recipe invokes `push` or applies a result.
+
 ## Where to look next
 
 - **`dayfold help`** (or `dayfold <command> --help`, or `--json` for machine-
@@ -36,6 +58,7 @@ JDK 17+ toolchain (`build.gradle.kts`); Gradle auto-provisions it if missing.
 
 ```
 src/main/kotlin/   Main.kt (entry point + HTTP), Help.kt (command registry),
+                    RoutineContract.kt / RoutineDiff.kt (strict local shadow),
                     Credentials.kt / SecretStore.kt (auth storage), Validate.kt
                     (local pre-push checks), ChecklistStamp.kt, Linkify.kt,
                     Update.kt, Qr.kt

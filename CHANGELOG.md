@@ -7,6 +7,32 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-07 — Smart Briefings contracts and interactive preview
+
+### Added (internal)
+- **A complete, unmistakably simulated Smart Briefings mobile preview.** The
+  imported Claude Design flow is now implemented as one adaptive KMP/Compose
+  route with progressive provider/source/hub/schedule setup, privacy explanation,
+  status, draft review, recovery, adult read-only behavior, and revoke states.
+  Every screen says that nothing connects or saves. The route is structurally
+  hidden everywhere except the exact `smart-briefings-preview` fake-backend
+  scenario; release, real dogfood backends, and other fake scenarios cannot open
+  it.
+- **Read-only routine shadow tooling in the Dayfold CLI.** `dayfold changeset
+  validate` checks a strict create-card-only proposal against an owner-authored
+  shadow manifest. `dayfold changeset diff` compares it with a saved pull or the
+  current family card collection and reports create/no-change/conflict without an
+  apply path. Its network form makes one GET and fails closed rather than
+  refreshing or rotating credentials. Three Draft 2020-12 schemas and a sanitized
+  shared fixture corpus are enforced in CI and mirrored by Kotlin policy tests;
+  finish receipts are tenant-bound and require complete, internally coherent
+  source/result/count/recovery reporting.
+- **The live boundary is explicit.** This slice adds no provider task, OAuth grant,
+  routine principal, API route, cloud decryption, content write, or routine
+  telemetry. SWIP also redacts the preview route and routine action names from its
+  debug journal. Live behavior remains blocked on Proposed ADR 0061/0062, INB-34/35, provider
+  capability validation, and the unresolved OAuth-to-gateway-principal design.
+
 ## 2026-07-31 — Background refresh: live on Android, not yet on iOS
 
 ### Added

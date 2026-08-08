@@ -14,6 +14,7 @@ package com.sloopworks.dayfold.client
 fun backAction(state: AppState): Action? {
   if (state.devices.resuming) return null                     // "Finishing…" resume beat → let the OS handle back
   if (state.hubs.audienceSheetOpen) return CloseAudienceSheet      // an open overlay closes FIRST (before any nav)
+  if (state.navigation.route == Route.SmartBriefings) return routineBackAction(state)
   return when (state.navigation.route) {
     Route.Feed -> if (state.navigation.detailStack.isNotEmpty()) NavBack else null
     Route.Hubs -> when {
@@ -24,12 +25,21 @@ fun backAction(state: AppState): Action? {
       else -> null
     }
     Route.Account -> CloseAccount
+    Route.SmartBriefings -> error("handled before route dispatch")
     Route.Members, Route.Devices, Route.Proximity -> OpenAccount
     Route.Invite -> InviteDismissed                             // back → Members, clears the shown token
     Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied -> CloseDeviceFlow
     Route.JoinInvite -> JoinDismissed
     Route.SignIn, Route.Loading, Route.CreateFamily, Route.AuthError -> null
   }
+}
+
+/** Feature-local overlay and wizard precedence, shared by Android predictive/system back. */
+fun routineBackAction(state: AppState): Action = when {
+  state.routines.detailsOpen -> CloseRoutineDetails
+  state.routines.revokeSheetOpen -> CloseRoutineRevokeSheet
+  state.routines.destination in setOf(RoutineDestination.ENTRY, RoutineDestination.ACTIVE) -> CloseSmartBriefings
+  else -> RoutineNavigateBack
 }
 
 fun appHandlesBack(state: AppState): Boolean = backAction(state) != null

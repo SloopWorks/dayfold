@@ -14,9 +14,9 @@ actually still queued or genuinely blocked.
 
 ## TASK-ROUTINE-INTEGRATION — scheduled connected-source curation through a K1/K3 gateway
 
-**Added 2026-08-07 (operator-requested planning). Status: design draft; blocked on
-Proposed ADRs 0061/0062 + two adversarial reviews + operator decisions
-(INB-34/INB-35).** Build a
+**Added 2026-08-07 (operator-requested planning). Status: live provider/gateway
+work remains blocked on Proposed ADRs 0061/0062 + operator decisions
+(INB-34/INB-35); the explicitly simulated local safe slice is implemented.** Build a
 provider-neutral routine flow: trigger → current Dayfold state + connected
 email/docs/calendar deltas → `dayfold-curator` analysis → structured changeset →
 shadow/staged/bounded update. Reuse the Kotlin CLI, resource-scoped grants,
@@ -41,6 +41,13 @@ Recovery/observability uses durable content-free run records, closed error/actio
 enums, idempotent retries/finish/apply/revoke, message-stripped gateway SWIP/Sentry,
 and dogfood-only anonymous analytics per Proposed ADR 0062. No source content,
 provider error text, or stable family/resource IDs enter diagnostics.
+
+The reviewed executable slice is
+`docs/superpowers/plans/2026-08-07-routine-integration-safe-slice.md`: strict
+contracts + sanitized fixtures, GET-only CLI validate/diff, and a dedicated
+fake-backend Smart Briefings preview with no provider task, OAuth grant, routine
+principal, remote run, content write, or new telemetry. The operator's instruction
+to import/review/implement is ADR 0008 sign-off for that simulated preview only.
 
 ## TASK-SWIP-BUGREPORT-FOLLOWUPS — dayfold ↔ swip integration improvements
 

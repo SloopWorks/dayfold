@@ -38,6 +38,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
       - run: npm ci
+      - name: routine contract schemas and fixtures
+        run: npm run test:routine-schema
       - name: codegen is up to date
         # `npm run codegen` emits BOTH the TS (zod) types the API imports AND the
         # Kotlin (quicktype) types the CLI/client source. Guard both — the Kotlin

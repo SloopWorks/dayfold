@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.sloopworks.dayfold.client.fake.fakeClientForApi
+import com.sloopworks.dayfold.client.fake.initialStateForFakeScenario
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,6 +14,7 @@ import org.reduxkotlin.compose.rememberSelectorStore
 /** Desktop host: owns one host-safe runtime graph and only retains native platform actions. */
 fun main() = application {
   val api = System.getenv("DAYFOLD_API") ?: ""
+  val scenarioId = api.removePrefix("fake://").takeIf { api.startsWith("fake://") }
   val fakeHttp = remember { fakeClientForApi(api) }
   val isFake = fakeHttp != null
   val clientApi = if (isFake) "http://fake.local" else api
@@ -29,6 +31,7 @@ fun main() = application {
         httpClientFactory = { fakeHttp ?: io.ktor.client.HttpClient() },
         devSecret = devSecret,
         onResourcesClosed = driver::close,
+        initialState = initialStateForFakeScenario(scenarioId),
       ).create()
     } catch (error: Throwable) {
       driver.close()
