@@ -61,7 +61,7 @@ class DeriveNowTest {
     val items = deriveNow(listOf(Hub("h1", title = "Trip")), sections, blocks, emptyList(), now, null, zone)
     val it = items.single { it.reasonKind == ReasonKind.MILESTONE }
     assertEquals("Passport renewal in 4 days", it.why)
-    assertEquals("hub:h1/sec:s1/blk:b1", it.subjectKey)
+    assertEquals("hub:h1/section:s1/block:b1", it.subjectKey)
     assertEquals("b1", it.target?.blockId)
   }
 
@@ -150,7 +150,7 @@ class DeriveNowTest {
     assertEquals(items.map { it.id }.toSet().size, items.size)            // unique ids
     items.forEach { assertTrue(it.id.startsWith("derived:")) }
     // one countdown (h1), one milestone (b1), one checklist (b2)
-    assertEquals(setOf("hub:h1", "hub:h1/sec:s1/blk:b1", "hub:h1/sec:s1/blk:b2"), items.map { it.subjectKey }.toSet())
+    assertEquals(setOf("hub:h1", "hub:h1/section:s1/block:b1", "hub:h1/section:s1/block:b2"), items.map { it.subjectKey }.toSet())
   }
 
   @Test fun `date-only and full-instant countdown both parse`() {

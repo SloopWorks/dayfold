@@ -1,12 +1,14 @@
--- Migration v12→v13 (ADR 0052): add the membership cache — last-known family list so the
--- cold-start route gate resolves from the DB instead of waiting on a network whoami.
--- Local cache of the caller's OWN family list (not synced tenant content). Existing devices
--- get an empty table → their first post-upgrade cold start is still network-gated (nothing
--- cached yet), then every subsequent one resolves locally. No CLIENT_SCHEMA_VERSION bump:
--- this is not synced content, so no resync is needed. Additive.
-CREATE TABLE membership (
-  family_id TEXT NOT NULL PRIMARY KEY,
-  name      TEXT NOT NULL DEFAULT '',
-  role      TEXT NOT NULL DEFAULT 'adult',
-  status    TEXT NOT NULL DEFAULT 'active'
-);
+-- Migration v12→v13 (ADR 0064): the canonical subjectKey grammar changed its node separators
+-- from "/sec:"/"/blk:" to "/section:"/"/block:" so the client and the API build byte-identical
+-- keys (a rule minted here is matched server-side by string equality).
+--
+-- surfacing_state is keyed by that string and is deliberately PRESERVED across a resync — it
+-- is device-local anti-nag history, not synced content — so a CLIENT_SCHEMA_VERSION bump would
+-- not heal it. Rewrite the keys in place instead: dismissals and last-shown clocks survive the
+-- rename, which is the whole point of keeping that table across resyncs.
+--
+-- No PRIMARY KEY conflict is possible: the old and new shapes are disjoint string sets.
+-- No DDL — the .sq schema is unchanged, so this is a data-only migration.
+UPDATE surfacing_state
+   SET subject_key = replace(replace(subject_key, '/sec:', '/section:'), '/blk:', '/block:')
+ WHERE subject_key LIKE '%/sec:%' OR subject_key LIKE '%/blk:%';

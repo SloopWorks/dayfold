@@ -99,7 +99,7 @@ fun deriveNow(
       id = "derived:countdown:${hub.id}",
       origin = Origin.DERIVED, reasonKind = ReasonKind.COUNTDOWN,
       title = hub.title, why = whyRelative(hub.title, days),
-      subjectKey = "hub:${hub.id}",
+      subjectKey = SubjectRef.node(hub.id),
       target = DeepLinkTarget(hub.id),
       triggerAtIso = targetIso, weight = config.countdownWeight,
     )
@@ -107,7 +107,7 @@ fun deriveNow(
 
   for (block in blocks) {
     val hubId = hubIdForBlock(block) ?: continue
-    val subjectKey = "hub:$hubId/sec:${block.sectionId}/blk:${block.id}"
+    val subjectKey = SubjectRef.node(hubId, block.sectionId, block.id)
     val target = DeepLinkTarget(hubId, block.sectionId, block.id)
 
     // ── 2. MILESTONE — a dated milestone block approaching ──

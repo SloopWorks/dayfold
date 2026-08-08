@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildCardSubjectRef,
   buildBlockSubjectRef,
+  buildNodeSubjectRef,
   buildKindRef,
   buildSourceRef,
   parseSubjectRef,
@@ -43,6 +44,17 @@ describe("parseSubjectRef", () => {
       hubId: "h_9",
       sectionId: "s_2",
       blockId: "b_4",
+    });
+  });
+
+  // A node ref may stop at any level: `hub:<id>` is what the derived lane keys a hub
+  // countdown on, so requiring a block would make that subject unmutable.
+  it("round-trips the shorter node refs", () => {
+    expect(parseSubjectRef("hub:h_9")).toEqual({ form: "node", hubId: "h_9" });
+    expect(parseSubjectRef("hub:h_9/section:s_2")).toEqual({
+      form: "node",
+      hubId: "h_9",
+      sectionId: "s_2",
     });
   });
 
@@ -89,6 +101,8 @@ describe("parseSubjectRef", () => {
       buildCardSubjectRef("c_1"),
       buildBlockSubjectRef("h_1", "s_1", "b_1"),
       buildBlockSubjectRef("h_1", null, "b_1"),
+      buildNodeSubjectRef("h_1", null, null),
+      buildNodeSubjectRef("h_1", "s_1", null),
       buildKindRef("weather"),
       buildSourceRef("mb"),
     ];
@@ -99,7 +113,6 @@ describe("parseSubjectRef", () => {
     expect(parseSubjectRef("")).toBeNull();
     expect(parseSubjectRef("nope:x")).toBeNull();
     expect(parseSubjectRef("hub:")).toBeNull();
-    expect(parseSubjectRef("hub:h_9")).toBeNull(); // a hub alone is not a subject
     expect(parseSubjectRef("card:")).toBeNull();
     expect(parseSubjectRef("kind:")).toBeNull();
     expect(parseSubjectRef("hub:h_9/section:s_2/block:")).toBeNull();

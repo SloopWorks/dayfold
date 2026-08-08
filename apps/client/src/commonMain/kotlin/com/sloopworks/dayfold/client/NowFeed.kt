@@ -101,13 +101,8 @@ fun RankedFeed.visibleSubjectKeys(): Set<String> =
 // derived item about the same hub/block) else the card's own id. Shared by cardToNowItem +
 // authoredGeoItems so a card's time item and geo item dedup onto ONE subject (#299).
 internal fun subjectKeyFor(card: Card): String =
-  card.targetHubId?.let { hub ->
-    buildString {
-      append("hub:").append(hub)
-      card.targetSectionId?.let { append("/sec:").append(it) }
-      card.targetBlockId?.let { append("/blk:").append(it) }
-    }
-  } ?: "card:${card.id}"
+  card.targetHubId?.let { hub -> SubjectRef.node(hub, card.targetSectionId, card.targetBlockId) }
+    ?: SubjectRef.card(card.id)
 
 fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone): NowItem {
   val reasonKind = when {

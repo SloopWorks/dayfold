@@ -2,9 +2,15 @@
 // known; every producer and every matcher goes through it.
 //
 //   subject_ref := "card:"   <cardId>
-//                | "hub:"    <hubId> ["/section:" <sectionId>] "/block:" <blockId>
+//                | "hub:"    <hubId> ["/section:" <sectionId>] ["/block:" <blockId>]
 //                | "kind:"   <cardKind>          -- rule rows only
 //                | "source:" <provenanceSource>  -- rule rows only
+//
+// A node ref may stop at any level. `hub:<id>` alone is a real subject — it is what the
+// ADR 0043 derived lane keys a hub countdown on, and what an authored card with a hub-only
+// deep-link target keys on. Requiring a block would make those subjects unaddressable, so a
+// member could never mute a hub countdown. Persisted BLOCK rows always carry the full form
+// (the server knows the whole path); the shorter forms come from the derived lane and rules.
 //
 // The first two forms name A SUBJECT; the last two name A CLASS of subject and may only ever
 // appear on a rule row (see isRuleRef). This is the ADR 0043 subjectRef taking its third job:
@@ -21,7 +27,7 @@
 
 export type SubjectRef =
   | { form: "card"; cardId: string }
-  | { form: "node"; hubId: string; sectionId?: string; blockId: string }
+  | { form: "node"; hubId: string; sectionId?: string; blockId?: string }
   | { form: "kind"; value: string }
   | { form: "source"; value: string };
 
@@ -70,11 +76,24 @@ export function buildBlockSubjectRef(
   sectionId: string | null,
   blockId: string,
 ): string {
+  return buildNodeSubjectRef(hubId, sectionId, blockId);
+}
+
+/**
+ * The general node builder. Any suffix may be omitted, so this covers the hub-countdown
+ * subject (`hub:h`) and the section subject as well as a full block path. A blockId without
+ * a sectionId is legal — the derived lane does not always know the section.
+ */
+export function buildNodeSubjectRef(
+  hubId: string,
+  sectionId: string | null,
+  blockId: string | null,
+): string {
   assertSafe(hubId);
-  assertSafe(blockId);
-  return sectionId
-    ? `${HUB}${hubId}${SECTION_MARK}${assertSafe(sectionId)}${BLOCK_MARK}${blockId}`
-    : `${HUB}${hubId}${BLOCK_MARK}${blockId}`;
+  let out = `${HUB}${hubId}`;
+  if (sectionId) out += `${SECTION_MARK}${assertSafe(sectionId)}`;
+  if (blockId) out += `${BLOCK_MARK}${assertSafe(blockId)}`;
+  return out;
 }
 
 export function buildKindRef(kind: string): string {
@@ -108,22 +127,28 @@ export function parseSubjectRef(ref: string): SubjectRef | null {
   if (!ref.startsWith(HUB)) return null;
 
   const rest = ref.slice(HUB.length);
-  // LAST marker wins: a block id may itself contain "/block:"-shaped text, and the builder
-  // always appends the real marker last.
-  const blockAt = rest.lastIndexOf(BLOCK_MARK);
-  if (blockAt <= 0) return null; // absent, or nothing before it to be a hub id
-  const blockId = rest.slice(blockAt + BLOCK_MARK.length);
-  if (!blockId) return null;
+  if (!rest) return null;
 
-  const head = rest.slice(0, blockAt);
+  // LAST marker wins: a block id may itself contain "/block:"-shaped text, and the builder
+  // always appends the real marker last. Absent marker → the ref stops at hub or section.
+  let head = rest;
+  let blockId: string | undefined;
+  const blockAt = rest.lastIndexOf(BLOCK_MARK);
+  if (blockAt !== -1) {
+    if (blockAt === 0) return null; // nothing before it to be a hub id
+    blockId = rest.slice(blockAt + BLOCK_MARK.length);
+    if (!blockId) return null; // trailing marker with no id
+    head = rest.slice(0, blockAt);
+  }
+
   // FIRST marker wins on the head: the hub id comes before it, and a section id may contain
   // "/section:"-shaped text.
   const sectionAt = head.indexOf(SECTION_MARK);
   if (sectionAt === -1) {
-    return head ? { form: "node", hubId: head, blockId } : null;
+    return head ? { form: "node", hubId: head, ...(blockId ? { blockId } : {}) } : null;
   }
   const hubId = head.slice(0, sectionAt);
   const sectionId = head.slice(sectionAt + SECTION_MARK.length);
   if (!hubId || !sectionId) return null;
-  return { form: "node", hubId, sectionId, blockId };
+  return { form: "node", hubId, sectionId, ...(blockId ? { blockId } : {}) };
 }
