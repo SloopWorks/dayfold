@@ -321,6 +321,8 @@ earns the next build (per ADR 0007 revisit trigger):
 - Multi-member login / household tenancy / roles. [review-gap G2]
 - Data-source integrations: native EventKit/CalendarContract (no-OAuth path)
   or Google Calendar API (sensitive scope); Gmail/weather/commerce. [N4]
+  Proposed ADR 0063 would reopen only the native, client-owned Calendar Check
+  path; it leaves server-side Calendar OAuth and every other source deferred.
 - Universal Links / App Links + `assetlinks.json` / `apple-app-site-
   association` (zero-redirect, iOS CDN ~24h). [N1/N2]
 - Home-screen widget (Glance + WidgetKit — native-only, 2× UI). [N5]
