@@ -11,6 +11,7 @@ for the original product surfaces. Newer area-specific galleries are linked belo
 |---|---|---|
 | Index | `Family AI dashboard design brief/designs/Index.dc.html` | Legacy landing — links the original product surfaces |
 | Smart Briefings | [`routine-integration/Index.dc.html`](routine-integration/Index.dc.html) | Imported setup, privacy, provider handoff, status, draft-review, recovery, and revoke flows; source-of-truth preview is explicitly non-live |
+| Calendar reconciliation | [`DESIGN-BRIEF-calendar-reconciliation.md`](DESIGN-BRIEF-calendar-reconciliation.md) | Self-contained three-prompt brief for device-local Calendar Check, native event handoff, reviewed Calendar→Dayfold proposals, privacy, conflicts, and notification ownership; hi-fi gallery pending |
 | Design system | `Design-System.dc.html` | Color roles + tonal palettes (L+D), type scale, shape, elevation/surface tiers, motion, component inventory (L+D), provenance & accessibility |
 | Now (briefing) | `Now.dc.html` | Feed, empty, loading — light + dark |
 | Hubs (dossiers) | `Hubs.dc.html` | List, detail (all 8 block types), deep-link arrival (highlight pulse), graceful fallback, empty — light + dark |

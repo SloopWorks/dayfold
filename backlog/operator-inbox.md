@@ -16,6 +16,23 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-36 · 2026-08-08 · high · open — accept the client-owned Calendar Check
+  boundary after design/review?** The operator approved the feature direction and
+  requested an ADR + design prompts. Proposed ADR 0063 keeps raw calendar access,
+  identifiers, match state, and ignore decisions on the member's device; uses the
+  native event editor for user-confirmed Dayfold→Calendar creation; makes
+  Calendar→Dayfold a normalized, audience-reviewed proposal; and defaults matched
+  generic start-time alerts to Calendar while retaining distinct Dayfold action
+  nudges. **Proposed default: run the three design prompts, complete two
+  fresh-context ADR reviews, then accept this boundary if the mockups preserve the
+  privacy/audience/notification rules.** Acceptance must also ratify the initial
+  bounded comparison horizon, eligible candidate types, and Calendar-owned
+  start-alert default. This does not authorize a server-side Google Calendar OAuth
+  connector, automatic bidirectional sync, attendees/invitations, recurring-series
+  sync, or build before ADR 0008 sign-off. Context:
+  `adr/0063-client-owned-calendar-reconciliation.md` and
+  `designs/DESIGN-BRIEF-calendar-reconciliation.md`.
+
 - **INB-35 · 2026-08-07 · high · open — approve the routine recovery and
   observability boundary?** The end-to-end UX review found that current SWIP
   postures do not cover a plaintext-processing routine gateway: client collection is
