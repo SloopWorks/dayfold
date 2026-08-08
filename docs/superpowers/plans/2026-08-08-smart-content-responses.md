@@ -18,7 +18,7 @@ Task 0 writes the Proposed ADR. **Do not start Task 1 until the operator accepts
 
 ## Scope note — this is three shippable features, not one
 
-Per the writing-plans scope check: Phases A–C ship the **mute** verb end-to-end and are worth merging on their own; Phase D adds **Done**; Phase E adds the derived-lane and pipeline integration. **Fix it** (wrong-hub / outdated corrections) is marked TEST — not LEAN YES — in `NOTES.md`, has no persistence contract beyond "structured feedback in the next run's input", and depends on ADR 0062's run receipt, which is Proposed and unbuilt. **It is deliberately out of scope here** and gets its own plan once the routine gateway exists. Task 18 leaves the seam for it and nothing more.
+Per the writing-plans scope check: Phases A–C ship the **mute** verb end-to-end and are worth merging on their own; Phase D adds **Done**; Phase E adds the derived-lane and pipeline integration. **Fix it** (wrong-hub / outdated corrections) is marked TEST — not LEAN YES — in `NOTES.md`, has no persistence contract beyond "structured feedback in the next run's input", and depends on ADR 0062's run receipt, which is Proposed and unbuilt. **It is deliberately out of scope here** and gets its own plan once the routine gateway exists. Task 19 leaves the seam for it and nothing more.
 
 Each phase ends green and merges independently.
 
@@ -37,6 +37,59 @@ Each phase ends green and merges independently.
 - **Migrations are forward-only plain SQL in one txn, no `IF NOT EXISTS`** (ADR 0033). Numbered next in sequence after `0019_device_grant_scopes.sql`.
 - **Commit style:** normal prose, not caveman. Branch from latest `main`.
 - **Copy strings are fixed by the design and quoted verbatim in the tasks that use them.** Do not paraphrase user-facing text.
+
+## Platform matrix — what "end to end" actually covers
+
+`apps/settings.gradle.kts` includes `:client`, `:ui`, `:androidApp`, the debug-drawer modules, and `:swip-wiring`. The KMP targets are `androidTarget()`, `jvm("desktop")`, `iosArm64()`, `iosSimulatorArm64()`.
+
+| Surface | Status | What this plan owes it |
+|---|---|---|
+| **Android** | shipped, dogfooded | Everything. It is the verification surface. |
+| **iOS** | builds, framework exported (`:ui` → static `client.framework`) | Compile + test green on `iosSimulatorArm64`; every new `DayfoldCommandPort` method is exported to Swift, so the interface stays method-only; the engine is owned by the shared runtime graph, never by `IosControllerRuntimeOwner` directly. |
+| **Desktop (`jvm`)** | test harness | Where `:client`/`:ui` tests and `rk snapshot` goldens run. Not a shipped product surface. |
+| **Web** | **does not exist** | Nothing. There is no `wasmJs`/`js`/`browser()` target in any module. `CLAUDE.md`'s "Android/iOS/Web" is aspirational; the build has no web. **Do not add one for this feature** — a new target is an ADR-class platform decision, not a step in a feature plan. |
+
+## Cross-cutting requirements (apply to every task; a reviewer may reject on any of these)
+
+### SQLDelight migrations are mandatory, and are not the same thing as the content-schema version
+
+`apps/client/build.gradle.kts:110` sets `verifyMigrations.set(true)` and `.../db/migrations/` already holds `1.sqm` … `11.sqm`. **Adding a table or column to `Content.sq` without a matching `.sqm` fails the build.** The DB schema version is derived from the migration count.
+
+These are two independent version concepts and this plan needs both, for different reasons:
+
+| Concept | Where | Why this feature bumps it |
+|---|---|---|
+| SQLDelight schema version | a new `.sqm` per DDL change | new tables/columns (Tasks 3, 9, 13) |
+| `CLIENT_SCHEMA_VERSION` | `ContentStore`, read via `sync_meta.client_schema_version` | Task 3 changes the **shape** of `NowItem.subjectKey`. Cached content written under the old shape would key against rules that can never match — a behavior-affecting model change, which is exactly what this constant's resync heal exists for. |
+
+### Route registration touches four exhaustive maps, and one of them fails silently
+
+Adding the Settings › Smart content route (Task 15) means editing **all four**:
+
+| File | What | Fails how |
+|---|---|---|
+| `Model.kt:419` — `enum class Route` | add `SmartContent` | — |
+| `RouteMotion.kt:14` — `routeSpec` (ADR 0051) | `RouteSpec(2, NavKind.Push)`, matching Devices/Members | compile error (exhaustive `when`) |
+| `BackNav.kt:19` — `backAction` | `Route.SmartContent -> OpenAccount` | compile error (exhaustive `when`) |
+| `swip-wiring/DayfoldRecording.kt:47` — `recordedRoute` | decide what a debug journal records | **silently** — it is a `Route`→String map with no exhaustiveness guard, so a miss journals the raw route name into bug reports |
+
+### redux-kotlin conventions (ADR 0013 + `processes/agent-dev-loop.md`)
+
+- Actions are declared as a **sealed interface per feature**: `sealed interface ResponseAction : Action`, with each action implementing it (mirror `features/routines/RoutineActions.kt:4`). Not bare `data class … : Action`.
+- Compose reads state through **one `SelectorStore` per root**: `rememberSelectorStore(rawStore)`, passed down the bound subtree, read via `store.selectorState { … }` / `store.fieldState(…)`.
+- **Use the keyed selector overload** for any projection that captures a changing Compose value. The response sheet captures `subjectRef` and the Settings list captures `viewerUserId` — both are keyed projections; an unkeyed lambda will capture a stale value.
+- **Never escape to `StableStore.value`.** Compose hosts receive the method-only `DayfoldCommandPort`; do not recreate it per recomposition.
+- Reducers stay pure. Every effect — network, DB, ULID minting, clock reads — lives in `ResponseEngine` under runtime ownership (ADR 0058), off-main, with UI-thread notification and state-keyed lifecycle.
+
+### Layering — where copy lives
+
+**`:client` selectors return structured data; `:ui` renders every user-facing string.** `smartContentSections` returns a provenance *enum* and the member's display name; it does not return `"Whole family · muted by Mom · any adult can remove"`. That string is assembled in `:ui`, where `verbRowsFor`'s copy already lives (the `RouteMotion.kt` precedent for pure presentation logic in `:ui`). One feature must not answer the copy-ownership question two ways.
+
+Consequence for Task 15: the selector test asserts *structure*, and a separate `:ui` test asserts the three sub-line strings.
+
+### "Any adult" is not a modeled concept
+
+Decided-Q2 grants any adult the right to set and remove family-wide rules. The repo models family membership and per-hub roles (ADR 0053 viewer/contributor/co_owner) — **it does not model adulthood**, because ADR 0004's adults-only MVP makes every account holder an adult. So Task 5 performs **no role check** for family-scoped rules, and that is correct *today only*. Write it into ADR 0064's Consequences: if ADR 0005 (14+ minor accounts, Proposed) is ever accepted, family-wide mute rights need a real gate, and this is the code that has to change.
 
 ### Canonical `subject_ref` grammar (used by server, client, and CLI — define once, never re-derive)
 
@@ -546,9 +599,32 @@ object SubjectRef {
 }
 ```
 
-- [ ] **Step 4: Add the columns to the client DB**
+- [ ] **Step 4: Add the columns to the client DB — `.sq` AND a new `.sqm`**
 
-In `Content.sq`, add `subject_ref TEXT` to the `card` and `hub_block` table definitions, add it to `upsertCard` / the block upsert statements, and add it to the projection selects the store reads. Follow the migration note at `Content.sq:25` — the device DB has no `.sqm` migration infra for the `card` table, so bump `CLIENT_SCHEMA_VERSION` (the same heal mechanism the debug-seed fix used) rather than assuming an in-place `ALTER`.
+In `Content.sq`, add `subject_ref TEXT` to the `card` and `hub_block` table definitions, add it to `upsertCard` / the block upsert statements, and add it to the projection selects the store reads.
+
+`verifyMigrations.set(true)` means the `.sq` edit alone breaks the build. Add the paired migration (next free number — `11.sqm` is the current highest):
+
+```sql
+-- apps/client/src/commonMain/sqldelight/com/sloopworks/dayfold/client/db/migrations/12.sqm
+-- ADR 0064 — subject_ref reaches the device so the on-device rule engine can key against
+-- the same string the server matches on. Nullable: existing cached rows are re-stamped by
+-- the next /sync, and the CLIENT_SCHEMA_VERSION bump below forces that sync to be a full one.
+ALTER TABLE card ADD COLUMN subject_ref TEXT;
+ALTER TABLE hub_block ADD COLUMN subject_ref TEXT;
+```
+
+The stale comment at `Content.sq:25` ("no `.sqm` migration infra") predates migrations 1–11 — do not follow it. Fix the comment while you are in the file.
+
+- [ ] **Step 4b: Bump `CLIENT_SCHEMA_VERSION`**
+
+Separate concern from the migration above. Step 5 changes the **shape** of `NowItem.subjectKey`; content cached under the old shape would key against rules that can never match. That is precisely the behavior-affecting model change `CLIENT_SCHEMA_VERSION` guards — bump it so `reconcileSchemaVersion` wipes and re-syncs.
+
+```bash
+cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+  ./gradlew :client:desktopTest --tests "*SchemaVersionResyncTest*" --tests "*BackgroundRefreshTest*"
+```
+Expected: PASS — both suites pin the heal path.
 
 - [ ] **Step 5: Make `deriveNow` emit grammar-conformant subject keys**
 
@@ -1605,6 +1681,28 @@ clearResponses:
 DELETE FROM content_response;
 ```
 
+Pair it with the migration (`verifyMigrations.set(true)` — the `.sq` edit alone breaks the build):
+
+```sql
+-- apps/client/src/commonMain/sqldelight/com/sloopworks/dayfold/client/db/migrations/13.sqm
+-- ADR 0064 — Tier-1 synced response rows on the device.
+CREATE TABLE content_response (
+  id             TEXT NOT NULL PRIMARY KEY,
+  kind           TEXT NOT NULL,
+  subject_ref    TEXT NOT NULL,
+  match_scope    TEXT NOT NULL,
+  audience_scope TEXT NOT NULL,
+  user_id        TEXT,
+  created_by     TEXT NOT NULL,
+  label          TEXT NOT NULL,
+  sublabel       TEXT,
+  note           TEXT,
+  version        INTEGER NOT NULL DEFAULT 1,
+  pending        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX content_response_subject_idx ON content_response(subject_ref);
+```
+
 Add `clearResponses` to both `wipe()` and `wipeSyncedContent()` in `ContentStore` — a rule is synced tenant content, so tenancy revocation and a content-schema resync must both drop it (unlike the membership cache, which `wipeSyncedContent` deliberately preserves).
 
 - [ ] **Step 2: Write the failing test**
@@ -2077,7 +2175,15 @@ The once-ever flag is **Tier 0** — device state, behavioral, never synced:
 
 ```sql
 -- ADR 0064 GAP 4 — the once-ever swipe-escalation offer. Tier 0: behavioral, device-local,
--- NEVER synced (not in Changes/applyDelta/outbox), same boundary as hide + surfacing above.
+-- NEVER synced (not in Changes/applyDelta/outbox), same boundary as hide + surfacing above,
+-- and covered by ADR 0024's never-syncs rule.
+CREATE TABLE response_offer (subject_ref TEXT NOT NULL PRIMARY KEY, offered_at TEXT NOT NULL);
+```
+
+Paired migration (`verifyMigrations.set(true)`):
+
+```sql
+-- apps/client/src/commonMain/sqldelight/com/sloopworks/dayfold/client/db/migrations/14.sqm
 CREATE TABLE response_offer (subject_ref TEXT NOT NULL PRIMARY KEY, offered_at TEXT NOT NULL);
 ```
 
@@ -2207,13 +2313,35 @@ git commit -m "Add done-with-note and the hub remove-and-mute pairing"
 - Create: `apps/ui/src/commonMain/kotlin/com/sloopworks/dayfold/client/features/responses/SmartContentScreen.kt`
 - Create: `.../client/features/responses/ResponseSelectors.kt` (in `:client`)
 - Modify: `apps/ui/.../AccountScreen.kt` (a "Smart content" row)
-- Modify: `apps/client/.../features/navigation/NavigationReducer.kt` + `RouteHost.kt` (the route)
+- Modify: `apps/client/.../Model.kt` (`Route` enum), `.../features/navigation/NavigationReducer.kt`, `.../BackNav.kt`, `apps/ui/.../features/navigation/RouteHost.kt`, `apps/ui/.../RouteMotion.kt`, `apps/swip-wiring/.../DayfoldRecording.kt`
 - Test: `apps/client/src/commonTest/kotlin/com/sloopworks/dayfold/client/ResponseSelectorsTest.kt`
+- Test: `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/SmartContentCopyTest.kt`
 
 **Interfaces:**
-- Produces: `smartContentSections(state, viewerUserId, memberNames): SmartContentModel` with `mutedRules: List<RuleRow>`, `doneRecords: List<DoneRow>`, `lastRun: RunReceiptRow?`.
+- Produces: `smartContentSections(rules, doneRecords, viewerUserId): SmartContentModel` with `mutedRules: List<RuleRow>`, `doneRecords: List<DoneRow>`. Each `RuleRow` carries `provenance: RuleProvenance` (`PERSONAL`/`FAMILY`/`DEVICE`), `authorUserId: String?`, `label`, `sublabel`, `pending: Boolean` — **structured data, no rendered copy** (see the layering rule in Cross-cutting requirements).
+- Produces in `:ui`: `fun sublineFor(row: RuleRow, memberNames: Map<String, String>): String`.
 
-Three rule provenances, **distinguished by sub-line copy, never by colour alone** (GAP 5, first point):
+**Route registration — all four maps** (the fourth fails silently):
+
+```kotlin
+// Model.kt:419 — add to the Route enum
+enum class Route { …, Proximity, SmartContent }
+
+// apps/ui/.../RouteMotion.kt — ADR 0051; matches the other Account children
+Route.SmartContent -> RouteSpec(2, NavKind.Push)
+
+// apps/client/.../BackNav.kt — joins the Account-children arm
+Route.Members, Route.Devices, Route.Proximity, Route.SmartContent -> OpenAccount
+
+// apps/swip-wiring/.../DayfoldRecording.kt — recordedRoute has NO exhaustiveness guard.
+// Smart content is where mute labels and done notes are listed; even the route name is a
+// weak signal about what the household suppresses, so journal it as its Account entry
+// point, exactly as SmartBriefings already is.
+private fun recordedRoute(route: Route): String =
+  if (route == Route.SmartBriefings || route == Route.SmartContent) Route.Account.name else route.name
+```
+
+Three rule provenances, **distinguished by sub-line copy, never by colour alone** (GAP 5, first point). The copy is assembled in `:ui`:
 
 | Provenance | Sub-line |
 |---|---|
@@ -2235,52 +2363,88 @@ import kotlin.test.assertTrue
 class ResponseSelectorsTest {
   private val names = mapOf("u_mom" to "Mom", "u_dad" to "Dad")
 
-  @Test fun eachProvenanceHasItsOwnSubline() {
+  @Test fun eachRuleCarriesItsProvenanceAsData() {
     val rules = listOf(
       ContentResponse("r1", ResponseKind.MUTE, "kind:traffic", MatchScope.KIND,
         AudienceScope.PERSONAL, "u_dad", "u_dad", "Traffic cards", "From Morning briefing", null, 1),
       ContentResponse("r2", ResponseKind.MUTE, "kind:weather", MatchScope.KIND,
         AudienceScope.FAMILY, null, "u_mom", "Weather in Now", null, null, 1),
     )
-    val m = smartContentSections(rules, doneRecords = emptyList(), viewerUserId = "u_dad", memberNames = names)
-    assertEquals("From Morning briefing · just you", m.mutedRules[0].subline)
-    assertEquals("Whole family · muted by Mom · any adult can remove", m.mutedRules[1].subline)
+    val m = smartContentSections(rules, doneRecords = emptyList(), viewerUserId = "u_dad")
+    assertEquals(RuleProvenance.PERSONAL, m.mutedRules[0].provenance)
+    assertEquals(RuleProvenance.FAMILY, m.mutedRules[1].provenance)
+    assertEquals("u_mom", m.mutedRules[1].authorUserId)   // the byline's input, not the byline
   }
 
-  @Test fun doneRowsKeepTheBylineAndTheQuotedNote() {
+  @Test fun doneRowsCarryTheAuthorAndTheRawNote() {
     val done = listOf(ContentResponse("d1", ResponseKind.DONE, "card:c1", MatchScope.SUBJECT,
       AudienceScope.FAMILY, null, "u_mom", "Verify emergency contact", null,
       "Confirmed — used Grandma's new number.", 1))
-    val m = smartContentSections(emptyList(), done, "u_dad", names)
+    val m = smartContentSections(emptyList(), done, "u_dad")
     assertEquals("Verify emergency contact", m.doneRecords[0].title)
-    assertEquals("\"Confirmed — used Grandma's new number.\" · Mom", m.doneRecords[0].subline)
+    assertEquals("u_mom", m.doneRecords[0].authorUserId)
+    assertEquals("Confirmed — used Grandma's new number.", m.doneRecords[0].note)
   }
 
-  @Test fun aDoneRowWithNoNoteIsJustAByline() {
+  @Test fun aDoneRowWithNoNoteHasANullNote() {
     val done = listOf(ContentResponse("d2", ResponseKind.DONE, "card:c2", MatchScope.SUBJECT,
       AudienceScope.FAMILY, null, "u_dad", "RSVP scout campout", null, null, 1))
-    assertEquals("Dad", smartContentSections(emptyList(), done, "u_mom", names).doneRecords[0].subline)
+    assertNull(smartContentSections(emptyList(), done, "u_mom").doneRecords[0].note)
   }
 
-  // Offline honesty (GAP 6): a rule cannot stop a run that already happened.
-  @Test fun aPendingRuleSaysItTakesEffectNextRun() {
+  // Offline honesty (GAP 6): a rule cannot stop a run that already happened. The selector
+  // reports the FACT; :ui owns the sentence.
+  @Test fun aPendingRuleIsFlaggedPending() {
     val rules = listOf(ContentResponse("r1", ResponseKind.MUTE, "kind:weather", MatchScope.KIND,
       AudienceScope.PERSONAL, "u_dad", "u_dad", "Weather cards", "From Morning briefing", null, 1,
       pending = true))
-    val row = smartContentSections(rules, emptyList(), "u_dad", names).mutedRules[0]
-    assertTrue(row.offline)
-    assertEquals("Saved on this phone — syncs & takes effect next run", row.pendingSubline)
+    assertTrue(smartContentSections(rules, emptyList(), "u_dad").mutedRules[0].pending)
   }
 }
 ```
 
 - [ ] **Step 2: Run, watch it fail, implement the selector, run again.**
 
+- [ ] **Step 2b: Pin the copy in `:ui`, where it lives**
+
+```kotlin
+// apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/SmartContentCopyTest.kt
+package com.sloopworks.dayfold.client
+
+import com.sloopworks.dayfold.client.features.responses.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class SmartContentCopyTest {
+  private val names = mapOf("u_mom" to "Mom", "u_dad" to "Dad")
+
+  @Test fun eachProvenanceHasItsOwnSubline() {
+    assertEquals("From Morning briefing · just you",
+      sublineFor(ruleRow(RuleProvenance.PERSONAL, sublabel = "From Morning briefing"), names))
+    assertEquals("Whole family · muted by Mom · any adult can remove",
+      sublineFor(ruleRow(RuleProvenance.FAMILY, authorUserId = "u_mom"), names))
+    assertEquals("On this device · derived lane · never synced",
+      sublineFor(ruleRow(RuleProvenance.DEVICE), names))
+  }
+
+  @Test fun aPendingRuleIsHonestAboutWhenItTakesEffect() {
+    assertEquals("Saved on this phone — syncs & takes effect next run",
+      sublineFor(ruleRow(RuleProvenance.PERSONAL, pending = true), names))
+  }
+
+  @Test fun aDoneBylineQuotesTheNoteWhenThereIsOne() {
+    assertEquals("\"Confirmed — used Grandma's new number.\" · Mom",
+      doneSublineFor(doneRow("u_mom", "Confirmed — used Grandma's new number."), names))
+    assertEquals("Dad", doneSublineFor(doneRow("u_dad", null), names))
+  }
+}
+```
+
 - [ ] **Step 3: Build the screen**
 
 Sections in order: MUTED RULES (each with a "Remove" pill) → DONE (line-through titles, byline + quoted note) → the content-blindness reassurance chip, verbatim: *"Your routine reads these before it adds anything. The server checks by ID — it never reads your content."* → LAST RUN, whose sub-line reads *"Added 3 · skipped 2 muted · saw 1 marked done"*.
 
-The LAST RUN row is a **read-only projection of what the routine reports** — the "saw N marked done" figure comes from the ADR 0062 run receipt, which is unbuilt. Render the row only when a receipt exists; do not fabricate counts. Task 18 wires the real numbers.
+The LAST RUN row is a **read-only projection of what the routine reports** — the "saw N marked done" figure comes from the ADR 0062 run receipt, which is unbuilt. Render the row only when a receipt exists; do not fabricate counts. Task 19 records that it stayed open.
 
 - [ ] **Step 4: Offline states**
 
@@ -2322,12 +2486,17 @@ git commit -m "Add Settings › Smart content and the offline response vocabular
 
 **Files:**
 - Modify: `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/NowRank.kt`
+- Modify: `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/NowNotify.kt`
+- Modify: `apps/client/src/commonMain/kotlin/com/sloopworks/dayfold/client/BackgroundNotify.kt`
 - Test: `apps/client/src/commonTest/kotlin/com/sloopworks/dayfold/client/NowRankSuppressionTest.kt`
+- Test: `apps/client/src/commonTest/kotlin/com/sloopworks/dayfold/client/NotifySuppressionTest.kt`
 
 **Interfaces:**
 - Consumes: `ResponseRules.suppress` (Task 8).
 
 The server never sees derived items, so decided-Q4 ("derived lane reads the same rule list") can only be honored on-device. Suppression runs **after** candidate generation and **before** the calm budget, so a muted item does not consume a budget slot.
+
+**The notification path is a second entry point and must not be missed.** ADR 0043 §3 says notifications are "the top-K of the same ranking under the daily cap" — but in this codebase that is `NowNotify`/`BackgroundNotify`, and `DayfoldCommandPort:32` already carries `nowShown(subjectKeys)` as its own path. A muted subject that still fires a background notification is exactly the whack-a-mole the feature exists to kill, and it is the *worst* form of it: the user gets buzzed by content they explicitly told the app to stop making. Suppression must be applied at the ranking source both paths read, and asserted separately for the notification path.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2369,11 +2538,43 @@ class NowRankSuppressionTest {
 
 - [ ] **Step 2: Run it, watch it fail, thread the rules through `rankNow`, run again.**
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Assert the notification path independently**
+
+```kotlin
+// apps/client/src/commonTest/kotlin/com/sloopworks/dayfold/client/NotifySuppressionTest.kt
+package com.sloopworks.dayfold.client
+
+import com.sloopworks.dayfold.client.features.responses.*
+import kotlin.test.Test
+import kotlin.test.assertTrue
+
+class NotifySuppressionTest {
+  private val weatherMute = ContentResponse("r1", ResponseKind.MUTE, "kind:weather", MatchScope.KIND,
+    AudienceScope.FAMILY, null, "u_mom", "Weather in Now", null, null, 1)
+
+  // A muted subject that still buzzes the phone is the worst form of the whack-a-mole this
+  // feature exists to kill — the user explicitly said stop, and got a notification anyway.
+  @Test fun aMutedSubjectNeverProducesANotification() {
+    val notifs = notificationsFor(candidates = listOf(weatherItem(), countdownItem()),
+                                  rules = listOf(weatherMute), viewerUserId = "u_dad")
+    assertTrue(notifs.none { it.subjectKey == weatherItem().subjectKey })
+  }
+
+  @Test fun theBackgroundPathUsesTheSameSuppressedRanking() {
+    val fromBackground = backgroundNotificationsFor(
+      candidates = listOf(weatherItem()), rules = listOf(weatherMute), viewerUserId = "u_dad")
+    assertTrue(fromBackground.isEmpty())
+  }
+}
+```
+
+If the two paths do not already share a ranking entry point, make them share one rather than filtering twice — two filters is two places to forget.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add apps/client/src
-git commit -m "Enforce response rules on the derived Now lane, before the calm budget"
+git commit -m "Enforce response rules on the derived Now lane and the notification path"
 ```
 
 ## Task 17: The CLI reads the rules before it authors
@@ -2442,7 +2643,105 @@ git add apps/cli
 git commit -m "Read response rules in the CLI and skip muted changeset ops"
 ```
 
-## Task 18: Documentation, changelog, and the deferred fix-it seam
+## Task 18: Observability — SWIP analytics, logging, and the privacy fences
+
+**Files:**
+- Modify: `apps/swip-wiring/src/commonMain/kotlin/com/sloopworks/dayfold/swip/DayfoldAnalytics.kt`
+- Modify: `apps/swip-wiring/src/commonMain/kotlin/com/sloopworks/dayfold/swip/DayfoldRecording.kt` (the `recordedRoute` line from Task 15 — verify it landed)
+- Modify: `apps/client/.../ResponseEngine.kt` (Log calls)
+- Test: `apps/swip-wiring/src/desktopTest/.../DayfoldLeakTest.kt` (extend)
+- Test: `apps/api/test/responses-observability.test.ts`
+
+**Interfaces:**
+- Consumes: `ResponseAction` types (Task 8).
+
+Four ADRs land on this feature and none of them were addressed by Tasks 1–17. Each has a decision to make, and for three of them **the correct decision is to add nothing** — which still has to be written down, because a later reader will otherwise assume it was an oversight.
+
+- [ ] **Step 1: Bug-reporter slice registry (ADR 0054) — decide NOT to register, in writing**
+
+`dayfoldSlices()` in `DayfoldRecording.kt` is the first privacy fence: an allowlist of low-risk state journaled into debug bug reports. `state.responses` holds `label`, `sublabel`, and `note` — user-authored content, and `note` is the most sensitive string this feature creates ("Confirmed — used Grandma's new number"). **Register nothing from `state.responses`.** Add the slice names to the file's existing "NEVER register" list beside `session`, `members`, and card content, with the reason.
+
+If a future slice is ever added (e.g. a bare `rulesCount: Int`), the file's own rule applies: re-run `DayfoldLeakTest` with new salts covering the added slice. Do not add one now — a count is not worth re-opening the fence.
+
+- [ ] **Step 2: Analytics (ADR 0055) — count-only, action-only, and cross-repo**
+
+`dayfoldMappers()` maps client actions to SWIP schema events. The mapper lambda **gets the action only, never store state**, and every event here must be count-only.
+
+```kotlin
+// apps/swip-wiring/.../DayfoldAnalytics.kt
+map<ResponseMuted> { ResponseMutedEvent(scope(it.matchScope), audience(it.audienceScope)) }
+map<ResponseMarkedDone> { ResponseMarkedDoneEvent(hasNote = it.note != null) }
+map<ResponseRemoved> { ResponseRemovedEvent }
+```
+
+Drop `subjectRef`, `label`, `sublabel`, and the note **text** on purpose — `hasNote` is a boolean, never the note. `matchScope`/`audienceScope` map through total, non-throwing `when`s to closed enums, mirroring `inviteReason`.
+
+**This is a cross-repo change with a release ordering.** The event types live in `swip-schema-dayfold`, not here: publish the new schema version first, then bump the pin. Two known traps from prior integrations — a version can be poisoned and need skipping, and the schema package must republish in lockstep with any registry change. **If the schema bump is not ready, ship this feature with no analytics events rather than blocking Phase E**; the events are diagnostics, not the product.
+
+- [ ] **Step 3: Logging (ADR 0056) — the scrubber is not a licence**
+
+Log through the `Log` front-door in `:client` (never a platform logger). The PII scrubber runs ahead of every writer, but it is defense-in-depth, not permission: log the *shape* of a response, never its content.
+
+```kotlin
+// in ResponseEngine
+Log.d("responses") { "write kind=${row.kind.wire} match=${row.matchScope.wire} audience=${row.audienceScope.wire}" }
+```
+
+No `label`, no `sublabel`, no `note`, no `subjectRef` (it embeds card and hub ids).
+
+- [ ] **Step 4: API errors (ADR 0059 / 0062) — pin the expected-outcome boundary**
+
+A suppression 409 is the system working, not failing. ADR 0062 is explicit that expected outcomes stay out of Sentry. This already holds by construction — `swip.ts` records only *thrown* errors (and skips `HTTPException` below 500), while `problem(c, 409, …)` **returns** a response — but "holds by construction" is one refactor away from "held". Pin it:
+
+```ts
+// apps/api/test/responses-observability.test.ts
+import { describe, it, expect, beforeAll } from "vitest";
+import { app } from "../src/app.ts";
+import { __setSwipForTest } from "../src/swip.ts";
+
+describe("a suppressed write is an expected outcome, not an error", () => {
+  const recorded: unknown[] = [];
+  beforeAll(() => {
+    __setSwipForTest({ errors: { record: (e: unknown) => { recorded.push(e); } },
+                       flush: async () => {} } as any);
+  });
+
+  it("does not record a 409 to the error pillar", async () => {
+    // ...create a family mute, then attempt the muted write (mirrors responses-suppress.test.ts)
+    const res = await mutedWriteAttempt();
+    expect(res.status).toBe(409);
+    expect(recorded).toHaveLength(0);
+  });
+});
+```
+
+- [ ] **Step 5: Confirm the silent route-journal fix from Task 15 landed**
+
+`recordedRoute` has no exhaustiveness guard, so a missing arm is invisible. Assert it:
+
+```kotlin
+@Test fun smartContentIsJournaledAsItsEntryPoint() {
+  assertEquals(Route.Account.name, recordedRoute(Route.SmartContent))
+}
+```
+
+- [ ] **Step 6: Run the observability suites**
+
+```bash
+cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+  ./gradlew :swip-wiring:desktopTest
+cd apps/api && npx vitest run test/responses-observability.test.ts test/swip-middleware.test.ts
+```
+Expected: PASS, including the mandatory sanitizer leak test.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/swip-wiring apps/client/src apps/api/test
+git commit -m "Wire response observability and pin the privacy fences"
+```
+
+## Task 19: Documentation, changelog, and the deferred fix-it seam
 
 **Files:**
 - Modify: `docs/architecture.md`, `CHANGELOG.md`, `backlog/now.md`, `context/open-questions.md`
@@ -2458,16 +2757,31 @@ git commit -m "Read response rules in the CLI and skip muted changeset ops"
 
 - [ ] **Step 5: Update `backlog/now.md`** — flip the design-gate line from "imported, NOT build-authorized" to shipped, citing ADR 0064.
 
-- [ ] **Step 6: Full verification before the PR**
+- [ ] **Step 6: Full verification before the PR — every target, not just the fast one**
 
 ```bash
+# server + CLI
 cd apps/api && npx vitest run
 cd apps/cli && ./gradlew test
+
+# shared logic, Compose, SWIP wiring (desktop = the test harness)
 cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
   ./gradlew :client:desktopTest :ui:desktopTest :swip-wiring:desktopTest
+
+# iOS — the target the desktop suite does NOT cover. Compiles the exported framework and
+# runs the iosTest source sets; a KMP feature that only ever ran on desktop has not been
+# built for half its platforms.
+cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+  ./gradlew :client:iosSimulatorArm64Test :ui:linkDebugFrameworkIosSimulatorArm64
+
+# Android — assemble the debug variant that actually ships to the dogfood device
+cd apps && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+  ./gradlew :androidApp:assembleDebug
 ```
 
-Every suite green, with the output pasted into the PR description. Do not claim completion from a partial run.
+Every suite green, with the output pasted into the PR description. Do not claim completion from a partial run — in particular, do not report "tests pass" from the desktop suite alone.
+
+**Web:** nothing to run. There is no web target (see the Platform matrix). Say so in the PR rather than leaving a reader to wonder which command was skipped.
 
 - [ ] **Step 7: Commit**
 
@@ -2508,14 +2822,24 @@ git commit -m "Document smart-content responses and record what stayed open"
 
 ## Self-Review
 
-**Spec coverage.** Every section of `NOTES.md` and every design view maps to a task: verb ladder → Tasks 4/8/11; persistence contract Tier 0/1/2 → Tasks 0/2/4/13 (Tier 2 explicitly deferred); scope me-vs-family → Tasks 5/6/12; entry points A/B/C → Task 13; placement matrix → Task 11's `verbRowsFor`; Done visibility/byline/notes → Tasks 5/10/14/15; receipts → Tasks 10/15; the six operator-decided questions → Task 0's ADR body. GAP 1→Task 12, GAP 2→Tasks 13/14, GAP 3→Task 14, GAP 4→Task 13, GAP 5→Task 15, GAP 6→Tasks 10/15.
+**Spec coverage.** Every section of `NOTES.md` and every design view maps to a task: platform coverage → the Platform matrix + Task 19's verification block; observability → Task 18; verb ladder → Tasks 4/8/11; persistence contract Tier 0/1/2 → Tasks 0/2/4/13 (Tier 2 explicitly deferred); scope me-vs-family → Tasks 5/6/12; entry points A/B/C → Task 13; placement matrix → Task 11's `verbRowsFor`; Done visibility/byline/notes → Tasks 5/10/14/15; receipts → Tasks 10/15; the six operator-decided questions → Task 0's ADR body. GAP 1→Task 12, GAP 2→Tasks 13/14, GAP 3→Task 14, GAP 4→Task 13, GAP 5→Task 15, GAP 6→Tasks 10/15.
 
-**One gap I am naming rather than papering over.** The run-receipt line "saw 1 marked done" (GAP 5's third point) depends on ADR 0062's durable run records, which are Proposed and unbuilt. Task 15 renders that row only when a receipt exists and Task 18 leaves it to the routine work; **nothing in this plan fabricates a count**. If the operator wants that line live at ship, ADR 0062 has to land first — that is a separate plan, not a step I can hide inside this one.
+**One gap I am naming rather than papering over.** The run-receipt line "saw 1 marked done" (GAP 5's third point) depends on ADR 0062's durable run records, which are Proposed and unbuilt. Task 15 renders that row only when a receipt exists and Task 19 leaves it to the routine work; **nothing in this plan fabricates a count**. If the operator wants that line live at ship, ADR 0062 has to land first — that is a separate plan, not a step I can hide inside this one.
 
 **Type consistency.** `subject_ref`/`subjectRef`, `match_scope`/`matchScope`, `audience_scope`/`audienceScope` are the wire↔Kotlin pairs throughout. `matchesRule` (TS) and `ResponseRules.matches` (Kotlin) take the same three inputs in the same order and are asserted against identical literals. `ContentResponse` carries the same eleven fields in both `ResponseModel.kt` and `ContentResponseRow`.
 
+**What the platform / KMP / observability review pass changed** (2026-08-08, after the first draft):
+
+1. **SQLDelight would have broken the build.** `verifyMigrations.set(true)` plus eleven existing `.sqm` files means a `.sq` edit without a paired migration fails. Tasks 3, 9, and 13 now carry `12.sqm` / `13.sqm` / `14.sqm`, and the first draft's claim that there is "no `.sqm` infra" (from a stale comment at `Content.sq:25`) is corrected in the file itself. `CLIENT_SCHEMA_VERSION` is now bumped for the right reason — the `subjectKey` **shape** change — not as a substitute for a migration.
+2. **iOS was never built or tested.** Task 19's verification block now runs `:client:iosSimulatorArm64Test` and links the exported framework. A KMP feature verified only on desktop has been built for half its platforms.
+3. **Web was assumed to exist.** It does not — no `wasmJs`/`js`/`browser()` target in any module. The Platform matrix says so explicitly so nobody adds one mid-feature; a new target is an ADR-class decision.
+4. **Notifications bypassed suppression.** Task 16 filtered `rankNow` only, while `NowNotify`/`BackgroundNotify` and `nowShown(subjectKeys)` are separate paths. A muted subject that still buzzes the phone is the worst version of the problem this feature solves.
+5. **Route registration was under-specified**, and one of its four maps — `recordedRoute` in `swip-wiring` — has no exhaustiveness guard, so a miss journals the new route into debug bug reports silently.
+6. **Observability was absent entirely** (ADRs 0054–0057, 0059, 0062). Now Task 18, including the deliberate decision *not* to register response state in the bug-reporter allowlist, and the cross-repo release ordering the analytics events require.
+7. **Copy lived in two modules.** Selectors now return structured data; `:ui` owns every user-facing string.
+
 **Risks a reviewer should push on:**
-1. **`subject_ref` stability is load-bearing.** If extraction mints a different key for the same source email across runs, Done silently stops working and the card returns. Task 0's ADR must say so; the curator skill's stable-key requirement (Task 18) is the only enforcement, and it is a convention, not a constraint.
+1. **`subject_ref` stability is load-bearing.** If extraction mints a different key for the same source email across runs, Done silently stops working and the card returns. Task 0's ADR must say so; the curator skill's stable-key requirement (Task 19) is the only enforcement, and it is a convention, not a constraint.
 2. **Personal mutes partially succeed.** One write can be accepted for four members and stripped for one. The 200 response tells the author nothing about the strip. Consider returning the stripped count in the response body if the operator wants author-side visibility.
 3. **`content_responses` is a new tombstone-retention surface** on the ADR 0040 cursor — covered by Task 7 Step 7. Worth a reviewer's eye anyway: if the retention floor is ever shortened, a device offline longer than the floor resurrects removed rules rather than dropping them, and the full-resync directive is the only thing standing between that and a rule the user thought they deleted.
 
