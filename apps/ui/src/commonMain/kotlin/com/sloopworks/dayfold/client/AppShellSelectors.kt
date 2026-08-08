@@ -12,6 +12,7 @@ enum class BackTarget {
   HubList,
   FeedDetailFromHub,
   Account,
+  SmartBriefings,
   Members,
   DeviceFlow,
   JoinInvite,
@@ -40,6 +41,7 @@ fun appShellState(state: AppState): AppShellState {
     state.navigation.route == Route.Hubs && state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> BackTarget.FeedDetailFromHub
     state.navigation.route == Route.Hubs && state.hubs.currentHubId != null -> BackTarget.HubList
     state.navigation.route == Route.Account -> BackTarget.Account
+    state.navigation.route == Route.SmartBriefings -> BackTarget.SmartBriefings
     state.navigation.route == Route.Members || state.navigation.route == Route.Devices || state.navigation.route == Route.Proximity -> BackTarget.Members
     state.navigation.route == Route.Invite -> BackTarget.Members
     state.navigation.route == Route.AuthorizeDevice || state.navigation.route == Route.EnterCode ||

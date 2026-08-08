@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client.fake
 
 import com.sloopworks.dayfold.client.Attachment
 import com.sloopworks.dayfold.client.AttachmentRef
+import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.BlockPayload
 import com.sloopworks.dayfold.client.Card
 import com.sloopworks.dayfold.client.Stop
@@ -21,6 +22,7 @@ import com.sloopworks.dayfold.client.PendingDevice
 import com.sloopworks.dayfold.client.PendingMember
 import com.sloopworks.dayfold.client.Provenance
 import com.sloopworks.dayfold.client.SampleData
+import com.sloopworks.dayfold.client.RoutineState
 import com.sloopworks.dayfold.client.SyncResponse
 import com.sloopworks.dayfold.client.WhoamiResponse
 
@@ -28,6 +30,16 @@ import com.sloopworks.dayfold.client.WhoamiResponse
 // so the UI can be exercised in debug builds with zero live server. Selected via the
 // debug-drawer Backend switcher (`fake://<id>`) on Android, or DAYFOLD_API=fake://<id>
 // on desktop. Pure data — the FakeBackend router serializes these into wire JSON.
+const val SMART_BRIEFINGS_PREVIEW_SCENARIO_ID = "smart-briefings-preview"
+
+/** The only host-selection path that enables the otherwise-hidden local preview capability. */
+fun initialStateForFakeScenario(scenarioId: String?): AppState =
+  if (scenarioId == SMART_BRIEFINGS_PREVIEW_SCENARIO_ID) {
+    AppState(routines = RoutineState.preview())
+  } else {
+    AppState()
+  }
+
 object FakeScenarios {
   // Reuse the canonical demo cards (SampleData "mirrors the CLI templates") rather
   // than re-authoring them — one source of truth for "the typed-card showcase".
@@ -290,7 +302,26 @@ object FakeScenarios {
     syncStatus = 500,
   ))
 
-  val all: List<FakeScenario> = listOf(busyFamily, emptyNew, needsFamily, ownerApprovals, syncError)
+  // ── Scenario 6: the sole Smart Briefings capability gate. The backend still serves only
+  // existing read/auth fixtures; all routine transitions are reducer-local and synthetic.
+  private val smartBriefingsPreview = FakeScenario(
+    SMART_BRIEFINGS_PREVIEW_SCENARIO_ID,
+    "Fake · Smart Briefings preview",
+    FakeBackendData(
+      whoami = WhoamiResponse(familyId = FAM, families = listOf(membership(name = "Preview family"))),
+      sync = sync(cards = showcaseCards.take(2)),
+      members = listOf(owner, partner),
+    ),
+  )
+
+  val all: List<FakeScenario> = listOf(
+    busyFamily,
+    emptyNew,
+    needsFamily,
+    ownerApprovals,
+    syncError,
+    smartBriefingsPreview,
+  )
 
   fun byId(id: String): FakeScenario? = all.firstOrNull { it.id == id }
 }

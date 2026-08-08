@@ -1,0 +1,64 @@
+{
+  "manifest": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "executionMode": "shadow",
+    "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"],
+    "requestedSources": ["dayfold"],
+    "sourceWindow": { "lookbackDays": 7, "maxRecordsPerSource": 50 },
+    "maxOperations": 5,
+    "authority": {
+      "allowedOperations": ["create_card"],
+      "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"]
+    }
+  },
+  "changeset": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "operations": [
+      {
+        "opId": "01J00000000000000000000002",
+        "kind": "create_card",
+        "targetHubId": "hub_demo",
+        "card": {
+          "id": "card_same",
+          "kind": "info",
+          "title": "Synthetic unchanged summary",
+          "body_md": "Synthetic fixture content only."
+        },
+        "sourceRefs": []
+      }
+    ]
+  },
+  "current": {
+    "cards": [
+      {
+        "id": "card_same",
+        "family_id": "family_demo",
+        "kind": "info",
+        "title": "Synthetic unchanged summary",
+        "body_md": "Synthetic fixture content only.",
+        "hub_ref": "hub_demo",
+        "version": 4,
+        "created_at": "2000-01-01T00:00:00Z",
+        "updated_at": "2000-01-02T00:00:00Z",
+        "provenance": { "credential_id": "synthetic_credential" }
+      }
+    ]
+  },
+  "finish": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "runId": "run_same",
+    "result": "no_changes",
+    "sourceOutcomes": [
+      { "source": "dayfold", "outcome": "observed", "recordsObserved": 1 }
+    ],
+    "counts": { "operationsProposed": 1, "creates": 0, "noChanges": 1, "conflicts": 0, "rejected": 0 }
+  },
+  "expectedDiff": { "create": 0, "no_change": 1, "conflict": 0 }
+}

@@ -97,6 +97,15 @@ class HelpTest {
     assertTrue(flags.contains("--no-linkify"), "push json options missing --no-linkify: $flags")
   }
 
+  @Test fun `changeset help is explicit about local shadow and no apply`() {
+    val help = renderCommand(commandByToken("changeset")!!)
+    assertTrue(help.contains("validate"))
+    assertTrue(help.contains("diff"))
+    assertTrue(help.contains("--current"))
+    assertTrue(help.contains("no PUT, DELETE, push, or apply"))
+    assertTrue(help.contains("DAYFOLD_NO_UPDATE_CHECK=1"))
+  }
+
   // ── Index text renders every command name ──
   @Test fun `index text starts with usage and lists every command`() {
     val idx = renderIndex(helpModel())

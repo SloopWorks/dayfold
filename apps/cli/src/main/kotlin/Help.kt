@@ -100,6 +100,34 @@ val COMMANDS: List<HelpCommand> = listOf(
     examples = listOf("dayfold pull", "dayfold pull --hub 01J000000000000000000HUB"),
   ),
   HelpCommand(
+    name = "changeset",
+    synopsis = "changeset <validate|diff> <manifest.json> <changeset.json> [--current <pull.json>]",
+    summary = "Validate or compare a create-only local shadow changeset; never write or apply.",
+    args = listOf(
+      HelpArg("manifest.json", "Path to a strict local shadow routine manifest."),
+      HelpArg("changeset.json", "Path to a strict create-card-only proposal."),
+    ),
+    options = listOf(
+      HelpOption(
+        "--current",
+        "<pull.json>",
+        "For diff, use this saved `dayfold pull` output entirely offline. Without it, diff performs one family-card GET and fails closed on 401 without refreshing or rotating credentials.",
+      ),
+    ),
+    details = listOf(
+      "`validate` performs no HTTP. `diff` classifies each proposed card as create, no_change, or conflict; an existing different id is always a conflict and never becomes an inferred update.",
+      "The command prints content-free counts and path/code diagnostics. It never prints source references, raw JSON, or provider error text, and has no PUT, DELETE, push, or apply branch.",
+      "Output-only unattended recipe: sanitized operator-owned source records plus `dayfold pull`; dayfold-curator no-push changeset output; `dayfold changeset validate`; then `dayfold changeset diff`. Set DAYFOLD_NO_UPDATE_CHECK=1 for the pull step.",
+      "A network diff requires family-wide content:read. A hub-only credential fails closed; the command never widens its own access.",
+      "The network diff path never calls POST /auth/refresh. If its current access token is expired, run `dayfold login` explicitly.",
+    ),
+    examples = listOf(
+      "dayfold changeset validate routine-manifest.json routine-changeset.json",
+      "DAYFOLD_NO_UPDATE_CHECK=1 dayfold changeset diff routine-manifest.json routine-changeset.json --current pull.json",
+      "DAYFOLD_NO_UPDATE_CHECK=1 dayfold changeset diff routine-manifest.json routine-changeset.json",
+    ),
+  ),
+  HelpCommand(
     name = "push",
     synopsis = "push <id> <file.json> [--hub|--section|--block] [--type <t>] [--no-linkify]",
     summary = "Author a briefing card (default) or a hub-tree node.",
@@ -206,7 +234,7 @@ private val ENV: List<HelpEnv> = listOf(
   HelpEnv("DAYFOLD_API", "Server base URL. Default $DEFAULT_API. Also the legacy-auth API (with FAMILY_ID + HOUSEHOLD_SECRET)."),
   HelpEnv("FAMILY_ID", "Legacy auth (pre-device-grant): the provisioned family id, used when no stored credential exists."),
   HelpEnv("HOUSEHOLD_SECRET", "Legacy auth: the provisioned household token, used when no stored credential exists."),
-  HelpEnv("DAYFOLD_NO_UPDATE_CHECK", "Set to any value to disable the throttled once/24h update nudge."),
+  HelpEnv("DAYFOLD_NO_UPDATE_CHECK", "Set to 1 for unattended local shadow invocations (or any value) to disable the throttled once/24h update nudge."),
 )
 
 private val EXITS: List<HelpExit> = listOf(

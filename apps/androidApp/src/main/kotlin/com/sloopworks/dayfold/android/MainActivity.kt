@@ -25,6 +25,8 @@ import com.sloopworks.dayfold.client.LocationPermissionLoaded
 import com.sloopworks.dayfold.client.NotificationPermissionLoaded
 import com.sloopworks.dayfold.client.StablePlatformActions
 import com.sloopworks.dayfold.client.ANDROID_REGION_CAP
+import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.fake.initialStateForFakeScenario
 import com.sloopworks.dayfold.client.mainNotificationContext
 import com.sloopworks.debugdrawer.Backend
 import com.sloopworks.debugdrawer.BuildInfo
@@ -187,6 +189,9 @@ class MainActivity : ComponentActivity() {
         debug = BuildConfig.DEBUG,
         extraEnhancer = debugStoreEnhancer(),
         devSecret = if (isFake) "fake" else BuildConfig.DEV_AUTH_SECRET.ifEmpty { null },
+        // Capability is injected only when the selected scenario actually resolved to the debug
+        // MockEngine. Release's inert fake adapter can never expose the preview.
+        initialState = if (isFake) initialStateForFakeScenario(scenarioId) else AppState(),
       ).create()
       RetainedDayfoldRuntime(
         handle = GraphDayfoldRuntimeHandle(graph),

@@ -1,0 +1,17 @@
+{
+  "manifest": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo",
+    "executionMode": "shadow", "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"], "requestedSources": ["dayfold"],
+    "sourceWindow": { "lookbackDays": 7, "maxRecordsPerSource": 50 }, "maxOperations": 1,
+    "authority": { "allowedOperations": ["create_card"], "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"] }
+  },
+  "changeset": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo",
+    "operations": [{
+      "opId": "01J00000000000000000000007", "kind": "update_card", "targetHubId": "hub_demo",
+      "expectedVersion": 2,
+      "card": { "id": "card_update", "kind": "info", "title": "Synthetic" }, "sourceRefs": []
+    }]
+  }
+}

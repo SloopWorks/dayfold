@@ -143,6 +143,7 @@ fun FeedApp(
         BackTarget.Audience -> store.dispatch(CloseAudienceSheet)
         BackTarget.Timeline -> store.dispatch(CloseTimelineDetail)
         BackTarget.Account -> store.dispatch(CloseAccount)
+        BackTarget.SmartBriefings -> store.dispatch(Back)
         BackTarget.Members -> {
           if (shell.route == Route.Invite) store.dispatch(InviteDismissed)
           else store.dispatch(OpenAccount)

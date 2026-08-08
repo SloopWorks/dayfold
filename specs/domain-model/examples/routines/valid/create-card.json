@@ -1,0 +1,50 @@
+{
+  "manifest": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "executionMode": "shadow",
+    "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"],
+    "requestedSources": ["dayfold", "gmail"],
+    "sourceWindow": { "lookbackDays": 7, "maxRecordsPerSource": 50 },
+    "maxOperations": 5,
+    "authority": {
+      "allowedOperations": ["create_card"],
+      "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"]
+    }
+  },
+  "changeset": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "operations": [
+      {
+        "opId": "01J00000000000000000000001",
+        "kind": "create_card",
+        "targetHubId": "hub_demo",
+        "card": {
+          "id": "card_alpha",
+          "kind": "info",
+          "title": "Synthetic schedule summary",
+          "body_md": "Synthetic fixture content only."
+        },
+        "sourceRefs": ["source_demo_01"]
+      }
+    ]
+  },
+  "current": { "cards": [] },
+  "finish": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "runId": "run_create",
+    "result": "success",
+    "sourceOutcomes": [
+      { "source": "dayfold", "outcome": "observed", "recordsObserved": 1 },
+      { "source": "gmail", "outcome": "observed", "recordsObserved": 2 }
+    ],
+    "counts": { "operationsProposed": 1, "creates": 1, "noChanges": 0, "conflicts": 0, "rejected": 0 }
+  },
+  "expectedDiff": { "create": 1, "no_change": 0, "conflict": 0 }
+}

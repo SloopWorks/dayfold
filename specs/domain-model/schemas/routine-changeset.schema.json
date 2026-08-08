@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dayfold.dev/schemas/routine-changeset.schema.json",
+  "title": "Dayfold local shadow create-card changeset v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "routineId", "familyId", "operations"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "routineId": { "$ref": "#/$defs/resourceId" },
+    "familyId": { "$ref": "#/$defs/resourceId" },
+    "operations": {
+      "type": "array",
+      "maxItems": 25,
+      "items": { "$ref": "#/$defs/createCard" }
+    }
+  },
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "opId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "sourceRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resourceId" },
+        "kind": { "enum": ["action", "info", "weather", "countdown"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "body_md": { "type": "string", "maxLength": 65536 }
+      }
+    },
+    "createCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opId", "kind", "targetHubId", "card", "sourceRefs"],
+      "properties": {
+        "opId": { "$ref": "#/$defs/opId" },
+        "kind": { "const": "create_card" },
+        "targetHubId": { "$ref": "#/$defs/resourceId" },
+        "card": { "$ref": "#/$defs/card" },
+        "sourceRefs": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceRef" }
+        }
+      }
+    }
+  }
+}

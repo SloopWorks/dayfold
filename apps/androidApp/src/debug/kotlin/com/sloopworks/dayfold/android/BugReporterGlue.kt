@@ -21,6 +21,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.Log
 import com.sloopworks.dayfold.swip.dayfoldRecorder
+import com.sloopworks.dayfold.swip.dayfoldRecorderEnhancer
 import com.sloopworks.dayfold.swip.dayfoldSlices
 import java.lang.ref.WeakReference
 import java.util.Locale
@@ -71,7 +72,7 @@ private object BugReporterHolder {
 }
 
 /** Store-construction enhancer (innermost slot) — the redux timeline recorder. */
-fun bugReporterEnhancer(): StoreEnhancer<AppState>? = BugReporterHolder.recorder.enhancer()
+fun bugReporterEnhancer(): StoreEnhancer<AppState>? = dayfoldRecorderEnhancer(BugReporterHolder.recorder)
 
 /** Idempotent per-Activity install: singletons once, per-activity shake + lifecycle. */
 fun bugReporterInstall(activity: ComponentActivity) {

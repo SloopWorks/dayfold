@@ -416,7 +416,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, SmartBriefings, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -529,6 +529,9 @@ data class AppState(
   val familyAdmin: FamilyAdminState = FamilyAdminState(),
   val devices: DeviceState = DeviceState(),
   val profile: ProfileState = ProfileState(),
+  // Host-gated, in-session Smart Briefings preview. The default is hidden and no reducer action
+  // can enable it; the one dedicated fake scenario injects PREVIEW through the runtime factory.
+  val routines: RoutineState = RoutineState(),
   // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
   // is DB-fed and detail/audience state is request-correlated transient UI state.
   val hubs: HubState = HubState(),

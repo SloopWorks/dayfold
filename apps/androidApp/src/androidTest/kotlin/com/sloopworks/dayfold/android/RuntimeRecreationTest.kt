@@ -6,6 +6,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sloopworks.dayfold.client.RuntimeHandleHolder
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.Back
+import com.sloopworks.dayfold.client.NavigationState
+import com.sloopworks.dayfold.client.Route
+import com.sloopworks.dayfold.client.RoutineDestination
+import com.sloopworks.dayfold.client.RoutineState
 import com.sloopworks.dayfold.client.DayfoldCommands
 import com.sloopworks.dayfold.client.RestoreDetailStack
 import com.sloopworks.dayfold.client.createAppStore
@@ -150,9 +155,50 @@ class RuntimeRecreationTest {
     assertNull(RuntimeHandleHolder.get())
   }
 
-  private class FakeRuntimeHandle : DayfoldRuntimeHandle {
+  @Test fun `retained runtime preserves routine route and closes overlays in back order`() {
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    val initial = AppState(
+      navigation = NavigationState(route = Route.SmartBriefings),
+      routines = RoutineState.preview().copy(
+        destination = RoutineDestination.ACTIVE,
+        detailsOpen = true,
+        revokeSheetOpen = true,
+      ),
+    )
+    val runtime = FakeRuntimeHandle(initial)
+    val viewModelStore = ViewModelStore()
+    val factory = DayfoldRuntimeViewModel.Factory {
+      RetainedDayfoldRuntime(runtime, isFakeBackend = true)
+    }
+
+    lateinit var first: DayfoldRuntimeViewModel
+    lateinit var recreated: DayfoldRuntimeViewModel
+    instrumentation.runOnMainSync {
+      first = ViewModelProvider(viewModelStore, factory)[DayfoldRuntimeViewModel::class.java]
+      first.store.dispatch(Back)
+      recreated = ViewModelProvider(
+        viewModelStore,
+        DayfoldRuntimeViewModel.Factory { error("recreation must keep the preview runtime") },
+      )[DayfoldRuntimeViewModel::class.java]
+    }
+
+    assertSame(first, recreated)
+    assertEquals(Route.SmartBriefings, recreated.store.state.navigation.route)
+    assertFalse(recreated.store.state.routines.detailsOpen)
+    assertTrue(recreated.store.state.routines.revokeSheetOpen)
+
+    instrumentation.runOnMainSync { recreated.store.dispatch(Back) }
+    assertEquals(Route.SmartBriefings, recreated.store.state.navigation.route)
+    assertFalse(recreated.store.state.routines.revokeSheetOpen)
+
+    instrumentation.runOnMainSync { viewModelStore.clear() }
+    runBlocking { withTimeout(5_000L) { recreated.close().join() } }
+  }
+
+  private class FakeRuntimeHandle(initialState: AppState = AppState()) : DayfoldRuntimeHandle {
     override val store: Store<AppState> = createAppStore(
       notificationContext = NotificationContext { block -> block() },
+      initial = initialState,
       debug = false,
     )
     override val commands: DayfoldCommands = DayfoldCommands.navigationOnly(store)

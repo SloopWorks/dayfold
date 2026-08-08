@@ -11,7 +11,8 @@
     "apps/api"
   ],
   "scripts": {
-    "codegen": "node packages/schema/codegen.mjs"
+    "codegen": "node packages/schema/codegen.mjs",
+    "test:routine-schema": "npm run test --workspace @dayfold/routine-schema"
   },
   "engines": {
     "node": ">=20"

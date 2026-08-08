@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +54,9 @@ import com.sloopworks.dayfold.client.ScanDeniedScreen
 import com.sloopworks.dayfold.client.ScanDeviceScreen
 import com.sloopworks.dayfold.client.ScanPrimerScreen
 import com.sloopworks.dayfold.client.SignInScreen
+import com.sloopworks.dayfold.client.SmartBriefingsPreviewFixtures
+import com.sloopworks.dayfold.client.SmartBriefingsPreviewScreen
+import com.sloopworks.dayfold.client.SmartBriefingsPreviewStep
 import com.sloopworks.dayfold.client.SplashScreen
 import com.sloopworks.dayfold.client.TabShell
 import com.sloopworks.dayfold.client.TimelineCard
@@ -60,6 +64,7 @@ import com.sloopworks.dayfold.client.TimelineDetail
 import com.sloopworks.dayfold.client.TimelineScale
 import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.currentDetailCard
+import com.sloopworks.dayfold.client.accountViewState
 import com.sloopworks.dayfold.client.presentTimelineCard
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import com.sloopworks.dayfold.client.ui.loading.EmptyState
@@ -183,10 +188,52 @@ val clientSnapshots: SnapshotApp = snapshotApp {
   }
 
   scene("account") {
-    presets("default", "signout-busy")
+    presets("default", "signout-busy", "smart-briefings")
     render { args ->
       themed(args.theme) {
-        AccountScreen(SnapshotStates.ACCOUNT_STATE, signOutBusy = presetName(args.input) == "signout-busy")
+        val preset = presetName(args.input)
+        val app = SnapshotStates.ACCOUNT_STATE.copy(
+          session = SnapshotStates.ACCOUNT_STATE.session.copy(signOutBusy = preset == "signout-busy"),
+        )
+        AccountScreen(
+          accountViewState(app),
+          smartBriefingsPreviewAvailable = preset == "smart-briefings",
+        )
+      }
+    }
+  }
+
+  scene("smart-briefings") {
+    presets(
+      "entry", "adult", "provider", "sources", "access", "schedule", "privacy", "handoff", "waiting",
+      "active", "partial", "draft", "conflict", "offline", "revoke", "revoke-pending", "revoke-failed", "revoked",
+    )
+    render { args ->
+      val state = when (presetName(args.input)) {
+        "entry" -> SmartBriefingsPreviewFixtures.ownerEntry
+        "adult" -> SmartBriefingsPreviewFixtures.adultEntry
+        "provider" -> SmartBriefingsPreviewFixtures.configure(SmartBriefingsPreviewStep.Provider).copy(provider = null)
+        "sources" -> SmartBriefingsPreviewFixtures.configure(SmartBriefingsPreviewStep.Sources)
+        "access" -> SmartBriefingsPreviewFixtures.configure(SmartBriefingsPreviewStep.Access)
+        "schedule" -> SmartBriefingsPreviewFixtures.configure(SmartBriefingsPreviewStep.Schedule)
+        "privacy" -> SmartBriefingsPreviewFixtures.privacy
+        "handoff" -> SmartBriefingsPreviewFixtures.handoff
+        "waiting" -> SmartBriefingsPreviewFixtures.waiting
+        "active" -> SmartBriefingsPreviewFixtures.active
+        "partial" -> SmartBriefingsPreviewFixtures.partial
+        "draft" -> SmartBriefingsPreviewFixtures.draft
+        "conflict" -> SmartBriefingsPreviewFixtures.conflict
+        "offline" -> SmartBriefingsPreviewFixtures.offline
+        "revoke" -> SmartBriefingsPreviewFixtures.revoke
+        "revoke-pending" -> SmartBriefingsPreviewFixtures.revokePending
+        "revoke-failed" -> SmartBriefingsPreviewFixtures.revokeFailed
+        "revoked" -> SmartBriefingsPreviewFixtures.revoked
+        else -> error("unknown smart-briefings preset")
+      }
+      themed(args.theme) {
+        Surface(Modifier.width(411.dp).height(891.dp), color = MaterialTheme.colorScheme.background) {
+          Box(Modifier.fillMaxSize()) { SmartBriefingsPreviewScreen(state) }
+        }
       }
     }
   }

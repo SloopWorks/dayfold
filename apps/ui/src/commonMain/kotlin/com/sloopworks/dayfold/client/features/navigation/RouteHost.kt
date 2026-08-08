@@ -136,16 +136,28 @@ internal fun RouteHost(
       }
     }
     Route.Account -> {
-      val state by store.selectorState(::accountViewState)
+      val state by store.selectorState(::accountRoutineRouteViewState)
       AccountScreen(
-        state,
+        state.account,
         onSignOut = commands::signOut,
         onClose = { store.dispatch(CloseAccount) },
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
         onOpenProximity = { store.dispatch(OpenProximity) },
+        smartBriefingsPreviewAvailable = state.smartBriefingsPreviewAvailable,
+        onOpenSmartBriefings = { store.dispatch(OpenSmartBriefings) },
         onUpdateAvatar = commands::updateAvatar,
         onUpdateName = commands::updateDisplayName,
+      )
+    }
+    Route.SmartBriefings -> {
+      val state by store.selectorState(::smartBriefingsRouteViewState)
+      SmartBriefingsPreviewScreen(
+        state = state.preview,
+        onAction = { action ->
+          smartBriefingsPreviewActions(state, action).forEach { mapped -> store.dispatch(mapped) }
+        },
+        onClose = { store.dispatch(state.backAction) },
       )
     }
     Route.Proximity -> {

@@ -1,0 +1,22 @@
+{
+  "manifest": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo",
+    "executionMode": "shadow", "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"], "requestedSources": ["dayfold"],
+    "sourceWindow": { "lookbackDays": 7, "maxRecordsPerSource": 50 }, "maxOperations": 1,
+    "authority": { "allowedOperations": ["create_card"], "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"] }
+  },
+  "changeset": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo",
+    "operations": [{
+      "opId": "01J00000000000000000000011", "kind": "create_card", "targetHubId": "hub_demo",
+      "card": { "id": "card_failed", "kind": "info", "title": "Synthetic failed proposal" }, "sourceRefs": []
+    }]
+  },
+  "finish": {
+    "schemaVersion": 1, "routineId": "routine_demo", "familyId": "family_demo", "runId": "run_failed_proposal", "result": "failed",
+    "sourceOutcomes": [{ "source": "dayfold", "outcome": "unavailable", "recordsObserved": 0 }],
+    "counts": { "operationsProposed": 1, "creates": 0, "noChanges": 0, "conflicts": 0, "rejected": 1 },
+    "recovery": { "schemaVersion": 1, "phase": "finish", "reason": "run_reported_failed", "retryability": "automatic", "recommendedAction": "retry" }
+  }
+}

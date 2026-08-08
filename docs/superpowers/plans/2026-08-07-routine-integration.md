@@ -5,6 +5,12 @@
 > accepted. Routine telemetry also remains gated by Proposed ADR 0062. Two
 > fresh-context adversarial reviews are still required.
 
+> **Executable local slice:** the imported design, schema, KMP/mobile, and testing
+> reviews produced
+> [`2026-08-07-routine-integration-safe-slice.md`](2026-08-07-routine-integration-safe-slice.md).
+> That plan authorizes schemas, a GET-only CLI shadow loop, and an unmistakably
+> simulated fake-backend mobile preview only. It does not relax any gate below.
+
 **Goal:** Prove a scheduled, connected-source Dayfold curation loop while keeping
 long-lived credentials and `FCK` on a K1/K3 Dayfold-controlled gateway, using the
 existing CLI/content skill as the authoring seam.

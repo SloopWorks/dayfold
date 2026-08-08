@@ -1,0 +1,52 @@
+{
+  "manifest": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "executionMode": "shadow",
+    "requestedPublicationMode": "review",
+    "selectedTargetHubIds": ["hub_demo"],
+    "requestedSources": ["gmail", "google_drive"],
+    "sourceWindow": { "lookbackDays": 14, "maxRecordsPerSource": 100 },
+    "maxOperations": 5,
+    "authority": {
+      "allowedOperations": ["create_card"],
+      "forbiddenOperations": ["update_card", "delete", "change_acl", "change_role", "invite", "message"]
+    }
+  },
+  "changeset": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "operations": [
+      {
+        "opId": "01J00000000000000000000003",
+        "kind": "create_card",
+        "targetHubId": "hub_demo",
+        "card": { "id": "card_partial", "kind": "action", "title": "Synthetic partial summary" },
+        "sourceRefs": ["source_demo_02"]
+      }
+    ]
+  },
+  "current": { "cards": [] },
+  "finish": {
+    "schemaVersion": 1,
+    "routineId": "routine_demo",
+    "familyId": "family_demo",
+    "runId": "run_partial",
+    "result": "partial",
+    "sourceOutcomes": [
+      { "source": "gmail", "outcome": "observed", "recordsObserved": 3 },
+      { "source": "google_drive", "outcome": "unavailable", "recordsObserved": 0 }
+    ],
+    "counts": { "operationsProposed": 1, "creates": 1, "noChanges": 0, "conflicts": 0, "rejected": 0 },
+    "recovery": {
+      "schemaVersion": 1,
+      "phase": "context_read",
+      "reason": "partial_source_set",
+      "retryability": "user_action",
+      "recommendedAction": "manage_source"
+    }
+  },
+  "expectedDiff": { "create": 1, "no_change": 0, "conflict": 0 }
+}

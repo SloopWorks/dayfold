@@ -9,7 +9,7 @@ class UsageTest {
   @Test fun `USAGE lists every command incl the destructive + update ones`() {
     // delete (#180) + update (ADR 0037) were added after help shipped — assert them
     // explicitly so a future command can't land undiscoverable (delete is destructive).
-    listOf("login", "logout", "whoami", "push", "pull", "template", "delete", "update", "version", "help")
+    listOf("login", "logout", "whoami", "push", "pull", "changeset", "template", "delete", "update", "version", "help")
       .forEach { assertTrue(USAGE.contains(it), "USAGE missing \"$it\"") }
     assertTrue(USAGE.startsWith("usage: dayfold"))
   }

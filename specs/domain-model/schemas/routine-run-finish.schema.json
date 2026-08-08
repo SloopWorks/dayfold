@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dayfold.dev/schemas/routine-run-finish.schema.json",
+  "title": "Dayfold content-free routine terminal result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "routineId", "familyId", "runId", "result", "sourceOutcomes", "counts"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "routineId": { "$ref": "#/$defs/resourceId" },
+    "familyId": { "$ref": "#/$defs/resourceId" },
+    "runId": { "$ref": "#/$defs/resourceId" },
+    "result": { "enum": ["success", "no_changes", "partial", "rejected", "failed"] },
+    "sourceOutcomes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/sourceOutcome" }
+    },
+    "counts": { "$ref": "#/$defs/counts" },
+    "recovery": { "$ref": "#/$defs/recovery" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "result": { "enum": ["partial", "failed", "rejected"] } }, "required": ["result"] },
+      "then": { "properties": { "recovery": true }, "required": ["recovery"] }
+    },
+    {
+      "if": { "properties": { "result": { "enum": ["success", "no_changes"] } }, "required": ["result"] },
+      "then": { "not": { "required": ["recovery"] } }
+    },
+    {
+      "if": { "properties": { "result": { "enum": ["success", "no_changes"] } }, "required": ["result"] },
+      "then": {
+        "properties": {
+          "sourceOutcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "outcome": { "enum": ["zero_results", "observed"] } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "success" } }, "required": ["result"] },
+      "then": {
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "creates": { "type": "integer", "minimum": 1 },
+              "conflicts": { "type": "integer", "const": 0 },
+              "rejected": { "type": "integer", "const": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "no_changes" } }, "required": ["result"] },
+      "then": {
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "creates": { "type": "integer", "const": 0 },
+              "conflicts": { "type": "integer", "const": 0 },
+              "rejected": { "type": "integer", "const": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "rejected" } }, "required": ["result"] },
+      "then": {
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "creates": { "type": "integer", "const": 0 },
+              "noChanges": { "type": "integer", "const": 0 },
+              "conflicts": { "type": "integer", "const": 0 },
+              "rejected": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "failed" } }, "required": ["result"] },
+      "then": {
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "operationsProposed": { "type": "integer", "const": 0 },
+              "creates": { "type": "integer", "const": 0 },
+              "noChanges": { "type": "integer", "const": 0 },
+              "conflicts": { "type": "integer", "const": 0 },
+              "rejected": { "type": "integer", "const": 0 }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "source": {
+      "enum": ["dayfold", "gmail", "google_calendar", "google_drive"]
+    },
+    "sourceOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "outcome", "recordsObserved"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "outcome": { "enum": ["zero_results", "observed", "partial", "reauth_required", "admin_blocked", "unavailable"] },
+        "recordsObserved": { "type": "integer", "minimum": 0, "maximum": 200 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "enum": ["zero_results", "reauth_required", "admin_blocked", "unavailable"] } },
+            "required": ["outcome"]
+          },
+          "then": { "properties": { "recordsObserved": { "const": 0 } } }
+        },
+        {
+          "if": {
+            "properties": { "outcome": { "enum": ["observed", "partial"] } },
+            "required": ["outcome"]
+          },
+          "then": { "properties": { "recordsObserved": { "type": "integer", "minimum": 1 } } }
+        }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationsProposed", "creates", "noChanges", "conflicts", "rejected"],
+      "properties": {
+        "operationsProposed": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "creates": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "noChanges": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "conflicts": { "type": "integer", "minimum": 0, "maximum": 25 },
+        "rejected": { "type": "integer", "minimum": 0, "maximum": 25 }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "phase", "reason", "retryability", "recommendedAction"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "phase": {
+          "enum": ["enrollment", "provider_handoff", "authorization", "source_probe", "provider_observation", "context_read", "analysis", "validation", "stage", "apply", "finish", "revoke"]
+        },
+        "reason": {
+          "enum": ["enrollment_expired", "routine_not_confirmed", "app_return_lost", "preparation_failed", "provider_unavailable", "authorization_denied", "authorization_context_mismatch", "late_callback", "provider_quota", "source_reauth", "source_syncing", "source_not_observed", "admin_blocked", "unexpected_source_set", "partial_source_set", "run_reported_failed", "gateway_unreachable", "invalid_output", "policy_rejected", "write_cap", "conflict", "rate_limited", "confirm_pending", "revoke_failed", "provider_task_remains", "retries_exhausted", "repeated_conflicts", "volume_anomaly", "timeout", "offline", "internal"]
+        },
+        "retryability": { "enum": ["automatic", "user_action", "final"] },
+        "recommendedAction": { "enum": ["retry", "resume_provider", "manage_source", "restart_enrollment", "continue_review_only", "refresh_draft", "review_policy", "contact_support"] }
+      }
+    }
+  }
+}

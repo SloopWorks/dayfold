@@ -38,6 +38,16 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is SyncStarted, is SyncSucceeded, is SyncStopped, is SyncFailed -> reduceContent(state, action)
   is MembershipsLoaded, is FamilyCreated -> reduceRoutedFeatureWithFamilyTransition(state, action)
   is NavToDetail, is NavBack, is RestoreDetailStack, is AuthRestoring, is SessionRestored, is SignInSucceeded, is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity, is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
+  is OpenSmartBriefings, is RestoreSmartBriefings, is CloseSmartBriefings -> reduceNavigation(reduceRoutines(state, action), action)
+  is RoutineContinue, is RoutineNavigateBack,
+  is RoutineProviderSelected, is RoutineSourcesSelected, is RoutineHubFixtureSelected,
+  is RoutineHubSelected, is RoutineScheduleSelected, is RoutinePrivacyAcknowledged,
+  is RoutineOperationStarted, is RoutinePreparationCompleted, is RoutinePreparationFailed,
+  is RoutineProviderReturnCompleted, is RoutineRunFinished, is RoutineDraftPresented,
+  is RoutineDraftDecisionPreviewed, is RoutineRevokeFinished,
+  is RoutineReviewSources, is RoutineReviewPrivacy,
+  is OpenRoutineDetails, is CloseRoutineDetails, is OpenRoutineRevokeSheet,
+  is CloseRoutineRevokeSheet, is RoutineOfflineChanged -> reduceRoutines(state, action)
   is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded, is HubNotFound, is CloseHub, is CloseHubToFeed, is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded, is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded, is CloseAudienceSheet, is AudienceFailed, is HubManageFailed -> reduceNavigation(reduceHubs(state, action), action)
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
@@ -60,13 +70,15 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     now = NowState(),
     hubs = HubState(),
     familyAdmin = FamilyAdminState(),
-  ) else updated
+    routines = updated.routines.resetFamilyScoped(),
+  ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))
   return reduceNavigation(familyScoped, action)
 }
 
 private fun signedOutState(state: AppState) = AppState(
   navigation = NavigationState(route = Route.SignIn),
   notifications = state.notifications,
+  routines = state.routines.resetFamilyScoped(),
 )
 
 private fun expiredSessionState(state: AppState) = signedOutState(state).copy(

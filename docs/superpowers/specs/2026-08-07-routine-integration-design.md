@@ -278,7 +278,7 @@ CLI refresh token.
 - Dayfold stores the public key and grants. The private key stays in the gateway
   keychain/TPM/KMS.
 - Per run, the gateway signs a short-lived client assertion containing
-  `routine_id`, `run_id`, `aud`, `iat`, `exp`, and unique `jti`.
+  `family_id`, `routine_id`, `run_id`, `aud`, `iat`, `exp`, and unique `jti`.
 - The API verifies the registered key, single-use `jti`, live routine policy, and
   grants, then mints a five-minute access token. There is no refresh token and no
   cross-run rotating state.
@@ -314,6 +314,9 @@ there is no separate `complete_enrollment` tool. Its content-free payload includ
 
 ```json
 {
+  "schemaVersion": 1,
+  "familyId": "family_...",
+  "routineId": "routine_...",
   "runId": "run_...",
   "enrollmentAttemptId": "enr_...",
   "outcome": "success",
@@ -331,9 +334,10 @@ The API/gateway returns the original receipt for a repeated
 `enrollmentAttemptId + runId`; late or duplicate callbacks cannot create a second
 routine or result. A source is `observed` when a low-risk connector query succeeds,
 including a successful zero-result query. A Dayfold-only enrollment completes after
-a successful context read and dry-run validation, with an empty `sourceOutcomes`
-array. An unexpected partial source set does not silently satisfy enrollment or
-bounded-auto policy.
+a successful context read and dry-run validation, with an explicit `dayfold`
+`observed` or `zero_results` source outcome. Every requested source must have
+exactly one terminal outcome; an unexpected or partial source set does not silently
+satisfy enrollment or bounded-auto policy.
 
 ### Changeset
 
