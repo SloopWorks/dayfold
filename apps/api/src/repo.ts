@@ -2,6 +2,9 @@
 // version), keyset sync incl. tombstones, soft-delete.
 import { q } from "./db.ts";
 import { cardVisibilityClause } from "./content/visibility.ts";
+// ADR 0064 — the suppression key is stamped here, from the id the server already owns.
+// Never from the request body: an author-chosen key could step around a mute.
+import { buildCardSubjectRef } from "./content/subject-ref.ts";
 
 const J = (v: unknown) => (v == null ? null : JSON.stringify(v));
 export const SYNC_LIMIT = 200; // single source for the sync page size (F2)
@@ -15,8 +18,9 @@ export async function upsertCard(familyId: string, id: string, b: any) {
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
-        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,1)
+        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media,
+        subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -26,13 +30,14 @@ export async function upsertCard(familyId: string, id: string, b: any) {
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
        visibility=EXCLUDED.visibility, audience=EXCLUDED.audience, media=EXCLUDED.media,
+       subject_ref=EXCLUDED.subject_ref,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
     [id, familyId, b.kind ?? "info", b.title, b.body_md ?? null,
      b.target?.hubId ?? null, b.target?.sectionId ?? null, b.target?.blockId ?? null,
      J(b.provenance), J(b.triggers), J(b.actions), b.not_before ?? null, b.expires_at ?? null,
      b.type ?? null, J(b.payload), J(b.privacy), b.hubRef ?? null, J(b.related), b.relatedKicker ?? null,
-     visibility, audience, J(b.media)],
+     visibility, audience, J(b.media), buildCardSubjectRef(id)],
   );
   return r.rows[0];
 }

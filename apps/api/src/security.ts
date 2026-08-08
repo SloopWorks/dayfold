@@ -27,6 +27,9 @@ export const SERVER_MANAGED_CONTENT_FIELDS = [
   "deleted_at",
   "body_ref",     // M1 object-storage spill key — never client-set at M0
   "provenance",   // defense-in-depth: rebuilt server-side by stampProvenance
+  "subject_ref",  // ADR 0064 suppression key — derived server-side from the id/node path.
+                  // An author-chosen key would let a write pick a key no rule matches,
+                  // i.e. opt itself out of the family's mutes.
 ] as const;
 
 /** Returns a copy; never mutates input. Top-level strip (documented). */

@@ -33,12 +33,16 @@ const SECTION_MARK = "/section:";
 const BLOCK_MARK = "/block:";
 
 /**
- * Reserved substrings that would make a built ref ambiguous. Entity ids reach the write
- * paths from caller-supplied route params, so this is an integrity guard, not a nicety: an
- * id containing "/block:" lets one subject's ref decompose two ways, and the second reading
- * is a DIFFERENT subject — a crafted id could alias a muted subject's key, or dodge a mute
- * by minting a ref that parses to something else. Refuse to build such a ref at all rather
- * than defining a tie-break nobody can audit.
+ * Reserved substrings that would make a built ref ambiguous: an id containing "/block:"
+ * lets one ref decompose two ways, and the second reading names a DIFFERENT subject.
+ * Since the ref is the suppression key, an ambiguous one could alias a muted subject or
+ * dodge a mute.
+ *
+ * This is DEFENSE IN DEPTH, not the primary control. The API already constrains content
+ * ids to `[A-Za-z0-9_-]{1,128}` (`idError` in app.ts), so no marker can reach a builder
+ * through a route today. The guard exists because that regex is one route away from not
+ * covering a new caller, and because the Kotlin mirror has no equivalent constraint —
+ * refusing to mint beats defining a tie-break nobody can audit.
  */
 export const RESERVED_REF_MARKERS = [SECTION_MARK, BLOCK_MARK] as const;
 

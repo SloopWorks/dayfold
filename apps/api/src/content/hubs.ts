@@ -4,6 +4,7 @@
 // so they inherit the hub's visibility for free (the review's leak path was the
 // deferred hub /sync stream; with no hub sync there is nothing to over-share).
 import { q, pool } from "../db.ts";
+import { buildBlockSubjectRef } from "./subject-ref.ts";
 
 const J = (v: unknown) => (v == null ? null : JSON.stringify(v));
 type Caller = { userId: string | null; legacy: boolean };
@@ -298,22 +299,27 @@ export async function upsertBlock(
   opts: { allowResurrect?: boolean; createdBy?: string | null } = {},
 ) {
   const allowResurrect = opts.allowResurrect !== false;
-  const live = await q(`SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
+  const live = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
   if (live.rowCount === 0) return null;
+  // ADR 0064 — the suppression key, stamped server-side from the node path. Re-derived on
+  // every write (not just the INSERT) so a block MOVED to another section re-keys: a mute
+  // on the old node must not follow it, and a mute on the new one must start applying.
+  const subjectRef = buildBlockSubjectRef(live.rows[0].hub_id as string, sectionId, id);
   // created_by is set ONCE at creation (the INSERT) and never touched by the DO UPDATE —
   // so a member toggling/editing a loop-authored block can never claim its authorship.
   // It is the substrate the W4 delete author-gate keys on (ADR 0038 §W4 / the W2 stamp).
   const r = await q(
-    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
+    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
        body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
        triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+       subject_ref=EXCLUDED.subject_ref,
        version=blocks.version + 1, deleted_at=NULL
        ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
      RETURNING *`,
     [id, familyId, sectionId, b.type, J(b.payload), b.body_md ?? null, b.body_ref ?? null,
-     J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null]);
+     J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null, subjectRef]);
   return r.rows[0] ?? null;
 }

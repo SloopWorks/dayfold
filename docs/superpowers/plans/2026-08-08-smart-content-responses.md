@@ -224,7 +224,9 @@ Today `subjectKey` exists only as a field on the in-memory `NowItem` (`NowDerive
 - Test: `apps/api/test/subject-ref.test.ts`
 
 **Interfaces:**
-- Produces: `buildCardSubjectRef(cardId: string): string`, `buildBlockSubjectRef(hubId: string, sectionId: string | null, blockId: string): string`, `parseSubjectRef(ref: string): SubjectRef | null`, `isRuleRef(ref: string): boolean`, `type SubjectRef = { form: "card"|"node"|"kind"|"source"; cardId?: string; hubId?: string; sectionId?: string; blockId?: string; value?: string }`.
+- Produces: `buildCardSubjectRef(cardId: string): string`, `buildBlockSubjectRef(hubId: string, sectionId: string | null, blockId: string): string`, `buildKindRef(kind)`, `buildSourceRef(source)`, `parseSubjectRef(ref: string): SubjectRef | null`, `isRuleRef(ref: string): boolean`, `isSafeRefComponent(id: string): boolean`, `class UnsafeSubjectRefComponent extends Error`, `type SubjectRef = { form: "card"|"node"|"kind"|"source"; cardId?: string; hubId?: string; sectionId?: string; blockId?: string; value?: string }`.
+
+**Ambiguity guard (found while implementing, not in the first draft).** Entity ids reach the write paths as caller-supplied route params. An id containing a reserved marker (`/section:` or `/block:`) makes one ref decompose two ways, and the second reading names a *different subject* — so a crafted id could alias a muted subject's key or dodge a mute. The builders therefore throw `UnsafeSubjectRefComponent` rather than minting an ambiguous ref; parsing stays total (last-marker-wins is well defined). **Task 2 must map that throw to a 422**, not let it 500.
 
 - [ ] **Step 1: Write the failing test**
 
