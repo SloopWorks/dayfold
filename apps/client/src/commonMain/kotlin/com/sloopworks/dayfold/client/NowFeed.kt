@@ -39,7 +39,24 @@ fun nowFeed(
     config = deriveConfig,
   )
 
-  return rank(derived + authored + authoredGeo, nowIso, location, state.now.surfacing, zone, rankConfig)
+  // ADR 0064 decided-Q4 — the derived lane reads the same rule list, enforced on-device. This
+  // is the ONLY place that can: the server never sees derived items, and the authored lane's
+  // suppression happens at the write boundary, which cannot retract a card already synced.
+  //
+  // It runs BEFORE rank() on purpose. Suppressing later would let a muted item occupy a
+  // calm-budget slot and push a wanted item into the collapsed overflow — the member would
+  // have muted something and lost a different card for it.
+  //
+  // BackgroundNotify calls this same function, so a muted subject can never produce a
+  // notification either. That is the worst form of the whack-a-mole this feature exists to
+  // kill: the member explicitly said stop, and the phone buzzed anyway.
+  val candidates = ResponseRules.suppress(
+    derived + authored + authoredGeo,
+    state.responses.rules,
+    state.session.session?.userId,
+  )
+
+  return rank(candidates, nowIso, location, state.now.surfacing, zone, rankConfig)
 }
 
 // Foreground authored-geo lane (ADR 0049 Option A, #299): a visible card whose geo trigger the user
