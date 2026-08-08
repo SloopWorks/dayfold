@@ -7,6 +7,7 @@
 import { q } from "../db.ts";
 import * as hubs from "./hubs.ts";
 import { requireScope } from "../auth/scope.ts";
+import { matchesRule, type ContentResponseRow, type WriteSubject } from "./responses.ts";
 
 export type Caller = { userId: string | null; legacy: boolean; cred: { id: string; kind?: string } };
 
@@ -86,4 +87,27 @@ export async function hubWriteGate(familyId: string, hubId: string, caller: Call
     : null;
   if (!hubs.hubWritableByMember(hub, { userId: caller.userId, legacy: caller.legacy }, role)) return "denied";
   return "ok";
+}
+
+// ADR 0064 — the suppression gate. Family-scoped rules and EVERY done row block the write;
+// personal rules do not block, they remove their owner from the card's ADR 0030 audience[]
+// so the routine still mints for the rest of the family ("Won't be added for you — your
+// family's feed is unchanged").
+//
+// Content-blind by construction: it sees only the three opaque identifiers in [subject] and
+// never the card's title, body, or the rule's label/note.
+export function suppressedBy(
+  rules: ContentResponseRow[],
+  subject: WriteSubject,
+): { blocked: boolean; excludeUserIds: string[] } {
+  let blocked = false;
+  const exclude = new Set<string>();
+  for (const r of rules) {
+    if (!matchesRule(subject, r)) continue;
+    // A done row is family-wide by construction (CHECK constraint), so it always blocks —
+    // the subject is resolved, not merely unwanted by one member.
+    if (r.kind === "done" || r.audience_scope === "family") blocked = true;
+    else if (r.user_id) exclude.add(r.user_id);
+  }
+  return { blocked, excludeUserIds: [...exclude] };
 }
