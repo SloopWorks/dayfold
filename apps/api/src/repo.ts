@@ -95,6 +95,16 @@ export async function syncContent(
          JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
          JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
         WHERE b.family_id=$1
+       UNION ALL
+       -- ADR 0064 — Tier-1 response rows ride the SAME keyset cursor as content, so a
+       -- rule reaches every device on the cadence the family already has. Per-member
+       -- visibility (a personal rule is its owner's alone) is applied in the projection,
+       -- not here: filtering in SQL would make a page of another member's rules shrink the
+       -- window and stall the cursor.
+       SELECT updated_at, 'response' AS type, id, family_id, deleted_at,
+              to_jsonb(content_responses.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
+         FROM content_responses WHERE family_id=$1
      ) merged
      WHERE (updated_at, type, id) > ($2::timestamptz, $3, $4)
      ORDER BY updated_at, type, id LIMIT $5`,

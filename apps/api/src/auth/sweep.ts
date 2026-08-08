@@ -68,13 +68,18 @@ export async function sweep(graceMs = 24 * 3600 * 1000): Promise<SweepResult> {
   )).rowCount ?? 0;
 
   // Content tombstones past the retention floor (ADR 0040 §3). Hard-delete soft-deleted
-  // rows across all four content tables — once older than the floor, no client that synced
+  // rows across every synced content table — once older than the floor, no client that synced
   // within the floor still needs them; an arbitrarily-staler client takes the full-resync
   // path. blocks→sections→cards/hubs order is irrelevant (each filtered on its own
   // deleted_at; FKs are ON DELETE CASCADE but we only touch already-soft-deleted rows).
+  //
+  // content_responses (ADR 0064) rides the same cursor, so it MUST share the same floor: a
+  // retained-forever rule tombstone is a rule a member deleted that comes back on a device
+  // that was offline past the floor — the full-resync directive is what covers that case,
+  // and it only works if the tombstone is gone.
   const tombGrace = new Date(Date.now() - CONTENT_TOMBSTONE_RETENTION_MS).toISOString();
   let contentTombstones = 0;
-  for (const table of ["blocks", "sections", "briefing_cards", "hubs"]) {
+  for (const table of ["blocks", "sections", "briefing_cards", "hubs", "content_responses"]) {
     contentTombstones += (await q(
       `DELETE FROM ${table} WHERE deleted_at IS NOT NULL AND deleted_at < $1`, [tombGrace],
     )).rowCount ?? 0;

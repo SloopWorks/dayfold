@@ -1309,7 +1309,7 @@ app.get("/families/:fid/sync", async (c) => {
       // 3-part merged cursor: validate ts + type. Unknown type → full resync (not an error).
       const validTs = !Number.isNaN(Date.parse(parts[0]));
       if (!validTs) return problem(c, 400, "bad-cursor");
-      if (["card", "hub", "section", "block"].includes(parts[1])) {
+      if (["card", "hub", "section", "block", "response"].includes(parts[1])) {
         [su, st, si] = parts;
       }
       // else: unknown type → su/st/si stay "" → full resync
@@ -1367,7 +1367,7 @@ app.get("/families/:fid/sync", async (c) => {
     }
   }
 
-  const changes = { cards: [] as any[], hubs: [] as any[], sections: [] as any[], blocks: [] as any[] };
+  const changes = { cards: [] as any[], hubs: [] as any[], sections: [] as any[], blocks: [] as any[], responses: [] as any[] };
   const tombstones: { type: string; id: string }[] = [];
   for (const r of rows) {
     let visible: boolean;
@@ -1377,6 +1377,12 @@ app.get("/families/:fid/sync", async (c) => {
       visible = cardVisible(r.payload, caller);
     } else if (r.type === "hub") {
       visible = hubs.hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    } else if (r.type === "response") {
+      // ADR 0064 — a family rule is everyone's; a personal rule is its owner's alone.
+      // Everyone else gets a TOMBSTONE rather than an omission, so the cursor still advances
+      // and a rule that changed hands leaves the other member's cache.
+      visible = r.payload.audience_scope === "family" ||
+        (!!caller.userId && r.payload.user_id === caller.userId);
     } else {
       // section or block: visibility = parent hub's visibility
       const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
@@ -1386,6 +1392,7 @@ app.get("/families/:fid/sync", async (c) => {
       if (r.type === "card") changes.cards.push(r.payload);
       else if (r.type === "hub") changes.hubs.push(r.payload);
       else if (r.type === "section") changes.sections.push(r.payload);
+      else if (r.type === "response") changes.responses.push(r.payload);
       else changes.blocks.push(r.payload);
     } else {
       tombstones.push({ type: r.type, id: r.id });
