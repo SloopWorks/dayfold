@@ -1,0 +1,25 @@
+-- Migration v13→v14 (ADR 0064): smart-content responses reach the device.
+--
+-- content_response is SYNCED family content (a mute rule or a done record). response_offer is
+-- Tier-0 device-local state — the once-ever swipe-escalation flag — and must never appear in
+-- Changes/applyDelta/outbox.
+CREATE TABLE content_response (
+  id             TEXT NOT NULL PRIMARY KEY,
+  kind           TEXT NOT NULL,
+  subject_ref    TEXT NOT NULL,
+  match_scope    TEXT NOT NULL,
+  audience_scope TEXT NOT NULL,
+  user_id        TEXT,
+  created_by     TEXT NOT NULL,
+  label          TEXT NOT NULL,
+  sublabel       TEXT,
+  note           TEXT,
+  version        INTEGER NOT NULL DEFAULT 1,
+  pending        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX content_response_subject_idx ON content_response(subject_ref);
+
+CREATE TABLE response_offer (
+  subject_ref TEXT NOT NULL PRIMARY KEY,
+  offered_at  TEXT NOT NULL
+);

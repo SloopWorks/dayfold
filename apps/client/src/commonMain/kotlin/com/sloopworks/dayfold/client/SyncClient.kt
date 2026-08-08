@@ -80,6 +80,46 @@ class SyncClient(
     }
     return PutResult(resp.status.value, null)
   }
+
+  /**
+   * Egress (ADR 0064): PUT one response row. No If-Match — a response has no local merge to
+   * re-run and the server's identity columns are immutable after creation, so a stale base
+   * has nothing to clobber. The Idempotency-Key still matters: a drained retry must not
+   * create a second rule.
+   */
+  suspend fun putResponse(
+    familyId: String,
+    accessToken: String,
+    responseId: String,
+    body: String,
+    opId: String,
+  ): PutResult {
+    val resp = http.put("$api/families/$familyId/responses/$responseId") {
+      header("authorization", "Bearer $accessToken")
+      header("content-type", "application/json")
+      header("idempotency-key", opId)
+      setBody(body)
+    }
+    val status = resp.status.value
+    val version = if (status == 200) runCatching {
+      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() else null
+    return PutResult(status, version)
+  }
+
+  /** Egress (ADR 0064): DELETE one response row. Idempotent server-side — absent is still 204. */
+  suspend fun deleteResponse(
+    familyId: String,
+    accessToken: String,
+    responseId: String,
+    opId: String,
+  ): PutResult {
+    val resp = http.delete("$api/families/$familyId/responses/$responseId") {
+      header("authorization", "Bearer $accessToken")
+      header("idempotency-key", opId)
+    }
+    return PutResult(resp.status.value, null)
+  }
 }
 
 /** Result of an egress PUT — the status drives the sender state machine; version (on 200)

@@ -138,7 +138,41 @@ data class EmailAttachment(val name: String? = null, val mime: String? = null, v
 @Serializable
 data class CardPrivacy(val storage: String? = null)
 
-@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList(), val sections: List<HubSection> = emptyList(), val blocks: List<HubBlock> = emptyList(), val places: List<Place> = emptyList())
+@Serializable data class Changes(val cards: List<Card> = emptyList(), val hubs: List<Hub> = emptyList(), val sections: List<HubSection> = emptyList(), val blocks: List<HubBlock> = emptyList(), val places: List<Place> = emptyList(), val responses: List<ContentResponseWire> = emptyList())
+
+/**
+ * ADR 0064 — the wire shape of a content_response row. Kept separate from [ContentResponse]
+ * because the wire is snake_case with string enums while the domain model uses Kotlin enums;
+ * `toDomain()` is the single conversion point, so a token the server adds later degrades to a
+ * sane default instead of throwing mid-sync.
+ */
+@Serializable data class ContentResponseWire(
+  val id: String,
+  val kind: String,
+  @SerialName("subject_ref") val subjectRef: String,
+  @SerialName("match_scope") val matchScope: String,
+  @SerialName("audience_scope") val audienceScope: String,
+  @SerialName("user_id") val userId: String? = null,
+  @SerialName("created_by") val createdBy: String,
+  val label: String,
+  val sublabel: String? = null,
+  val note: String? = null,
+  val version: Long = 1L,
+) {
+  fun toDomain(): ContentResponse = ContentResponse(
+    id = id,
+    kind = ResponseKind.of(kind),
+    subjectRef = subjectRef,
+    matchScope = MatchScope.of(matchScope),
+    audienceScope = AudienceScope.of(audienceScope),
+    userId = userId,
+    createdBy = createdBy,
+    label = label,
+    sublabel = sublabel,
+    note = note,
+    version = version,
+  )
+}
 @Serializable data class Tombstone(val type: String, val id: String)
 
 @Serializable
@@ -535,6 +569,10 @@ data class AppState(
   // Hubs is one cohesive projection. It remains non-persisted: list/hidden state
   // is DB-fed and detail/audience state is request-correlated transient UI state.
   val hubs: HubState = HubState(),
+  // ADR 0064 — Tier-1 synced response rows (mute + done) plus the transient sheet/receipt UI
+  // state. rules is DB-fed (sole-writer bridge, like hiddenIds); sheet/lastReceipt are
+  // in-session only and deliberately not persisted.
+  val responses: ResponseState = ResponseState(),
   // ADR 0044 Phase B — device-local, NEVER-synced. notifConfig is DB-fed (sole-writer bridge, like
   // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
   // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
