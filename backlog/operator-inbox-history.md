@@ -18,6 +18,48 @@ setup gates), INB-19 (Maven Central publish + Homebrew symlink fix), INB-15
 
 ---
 
+- **INB-37 · RESOLVED 2026-08-08 — accepted as drafted, in session.** The operator
+  approved all three ratification points without amendment: personal mutes strip the
+  member from `audience[]` rather than rejecting the write; marking done tombstones the
+  subject family-wide with the byline as the only signal; and `label`/`sublabel`/`note`
+  are plaintext at M0 under the block-payload posture. ADR 0064 flipped Proposed →
+  Accepted and the build plan's Task 0 gate is cleared, so Phase A may start. The two
+  carve-outs stand: the corrections / "fix it" channel is deferred to its own ADR
+  (blocked on ADR 0062's run receipt), and the adults-only posture is untouched — ADR
+  0064 §4 performs no role check because ADR 0004 makes every account holder an adult.
+  Original ask below.
+
+- **INB-37 · 2026-08-08 · high · open — accept the smart-content response
+  persistence contract?** The design set for "Responses to smart content" is
+  operator-approved (2026-08-08, spec track), but it proposes ADR-class behavior:
+  a new **synced** preference row, family-wide completion state, and a
+  server-side suppression path on the content write boundary. Proposed ADR 0064
+  keys both on the ADR 0043 `subjectRef` (which gains a third job as the
+  suppression key) and keeps the server content-blind by deciding suppression with
+  three string equalities against opaque identifier columns — never a label, note,
+  or title. **Proposed default: accept, so Phase A (subject_ref becomes a persisted
+  key) can start.** Three specific things acceptance must ratify, because each is a
+  judgment call rather than a derivation:
+  1. **A personal mute strips the muting member from the card's ADR 0030
+     `audience[]` rather than rejecting the write** — the routine still mints for
+     everyone else ("your family's feed is unchanged"), so one write can partially
+     succeed and the 200 does not report the strip.
+  2. **Marking done tombstones the subject family-wide** — the resolved card leaves
+     every member's Now on next sync, with the byline as the only signal and no
+     notification.
+  3. **`label`/`sublabel`/`note` are plaintext on the server at M0**, same posture
+     as block payloads today. The note is the most personal string this feature
+     creates ("used Grandma's new number"); ADR 0064 forbids journaling, logging,
+     or sending it as an analytics property.
+  Two things acceptance does **not** authorize: the corrections / "fix it" channel
+  (deferred to its own ADR, blocked on ADR 0062's run receipt), and any change to
+  the adults-only posture — ADR 0064 §4 performs no role check for family-wide
+  rules because ADR 0004 makes every account holder an adult, and that code is what
+  ADR 0005 would break. Context: `adr/0064-smart-content-responses.md`,
+  `designs/content-feedback/NOTES.md`, and the 20-task build plan at
+  `docs/superpowers/plans/2026-08-08-smart-content-responses.md`.
+
+
 - **INB-33 · 2026-07-14 · high · answered — ADR 0058 client runtime/effect ownership accepted.**
   The operator accepted ADR 0058 in-session on 2026-07-14. The decision preserves
   pure reducers, `network→DB→Redux` for family content, off-main effects,

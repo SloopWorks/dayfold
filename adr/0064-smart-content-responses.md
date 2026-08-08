@@ -2,11 +2,14 @@
 
 ## Status
 
-**Proposed** 2026-08-08 (agent-drafted from the operator-approved design set).
-Operator-gated: this adds a new **synced** preference row, family-wide completion
-state, and a server-side suppression path on the content write boundary — all
-three sit inside the ADR-class list (customer-data handling, automation-autonomy
-boundaries) and none may take effect before acceptance.
+**Accepted** 2026-08-08 (operator-accepted in-session, INB-37). Agent-drafted
+from the operator-approved design set. This adds a new **synced** preference row,
+family-wide completion state, and a server-side suppression path on the content
+write boundary — all three sit inside the ADR-class list (customer-data handling,
+automation-autonomy boundaries), and acceptance covers all three, including the
+three ratification points raised in INB-37: personal mutes strip `audience[]`
+rather than rejecting, done tombstones family-wide, and `label`/`sublabel`/`note`
+are plaintext at M0 under the block-payload posture.
 
 Design sign-off on `designs/content-feedback/` (2026-08-08) cleared the ADR 0008
 *design* gate only. It did not authorize build.
