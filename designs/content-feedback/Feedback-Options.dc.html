@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .fb-card { transition: max-height .3s cubic-bezier(.2,0,0,1), opacity .22s; overflow: hidden; }
+  @keyframes fb-sheetin { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fb-snackin { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .fb-card, .fb-sheet, .fb-snack { animation: none !important; transition: none !important; } }
+</style>
+</helmet>
+<div style="min-height:100vh;background:{{ c.pageBg }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};padding:44px 40px 96px;transition:background .3s;">
+  <div style="max-width:1240px;margin:0 auto;">
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;" data-screen-label="Header">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:13px;font-weight:600;color:{{ c.crumbFg }};background:{{ c.crumbBg }};border:1px solid {{ c.crumbBorder }};border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>All designs</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">science</span>EXPLORATORY · PRE-ADR</span>
+      <span style="font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">Responses to smart content</span>
+      <div style="margin-left:auto;display:inline-flex;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:4px;gap:2px;">
+        <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+        <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:42px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.04;max-width:24ch;">When Dayfold adds something you don't want</h1>
+    <p style="font-size:16px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 10px;max-width:88ch;">Smart content is minted by three machines — the on-device derived lane (ADR 0043), the curator, and subscription routines (ADR 0061). Today the only recourse is <b>Hide</b>: local, one card at a time — and the next run mints the same card again. Whack-a-mole. This board explores the missing verb: a response <b>stored in Dayfold</b> so future processing doesn't re-create similar content.</p>
+    <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 30px;max-width:88ch;">Everything here is a candidate, not a decision. Full brainstorm, precedent survey and open questions: <b>NOTES.md</b> in this folder.</p>
+
+    <!-- verb ladder -->
+    <section style="margin-bottom:52px;" data-screen-label="Verb ladder">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;">
+        <sc-for list="{{ verbs }}" as="v" hint-placeholder-count="4">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-left:5px solid {{ v.accent }};border-radius:16px;padding:16px 18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="msr fill" style="font-size:20px;color:{{ v.accent }};">{{ v.icon }}</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">{{ v.t }}</span><span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:0.06em;color:{{ v.tagFg }};background:{{ v.tagBg }};border-radius:999px;padding:3px 8px;">{{ v.tag }}</span></div>
+            <div style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ v.d }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- hero: the response sheet, live -->
+    <section style="margin-bottom:56px;" data-screen-label="Response sheet demo">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:{{ c.secondary }};">do_not_disturb_on</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">The response sheet — try it</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:86ch;">Tap <span class="msr" style="font-size:14px;vertical-align:-2px;">more_vert</span> on any card — <b>or the provenance chip itself</b> — to open one calm sheet with the graduated verbs. "Don't add this again" asks one precision question (this card · this kind · this source), then folds the card with an <b>Undo</b> snackbar and a visible, removable rule. The derived card gets the same sheet with honest device-only copy. The top card is <b>task-shaped</b> (pulled from an email, blocks a real action) — <b>Mark done</b> completes it for the family and is remembered across runs, so the same email never re-mints it.</p>
+      <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;">
+
+        <div style="flex:none;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">LIVE · NOW FEED → RESPOND → RECEIPT</div>
+          <div style="width:392px;border-radius:42px;background:{{ c.bezel }};padding:10px;box-shadow:0 26px 60px rgba(39,24,20,0.32);">
+            <div style="position:relative;border-radius:33px;overflow:hidden;background:{{ c.surface }};min-height:640px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 22px 5px;font-size:12.5px;font-weight:600;"><span>9:41</span><span style="display:flex;gap:5px;"><span class="msr" style="font-size:15px;">signal_cellular_alt</span><span class="msr" style="font-size:15px;">wifi</span><span class="msr" style="font-size:15px;">battery_full</span></span></div>
+              <div style="padding:8px 18px 90px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;"><div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:20px;">Now</div><div style="font-size:11.5px;color:{{ c.onSurfaceVar }};">Friday, Aug 8</div></div><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">tune</span></div>
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                  <sc-for list="{{ feedCards }}" as="k" hint-placeholder-count="3">
+                    <div class="fb-card" style="max-height:{{ k.maxH }};opacity:{{ k.op }};">
+                      <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:13px 14px;">
+                        <div style="display:flex;align-items:flex-start;gap:12px;">
+                          <span style="width:42px;height:42px;border-radius:13px;flex:none;background:{{ k.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:{{ k.iconFg }};">{{ k.icon }}</span></span>
+                          <div style="flex:1;min-width:0;"><div style="font-family:'Outfit';font-weight:600;font-size:15px;">{{ k.title }}</div><div style="font-size:12px;color:{{ c.onSurfaceVar }};margin-top:1px;">{{ k.sub }}</div></div>
+                          <span onClick="{{ k.openSheet }}" style="width:38px;height:38px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:-4px -6px 0 0;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">more_vert</span></span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0 54px;">
+                          <span onClick="{{ k.openSheet }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ k.provFg }};background:{{ k.provBg }};border:1px solid {{ k.provBorder }};border-radius:999px;padding:4px 10px;cursor:pointer;"><span class="msr" style="font-size:13px;">{{ k.provIcon }}</span>{{ k.provLabel }}</span>
+                          <sc-if value="{{ k.isTask }}" hint-placeholder-val="{{ false }}"><span onClick="{{ k.done }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:6px 12px;cursor:pointer;"><span class="msr" style="font-size:14px;">check</span>Mark done</span></sc-if>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ hasRule }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:16px;background:{{ c.surfaceContainerLow }};border:1px dashed {{ c.outline }};border-radius:20px;padding:13px 15px;display:flex;align-items:center;gap:11px;">
+                    <span class="msr" style="font-size:19px;color:{{ c.secondary }};">{{ ruleIcon }}</span>
+                    <div style="flex:1;"><div style="font-weight:600;font-size:13px;">{{ ruleLabel }}</div><div style="font-size:11px;color:{{ c.onSurfaceVar }};">{{ ruleSub }}</div></div>
+                    <sc-if value="{{ showAddNote }}" hint-placeholder-val="{{ false }}"><span onClick="{{ addNote }}" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:7px 12px;cursor:pointer;"><span class="msr" style="font-size:14px;">edit_note</span>Add note</span></sc-if>
+                    <span onClick="{{ removeRule }}" style="font-size:12px;font-weight:700;background:{{ c.secondaryContainer }};border-radius:999px;padding:7px 12px;cursor:pointer;color:{{ c.onSecondaryContainer }};">Remove</span>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(20,10,6,0.42);"></div>
+                <div class="fb-sheet" style="position:absolute;left:0;right:0;bottom:0;background:{{ c.surfaceContainerHigh }};border-radius:28px 28px 0 0;padding:8px 14px 20px;animation:fb-sheetin .3s cubic-bezier(.05,.7,.1,1);">
+                  <div style="width:34px;height:4px;border-radius:2px;background:{{ c.outline }};margin:8px auto 14px;"></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:0 8px 12px;">
+                    <sc-if value="{{ sheetHasBack }}" hint-placeholder-val="{{ false }}"><span onClick="{{ sheetBack }}" style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ c.surfaceContainer }};"><span class="msr" style="font-size:19px;">arrow_back</span></span></sc-if>
+                    <div style="flex:1;"><div style="font-size:12px;color:{{ c.onSurfaceVar }};">{{ sheetKicker }}</div><div style="font-family:'Outfit';font-weight:600;font-size:16px;">{{ sheetTitle }}</div></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <sc-for list="{{ sheetRows }}" as="r" hint-placeholder-count="3">
+                      <div onClick="{{ r.go }}" style="display:flex;align-items:center;gap:14px;padding:13px 10px;border-radius:14px;cursor:pointer;min-height:48px;background:{{ r.bg }};">
+                        <span class="msr fill" style="font-size:21px;color:{{ r.iconColor }};">{{ r.icon }}</span>
+                        <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;color:{{ r.fg }};">{{ r.t }}</div><div style="font-size:11.5px;color:{{ c.onSurfaceVar }};">{{ r.s }}</div></div>
+                        <sc-if value="{{ r.chevron }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span></sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ sheetIsNote }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:4px 8px 6px;">
+                      <input onInput="{{ noteInput }}" placeholder="e.g. Confirmed — used Grandma's new number" style="width:100%;background:{{ c.surfaceContainer }};border:1px solid {{ c.outlineVar }};border-radius:14px;padding:13px 14px;font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};outline:none;margin-bottom:12px;">
+                      <div style="display:flex;gap:10px;">
+                        <span onClick="{{ noteSave }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:600;background:{{ c.secondary }};color:{{ c.onSecondary }};padding:13px;border-radius:999px;cursor:pointer;"><span class="msr" style="font-size:18px;">check</span>Done, with note</span>
+                        <span onClick="{{ noteSkip }}" style="display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};padding:13px 18px;border-radius:999px;cursor:pointer;">Just done</span>
+                      </div>
+                      <div style="font-size:11px;color:{{ c.onSurfaceVar }};margin-top:10px;text-align:center;">Optional — shared with your family and read by the next run</div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ snackOpen }}" hint-placeholder-val="{{ false }}">
+                <div class="fb-snack" style="position:absolute;left:14px;right:14px;bottom:16px;background:{{ c.snackBg }};color:{{ c.snackFg }};border-radius:14px;padding:12px 8px 12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 26px rgba(20,10,6,0.3);animation:fb-snackin .24s cubic-bezier(.05,.7,.1,1);">
+                  <div style="flex:1;font-size:12.5px;line-height:1.4;">{{ snackMsg }}</div>
+                  <span onClick="{{ undo }}" style="font-size:13px;font-weight:700;color:{{ c.snackAction }};padding:8px 12px;border-radius:10px;cursor:pointer;flex:none;">Undo</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:none;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">THE MANAGEMENT SURFACE · SETTINGS › SMART CONTENT</div>
+          <div style="width:392px;border-radius:42px;background:{{ c.bezel }};padding:10px;box-shadow:0 26px 60px rgba(39,24,20,0.32);">
+            <div style="border-radius:33px;overflow:hidden;background:{{ c.surface }};min-height:640px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 22px 5px;font-size:12.5px;font-weight:600;"><span>9:41</span><span style="display:flex;gap:5px;"><span class="msr" style="font-size:15px;">signal_cellular_alt</span><span class="msr" style="font-size:15px;">wifi</span><span class="msr" style="font-size:15px;">battery_full</span></span></div>
+              <div style="padding:8px 18px 20px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span><div style="font-family:'Outfit';font-weight:600;font-size:18px;">Smart content</div></div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};margin:0 0 8px 4px;">MUTED RULES</div>
+                <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:14px;">
+                  <sc-for list="{{ mutedRules }}" as="m" hint-placeholder-count="3">
+                    <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:12px 13px;display:flex;align-items:center;gap:12px;">
+                      <span style="width:36px;height:36px;border-radius:11px;flex:none;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:19px;color:{{ c.onSecondaryContainer }};">{{ m.icon }}</span></span>
+                      <div style="flex:1;"><div style="font-weight:600;font-size:13.5px;">{{ m.t }}</div><div style="font-size:11px;color:{{ c.onSurfaceVar }};margin-top:1px;">{{ m.s }}</div></div>
+                      <span style="font-size:12px;font-weight:700;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:7px 12px;">Remove</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:inline-flex;align-items:flex-start;gap:7px;font-size:11.5px;font-weight:600;color:{{ c.provFg }};background:{{ c.provBg }};border:1px solid {{ c.provBorder }};border-radius:10px;padding:8px 11px;margin-bottom:18px;line-height:1.45;"><span class="msr" style="font-size:15px;margin-top:1px;">verified_user</span><span>Your routine reads this list before it adds anything. The server checks it by ID — it never reads your content.</span></div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};margin:0 0 8px 4px;">LAST RUN</div>
+                <div style="background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};border-radius:16px;padding:13px 14px;display:flex;align-items:center;gap:12px;">
+                  <span class="msr fill" style="font-size:21px;color:{{ c.secondary }};">check_circle</span>
+                  <div style="flex:1;"><div style="font-weight:600;font-size:13.5px;">Morning briefing · 7:02 AM</div><div style="font-size:11px;color:{{ c.onSurfaceVar }};margin-top:1px;">Added 3 cards · skipped 2 muted subjects</div></div>
+                  <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:250px;max-width:340px;display:flex;flex-direction:column;gap:14px;">
+          <sc-for list="{{ heroNotes }}" as="n" hint-placeholder-count="3">
+            <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:17px;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:14.5px;margin-bottom:6px;">{{ n.t }}</div>
+              <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};">{{ n.d }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- done visibility -->
+    <section style="margin-bottom:56px;" data-screen-label="Done visibility">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr fill" style="font-size:22px;color:{{ c.secondary }};">check_circle</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Done — who sees it, where it lives</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:88ch;">Yes — Done removes the card from <b>every</b> family member's Now: a resolved task shouldn't nag the people who didn't do it. What remains is a durable, attributed record — <b>who</b> completed it is always captured — plus an optional note that carries context to the family and to the next run.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+        <sc-for list="{{ doneAnswers }}" as="n" hint-placeholder-count="3">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-top:5px solid {{ c.secondary }};border-radius:16px;padding:17px 18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="msr fill" style="font-size:20px;color:{{ c.secondary }};">{{ n.icon }}</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">{{ n.t }}</span></div>
+            <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};">{{ n.d }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="max-width:880px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:8px;">HOW IT READS IN THE HUB, LATER</div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:13px;">
+          <span class="msr fill" style="font-size:24px;color:{{ c.secondary }};">check_circle</span>
+          <div style="flex:1;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:15px;text-decoration:line-through;text-decoration-color:{{ c.outline }};text-decoration-thickness:1.5px;">Verify emergency contact</div>
+            <div style="font-size:12px;color:{{ c.onSurfaceVar }};margin-top:2px;">"Confirmed — used Grandma's new number." · Done by Mom · Aug 8, 2:14 PM</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:4px 10px;flex:none;"><span class="msr" style="font-size:13px;">auto_awesome</span>From email · Morning briefing</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- placement -->
+    <section style="margin-bottom:56px;" data-screen-label="Placement">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.primary }};">location_on</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Where the sheet lives — every surface smart content touches</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:88ch;">One sheet, same verbs, same order everywhere — only the scope line changes per surface. A response you learned on a Now card must work identically on the detail view and the hub block, or the vocabulary fractures.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;">
+        <sc-for list="{{ places }}" as="p" hint-placeholder-count="4">
+          <div style="background:{{ c.surface }};border:1px solid {{ p.border }};border-radius:20px;padding:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span class="msr fill" style="font-size:21px;color:{{ p.iconColor }};">{{ p.icon }}</span><span style="font-size:10.5px;font-weight:700;color:{{ p.vFg }};background:{{ p.vBg }};border-radius:999px;padding:3px 9px;">{{ p.verdict }}</span></div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:15.5px;margin-bottom:6px;">{{ p.t }}</div>
+            <div style="font-size:12px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:10px;">{{ p.d }}</div>
+            <div style="font-size:11px;font-weight:600;color:{{ p.scopeFg }};background:{{ p.scopeBg }};border-radius:8px;padding:6px 9px;line-height:1.4;">{{ p.scope }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:18px 20px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};margin-bottom:12px;">Doors per surface — swipe is hide-only, everywhere it exists</div>
+        <div style="display:grid;grid-template-columns:150px 1fr 1fr 1fr;gap:8px;align-items:baseline;margin-bottom:9px;">
+          <span style="font-size:11px;font-weight:700;color:{{ c.onSurfaceVar }};"></span>
+          <span style="font-size:11px;font-weight:700;color:{{ c.onSurfaceVar }};">⋮ OVERFLOW</span>
+          <span style="font-size:11px;font-weight:700;color:{{ c.onSurfaceVar }};">PROVENANCE CHIP</span>
+          <span style="font-size:11px;font-weight:700;color:{{ c.onSurfaceVar }};">SWIPE</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ doorMatrix }}" as="r" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:150px 1fr 1fr 1fr;gap:8px;align-items:baseline;">
+              <span style="font-size:12.5px;font-weight:600;">{{ r.k }}</span>
+              <span style="font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.a }}</span>
+              <span style="font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.b }}</span>
+              <span style="font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.s }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- entry points -->
+    <section style="margin-bottom:56px;" data-screen-label="Entry points">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.tertiary }};">door_open</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Three doors to the same sheet</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:84ch;">The standard grammar across feed products: a quick verb, an optional precision step, a receipt with undo, and a reviewable controls page. What varies is the door. Long-press combined menus stay dropped (W5 decision).</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+        <sc-for list="{{ doors }}" as="d" hint-placeholder-count="3">
+          <div style="background:{{ c.surface }};border:1px solid {{ d.border }};border-radius:22px;padding:19px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><span style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">{{ d.tag }}</span><span style="font-size:10.5px;font-weight:700;color:{{ d.vFg }};background:{{ d.vBg }};border-radius:999px;padding:3px 9px;">{{ d.verdict }}</span></div>
+            <div style="height:96px;border-radius:14px;background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};margin-bottom:13px;display:flex;align-items:center;justify-content:center;padding:12px;">
+              <div style="width:100%;background:{{ c.surface }};border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:9px;box-shadow:0 2px 8px rgba(39,24,20,0.12);">
+                <span style="width:26px;height:26px;border-radius:8px;flex:none;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:15px;color:{{ c.onTertiaryContainer }};">auto_awesome</span></span>
+                <span style="flex:1;height:7px;border-radius:4px;background:{{ c.outlineVar }};"></span>
+                <span class="msr" style="font-size:17px;color:{{ c.secondary }};">{{ d.demoIcon }}</span>
+              </div>
+            </div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:16px;margin-bottom:6px;">{{ d.t }}</div>
+            <div style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ d.d }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- catalog -->
+    <section style="margin-bottom:56px;" data-screen-label="Response catalog">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.primary }};">category</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">The full candidate catalog — with verdicts</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:84ch;">Every response the sheet could offer, judged against the calm constitution and the honesty rule: promise only what a real mechanism enforces.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+        <sc-for list="{{ catalog }}" as="o" hint-placeholder-count="9">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:16px 17px;opacity:{{ o.op }};">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">
+              <span class="msr fill" style="font-size:20px;color:{{ o.iconColor }};">{{ o.icon }}</span>
+              <span style="font-family:'Outfit';font-weight:600;font-size:14.5px;flex:1;">{{ o.t }}</span>
+              <span style="font-size:10px;font-weight:700;letter-spacing:0.04em;color:{{ o.vFg }};background:{{ o.vBg }};border-radius:999px;padding:3px 8px;flex:none;">{{ o.verdict }}</span>
+            </div>
+            <div style="font-size:12px;line-height:1.5;color:{{ c.onSurfaceVar }};margin-bottom:9px;">{{ o.d }}</div>
+            <div style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainer }};border-radius:6px;padding:3px 8px;"><span class="msr" style="font-size:12px;">{{ o.storeIcon }}</span>{{ o.store }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- persistence contract -->
+    <section style="margin-bottom:56px;" data-screen-label="Persistence contract">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.secondary }};">database</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Where each response lives</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:88ch;">The load-bearing distinction: a <b>hide</b> is passive behavior — syncing it is the who-saw-what leak ADR 0039 refused. A <b>mute</b> is an intentional, user-authored policy: attributed, visible in Settings, editable. That's what makes it safe to store in Dayfold — and storing it is the whole point, so the pipeline stops re-creating the content.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+        <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-top:5px solid {{ t.accent }};border-radius:16px;padding:17px 18px;">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.07em;color:{{ t.accent }};margin-bottom:6px;">{{ t.tag }}</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:15.5px;margin-bottom:6px;">{{ t.t }}</div>
+            <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:10px;">{{ t.d }}</div>
+            <div style="font-size:11.5px;font-weight:600;color:{{ c.onSurface }};display:flex;align-items:flex-start;gap:5px;line-height:1.45;"><span class="msr" style="font-size:14px;margin-top:1px;color:{{ t.accent }};">{{ t.syncIcon }}</span><span>{{ t.sync }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:18px;padding:18px 20px;display:flex;gap:12px;align-items:flex-start;max-width:880px;">
+        <span class="msr fill" style="font-size:22px;color:{{ c.secondary }};flex:none;">key</span>
+        <div style="font-size:13px;line-height:1.6;color:{{ c.onSurfaceVar }};"><b style="color:{{ c.onSurface }};">subjectRef does the work.</b> ADR 0043 gave every Now item a subject key for dedup and deep-linking. A mute rule is keyed by the same ref (or a kind/source label) — so changeset validation can reject "re-create a muted subject" <b>mechanically, by ID</b>, with the server staying content-blind, and the routine gateway filters candidates pre-run from the decrypted list. <b>Done states ride the same key</b>: next run, the same source email extracts to a subject already marked complete — resolved, not re-mintable. Extraction must therefore produce a <b>stable</b> subject key from the same source across runs.</div>
+      </div>
+    </section>
+
+    <!-- scope & copy -->
+    <section style="margin-bottom:56px;" data-screen-label="Scope and copy">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.tertiary }};">groups</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Me vs the family — the copy decision</h2></div>
+      <p style="font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 20px;max-width:84ch;">Routine cards are family-visible, so every mute needs a scope answer, spoken plainly on the sheet.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:880px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.secondary }};border-radius:22px;padding:19px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">DEFAULT</span><span style="font-size:10.5px;font-weight:700;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:3px 9px;">RECOMMEND</span></div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;margin-bottom:6px;">Personal mute</div>
+          <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:12px;">The routine keeps minting for others and excludes you from the card's audience. Nobody else's feed changes; nobody is notified.</div>
+          <div style="font-size:12.5px;font-style:italic;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};border-radius:10px;padding:9px 12px;">"Won't be added for you — your family's feed is unchanged."</div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:19px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">EXPLICIT SECOND CHOICE</span><span style="font-size:10.5px;font-weight:700;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:3px 9px;">TEST</span></div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:16px;margin-bottom:6px;">Family-wide mute</div>
+          <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:12px;">For family-scoped noise (weather, generic reminders). Always attributed — "Muted by Mom" — visible to all in Settings, reversible by any adult. Never on the swipe path.</div>
+          <div style="font-size:12.5px;font-style:italic;color:{{ c.onSurface }};background:{{ c.surfaceContainer }};border-radius:10px;padding:9px 12px;">"Won't be added for anyone — your family can see and undo this in Settings."</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- precedents -->
+    <section style="margin-bottom:56px;" data-screen-label="Precedents">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">travel_explore</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Precedents — what the industry grammar gets right, and wrong</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;max-width:1000px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:20px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr fill" style="font-size:19px;color:{{ c.secondary }};">check_circle</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">Adopt</span></div>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <sc-for list="{{ adopt }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:16px;color:{{ c.secondary }};margin-top:1px;">arrow_forward</span><span style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ p }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:20px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr fill" style="font-size:19px;color:{{ c.primary }};">block</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">Reject</span></div>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <sc-for list="{{ reject }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:16px;color:{{ c.primary }};margin-top:1px;">close</span><span style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ p }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- compose + a11y -->
+    <section style="margin-bottom:52px;" data-screen-label="Engineering">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.tertiary }};">code</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Compose mapping</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ compose }}" as="m" hint-placeholder-count="6">
+              <div style="display:flex;gap:10px;align-items:baseline;"><span style="flex:0 0 140px;font-size:12px;color:{{ c.onSurfaceVar }};">{{ m.k }}</span><code style="font-family:monospace;font-size:12px;background:{{ c.surfaceContainer }};padding:2px 7px;border-radius:6px;">{{ m.v }}</code></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:22px;padding:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">accessibility_new</span><span style="font-family:'Outfit';font-weight:600;font-size:16px;">Accessibility &amp; calm</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ a11y }}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:flex-start;gap:9px;"><span class="msr" style="font-size:17px;color:{{ c.secondary }};margin-top:1px;">check_circle</span><span style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ a }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- open questions -->
+    <section data-screen-label="Open questions">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span class="msr fill" style="font-size:22px;color:{{ c.secondary }};">task_alt</span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;margin:0;">Open questions — operator-decided Aug 8, 2026</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1000px;">
+        <sc-for list="{{ openQ }}" as="q" hint-placeholder-count="6">
+          <div style="background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:16px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+            <span style="width:26px;height:26px;border-radius:9px;flex:none;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:13px;">{{ q.n }}</span>
+            <div style="flex:1;">
+              <div style="font-size:12.5px;line-height:1.55;color:{{ c.onSurfaceVar }};margin-bottom:6px;">{{ q.t }}</div>
+              <div style="display:flex;align-items:flex-start;gap:6px;"><span class="msr fill" style="font-size:15px;color:{{ c.secondary }};margin-top:1px;">check_circle</span><span style="font-size:12.5px;line-height:1.5;font-weight:600;color:{{ c.onSurface }};">{{ q.a }}</span></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:960},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      mode: props.mode === 'dark' ? 'dark' : 'light',
+      sheet: null, gone: {}, rule: null, snack: null, noteDraft: '',
+    };
+  }
+  cards() {
+    return [
+      { id:4, kind:'routine', isTask:true, icon:'contact_emergency', ac:'coral', title:'Verify emergency contact', sub:'From an email \u00b7 blocks Butler account setup', kindLabel:'account-setup' },
+      { id:1, kind:'routine', icon:'traffic', ac:'coral', title:'Heavy traffic to practice', sub:'Leave by 4:10 \u2014 I-5 is slow', kindLabel:'traffic' },
+      { id:2, kind:'routine', icon:'rainy', ac:'teal', title:'Rain at soccer practice', sub:'70% at 5 PM \u2014 pack layers', kindLabel:'weather' },
+      { id:3, kind:'derived', icon:'cabin', ac:'violet', title:'Cabin weekend \u00b7 in 3 days', sub:'Sat\u2013Sun \u00b7 4 checklist items open' },
+    ];
+  }
+  doneCard(k, note) {
+    const n = note && note.trim() ? note.trim() : null;
+    this.act(k.id, 'Done \u2014 future runs will treat this as handled', {
+      t:'Done \u00b7 ' + k.title,
+      s: n ? '\u201c' + n + '\u201d \u00b7 by you \u00b7 just now' : 'Done by you \u00b7 just now \u00b7 remembered across runs',
+      icon:'check_circle', done:true, note:n, cardId:k.id,
+    });
+  }
+  act(id, msg, rule) {
+    this.setState(s => ({
+      sheet: null,
+      gone: { ...s.gone, [id]: true },
+      rule: rule !== undefined ? rule : s.rule,
+      snack: { msg, id, setRule: rule !== undefined },
+    }));
+  }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', surfaceContainerHighest:'#F0DFDA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', onTertiary:'#FFFFFF', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      provFg:'#0B5048', provBg:'#E2F4EF', provBorder:'#BFE3DC',
+      pageBg:'#E9DDD7', bezel:'#2A1B16', crumbFg:'#7A2615', crumbBg:'#FCEBE6', crumbBorder:'#EBD3CB',
+      snackBg:'#3D2D28', snackFg:'#FFEDE8', snackAction:'#FFB4A3',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', onTertiary:'#3A0080', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      provFg:'#A8F4E7', provBg:'#14322D', provBorder:'#1E5048',
+      pageBg:'#161210', bezel:'#000000', crumbFg:'#FFB4A3', crumbBg:'#271D1A', crumbBorder:'#3D322E',
+      snackBg:'#F0DFDA', snackFg:'#271814', snackAction:'#9A2A12',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const acMap = {
+      coral:{ iconBg:c.primaryContainer, iconFg:c.onPrimaryContainer },
+      teal:{ iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer },
+      violet:{ iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer },
+    };
+    const cards = this.cards();
+    const feedCards = cards.map(k => ({
+      ...k, ...acMap[k.ac],
+      maxH: this.state.gone[k.id] ? '0px' : '140px',
+      op: this.state.gone[k.id] ? 0 : 1,
+      provIcon: k.kind === 'routine' ? 'auto_awesome' : 'event',
+      provLabel: k.kind === 'routine' ? 'Morning briefing \u00b7 7:02 AM' : "From this hub's dates",
+      provFg: k.kind === 'routine' ? c.onTertiaryContainer : c.onSurfaceVar,
+      provBg: k.kind === 'routine' ? c.tertiaryContainer : 'transparent',
+      provBorder: k.kind === 'routine' ? 'transparent' : c.outlineVar,
+      openSheet: () => this.setState({ sheet: { id: k.id, step: 'options' } }),
+      done: () => this.doneCard(k),
+    }));
+
+    const sheet = this.state.sheet;
+    const sheetCard = sheet ? cards.find(k => k.id === sheet.id) : null;
+    let sheetRows = [], sheetKicker = '', sheetTitle = '';
+    if (sheetCard) {
+      const plain = { bg:'transparent', fg:c.onSurface };
+      if (sheet.step === 'options') {
+        sheetKicker = 'Respond to'; sheetTitle = sheetCard.title;
+        sheetRows = [
+          { ...plain, icon:'snooze', iconColor:c.onSurfaceVar, t:'Not now', s:'Back tomorrow \u00b7 this device only', chevron:false,
+            go: () => this.act(sheetCard.id, 'Snoozed until tomorrow \u2014 on this device only') },
+          { ...plain, icon:'visibility_off', iconColor:c.tertiary, t:'Hide for me', s:'Your family still sees it', chevron:false,
+            go: () => this.act(sheetCard.id, 'Hidden for you \u2014 your family still sees it') },
+          sheetCard.kind === 'routine'
+            ? { bg:c.secondaryContainer, fg:c.onSecondaryContainer, icon:'do_not_disturb_on', iconColor:c.secondary, t:"Don't add this again", s:'Teach Morning briefing \u00b7 saved to Dayfold', chevron:true,
+                go: () => this.setState({ sheet: { id: sheetCard.id, step: 'scope' } }) }
+            : { bg:c.secondaryContainer, fg:c.onSecondaryContainer, icon:'do_not_disturb_on', iconColor:c.secondary, t:"Don't show this again", s:'Stays on this device \u2014 nothing is synced', chevron:false,
+                go: () => this.act(sheetCard.id, "Won't be shown again \u2014 rule stays on this device") },
+        ];
+        if (sheetCard.isTask) sheetRows.unshift({ bg:c.secondaryContainer, fg:c.onSecondaryContainer, icon:'check_circle', iconColor:c.secondary, t:'Mark done', s:'With an optional note \u2014 or one tap on the card', chevron:true,
+          go: () => this.setState({ sheet: { id: sheetCard.id, step: 'note' }, noteDraft: '' }) });
+      } else if (sheet.step === 'note') {
+        sheetKicker = 'Done \u00b7 ' + sheetCard.title; sheetTitle = 'Add a note?';
+        sheetRows = [];
+      } else {
+        sheetKicker = "Don't add this again"; sheetTitle = 'How much should stop?';
+        const kindCap = sheetCard.kindLabel.charAt(0).toUpperCase() + sheetCard.kindLabel.slice(1);
+        sheetRows = [
+          { bg:'transparent', fg:c.onSurface, icon:'cancel', iconColor:c.secondary, t:'Just this card', s:'This exact card won\u2019t return', chevron:false,
+            go: () => this.act(sheetCard.id, 'Muted \u2014 this card won\u2019t be added again', { t:'This card \u00b7 ' + sheetCard.title, s:'Checked before every run \u00b7 just you' }) },
+          { bg:'transparent', fg:c.onSurface, icon:'category', iconColor:c.secondary, t:'Any ' + sheetCard.kindLabel + ' cards', s:'Morning briefing stops making these', chevron:false,
+            go: () => this.act(sheetCard.id, 'Muted \u2014 no more ' + sheetCard.kindLabel + ' cards for you', { t: kindCap + ' cards \u00b7 from Morning briefing', s:'Checked before every run \u00b7 just you' }) },
+          { bg:'transparent', fg:c.onSurface, icon:'pause_circle', iconColor:c.secondary, t:'Everything from Morning briefing', s:'Pauses the routine \u2014 manage in Smart Briefings', chevron:false,
+            go: () => this.act(sheetCard.id, 'Morning briefing paused \u2014 manage in Smart Briefings', { t:'Morning briefing \u00b7 paused', s:'Manage in Smart Briefings' }) },
+        ];
+      }
+    }
+
+    const snack = this.state.snack;
+    const undo = () => {
+      if (!snack) return;
+      this.setState(s => {
+        const gone = { ...s.gone }; delete gone[snack.id];
+        return { gone, rule: snack.setRule ? null : s.rule, snack: null };
+      });
+    };
+
+    const vLean = { vFg:c.onSecondaryContainer, vBg:c.secondaryContainer };
+    const vTest = { vFg:c.onTertiaryContainer, vBg:c.tertiaryContainer };
+    const vDrop = { vFg:c.onSurfaceVar, vBg:c.surfaceContainerHighest };
+    const vShip = { vFg:c.provFg, vBg:c.provBg };
+
+    return {
+      c,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode==='light' ? c.secondaryContainer : 'transparent',
+      lightPillFg: mode==='light' ? c.onSecondaryContainer : c.onSurfaceVar,
+      darkPillBg: mode==='dark' ? c.surfaceContainerHighest : 'transparent',
+      darkPillFg: mode==='dark' ? c.onSurface : c.onSurfaceVar,
+
+      feedCards,
+      sheetOpen: !!sheet, sheetIsScope: !!sheet && sheet.step === 'scope',
+      sheetHasBack: !!sheet && sheet.step !== 'options',
+      sheetIsNote: !!sheet && sheet.step === 'note',
+      noteInput: (e) => { this.setState({ noteDraft: e.target.value }); },
+      noteSave: () => { if (sheetCard) this.doneCard(sheetCard, this.state.noteDraft); },
+      noteSkip: () => { if (sheetCard) this.doneCard(sheetCard); },
+      showAddNote: !!this.state.rule && !!this.state.rule.done && !this.state.rule.note,
+      addNote: () => this.setState(s => ({ sheet: { id: s.rule.cardId, step: 'note' }, noteDraft: '' })),
+      sheetRows, sheetKicker, sheetTitle,
+      closeSheet: () => this.setState({ sheet: null }),
+      sheetBack: () => this.setState(s => ({ sheet: { id: s.sheet.id, step: 'options' } })),
+      snackOpen: !!snack, snackMsg: snack ? snack.msg : '', undo,
+      hasRule: !!this.state.rule, ruleLabel: this.state.rule ? this.state.rule.t : '', ruleSub: this.state.rule ? this.state.rule.s : '', ruleIcon: this.state.rule ? (this.state.rule.icon || 'do_not_disturb_on') : 'do_not_disturb_on',
+      removeRule: () => this.setState(s => {
+        const gone = { ...s.gone };
+        if (s.snack && s.snack.setRule) delete gone[s.snack.id];
+        return { rule: null, gone, snack: null };
+      }),
+
+      mutedRules: [
+        { icon:'traffic', t:'Traffic cards', s:'From Morning briefing \u00b7 just you' },
+        { icon:'rainy', t:'Weather in Now', s:'Whole family \u00b7 muted by Mom' },
+        { icon:'redeem', t:'Gift ideas card', s:'This card only \u00b7 you' },
+      ],
+
+      doneAnswers: [
+        { icon:'dynamic_feed', t:'It leaves Now \u2014 for everyone', d:'Resolved is resolved: the card folds out of every member\u2019s feed on next sync. Nobody gets a \u201cMom completed this\u201d notification \u2014 the byline is the only signal, per the two-way remote-change rule.' },
+        { icon:'space_dashboard', t:'The record lives in the hub', d:'A hub-linked card writes a completed row into its hub \u2014 the Butler hub keeps \u201c\u2713 Verify emergency contact \u00b7 Done by Mom\u201d with the note. Hubless cards land in a collapsed Done section under Settings \u203a Smart content, next to Muted rules.' },
+        { icon:'edit_note', t:'The note is context, twice', d:'Optional, never demanded. For the family: how it was resolved. For the routine: the next run reads completion + note as context \u2014 not just a suppression \u2014 so it can build on what happened.' },
+      ],
+
+      verbs: [
+        { icon:'snooze', accent:c.outline, t:'Not now', tag:'DEVICE', tagBg:c.surfaceContainer, tagFg:c.onSurfaceVar,
+          d:'Snooze this occurrence \u2014 it comes back tomorrow. Local surfacing-state, never synced.' },
+        { icon:'visibility_off', accent:c.tertiary, t:'Hide for me', tag:'SHIPPED \u00b7 W5', tagBg:c.tertiaryContainer, tagFg:c.onTertiaryContainer,
+          d:'This item, for you, forever \u2014 your family still sees it. Local and reversible.' },
+        { icon:'check_circle', accent:c.secondary, t:'Done', tag:'NEW \u00b7 SYNCED', tagBg:c.secondaryContainer, tagFg:c.onSecondaryContainer,
+          d:'Task-shaped cards complete \u2014 for the whole family. Recorded on the subject so future runs treat it as handled, never re-mint it.' },
+        { icon:'do_not_disturb_on', accent:c.secondary, t:'Don\u2019t add this again', tag:'NEW \u00b7 SYNCED', tagBg:c.secondaryContainer, tagFg:c.onSecondaryContainer,
+          d:'A rule, not a dismissal: stored in Dayfold and checked before every run, so the pipeline stops re-creating it.' },
+        { icon:'flag', accent:c.primary, t:'Fix it', tag:'NEW \u00b7 TEST', tagBg:c.primaryContainer, tagFg:c.onPrimaryContainer,
+          d:'Wrong hub, outdated, inaccurate \u2014 a structured correction the next run reads, with a receipt.' },
+      ],
+
+      heroNotes: [
+        { t:'Graduated, not a survey', d:'One tap answers the common case; precision is optional and never demanded. No reason-picker interrogation after every dismissal.' },
+        { t:'The receipt is the trust', d:'Three receipts: the Undo snackbar at act time, the visible removable rule, and the run line \u201cskipped 2 muted subjects.\u201d A rule you can see is a rule you believe.' },
+        { t:'Derived is honest about locality', d:'The derived card gets the same sheet, but its mute says \u201cstays on this device\u201d \u2014 there is no server run to teach, and the copy never pretends otherwise.' },
+        { t:'Done is shared, mute is personal', d:'Completion is family-visible state \u2014 \u201cDad handled this\u201d \u2014 unlike a personal mute. Both ride the same subjectRef, so the routine can tell resolved from unwanted.' },
+      ],
+
+      places: [
+        { icon:'dynamic_feed', iconColor:c.secondary, border:c.secondary, t:'Now card', verdict:'PRIMARY', ...vLean,
+          d:'The volume surface \u2014 smart content lands here first. All three doors: \u22ee, the why-chip, and swipe (hide only, with the one-time escalation offer).',
+          scope:'\u201cDon\u2019t add this again\u201d \u00b7 card / kind / source', scopeFg:c.onSecondaryContainer, scopeBg:c.secondaryContainer },
+        { icon:'open_in_full', iconColor:c.secondary, border:c.outlineVar, t:'Detail view', verdict:'LEAN', ...vLean,
+          d:'Tap-to-detail is where \u201cwhy is this here?\u201d actually gets asked. The provenance footer grows a quiet Respond affordance; the top-bar \u22ee carries the same sheet.',
+          scope:'Same sheet, same verbs \u2014 never a second vocabulary', scopeFg:c.onSurfaceVar, scopeBg:c.surfaceContainer },
+        { icon:'space_dashboard', iconColor:c.tertiary, border:c.outlineVar, t:'Hub block', verdict:'TEST', ...vTest,
+          d:'Routine-enriched blocks get the sheet from the block\u2019s \u22ee. Removing an existing block stays a delete (W4); the sheet can pair them: \u201cRemove, and don\u2019t re-add.\u201d No swipe \u2014 it fights scroll and reorder.',
+          scope:'\u201cDon\u2019t add to this hub again\u201d \u00b7 block / kind / routine', scopeFg:c.onTertiaryContainer, scopeBg:c.tertiaryContainer },
+        { icon:'notifications', iconColor:c.onSurfaceVar, border:c.outlineVar, t:'Notification (Phase B)', verdict:'HOLD', ...vDrop,
+          d:'A notification action offers Snooze at most. A stored rule deserves the full sheet \u2014 deep-link into the app; never a one-tap permanent mute from a lock screen.',
+          scope:'Snooze only \u00b7 everything else opens the app', scopeFg:c.onSurfaceVar, scopeBg:c.surfaceContainer },
+      ],
+      doorMatrix: [
+        { k:'Now card', a:'Full sheet', b:'Full sheet', s:'Hide only \u2192 one-time \u201cdon\u2019t add again?\u201d offer' },
+        { k:'Detail view', a:'Full sheet (top bar)', b:'Respond in provenance footer', s:'\u2014 (no swipe in detail)' },
+        { k:'Hub block', a:'Full sheet (hub copy)', b:'Full sheet', s:'\u2014 (conflicts with scroll/reorder)' },
+        { k:'Notification', a:'\u2014', b:'\u2014', s:'System action row: Snooze only' },
+      ],
+
+      doors: [
+        { tag:'A \u00b7 OVERFLOW \u22ee', verdict:'LEAN', ...vLean, border:c.secondary, demoIcon:'more_vert', t:'The \u22ee menu', 
+          d:'The baseline door: explicit, keyboard- and TalkBack-reachable, zero accidental responses. Matches the W5 fallback pattern \u2014 always present on every surface.' },
+        { tag:'B \u00b7 THE WHY-CHIP', verdict:'LEAN', ...vLean, border:c.secondary, demoIcon:'touch_app', t:'Provenance is the door',
+          d:'Every smart card already wears its origin. Tapping \u201cMorning briefing \u00b7 7:02\u201d opens the response sheet \u2014 teaching lives where the explanation lives.' },
+        { tag:'C \u00b7 SWIPE ESCALATION', verdict:'TEST', ...vTest, border:c.outlineVar, demoIcon:'swipe_left', t:'Swipe stays hide-only',
+          d:'Swipe never mutes directly (W5: swipe = hide). After hiding a smart card, the snackbar offers \u201cDon\u2019t add this again?\u201d once per subject, ever. Twice is a nag.' },
+      ],
+
+      catalog: [
+        { icon:'snooze', iconColor:c.onSurfaceVar, t:'Not now', verdict:'LEAN YES', ...vLean, op:1, store:'Device', storeIcon:'smartphone',
+          d:'One occurrence steps aside; the priority engine\u2019s anti-nag decay already softens repeat offenders.' },
+        { icon:'visibility_off', iconColor:c.tertiary, t:'Hide for me', verdict:'SHIPPED', ...vShip, op:1, store:'Device', storeIcon:'smartphone',
+          d:'The W5 verb, unchanged \u2014 it keeps its place in the sheet as the item-level response.' },
+        { icon:'do_not_disturb_on', iconColor:c.secondary, t:'Don\u2019t add this again', verdict:'LEAN YES', ...vLean, op:1, store:'Dayfold rule', storeIcon:'cloud_done',
+          d:'The core new verb: a subjectRef-keyed rule the routine checks before every run.' },
+        { icon:'check_circle', iconColor:c.secondary, t:'Mark done', verdict:'LEAN YES', ...vLean, op:1, store:'Dayfold state', storeIcon:'cloud_done',
+          d:'Completion, not dismissal \u2014 wanted content, now resolved. Recorded on the subjectRef with a byline and an optional note, so the next run sees the email-sourced task as handled \u2014 with context \u2014 and never re-extracts it.' },
+        { icon:'category', iconColor:c.secondary, t:'Stop this kind', verdict:'LEAN YES', ...vLean, op:1, store:'Dayfold rule', storeIcon:'cloud_done',
+          d:'\u201cNo traffic cards.\u201d Binary and honest \u2014 never \u201cshow fewer\u201d: there is no frequency model to promise.' },
+        { icon:'pause_circle', iconColor:c.secondary, t:'Pause the source', verdict:'LEAN YES', ...vLean, op:1, store:'Existing control', storeIcon:'link',
+          d:'The whole routine. Already built in Smart Briefings \u2014 the sheet\u2019s third rung deep-links, never duplicates.' },
+        { icon:'drive_file_move', iconColor:c.primary, t:'Wrong hub', verdict:'TEST', ...vTest, op:1, store:'Correction', storeIcon:'forward',
+          d:'Reroute the enrichment; the correction rides into the next run\u2019s input, with a receipt.' },
+        { icon:'flag', iconColor:c.primary, t:'Outdated / wrong', verdict:'TEST', ...vTest, op:1, store:'Correction', storeIcon:'forward',
+          d:'A structured flag, not a chat thread. The run receipt shows what happened to it.' },
+        { icon:'thumb_up', iconColor:c.onSurfaceVar, t:'More like this', verdict:'DROP', ...vDrop, op:0.62, store:'\u2014', storeIcon:'block',
+          d:'Engagement farming \u2014 the calm constitution bans it. Keeping a card is the positive signal.' },
+        { icon:'help', iconColor:c.onSurfaceVar, t:'Why am I seeing this?', verdict:'DROP AS ROW', ...vDrop, op:0.62, store:'\u2014', storeIcon:'block',
+          d:'Already answered by the provenance chip \u2014 which becomes the door to this sheet, not a row inside it.' },
+      ],
+
+      tiers: [
+        { tag:'TIER 0 \u00b7 DEVICE ONLY', accent:c.outline, t:'Surfacing-state', syncIcon:'sync_disabled',
+          d:'Snooze, hide, anti-nag decay, the one-time escalation flag. Ephemeral reactions to one rendering.',
+          sync:'Never synced \u2014 behavioral, would leak who-saw-what (ADR 0039 / 0043 posture).' },
+        { tag:'TIER 1 \u00b7 DAYFOLD PREFERENCE ROWS', accent:c.secondary, t:'Mute rules & completions', syncIcon:'cloud_done',
+          d:'Mutes (subject / kind / source, scope me\u00a0|\u00a0family) and Done states (whole family). Opaque payload, keyed by subjectRef.',
+          sync:'Synced \u2014 the gateway filters muted subjects and treats completed ones as resolved; validation rejects by ID.' },
+        { tag:'TIER 2 \u00b7 RUN CORRECTIONS', accent:c.primary, t:'Fix-it flags', syncIcon:'receipt_long',
+          d:'Wrong-hub and accuracy flags become structured input to the next run \u2014 never a chat, never a thread.',
+          sync:'Synced \u2014 the outcome lands in the run receipt (ADR 0062 observability surface).' },
+      ],
+
+      adopt: [
+        'The four-step grammar every mature feed ships: quick verb \u2192 optional precision \u2192 receipt with undo \u2192 a reviewable controls page.',
+        'Discover-style \u201cnot interested in X / don\u2019t show from Y\u201d maps cleanly to our subject and source scopes.',
+        'Gmail-nudge-style post-hoc \u201cturn this off?\u201d \u2014 adopted as the swipe escalation, capped at one offer per subject.',
+        'OS-assistant \u201csuggest less\u201d living in per-app settings \u2014 per-routine controls stay in Smart Briefings, deep-linked from the sheet.',
+      ],
+      reject: [
+        'Reason surveys after every dismissal \u2014 a nag dressed up as respect.',
+        'Fuzzy \u201csee fewer like this\u201d \u2014 dishonest without a frequency model. Dayfold mutes are binary and named.',
+        '\u201cWe\u2019ll tune your feed\u201d claims \u2014 promise only what the stored rule mechanically enforces.',
+      ],
+
+      compose: [
+        { k:'Response sheet', v:'ModalBottomSheet + ListItem' },
+        { k:'Scope step', v:'AnimatedContent (in-sheet)' },
+        { k:'Receipt + undo', v:'SnackbarHost + action' },
+        { k:'Rule row', v:'ListItem + AssistChip' },
+        { k:'Doors', v:'DropdownMenu / AssistChip / SwipeToDismissBox' },
+        { k:'Prefs list', v:'LazyColumn + ListItem' },
+        { k:'Rule store', v:'preference row via changeset (subjectRef key)' },
+      ],
+      a11y: [
+        'Every sheet row \u226548dp and labelled with its consequence: \u201cMuted. Morning briefing will not add traffic cards. Saved to your preferences.\u201d',
+        'Undo is a focusable snackbar action \u2014 and never the only path back: the rule is also a visible, removable row.',
+        'Verdicts, scopes and states are text-led, never colour-alone; the \u22ee door exists on every surface (chip and swipe are shortcuts, never the only way in).',
+        'Calm: no reason survey, no repeated escalation offers, no confirm dialog on personal-scope responses \u2014 one tap, one receipt, zero family notifications.',
+      ],
+
+      openQ: [
+        { n:'1', t:'Preference-row shape: a new table vs a typed block \u2014 and how it interacts with E2EE (ADR 0015).', a:'Dedicated preference rows \u2014 whatever syncs cleanest (opaque payload, subjectRef key), not a typed block.' },
+        { n:'2', t:'Family-wide mute rights: who can set, who can remove?', a:'Any adult sets; any adult removes \u2014 always attributed.' },
+        { n:'3', t:'Expiry: forever vs seasonal?', a:'Forever + easy remove. No expiry machinery.' },
+        { n:'4', t:'Does the derived lane read the same rule list?', a:'Yes \u2014 same rules, enforced on-device.' },
+        { n:'5', t:'After N mutes from one routine, suggest pausing it?', a:'Deferred to later.' },
+        { n:'6', t:'Overlap with W3 bounded commands (\u201cstop adding traffic cards\u201d in words)?', a:'The structured sheet is the primary, discoverable path.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

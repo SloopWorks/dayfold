@@ -266,6 +266,13 @@ M1 trigger surface as needing its mockups) until this pass corrected it.
 Hubs phone surface (INB-15/16) + content adaptive two-pane (INB-20) + the ADR-0030
 visibility delta (`Hubs-Visibility.dc.html`, signed off) are all in; the content-
 API enforcement is built (PRs #34/#35). Hub render is build-ready.
+**Responses to smart content: designs imported, NOT build-authorized (2026-08-08)** —
+`designs/content-feedback/` (exploration board + hi-fi gap set + `NOTES.md`) is
+operator-approved on the *spec track*. It proposes ADR-class behavior that is not yet
+decided: synced mute-preference rows and family-wide Done completion state keyed by the
+ADR 0043 `subjectRef`. Design sign-off does not authorize build here — an ADR covering
+the persistence contract (Tier 0/1/2), the me-vs-family scope rights, and the routine-
+gateway/changeset-validation suppression path must be Accepted first.
 
 ## Operator actions pending
 
