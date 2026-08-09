@@ -17,6 +17,7 @@ class DayfoldCommands internal constructor(
   private val syncCoordinator: SyncCoordinator? = null,
   private val hubEngine: HubEngine? = null,
   private val nowEngine: NowEngine? = null,
+  private val responseEngine: ResponseEngine? = null,
   private val contentStore: ContentStore? = null,
   private val sessionCoordinator: SessionCoordinator? = null,
   private val externalHubTargets: PendingExternalHubTargetCoordinator? = null,
@@ -181,6 +182,26 @@ class DayfoldCommands internal constructor(
   override fun unhideBlock(familyId: String, blockId: String) =
     launchFamily(familyId) { hubEngine?.unhideBlock(it, blockId) }
   override fun setNotificationConfig(config: NotifConfig) = launchEffect { contentStore?.setNotifConfig(config) }
+
+  // ADR 0064 — smart-content responses. Null engine = the navigation-only command set (used by
+  // previews and pure-nav hosts), where a response write is a no-op rather than a crash.
+  override fun mute(
+    subjectRef: String,
+    matchScope: MatchScope,
+    audience: AudienceScope,
+    label: String,
+    sublabel: String?,
+  ) = launchEffect { responseEngine?.mute(subjectRef, matchScope, audience, label, sublabel) }
+
+  override fun markDone(subjectRef: String, label: String, note: String?) =
+    launchEffect { responseEngine?.markDone(subjectRef, label, note) }
+
+  override fun removeResponse(id: String) = launchEffect { responseEngine?.removeResponse(id) }
+
+  override fun undoLastResponse() = launchEffect { responseEngine?.undoLastResponse() }
+
+  override fun recordResponseOffer(subjectRef: String) =
+    launchEffect { responseEngine?.recordResponseOffer(subjectRef) }
 
   private fun launchIdentity(block: suspend (AuthSessionContext) -> Unit) {
     val context = sessionCoordinator?.authSnapshot() ?: return

@@ -130,6 +130,12 @@ internal class ContentBridge(
           collectorScope.collectDistinct(contentStore.surfacingFlow(databaseDispatcher)) { surfacing ->
             created.publishFamily(context, SurfacingLoaded(surfacing))
           }
+          // ADR 0064 — rules are family-scoped synced content, so they ride the FAMILY bridge:
+          // a family switch tears this down with the rest, and one family's mutes can never
+          // suppress another's feed.
+          collectorScope.collectDistinct(contentStore.responsesFlow(databaseDispatcher)) { rules ->
+            created.publishFamily(context, ResponsesLoaded(rules))
+          }
         }
         familySlot = FamilySlot(key, handle)
         handle

@@ -48,4 +48,11 @@ interface DayfoldCommandPort {
   fun hideBlock(familyId: String, blockId: String)
   fun unhideBlock(familyId: String, blockId: String)
   fun setNotificationConfig(config: NotifConfig)
+  // ADR 0064 — smart-content responses. Method-only, like the rest of this port: it crosses
+  // into Swift as the exported framework's surface.
+  fun mute(subjectRef: String, matchScope: MatchScope, audience: AudienceScope, label: String, sublabel: String?)
+  fun markDone(subjectRef: String, label: String, note: String?)
+  fun removeResponse(id: String)
+  fun undoLastResponse()
+  fun recordResponseOffer(subjectRef: String)
 }

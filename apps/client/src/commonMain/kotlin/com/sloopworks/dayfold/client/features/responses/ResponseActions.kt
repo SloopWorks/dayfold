@@ -33,3 +33,7 @@ data class SetResponseAudience(val audience: AudienceScope) : ResponseAction
 
 data class ResponseReceiptShown(val receipt: ResponseReceipt) : ResponseAction
 data object ResponseReceiptDismissed : ResponseAction
+
+// ADR 0064 GAP 5 — Settings › Smart content, reached from the Account screen.
+data object OpenSmartContent : ResponseAction
+data object CloseSmartContent : ResponseAction

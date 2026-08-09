@@ -595,6 +595,30 @@ class ContentStore(driver: SqlDriver) {
       rows.associate { it.subject_key to SurfacingRecord(it.subject_key, it.last_shown_at, it.dismissed_at) }
     }
 
+  /**
+   * ADR 0064 — the reactive rules projection. Family-scoped SYNCED content, so it rides the
+   * family bridge alongside cards/hubs, not the device bridge that carries notif config.
+   */
+  fun responsesFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<List<ContentResponse>> =
+    q.allResponses().asFlow().mapToList(dispatcher).map { rows ->
+      rows.map {
+        ContentResponse(
+          id = it.id,
+          kind = ResponseKind.of(it.kind),
+          subjectRef = it.subject_ref,
+          matchScope = MatchScope.of(it.match_scope),
+          audienceScope = AudienceScope.of(it.audience_scope),
+          userId = it.user_id,
+          createdBy = it.created_by,
+          label = it.label,
+          sublabel = it.sublabel,
+          note = it.note,
+          version = it.version,
+          pending = it.pending != 0L,
+        )
+      }
+    }
+
   /** Record that a subject was surfaced (anti-nag decay clock). LOCAL-ONLY — never synced. */
   fun recordShown(subjectKey: String, nowIso: String) = withWriteGate { q.recordShown(subjectKey, nowIso) }
 

@@ -31,8 +31,12 @@ import works.sloop.swip.rk.recorder.slices
  *
  * NEVER register: session, mintedInvite, members, pendingApprovals, families,
  * devices, pendingDevice, myDisplayName, cards content, error/authError (may
- * embed server messages). Changing this list requires re-running DayfoldLeakTest
- * with new salts covering the added slice.
+ * embed server messages), and — ADR 0064 — anything from `responses`: a rule's
+ * label/sublabel names a subject the household chose to suppress, and a Done
+ * `note` is the most personal string that feature creates ("used Grandma's new
+ * number"). Not even a derived rulesCount: it is not worth re-opening this fence
+ * for a number nobody has asked for. Changing this list requires re-running
+ * DayfoldLeakTest with new salts covering the added slice.
  */
 fun dayfoldSlices(): List<SliceSpec<AppState>> = slices {
   // Until the routine observability ADR is accepted, the preview route is
@@ -44,8 +48,12 @@ fun dayfoldSlices(): List<SliceSpec<AppState>> = slices {
   slice("hubFilter", String.serializer(), { s -> s.hubs.filter }, { s, v -> s.copy(hubs = s.hubs.copy(filter = v)) })
 }
 
+// This map has NO exhaustiveness guard — a new Route silently journals its own name — so any
+// route naming a privacy-shaped surface must be added here deliberately. Smart content lists
+// mute labels and Done notes, so even the route name is a weak signal about what a household
+// suppresses; journal it as its Account entry point, exactly as SmartBriefings already is.
 private fun recordedRoute(route: Route): String =
-  if (route == Route.SmartBriefings) Route.Account.name else route.name
+  if (route == Route.SmartBriefings || route == Route.SmartContent) Route.Account.name else route.name
 
 /**
  * The SECOND fence (sanitize-at-write, swip docs/12 §6): drops any journaled

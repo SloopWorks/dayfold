@@ -144,10 +144,21 @@ internal fun RouteHost(
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },
         onOpenProximity = { store.dispatch(OpenProximity) },
+        onOpenSmartContent = { store.dispatch(OpenSmartContent) },
         smartBriefingsPreviewAvailable = state.smartBriefingsPreviewAvailable,
         onOpenSmartBriefings = { store.dispatch(OpenSmartBriefings) },
         onUpdateAvatar = commands::updateAvatar,
         onUpdateName = commands::updateDisplayName,
+      )
+    }
+    Route.SmartContent -> {
+      val state by store.selectorState(::smartContentViewState)
+      SmartContentScreen(
+        model = state.model,
+        memberNames = state.memberNames,
+        offline = state.offline,
+        onRemove = commands::removeResponse,
+        onBack = { store.dispatch(CloseSmartContent) },
       )
     }
     Route.SmartBriefings -> {

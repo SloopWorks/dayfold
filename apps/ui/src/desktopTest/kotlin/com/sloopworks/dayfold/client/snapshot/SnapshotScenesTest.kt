@@ -13,6 +13,7 @@ class SnapshotScenesTest {
         "auth", "account", "smart-briefings", "avatar-picker", "hub-people", "join", "members", "devices", "device-approval", "scan",
         "notif", "privacy", "places", "proximity", "permission", "offline-banner", "kit",
         "timeline-card", "timeline-detail",
+        "smart-content", "response-sheet",
       ),
       clientSnapshots.scenes.map { it.name }.toSet(),
     )
