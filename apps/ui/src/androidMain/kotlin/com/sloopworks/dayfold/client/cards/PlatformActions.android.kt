@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 
 // Android actual — takes a Context ctor (mirrors DriverFactory). ACTION_VIEW for
 // handoffs, ClipboardManager for Copy, ACTION_SEND for Share. Every startActivity
@@ -20,6 +21,15 @@ actual class PlatformActions(private val context: Context) {
   }
 
   actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
+
+  actual fun openAppSettings() {
+    runCatching {
+      context.startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      )
+    }
+  }
 
   private fun open(uri: String) {
     runCatching {

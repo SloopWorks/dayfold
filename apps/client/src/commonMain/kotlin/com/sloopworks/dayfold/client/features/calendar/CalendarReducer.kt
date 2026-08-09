@@ -1,8 +1,12 @@
 package com.sloopworks.dayfold.client
 
-/** Device-local Calendar Check settings — DB→store bridge (sole writer of state.calendar.settings). */
+/** Device-local Calendar Check settings — DB→store bridge plus user-initiated changes (WI-447),
+ *  all landing in the same state.calendar.settings/availableCalendars slices. */
 fun reduceCalendar(state: AppState, action: Any): AppState = when (action) {
   is CalendarSettingsLoaded -> state.copy(calendar = state.calendar.copy(settings = action.settings))
+  is SetCalendarEnabled -> state.copy(calendar = state.calendar.copy(settings = state.calendar.settings.copy(featureEnabled = action.enabled)))
+  is SetSelectedCalendars -> state.copy(calendar = state.calendar.copy(settings = state.calendar.settings.copy(selectedCalendarIds = action.calendarIds)))
+  is DeviceCalendarsLoaded -> state.copy(calendar = state.calendar.copy(availableCalendars = action.calendars))
   else -> state
 }
 

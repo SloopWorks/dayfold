@@ -2,6 +2,7 @@ package com.sloopworks.dayfold.client.cards
 
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIPasteboard
 
 // iOS actual — UIApplication.openURL for handoffs, UIPasteboard for Copy. Share
@@ -18,6 +19,11 @@ actual class PlatformActions {
   }
 
   actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
+
+  actual fun openAppSettings() {
+    val url = NSURL.URLWithString(UIApplicationOpenSettingsURLString) ?: return
+    UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
+  }
 
   private fun open(uri: String) {
     // iOS has no geo: handler — geo:0,0?q=<enc> → https://maps.apple.com/?q=<enc>

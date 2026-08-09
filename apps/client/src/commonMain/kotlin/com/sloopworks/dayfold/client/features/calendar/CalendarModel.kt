@@ -93,7 +93,10 @@ data class CalendarCheckState(
   val pendingWrites: List<PendingFieldWrite> = emptyList(),
 )
 
+// WI-447 (ADR 0063 §1) — the chooser's candidate list: calendars this device exposes, re-read
+// from CalendarPort on demand (OS-owned truth, not persisted — mirrors the permission slices).
 data class CalendarState(
   val settings: CalendarSettings = CalendarSettings(),
   val check: CalendarCheckState = CalendarCheckState(),
+  val availableCalendars: List<DeviceCalendar> = emptyList(),
 )
