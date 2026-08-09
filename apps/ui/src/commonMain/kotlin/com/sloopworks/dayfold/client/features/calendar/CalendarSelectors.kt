@@ -191,7 +191,7 @@ fun calendarRecurringUiState(state: AppState, subjectKey: String): CalendarRecur
 
 // ── §22 Ignored locally ──────────────────────────────────────────────────────────────────────
 /** ADR 0063 §5 review action — ignoring drops an item from `results` on the SAME dispatch (nothing
- *  to review twice), so its title/meta can't be re-derived from state afterward. Most-recent-first,
- *  matching UndoIgnore's LIFO semantics — each row's Undo corresponds to "this one" as long as the
- *  member works top-down, the natural order these rows render in. */
+ *  to review twice), so its title/meta can't be re-derived from state afterward. Most-recent-first;
+ *  UndoIgnore(itemKey) targets a specific row, so undoing an older row (not just the most recent)
+ *  is safe regardless of render order. */
 fun ignoredKeysMostRecentFirst(check: CalendarCheckState): List<String> = check.ignoreHistory.asReversed()
