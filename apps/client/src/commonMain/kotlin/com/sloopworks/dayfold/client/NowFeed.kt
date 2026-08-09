@@ -117,7 +117,7 @@ fun RankedFeed.visibleSubjectKeys(): Set<String> =
 // subjectKey for an authored card: the deep-link target (so an authored nudge collapses with the
 // derived item about the same hub/block) else the card's own id. Shared by cardToNowItem +
 // authoredGeoItems so a card's time item and geo item dedup onto ONE subject (#299).
-internal fun subjectKeyFor(card: Card): String =
+fun subjectKeyFor(card: Card): String =
   card.targetHubId?.let { hub -> SubjectRef.node(hub, card.targetSectionId, card.targetBlockId) }
     ?: SubjectRef.card(card.id)
 

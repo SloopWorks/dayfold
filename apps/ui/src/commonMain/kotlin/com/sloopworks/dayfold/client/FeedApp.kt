@@ -91,11 +91,10 @@ internal fun routeResponseVerb(
   verb: Verb,
 ) {
   when (verb) {
-    // Completion, not dismissal — family-wide on the subject (§5).
-    Verb.DONE -> {
-      commands.markDone(sheet.subjectRef, sheet.subjectTitle, null)
-      dispatch(CloseResponseSheet)
-    }
+    // Completion, not dismissal — family-wide on the subject (§5). Opens the note step
+    // rather than writing straight through: the note is optional but must be OFFERED, and
+    // "Just done" is one tap away inside it.
+    Verb.DONE -> dispatch(ResponseStepDoneNote)
     // W5 hide stays device-local and is NOT a response row; reuse the shipped command.
     Verb.HIDE -> {
       val blockId = SubjectRef.blockIdOf(sheet.subjectRef)
@@ -116,6 +115,17 @@ internal fun routeResponseVerb(
       dispatch(CloseResponseSheet)
     }
   }
+}
+
+/** Finish a Done, with or without the optional note. */
+internal fun commitResponseDone(
+  dispatch: (Any) -> Unit,
+  commands: DayfoldCommandPort,
+  sheet: ResponseSheetState,
+  note: String?,
+) {
+  commands.markDone(sheet.subjectRef, sheet.subjectTitle, note?.takeIf { it.isNotBlank() })
+  dispatch(CloseResponseSheet)
 }
 
 /** Commit the mute the scope step composed, then close. */
@@ -286,6 +296,11 @@ fun FeedApp(
             },
             onUndoResponse = commands::undoLastResponse,
             onDismissReceipt = { store.dispatch(ResponseReceiptDismissed) },
+            onDone = { note ->
+              store.state.responses.sheet?.let {
+                commitResponseDone({ a -> store.dispatch(a) }, commands, it, note)
+              }
+            },
             feedListState = feedListState,
           )
         },

@@ -130,10 +130,8 @@ private fun RenderItem(item: NowItem, emphasized: Boolean, softened: Boolean, ca
     val card = cardsById[item.id.removePrefix("authored:")]
     if (card != null) {
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (card.type != null) TypedCardItem(card, onAction) else CardItem(card)
-        // ADR 0064 — the authored lane needs the SAME doors as the derived one. This is the
-        // lane a routine writes into, so it is the lane "don't add this again" exists for.
-        RespondAffordances(item, onAction)
+        // ADR 0064 — BOTH card renderers own the respond ⋮ themselves, inside the card.
+        if (card.type != null) TypedCardItem(card, onAction) else CardItem(card, onAction)
       }
       return
     }
@@ -262,20 +260,3 @@ internal fun NowItem.respondAction(atScope: Boolean = false): CardAction.Respond
   )
 
 
-/**
- * ADR 0064 — the response door for an AUTHORED card.
- *
- * Deliberately the ⋮ ALONE, with no why-chip: a typed card already renders its own provenance
- * ("From your email", "Added by Claude") inside itself, so adding the chip here printed the
- * same sentence twice and cluttered a feed whose whole point is calm. The card's own
- * provenance line remains the explanation; this is just the door beside it.
- *
- * (Making that in-card provenance line itself tappable — entry point B proper for the authored
- * lane — means reaching into each typed renderer, and is left as a follow-up.)
- */
-@Composable
-private fun RespondAffordances(item: NowItem, onAction: (CardAction) -> Unit) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-    RespondOverflow(item, onAction)
-  }
-}

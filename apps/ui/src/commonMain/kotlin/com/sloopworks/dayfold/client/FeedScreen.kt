@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.datetime.toLocalDateTime
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.cards.TypedCardItem
+import com.sloopworks.dayfold.client.cards.RespondOverflowButton
 import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 
@@ -55,7 +56,7 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), // ADR 0064 — APPENDED, not inserted: this list has positional call sites.
-  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}) {
+  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}, onDone: (String?) -> Unit = {}) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
@@ -161,6 +162,18 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
             onAudience = onAudience,
             onOpenRoutines = onOpenRoutines,
             onCommit = onCommitMute,
+          )
+        },
+      )
+      ResponseStep.DONE_NOTE -> ResponseSheet(
+        sheet = sheet,
+        onVerb = onVerb,
+        onDismiss = onCloseSheet,
+        scopeContent = {
+          DoneNoteStep(
+            sheet = sheet,
+            onJustDone = { onDone(null) },
+            onSaveNote = { onDone(it) },
           )
         },
       )
@@ -288,7 +301,7 @@ private fun RefreshErrorBanner(onRefresh: () -> Unit) {
 }
 
 @Composable
-internal fun CardItem(card: Card) {
+internal fun CardItem(card: Card, onAction: (CardAction) -> Unit = {}) {
   val m = card.media
   ElevatedCard(Modifier.fillMaxWidth()) {
     Row(Modifier.padding(16.dp)) {
@@ -297,6 +310,9 @@ internal fun CardItem(card: Card) {
         EnrichedThumbnail(m.thumbnailUrl, m.imageFit, m.icon, m.accentColor, m.imageAlt, size = 60.dp, corner = 16.dp)
         Spacer(Modifier.width(14.dp))
       }
+      // ADR 0064 — the respond ⋮ sits INSIDE this card as the row's trailing element (see
+      // the Column's weight(1f) above), not in a row beneath it: a control floating in the
+      // gap between cards reads as detached and ambiguous about which card it belongs to.
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       // kind chip: accent chip (icon + derived accent) when enriched, else the
       // existing plain label (info = none). accentColor never touches body text.
@@ -327,6 +343,7 @@ internal fun CardItem(card: Card) {
         )
       }
       }   // Column
+      RespondOverflowButton(card, onAction)
     }     // Row
   }
 }

@@ -20,7 +20,7 @@ class ResponseWiringTest {
     override fun mute(subjectRef: String, matchScope: MatchScope, audience: AudienceScope, label: String, sublabel: String?) {
       calls += "mute($subjectRef,${matchScope.wire},${audience.wire},$label)"
     }
-    override fun markDone(subjectRef: String, label: String, note: String?) { calls += "markDone($subjectRef)" }
+    override fun markDone(subjectRef: String, label: String, note: String?) { calls += "markDone($subjectRef,note=$note)" }
     override fun hideBlock(familyId: String, blockId: String) { calls += "hideBlock($blockId)" }
     override fun deleteBlock(familyId: String, blockId: String) { calls += "deleteBlock($blockId)" }
   }
@@ -102,11 +102,42 @@ class ResponseWiringTest {
     assertTrue(c.calls[1].startsWith("mute(hub:h1/block:b1,subject,family,"))
   }
 
+  // Mark done OPENS the note step rather than writing immediately. The note is optional but
+  // must be offered — writing straight through is what made it unreachable the first time.
   @Test
-  fun markDoneGoesStraightThroughWithNoScopeStep() {
+  fun markDoneOpensTheNoteStepAndWritesNothingYet() {
     val c = RecordingCommands()
-    routeResponseVerb({ _: Any -> }, c, "fam1", sheet(), Verb.DONE)
-    assertEquals(listOf("markDone(card:c1)"), c.calls)
+    val dispatched = mutableListOf<Any>()
+    routeResponseVerb({ dispatched += it }, c, "fam1", sheet(), Verb.DONE)
+    assertTrue(c.calls.isEmpty())
+    assertEquals(listOf<Any>(ResponseStepDoneNote), dispatched)
+  }
+
+  @Test
+  fun justDoneCompletesWithNoNote() {
+    val c = RecordingCommands()
+    commitResponseDone({ _: Any -> }, c, sheet(), null)
+    assertEquals(listOf("markDone(card:c1,note=null)"), c.calls)
+  }
+
+  @Test
+  fun aNoteIsCarriedThrough() {
+    val c = RecordingCommands()
+    commitResponseDone({ _: Any -> }, c, sheet(), "Confirmed — used Grandma's new number.")
+    assertEquals(listOf("markDone(card:c1,note=Confirmed — used Grandma's new number.)"), c.calls)
+  }
+
+  // Whitespace is not a note — it must not be stored as one.
+  @Test
+  fun aBlankNoteIsTreatedAsNoNote() {
+    val c = RecordingCommands()
+    commitResponseDone({ _: Any -> }, c, sheet(), "   ")
+    assertEquals(listOf("markDone(card:c1,note=null)"), c.calls)
+  }
+
+  @Test
+  fun justDoneIsNeverGatedOnTyping() {
+    assertTrue(doneNoteActions(noteDraft = "").first { it.label == "Just done" }.enabled)
   }
 
   // Hide is device-local (W5) and acts on a BLOCK — it must not fire for a card subject, which

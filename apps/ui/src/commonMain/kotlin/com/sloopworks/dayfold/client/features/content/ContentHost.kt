@@ -52,6 +52,7 @@ internal fun ContentHost(
   onOpenRoutines: () -> Unit = {},
   onUndoResponse: () -> Unit = {},
   onDismissReceipt: () -> Unit = {},
+  onDone: (String?) -> Unit = {},
   onConnectDevice: () -> Unit = {},
   onNavHubs: () -> Unit = {},
   onRefresh: () -> Unit = {},
@@ -126,6 +127,7 @@ internal fun ContentHost(
             onOpenRoutines = onOpenRoutines,
             onUndoResponse = onUndoResponse,
             onDismissReceipt = onDismissReceipt,
+            onDone = onDone,
             listState = feedListState,
           )
         }
