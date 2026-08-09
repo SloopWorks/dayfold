@@ -3,9 +3,14 @@
   "private": true,
   "version": "0.0.0-M0",
   "description": "dayfold monorepo (Dayfold / Sloopworks) (M0). specs/ = source of truth; code under packages/ + apps/.",
-  "repository": { "type": "git", "url": "git+https://github.com/SloopWorks/dayfold.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SloopWorks/dayfold.git"
+  },
   "homepage": "https://github.com/SloopWorks/dayfold#readme",
-  "bugs": { "url": "https://github.com/SloopWorks/dayfold/issues" },
+  "bugs": {
+    "url": "https://github.com/SloopWorks/dayfold/issues"
+  },
   "workspaces": [
     "packages/*",
     "apps/api"
@@ -16,5 +21,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@sloopworks/swip-js": "0.5.1",
+    "@sloopworks/swip-schema-dayfold": "1.0.3",
+    "@sloopworks/swip-sentry": "0.2.3"
   }
 }
