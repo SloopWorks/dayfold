@@ -1,0 +1,36 @@
+# Shipyard project config for dayfold (ADR-governed repo — see CLAUDE.md).
+# NOTE: `context/` maps to kind `spec` as a workaround: shipyard has no
+# `context` doc kind yet (shipyard-core WI-29 / G1 of the onboarding spec).
+# When that lands, remap to `context` so governance renders whole+first.
+
+context_budget_tokens: 24000
+
+doc_dirs:
+  specs: spec
+  adr: adr
+  processes: prompt          # agent dev-loop/process docs render whole, never truncated
+  designs: design_html
+  research: report
+  context: spec              # G1 workaround (see header)
+  docs/superpowers/specs: spec
+
+constraints:
+  - "Dayfold is ADR-governed: adr/ decisions are immutable; scope/pricing/legal/child-data/external-action changes are operator-gated (CLAUDE.md hard guardrails). Never widen scope beyond the WI."
+  - "Server is content-blind (ADR 0015/0017): no server-side parsing of family content; intelligence is author-side, safety render-side."
+  - "Calendar data is device-local only (ADR 0063): raw calendar events, identifiers, account names, fingerprints, selections, and match decisions must NEVER enter sync payloads, server APIs, logs, analytics, bug reports, or crash/error payloads. Tests must prove this for any calendar-touching change."
+  - "Build/test (fixed toolchain — do not re-derive): JDK17 via JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home; from apps/ run `./gradlew :client:desktopTest` (logic) and `./gradlew :ui:desktopTest` (Compose+snapshots). Kotlin 2.3.20, Gradle 9.4.1, redux-kotlin 1.0.0-alpha05. Read processes/agent-dev-loop.md before touching apps/client, apps/ui, apps/androidApp, or iOS."
+  - "redux-kotlin rules: one SelectorStore per Compose root via rememberSelectorStore(rawStore); use store.selectorState{}/fieldState(); never escape to raw StableStore.value; keyed selector overload for projections capturing changing Compose values; Compose hosts pass DayfoldCommandPort."
+  - "State changes flow through actions+reducers in :client commonMain; engines (NowEngine/SyncEngine/HubEngine pattern) own effects (ADR 0058 effect-ownership); UI dispatches, never mutates."
+  - "Testing bar: TDD for reducers/engines/matching logic in :client desktopTest; snapshot scenes for new UI surfaces (SnapshotScenes.kt + goldens, re-record macos AND linux sets); do NOT over-test — no tests for trivial passthroughs, no UI tests duplicating snapshot coverage. JUnit gotcha: `runBlocking<Unit>` or the test silently doesn't run; verify test COUNTS, not just BUILD SUCCESSFUL."
+  - "Git: branch from latest origin/main; never work on main. Verify claims with command output before reporting done."
+  - "Kids: adults-only accounts (COPPA guardrail); children appear only as subjects in parents' data."
+
+protected_paths:
+  - "adr/*"
+  - "context/*"
+  - "CLAUDE.md"
+  - "apps/api/migrations/*"
+
+merge:
+  remote: origin
+  branch: main

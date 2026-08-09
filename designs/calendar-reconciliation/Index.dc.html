@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  a { color: #7A2615; } a:hover { color: #C0381E; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:48px;background:#E9DDD7;font-family:'Figtree',sans-serif;">
+
+  <div style="margin-bottom:38px;max-width:940px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap;">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Index</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Calendar Check · ADR 0063 design gate</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;color:#271814;margin:0 0 10px;">Calendar Check — compare, review, decide</h1>
+    <p style="font-family:'Figtree';font-size:15.5px;line-height:1.55;color:#5A423C;margin:0 0 16px;max-width:95ch;">Dayfold compares structured Dayfold plans with calendars already on this phone — <b>per member, per device, on the device</b>. The calendar stays the schedule and owns generic event alerts; Dayfold owns selective preparation and curated Hubs. Nothing is ever written in either direction without an explicit confirmation: Dayfold&nbsp;→&nbsp;Calendar goes through the platform's <b>native event editor</b>, and Calendar&nbsp;→&nbsp;Dayfold is a <b>reviewed, field-by-field import</b> that starts private. Gaps collect into <b>one calm review</b> — never a notification, badge, or nag.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;padding:5px 11px;border-radius:999px;">Compared on this phone</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#00504B;background:#D8F5EE;padding:5px 11px;border-radius:999px;">Calendar stays canonical</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#4C2092;background:#EFE4FB;padding:5px 11px;border-radius:999px;">Every write user-confirmed</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;color:#5A423C;background:#F3E0DA;padding:5px 11px;border-radius:999px;">Light + dark · all 34 states</span>
+    </div>
+  </div>
+
+  <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="7">
+    <div style="margin-bottom:52px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">{{ sec.num }}</span>
+        <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">{{ sec.kick }}</span>
+      </div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:27px;letter-spacing:-0.015em;color:#271814;margin:0 0 6px;">{{ sec.title }}</h2>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:88ch;">{{ sec.desc }}</p>
+      <div style="display:flex;gap:36px;align-items:flex-start;">
+        <sc-for list="{{ sec.frames }}" as="f" hint-placeholder-count="4">
+          <div style="flex:none;width:390px;">
+            <div style="margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:#271814;">{{ f.title }}</span>
+                <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.stFg }};background:{{ f.stBg }};border-radius:999px;padding:3px 9px;">{{ f.stLabel }}</span>
+                <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.modeFg }};background:{{ f.modeBg }};border-radius:999px;padding:3px 9px;">{{ f.modeLabel }}</span>
+              </div>
+              <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:#8C726B;">{{ f.note }}</div>
+            </div>
+            <sc-if value="{{ f.isCK }}" hint-placeholder-val="{{ true }}"><dc-import name="Calendar-Check-Phone" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import></sc-if>
+            <sc-if value="{{ f.isPS }}" hint-placeholder-val="{{ false }}"><dc-import name="Permissions-and-Settings" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import></sc-if>
+            <sc-if value="{{ f.isNH }}" hint-placeholder-val="{{ false }}"><dc-import name="Native-Handoff" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import></sc-if>
+            <sc-if value="{{ f.isRV }}" hint-placeholder-val="{{ false }}"><dc-import name="Review" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import></sc-if>
+            <sc-if value="{{ f.isIM }}" hint-placeholder-val="{{ false }}"><dc-import name="Import" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+
+  <div style="max-width:940px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
+    <span class="msr" style="font-size:22px;color:#6438AE;margin-top:1px;">verified_user</span>
+    <div style="font-family:'Figtree';font-size:13.5px;line-height:1.55;color:#5A423C;">OS permission dialogs and the Android/iOS event editors are mocked as <b>clearly labelled OS-owned surfaces</b> (dashed badges) — never imitated as Dayfold components, and no fake in-app grant exists. All names, events and calendars are invented; no real user data appears. <b>NOTES.md</b> carries the 34-state coverage matrix, M3&nbsp;→&nbsp;Compose mapping, motion &amp; accessibility notes, and open design questions. Per ADR 0008 this gallery gates deeper planning until operator sign-off.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const L = { mode:'light', modeLabel:'Light', modeFg:'#5A423C', modeBg:'#F3E0DA' };
+    const D = { mode:'dark', modeLabel:'Dark', modeFg:'#D3BBFF', modeBg:'#2A1F3D' };
+    const st = {
+      dayfold: { stLabel:'Dayfold', stFg:'#7A2615', stBg:'#FCEBE6' },
+      os:      { stLabel:'OS-owned', stFg:'#0F5B4E', stBg:'#DDF2EB' },
+    };
+    // defs: [title, dc, view, 'dayfold'|'os', stateNums, note]
+    const mk = (defs) => defs.flatMap(([title, dc, view, kind, note]) => {
+      const s = st[kind];
+      const flags = { isCK: dc === 'Calendar-Check-Phone', isPS: dc === 'Permissions-and-Settings', isNH: dc === 'Native-Handoff', isRV: dc === 'Review', isIM: dc === 'Import' };
+      return [ { title, view, note, ...flags, ...s, ...L }, { title, view, note, ...flags, ...s, ...D } ];
+    });
+    const CK = 'Calendar-Check-Phone', PS = 'Permissions-and-Settings', NH = 'Native-Handoff', RV = 'Review', IM = 'Import';
+    const sections = [
+      { num:'A', kick:'Entry · the Now feed', title:'One calm unit, never a wall of cards',
+        desc:'§12–15 · Gaps collapse into a single aggregate "Calendar check" card that appears only when there is something to review — at most three quiet preview rows and one Review action. All-clear is a compact footer line, not a celebration; offline never claims a fresh all-clear.',
+        frames: mk([
+          ['Two gaps','' + CK,'now-two-gaps','dayfold','§12 · One Dayfold-only and one calendar-only preview in one calm unit. No urgency color, no badge.'],
+          ['Busy horizon','' + CK,'now-busy','dayfold','§13 · Five gaps collapse behind "Review 5" — three previews + "2 more, waiting quietly".'],
+          ['All clear','' + CK,'now-all-clear','dayfold','§14 · No prominent card. A quiet feed footer notes the morning’s check — correctness is not a celebration loop.'],
+          ['Offline','' + CK,'now-offline','dayfold','§15 · Known items remain; the footer names the last successful check instead of claiming a stale "all clear".'],
+        ]) },
+      { num:'B', kick:'Setup · progressive permission', title:'A value primer first, the OS ceremony second',
+        desc:'§1–6 · Calendar Check is off by default and never requested at startup, sign-in, or on viewing a dated Hub. A primer explains exactly what is compared and what stays local; "Not now" is a full-strength peer. The chooser defaults to nothing selected, groups by masked account, and denied/empty states stay warm with no nagging.',
+        frames: mk([
+          ['Settings — off','' + PS,'settings-off','dayfold','§1 · Feature summary + "Compared on this phone". Add-to-calendar is independent and says so.'],
+          ['Read-access primer','' + PS,'primer','dayfold','§2 · What is compared, what stays local, calendars-you-pick — with equal-weight "Not now".'],
+          ['OS permission — Android','' + PS,'os-permission-android','os','§3 · READ_CALENDAR runtime dialog, dash-labelled OS-owned. Never faked as a Dayfold grant.'],
+          ['OS permission — iOS','' + PS,'os-permission-ios','os','§3 · EventKit full-access alert with honest usage string. OS-owned, dash-labelled.'],
+          ['Calendar chooser','' + PS,'chooser','dayfold','§4 · Grouped by masked account, color as a small dot only, none pre-selected; Continue names the deliberate count.'],
+          ['Denied / revoked','' + PS,'denied','dayfold','§5 · Warm fallback: add-to-calendar still works, OS-settings route offered once, "Keep it off" is respected.'],
+          ['No calendars','' + PS,'no-calendars','dayfold','§6 · Empty account, work-profile restriction, provider outage — honest list, no broken primary action.'],
+        ]) },
+      { num:'C', kick:'Dayfold → Calendar', title:'Native handoff — the OS keeps the pen',
+        desc:'§7–11 · An eligible Hub gets a quiet "Add to calendar". Dayfold shows exactly what it will prefill (no guests, no reminder), then the platform’s own editor owns destination calendar and save/cancel. On return Dayfold rescans — "Added" is claimed only after the event is actually observed, never because the editor opened.',
+        frames: mk([
+          ['Eligible Hub','' + NH,'hub-action','dayfold','§7 · Quiet outlined action on the date card — only content with an explicit structured date/time gets it.'],
+          ['Prefill review','' + NH,'prefill','dayfold','§8 · Title, time, timezone, location, notes. Missing end time is visibly incomplete; no attendee or reminder field exists.'],
+          ['Android editor','' + NH,'android-editor','os','§9 · Prefilled ACTION_INSERT form. The Calendar app owns calendar choice and Save — dash-labelled OS surface.'],
+          ['iOS editor','' + NH,'ios-editor','os','§10 · EventKitUI sheet, same product truth in platform-accurate language.'],
+          ['Return — checking','' + NH,'return-checking','dayfold','§11a · Rescan before any claim.'],
+          ['Return — added','' + NH,'return-added','dayfold','§11b · Confirmed by observation; match linked; Calendar owns event alerts.'],
+          ['Return — canceled','' + NH,'return-canceled','dayfold','§11c · Editor closed without saving — no guilt, Hub unchanged.'],
+          ['Return — permission changed','' + NH,'return-permission-changed','dayfold','§11d · Access revoked while away; honest about what can’t be confirmed.'],
+          ['Return — unconfirmed','' + NH,'return-unconfirmed','dayfold','§11e · "We couldn’t confirm it — check again." Opening the editor never counts as added.'],
+        ]) },
+      { num:'D', kick:'The review list', title:'Compare and choose — no silent winner',
+        desc:'§16–22 · The dedicated review screen holds the detail. Dayfold-only and calendar-only rows carry their three honest actions; suggested matches show evidence with nothing pre-selected; conflicting details are decided field by field; recurring events state the one-occurrence limitation; ignores are local, explained, and undoable.',
+        frames: mk([
+          ['Review list','' + RV,'list','dayfold','§16–17 · Dayfold-only row (Add to calendar · Ignore · Open Hub) and calendar-only row (Keep calendar-only · Add to a Hub · propose new Hub).'],
+          ['Suggested match','' + RV,'suggested-match','dayfold','§18 · Paired tonal containers + evidence list. Confirm match and Keep separate are equal peers — never auto-selected.'],
+          ['Ambiguous match','' + RV,'ambiguous','dayfold','§19 · Two plausible candidates, nothing pre-picked, tertiary (not error) uncertainty; "Leave unresolved" is safe.'],
+          ['Details differ','' + RV,'details-differ','dayfold','§20 · Field-level compare: keep Dayfold’s, use Calendar’s, or leave both — per field, with the write path named.'],
+          ['Recurring event','' + RV,'recurring','dayfold','§21 · Honest Phase-1 limit: review this occurrence or keep the series calendar-only. No implied series sync.'],
+          ['Ignored locally','' + RV,'ignored','dayfold','§22 · Undo per item + "this phone only" explanation. No family-visible signal.'],
+        ]) },
+      { num:'E', kick:'Calendar → Dayfold', title:'A reviewed import, not calendar sync',
+        desc:'§23–27 · Destination first (only Hubs you may contribute to, or a new private Hub), then an explicit field checklist — description, guests, meeting links, organizer, account and reminders stay in the calendar by default. Audience is named before the write: a new Hub starts Only me; an existing Hub’s wider audience is warned about. Apply is never automatic, and every failure ends in an honest next action.',
+        frames: mk([
+          ['Choose destination','' + IM,'destination','dayfold','§23 · New private Hub, or Contributor/Co-owner Hubs only — Viewer hubs are absent, and the absence is explained.'],
+          ['Field preview','' + IM,'fields','dayfold','§24 · Default-on: title, date/time, timezone, location. Default-off list is explicit; the sync consequence is stated honestly.'],
+          ['Audience — new Hub','' + IM,'audience-new','dayfold','§25a · Only me is the default; Family is an explicit, named choice.'],
+          ['Audience — existing Hub','' + IM,'audience-existing','dayfold','§25b · Inherited audience named person-by-person, with a wider-than-calendar warning before anything is written.'],
+          ['Review & confirm','' + IM,'confirm','dayfold','§26 · Calendar provenance chip, field count, audience, "Calendar remains the schedule". Nothing applies until the tap.'],
+          ['Apply — saving','' + IM,'apply-saving','dayfold','§27a · Optimistic-write vocabulary from the two-way spec.'],
+          ['Apply — saved','' + IM,'apply-saved','dayfold','§27b · Open Hub + share later; the local binding is noted.'],
+          ['Apply — offline queued','' + IM,'apply-offline','dayfold','§27c · Queued honestly; re-review promised if the source changes first.'],
+          ['Apply — permission lost','' + IM,'apply-permission-lost','dayfold','§27d · Can’t re-check the source, so the import holds instead of guessing.'],
+          ['Apply — role denied','' + IM,'apply-role-denied','dayfold','§27e · Contributor role revoked mid-review; the review is kept, destination re-chosen.'],
+          ['Apply — source changed','' + IM,'apply-source-changed','dayfold','§27f · Event edited during review — re-read, diffed, re-confirmed. Never applied from a stale copy.'],
+          ['Apply — version conflict','' + IM,'apply-conflict','dayfold','§27g · Hub changed under the review — refresh and re-confirm, never a silent merge.'],
+        ]) },
+      { num:'F', kick:'Matched events · notifications', title:'Who says "starts soon" — legible, per match',
+        desc:'§28–30 · A matched event shows its calendar destination as a quiet dot, last-checked time, Open in Calendar and Unlink. The paired notification example shows the boundary: Calendar sends the generic start alert; Dayfold may still send a distinct preparation nudge — and promises nothing about other apps.',
+        frames: mk([
+          ['Matched summary','' + CK,'matched-summary','dayfold','§28 · Quiet calendar dot + destination, last checked on this phone, Open in Calendar, Unlink, alert-ownership line.'],
+          ['The paired example','' + CK,'notification-pair','os','§29 · "Soccer · 4:00 PM" (Calendar) vs "Soccer · two packing-list items left" (Dayfold) — one shade, two jobs, no global dedup promise.'],
+          ['Per-match override','' + CK,'alert-override','dayfold','§30 · Low-prominence radio: Calendar (default) / Dayfold. Explicitly controls only what Dayfold sends.'],
+        ]) },
+      { num:'G', kick:'Settings · reversibility', title:'On, changed, off, reset — without loss',
+        desc:'§31–34 · The on state shows included calendars, last local check, permission state, the alert default and the local-only promise. Removing a calendar returns its matches to review; turning off clears only local Calendar Check state; reset names exactly what is cleared and that reviews may reappear. Nothing external is ever deleted.',
+        frames: mk([
+          ['Settings — on','' + PS,'settings-on','dayfold','§31 · Included calendars with masked accounts, last check, alert ownership, reset & off.'],
+          ['Change calendars','' + PS,'change-calendars','dayfold','§32 · "Its matches go back to review" — explicitly not "events will be deleted".'],
+          ['Turn off','' + PS,'turn-off','dayfold','§33 · Stops comparing, clears local state, deletes nothing; add-to-calendar keeps working.'],
+          ['Reset local matches','' + PS,'reset','dayfold','§34 · Destructive confirm names the three cleared things, "this phone only", and that reviews may reappear.'],
+        ]) },
+    ];
+    return { sections };
+  }
+}
+</script>
+</body>
+</html>

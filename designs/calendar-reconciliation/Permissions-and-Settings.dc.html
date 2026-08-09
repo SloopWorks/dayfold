@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .cc-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ 1 · SETTINGS — OFF ============ -->
+  <sc-if value="{{ isOff }}" hint-placeholder-val="{{ true }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Calendar Check</span>
+      </div>
+      <div style="padding:8px 20px 26px;">
+        <div style="width:84px;height:84px;border-radius:26px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><span class="msr" style="font-size:42px;color:{{ c.onSecondaryContainer }};">event_available</span></div>
+        <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:6px 12px;border-radius:999px;margin-bottom:14px;"><span class="msr" style="font-size:15px;">toggle_off</span>Off</div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:26px;line-height:1.12;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 20px;">Check two lists before a busy week</h1>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+          <sc-for list="{{ offRows }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <span style="width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ r.fg }};">{{ r.icon }}</span></span>
+              <div style="flex:1;padding-top:1px;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};line-height:1.3;">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};line-height:1.4;">{{ r.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span class="msr fill" style="font-size:24px;color:{{ c.privacyIcon }};">phonelink_lock</span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.privacyFg }};">Compared on this phone</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.privacyFg }};opacity:0.82;line-height:1.4;">Just for you — your calendar details stay on this device.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:999px;background:{{ c.primary }};margin-bottom:12px;"><span class="msr" style="font-size:20px;color:{{ c.onPrimary }};">difference</span><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Set up Calendar Check</span></div>
+        <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;">"Add to calendar" on Hubs works without this.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 2 · READ-ACCESS PRIMER ============ -->
+  <sc-if value="{{ isPrimer }}" hint-placeholder-val="{{ false }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Calendar Check</span>
+      </div>
+      <div style="padding:10px 20px 8px;">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+          <span style="width:66px;height:66px;border-radius:22px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:32px;color:{{ c.onPrimaryContainer }};">event_note</span></span>
+          <span class="msr" style="font-size:24px;color:{{ c.onSurfaceVar }};">sync_alt</span>
+          <span style="width:66px;height:66px;border-radius:22px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:32px;color:{{ c.onSecondaryContainer }};">calendar_month</span></span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:26px;line-height:1.12;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">Compare with your calendar?</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">Dayfold reads events from calendars you pick.</p>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+          <sc-for list="{{ primerRows }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <span style="width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ r.fg }};">{{ r.icon }}</span></span>
+              <div style="flex:1;padding-top:1px;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};line-height:1.3;">{{ r.title }}</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};line-height:1.4;">{{ r.sub }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:{{ c.privacyBg }};border:1px solid {{ c.privacyBorder }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+          <span class="msr fill" style="font-size:24px;color:{{ c.privacyIcon }};">phonelink_lock</span>
+          <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.privacyFg }};line-height:1.4;">Your calendar details stay on this device</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px 18px;border-radius:999px;">Not now</span>
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px 18px;border-radius:999px;">Continue</span>
+      </div>
+      <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:9px;">Your phone will ask for calendar access next.</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 3 · OS PERMISSION — ANDROID ============ -->
+  <sc-if value="{{ isOsAndroid }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 20px;opacity:0.45;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 2px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Calendar Check</span></div>
+      <div style="height:120px;border-radius:22px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:200px;border-radius:22px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:32px;right:32px;top:270px;z-index:6;background:{{ osA.dialogBg }};border-radius:28px;padding:24px 24px 14px;box-shadow:0 12px 44px rgba(0,0,0,0.3);font-family:'Roboto','Figtree',sans-serif;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;"><span class="msr" style="font-size:26px;color:{{ osA.accent }};">calendar_month</span></div>
+      <div style="font-size:17px;font-weight:500;color:{{ osA.fg }};text-align:center;line-height:1.35;margin-bottom:22px;">Allow <b>Dayfold</b> to access your calendar?</div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <div style="text-align:center;padding:12px;border-radius:999px;background:{{ osA.btnBg }};font-size:14.5px;font-weight:600;color:{{ osA.btnFg }};">Allow</div>
+        <div style="text-align:center;padding:12px;font-size:14.5px;font-weight:600;color:{{ osA.accent }};">Don't allow</div>
+      </div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);top:222px;z-index:7;display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.annotFg }};background:{{ c.annotBg }};border:1.5px dashed {{ c.annotBorder }};border-radius:999px;padding:5px 12px;white-space:nowrap;">ANDROID SYSTEM DIALOG · OS-OWNED</div>
+  </sc-if>
+
+  <!-- ============ 3 · OS PERMISSION — IOS ============ -->
+  <sc-if value="{{ isOsIos }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 20px;opacity:0.45;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 2px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">close</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Calendar Check</span></div>
+      <div style="height:120px;border-radius:22px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:200px;border-radius:22px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:60px;right:60px;top:290px;z-index:6;background:{{ osI.dialogBg }};border-radius:16px;overflow:hidden;box-shadow:0 12px 44px rgba(0,0,0,0.3);font-family:-apple-system,'Helvetica Neue',sans-serif;backdrop-filter:blur(20px);">
+      <div style="padding:19px 18px 15px;text-align:center;">
+        <div style="font-size:16px;font-weight:600;color:{{ osI.fg }};line-height:1.3;margin-bottom:5px;">"Dayfold" Would Like Full Access to Your Calendar</div>
+        <div style="font-size:12.5px;color:{{ osI.fg }};line-height:1.4;opacity:0.85;">Dayfold compares your plans with calendars you choose, on this iPhone. Events are not uploaded.</div>
+      </div>
+      <div style="height:0.5px;background:{{ osI.divider }};"></div>
+      <div style="text-align:center;padding:12px;font-size:16.5px;color:{{ osI.blue }};">Don't Allow</div>
+      <div style="height:0.5px;background:{{ osI.divider }};"></div>
+      <div style="text-align:center;padding:12px;font-size:16.5px;font-weight:600;color:{{ osI.blue }};">Allow Full Access</div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);top:242px;z-index:7;display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.annotFg }};background:{{ c.annotBg }};border:1.5px dashed {{ c.annotBorder }};border-radius:999px;padding:5px 12px;white-space:nowrap;">IOS SYSTEM ALERT · OS-OWNED</div>
+  </sc-if>
+
+  <!-- ============ 4 · CALENDAR CHOOSER ============ -->
+  <sc-if value="{{ isChooser }}" hint-placeholder-val="{{ false }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Choose calendars</span>
+      </div>
+      <div style="padding:4px 20px 20px;">
+        <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 2px 18px;">Dayfold compares only the calendars you include.</p>
+        <sc-for list="{{ calGroups }}" as="g" hint-placeholder-count="2">
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin:0 4px 9px;">
+              <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">{{ g.icon }}</span>
+              <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">{{ g.label }}</span>
+            </div>
+            <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+              <sc-for list="{{ g.cals }}" as="cal" hint-placeholder-count="2">
+                <sc-if value="{{ cal.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+                <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+                  <span style="width:14px;height:14px;flex:0 0 14px;border-radius:999px;background:{{ cal.dot }};"></span>
+                  <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ cal.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ cal.included ? c.secondary : c.onSurfaceVar }};">{{ cal.state }}</div></div>
+                  <sc-if value="{{ cal.included }}" hint-placeholder-val="{{ true }}"><span style="width:26px;height:26px;border-radius:9px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:18px;color:{{ c.onPrimary }};">check</span></span></sc-if>
+                  <sc-if value="{{ cal.excluded }}" hint-placeholder-val="{{ false }}"><span style="width:26px;height:26px;border-radius:9px;border:2px solid {{ c.outline }};"></span></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">visibility_off</span>
+          <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Calendars you leave off are never read.</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:999px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Include 2 calendars</span></div>
+      <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:9px;">You can change this anytime in Settings.</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 5 · DENIED / REVOKED ============ -->
+  <sc-if value="{{ isDenied }}" hint-placeholder-val="{{ false }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Calendar Check</span>
+      </div>
+      <div style="padding:8px 20px 26px;">
+        <div style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.surfaceContainerHigh }};color:{{ c.onSurfaceVar }};padding:7px 13px;border-radius:999px;margin-bottom:20px;"><span class="msr" style="font-size:16px;">event_busy</span>Calendar access · off</div>
+        <div style="width:84px;height:84px;border-radius:26px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr" style="font-size:42px;color:{{ c.onSurfaceVar }};">pause_circle</span></div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:25px;line-height:1.14;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">Calendar Check is paused</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">Your phone isn't sharing calendars with Dayfold — and that's a fine way to leave it.</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:15px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:22px;">
+          <span class="msr" style="font-size:22px;color:{{ c.secondary }};margin-top:1px;">edit_calendar</span>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurface }};"><b>"Add to calendar" still works</b> — no read access needed.</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:999px;background:{{ c.secondaryContainer }};margin-bottom:10px;"><span class="msr" style="font-size:19px;color:{{ c.onSecondaryContainer }};">settings</span><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSecondaryContainer }};">Allow in phone settings</span></div>
+        <div style="text-align:center;"><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurfaceVar }};">Keep it off</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 6 · NO CALENDARS / RESTRICTED ============ -->
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Choose calendars</span>
+      </div>
+      <div style="padding:8px 20px 26px;">
+        <div style="width:84px;height:84px;border-radius:26px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><span class="msr" style="font-size:42px;color:{{ c.onSurfaceVar }};">calendar_month</span></div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:25px;line-height:1.14;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 8px;">No calendars to compare</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 18px;">This phone isn't showing any calendars Dayfold can read. Usually that means:</p>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:18px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">account_circle_off</span>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurface }};">No calendar account is syncing to this phone yet.</div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">work</span>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurface }};">A work profile keeps its calendars private — by design.</div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:13px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};margin-top:1px;">sync_problem</span>
+            <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurface }};">The calendar provider is temporarily unavailable — try again later.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;height:50px;border-radius:999px;border:1.5px solid {{ c.outlineVar }};"><span style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.secondary }};">Done for now</span></div>
+        <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:9px;">Calendar Check stays ready — nothing is broken.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 31 · SETTINGS — ON ============ -->
+  <sc-if value="{{ isOn }}" hint-placeholder-val="{{ false }}">
+    <div class="cc-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 8px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Calendar Check</span>
+      </div>
+      <div style="padding:8px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:40px;height:40px;border-radius:12px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.onSecondaryContainer }};">event_available</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Calendar Check</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.secondary }};">On · for you, on this phone</div></div>
+            <span style="width:50px;height:30px;border-radius:999px;background:{{ c.primary }};position:relative;flex:0 0 auto;"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:{{ c.onPrimary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:15px;color:{{ c.primary }};">check</span></span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid {{ c.outlineVar }};">
+            <span class="msr fill" style="font-size:17px;color:{{ c.privacyIcon }};">phonelink_lock</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Your calendar details stay on this device.</span>
+          </div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:14px 4px 9px;">CALENDARS INCLUDED</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:12px 14px;">
+            <span style="width:14px;height:14px;border-radius:999px;background:{{ dotSage }};"></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Family</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Google · p•••@gmail.com</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:12px 14px;">
+            <span style="width:14px;height:14px;border-radius:999px;background:{{ dotSlate }};"></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Personal</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Google · p•••@gmail.com</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:12px 14px;">
+            <span class="msr" style="font-size:20px;color:{{ c.primary }};">tune</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.primary }};">Change calendars</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">history</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Last check</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Today, 9:32 AM · on this phone</div></div>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">notifications</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Event-time alerts</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Calendar handles event alerts for matched events</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;">
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">restart_alt</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Reset local matches</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Clears matches and ignores on this phone</div></div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">toggle_off</span>
+            <div style="flex:1;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Turn off Calendar Check</div>
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 32 · CHANGE CALENDARS — remove sheet ============ -->
+  <sc-if value="{{ isChange }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.55;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Choose calendars</span></div>
+      <div style="height:150px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:100px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="width:14px;height:14px;border-radius:999px;background:{{ dotSage }};"></span><h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0;">Stop including Family?</h2></div>
+      <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">Its matches go back to review. <b>Nothing is deleted</b> — you can include it again anytime.</p>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Keep it</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Stop including</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 33 · TURN OFF ============ -->
+  <sc-if value="{{ isTurnOff }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.55;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Calendar Check</span></div>
+      <div style="height:150px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:100px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Turn off Calendar Check?</h2>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;"><span class="msr" style="font-size:18px;color:{{ c.secondary }};margin-top:1px;">check</span><span style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurface }};">Deletes nothing — calendar and Hubs stay as they are.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;"><span class="msr" style="font-size:18px;color:{{ c.secondary }};margin-top:1px;">check</span><span style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurface }};">"Add to calendar" keeps working.</span></div>
+      </div>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Cancel</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.primary }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onPrimary }};">Turn off</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 34 · RESET LOCAL MATCHES ============ -->
+  <sc-if value="{{ isReset }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.55;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Calendar Check</span></div>
+      <div style="height:150px;border-radius:18px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:100px;border-radius:18px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:22px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 8px;">Reset local matches?</h2>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 14px;">This clears, <b>on this phone only</b>:</p>
+      <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">link</span><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Confirmed matches between Dayfold and your calendar</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">visibility_off</span><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Items you chose to ignore</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">history</span><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Check history and alert-ownership choices</span></div>
+      </div>
+      <p style="font-family:'Figtree';font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 22px;">Reviewed items may reappear. Nothing is deleted anywhere.</p>
+      <div style="display:flex;gap:11px;">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.surfaceContainerHigh }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Cancel</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;height:52px;border-radius:16px;background:{{ c.errorContainer }};"><span style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onErrorContainer }};">Reset</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:8;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;settings-off&quot;,&quot;primer&quot;,&quot;os-permission-android&quot;,&quot;os-permission-ios&quot;,&quot;chooser&quot;,&quot;denied&quot;,&quot;no-calendars&quot;,&quot;settings-on&quot;,&quot;change-calendars&quot;,&quot;turn-off&quot;,&quot;reset&quot;],&quot;default&quot;:&quot;settings-off&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'settings-off';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA', surfaceContainerHighest:'#EDD9D2',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      error:'#BA1A1A', errorContainer:'#FFDAD6', onErrorContainer:'#410002',
+      scrim:'rgba(39,24,20,0.42)',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF', privacyBorder:'#BFE3DC', privacyIcon:'#00796F',
+      annotFg:'#5A423C', annotBg:'#FFF8F6', annotBorder:'#A98B84',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322D',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      error:'#FFB4AB', errorContainer:'#93000A', onErrorContainer:'#FFDAD6',
+      scrim:'rgba(0,0,0,0.55)',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D', privacyBorder:'#1E5048', privacyIcon:'#50DBC9',
+      annotFg:'#F0DFDA', annotBg:'#271D1A', annotBorder:'#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const osA = mode === 'dark'
+      ? { dialogBg:'#2A2B31', fg:'#E3E2E8', accent:'#A8C7FA', btnBg:'#A8C7FA', btnFg:'#0B305F' }
+      : { dialogBg:'#F0F0F6', fg:'#1B1B21', accent:'#0B57D0', btnBg:'#0B57D0', btnFg:'#FFFFFF' };
+    const osI = mode === 'dark'
+      ? { dialogBg:'rgba(44,44,46,0.97)', fg:'#FFFFFF', divider:'rgba(255,255,255,0.18)', blue:'#0A84FF' }
+      : { dialogBg:'rgba(247,247,247,0.98)', fg:'#000000', divider:'rgba(0,0,0,0.18)', blue:'#007AFF' };
+    const dotSage = '#7B9E6B', dotSlate = '#5B7DB1', dotAmber = '#B98A4A';
+    const offRows = [
+      { icon:'difference', bg:c.primaryContainer, fg:c.onPrimaryContainer, title:'Spot gaps both ways', sub:'In Dayfold but not on your calendar — or the reverse.' },
+      { icon:'checklist', bg:c.secondaryContainer, fg:c.onSecondaryContainer, title:'One calm review', sub:'Never a notification, badge, or nag.' },
+      { icon:'calendar_month', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, title:'Calendar stays in charge', sub:'It keeps the schedule and event alerts. Dayfold never writes by itself.' },
+    ];
+    const primerRows = [
+      { icon:'event', bg:c.primaryContainer, fg:c.onPrimaryContainer, title:'Reads titles, dates and times', sub:'Of upcoming events, on this phone.' },
+      { icon:'rule', bg:c.secondaryContainer, fg:c.onSecondaryContainer, title:'Shows what’s only in one place', sub:'Compared against your Dayfold plans.' },
+      { icon:'block', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, title:'Never changes anything itself', sub:'You confirm everything.' },
+    ];
+    const calGroups = [
+      { icon:'account_circle', label:'GOOGLE · P•••@GMAIL.COM', cals: [
+        { name:'Family', state:'Included', dot:dotSage, included:true, excluded:false, divider:false },
+        { name:'Personal', state:'Included', dot:dotSlate, included:true, excluded:false, divider:true },
+        { name:'Birthdays', state:'Not included', dot:dotAmber, included:false, excluded:true, divider:true },
+      ]},
+      { icon:'business_center', label:'WORK · MASKED ACCOUNT', cals: [
+        { name:'Work', state:'Not included', dot:'#8A8F98', included:false, excluded:true, divider:false },
+      ]},
+    ];
+    return {
+      c, osA, osI, dotSage, dotSlate,
+      isOff: view === 'settings-off',
+      isPrimer: view === 'primer',
+      isOsAndroid: view === 'os-permission-android',
+      isOsIos: view === 'os-permission-ios',
+      isChooser: view === 'chooser',
+      isDenied: view === 'denied',
+      isEmpty: view === 'no-calendars',
+      isOn: view === 'settings-on',
+      isChange: view === 'change-calendars',
+      isTurnOff: view === 'turn-off',
+      isReset: view === 'reset',
+      offRows, primerRows, calGroups,
+    };
+  }
+}
+</script>
+</body>
+</html>

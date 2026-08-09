@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .ck-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <sc-if value="{{ isNowOffline }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">signal_cellular_off</span></sc-if>
+      <sc-if value="{{ online }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ 12-15 · NOW FEED ============ -->
+  <sc-if value="{{ isNow }}" hint-placeholder-val="{{ true }}">
+    <div class="ck-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 22px 6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};">MONDAY · JUN 15</span>
+          <span style="width:34px;height:34px;border-radius:999px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">P</span>
+        </div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:31px;line-height:1.08;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 5px;">Good morning, Pat</h1>
+        <p style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};margin:0;">{{ nowSubtitle }}</p>
+      </div>
+
+      <sc-if value="{{ isNowOffline }}" hint-placeholder-val="{{ false }}">
+        <div style="margin:12px 16px 0;display:flex;align-items:center;gap:11px;background:{{ c.surfaceContainerHigh }};border-radius:14px;padding:11px 14px;">
+          <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">cloud_off</span>
+          <span style="font-family:'Figtree';font-size:13px;line-height:1.4;color:{{ c.onSurface }};"><b>You're offline.</b> Showing what was already gathered.</span>
+        </div>
+      </sc-if>
+
+      <div style="padding:14px 16px 26px;display:flex;flex-direction:column;gap:11px;">
+        <!-- aggregate Calendar Check unit -->
+        <sc-if value="{{ hasCheckCard }}" hint-placeholder-val="{{ true }}">
+          <div style="background:{{ c.surfaceContainer }};border-radius:26px;padding:17px 19px 15px;">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+              <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};">difference</span>
+              <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};">CALENDAR CHECK · ON THIS PHONE</span>
+            </div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:19px;line-height:1.18;color:{{ c.onSurface }};margin-bottom:12px;">{{ checkTitle }}</div>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;">
+              <sc-for list="{{ previewRows }}" as="r" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;background:{{ c.surface }};border-radius:13px;padding:10px 12px;">
+                  <span class="msr" style="font-size:17px;color:{{ r.fg }};">{{ r.icon }}</span>
+                  <span style="flex:1;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurface }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ hasMoreRow }}" hint-placeholder-val="{{ false }}">
+                <div style="font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};padding:2px 4px;">+ 2 more</div>
+              </sc-if>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:10px 18px;">{{ reviewLabel }}<span class="msr" style="font-size:17px;">arrow_forward</span></span>
+          </div>
+        </sc-if>
+
+        <!-- ordinary feed card for context -->
+        <div style="background:{{ c.surfaceContainer }};border-radius:26px;padding:17px 19px 15px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:11px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};padding:5px 11px 5px 9px;border-radius:999px;"><span class="msr" style="font-size:15px;">sports_soccer</span>Today 4:00 PM</span>
+          </div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:19px;line-height:1.18;color:{{ c.onSurface }};margin-bottom:4px;">Soccer — Leo</div>
+          <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">Two packing-list items still open — jersey and the orange slices.</div>
+        </div>
+
+        <!-- quiet row -->
+        <div style="display:flex;align-items:center;gap:13px;background:{{ c.surfaceContainerLow }};border-radius:16px;padding:12px 14px;">
+          <span style="width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">mail</span></span>
+          <div style="flex:1;min-width:0;"><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">School email needs an RSVP</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">By Thursday · from your email</div></div>
+          <span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+
+        <!-- all-clear / offline footer -->
+        <sc-if value="{{ hasFooter }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;justify-content:center;gap:7px;padding:16px 4px 2px;">
+            <span class="msr" style="font-size:15px;color:{{ footerFg }};">{{ footerIcon }}</span>
+            <span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ footerFg }};">{{ footerText }}</span>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 28 · MATCHED SUMMARY ============ -->
+  <sc-if value="{{ isMatched }}" hint-placeholder-val="{{ false }}">
+    <div class="ck-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 6px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Soccer — Leo</span>
+      </div>
+      <div style="padding:10px 20px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:44px;height:44px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'Figtree';font-size:9px;font-weight:700;letter-spacing:0.08em;color:{{ c.onPrimaryContainer }};">JUN</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onPrimaryContainer }};line-height:1;">20</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Saturday, June 20</div><div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">4:00 PM · Riverside Park</div></div>
+          </div>
+        </div>
+        <!-- quiet matched card -->
+        <div style="background:{{ c.surfaceContainerLow }};border:1px solid {{ c.outlineVar }};border-radius:20px;padding:15px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:10px;">
+            <span class="msr" style="font-size:19px;color:{{ c.secondary }};">event_available</span>
+            <span style="flex:1;font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">On your calendar</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;color:{{ c.onSurfaceVar }};"><span style="width:9px;height:9px;border-radius:999px;background:{{ dotSage }};"></span>Family</span>
+          </div>
+          <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-bottom:12px;">Last checked today, 9:32 AM · on this phone</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:8px 14px;"><span class="msr" style="font-size:15px;">open_in_new</span>Open in Calendar</span>
+            <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurfaceVar }};padding:8px 6px;">Unlink</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;margin-bottom:16px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">notifications</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Calendar handles the "starts soon" alert.</span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">GETTING READY · 1 OF 3</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:9px;"><span style="width:20px;height:20px;border-radius:7px;border:2px solid {{ c.outline }};"></span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">Wash the jersey</span></div>
+          <div style="display:flex;align-items:center;gap:12px;"><span style="width:20px;height:20px;border-radius:7px;border:2px solid {{ c.outline }};"></span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">Orange slices</span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 29 · NOTIFICATION PAIR ============ -->
+  <sc-if value="{{ isNotifPair }}" hint-placeholder-val="{{ false }}">
+    <div class="ck-scroll" style="flex:1;overflow-y:auto;background:{{ shadeBg }};">
+      <div style="padding:26px 20px 10px;text-align:center;">
+        <div style="font-family:'Outfit';font-weight:600;font-size:44px;color:{{ shadeClock }};letter-spacing:-0.02em;">3:30</div>
+        <div style="font-family:'Figtree';font-size:13.5px;color:{{ shadeClock }};opacity:0.75;">Saturday, June 20</div>
+      </div>
+      <div style="padding:14px 14px 20px;display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;justify-content:center;margin-bottom:2px;"><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.annotFg }};background:{{ c.annotBg }};border:1.5px dashed {{ c.annotBorder }};border-radius:999px;padding:5px 12px;">NOTIFICATION SHADE · TWO DIFFERENT JOBS</span></div>
+        <!-- Calendar's alert -->
+        <div style="background:{{ shadeCard }};border-radius:20px;padding:14px 16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <span style="width:18px;height:18px;border-radius:5px;background:{{ dotSlate }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:12px;color:#fff;">calendar_month</span></span>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ shadeMuted }};">Calendar · now</span>
+          </div>
+          <div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ shadeFg }};">Soccer · 4:00 PM</div>
+          <div style="font-family:'Figtree';font-size:12.5px;color:{{ shadeMuted }};">Riverside Park · in 30 minutes</div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ shadeMuted }};margin-top:8px;">← Calendar owns "starts soon"</div>
+        </div>
+        <!-- Dayfold's nudge -->
+        <div style="background:{{ shadeCard }};border-radius:20px;padding:14px 16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <span style="width:18px;height:18px;border-radius:5px;background:linear-gradient(143deg,#FF8A6E,#C0381E);"></span>
+            <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ shadeMuted }};">Dayfold · now</span>
+          </div>
+          <div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ shadeFg }};">Soccer · two packing-list items left</div>
+          <div style="font-family:'Figtree';font-size:12.5px;color:{{ shadeMuted }};">Jersey and orange slices · matched on your device</div>
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ shadeMuted }};margin-top:8px;">← Dayfold owns preparation nudges</div>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 30 · PER-MATCH ALERT OVERRIDE ============ -->
+  <sc-if value="{{ isOverride }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 18px;opacity:0.55;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 4px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span><span style="font-family:'Outfit';font-weight:600;font-size:20px;color:{{ c.onSurface }};">Soccer — Leo</span></div>
+      <div style="height:110px;border-radius:20px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:140px;border-radius:20px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 24px 30px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 18px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 6px;">Event-time alerts for this match</h2>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 0 16px;">Who reminds you when it's about to start.</p>
+      <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+          <span style="width:22px;height:22px;border-radius:999px;border:2px solid {{ c.primary }};background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:14px;color:{{ c.onPrimary }};">check</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Calendar <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:2px 8px;margin-left:4px;">Default</span></div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Your calendar app sends the alert.</div></div>
+        </div>
+        <div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;">
+          <span style="width:22px;height:22px;border-radius:999px;border:2px solid {{ c.outline }};"></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">Dayfold</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Dayfold sends it instead.</div></div>
+        </div>
+      </div>
+      <div style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};text-align:center;padding:0 4px;">Preparation nudges stay on either way.</div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:8;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;now-two-gaps&quot;,&quot;now-busy&quot;,&quot;now-all-clear&quot;,&quot;now-offline&quot;,&quot;matched-summary&quot;,&quot;notification-pair&quot;,&quot;alert-override&quot;],&quot;default&quot;:&quot;now-two-gaps&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'now-two-gaps';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      scrim:'rgba(39,24,20,0.42)',
+      annotFg:'#5A423C', annotBg:'#FFF8F6', annotBorder:'#A98B84',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      scrim:'rgba(0,0,0,0.55)',
+      annotFg:'#F0DFDA', annotBg:'#271D1A', annotBorder:'#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const dotSage = '#7B9E6B', dotSlate = '#5B7DB1';
+    const isNow = ['now-two-gaps','now-busy','now-all-clear','now-offline'].includes(view);
+    const twoRows = [
+      { icon:'web_stories', fg:c.primary, title:"Maya's dance recital · not on your calendar" },
+      { icon:'calendar_month', fg:c.onSurfaceVar, title:"Grandma's 80th lunch · calendar only" },
+    ];
+    const busyRows = twoRows.concat([
+      { icon:'calendar_month', fg:c.onSurfaceVar, title:'Beach house check-in · details differ' },
+    ]);
+    const nowCfg = {
+      'now-two-gaps': { sub:'Two things today, one small check', card:true, rows:twoRows, more:false,
+        title:'2 things to review', body:'',
+        review:'Review', footer:false },
+      'now-busy': { sub:'A busy stretch ahead — one calm review', card:true, rows:busyRows, more:true,
+        title:'5 things to review', body:'',
+        review:'Review 5', footer:false },
+      'now-all-clear': { sub:'Nothing’s pressing right now', card:false, rows:[], more:false, title:'', body:'', review:'',
+        footer:true, footerIcon:'event_available', footerText:'Calendar check: all clear · compared this morning on this phone', footerFg:c.onSurfaceVar },
+      'now-offline': { sub:'Showing what was already gathered', card:false, rows:[], more:false, title:'', body:'', review:'',
+        footer:true, footerIcon:'history', footerText:'Calendar check: last compared Tue 9:32 AM — can’t check right now', footerFg:c.onSurfaceVar },
+    };
+    const n = nowCfg[view] || nowCfg['now-two-gaps'];
+    return {
+      c, dotSage, dotSlate,
+      isNow,
+      online: view !== 'now-offline',
+      isNowOffline: view === 'now-offline',
+      nowSubtitle: n.sub,
+      hasCheckCard: isNow && n.card,
+      checkTitle: n.title, checkBody: n.body, reviewLabel: n.review,
+      previewRows: n.rows, hasMoreRow: n.more,
+      hasFooter: isNow && n.footer, footerIcon: n.footerIcon || '', footerText: n.footerText || '', footerFg: n.footerFg || c.onSurfaceVar,
+      isMatched: view === 'matched-summary',
+      isNotifPair: view === 'notification-pair',
+      isOverride: view === 'alert-override',
+      shadeBg: mode === 'dark' ? '#12100E' : '#3B322E',
+      shadeCard: mode === 'dark' ? 'rgba(255,255,255,0.09)' : 'rgba(255,248,246,0.94)',
+      shadeFg: mode === 'dark' ? '#F0DFDA' : '#271814',
+      shadeClock: '#F0DFDA',
+      shadeMuted: mode === 'dark' ? '#BFA9A2' : '#5A423C',
+    };
+  }
+}
+</script>
+</body>
+</html>
