@@ -231,8 +231,8 @@ and no DAG solver is needed.
 
 ### 3.2 Authorization is server-enforced, and already implemented
 
-Every one of the three routes runs `hubWriteGate(fid, hubId, caller)`
-(`apps/api/src/content/write-guard.ts`), which yields:
+The **section and block routes** run `hubWriteGate(fid, hubId, caller)`
+(`apps/api/src/content/write-guard.ts`) against the owning Hub, which yields:
 
 | Gate | HTTP | Meaning for the import |
 |---|---|---|
@@ -246,6 +246,21 @@ A member app credential already holds global `content:read/write/delete`
 role check — exactly the intent. **No new scope, no new authz code.** The
 client-side destination filter (§2.2) is a UX affordance; this gate is the
 boundary.
+
+`PUT /hubs/:id` deliberately does **not** run `hubWriteGate` — it runs
+`requireScope(cred, hub:<id>, "write")` plus its own visibility / author /
+`canManageHub` checks, because on a **create** there is no prior Hub to gate
+against. That asymmetry is safe here for two reasons, both of which the build
+WI must preserve:
+
+- the import only ever *creates* on this route (a brand-new client-minted
+  `hubId`), never rewrites an existing Hub, so the create-time defaults apply
+  and nothing can be declassified; and
+- `created_by` is stamped from the caller's JWT (`COALESCE`d, so set-once),
+  making the importer the author → implicit Co-owner, with the allow-list
+  reconciled inside the same transaction.
+
+The existing-Hub destination never touches this route at all (§2.2).
 
 ### 3.3 Idempotency — client-minted ids rooted at `proposalId`
 
