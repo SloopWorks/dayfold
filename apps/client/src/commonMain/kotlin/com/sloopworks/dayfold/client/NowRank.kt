@@ -40,6 +40,9 @@ data class RankedFeed(
   val later: List<RankedItem> = emptyList(),
   val overflow: List<RankedItem> = emptyList(),
   val caughtUp: Boolean = true,
+  // ADR 0063 §5 — the quiet all-clear/stale line shown when the Calendar Check reconciler has
+  // nothing to review (mutually exclusive with a CALENDAR_CHECK item appearing above).
+  val calendarCheckFooter: CalendarCheckFooter? = null,
 )
 
 data class RankConfig(

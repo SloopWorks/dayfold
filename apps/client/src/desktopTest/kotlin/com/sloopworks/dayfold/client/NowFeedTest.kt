@@ -173,4 +173,30 @@ class NowFeedTest {
     )
     assertEquals(nowFeed(s, now, null, zone), nowFeed(s, now, null, zone))
   }
+
+  // ── ADR 0063 §5 — the Calendar Check aggregate unit + all-clear/stale footer ──
+
+  private fun candidate(subjectKey: String, title: String) =
+    DayfoldEventCandidate(subjectKey, title, "2026-08-10T09:00:00Z", null, false, "UTC", null, "v1", null)
+
+  @Test fun `an unresolved Calendar Check surfaces exactly one aggregate unit, no footer`() {
+    val calendar = CalendarState(
+      check = CalendarCheckState(results = ReconcileResult(dayfoldOnly = listOf(candidate("hub:h1", "Dentist")))),
+    )
+    val feed = nowFeed(state().copy(calendar = calendar), now, null, zone)
+    val items = (feed.now + feed.soon + feed.later).map { it.item }
+    assertEquals(1, items.count { it.reasonKind == ReasonKind.CALENDAR_CHECK })
+    assertEquals(null, feed.calendarCheckFooter)
+  }
+
+  @Test fun `an all-clear Calendar Check produces no unit, only the footer`() {
+    val calendar = CalendarState(
+      settings = CalendarSettings(lastCheckAt = "2026-08-09T08:00:00Z"),
+      check = CalendarCheckState(results = ReconcileResult(), stale = false),
+    )
+    val feed = nowFeed(state().copy(calendar = calendar), now, null, zone)
+    val items = (feed.now + feed.soon + feed.later + feed.overflow).map { it.item }
+    assertTrue(items.none { it.reasonKind == ReasonKind.CALENDAR_CHECK })
+    assertEquals(CalendarCheckFooter(allClear = true, lastSuccessfulCheckAtIso = "2026-08-09T08:00:00Z", stale = false), feed.calendarCheckFooter)
+  }
 }

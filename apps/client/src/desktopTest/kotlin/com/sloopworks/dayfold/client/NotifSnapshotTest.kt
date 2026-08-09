@@ -57,6 +57,27 @@ class NotifSnapshotTest {
     assertEquals(listOf("card:c1"), plan.toPost.map { it.subjectKey })
   }
 
+  @Test fun `notifSnapshot carries only calendar-owned subjectKeys, not dayfold-owned ones`() {
+    val s = store()
+    seed(s)
+    val ts = "2026-06-30T00:00:00Z"
+    s.upsertCalendarBinding(
+      CalendarBinding(
+        subjectKey = "hub:h1", sourceVersion = "v1", notificationOwner = CalendarNotificationOwner.CALENDAR,
+        createdAt = ts, updatedAt = ts,
+      ),
+    )
+    s.upsertCalendarBinding(
+      CalendarBinding(
+        subjectKey = "hub:h2", sourceVersion = "v1", notificationOwner = CalendarNotificationOwner.DAYFOLD,
+        createdAt = ts, updatedAt = ts,
+      ),
+    )
+
+    val snap = s.notifSnapshot()
+    assertEquals(setOf("hub:h1"), snap.calendarOwnedSubjects)
+  }
+
   @Test fun `disabled config snapshot plans nothing`() {
     val s = store()
     seed(s)   // config never set → default-off

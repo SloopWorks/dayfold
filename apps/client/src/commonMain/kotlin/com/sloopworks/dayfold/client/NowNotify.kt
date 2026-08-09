@@ -28,6 +28,12 @@ data class NotifConfig(
   val dailyCap: Int = 3,
 )
 
+// ADR 0063 §7 — the derived reasonKinds that represent a generic "this event starts/is
+// approaching" alert: the ones a matched calendar event's own native alert would duplicate.
+// CHECKLIST/GEO (derived) and WEATHER/EMAIL/CLAUDE/EXTERNAL (authored) are semantically distinct
+// action-oriented items and are never in this set — Calendar ownership must not silence them too.
+val EVENT_START_REASON_KINDS: Set<String> = setOf(ReasonKind.COUNTDOWN, ReasonKind.MILESTONE, ReasonKind.WHEN)
+
 // A pure "today" view of the device-local notification_log (caller derives by local date, see
 // postedTodayCount). postedToday gates the cap; notifiedSubjects dedups within the day.
 data class NotifLedger(
@@ -49,6 +55,14 @@ data class NotifPlan(
  * second ranker, ADR 0044 rejects it). Urgent (NOW-band or geo-active) bypasses quiet-hours but still
  * counts against the daily cap (operator-ratified). Already-notified [ledger] subjects and
  * foreground-[suppressedSubjects] are excluded (no double-nag with the in-feed surfacing).
+ *
+ * [calendarOwnedSubjects] (ADR 0063 §7) suppresses ONLY the event-start/time candidate
+ * ([EVENT_START_REASON_KINDS]) for a subject whose calendar_binding.notification_owner is
+ * `calendar` — a semantically distinct candidate for the SAME subjectKey (an incomplete
+ * checklist, a weather qualification) still passes. This is deliberately a reasonKind filter,
+ * never a whole-subjectKey suppression set (that would also discard the distinct candidate).
+ * The CALENDAR_CHECK aggregate itself is never a notification candidate, full stop (ADR 0063 §5
+ * "never an interruption") — excluded unconditionally, not merely by virtue of its calm banding.
  */
 fun selectNotifications(
   feed: RankedFeed,
@@ -57,11 +71,15 @@ fun selectNotifications(
   config: NotifConfig,
   ledger: NotifLedger = NotifLedger(),
   suppressedSubjects: Set<String> = emptySet(),
+  calendarOwnedSubjects: Set<String> = emptySet(),
 ): NotifPlan {
   if (!config.enabled) return NotifPlan()
 
   val candidates = (feed.now + feed.soon).filter {
-    it.item.subjectKey !in ledger.notifiedSubjects && it.item.subjectKey !in suppressedSubjects
+    it.item.subjectKey !in ledger.notifiedSubjects &&
+      it.item.subjectKey !in suppressedSubjects &&
+      it.item.reasonKind != ReasonKind.CALENDAR_CHECK &&
+      !(it.item.subjectKey in calendarOwnedSubjects && it.item.reasonKind in EVENT_START_REASON_KINDS)
   }
   if (candidates.isEmpty()) return NotifPlan()
 

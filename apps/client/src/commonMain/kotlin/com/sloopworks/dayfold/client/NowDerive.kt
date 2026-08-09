@@ -28,6 +28,9 @@ object ReasonKind {
   const val CHECKLIST = "checklist"
   const val GEO = "geo"
   const val WHEN = "when"
+  // ADR 0063 §5 — the ONE aggregate Calendar Check unit. Never an event-start alert itself
+  // (NowNotify excludes this kind from selectNotifications outright).
+  const val CALENDAR_CHECK = "calendar_check"
   // authored provenances (Slice 6 maps Card.provenance.source onto these)
   const val WEATHER = "weather"
   const val EMAIL = "email"
@@ -58,7 +61,24 @@ data class NowItem(
   val geoActive: Boolean = false,       // computed once: within the geo radius right now
   val distanceM: Double? = null,        // computed once (meters)
   val authoredSource: String? = null,   // provenance for the authored chip (Slice 6)
+  // ADR 0063 §5 — set only on the CALENDAR_CHECK aggregate: total unresolved-item count and up
+  // to 3 preview rows. Null/empty for every other reasonKind.
+  val calendarCheckCount: Int? = null,
+  val calendarCheckPreviews: List<CalendarCheckPreview> = emptyList(),
 )
+
+// One preview row on the aggregate Calendar Check Now unit — a title plus which reconciliation
+// bucket it came from (ADR 0063 §4/§5). Rendering copy lives in :ui; this is just the label token.
+data class CalendarCheckPreview(val title: String, val gapKind: String)
+
+object CalendarGapKind {
+  const val DAYFOLD_ONLY = "dayfold_only"
+  const val CALENDAR_ONLY = "calendar_only"
+  const val SUGGESTED = "suggested"
+  const val AMBIGUOUS = "ambiguous"
+  const val DIFFERS = "differs"
+  const val RECURRING = "recurring"
+}
 
 data class DeriveConfig(
   val countdownWindowDays: Int = 14,    // surface a hub countdown within N days
@@ -71,6 +91,9 @@ data class DeriveConfig(
   val checklistWeight: Double = 0.50,
   val geoWeight: Double = 0.70,
   val whenWeight: Double = 0.65,
+  // Deliberately the lowest weight + never carries a triggerAtIso — ADR 0063 §5 "never an
+  // interruption": the aggregate unit gets no urgency boost and bands calm (LATER) by default.
+  val calendarCheckWeight: Double = 0.35,
 )
 
 fun deriveNow(

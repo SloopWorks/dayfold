@@ -27,6 +27,9 @@ data class NotifSnapshot(
   val surfacing: Map<String, SurfacingRecord> = emptyMap(),
   val config: NotifConfig = NotifConfig(),
   val log: List<NotifLogRow> = emptyList(),
+  // ADR 0063 §7 — subjectKeys whose calendar_binding.notification_owner is `calendar`; threaded
+  // straight into selectNotifications' event-start suppression, never re-derived here.
+  val calendarOwnedSubjects: Set<String> = emptySet(),
 )
 
 // Default foreground-suppression window: a subject shown in-feed within this window is NOT also
@@ -74,7 +77,7 @@ fun planBackgroundNotifications(
 
   val suppressed = foregroundSuppressedSubjects(snapshot.surfacing, nowIso, zone, suppressionWindow)
 
-  return selectNotifications(feed, nowIso, zone, snapshot.config, ledger, suppressed)
+  return selectNotifications(feed, nowIso, zone, snapshot.config, ledger, suppressed, snapshot.calendarOwnedSubjects)
 }
 
 // The worker's commonMain orchestration: plan → post → log. Holds NO Store. The platform actual builds

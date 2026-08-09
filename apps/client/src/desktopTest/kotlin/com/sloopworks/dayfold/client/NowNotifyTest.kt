@@ -16,9 +16,12 @@ import kotlinx.datetime.TimeZone
 class NowNotifyTest {
   private val zone = TimeZone.UTC
 
-  private fun item(id: String, subject: String = id, geo: Boolean = false, hub: String? = null, block: String? = null) =
+  private fun item(
+    id: String, subject: String = id, geo: Boolean = false, hub: String? = null, block: String? = null,
+    reasonKind: String = ReasonKind.WHEN,
+  ) =
     NowItem(
-      id = id, origin = Origin.DERIVED, reasonKind = ReasonKind.WHEN, title = id, why = id,
+      id = id, origin = Origin.DERIVED, reasonKind = reasonKind, title = id, why = id,
       subjectKey = subject, target = hub?.let { DeepLinkTarget(it, blockId = block) }, geoActive = geo,
     )
 
@@ -91,6 +94,70 @@ class NowNotifyTest {
       suppressedSubjects = setOf("hub:h1"),
     )
     assertTrue(plan.toPost.isEmpty())
+  }
+
+  // ── ADR 0063 §7 — Calendar-owned start-alert suppression ──
+
+  @Test fun `calendar-owned subject suppresses only the event-start candidate`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("start", subject = "hub:h1", reasonKind = ReasonKind.WHEN))), noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertTrue(plan.toPost.isEmpty())
+  }
+
+  @Test fun `a checklist candidate for the SAME subjectKey still passes the planner when that subject is calendar-owned`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("checklist", subject = "hub:h1", reasonKind = ReasonKind.CHECKLIST))), noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertEquals(listOf("checklist"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `a weather candidate for the SAME subjectKey still passes the planner when that subject is calendar-owned`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("weather", subject = "hub:h1", reasonKind = ReasonKind.WEATHER))), noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertEquals(listOf("weather"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `countdown and milestone start candidates are also suppressed for a calendar-owned subject`() {
+    val plan = selectNotifications(
+      feed(now = listOf(
+        item("countdown", subject = "hub:h1", reasonKind = ReasonKind.COUNTDOWN),
+        item("milestone", subject = "hub:h2", reasonKind = ReasonKind.MILESTONE),
+      )),
+      noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1", "hub:h2"),
+    )
+    assertTrue(plan.toPost.isEmpty())
+  }
+
+  @Test fun `SetNotificationOwner back to dayfold - an empty calendarOwnedSubjects set - restores the start candidate`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("start", subject = "hub:h1", reasonKind = ReasonKind.WHEN))), noon, zone, on,
+      calendarOwnedSubjects = emptySet(),
+    )
+    assertEquals(listOf("start"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `a calendar-owned subject does not affect an unrelated subject's start candidate`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("other", subject = "hub:h2", reasonKind = ReasonKind.WHEN))), noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertEquals(listOf("other"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `the CALENDAR_CHECK aggregate is never an OS-notification candidate, calendar-owned or not`() {
+    val plan = selectNotifications(
+      feed(now = listOf(item("agg", subject = CALENDAR_CHECK_SUBJECT_KEY, reasonKind = ReasonKind.CALENDAR_CHECK))),
+      noon, zone, on,
+    )
+    assertTrue(plan.toPost.isEmpty())
+    assertTrue(plan.held.isEmpty())
+    assertTrue(plan.capped.isEmpty())
   }
 
   @Test fun `nearestNPlaces returns the n closest by haversine`() {

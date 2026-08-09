@@ -762,6 +762,10 @@ class ContentStore(driver: SqlDriver) {
       surfacing = surfacing(),
       config = notifConfig(),
       log = notificationLog(),
+      calendarOwnedSubjects = allCalendarBindings()
+        .filter { it.notificationOwner == CalendarNotificationOwner.CALENDAR }
+        .map { it.subjectKey }
+        .toSet(),
     )
   }
 

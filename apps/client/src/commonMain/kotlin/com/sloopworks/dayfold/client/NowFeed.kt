@@ -50,13 +50,19 @@ fun nowFeed(
   // BackgroundNotify calls this same function, so a muted subject can never produce a
   // notification either. That is the worst form of the whack-a-mole this feature exists to
   // kill: the member explicitly said stop, and the phone buzzed anyway.
+  // ADR 0063 §5 — at most one aggregate Calendar Check unit, derived straight from the
+  // already-computed reconciler state (never re-reconciled here). Zero unresolved items produce
+  // no candidate at all — see calendarCheckFooter below for that case.
+  val calendarCheck = deriveCalendarCheckNow(state.calendar.check, deriveConfig)
+
   val candidates = ResponseRules.suppress(
-    derived + authored + authoredGeo,
+    derived + authored + authoredGeo + listOfNotNull(calendarCheck),
     state.responses.rules,
     state.session.session?.userId,
   )
 
-  return rank(candidates, nowIso, location, state.now.surfacing, zone, rankConfig)
+  val footer = calendarCheckFooter(state.calendar.check, state.calendar.settings.lastCheckAt)
+  return rank(candidates, nowIso, location, state.now.surfacing, zone, rankConfig).copy(calendarCheckFooter = footer)
 }
 
 // Foreground authored-geo lane (ADR 0049 Option A, #299): a visible card whose geo trigger the user
