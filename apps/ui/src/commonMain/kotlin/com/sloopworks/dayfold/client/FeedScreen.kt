@@ -54,7 +54,8 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), // ADR 0064 — APPENDED, not inserted: this list has positional call sites.
+  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
@@ -139,6 +140,67 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
           }
           // ADR 0043 Phase A — the merged derived + authored feed, ranked by the on-device engine.
           NowFeedList(nowFeedRanked, cardsById, onAction, Modifier.weight(1f), listState = listState)
+        }
+      }
+    }
+  }
+
+  // ADR 0064 — ONE sheet for both Now lanes. It lives here, not inside the card composables,
+  // because an authored card and a derived item render through different renderers but emit the
+  // same CardAction.Respond; mounting per-card would give the same subject two sheets.
+  state.responseSheet?.let { sheet ->
+    when (sheet.step) {
+      ResponseStep.SCOPE -> ResponseSheet(
+        sheet = sheet,
+        onVerb = onVerb,
+        onDismiss = onCloseSheet,
+        scopeContent = {
+          ResponseScopeStep(
+            sheet = sheet,
+            onScope = onScope,
+            onAudience = onAudience,
+            onOpenRoutines = onOpenRoutines,
+            onCommit = onCommitMute,
+          )
+        },
+      )
+      else -> ResponseSheet(sheet = sheet, onVerb = onVerb, onDismiss = onCloseSheet)
+    }
+  }
+
+  // The receipt: snackbar + Undo at act time (NOTES.md § Persistence contract).
+  state.responseReceipt?.let { receipt ->
+    ResponseReceiptBar(receipt, onUndo = onUndoResponse, onDismiss = onDismissReceipt)
+  }
+}
+
+/**
+ * ADR 0064 — the act-time receipt. A single-action bar, never two buttons: Undo is the only
+ * thing offered, and it works offline because the queued write has not left the device.
+ */
+@Composable
+private fun ResponseReceiptBar(receipt: ResponseReceipt, onUndo: () -> Unit, onDismiss: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    Surface(
+      shape = RoundedCornerShape(14.dp),
+      color = cs.inverseSurface,
+      modifier = Modifier.padding(14.dp).fillMaxWidth(),
+    ) {
+      Row(
+        Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          receipt.message,
+          style = MaterialTheme.typography.bodyMedium,
+          color = cs.inverseOnSurface,
+          modifier = Modifier.weight(1f),
+        )
+        if (receipt.undoable) {
+          TextButton(onClick = onUndo) { Text("Undo", color = cs.inversePrimary) }
+        } else {
+          TextButton(onClick = onDismiss) { Text("Dismiss", color = cs.inversePrimary) }
         }
       }
     }

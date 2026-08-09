@@ -88,16 +88,22 @@ fun verbRowsFor(surface: ResponseSurface): List<VerbRow> = buildList {
   }
 }
 
+/**
+ * One sheet, two steps. [scopeContent] is supplied by the host for the precision step rather
+ * than nested here, so the sheet stays free of the mute-commit wiring and the golden-snapshot
+ * registry can render either step standalone.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResponseSheet(
   sheet: ResponseSheetState,
   onVerb: (Verb) -> Unit,
   onDismiss: () -> Unit,
+  scopeContent: (@Composable () -> Unit)? = null,
 ) {
   val sheetState = rememberModalBottomSheetState()
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-    ResponseSheetContent(sheet, onVerb)
+    if (scopeContent != null) scopeContent() else ResponseSheetContent(sheet, onVerb)
   }
 }
 

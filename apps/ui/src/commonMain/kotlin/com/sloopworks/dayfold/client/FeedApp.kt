@@ -61,8 +61,80 @@ internal fun routeCardAction(
         commands.openHub(activeFamilyId, action.hubId, action.focusBlockId, destination)
       }
     }
+    // ADR 0064 — in-app, like OpenDetail: opening the sheet is pure navigation, so it goes to
+    // the store rather than the OS-handoff boundary.
+    is CardAction.Respond -> store.dispatch(
+      OpenResponseSheet(
+        subjectRef = action.subjectRef,
+        subjectTitle = action.subjectTitle,
+        reasonKind = action.reasonKind,
+        source = action.source,
+        surface = ResponseSurface.NOW,
+        step = if (action.atScope) ResponseStep.SCOPE else ResponseStep.VERBS,
+      ),
+    )
     else -> platformActions.perform(action)
   }
+}
+
+/**
+ * ADR 0064 — turn a tapped verb into the effect it names.
+ *
+ * Extracted non-Composable so the mapping is unit-testable: the sheet must not decide what a
+ * verb means, and getting "Mark done" wrong is not something a snapshot would catch.
+ */
+internal fun routeResponseVerb(
+  dispatch: (Any) -> Unit,
+  commands: DayfoldCommandPort,
+  activeFamilyId: String?,
+  sheet: ResponseSheetState,
+  verb: Verb,
+) {
+  when (verb) {
+    // Completion, not dismissal — family-wide on the subject (§5).
+    Verb.DONE -> {
+      commands.markDone(sheet.subjectRef, sheet.subjectTitle, null)
+      dispatch(CloseResponseSheet)
+    }
+    // W5 hide stays device-local and is NOT a response row; reuse the shipped command.
+    Verb.HIDE -> {
+      val blockId = SubjectRef.blockIdOf(sheet.subjectRef)
+      if (activeFamilyId != null && blockId != null) commands.hideBlock(activeFamilyId, blockId)
+      dispatch(CloseResponseSheet)
+    }
+    // The mute needs its precision step before anything is written.
+    Verb.MUTE -> dispatch(ResponseStepScope)
+    // One action, two effects: the W4 delete first, then the subject-scoped rule (GAP 3).
+    Verb.DELETE_AND_MUTE -> {
+      if (activeFamilyId != null) {
+        SubjectRef.blockIdOf(sheet.subjectRef)?.let { commands.deleteBlock(activeFamilyId, it) }
+      }
+      commands.mute(
+        sheet.subjectRef, MatchScope.SUBJECT, AudienceScope.FAMILY,
+        sheet.subjectTitle, sheet.source,
+      )
+      dispatch(CloseResponseSheet)
+    }
+  }
+}
+
+/** Commit the mute the scope step composed, then close. */
+internal fun commitResponseMute(
+  dispatch: (Any) -> Unit,
+  commands: DayfoldCommandPort,
+  sheet: ResponseSheetState,
+) {
+  val subjectRef = when (sheet.pendingMatchScope) {
+    MatchScope.KIND -> SubjectRef.kind(sheet.reasonKind)
+    MatchScope.SOURCE -> SubjectRef.source(sheet.source ?: sheet.reasonKind)
+    MatchScope.SUBJECT -> sheet.subjectRef
+  }
+  val label = when (sheet.pendingMatchScope) {
+    MatchScope.SUBJECT -> sheet.subjectTitle
+    else -> "${sheet.reasonKind.replaceFirstChar { it.uppercase() }} cards"
+  }
+  commands.mute(subjectRef, sheet.pendingMatchScope, sheet.pendingAudience, label, sheet.source)
+  dispatch(CloseResponseSheet)
 }
 
 // f(store.state) -> UI through narrow redux-kotlin-compose projections. The shell observes
@@ -195,6 +267,25 @@ fun FeedApp(
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
             onNowShown = commands::nowShown,
+            // ADR 0064 — the shell owns the response effects, so ContentHost/FeedScreen stay
+            // render-only. The sheet state is read back from the store, not held locally.
+            onVerb = { verb ->
+              store.state.responses.sheet?.let { sheet ->
+                routeResponseVerb({ store.dispatch(it) }, commands, shell.activeFamilyId, sheet, verb)
+              }
+            },
+            onCloseSheet = { store.dispatch(CloseResponseSheet) },
+            onScope = { store.dispatch(SetResponseMatchScope(it)) },
+            onAudience = { store.dispatch(SetResponseAudience(it)) },
+            onCommitMute = {
+              store.state.responses.sheet?.let { commitResponseMute({ a -> store.dispatch(a) }, commands, it) }
+            },
+            onOpenRoutines = {
+              store.dispatch(CloseResponseSheet)
+              store.dispatch(OpenSmartBriefings)
+            },
+            onUndoResponse = commands::undoLastResponse,
+            onDismissReceipt = { store.dispatch(ResponseReceiptDismissed) },
             feedListState = feedListState,
           )
         },

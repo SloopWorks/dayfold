@@ -18,6 +18,12 @@ data class FeedViewState(
   val avatarRef: String?,
   val nowContent: NowContent,
   val surfacing: Map<String, SurfacingRecord>,
+  // ADR 0064 — the open response sheet + the rules the derived lane is suppressed by. Both are
+  // read here so the feed host can mount ONE sheet for both Now lanes.
+  val responseSheet: ResponseSheetState?,
+  val responseRules: List<ContentResponse>,
+  val responseReceipt: ResponseReceipt?,
+  val viewerUserId: String?,
 )
 
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
@@ -31,6 +37,10 @@ fun feedViewState(state: AppState): FeedViewState = FeedViewState(
   avatarRef = state.profile.avatarRef,
   nowContent = state.now.content,
   surfacing = state.now.surfacing,
+  responseSheet = state.responses.sheet,
+  responseRules = state.responses.rules,
+  responseReceipt = state.responses.lastReceipt,
+  viewerUserId = state.session.session?.userId,
 )
 
 /** Small input used to memoize ranking away from store notification delivery. */
@@ -38,6 +48,10 @@ internal fun FeedViewState.rankingState(): AppState = AppState(
   content = ContentState(cards = cards),
   hubs = HubState(hubs = hubs),
   now = NowState(content = nowContent, surfacing = surfacing),
+  // ADR 0064 — nowFeed() suppresses against these; omitting them here would silently render a
+  // muted subject, since the ranker only sees what this projection carries.
+  responses = ResponseState(rules = responseRules),
+  session = SessionState(session = viewerUserId?.let { Session("", "", userId = it) }),
 )
 
 @Immutable

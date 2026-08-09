@@ -31,4 +31,22 @@ object SubjectRef {
   fun kind(kind: String): String = "kind:$kind"
 
   fun source(source: String): String = "source:$source"
+
+  /**
+   * The block id inside a node ref, or null when the subject is not a block (a card, a hub
+   * countdown, a class rule). Hide (W5) and delete (W4) both act on a BLOCK id, so a caller
+   * needs this to know whether those verbs even apply to the subject in hand.
+   *
+   * Last marker wins, matching the parser: ids may contain '/' and ':'.
+   */
+  fun blockIdOf(subjectRef: String): String? {
+    val marker = "/block:"
+    val at = subjectRef.lastIndexOf(marker)
+    if (at == -1) return null
+    return subjectRef.substring(at + marker.length).ifEmpty { null }
+  }
+
+  /** The card id inside a card ref, or null for any other form. */
+  fun cardIdOf(subjectRef: String): String? =
+    if (subjectRef.startsWith("card:")) subjectRef.removePrefix("card:").ifEmpty { null } else null
 }
