@@ -56,7 +56,10 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), // ADR 0064 — APPENDED, not inserted: this list has positional call sites.
-  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}, onDone: (String?) -> Unit = {}) {
+  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}, onDone: (String?) -> Unit = {},
+  // WI-446 (ADR 0063 §5) — APPENDED, not inserted (mirrors the ADR 0064 comment above): the
+  // aggregate Calendar Check card's "Review" tap. Deferred navigation, see NowFeedList's doc.
+  onOpenCalendarReview: () -> Unit = {}) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
@@ -140,7 +143,7 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
             Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) { RefreshErrorBanner(onRefresh) }
           }
           // ADR 0043 Phase A — the merged derived + authored feed, ranked by the on-device engine.
-          NowFeedList(nowFeedRanked, cardsById, onAction, Modifier.weight(1f), listState = listState)
+          NowFeedList(nowFeedRanked, cardsById, onAction, Modifier.weight(1f), listState = listState, onOpenCalendarReview = onOpenCalendarReview)
         }
       }
     }

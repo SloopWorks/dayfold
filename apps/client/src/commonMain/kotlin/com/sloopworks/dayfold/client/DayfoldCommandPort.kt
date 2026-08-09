@@ -65,4 +65,14 @@ interface DayfoldCommandPort {
   fun resetLocalCalendarMatches()
   fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner)
   fun openCalendarEventEditor(prefill: EventPrefill)
+  // WI-446 (ADR 0063 §4/§5) — the review-flow verbs over an in-progress CalendarCheckState.check
+  // pass. confirmCalendarMatch/resolveAmbiguousCalendarMatch persist a binding (engine-owned);
+  // the rest are pure local review decisions (reducer-owned, dispatched directly).
+  fun confirmCalendarMatch(subjectKey: String, eventId: String)
+  fun keepCalendarSeparate(subjectKey: String)
+  fun resolveAmbiguousCalendarMatch(subjectKey: String, chosenEventId: String)
+  fun ignoreCalendarItem(itemKey: String)
+  fun undoCalendarIgnore()
+  fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution)
+  fun keepCalendarSeriesOnly(subjectKey: String)
 }

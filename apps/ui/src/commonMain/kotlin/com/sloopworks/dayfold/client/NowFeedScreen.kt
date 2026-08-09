@@ -46,6 +46,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.cards.TypedCardItem
+import com.sloopworks.dayfold.client.features.calendar.CalendarCheckFooterLine
+import com.sloopworks.dayfold.client.features.calendar.CalendarCheckNowCard
 
 // ADR 0043 Phase A — the merged Now feed render. Derived + authored items are rendered as PEERS in
 // one calm ranked list (LazyColumn), distinguished only by a small "why" chip. Bands (now/soon/
@@ -60,6 +62,10 @@ fun NowFeedList(
   // Hoisted so the scroll position survives the feed↔detail AnimatedContent swap (which has no
   // SaveableStateHolder → the default internal state is discarded on exit). Owner: ContentHost.
   listState: LazyListState = rememberLazyListState(),
+  // WI-446 (ADR 0063 §5) — the aggregate Calendar Check card's "Review" tap. Deferred navigation
+  // (mirrors WI-447's settings/native-handoff surfaces): no-op until a later WI wires the review
+  // flow into the route graph, once ADR 0063 is Accepted.
+  onOpenCalendarReview: () -> Unit = {},
 ) {
   var overflowOpen by remember { mutableStateOf(false) }
   LazyColumn(
@@ -72,9 +78,9 @@ fun NowFeedList(
     if (feed.caughtUp) {
       item(key = "caught-up") { CaughtUpHeader() }
     }
-    band("Now", feed.now, cardsById, onAction)
-    band("Soon", feed.soon, cardsById, onAction)
-    band("Later", feed.later, cardsById, onAction)
+    band("Now", feed.now, cardsById, onAction, onOpenCalendarReview)
+    band("Soon", feed.soon, cardsById, onAction, onOpenCalendarReview)
+    band("Later", feed.later, cardsById, onAction, onOpenCalendarReview)
 
     if (feed.overflow.isNotEmpty()) {
       item(key = "overflow-toggle") {
@@ -83,8 +89,13 @@ fun NowFeedList(
         }
       }
       if (overflowOpen) {
-        items(feed.overflow, key = { "of-${it.item.id}" }) { RankedRow(it, cardsById, onAction) }
+        items(feed.overflow, key = { "of-${it.item.id}" }) { RankedRow(it, cardsById, onAction, onOpenCalendarReview) }
       }
+    }
+    // ADR 0063 §5 — the quiet all-clear/stale line, mutually exclusive with a CALENDAR_CHECK
+    // item appearing above (calendarCheckDisplay computes exactly one of the two).
+    feed.calendarCheckFooter?.let { footer ->
+      item(key = "calendar-check-footer") { CalendarCheckFooterLine(footer) }
     }
   }
 }
@@ -96,6 +107,7 @@ private fun LazyListScope.band(
   rows: List<RankedItem>,
   cardsById: Map<String, Card>,
   onAction: (CardAction) -> Unit,
+  onOpenCalendarReview: () -> Unit,
 ) {
   if (rows.isEmpty()) return
   item(key = "band-$label") {
@@ -105,27 +117,34 @@ private fun LazyListScope.band(
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
   }
-  items(rows, key = { it.item.id }) { RankedRow(it, cardsById, onAction) }
+  items(rows, key = { it.item.id }) { RankedRow(it, cardsById, onAction, onOpenCalendarReview) }
 }
 
 // One ranked unit. An authored item reuses its shipped typed/plain card renderer; a derived item
 // gets the on-device "why" card. Collapsed peers (dedup) render inset beneath the head.
 @Composable
-private fun RankedRow(ranked: RankedItem, cardsById: Map<String, Card>, onAction: (CardAction) -> Unit) {
+private fun RankedRow(ranked: RankedItem, cardsById: Map<String, Card>, onAction: (CardAction) -> Unit, onOpenCalendarReview: () -> Unit) {
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    RenderItem(ranked.item, ranked.emphasized, ranked.softened, cardsById, onAction)
+    RenderItem(ranked.item, ranked.emphasized, ranked.softened, cardsById, onAction, onOpenCalendarReview)
     // dedup: the merged peer(s) render quietly inset under the head (the "two reasons, one event"
     // group), each still carrying its own why chip.
     ranked.collapsedWith.forEach { peer ->
       key(peer.id) {
-        Row(Modifier.padding(start = 12.dp)) { RenderItem(peer, emphasized = false, softened = ranked.softened, cardsById, onAction) }
+        Row(Modifier.padding(start = 12.dp)) { RenderItem(peer, emphasized = false, softened = ranked.softened, cardsById, onAction, onOpenCalendarReview) }
       }
     }
   }
 }
 
 @Composable
-private fun RenderItem(item: NowItem, emphasized: Boolean, softened: Boolean, cardsById: Map<String, Card>, onAction: (CardAction) -> Unit) {
+private fun RenderItem(
+  item: NowItem,
+  emphasized: Boolean,
+  softened: Boolean,
+  cardsById: Map<String, Card>,
+  onAction: (CardAction) -> Unit,
+  onOpenCalendarReview: () -> Unit,
+) {
   if (item.origin == Origin.AUTHORED) {
     val card = cardsById[item.id.removePrefix("authored:")]
     if (card != null) {
@@ -135,6 +154,12 @@ private fun RenderItem(item: NowItem, emphasized: Boolean, softened: Boolean, ca
       }
       return
     }
+  }
+  // ADR 0063 §5 — the ONE aggregate Calendar Check unit gets its own dedicated render, never the
+  // generic derived "why" card (it has no single reason line, no respond ⋮, and its own pill CTA).
+  if (item.reasonKind == ReasonKind.CALENDAR_CHECK) {
+    CalendarCheckNowCard(item, onReview = onOpenCalendarReview)
+    return
   }
   DerivedNowCard(item, emphasized, softened, onAction)
 }

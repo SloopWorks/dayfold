@@ -1,6 +1,14 @@
 package com.sloopworks.dayfold.client.snapshot
 
 import com.sloopworks.dayfold.client.*
+import com.sloopworks.dayfold.client.features.calendar.AmbiguousCandidateRow
+import com.sloopworks.dayfold.client.features.calendar.CalendarAmbiguousUiState
+import com.sloopworks.dayfold.client.features.calendar.CalendarDifferUiState
+import com.sloopworks.dayfold.client.features.calendar.CalendarOnlyRow
+import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListUiState
+import com.sloopworks.dayfold.client.features.calendar.CalendarSuggestedUiState
+import com.sloopworks.dayfold.client.features.calendar.DayfoldOnlyRow
+import com.sloopworks.dayfold.client.features.calendar.NeedsReviewRow
 
 // Single source of the states rendered by both the scene registry (Task 4) and the
 // golden tests (Task 6/7). Literals lifted verbatim from FeedSnapshotTest / HubSnapshotTest.
@@ -11,6 +19,87 @@ object SnapshotStates {
   val CALENDAR_ACCOUNTS: List<DeviceCalendar> = listOf(
     DeviceCalendar("family", "Family", "#7B9E6B", "Google · p•••@gmail.com"),
     DeviceCalendar("personal", "Personal", "#5B7DB1", "Google · p•••@gmail.com"),
+  )
+
+  // WI-446 (ADR 0063 §5, Calendar-Check-Phone.dc.html §12-15) — the aggregate Now card fixtures.
+  // Preset names mirror the mockup's nowCfg keys.
+  fun calendarNowItem(preset: String): NowItem? = when (preset) {
+    "two-gaps" -> NowItem(
+      id = "derived:calendar_check:aggregate", origin = Origin.DERIVED, reasonKind = ReasonKind.CALENDAR_CHECK,
+      title = "2 things to review", why = "2 to review", subjectKey = "calendar-check:two-gaps", target = null,
+      calendarCheckCount = 2,
+      calendarCheckPreviews = listOf(
+        CalendarCheckPreview("Maya's dance recital", CalendarGapKind.DAYFOLD_ONLY),
+        CalendarCheckPreview("Grandma's 80th lunch", CalendarGapKind.CALENDAR_ONLY),
+      ),
+    )
+    "busy" -> NowItem(
+      id = "derived:calendar_check:aggregate", origin = Origin.DERIVED, reasonKind = ReasonKind.CALENDAR_CHECK,
+      title = "5 things to review", why = "5 to review", subjectKey = "calendar-check:busy", target = null,
+      calendarCheckCount = 5,
+      calendarCheckPreviews = listOf(
+        CalendarCheckPreview("Maya's dance recital", CalendarGapKind.DAYFOLD_ONLY),
+        CalendarCheckPreview("Grandma's 80th lunch", CalendarGapKind.CALENDAR_ONLY),
+        CalendarCheckPreview("Beach house check-in", CalendarGapKind.DIFFERS),
+      ),
+    )
+    "all-clear", "offline" -> null
+    else -> error("unknown calendar-now preset '$preset'")
+  }
+
+  fun calendarNowFooter(preset: String): CalendarCheckFooter? = when (preset) {
+    "all-clear" -> CalendarCheckFooter(lastSuccessfulCheckAtIso = "2026-07-02T09:32:00-07:00", stale = false)
+    "offline" -> CalendarCheckFooter(lastSuccessfulCheckAtIso = "2026-06-30T09:32:00-07:00", stale = true)
+    "two-gaps", "busy" -> null
+    else -> error("unknown calendar-now preset '$preset'")
+  }
+
+  // WI-446 (ADR 0063 §4/§5, Review.dc.html §16-17) — the review list, hand-built (not via the
+  // AppState→selector round trip — this scene renders the stateless screen directly, mirroring the
+  // "response-sheet"/"smart-content" component scenes' fixture style).
+  fun calendarReviewList(preset: String): CalendarReviewListUiState = when (preset) {
+    "list" -> CalendarReviewListUiState(
+      dayfoldRows = listOf(
+        DayfoldOnlyRow(
+          subjectKey = "hub:h1", title = "Maya's dance recital", meta = "Jun 27, 3:00 PM · from the Recital Hub",
+          prefill = EventPrefill("Maya's dance recital", "2026-06-27T15:00:00-07:00", null, false, "America/Los_Angeles", null),
+          target = DeepLinkTarget("h1"),
+        ),
+      ),
+      needsReviewRows = listOf(
+        NeedsReviewRow(subjectKey = "hub:h2", title = "Soccer — Leo", kindLabel = "Possible match — review", gapKind = CalendarGapKind.SUGGESTED),
+      ),
+      calendarOnlyRows = listOf(
+        CalendarOnlyRow(itemKey = "calendarEvent:ev1", platformEventId = "ev1", title = "Grandma's 80th lunch", meta = "Jun 28, 12:00 PM · Personal", dotColor = "#5B7DB1"),
+      ),
+      ignoredCount = 3,
+    )
+    else -> error("unknown calendar-review preset '$preset'")
+  }
+
+  // WI-446 §18/§19.
+  val CALENDAR_SUGGESTED: CalendarSuggestedUiState = CalendarSuggestedUiState(
+    subjectKey = "hub:h2", dayfoldTitle = "Soccer — Leo", dayfoldMeta = "Jun 20, 4:00 PM · Riverside Park",
+    calendarTitle = "Leo soccer game", calendarMeta = "Jun 20, 4:00 PM · Riverside Park",
+    calendarDotColor = "#7B9E6B", eventId = "ev2",
+    evidence = listOf("Same Saturday, same 4:00 PM start", "Titles both name Leo and soccer", "Same place — Riverside Park"),
+  )
+
+  val CALENDAR_AMBIGUOUS: CalendarAmbiguousUiState = CalendarAmbiguousUiState(
+    subjectKey = "hub:h3", dayfoldTitle = "Piano lesson — Maya", dayfoldMeta = "Jun 25 · time not set in Dayfold",
+    candidates = listOf(
+      AmbiguousCandidateRow("ev3", "Piano — M.", "Jun 25, 3:30 PM · Family calendar", "#7B9E6B"),
+      AmbiguousCandidateRow("ev4", "Piano lesson", "Jun 25, 4:00 PM · Personal calendar", "#5B7DB1"),
+    ),
+  )
+
+  // WI-446 §20.
+  val CALENDAR_DIFFER: CalendarDifferUiState = CalendarDifferUiState(
+    subjectKey = "hub:h4", title = "Beach house check-in", calendarName = "Personal calendar", calendarDotColor = "#5B7DB1",
+    diffs = listOf(
+      FieldDiff("start", "Jul 11, 3:00 PM", "Jul 11, 4:00 PM"),
+      FieldDiff("location", "Seabright Cottage", "212 Driftwood Ln, Seabright"),
+    ),
   )
 
   // Lift verbatim from FeedSnapshotTest.kt:87-107 (the `typedFeed` val body).

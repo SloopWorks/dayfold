@@ -967,6 +967,81 @@
    "scene": "calendar-reset",
    "preset": "default",
    "theme": "dark"
+  },
+  {
+   "id": "calendar-now-two-gaps",
+   "scene": "calendar-now",
+   "preset": "two-gaps"
+  },
+  {
+   "id": "calendar-now-two-gaps-dark",
+   "scene": "calendar-now",
+   "preset": "two-gaps",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-now-busy",
+   "scene": "calendar-now",
+   "preset": "busy"
+  },
+  {
+   "id": "calendar-now-all-clear",
+   "scene": "calendar-now",
+   "preset": "all-clear"
+  },
+  {
+   "id": "calendar-now-offline",
+   "scene": "calendar-now",
+   "preset": "offline"
+  },
+  {
+   "id": "calendar-review-list",
+   "scene": "calendar-review",
+   "preset": "list"
+  },
+  {
+   "id": "calendar-review-list-dark",
+   "scene": "calendar-review",
+   "preset": "list",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-match-suggested",
+   "scene": "calendar-match",
+   "preset": "suggested"
+  },
+  {
+   "id": "calendar-match-suggested-dark",
+   "scene": "calendar-match",
+   "preset": "suggested",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-match-ambiguous",
+   "scene": "calendar-match",
+   "preset": "ambiguous"
+  },
+  {
+   "id": "calendar-differ-default",
+   "scene": "calendar-differ",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-differ-default-dark",
+   "scene": "calendar-differ",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-matched-default",
+   "scene": "calendar-matched",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-matched-default-dark",
+   "scene": "calendar-matched",
+   "preset": "default",
+   "theme": "dark"
   }
  ]
 }

@@ -31,14 +31,22 @@ import com.sloopworks.dayfold.client.AvatarPickerContent
 import com.sloopworks.dayfold.client.CalendarNotificationOwner
 import com.sloopworks.dayfold.client.DeviceCalendar
 import com.sloopworks.dayfold.client.features.calendar.CalendarAccountGroup
+import com.sloopworks.dayfold.client.features.calendar.CalendarAmbiguousMatchScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarChooserScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarCheckFooterLine
+import com.sloopworks.dayfold.client.features.calendar.CalendarCheckNowCard
 import com.sloopworks.dayfold.client.features.calendar.CalendarDeniedScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarDetailsDifferScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarMatchedSummaryScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarNoCalendarsScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarPrimerScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarReturnPhase
 import com.sloopworks.dayfold.client.features.calendar.CalendarReturnScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsOffScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsOnScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarSuggestedMatchScreen
+import com.sloopworks.dayfold.client.features.calendar.MatchedChecklistItem
 import com.sloopworks.dayfold.client.features.calendar.PrefillRow
 import com.sloopworks.dayfold.client.features.calendar.PrefillSheetContent
 import com.sloopworks.dayfold.client.features.calendar.ResetLocalMatchesSheetContent
@@ -629,6 +637,71 @@ val clientSnapshots: SnapshotApp = snapshotApp {
   scene("calendar-reset") {
     presets("default")
     render { args -> themed(args.theme) { ResetLocalMatchesSheetContent(onCancel = {}, onReset = {}) } }
+  }
+
+  // ── Calendar Check (WI-446, ADR 0063) — Now card + review flow ───────────────────────────
+  scene("calendar-now") {
+    presets("two-gaps", "busy", "all-clear", "offline")
+    render { args ->
+      val p = presetName(args.input)
+      themedSurface(args.theme) {
+        Box(Modifier.padding(16.dp)) {
+          SnapshotStates.calendarNowItem(p)?.let { CalendarCheckNowCard(it) }
+          SnapshotStates.calendarNowFooter(p)?.let { CalendarCheckFooterLine(it) }
+        }
+      }
+    }
+  }
+
+  scene("calendar-review") {
+    presets("list")
+    render { args ->
+      themed(args.theme) {
+        CalendarReviewListScreen(
+          ui = SnapshotStates.calendarReviewList(presetName(args.input)), compareLabel = "Compared on this phone · just now",
+          onBack = {}, onAddToCalendar = {}, onIgnoreDayfoldOnly = {}, onOpenHub = {}, onOpenNeedsReview = {},
+          onKeepCalendarOnly = {}, onAddToHub = {}, onOpenIgnored = {},
+        )
+      }
+    }
+  }
+
+  scene("calendar-match") {
+    presets("suggested", "ambiguous")
+    render { args ->
+      themed(args.theme) {
+        when (presetName(args.input)) {
+          "suggested" -> CalendarSuggestedMatchScreen(SnapshotStates.CALENDAR_SUGGESTED, onBack = {}, onKeepSeparate = {}, onConfirmMatch = {})
+          "ambiguous" -> CalendarAmbiguousMatchScreen(SnapshotStates.CALENDAR_AMBIGUOUS, onBack = {}, onLeaveUnresolved = {}, onMatchSelected = {})
+          else -> error("unknown calendar-match preset")
+        }
+      }
+    }
+  }
+
+  scene("calendar-differ") {
+    presets("default")
+    render { args -> themed(args.theme) { CalendarDetailsDifferScreen(SnapshotStates.CALENDAR_DIFFER, onBack = {}, onFieldChoice = { _, _ -> }) } }
+  }
+
+  scene("calendar-matched") {
+    presets("default")
+    render { args ->
+      themed(args.theme) {
+        CalendarMatchedSummaryScreen(
+          hubTitle = "Soccer — Leo", monthAbbrev = "Jun", dayNumber = "20", dateLabel = "Saturday, June 20",
+          timeLocationLabel = "4:00 PM · Riverside Park", calendarName = "Family", calendarDotColor = "#7B9E6B",
+          lastCheckedLabel = "Last checked today, 9:32 AM · on this phone",
+          onBack = {}, onOpenInCalendar = {}, onUnlink = {},
+          checklistTitle = "GETTING READY · 1 OF 3",
+          checklistItems = listOf(
+            MatchedChecklistItem("Wash the jersey", done = false),
+            MatchedChecklistItem("Orange slices", done = false),
+            MatchedChecklistItem("Pack cleats", done = true),
+          ),
+        )
+      }
+    }
   }
 }
 

@@ -213,6 +213,13 @@ class DayfoldCommands internal constructor(
   override fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner) =
     launchEffect { calendarCheckEngine?.setNotificationOwner(subjectKey, owner) }
   override fun openCalendarEventEditor(prefill: EventPrefill) { calendarCheckEngine?.openEventEditor(prefill) }
+  override fun confirmCalendarMatch(subjectKey: String, eventId: String) = launchEffect { calendarCheckEngine?.confirmMatch(subjectKey, eventId) }
+  override fun keepCalendarSeparate(subjectKey: String) { store.dispatch(KeepSeparate(subjectKey)) }
+  override fun resolveAmbiguousCalendarMatch(subjectKey: String, chosenEventId: String) = launchEffect { calendarCheckEngine?.resolveAmbiguous(subjectKey, chosenEventId) }
+  override fun ignoreCalendarItem(itemKey: String) { store.dispatch(IgnoreItem(itemKey)) }
+  override fun undoCalendarIgnore() { store.dispatch(UndoIgnore) }
+  override fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution) { store.dispatch(FieldChoice(subjectKey, field, resolution)) }
+  override fun keepCalendarSeriesOnly(subjectKey: String) { store.dispatch(KeepSeriesCalendarOnly(subjectKey)) }
 
   private fun launchIdentity(block: suspend (AuthSessionContext) -> Unit) {
     val context = sessionCoordinator?.authSnapshot() ?: return
