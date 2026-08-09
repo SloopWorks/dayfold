@@ -128,13 +128,35 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    Co-owner (write + manage people) — checked independently of the ADR 0029
    scope string; a hub's author is always an implicit, non-removable Co-owner
    (ADR 0053). Hub People management (add/remove/set-role) is its own screen.
-6. **Background notifications (ADR 0044, Phase B).** On Android, a background
+6. **Smart-content responses (ADR 0064).** A member can answer machine-added
+   content with five verbs: *not now* and *hide for me* (Tier 0 — device-local,
+   never synced, unchanged), and *mark done* / *don't add this again* / fix-it
+   (Tier 2, deferred). The two new stored verbs become **`content_response`
+   rows**: mute rules and family-wide Done records, keyed by the ADR 0043
+   `subjectRef`, which thereby earns a third job — dedup key → deep-link key →
+   **suppression key**.
+   The path is: sheet → outbox (`target_kind = "response"`, optimistic + offline)
+   → `PUT/DELETE /families/:fid/responses/:id` → `content_responses` → `/sync`
+   (a new row `type`, on the same cursor, with the same tombstone floor) →
+   local `content_response` table → the on-device rule engine.
+   **The server stays content-blind.** Suppression is decided by exactly three
+   string equalities against columns it already treats as opaque identifiers —
+   `subject_ref`, `kind`, `provenance->>'source'` — and never reads a title,
+   body, label, or note. A family-scoped rule (and every Done row) blocks the
+   write with 409; a personal rule does not block, it strips that member from
+   the card's ADR 0030 `audience[]` so the routine still mints for everyone
+   else. The derived lane has no server row to reject, so the *same* rule list
+   is enforced on-device in `nowFeed()` — which is also what keeps a muted
+   subject from producing a notification (step 7 shares that entry point). The
+   authoring CLI reads the list pre-run so a suppressed op reports as "skipped
+   N muted subjects" rather than a failed write.
+7. **Background notifications (ADR 0044, Phase B).** On Android, a background
    pass re-runs the *same* `rank()`/notification-selection code the foreground
    feed uses, over the on-device cache plus live (never-persisted) location, to
    decide whether to fire a **local** notification (geofence enter or exact
    alarm) — quiet-hours + daily-cap device-local config, never synced. There is
    no push service (no FCM/APNs) and no server involvement in this path.
-7. **Cold start (ADR 0052).** The top-level route gate is DB-first, mirroring
+8. **Cold start (ADR 0052).** The top-level route gate is DB-first, mirroring
    content: family memberships are cached in a local-only SQLDelight
    `membership` table (alongside `hidden`/`surfacing_state`/`notif_config`) and
    read synchronously in `AuthEngine.restore()`. A saved token + cached
@@ -143,7 +165,7 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    signs out and clears the cache; offline keeps the cached dashboard instead
    of an error). First launch after install, with nothing cached, is unchanged
    (network-gated). Warm start is unaffected (no splash, route already `Feed`).
-8. **Product analytics (ADR 0055, debug builds only).** A dispatched redux
+9. **Product analytics (ADR 0055, debug builds only).** A dispatched redux
    action passes through a `:swip-wiring` mapper table (the tracking spec —
    unmapped actions emit nothing), then `swipMiddleware` (composed into the
    single debug-only `createAppStore(extraEnhancer)` slot alongside the ADR

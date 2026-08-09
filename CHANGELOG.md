@@ -7,6 +7,60 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-08 — Responses to smart content (mute rules + family Done)
+
+### Added
+- **Five ways to answer machine-added content.** Until now the only recourse
+  against a card you didn't want was Hide, which is deliberately local to your
+  device — so the next run cheerfully added the same card again. There is now a
+  response sheet on every surface smart content touches (the card's ⋮, its
+  provenance chip, the detail view's footer), with the same verbs in the same
+  order: **Mark done**, **Hide for me**, and **Don't add this again**. Hub
+  blocks add a fourth, **Remove, and don't re-add**, which pairs the delete with
+  the rule so cleaning up an unwanted block doesn't turn into whack-a-mole.
+- **"Don't add this again" is a stored rule, not a dismissal.** Choose how much
+  should stop — just this card, or every card of that kind — and who it applies
+  to. **For you** is the default: the routine keeps making them for everyone
+  else, and your family's feed is unchanged. Whole-family is an explicit second
+  choice, always attributed, visible to everyone in Settings, and removable by
+  any adult. The rule is read *before* content is written, so the pipeline stops
+  producing rather than the app hiding after the fact.
+- **Mark done is completion, not dismissal.** A resolved task leaves everyone's
+  Now on the next sync, so it stops nagging the people who didn't do it. Who
+  completed it and when are always recorded, an optional note is never demanded,
+  and future runs see the subject as handled instead of re-extracting it from
+  the same email.
+- **Settings › Smart content.** Every rule in one list — personal, family-wide
+  (with its byline), and device-only — each honest about where it lives, next to
+  the Done records with their notes.
+- **Responses work offline.** The rule applies on your phone immediately and
+  syncs later, and the copy says so rather than implying instant effect: a rule
+  can't stop a run that already happened, so it takes effect next run. Undo
+  works offline too — the queued write is simply dropped.
+
+### Changed
+- **A muted subject can no longer produce a notification.** The background pass
+  shares the same ranking entry point as the feed, so a rule silences both.
+
+### Security / privacy
+- **The server still never reads your content.** Suppression is decided by
+  string equality on opaque identifiers (the subject key, the card kind, the
+  source label) — never a title, body, rule label, or Done note. Rules and notes
+  are never journaled into debug bug reports, logged, or sent as analytics.
+
+### API
+- `PUT` / `DELETE /families/:fid/responses/:id` (mute rules + Done records,
+  op-id idempotent). `/sync` gains a `response` row type on the existing cursor;
+  a personal rule reaches only its owner, and everyone else sees a tombstone.
+  A write to a muted or completed subject now returns **409** — an expected,
+  reportable outcome for an authoring routine, not a failure.
+
+### Notes
+- See ADR 0064. The corrections ("fix it" / wrong hub / outdated) channel is
+  **not** included — it's deferred to its own ADR, blocked on the run-receipt
+  work in ADR 0062. The design's "saw N marked done" run-receipt row is
+  likewise absent rather than shown with a fabricated count.
+
 ## 2026-08-07 — Smart Briefings contracts and interactive preview
 
 ### Added (internal)

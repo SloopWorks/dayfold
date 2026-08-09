@@ -266,13 +266,22 @@ M1 trigger surface as needing its mockups) until this pass corrected it.
 Hubs phone surface (INB-15/16) + content adaptive two-pane (INB-20) + the ADR-0030
 visibility delta (`Hubs-Visibility.dc.html`, signed off) are all in; the content-
 API enforcement is built (PRs #34/#35). Hub render is build-ready.
-**Responses to smart content: designs imported, NOT build-authorized (2026-08-08)** —
-`designs/content-feedback/` (exploration board + hi-fi gap set + `NOTES.md`) is
-operator-approved on the *spec track*. It proposes ADR-class behavior that is not yet
-decided: synced mute-preference rows and family-wide Done completion state keyed by the
-ADR 0043 `subjectRef`. Design sign-off does not authorize build here — an ADR covering
-the persistence contract (Tier 0/1/2), the me-vs-family scope rights, and the routine-
-gateway/changeset-validation suppression path must be Accepted first.
+**Responses to smart content: BUILT (2026-08-08, ADR 0064 Accepted)** — designs imported
+from `designs/content-feedback/`, ADR 0064 accepted in-session (INB-37), and the build
+landed end to end: `subject_ref` persisted as the suppression key; `content_responses`
+rows (mute + family Done) with server-side suppression by ID only; `/sync` delivery on
+the existing cursor with per-member visibility and a matching tombstone sweep; the client
+rule engine, outbox lane, and `ResponseEngine`; the response sheet, scope step, swipe
+escalation, and Settings › Smart content; on-device enforcement on the derived lane **and**
+the notification path; the CLI pre-flight filter. Verified green: API 461, `:client` 790+,
+`:ui` 600+, CLI, iOS simulator + framework link, Android `assembleDebug`.
+Deliberately NOT built, and not silently dropped: the **fix-it/corrections** channel
+(Tier 2 — deferred to its own ADR, blocked on ADR 0062's run receipt) and the design's
+**"saw N marked done"** run-receipt row (omitted rather than shown with a fabricated
+count). Golden gates for the new scenes are macOS-only — docker OOMs at 7.65GB compiling
+`:ui` here, the same wall the hub-people and authorize-* scenes hit; re-add the gates once
+a linux golden is recorded in CI. Open follow-ups are in `context/open-questions.md`
+(`OQ-response-subjectref-stability` is the one that can silently break Done).
 
 ## Operator actions pending
 
