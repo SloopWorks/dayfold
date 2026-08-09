@@ -19,6 +19,8 @@ actual class PlatformActions {
 
   actual fun openUri(uri: String) { vettedOpenUri(uri)?.let(::open) }
 
+  actual fun openAppSettings() {} // no per-app OS permission screen on desktop
+
   private fun open(uri: String) {
     runCatching {
       if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))

@@ -645,6 +645,13 @@ data class LocationPermissionLoaded(val state: LocationPermission) : Action
 data class NotificationPermissionLoaded(val state: NotificationPermission) : Action
 // ADR 0063 §1/§3 — device-local, never-synced Calendar Check settings (DB→store bridge).
 data class CalendarSettingsLoaded(val settings: CalendarSettings) : Action
+// WI-447 (ADR 0063 §1) — user-initiated settings changes (Settings toggle, chooser continue,
+// change-calendars sheet). CalendarCheckEngine persists then dispatches; the reducer only ever
+// replaces state.calendar.settings, same shape as the DB→store bridge above.
+data class SetCalendarEnabled(val enabled: Boolean) : Action
+data class SetSelectedCalendars(val calendarIds: Set<String>) : Action
+// OS-owned truth, re-read on demand (ADR 0024 posture) — the chooser's candidate list.
+data class DeviceCalendarsLoaded(val calendars: List<DeviceCalendar>) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceRequested(val hubId: String, val request: HubRequestKey) : Action
 data class HubAudienceLoaded(

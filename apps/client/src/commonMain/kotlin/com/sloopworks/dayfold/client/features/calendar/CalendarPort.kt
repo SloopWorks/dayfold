@@ -62,6 +62,10 @@ interface CalendarPort {
 
   /** Fire the native event editor prefilled from [prefill]. No result promise — return handling is a later WI. */
   fun openEventEditor(prefill: EventPrefill)
+
+  /** Fire the OS calendar-access permission prompt (WI-447 primer "Continue"). Real Android/iOS
+   *  prompts are a later platform WI; this seam exists now so the primer has something to call. */
+  fun requestPermission()
 }
 
 // The default for desktop + tests: no device calendars, no-op editor launch. Real platform
@@ -71,4 +75,5 @@ object NoOpCalendarPort : CalendarPort {
   override suspend fun listCalendars(): List<DeviceCalendar> = emptyList()
   override fun permissionState(): CalendarPermission = CalendarPermission.Unavailable
   override fun openEventEditor(prefill: EventPrefill) {}
+  override fun requestPermission() {}
 }

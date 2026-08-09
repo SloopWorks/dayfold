@@ -20,8 +20,28 @@ import com.sloopworks.dayfold.client.ResponseStep
 import com.sloopworks.dayfold.client.ResponseSurface
 import com.sloopworks.dayfold.client.SmartContentModel
 import com.sloopworks.dayfold.client.SmartContentScreen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Title
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.AvatarPickerContent
+import com.sloopworks.dayfold.client.CalendarNotificationOwner
+import com.sloopworks.dayfold.client.DeviceCalendar
+import com.sloopworks.dayfold.client.features.calendar.CalendarAccountGroup
+import com.sloopworks.dayfold.client.features.calendar.CalendarChooserScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarDeniedScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarNoCalendarsScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarPrimerScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarReturnPhase
+import com.sloopworks.dayfold.client.features.calendar.CalendarReturnScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsOffScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsOnScreen
+import com.sloopworks.dayfold.client.features.calendar.PrefillRow
+import com.sloopworks.dayfold.client.features.calendar.PrefillSheetContent
+import com.sloopworks.dayfold.client.features.calendar.ResetLocalMatchesSheetContent
 import com.sloopworks.dayfold.client.AuthorizeDeviceScreen
 import com.sloopworks.dayfold.client.CapReachedState
 import com.sloopworks.dayfold.client.CreateFamilyScreen
@@ -514,6 +534,101 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         TimelineDetail(tl = tl, scale = scale, nowIso = SnapshotStates.TIMELINE_NOW, tz = NY, onBack = {}, onAction = {}, autoScrollToNow = false)
       }
     }
+  }
+
+  // ── Calendar Check (WI-447, ADR 0063) — settings/permission/prefill/return surfaces ──────
+  scene("calendar-settings") {
+    presets("off", "on")
+    render { args ->
+      themed(args.theme) {
+        when (presetName(args.input)) {
+          "off" -> CalendarSettingsOffScreen(onBack = {}, onSetUp = {})
+          "on" -> CalendarSettingsOnScreen(
+            includedCalendars = SnapshotStates.CALENDAR_ACCOUNTS,
+            lastCheckLabel = "Today, 9:32 AM",
+            onBack = {}, onToggleOff = {}, onChangeCalendars = {}, onEventTimeAlerts = {}, onResetLocalMatches = {}, onTurnOff = {},
+          )
+          else -> error("unknown calendar-settings preset")
+        }
+      }
+    }
+  }
+
+  scene("calendar-primer") {
+    presets("default")
+    render { args -> themed(args.theme) { CalendarPrimerScreen(onNotNow = {}, onContinue = {}) } }
+  }
+
+  scene("calendar-chooser") {
+    presets("default")
+    render { args ->
+      themed(args.theme) {
+        CalendarChooserScreen(
+          groups = listOf(
+            CalendarAccountGroup("Google · p•••@gmail.com", SnapshotStates.CALENDAR_ACCOUNTS + DeviceCalendar("birthdays", "Birthdays", "#B98A4A", "Google · p•••@gmail.com")),
+            CalendarAccountGroup("Work · masked account", listOf(DeviceCalendar("work", "Work", "#8A8F98", "Work · masked account"))),
+          ),
+          selectedIds = setOf("family", "personal"),
+          onBack = {}, onToggle = {}, onIncludeSelected = {},
+        )
+      }
+    }
+  }
+
+  scene("calendar-denied") {
+    presets("default")
+    render { args -> themed(args.theme) { CalendarDeniedScreen(onBack = {}, onOpenSettings = {}, onKeepOff = {}) } }
+  }
+
+  scene("calendar-no-calendars") {
+    presets("default")
+    render { args -> themed(args.theme) { CalendarNoCalendarsScreen(onBack = {}, onDoneForNow = {}) } }
+  }
+
+  scene("calendar-prefill") {
+    presets("default")
+    render { args ->
+      themed(args.theme) {
+        PrefillSheetContent(
+          eventTitle = "Maya's dance recital",
+          rows = listOf(
+            PrefillRow(Icons.Filled.Title, "TITLE", "Maya's dance recital"),
+            PrefillRow(Icons.Filled.Schedule, "STARTS", "Sat, Jun 27 · 3:00 PM · Pacific Time"),
+            PrefillRow(Icons.Filled.HourglassBottom, "ENDS", "No end time yet", incomplete = true),
+            PrefillRow(Icons.Filled.LocationOn, "LOCATION", "Cascade Community Theater, 410 Alder St"),
+            PrefillRow(Icons.Filled.Notes, "NOTES", "Doors 2:30. Costume bag + tights. + a link back to the Hub"),
+          ),
+          onCancel = {}, onOpenCalendarApp = {},
+        )
+      }
+    }
+  }
+
+  scene("calendar-return") {
+    presets("checking", "added", "canceled", "permission-changed", "unconfirmed")
+    render { args ->
+      val phase = when (presetName(args.input)) {
+        "checking" -> CalendarReturnPhase.CHECKING
+        "added" -> CalendarReturnPhase.ADDED
+        "canceled" -> CalendarReturnPhase.CANCELED
+        "permission-changed" -> CalendarReturnPhase.PERMISSION_CHANGED
+        "unconfirmed" -> CalendarReturnPhase.UNCONFIRMED
+        else -> error("unknown calendar-return preset")
+      }
+      themed(args.theme) {
+        CalendarReturnScreen(
+          phase = phase, hubTitle = "Maya's dance recital",
+          dateLabel = "Saturday, June 27", timeRangeLabel = "3:00 – 5:00 PM", locationLabel = "Cascade Community Theater",
+          matchedCalendarName = if (phase == CalendarReturnPhase.ADDED) "Family · Sat 3:00 PM" else null,
+          onBack = {},
+        )
+      }
+    }
+  }
+
+  scene("calendar-reset") {
+    presets("default")
+    render { args -> themed(args.theme) { ResetLocalMatchesSheetContent(onCancel = {}, onReset = {}) } }
   }
 }
 

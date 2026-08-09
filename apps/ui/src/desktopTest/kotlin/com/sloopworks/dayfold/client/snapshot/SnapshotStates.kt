@@ -6,6 +6,13 @@ import com.sloopworks.dayfold.client.*
 // golden tests (Task 6/7). Literals lifted verbatim from FeedSnapshotTest / HubSnapshotTest.
 object SnapshotStates {
 
+  // WI-447 (ADR 0063) — Calendar Check settings-on / chooser fixture (Permissions-and-Settings
+  // .dc.html §4/31): two included Google calendars, masked account label.
+  val CALENDAR_ACCOUNTS: List<DeviceCalendar> = listOf(
+    DeviceCalendar("family", "Family", "#7B9E6B", "Google · p•••@gmail.com"),
+    DeviceCalendar("personal", "Personal", "#5B7DB1", "Google · p•••@gmail.com"),
+  )
+
   // Lift verbatim from FeedSnapshotTest.kt:87-107 (the `typedFeed` val body).
   val TYPED_FEED: AppState = AppState(content = ContentState(cards = listOf(
     Card("file", kind = "action", title = "Permission slip — sign by Thursday",

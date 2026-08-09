@@ -31,6 +31,8 @@ class CalendarCheckEngineTest {
     override suspend fun listCalendars(): List<DeviceCalendar> = emptyList()
     override fun permissionState(): CalendarPermission = permission
     override fun openEventEditor(prefill: EventPrefill) {}
+    var requestPermissionCallCount = 0
+    override fun requestPermission() { requestPermissionCallCount++ }
   }
 
   private class Harness(

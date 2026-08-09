@@ -866,6 +866,107 @@
    "id": "timeline-detail-hub",
    "scene": "timeline-detail",
    "preset": "hub"
+  },
+  {
+   "id": "calendar-settings-off",
+   "scene": "calendar-settings",
+   "preset": "off"
+  },
+  {
+   "id": "calendar-settings-off-dark",
+   "scene": "calendar-settings",
+   "preset": "off",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-settings-on",
+   "scene": "calendar-settings",
+   "preset": "on"
+  },
+  {
+   "id": "calendar-primer-default",
+   "scene": "calendar-primer",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-primer-default-dark",
+   "scene": "calendar-primer",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-chooser-default",
+   "scene": "calendar-chooser",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-denied-default",
+   "scene": "calendar-denied",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-denied-default-dark",
+   "scene": "calendar-denied",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-no-calendars-default",
+   "scene": "calendar-no-calendars",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-prefill-default",
+   "scene": "calendar-prefill",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-prefill-default-dark",
+   "scene": "calendar-prefill",
+   "preset": "default",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-return-checking",
+   "scene": "calendar-return",
+   "preset": "checking"
+  },
+  {
+   "id": "calendar-return-added",
+   "scene": "calendar-return",
+   "preset": "added"
+  },
+  {
+   "id": "calendar-return-added-dark",
+   "scene": "calendar-return",
+   "preset": "added",
+   "theme": "dark"
+  },
+  {
+   "id": "calendar-return-canceled",
+   "scene": "calendar-return",
+   "preset": "canceled"
+  },
+  {
+   "id": "calendar-return-permission-changed",
+   "scene": "calendar-return",
+   "preset": "permission-changed"
+  },
+  {
+   "id": "calendar-return-unconfirmed",
+   "scene": "calendar-return",
+   "preset": "unconfirmed"
+  },
+  {
+   "id": "calendar-reset-default",
+   "scene": "calendar-reset",
+   "preset": "default"
+  },
+  {
+   "id": "calendar-reset-default-dark",
+   "scene": "calendar-reset",
+   "preset": "default",
+   "theme": "dark"
   }
  ]
 }

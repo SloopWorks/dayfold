@@ -21,6 +21,7 @@ class DayfoldCommands internal constructor(
   private val contentStore: ContentStore? = null,
   private val sessionCoordinator: SessionCoordinator? = null,
   private val externalHubTargets: PendingExternalHubTargetCoordinator? = null,
+  private val calendarCheckEngine: CalendarCheckEngine? = null,
   private val bindSelectedFamily: suspend () -> Unit = {},
 ) : DayfoldCommandPort {
   companion object {
@@ -202,6 +203,16 @@ class DayfoldCommands internal constructor(
 
   override fun recordResponseOffer(subjectRef: String) =
     launchEffect { responseEngine?.recordResponseOffer(subjectRef) }
+
+  override fun setCalendarEnabled(enabled: Boolean) { calendarCheckEngine?.setEnabled(enabled) }
+  override fun setSelectedCalendars(calendarIds: Set<String>) { calendarCheckEngine?.setSelectedCalendars(calendarIds) }
+  override fun loadAvailableCalendars() { calendarCheckEngine?.loadAvailableCalendars() }
+  override fun requestCalendarPermission() { calendarCheckEngine?.requestPermission() }
+  override fun startCalendarCheck() { calendarCheckEngine?.startCheck() }
+  override fun resetLocalCalendarMatches() = launchEffect { calendarCheckEngine?.resetLocalMatches() }
+  override fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner) =
+    launchEffect { calendarCheckEngine?.setNotificationOwner(subjectKey, owner) }
+  override fun openCalendarEventEditor(prefill: EventPrefill) { calendarCheckEngine?.openEventEditor(prefill) }
 
   private fun launchIdentity(block: suspend (AuthSessionContext) -> Unit) {
     val context = sessionCoordinator?.authSnapshot() ?: return

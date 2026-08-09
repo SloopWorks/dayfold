@@ -17,6 +17,11 @@ expect class PlatformActions {
    *  [androidx.compose.ui.platform.UriHandler] routes here). Re-vets the scheme
    *  allowlist as defense-in-depth; no-op if it doesn't vet. */
   fun openUri(uri: String)
+
+  /** Open this app's OS settings screen (WI-447 "Allow in phone settings" — ADR 0063 §1 denied
+   *  state). Mirrors AndroidPermissionControllers/IosPermissionControllers' openAppSettings; a
+   *  no-op on desktop, which has no per-app OS permission screen. */
+  fun openAppSettings()
 }
 
 /** The URI to open for a direct inline-link tap, or null if its scheme isn't

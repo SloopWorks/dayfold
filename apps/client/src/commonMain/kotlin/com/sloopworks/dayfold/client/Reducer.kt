@@ -52,7 +52,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
-  is CalendarSettingsLoaded -> reduceCalendar(state, action)
+  is CalendarSettingsLoaded, is SetCalendarEnabled, is SetSelectedCalendars, is DeviceCalendarsLoaded -> reduceCalendar(state, action)
   is CalendarCheckAction -> reduceCalendarCheck(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested, is InviteLinkStashed, is InviteLinkConsumed -> reduceSession(state, action)
   is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceNavigation(reduceFamilyAdmin(state, action), action)

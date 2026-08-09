@@ -55,4 +55,14 @@ interface DayfoldCommandPort {
   fun removeResponse(id: String)
   fun undoLastResponse()
   fun recordResponseOffer(subjectRef: String)
+  // WI-447 (ADR 0063) — Calendar Check settings/permission/prefill/return surfaces. Real Android/
+  // iOS permission + observation wiring is a later platform WI; these are inert without an engine.
+  fun setCalendarEnabled(enabled: Boolean)
+  fun setSelectedCalendars(calendarIds: Set<String>)
+  fun loadAvailableCalendars()
+  fun requestCalendarPermission()
+  fun startCalendarCheck()
+  fun resetLocalCalendarMatches()
+  fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner)
+  fun openCalendarEventEditor(prefill: EventPrefill)
 }
