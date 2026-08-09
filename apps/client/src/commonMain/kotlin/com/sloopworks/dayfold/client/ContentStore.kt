@@ -682,6 +682,9 @@ class ContentStore(driver: SqlDriver) {
   fun calendarBindingsByRelation(relation: CalendarRelation): List<CalendarBinding> =
     q.calendarBindingsByRelation(relation.wire).executeAsList().map { it.toCalendarBinding() }
 
+  /** CAL-4 — every binding, for the reconciler's "still-valid explicit binding" ladder rung. */
+  fun allCalendarBindings(): List<CalendarBinding> = q.allCalendarBindings().executeAsList().map { it.toCalendarBinding() }
+
   fun upsertCalendarBinding(b: CalendarBinding) = withWriteGate {
     q.upsertCalendarBinding(
       b.subjectKey, b.sourceVersion, b.platformEventId, b.calendarId, b.fingerprint, b.lastSeenAt,
@@ -691,6 +694,10 @@ class ContentStore(driver: SqlDriver) {
 
   /** A deselected calendar's matches return to review (ADR 0063 §1/§5). */
   fun deleteCalendarBindingsForCalendar(calendarId: String) = withWriteGate { q.deleteCalendarBindingsForCalendar(calendarId) }
+
+  /** ADR 0063 §5 ResetLocalMatches review action — clears local match/ignore history. Feature-
+   *  scoped (unlike wipe()'s sign-out/family-removal boundary): the family stays signed in. */
+  fun resetCalendarBindings() = withWriteGate { q.wipeCalendarBindings() }
 
   // SQLDelight reuses the table's own generated row type here (both queries select exactly the
   // table's columns), so one mapper covers bySubjectKey + byRelation.

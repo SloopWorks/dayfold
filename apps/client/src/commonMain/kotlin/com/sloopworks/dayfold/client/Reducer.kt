@@ -53,6 +53,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
   is CalendarSettingsLoaded -> reduceCalendar(state, action)
+  is CalendarCheckAction -> reduceCalendarCheck(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested, is InviteLinkStashed, is InviteLinkConsumed -> reduceSession(state, action)
   is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceNavigation(reduceFamilyAdmin(state, action), action)
   is OpenDevices, is DevicesLoaded, is DeviceRevoked, is DeviceOpRequested, is DevicesRequested, is DevicesFailed, is OpenEnterCode, is OpenScan, is ScanPermissionGranted, is ScanPermissionDenied, is DeviceLookupRequested, is DevicePendingLoaded, is DeviceLookupNotFound, is DeviceLookupFailed, is ApproveDeviceRequested, is DenyDeviceRequested, is DeviceApproved, is DeviceDenied, is DeviceApproveExpired, is DeviceOpFailed, is CloseDeviceFlow, is DeviceLinkStashed, is DeviceLinkConsumed -> reduceNavigation(reduceDevices(state, action), action)
@@ -77,6 +78,11 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     responses = ResponseState(),
     familyAdmin = FamilyAdminState(),
     routines = updated.routines.resetFamilyScoped(),
+    // ADR 0063 §4/§5 — check results reference the former family's candidates/subjectKeys; the
+    // calendar_binding rows themselves are per-device, not per-family, and are left alone (a
+    // stale binding just fails to resolve on the next pass). settings (feature opt-in/selected
+    // calendars) is a device preference, not tenant data, and stays untouched here.
+    calendar = updated.calendar.copy(check = CalendarCheckState()),
   ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))
   return reduceNavigation(familyScoped, action)
 }
@@ -86,8 +92,9 @@ private fun signedOutState(state: AppState) = AppState(
   notifications = state.notifications,
   // ADR 0063 §1/§3 — calendar_settings is a device preference (like notif config), not tenant
   // data: it survives sign-out. calendar_binding itself is dropped by ContentStore.wipe(); the
-  // in-memory settings slice here just isn't reset back to defaults on the same transition.
-  calendar = state.calendar,
+  // in-memory settings slice here just isn't reset back to defaults on the same transition. The
+  // check slice (results/ignores) IS family-scoped in-memory state, so it resets like content/now.
+  calendar = state.calendar.copy(check = CalendarCheckState()),
   routines = state.routines.resetFamilyScoped(),
 )
 
