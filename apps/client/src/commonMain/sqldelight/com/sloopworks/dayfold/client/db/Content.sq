@@ -608,6 +608,12 @@ allCalendarBindings:
 SELECT subject_key, source_version, platform_event_id, calendar_id, fingerprint, last_seen_at, relation, notification_owner, review_state, created_at, updated_at
 FROM calendar_binding;
 
+-- ADR 0063 §7 — the background notification pass's hot-path read: just the subject keys Calendar
+-- owns the start alert for, never the full row (notifSnapshot runs on every background wake).
+calendarBindingSubjectKeysByNotificationOwner:
+SELECT subject_key
+FROM calendar_binding WHERE notification_owner = ?;
+
 -- A deselected calendar's matches return to review (ADR 0063 §1/§5): drop every binding that
 -- pointed at it rather than leaving a dangling calendar_id a later scan can't re-resolve.
 deleteCalendarBindingsForCalendar:

@@ -118,6 +118,11 @@ val EXACT_SCHEDULE_HORIZON: Duration = (48 * 60).minutes
  * deriveNow + cardToNowItem (NOT nowFeed, whose not_before gate would hide the very future authored items
  * we want to wake for) — and keeps each subject's SOONEST future trigger within [horizon]. At FIRE time
  * the receiver re-runs the full pass, so cap/quiet/dedup are honored then; this only decides WHEN to wake.
+ *
+ * ADR 0063 §7 — [snapshot.calendarOwnedSubjects] filters out the event-start candidate here too, not
+ * only in [selectNotifications]. Android's exact-alarm receiver re-verifies at fire time either way, but
+ * iOS delivers a pre-baked scheduled notification with no re-run (ADR 0044 — `reconcileExactSchedules`
+ * applies its posture filters at schedule time) — arming the alarm here is the only chance to suppress it.
  */
 fun planExactSchedules(
   snapshot: NotifSnapshot,
@@ -135,9 +140,12 @@ fun planExactSchedules(
     nowIso = nowIso, location = null, zone = zone, config = deriveConfig,
   )
   val authored = snapshot.cards.map { cardToNowItem(it, rankConfig, nowIso, zone) }
+  val calendarSuppressed = (derived + authored).filterNot {
+    it.subjectKey in snapshot.calendarOwnedSubjects && it.reasonKind in EVENT_START_REASON_KINDS
+  }
 
   // keep the soonest future trigger per subject, within the horizon.
-  return (derived + authored).mapNotNull { item ->
+  return calendarSuppressed.mapNotNull { item ->
     val at = item.triggerAtIso?.let { parseInstantFlexible(it, zone) } ?: return@mapNotNull null
     if (at <= now || at - now > horizon) return@mapNotNull null
     item to at

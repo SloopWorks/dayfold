@@ -685,6 +685,10 @@ class ContentStore(driver: SqlDriver) {
   /** CAL-4 — every binding, for the reconciler's "still-valid explicit binding" ladder rung. */
   fun allCalendarBindings(): List<CalendarBinding> = q.allCalendarBindings().executeAsList().map { it.toCalendarBinding() }
 
+  /** ADR 0063 §7 — just the subject keys, for notifSnapshot's background-wake hot path. */
+  fun calendarBindingSubjectKeysByNotificationOwner(owner: CalendarNotificationOwner): Set<String> =
+    q.calendarBindingSubjectKeysByNotificationOwner(owner.wire).executeAsList().toSet()
+
   fun upsertCalendarBinding(b: CalendarBinding) = withWriteGate {
     q.upsertCalendarBinding(
       b.subjectKey, b.sourceVersion, b.platformEventId, b.calendarId, b.fingerprint, b.lastSeenAt,
@@ -762,10 +766,7 @@ class ContentStore(driver: SqlDriver) {
       surfacing = surfacing(),
       config = notifConfig(),
       log = notificationLog(),
-      calendarOwnedSubjects = allCalendarBindings()
-        .filter { it.notificationOwner == CalendarNotificationOwner.CALENDAR }
-        .map { it.subjectKey }
-        .toSet(),
+      calendarOwnedSubjects = calendarBindingSubjectKeysByNotificationOwner(CalendarNotificationOwner.CALENDAR),
     )
   }
 

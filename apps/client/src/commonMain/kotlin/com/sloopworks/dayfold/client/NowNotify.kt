@@ -61,6 +61,10 @@ data class NotifPlan(
  * `calendar` — a semantically distinct candidate for the SAME subjectKey (an incomplete
  * checklist, a weather qualification) still passes. This is deliberately a reasonKind filter,
  * never a whole-subjectKey suppression set (that would also discard the distinct candidate).
+ * Because rank() dedups by EXACT subjectKey (NowRank.kt), a suppressed reasonKind can be the
+ * ranked HEAD with the distinct candidate merely collapsed underneath it in [RankedItem
+ * .collapsedWith] — [notifiableItem] looks past a suppressed head to the next-best collapsed peer
+ * so that distinct candidate still gets its notification instead of being silently swallowed.
  * The CALENDAR_CHECK aggregate itself is never a notification candidate, full stop (ADR 0063 §5
  * "never an interruption") — excluded unconditionally, not merely by virtue of its calm banding.
  */
@@ -75,11 +79,10 @@ fun selectNotifications(
 ): NotifPlan {
   if (!config.enabled) return NotifPlan()
 
-  val candidates = (feed.now + feed.soon).filter {
-    it.item.subjectKey !in ledger.notifiedSubjects &&
-      it.item.subjectKey !in suppressedSubjects &&
-      it.item.reasonKind != ReasonKind.CALENDAR_CHECK &&
-      !(it.item.subjectKey in calendarOwnedSubjects && it.item.reasonKind in EVENT_START_REASON_KINDS)
+  val candidates = (feed.now + feed.soon).mapNotNull { r ->
+    val promoted = notifiableItem(r, calendarOwnedSubjects) ?: return@mapNotNull null
+    if (promoted.subjectKey in ledger.notifiedSubjects || promoted.subjectKey in suppressedSubjects) return@mapNotNull null
+    r to promoted
   }
   if (candidates.isEmpty()) return NotifPlan()
 
@@ -88,9 +91,9 @@ fun selectNotifications(
   // quiet-hours holds non-urgent; urgent (NOW/geo) passes through.
   val held = ArrayList<NowItem>()
   val eligible = ArrayList<NowItem>()
-  for (r in candidates) {
-    val urgent = r.band == Band.NOW || r.item.geoActive
-    if (quiet && !urgent) held += r.item else eligible += r.item
+  for ((r, promoted) in candidates) {
+    val urgent = r.band == Band.NOW || promoted.geoActive
+    if (quiet && !urgent) held += promoted else eligible += promoted
   }
 
   // daily cap — top-K of the eligible in ranked order; the tail is capped (never silently dropped).
@@ -101,6 +104,17 @@ fun selectNotifications(
     capped = eligible.drop(remaining),
   )
 }
+
+// The item within [r]'s cluster (the ranked head plus its collapsed dedup peers — head first,
+// then peers in descending score order per NowRank.kt) that is actually notification-eligible:
+// the head itself, unless it's a calendar-suppressed event-start or the CALENDAR_CHECK aggregate,
+// in which case the next-best peer that isn't either. Null when nothing in the cluster qualifies.
+private fun notifiableItem(r: RankedItem, calendarOwnedSubjects: Set<String>): NowItem? =
+  (listOf(r.item) + r.collapsedWith).firstOrNull { isNotificationEligible(it, calendarOwnedSubjects) }
+
+private fun isNotificationEligible(item: NowItem, calendarOwnedSubjects: Set<String>): Boolean =
+  item.reasonKind != ReasonKind.CALENDAR_CHECK &&
+    (item.subjectKey !in calendarOwnedSubjects || item.reasonKind !in EVENT_START_REASON_KINDS)
 
 // Wrap-aware: a window with start > end (e.g. 22:00→08:00) spans midnight. End-exclusive.
 fun inQuietHours(minuteOfDay: Int, config: NotifConfig): Boolean {

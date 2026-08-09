@@ -197,6 +197,6 @@ class NowFeedTest {
     val feed = nowFeed(state().copy(calendar = calendar), now, null, zone)
     val items = (feed.now + feed.soon + feed.later + feed.overflow).map { it.item }
     assertTrue(items.none { it.reasonKind == ReasonKind.CALENDAR_CHECK })
-    assertEquals(CalendarCheckFooter(allClear = true, lastSuccessfulCheckAtIso = "2026-08-09T08:00:00Z", stale = false), feed.calendarCheckFooter)
+    assertEquals(CalendarCheckFooter(lastSuccessfulCheckAtIso = "2026-08-09T08:00:00Z", stale = false), feed.calendarCheckFooter)
   }
 }

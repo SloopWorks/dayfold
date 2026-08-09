@@ -106,20 +106,32 @@ class NowNotifyTest {
     assertTrue(plan.toPost.isEmpty())
   }
 
-  @Test fun `a checklist candidate for the SAME subjectKey still passes the planner when that subject is calendar-owned`() {
-    val plan = selectNotifications(
-      feed(now = listOf(item("checklist", subject = "hub:h1", reasonKind = ReasonKind.CHECKLIST))), noon, zone, on,
-      calendarOwnedSubjects = setOf("hub:h1"),
-    )
+  // A checklist-type block that ALSO carries a when.at trigger produces a WHEN item and a
+  // CHECKLIST item sharing the identical subjectKey (NowDerive.kt) — rank() dedups by EXACT
+  // subjectKey, so that pair arrives here as ONE RankedItem: the higher-scoring head, plus the
+  // other collapsed into `collapsedWith` (NowRank.kt), never as two separate RankedItems. These
+  // tests exercise that real clustered shape, not a hand-built feed of independent RankedItems.
+  @Test fun `a checklist peer collapsed under a calendar-owned WHEN head is promoted and still posts`() {
+    val head = item("start", subject = "hub:h1", reasonKind = ReasonKind.WHEN)
+    val peer = item("checklist", subject = "hub:h1", reasonKind = ReasonKind.CHECKLIST)
+    val ranked = RankedItem(head, Band.NOW, 1.0, collapsedWith = listOf(peer))
+    val plan = selectNotifications(RankedFeed(now = listOf(ranked)), noon, zone, on, calendarOwnedSubjects = setOf("hub:h1"))
     assertEquals(listOf("checklist"), plan.toPost.map { it.id })
   }
 
-  @Test fun `a weather candidate for the SAME subjectKey still passes the planner when that subject is calendar-owned`() {
-    val plan = selectNotifications(
-      feed(now = listOf(item("weather", subject = "hub:h1", reasonKind = ReasonKind.WEATHER))), noon, zone, on,
-      calendarOwnedSubjects = setOf("hub:h1"),
-    )
+  @Test fun `a weather peer collapsed under a calendar-owned WHEN head is promoted and still posts`() {
+    val head = item("start", subject = "hub:h1", reasonKind = ReasonKind.WHEN)
+    val peer = item("weather", subject = "hub:h1", reasonKind = ReasonKind.WEATHER)
+    val ranked = RankedItem(head, Band.NOW, 1.0, collapsedWith = listOf(peer))
+    val plan = selectNotifications(RankedFeed(now = listOf(ranked)), noon, zone, on, calendarOwnedSubjects = setOf("hub:h1"))
     assertEquals(listOf("weather"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `a calendar-owned WHEN head with no eligible peer produces nothing for that cluster`() {
+    val head = item("start", subject = "hub:h1", reasonKind = ReasonKind.WHEN)
+    val ranked = RankedItem(head, Band.NOW, 1.0)
+    val plan = selectNotifications(RankedFeed(now = listOf(ranked)), noon, zone, on, calendarOwnedSubjects = setOf("hub:h1"))
+    assertTrue(plan.toPost.isEmpty())
   }
 
   @Test fun `countdown and milestone start candidates are also suppressed for a calendar-owned subject`() {
@@ -152,7 +164,7 @@ class NowNotifyTest {
 
   @Test fun `the CALENDAR_CHECK aggregate is never an OS-notification candidate, calendar-owned or not`() {
     val plan = selectNotifications(
-      feed(now = listOf(item("agg", subject = CALENDAR_CHECK_SUBJECT_KEY, reasonKind = ReasonKind.CALENDAR_CHECK))),
+      feed(now = listOf(item("agg", subject = CALENDAR_CHECK_SUBJECT_PREFIX, reasonKind = ReasonKind.CALENDAR_CHECK))),
       noon, zone, on,
     )
     assertTrue(plan.toPost.isEmpty())
