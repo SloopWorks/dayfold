@@ -70,7 +70,7 @@ class CalendarCheckReducerTest {
     assertEquals(setOf("hub:h1"), ignored.calendar.check.ignored)
     assertTrue(ignored.calendar.check.results.dayfoldOnly.isEmpty())
 
-    val undone = rootReducer(ignored, UndoIgnore)
+    val undone = rootReducer(ignored, UndoIgnore("hub:h1"))
     assertTrue(undone.calendar.check.ignored.isEmpty())
   }
 
@@ -82,17 +82,20 @@ class CalendarCheckReducerTest {
     assertEquals(setOf(calendarOnlyItemKey("evt-9")), next.calendar.check.ignored)
   }
 
-  @Test fun `UndoIgnore on an empty history is a no-op`() {
-    val next = rootReducer(AppState(), UndoIgnore)
+  @Test fun `UndoIgnore for a key that was never ignored is a no-op`() {
+    val next = rootReducer(AppState(), UndoIgnore("hub:h1"))
     assertTrue(next.calendar.check.ignored.isEmpty())
   }
 
-  @Test fun `UndoIgnore pops only the most recent ignore (LIFO)`() {
+  @Test fun `UndoIgnore targets the row the user tapped, not just the most recent ignore`() {
+    // The Ignored screen (§22) renders per-row Undo on every row, most-recent-first — tapping an
+    // OLDER row's Undo must restore that item, not silently pop whatever was ignored last.
     var state = AppState()
     state = rootReducer(state, IgnoreItem("hub:h1"))
     state = rootReducer(state, IgnoreItem("hub:h2"))
-    val undone = rootReducer(state, UndoIgnore)
-    assertEquals(setOf("hub:h1"), undone.calendar.check.ignored)
+    val undone = rootReducer(state, UndoIgnore("hub:h1"))
+    assertEquals(setOf("hub:h2"), undone.calendar.check.ignored)
+    assertEquals(listOf("hub:h2"), undone.calendar.check.ignoreHistory)
   }
 
   @Test fun `FieldChoice KEEP_DAYFOLD resolves the field without recording a pendingWrite`() {

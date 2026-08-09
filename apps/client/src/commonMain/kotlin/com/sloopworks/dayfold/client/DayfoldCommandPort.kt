@@ -72,7 +72,7 @@ interface DayfoldCommandPort {
   fun keepCalendarSeparate(subjectKey: String)
   fun resolveAmbiguousCalendarMatch(subjectKey: String, chosenEventId: String)
   fun ignoreCalendarItem(itemKey: String)
-  fun undoCalendarIgnore()
+  fun undoCalendarIgnore(itemKey: String)
   fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution)
   fun keepCalendarSeriesOnly(subjectKey: String)
 }

@@ -44,10 +44,10 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
       results = check.results.withoutItemKey(action.itemKey),
     )
 
-    UndoIgnore -> {
-      val last = check.ignoreHistory.lastOrNull()
-      if (last == null) check else check.copy(ignored = check.ignored - last, ignoreHistory = check.ignoreHistory.dropLast(1))
-    }
+    is UndoIgnore -> if (action.itemKey !in check.ignored) check else check.copy(
+      ignored = check.ignored - action.itemKey,
+      ignoreHistory = check.ignoreHistory - action.itemKey,
+    )
 
     is FieldChoice -> {
       val pendingWrites = if (action.resolution == FieldResolution.USE_CALENDAR) {

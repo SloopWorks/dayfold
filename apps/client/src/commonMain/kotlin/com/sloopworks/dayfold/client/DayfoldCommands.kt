@@ -217,7 +217,7 @@ class DayfoldCommands internal constructor(
   override fun keepCalendarSeparate(subjectKey: String) { store.dispatch(KeepSeparate(subjectKey)) }
   override fun resolveAmbiguousCalendarMatch(subjectKey: String, chosenEventId: String) = launchEffect { calendarCheckEngine?.resolveAmbiguous(subjectKey, chosenEventId) }
   override fun ignoreCalendarItem(itemKey: String) { store.dispatch(IgnoreItem(itemKey)) }
-  override fun undoCalendarIgnore() { store.dispatch(UndoIgnore) }
+  override fun undoCalendarIgnore(itemKey: String) { store.dispatch(UndoIgnore(itemKey)) }
   override fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution) { store.dispatch(FieldChoice(subjectKey, field, resolution)) }
   override fun keepCalendarSeriesOnly(subjectKey: String) { store.dispatch(KeepSeriesCalendarOnly(subjectKey)) }
 

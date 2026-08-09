@@ -32,8 +32,9 @@ data class ResolveAmbiguous(val subjectKey: String, val chosenEventId: String) :
 /** Local, undoable dismissal. [itemKey] is a subjectKey or "calendarEvent:<platformEventId>". */
 data class IgnoreItem(val itemKey: String) : CalendarCheckAction
 
-/** Undoes the most recently ignored item (LIFO). A no-op if there is none. */
-data object UndoIgnore : CalendarCheckAction
+/** Undoes ignoring [itemKey] specifically (the Ignored screen offers per-row Undo, not just the
+ *  most recent). A no-op if [itemKey] was never ignored. */
+data class UndoIgnore(val itemKey: String) : CalendarCheckAction
 
 /** Resolves one diverging field on a matched-but-different subject (ADR 0063 §5). */
 data class FieldChoice(val subjectKey: String, val field: String, val resolution: FieldResolution) : CalendarCheckAction

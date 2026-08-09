@@ -14,7 +14,9 @@ import com.sloopworks.dayfold.client.features.calendar.CalendarCheckNowCard
 import com.sloopworks.dayfold.client.features.calendar.CalendarDetailsDifferScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarMatchedSummaryScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListUiState
 import com.sloopworks.dayfold.client.features.calendar.CalendarSuggestedMatchScreen
+import com.sloopworks.dayfold.client.features.calendar.DayfoldOnlyRow
 import com.sloopworks.dayfold.client.snapshot.SnapshotStates
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import kotlin.test.Test
@@ -46,9 +48,33 @@ class CalendarReviewFlowSemanticsTest {
     }
     onNodeWithText("Maya's dance recital").assertIsDisplayed()
     onNodeWithText("Jun 27, 3:00 PM · from the Recital Hub").assertIsDisplayed()
+    onNodeWithText("Open Hub").assertIsDisplayed()
     onNodeWithContentDescription("Possible match — review, Soccer — Leo").assertIsDisplayed()
     onNodeWithText("Grandma's 80th lunch").assertIsDisplayed()
     onNodeWithContentDescription("3 ignored on this phone").assertIsDisplayed()
+  }
+
+  @Test fun `dayfold-only row omits Open Hub when the candidate has no hub to link to`() = runComposeUiTest {
+    // A card-derived candidate with no targetHubId (CalendarCandidates.kt) has no deep-link — the
+    // row must not offer a button that would silently do nothing when tapped.
+    val row = DayfoldOnlyRow(
+      subjectKey = "card:c1", title = "Standalone reminder", meta = "Jun 27, 3:00 PM",
+      prefill = EventPrefill("Standalone reminder", "2026-06-27T15:00:00-07:00", null, false, "America/Los_Angeles", null),
+      target = null,
+    )
+    setContent {
+      DayfoldTheme {
+        CalendarReviewListScreen(
+          ui = CalendarReviewListUiState(dayfoldRows = listOf(row), needsReviewRows = emptyList(), calendarOnlyRows = emptyList(), ignoredCount = 0),
+          compareLabel = "Compared on this phone",
+          onBack = {}, onAddToCalendar = {}, onIgnoreDayfoldOnly = {}, onOpenHub = {}, onOpenNeedsReview = {},
+          onKeepCalendarOnly = {}, onAddToHub = {}, onOpenIgnored = {},
+        )
+      }
+    }
+    onNodeWithText("Standalone reminder").assertIsDisplayed()
+    onNodeWithText("Add to calendar").assertIsDisplayed()
+    onAllNodesWithText("Open Hub").assertCountEquals(0)
   }
 
   @Test fun `suggested match keeps keep-separate and confirm-match as equal peers, nothing preselected`() = runComposeUiTest {

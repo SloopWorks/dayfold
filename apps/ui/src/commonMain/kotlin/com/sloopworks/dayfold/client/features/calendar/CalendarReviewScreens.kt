@@ -190,9 +190,14 @@ private fun DayfoldOnlyCard(row: DayfoldOnlyRow, onAddToCalendar: () -> Unit, on
           Text("Add to calendar", fontWeight = FontWeight.SemiBold)
         }
         OutlinedButton(onClick = onIgnore) { Text("Ignore", fontWeight = FontWeight.SemiBold) }
-        TextButton(onClick = onOpenHub) {
-          Text("Open Hub", fontWeight = FontWeight.SemiBold, maxLines = 1)
-          Icon(DayfoldIcons.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
+        // A card-derived candidate with no target hub (CalendarCandidates.kt's
+        // `card.targetHubId?.let { ... }`) has nothing to deep-link into — omit the button rather
+        // than leave a tap that silently does nothing.
+        if (row.target != null) {
+          TextButton(onClick = onOpenHub) {
+            Text("Open Hub", fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Icon(DayfoldIcons.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
+          }
         }
       }
     }

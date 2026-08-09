@@ -149,7 +149,7 @@ fun CalendarReviewHost(
       }
       CalendarIgnoredScreen(
         rows = rows, onBack = ::toList,
-        onUndo = { row -> ignoredDisplay.remove(row.itemKey); commands.undoCalendarIgnore() },
+        onUndo = { row -> ignoredDisplay.remove(row.itemKey); commands.undoCalendarIgnore(row.itemKey) },
         modifier = modifier,
       )
     }

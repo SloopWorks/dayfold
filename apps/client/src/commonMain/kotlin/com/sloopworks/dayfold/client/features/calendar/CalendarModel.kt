@@ -87,7 +87,9 @@ data class CalendarCheckState(
   // items (dayfoldOnly/suggested/ambiguous/differs/recurringNotices) or "calendarEvent:<id>" for
   // a bare calendar-only observation, which has no subjectKey.
   val ignored: Set<String> = emptySet(),
-  // LIFO of ignored keys — UndoIgnore pops the most recent.
+  // Ignored keys, oldest first — drives the Ignored screen's most-recent-first list
+  // (ignoredKeysMostRecentFirst). UndoIgnore removes a specific key, not just the last one: the
+  // Ignored screen gives every row its own Undo.
   val ignoreHistory: List<String> = emptyList(),
   val notificationOwnerOverrides: Map<String, CalendarNotificationOwner> = emptyMap(),
   val pendingWrites: List<PendingFieldWrite> = emptyList(),
