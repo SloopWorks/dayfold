@@ -40,13 +40,16 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
 
     is IgnoreItem -> check.copy(
       ignored = check.ignored + action.itemKey,
-      ignoreHistory = check.ignoreHistory + action.itemKey,
+      // A double-tap before the row disappears would otherwise dispatch IgnoreItem twice for the
+      // same key; ignoreHistory must stay duplicate-free or a single UndoIgnore(itemKey) (which
+      // removes every occurrence, see below) would leave a since-removed key visible forever.
+      ignoreHistory = if (action.itemKey in check.ignoreHistory) check.ignoreHistory else check.ignoreHistory + action.itemKey,
       results = check.results.withoutItemKey(action.itemKey),
     )
 
     is UndoIgnore -> if (action.itemKey !in check.ignored) check else check.copy(
       ignored = check.ignored - action.itemKey,
-      ignoreHistory = check.ignoreHistory - action.itemKey,
+      ignoreHistory = check.ignoreHistory.filterNot { it == action.itemKey },
     )
 
     is FieldChoice -> {

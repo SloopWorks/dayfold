@@ -98,6 +98,16 @@ class CalendarCheckReducerTest {
     assertEquals(listOf("hub:h2"), undone.calendar.check.ignoreHistory)
   }
 
+  @Test fun `a double-tapped IgnoreItem doesn't duplicate ignoreHistory, so one Undo fully clears it`() {
+    var state = AppState()
+    state = rootReducer(state, IgnoreItem("hub:h1"))
+    state = rootReducer(state, IgnoreItem("hub:h1")) // fast double-tap before the row disappears
+    assertEquals(listOf("hub:h1"), state.calendar.check.ignoreHistory)
+    val undone = rootReducer(state, UndoIgnore("hub:h1"))
+    assertTrue(undone.calendar.check.ignored.isEmpty())
+    assertTrue(undone.calendar.check.ignoreHistory.isEmpty())
+  }
+
   @Test fun `FieldChoice KEEP_DAYFOLD resolves the field without recording a pendingWrite`() {
     val c = candidate()
     val obs = observation()
