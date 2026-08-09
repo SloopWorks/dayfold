@@ -343,6 +343,37 @@ fun main(args: Array<String>) {
       val session = loadSession()        // refresh token comes from the keychain
       val creds = session.creds
       requireAuthSetup(creds != null)
+      // ADR 0064 pre-flight — consult the family's rules BEFORE writing. The server rejects a
+      // muted subject anyway (409), but a rejection tells the caller "this failed"; the
+      // pre-flight lets it say "skipped, the family asked me not to make these", which is the
+      // difference between a defect and an expected outcome (ADR 0062). --no-preflight skips
+      // the lookup for an offline/one-shot push.
+      if (creds != null && "--no-preflight" !in args) {
+        val (rc, rbody) = authedGet(
+          session.store, session.keychain, creds.api, creds.accessToken, creds,
+          "/families/${creds.familyId}/responses",
+        )
+        if (rc == 200) {
+          val rules = parseResponses(rbody)
+          val subjectRef = if (resource == "cards") "card:$id" else null
+          if (subjectRef != null) {
+            val op = CliChangesetOp(
+              id = id, subjectRef = subjectRef,
+              kind = jsonStringField(stamped, "kind"),
+              source = jsonStringField(stamped, "source"),
+            )
+            val filtered = filterMutedOps(listOf(op), rules)
+            if (filtered.skipped.isNotEmpty()) {
+              val hit = rules.firstOrNull { it.id == filtered.skipped.first().ruleId }
+              val why = hit?.label ?: hit?.subjectRef ?: "a family rule"
+              println("skipped $resource/$id — the family muted \"$why\" (${filtered.skipped.first().reason})")
+              return
+            }
+          }
+        }
+        // A failed lookup is NOT fatal: the write boundary still enforces the rule, so a
+        // transient read error must not block authoring.
+      }
       val (code, body) = if (creds != null) {
         authedPut(session.store, session.keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
       } else {
@@ -353,6 +384,29 @@ fun main(args: Array<String>) {
       println("push $resource/$id -> $code")
       if (code != 200) { System.err.println(body); exitProcess(1) }
       maybeNudgeUpdate()   // ADR 0037: throttled once/day update nudge (interactive only)
+    }
+
+    // dayfold responses [--json]  — the family's mute rules + done records (ADR 0064).
+    //
+    // Read this BEFORE authoring. The server enforces suppression by ID and never reads a
+    // label, so a rejected push tells an agent only "that exact key is muted". The labels are
+    // what let it avoid writing something SIMILAR in the first place, which is the actual ask:
+    // stop producing this kind of content, not just this one card.
+    "responses" -> {
+      val session = loadSession()
+      requireAuthSetup(session.creds != null)
+      val (api, fam, tok) = resolveAuth(session.creds)
+      val s = session.store.takeIf { session.creds != null }
+      val (code, body) = authedGet(s, session.keychain, api, tok, session.creds, "/families/$fam/responses")
+      if (code != 200) { System.err.println("responses failed ($code): $body"); exitProcess(1) }
+      if ("--json" in args) {
+        println(body)
+      } else {
+        val rules = parseResponses(body)
+        val hidden = Regex("\"personal_rules_not_visible\"\\s*:\\s*(\\d+)")
+          .find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        println(renderResponsesBrief(rules, hidden))
+      }
     }
 
     // dayfold template <type>  — print a starter card OR hub-tree body (hub/section/block).
