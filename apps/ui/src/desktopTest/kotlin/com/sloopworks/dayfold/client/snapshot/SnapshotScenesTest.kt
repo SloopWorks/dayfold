@@ -14,6 +14,8 @@ class SnapshotScenesTest {
         "notif", "privacy", "places", "proximity", "permission", "offline-banner", "kit",
         "timeline-card", "timeline-detail",
         "smart-content", "response-sheet",
+        "calendar-settings", "calendar-primer", "calendar-chooser", "calendar-denied",
+        "calendar-no-calendars", "calendar-prefill", "calendar-return", "calendar-reset",
       ),
       clientSnapshots.scenes.map { it.name }.toSet(),
     )
