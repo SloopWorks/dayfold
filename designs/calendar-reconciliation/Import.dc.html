@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .im-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes im-shimmer { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .im-scroll * { animation: none !important; } }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 4px;">
+    <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">{{ headerIcon }}</span>
+    <div style="flex:1;">
+      <div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">{{ headerTitle }}</div>
+      <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:999px;background:{{ dotSlate }};"></span><span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Grandma's 80th lunch · Sun 12:00 PM · Personal calendar</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 23 · CHOOSE DESTINATION ============ -->
+  <sc-if value="{{ isDest }}" hint-placeholder-val="{{ true }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 26px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">START FRESH</div>
+        <div style="background:{{ c.surfaceContainer }};border:2px solid {{ c.outlineVar }};border-radius:20px;padding:15px 16px;display:flex;align-items:center;gap:13px;margin-bottom:18px;">
+          <span style="width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onPrimaryContainer }};">add_circle</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">New Event Hub</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Starts private — only you, until you share it</div></div>
+          <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">OR ADD TO A HUB YOU CAN EDIT</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:14px;">
+          <sc-for list="{{ hubs }}" as="h" hint-placeholder-count="2">
+            <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:14px 15px;display:flex;align-items:center;gap:13px;">
+              <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ h.bg }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ h.fg }};">{{ h.icon }}</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ h.name }}</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ h.aud }}</div></div>
+              <span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:4px 9px;border-radius:8px;">{{ h.role }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Only Hubs you can edit are listed.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 24 · FIELD PREVIEW ============ -->
+  <sc-if value="{{ isFields }}" hint-placeholder-val="{{ false }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 20px;">
+        <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 14px;">Only the fields you approve are added to Dayfold. Everything else stays in your calendar.</p>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">GOES TO DAYFOLD</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:16px;">
+          <sc-for list="{{ fieldsOn }}" as="f" hint-placeholder-count="4">
+            <sc-if value="{{ f.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 13px;">
+              <span style="width:24px;height:24px;flex:0 0 24px;border-radius:8px;background:{{ f.on ? c.primary : 'transparent' }};border:{{ f.on ? 'none' : '2px solid ' + c.outline }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:16px;color:{{ f.on ? c.onPrimary : 'transparent' }};">check</span></span>
+              <div style="flex:1;"><div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};">{{ f.label }}</div><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};">{{ f.value }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">STAYS IN YOUR CALENDAR</div>
+        <div style="background:{{ c.surfaceContainerLow }};border:1.5px dashed {{ c.outlineVar }};border-radius:18px;padding:13px 15px;margin-bottom:14px;">
+          <sc-for list="{{ fieldsOff }}" as="f" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+              <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};">{{ f.icon }}</span>
+              <span style="flex:1;font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">{{ f.label }}</span>
+              <sc-if value="{{ f.optional }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.secondary }};">Add anyway</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">cloud_upload</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Approved fields sync to Dayfold once you confirm.</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Back</span>
+        <span style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px;border-radius:999px;">Choose who sees it</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 25 · AUDIENCE — NEW HUB ============ -->
+  <sc-if value="{{ isAudNew }}" hint-placeholder-val="{{ false }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 20px;">
+        <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 14px;">The new Hub starts private, like your calendar event.</p>
+        <div style="background:{{ c.surfaceContainer }};border:2px solid {{ c.primary }};border-radius:20px;padding:15px 16px;display:flex;align-items:center;gap:13px;margin-bottom:10px;">
+          <span style="width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:{{ c.onSecondaryContainer }};">lock</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Only me</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Just you can see this Hub. You can share it later.</div></div>
+          <span style="width:22px;height:22px;border-radius:999px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:14px;color:{{ c.onPrimary }};">check</span></span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border:2px solid transparent;border-radius:20px;padding:15px 16px;display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+          <span style="width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onTertiaryContainer }};">diversity_3</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">The Jacksons</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Pat, Maya, Leo and Sam can see it</div></div>
+          <span style="width:22px;height:22px;border-radius:999px;border:2px solid {{ c.outline }};"></span>
+        </div>
+
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Back</span>
+        <span style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px;border-radius:999px;">Review &amp; confirm</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 25b · AUDIENCE — EXISTING HUB WARNING ============ -->
+  <sc-if value="{{ isAudExisting }}" hint-placeholder-val="{{ false }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 20px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:15px 16px;display:flex;align-items:center;gap:13px;margin-bottom:12px;">
+          <span style="width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:{{ c.tertiaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onTertiaryContainer }};">beach_access</span></span>
+          <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Adding to: Beach Week</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">You're a Contributor on this Hub</div></div>
+        </div>
+        <div style="background:{{ c.tertiaryContainer }};border-radius:18px;padding:15px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="msr" style="font-size:20px;color:{{ c.onTertiaryContainer }};">visibility</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;color:{{ c.onTertiaryContainer }};">This Hub is shared with 4 people</span></div>
+          <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onTertiaryContainer }};margin:0 0 10px;">Pat, Maya, Leo and Sam will see what you add — wider than your Personal calendar.</p>
+          <div style="display:flex;gap:6px;">
+            <span style="width:30px;height:30px;border-radius:999px;background:{{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:12px;color:{{ c.onSurface }};">P</span>
+            <span style="width:30px;height:30px;border-radius:999px;background:{{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:12px;color:{{ c.onSurface }};">M</span>
+            <span style="width:30px;height:30px;border-radius:999px;background:{{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:12px;color:{{ c.onSurface }};">L</span>
+            <span style="width:30px;height:30px;border-radius:999px;background:{{ c.surface }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:12px;color:{{ c.onSurface }};">S</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">arrow_back</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Prefer privacy? Go back and pick a new private Hub.</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Back</span>
+        <span style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px;border-radius:999px;">Got it — review</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 26 · REVIEW & CONFIRM ============ -->
+  <sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ false }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 20px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:18px;margin-bottom:12px;">
+          <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:8px;padding:5px 10px;margin-bottom:12px;"><span style="width:8px;height:8px;border-radius:999px;background:{{ dotSlate }};"></span>From your calendar · Personal</div>
+          <div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin-bottom:10px;">Grandma's 80th lunch</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">schedule</span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">Sun, Jun 28 · 12:00 – 2:00 PM · Pacific Time</span></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};">location_on</span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">Harvest Table, 88 Vine St</span></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span class="msr fill" style="font-size:17px;color:{{ c.secondary }};">lock</span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">New Hub · Only me</span></div>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainerLow }};border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">fact_check</span>
+          <span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">4 fields go to Dayfold. Description, guests and reminders stay in your calendar.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">calendar_month</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Your calendar stays the schedule — nothing changes there.</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 20px;background:{{ c.surface }};box-shadow:0 -1px 0 {{ c.outlineVar }};">
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Back</span>
+        <span style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px;border-radius:999px;"><span class="msr" style="font-size:19px;">add_circle</span>Create the Hub</span>
+      </div>
+      <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:9px;">Nothing is added until you tap this.</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 27 · APPLY STATES ============ -->
+  <sc-if value="{{ isApply }}" hint-placeholder-val="{{ false }}">
+    <div class="im-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:12px 18px 26px;">
+        <div style="background:{{ ap.cardBg }};border:1px solid {{ ap.cardBorder }};border-radius:22px;padding:20px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:13px;margin-bottom:12px;">
+            <span style="width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:{{ ap.iconBg }};display:flex;align-items:center;justify-content:center;{{ ap.iconAnim }}"><span class="msr {{ ap.iconFill }}" style="font-size:24px;color:{{ ap.iconFg }};">{{ ap.icon }}</span></span>
+            <div style="flex:1;"><div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ ap.titleFg }};line-height:1.2;">{{ ap.title }}</div><sc-if value="{{ ap.hasMeta }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Figtree';font-size:12.5px;color:{{ ap.metaFg }};margin-top:3px;">{{ ap.meta }}</div></sc-if></div>
+          </div>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ ap.bodyFg }};margin:0 0 14px;">{{ ap.body }}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <sc-for list="{{ ap.actions }}" as="a" hint-placeholder-count="2">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ a.fg }};background:{{ a.bg }};border:{{ a.border }};border-radius:999px;padding:12px 18px;"><sc-if value="{{ a.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="msr" style="font-size:17px;">{{ a.icon }}</span></sc-if>{{ a.label }}</span>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ ap.hasDiff }}" hint-placeholder-val="{{ false }}">
+          <div style="background:{{ c.surfaceContainerLow }};border-radius:16px;padding:13px 15px;margin-bottom:14px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:8px;">{{ ap.diffLabel }}</div>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};text-decoration:line-through;">{{ ap.diffOld }}</span><span class="msr" style="font-size:15px;color:{{ c.onSurfaceVar }};">arrow_forward</span><span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};">{{ ap.diffNew }}</span></div>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">{{ ap.footIcon }}</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ ap.foot }}</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:8;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;destination&quot;,&quot;fields&quot;,&quot;audience-new&quot;,&quot;audience-existing&quot;,&quot;confirm&quot;,&quot;apply-saving&quot;,&quot;apply-saved&quot;,&quot;apply-offline&quot;,&quot;apply-permission-lost&quot;,&quot;apply-role-denied&quot;,&quot;apply-source-changed&quot;,&quot;apply-conflict&quot;],&quot;default&quot;:&quot;destination&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'destination';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      okBg:'#E2F4EF', okBorder:'#BFE3DC', okFg:'#0B5048', okIcon:'#00796F',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      okBg:'#14322D', okBorder:'#1E5048', okFg:'#A8F4E7', okIcon:'#50DBC9',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const btn = (label, kind, icon) => ({
+      label, icon: icon || '', hasIcon: !!icon,
+      fg: kind === 'filled' ? c.onPrimary : (kind === 'tonal' ? c.onSecondaryContainer : c.secondary),
+      bg: kind === 'filled' ? c.primary : (kind === 'tonal' ? c.secondaryContainer : 'transparent'),
+      border: kind === 'outlined' ? '1.5px solid ' + c.outlineVar : 'none',
+    });
+    const base = { cardBg:c.surfaceContainer, cardBorder:'transparent', titleFg:c.onSurface, bodyFg:c.onSurfaceVar, metaFg:c.onSurfaceVar, iconAnim:'', iconFill:'', hasDiff:false, diffLabel:'', diffOld:'', diffNew:'', hasMeta:false, meta:'' };
+    const applies = {
+      'apply-saving': { ...base,
+        icon:'progress_activity', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer, iconAnim:'animation:im-shimmer 1.6s ease-in-out infinite;',
+        title:'Creating your Hub…', hasMeta:true, meta:'Saving to Dayfold',
+        body:'Adding the fields you approved. Your calendar event is untouched.',
+        actions:[], footIcon:'phonelink_lock', foot:'Everything else stays in your calendar.' },
+      'apply-saved': { ...base, cardBg:c.okBg, cardBorder:c.okBorder, titleFg:c.okFg, bodyFg:c.okFg, metaFg:c.okFg,
+        icon:'check_circle', iconFill:'fill', iconBg:c.okBg, iconFg:c.okIcon,
+        title:'Hub created — only you can see it', hasMeta:true, meta:"Grandma's 80th lunch · Sun, Jun 28",
+        body:'The event and your new Hub are linked on this phone.',
+        actions:[ btn('Open Hub', 'tonal', 'open_in_new'), btn('Share with family', 'outlined') ],
+        footIcon:'lock', foot:'Sharing later names exactly who will see it.' },
+      'apply-offline': { ...base,
+        icon:'cloud_off', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar,
+        title:"You're offline — it'll save when you're back", hasMeta:true, meta:'Queued on this phone',
+        body:'Your reviewed import will be applied the next time Dayfold connects. If the event changes first, you’ll get one more look.',
+        actions:[ btn('OK', 'tonal') ], footIcon:'schedule', foot:'No duplicate will be created.' },
+      'apply-permission-lost': { ...base,
+        icon:'event_busy', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar,
+        title:'Calendar access changed', hasMeta:false,
+        body:'Calendar access turned off before this was applied, so the import is on hold.',
+        actions:[ btn('Allow in phone settings', 'tonal', 'settings'), btn('Discard import', 'outlined') ],
+        footIcon:'info', foot:'Nothing was added or changed anywhere.' },
+      'apply-role-denied': { ...base,
+        icon:'do_not_disturb_on', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar,
+        title:'You can’t add to Beach Week anymore', hasMeta:false,
+        body:'Your role there changed to Viewer. Your review is kept — pick another destination.',
+        actions:[ btn('Choose a different Hub', 'tonal', 'swap_horiz'), btn('New private Hub', 'outlined') ],
+        footIcon:'info', foot:'Nothing else was affected.' },
+      'apply-source-changed': { ...base,
+        icon:'update', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer,
+        title:'The calendar event changed while you reviewed', hasMeta:false,
+        body:'Check the updated details, then confirm again.',
+        actions:[ btn('Review updated details', 'tonal', 'refresh'), btn('Discard import', 'outlined') ],
+        hasDiff:true, diffLabel:'WHAT CHANGED', diffOld:'12:00 PM', diffNew:'12:30 PM',
+        footIcon:'verified', foot:'Nothing is applied from a stale copy.' },
+      'apply-conflict': { ...base,
+        icon:'call_merge', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer,
+        title:'Beach Week changed while you reviewed', hasMeta:false,
+        body:'Someone edited that Hub since you started. Refresh, then confirm against the current version.',
+        actions:[ btn('Refresh and re-confirm', 'tonal', 'refresh'), btn('Discard import', 'outlined') ],
+        footIcon:'verified', foot:'Dayfold never merges silently.' },
+    };
+    const headers = {
+      'destination': 'Add to Dayfold', 'fields': 'What goes to Dayfold', 'audience-new': 'Who sees it',
+      'audience-existing': 'Who sees it', 'confirm': 'Review & confirm',
+    };
+    return {
+      c, dotSlate:'#5B7DB1',
+      headerIcon: view === 'destination' ? 'close' : 'arrow_back',
+      headerTitle: headers[view] || 'Add to Dayfold',
+      isDest: view === 'destination',
+      isFields: view === 'fields',
+      isAudNew: view === 'audience-new',
+      isAudExisting: view === 'audience-existing',
+      isConfirm: view === 'confirm',
+      isApply: !!applies[view],
+      ap: applies[view] || applies['apply-saving'],
+      hubs: [
+        { icon:'beach_access', bg:c.tertiaryContainer, fg:c.onTertiaryContainer, name:'Beach Week', aud:'Shared with 4 people', role:'CONTRIBUTOR' },
+        { icon:'celebration', bg:c.primaryContainer, fg:c.onPrimaryContainer, name:"Leo's birthday", aud:'Shared with 2 people', role:'CO-OWNER' },
+      ],
+      fieldsOn: [
+        { label:'TITLE', value:"Grandma's 80th lunch", on:true, divider:false },
+        { label:'DATE & TIME', value:'Sun, Jun 28 · 12:00 – 2:00 PM', on:true, divider:true },
+        { label:'TIMEZONE', value:'Pacific Time', on:true, divider:true },
+        { label:'LOCATION', value:'Harvest Table, 88 Vine St', on:true, divider:true },
+      ],
+      fieldsOff: [
+        { icon:'notes', label:'Event description', optional:true },
+        { icon:'group', label:'Guests & responses', optional:false },
+        { icon:'videocam', label:'Meeting link', optional:false },
+        { icon:'account_circle', label:'Organizer & account details', optional:false },
+        { icon:'notifications', label:'Reminder settings', optional:false },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

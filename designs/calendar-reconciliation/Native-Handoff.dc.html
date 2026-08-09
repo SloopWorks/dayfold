@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .nh-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes nh-shimmer { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .nh-scroll * { animation: none !important; } }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ frameBg }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ frameBg }};z-index:5;">
+    <span style="font-weight:600;font-size:14px;color:{{ frameFg }};font-family:'Figtree';">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ frameFg }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============ 7 · ELIGIBLE HUB — quiet Add to calendar ============ -->
+  <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+    <div class="nh-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 6px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="flex:1;"></span>
+        <span class="msr" style="font-size:23px;color:{{ c.onSurface }};">more_vert</span>
+      </div>
+      <div style="padding:6px 20px 26px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.tertiaryContainer }};color:{{ c.onTertiaryContainer }};padding:6px 12px;border-radius:999px;margin-bottom:12px;"><span class="msr" style="font-size:15px;">theater_comedy</span>Event Hub</div>
+        <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;line-height:1.1;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 6px;">Maya's dance recital</h1>
+        <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};margin-bottom:16px;">Shared with the Jacksons</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:13px;margin-bottom:12px;">
+            <span style="width:44px;height:44px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'Figtree';font-size:9px;font-weight:700;letter-spacing:0.08em;color:{{ c.onPrimaryContainer }};">JUN</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onPrimaryContainer }};line-height:1;">27</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Saturday, June 27</div><div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">3:00 – 5:00 PM · Pacific Time</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:44px;height:44px;border-radius:14px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">location_on</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Cascade Community Theater</div><div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">410 Alder St</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid {{ c.outlineVar }};">
+            <span style="display:inline-flex;align-items:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:12px 18px;"><span class="msr" style="font-size:18px;">edit_calendar</span>Add to calendar</span>
+            <span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};line-height:1.35;">Opens your calendar app.</span>
+          </div>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;margin-bottom:12px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">GETTING READY · 2 OF 4</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:9px;"><span style="width:20px;height:20px;border-radius:7px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:14px;color:{{ c.onPrimary }};">check</span></span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};text-decoration:line-through;">Buy tights</span></div>
+          <div style="display:flex;align-items:center;gap:12px;"><span style="width:20px;height:20px;border-radius:7px;border:2px solid {{ c.outline }};"></span><span style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurface }};">Pack the costume bag</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:0 4px;"><span class="msr" style="font-size:15px;color:{{ c.tertiary }};">auto_awesome</span><span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.onSurfaceVar }};">Added by Claude · from the studio email</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 8 · PREFILL REVIEW SHEET ============ -->
+  <sc-if value="{{ isPrefill }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;overflow:hidden;padding:8px 20px;">
+      <div style="display:flex;align-items:center;gap:14px;padding:0 2px 10px;"><span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span></div>
+      <h1 style="font-family:'Outfit';font-weight:600;font-size:29px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 14px;">Maya's dance recital</h1>
+      <div style="height:150px;border-radius:20px;background:{{ c.surfaceContainer }};margin-bottom:10px;"></div>
+      <div style="height:110px;border-radius:20px;background:{{ c.surfaceContainer }};"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:{{ c.scrim }};z-index:5;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:6;background:{{ c.surfaceContainerLow }};border-radius:28px 28px 0 0;padding:10px 22px 28px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+      <div style="width:34px;height:4px;border-radius:3px;background:{{ c.outlineVar }};margin:0 auto 16px;"></div>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 4px;">Add to calendar</h2>
+      <p style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurfaceVar }};margin:0 0 14px;">Your calendar app opens with these filled in — you save or cancel there.</p>
+      <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:4px;margin-bottom:12px;">
+        <sc-for list="{{ prefillRows }}" as="r" hint-placeholder-count="4">
+          <sc-if value="{{ r.divider }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 14px;"></div></sc-if>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 13px;">
+            <span class="msr" style="font-size:19px;color:{{ r.warn ? c.tertiary : c.onSurfaceVar }};">{{ r.icon }}</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};">{{ r.label }}</div><div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ r.warn ? c.tertiary : c.onSurface }};">{{ r.value }}</div></div>
+            <sc-if value="{{ r.warn }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onTertiaryContainer }};background:{{ c.tertiaryContainer }};border-radius:999px;padding:4px 9px;">Add it there</span></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:8px;margin:0 4px 16px;">
+        <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">block</span>
+        <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">No guests or reminders are prefilled.</span>
+      </div>
+      <div style="display:flex;gap:9px;">
+        <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Cancel</span>
+        <span style="flex:1.4;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:{{ c.primary }};color:{{ c.onPrimary }};font-family:'Figtree';font-weight:600;font-size:15px;padding:14px;border-radius:999px;"><span class="msr" style="font-size:19px;">open_in_new</span>Open calendar app</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 9 · ANDROID NATIVE EDITOR ============ -->
+  <sc-if value="{{ isAndroidEditor }}" hint-placeholder-val="{{ false }}">
+    <div class="nh-scroll" style="flex:1;overflow-y:auto;background:{{ osA.bg }};font-family:'Roboto','Figtree',sans-serif;">
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 18px 10px;">
+        <span class="msr" style="font-size:24px;color:{{ osA.fg }};">close</span>
+        <span style="flex:1;font-size:19px;font-weight:500;color:{{ osA.fg }};">New event</span>
+        <span style="background:{{ osA.accentBg }};color:{{ osA.accentFg }};font-size:14px;font-weight:600;padding:9px 20px;border-radius:999px;">Save</span>
+      </div>
+      <div style="padding:10px 20px 24px;">
+        <div style="font-size:23px;font-weight:400;color:{{ osA.fg }};padding:10px 0 14px;border-bottom:1px solid {{ osA.divider }};">Maya's dance recital</div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid {{ osA.divider }};">
+          <span class="msr" style="font-size:21px;color:{{ osA.muted }};">schedule</span>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14.5px;color:{{ osA.fg }};">Sat, Jun 27, 2026</span><span style="font-size:14.5px;color:{{ osA.fg }};">3:00 PM</span></div>
+            <div style="display:flex;justify-content:space-between;"><span style="font-size:14.5px;color:{{ osA.fg }};">Sat, Jun 27, 2026</span><span style="font-size:14.5px;color:{{ osA.fg }};">5:00 PM</span></div>
+            <div style="font-size:12.5px;color:{{ osA.muted }};margin-top:8px;">Pacific Time (GMT-7)</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid {{ osA.divider }};">
+          <span class="msr" style="font-size:21px;color:{{ osA.muted }};">location_on</span>
+          <span style="flex:1;font-size:14.5px;color:{{ osA.fg }};">Cascade Community Theater, 410 Alder St</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid {{ osA.divider }};">
+          <span class="msr" style="font-size:21px;color:{{ osA.muted }};">event</span>
+          <div style="flex:1;"><div style="font-size:14.5px;color:{{ osA.fg }};display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:999px;background:#7B9E6B;"></span>Family<span class="msr" style="font-size:19px;color:{{ osA.muted }};">arrow_drop_down</span></div><div style="font-size:12.5px;color:{{ osA.muted }};margin-top:3px;">You choose where this is saved</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid {{ osA.divider }};">
+          <span class="msr" style="font-size:21px;color:{{ osA.muted }};">notifications</span>
+          <span style="flex:1;font-size:14.5px;color:{{ osA.fg }};">30 minutes before <span style="font-size:12.5px;color:{{ osA.muted }};">· this calendar's default</span></span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;">
+          <span class="msr" style="font-size:21px;color:{{ osA.muted }};">notes</span>
+          <span style="flex:1;font-size:14.5px;color:{{ osA.fg }};line-height:1.45;">Doors 2:30. Costume bag + tights. Details in Dayfold:<br><span style="color:{{ osA.accent }};">https://dayfold.app/h/mayas-recital</span></span>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:56px;z-index:7;display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.annotFg }};background:{{ c.annotBg }};border:1.5px dashed {{ c.annotBorder }};border-radius:999px;padding:5px 12px;white-space:nowrap;">ANDROID CALENDAR APP · OS-OWNED · ACTION_INSERT</div>
+  </sc-if>
+
+  <!-- ============ 10 · IOS NATIVE EDITOR ============ -->
+  <sc-if value="{{ isIosEditor }}" hint-placeholder-val="{{ false }}">
+    <div class="nh-scroll" style="flex:1;overflow-y:auto;background:{{ osI.bg }};font-family:-apple-system,'Helvetica Neue',sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;">
+        <span style="font-size:16.5px;color:{{ osI.blue }};">Cancel</span>
+        <span style="font-size:16.5px;font-weight:600;color:{{ osI.fg }};">New Event</span>
+        <span style="font-size:16.5px;font-weight:600;color:{{ osI.blue }};">Add</span>
+      </div>
+      <div style="padding:8px 16px 24px;">
+        <div style="background:{{ osI.cell }};border-radius:12px;margin-bottom:18px;">
+          <div style="padding:13px 16px;font-size:16.5px;color:{{ osI.fg }};border-bottom:0.5px solid {{ osI.divider }};">Maya's dance recital</div>
+          <div style="padding:13px 16px;font-size:16.5px;color:{{ osI.fg }};">Cascade Community Theater<div style="font-size:12.5px;color:{{ osI.muted }};margin-top:2px;">410 Alder St</div></div>
+        </div>
+        <div style="background:{{ osI.cell }};border-radius:12px;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:0.5px solid {{ osI.divider }};"><span style="font-size:16.5px;color:{{ osI.fg }};">All-day</span><span style="width:50px;height:30px;border-radius:999px;background:{{ osI.toggleOff }};position:relative;"><span style="position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25);"></span></span></div>
+          <div style="display:flex;justify-content:space-between;padding:13px 16px;border-bottom:0.5px solid {{ osI.divider }};"><span style="font-size:16.5px;color:{{ osI.fg }};">Starts</span><span style="font-size:16.5px;color:{{ osI.muted }};">Jun 27, 2026 &nbsp;3:00 PM</span></div>
+          <div style="display:flex;justify-content:space-between;padding:13px 16px;border-bottom:0.5px solid {{ osI.divider }};"><span style="font-size:16.5px;color:{{ osI.fg }};">Ends</span><span style="font-size:16.5px;color:{{ osI.muted }};">5:00 PM</span></div>
+          <div style="display:flex;justify-content:space-between;padding:13px 16px;"><span style="font-size:16.5px;color:{{ osI.fg }};">Time Zone</span><span style="font-size:16.5px;color:{{ osI.muted }};">Los Angeles</span></div>
+        </div>
+        <div style="background:{{ osI.cell }};border-radius:12px;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;"><span style="font-size:16.5px;color:{{ osI.fg }};">Calendar</span><span style="display:inline-flex;align-items:center;gap:8px;font-size:16.5px;color:{{ osI.muted }};"><span style="width:11px;height:11px;border-radius:999px;background:#5B7DB1;"></span>Home<span class="msr" style="font-size:17px;color:{{ osI.muted }};">chevron_right</span></span></div>
+        </div>
+        <div style="background:{{ osI.cell }};border-radius:12px;">
+          <div style="display:flex;justify-content:space-between;padding:13px 16px;border-bottom:0.5px solid {{ osI.divider }};"><span style="font-size:16.5px;color:{{ osI.fg }};">Alert</span><span style="font-size:16.5px;color:{{ osI.muted }};">None set by Dayfold</span></div>
+          <div style="padding:13px 16px;font-size:16.5px;color:{{ osI.fg }};">Notes<div style="font-size:14px;color:{{ osI.muted }};margin-top:3px;line-height:1.4;">Doors 2:30. Costume bag + tights. Details in Dayfold:<br><span style="color:{{ osI.blue }};">https://dayfold.app/h/mayas-recital</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:56px;z-index:7;display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.annotFg }};background:{{ c.annotBg }};border:1.5px dashed {{ c.annotBorder }};border-radius:999px;padding:5px 12px;white-space:nowrap;">IOS EVENT EDITOR · OS-OWNED · EVENTKITUI</div>
+  </sc-if>
+
+  <!-- ============ 11 · RETURN STATES ============ -->
+  <sc-if value="{{ isReturn }}" hint-placeholder-val="{{ false }}">
+    <div class="nh-scroll" style="flex:1;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 6px;">
+        <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Maya's dance recital</span>
+      </div>
+      <div style="padding:10px 20px 26px;">
+        <div style="background:{{ ret.cardBg }};border:1px solid {{ ret.cardBorder }};border-radius:22px;padding:20px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:13px;margin-bottom:12px;">
+            <span style="width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:{{ ret.iconBg }};display:flex;align-items:center;justify-content:center;{{ ret.iconAnim }}"><span class="msr {{ ret.iconFill }}" style="font-size:24px;color:{{ ret.iconFg }};">{{ ret.icon }}</span></span>
+            <div style="flex:1;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ ret.titleFg }};line-height:1.2;">{{ ret.title }}</div>
+              <sc-if value="{{ ret.hasMeta }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:6px;margin-top:3px;"><sc-if value="{{ ret.hasDot }}" hint-placeholder-val="{{ false }}"><span style="width:10px;height:10px;border-radius:999px;background:{{ ret.dot }};"></span></sc-if><span style="font-family:'Figtree';font-size:12.5px;color:{{ ret.metaFg }};">{{ ret.meta }}</span></div></sc-if>
+            </div>
+          </div>
+          <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ ret.bodyFg }};margin:0 0 14px;">{{ ret.body }}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <sc-for list="{{ ret.actions }}" as="a" hint-placeholder-count="2">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ a.fg }};background:{{ a.bg }};border:{{ a.border }};border-radius:999px;padding:12px 18px;"><sc-if value="{{ a.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="msr" style="font-size:17px;">{{ a.icon }}</span></sc-if>{{ a.label }}</span>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ ret.hasHonesty }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+            <span class="msr" style="font-size:17px;color:{{ c.onSurfaceVar }};margin-top:1px;">{{ ret.honestyIcon }}</span>
+            <span style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ ret.honesty }}</span>
+          </div>
+        </sc-if>
+        <div style="margin-top:18px;background:{{ c.surfaceContainer }};border-radius:20px;padding:16px;opacity:0.65;">
+          <div style="display:flex;align-items:center;gap:13px;">
+            <span style="width:44px;height:44px;border-radius:14px;background:{{ c.primaryContainer }};display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'Figtree';font-size:9px;font-weight:700;letter-spacing:0.08em;color:{{ c.onPrimaryContainer }};">JUN</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;color:{{ c.onPrimaryContainer }};line-height:1;">27</span></span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};">Saturday, June 27</div><div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};">3:00 – 5:00 PM · Cascade Community Theater</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ frameFg }};opacity:0.24;z-index:8;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;hub-action&quot;,&quot;prefill&quot;,&quot;android-editor&quot;,&quot;ios-editor&quot;,&quot;return-checking&quot;,&quot;return-added&quot;,&quot;return-canceled&quot;,&quot;return-permission-changed&quot;,&quot;return-unconfirmed&quot;],&quot;default&quot;:&quot;hub-action&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'hub-action';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      scrim:'rgba(39,24,20,0.42)',
+      okBg:'#E2F4EF', okBorder:'#BFE3DC', okFg:'#0B5048', okIcon:'#00796F',
+      annotFg:'#5A423C', annotBg:'#FFF8F6', annotBorder:'#A98B84',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      scrim:'rgba(0,0,0,0.55)',
+      okBg:'#14322D', okBorder:'#1E5048', okFg:'#A8F4E7', okIcon:'#50DBC9',
+      annotFg:'#F0DFDA', annotBg:'#271D1A', annotBorder:'#A08D87',
+    };
+    const c = mode === 'dark' ? dark : light;
+    const osA = mode === 'dark'
+      ? { bg:'#131318', fg:'#E3E2E8', muted:'#8F909A', divider:'#2C2C34', accentBg:'#A8C7FA', accentFg:'#0B305F' }
+      : { bg:'#FDFBFF', fg:'#1B1B21', muted:'#5F6069', divider:'#E3E1EC', accentBg:'#0B57D0', accentFg:'#FFFFFF' };
+    const osI = mode === 'dark'
+      ? { bg:'#000000', cell:'#1C1C1E', fg:'#FFFFFF', muted:'#98989F', divider:'rgba(255,255,255,0.15)', blue:'#0A84FF', toggleOff:'#39393D' }
+      : { bg:'#F2F2F7', cell:'#FFFFFF', fg:'#000000', muted:'#8A8A8E', divider:'rgba(0,0,0,0.12)', blue:'#007AFF', toggleOff:'#E9E9EB' };
+    const isAndroidEditor = view === 'android-editor';
+    const isIosEditor = view === 'ios-editor';
+    const frameBg = isAndroidEditor ? osA.bg : (isIosEditor ? osI.bg : c.surface);
+    const frameFg = isAndroidEditor ? osA.fg : (isIosEditor ? osI.fg : c.onSurface);
+    const prefillRows = [
+      { icon:'title', label:'TITLE', value:"Maya's dance recital", warn:false, divider:false },
+      { icon:'schedule', label:'STARTS', value:'Sat, Jun 27 · 3:00 PM · Pacific Time', warn:false, divider:true },
+      { icon:'hourglass_bottom', label:'ENDS', value:'No end time yet', warn:true, divider:true },
+      { icon:'location_on', label:'LOCATION', value:'Cascade Community Theater, 410 Alder St', warn:false, divider:true },
+      { icon:'notes', label:'NOTES', value:'Doors 2:30. Costume bag + tights. + a link back to the Hub', warn:false, divider:true },
+    ];
+    const btn = (label, kind, icon) => ({
+      label, icon: icon || '', hasIcon: !!icon,
+      fg: kind === 'filled' ? c.onPrimary : (kind === 'tonal' ? c.onSecondaryContainer : c.secondary),
+      bg: kind === 'filled' ? c.primary : (kind === 'tonal' ? c.secondaryContainer : 'transparent'),
+      border: kind === 'outlined' ? '1.5px solid ' + c.outlineVar : 'none',
+    });
+    const returns = {
+      'return-checking': {
+        icon:'search', iconFill:'', iconBg:c.secondaryContainer, iconFg:c.onSecondaryContainer, iconAnim:'animation:nh-shimmer 1.6s ease-in-out infinite;',
+        cardBg:c.surfaceContainer, cardBorder:'transparent', titleFg:c.onSurface, bodyFg:c.onSurfaceVar, metaFg:c.onSurfaceVar,
+        title:'Checking your calendar…', hasMeta:true, hasDot:false, meta:'Just a moment',
+        body:'Dayfold is looking for the event before it says anything is added.',
+        actions:[],
+        hasHonesty:false, honestyIcon:'', honesty:'',
+      },
+      'return-added': {
+        icon:'event_available', iconFill:'fill', iconBg:c.okBg, iconFg:c.okIcon, iconAnim:'',
+        cardBg:c.okBg, cardBorder:c.okBorder, titleFg:c.okFg, bodyFg:c.okFg, metaFg:c.okFg,
+        title:'On your calendar', hasMeta:true, hasDot:true, dot:'#7B9E6B', meta:'Family · Sat 3:00 PM',
+        body:'This Hub and the event are now linked on this phone. Calendar handles event alerts.',
+        actions:[ btn('Open in Calendar', 'tonal', 'open_in_new'), btn('Unlink', 'outlined') ],
+        hasHonesty:false, honestyIcon:'', honesty:'',
+      },
+      'return-canceled': {
+        icon:'undo', iconFill:'', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar, iconAnim:'',
+        cardBg:c.surfaceContainer, cardBorder:'transparent', titleFg:c.onSurface, bodyFg:c.onSurfaceVar, metaFg:c.onSurfaceVar,
+        title:'Nothing was added', hasMeta:false, hasDot:false, meta:'',
+        body:'The editor closed without saving — that’s fine. The Hub is unchanged.',
+        actions:[ btn('Add to calendar', 'outlined', 'edit_calendar') ],
+        hasHonesty:false, honestyIcon:'', honesty:'',
+      },
+      'return-permission-changed': {
+        icon:'event_busy', iconFill:'', iconBg:c.surfaceContainerHigh, iconFg:c.onSurfaceVar, iconAnim:'',
+        cardBg:c.surfaceContainer, cardBorder:'transparent', titleFg:c.onSurface, bodyFg:c.onSurfaceVar, metaFg:c.onSurfaceVar,
+        title:'Calendar access changed', hasMeta:false, hasDot:false, meta:'',
+        body:'Calendar access turned off while you were away, so Dayfold can’t confirm the save. If you saved it, it’s in your calendar.',
+        actions:[ btn('Allow in phone settings', 'tonal', 'settings'), btn('Keep access off', 'outlined') ],
+        hasHonesty:false, honestyIcon:'', honesty:'',
+      },
+      'return-unconfirmed': {
+        icon:'help', iconFill:'', iconBg:c.tertiaryContainer, iconFg:c.onTertiaryContainer, iconAnim:'',
+        cardBg:c.surfaceContainer, cardBorder:'transparent', titleFg:c.onSurface, bodyFg:c.onSurfaceVar, metaFg:c.onSurfaceVar,
+        title:'We couldn’t confirm it yet', hasMeta:false, hasDot:false, meta:'',
+        body:'The calendar hasn’t shown the event yet — it may still be syncing.',
+        actions:[ btn('Check again', 'tonal', 'refresh'), btn('I didn’t save it', 'outlined') ],
+        hasHonesty:false, honestyIcon:'', honesty:'',
+      },
+    };
+    return {
+      c, osA, osI, frameBg, frameFg, prefillRows,
+      isHub: view === 'hub-action',
+      isPrefill: view === 'prefill',
+      isAndroidEditor, isIosEditor,
+      isReturn: !!returns[view],
+      ret: returns[view] || returns['return-checking'],
+    };
+  }
+}
+</script>
+</body>
+</html>

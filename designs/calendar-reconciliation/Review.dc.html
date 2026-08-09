@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .rv-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.surface }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <span class="msr fill" style="font-size:17px;">signal_cellular_alt</span>
+      <span class="msr fill" style="font-size:16px;">wifi</span>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;padding:8px 22px 4px;">
+    <span class="msr" style="font-size:25px;color:{{ c.onSurface }};">arrow_back</span>
+    <div style="flex:1;">
+      <div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;color:{{ c.onSurface }};">Calendar check</div>
+      <div style="display:flex;align-items:center;gap:5px;"><span class="msr" style="font-size:13px;color:{{ c.onSurfaceVar }};">phonelink_lock</span><span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Compared on this phone · just now</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 16+17 · REVIEW LIST ============ -->
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <!-- Dayfold-only -->
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 4px 10px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ c.primary }};">IN DAYFOLD · NOT ON THIS CALENDAR</span>
+          <span style="flex:1;height:1px;background:{{ c.outlineVar }};"></span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin-bottom:20px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.primaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.onPrimaryContainer }};">theater_comedy</span></span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};line-height:1.25;">Maya's dance recital</div>
+              <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-top:2px;">Sat, Jun 27 · 3:00 PM · from the Recital Hub</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:12px 16px;"><span class="msr" style="font-size:16px;">edit_calendar</span>Add to calendar</span>
+            <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:12px 16px;">Ignore</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurfaceVar }};padding:10px 8px;">Open Hub<span class="msr" style="font-size:16px;">chevron_right</span></span>
+          </div>
+        </div>
+        <!-- Calendar-only -->
+        <div style="display:flex;align-items:center;gap:8px;margin:0 4px 10px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ c.secondary }};">ON YOUR CALENDAR · NOT IN DAYFOLD</span>
+          <span style="flex:1;height:1px;background:{{ c.outlineVar }};"></span>
+        </div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin-bottom:14px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;position:relative;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">calendar_month</span><span style="position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:999px;background:{{ dotSlate }};border:1.5px solid {{ c.surfaceContainer }};"></span></span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};line-height:1.25;">Grandma's 80th lunch</div>
+              <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};margin-top:2px;">Sun, Jun 28 · 12:00 PM · Personal calendar</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:12px 16px;">Keep calendar-only</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:12px 16px;"><span class="msr" style="font-size:16px;">add_circle</span>Add to a Hub</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 8px;margin-bottom:20px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Nothing here is urgent — ignoring is always fine.</span>
+        </div>
+        <!-- ignored footer -->
+        <div style="display:flex;align-items:center;gap:12px;background:{{ c.surfaceContainerLow }};border:1.5px dashed {{ c.outlineVar }};border-radius:16px;padding:13px 15px;">
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">visibility_off</span>
+          <span style="flex:1;font-family:'Figtree';font-size:13px;font-weight:600;color:{{ c.onSurfaceVar }};">3 ignored on this phone</span>
+          <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 18 · SUGGESTED MATCH ============ -->
+  <sc-if value="{{ isSuggested }}" hint-placeholder-val="{{ false }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.tertiaryContainer }};color:{{ c.onTertiaryContainer }};padding:6px 12px;border-radius:999px;margin-bottom:14px;"><span class="msr" style="font-size:15px;">join_left</span>Looks like the same event — you decide</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span class="msr" style="font-size:17px;color:{{ c.primary }};">web_stories</span><span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">IN DAYFOLD</span></div>
+          <div style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Soccer — Leo</div>
+          <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};margin-top:2px;">Sat, Jun 20 · 4:00 PM · Riverside Park</div>
+        </div>
+        <div style="display:flex;justify-content:center;margin:-4px 0;"><span style="width:34px;height:34px;border-radius:999px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;z-index:2;"><span class="msr" style="font-size:19px;color:{{ c.onSurfaceVar }};">unfold_less</span></span></div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin:-4px 0 16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="width:11px;height:11px;border-radius:999px;background:{{ dotSage }};"></span><span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">ON FAMILY CALENDAR</span></div>
+          <div style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Leo soccer game</div>
+          <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};margin-top:2px;">Sat, Jun 20 · 4:00 PM · Riverside Park</div>
+        </div>
+        <div style="background:{{ c.surfaceContainerLow }};border-radius:18px;padding:14px 16px;margin-bottom:18px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">WHY THEY LOOK THE SAME</div>
+          <sc-for list="{{ evidence }}" as="e" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+              <span class="msr" style="font-size:16px;color:{{ c.secondary }};">check</span>
+              <span style="font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">{{ e }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:9px;">
+          <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Keep separate</span>
+          <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};padding:14px;border-radius:999px;"><span class="msr" style="font-size:18px;">link</span>Confirm match</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:10px;">Confirming links them on this phone.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 19 · AMBIGUOUS MATCH ============ -->
+  <sc-if value="{{ isAmbiguous }}" hint-placeholder-val="{{ false }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.tertiaryContainer }};color:{{ c.onTertiaryContainer }};padding:6px 12px;border-radius:999px;margin-bottom:14px;"><span class="msr" style="font-size:15px;">alt_route</span>Two calendar events could match — we're not sure</div>
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span class="msr" style="font-size:17px;color:{{ c.primary }};">web_stories</span><span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">IN DAYFOLD</span></div>
+          <div style="font-family:'Figtree';font-weight:600;font-size:15.5px;color:{{ c.onSurface }};">Piano lesson — Maya</div>
+          <div style="font-family:'Figtree';font-size:13px;color:{{ c.onSurfaceVar }};margin-top:2px;">Thu, Jun 25 · afternoon · time not set in Dayfold</div>
+        </div>
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 9px;">WHICH ONE IS IT — IF EITHER?</div>
+        <sc-for list="{{ candidates }}" as="cd" hint-placeholder-count="2">
+          <div style="background:{{ c.surfaceContainer }};border:2px solid {{ c.outlineVar }};border-radius:18px;padding:14px 15px;display:flex;align-items:center;gap:12px;margin-bottom:9px;">
+            <span style="width:22px;height:22px;flex:0 0 22px;border-radius:999px;border:2px solid {{ c.outline }};"></span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurface }};">{{ cd.title }}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px;"><span style="width:9px;height:9px;border-radius:999px;background:{{ cd.dot }};"></span><span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ cd.meta }}</span></div>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:9px;margin-top:16px;">
+          <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};padding:14px;border-radius:999px;">Leave unresolved</span>
+          <span style="flex:1;display:inline-flex;align-items:center;justify-content:center;font-family:'Figtree';font-weight:600;font-size:14.5px;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:14px;border-radius:999px;opacity:0.6;">Match selected</span>
+        </div>
+        <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};text-align:center;margin-top:10px;">Leaving it unresolved is always safe.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 20 · DETAILS DIFFER ============ -->
+  <sc-if value="{{ isDiffer }}" hint-placeholder-val="{{ false }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:12px;font-weight:600;background:{{ c.tertiaryContainer }};color:{{ c.onTertiaryContainer }};padding:6px 12px;border-radius:999px;margin-bottom:8px;"><span class="msr" style="font-size:15px;">difference</span>Matched, but the details differ</div>
+        <div style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;color:{{ c.onSurface }};margin:0 0 4px;">Beach house check-in</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:16px;"><span style="width:9px;height:9px;border-radius:999px;background:{{ dotSlate }};"></span><span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Linked to Personal calendar · decide field by field</span></div>
+        <sc-for list="{{ diffs }}" as="d" hint-placeholder-count="2">
+          <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:15px 16px;margin-bottom:12px;">
+            <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">{{ d.field }}</div>
+            <div style="display:flex;gap:9px;margin-bottom:11px;">
+              <div style="flex:1;background:{{ c.surface }};border-radius:14px;padding:11px 12px;">
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><span class="msr" style="font-size:14px;color:{{ c.primary }};">web_stories</span><span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};">DAYFOLD</span></div>
+                <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};line-height:1.3;">{{ d.dayfold }}</div>
+              </div>
+              <div style="flex:1;background:{{ c.surface }};border-radius:14px;padding:11px 12px;">
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><span style="width:8px;height:8px;border-radius:999px;background:{{ dotSlate }};"></span><span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};">CALENDAR</span></div>
+                <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};line-height:1.3;">{{ d.calendar }}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;">
+              <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:11px 14px;">Keep Dayfold's</span>
+              <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};border:1.5px solid {{ c.outlineVar }};border-radius:999px;padding:11px 14px;">Use Calendar's</span>
+              <span style="display:inline-flex;align-items:center;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.onSurfaceVar }};padding:8px 6px;">Leave both as-is</span>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:0 6px;">
+          <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};margin-top:1px;">info</span>
+          <span style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.onSurfaceVar }};">Nothing merges silently — each choice is confirmed.</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 21 · RECURRING EVENT ============ -->
+  <sc-if value="{{ isRecurring }}" hint-placeholder-val="{{ false }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="width:40px;height:40px;flex:0 0 40px;border-radius:13px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;position:relative;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">pool</span><span style="position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:999px;background:{{ dotSage }};border:1.5px solid {{ c.surfaceContainer }};"></span></span>
+            <div style="flex:1;">
+              <div style="font-family:'Figtree';font-weight:600;font-size:15px;color:{{ c.onSurface }};line-height:1.25;">Swim practice — Leo</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px;"><span class="msr" style="font-size:14px;color:{{ c.onSurfaceVar }};">repeat</span><span style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">Every Tuesday · 5:30 PM · Family calendar</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="background:{{ c.tertiaryContainer }};border-radius:18px;padding:15px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <span class="msr" style="font-size:22px;color:{{ c.onTertiaryContainer }};margin-top:1px;">event_repeat</span>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onTertiaryContainer }};"><b>This event repeats.</b> Dayfold reviews one occurrence at a time — the series stays your calendar's.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="display:flex;align-items:center;gap:12px;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;">
+            <span class="msr" style="font-size:20px;color:{{ c.secondary }};">event</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Review just this Tuesday's practice</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Jun 23 only — the series is untouched</div></div>
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;background:{{ c.surfaceContainer }};border-radius:16px;padding:14px 15px;">
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">calendar_month</span>
+            <div style="flex:1;"><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">Keep the series calendar-only</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Won't come up again on this phone</div></div>
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">chevron_right</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 22 · IGNORED LOCALLY ============ -->
+  <sc-if value="{{ isIgnored }}" hint-placeholder-val="{{ false }}">
+    <div class="rv-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 18px 26px;">
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 4px 10px;">
+          <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};">IGNORED · ON THIS PHONE ONLY</span>
+          <span style="flex:1;height:1px;background:{{ c.outlineVar }};"></span>
+        </div>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:{{ c.onSurfaceVar }};margin:0 4px 14px;">These stay out of your calendar check on this phone. Nothing was changed anywhere.</p>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px;">
+          <sc-for list="{{ ignoredRows }}" as="r" hint-placeholder-count="3">
+            <div style="background:{{ c.surfaceContainer }};border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;">
+              <span style="width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};">{{ r.icon }}</span></span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:'Figtree';font-weight:600;font-size:13.5px;color:{{ c.onSurfaceVar }};">{{ r.title }}</div>
+                <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};opacity:0.8;">{{ r.meta }}</div>
+              </div>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Figtree';font-weight:600;font-size:12.5px;color:{{ c.secondary }};"><span class="msr" style="font-size:16px;">undo</span>Undo</span>
+            </div>
+          </sc-for>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:8;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;suggested-match&quot;,&quot;ambiguous&quot;,&quot;details-differ&quot;,&quot;recurring&quot;,&quot;ignored&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'list';
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FFF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F3E0DA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#8C7068', outlineVar:'#E2C7C0',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#231A16', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#53433E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+    };
+    const c = mode === 'dark' ? dark : light;
+    return {
+      c, dotSage:'#7B9E6B', dotSlate:'#5B7DB1',
+      isList: view === 'list',
+      isSuggested: view === 'suggested-match',
+      isAmbiguous: view === 'ambiguous',
+      isDiffer: view === 'details-differ',
+      isRecurring: view === 'recurring',
+      isIgnored: view === 'ignored',
+      evidence: [ 'Same Saturday, same 4:00 PM start', 'Titles both name Leo and soccer', 'Same place — Riverside Park' ],
+      candidates: [
+        { title:'Piano — M.', meta:'Thu, Jun 25 · 3:30 PM · Family calendar', dot:'#7B9E6B' },
+        { title:'Piano lesson', meta:'Thu, Jun 25 · 4:00 PM · Personal calendar', dot:'#5B7DB1' },
+      ],
+      diffs: [
+        { field:'START TIME', dayfold:'Sat, Jul 11 · 3:00 PM', calendar:'Sat, Jul 11 · 4:00 PM' },
+        { field:'LOCATION', dayfold:'Seabright Cottage', calendar:'212 Driftwood Ln, Seabright' },
+      ],
+      ignoredRows: [
+        { icon:'cake', title:"Dev team offsite", meta:'Calendar-only · ignored Jun 12' },
+        { icon:'directions_car', title:'Car service', meta:'Calendar-only · ignored Jun 8' },
+        { icon:'web_stories', title:'Book club (Dayfold)', meta:'Not on calendar · ignored Jun 2' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
