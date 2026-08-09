@@ -21,10 +21,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 private val RELATED_SER = ListSerializer(RelatedRef.serializer())
 private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 0043 — block triggers JSON list
+private val CALENDAR_IDS_SER = ListSerializer(String.serializer())     // ADR 0063 §1 — selected device calendar ids
 
 // Issue #283 — the client CONTENT-schema version. BUMP THIS BY HAND whenever a synced model
 // gains (or changes) a BEHAVIOR-affecting field, so devices upgrading over an older cache force a
@@ -221,8 +223,11 @@ class ContentStore(driver: SqlDriver) {
         // response_offer is device-local Tier 0, but it keys on subjects of a family this
         // device may no longer read; keeping it would leak "this household had a card here".
         q.wipeResponses(); q.wipeResponseOffers()
-        // notif_config is a device preference, not tenant data. It deliberately
-        // survives sign-out/family replacement; the device bridge remains active.
+        // ADR 0063 §3 — calendar_binding keys on subjects of a family this device may no longer
+        // read (same reasoning as response_offer above), so a removed/non-member drops it too.
+        q.wipeCalendarBindings()
+        // notif_config and calendar_settings are device preferences, not tenant data. They
+        // deliberately survive sign-out/family replacement; the device bridges remain active.
       }
     }
   }
@@ -666,6 +671,55 @@ class ContentStore(driver: SqlDriver) {
 
   private fun com.sloopworks.dayfold.client.db.NotifConfigRow.toNotifConfig() =
     NotifConfig(enabled = enabled == 1L, quietStartMinuteOfDay = quiet_start.toInt(), quietEndMinuteOfDay = quiet_end.toInt(), dailyCap = daily_cap.toInt())
+
+  // ── Calendar reconciliation (ADR 0063 §3) — DEVICE-LOCAL, NEVER synced (ADR 0024). calendar_binding
+  // is wiped on wipe() (below, tenancy revocation) but deliberately NOT touched by wipeSyncedContent()
+  // — it must survive a full-resync for the same signed-in family.
+
+  fun calendarBindingBySubjectKey(subjectKey: String): CalendarBinding? =
+    q.calendarBindingBySubjectKey(subjectKey).executeAsOneOrNull()?.toCalendarBinding()
+
+  fun calendarBindingsByRelation(relation: CalendarRelation): List<CalendarBinding> =
+    q.calendarBindingsByRelation(relation.wire).executeAsList().map { it.toCalendarBinding() }
+
+  fun upsertCalendarBinding(b: CalendarBinding) = withWriteGate {
+    q.upsertCalendarBinding(
+      b.subjectKey, b.sourceVersion, b.platformEventId, b.calendarId, b.fingerprint, b.lastSeenAt,
+      b.relation.wire, b.notificationOwner.wire, b.reviewState, b.createdAt, b.updatedAt,
+    )
+  }
+
+  /** A deselected calendar's matches return to review (ADR 0063 §1/§5). */
+  fun deleteCalendarBindingsForCalendar(calendarId: String) = withWriteGate { q.deleteCalendarBindingsForCalendar(calendarId) }
+
+  // SQLDelight reuses the table's own generated row type here (both queries select exactly the
+  // table's columns), so one mapper covers bySubjectKey + byRelation.
+  private fun com.sloopworks.dayfold.client.db.Calendar_binding.toCalendarBinding() = CalendarBinding(
+    subjectKey = subject_key, sourceVersion = source_version, platformEventId = platform_event_id,
+    calendarId = calendar_id, fingerprint = fingerprint, lastSeenAt = last_seen_at,
+    relation = CalendarRelation.of(relation), notificationOwner = CalendarNotificationOwner.of(notification_owner),
+    reviewState = review_state, createdAt = created_at, updatedAt = updated_at,
+  )
+
+  // ── Calendar Check settings (ADR 0063 §1) — DEVICE-LOCAL, NEVER synced. Same shape/posture as
+  // notif config: a device preference, not touched by wipe() (survives sign-out/family removal).
+
+  /** Reactive settings (DB→store bridge feeds state.calendar.settings). Absent → feature-off default. */
+  fun calendarSettingsFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<CalendarSettings> =
+    q.calendarSettingsRow().asFlow().mapToList(dispatcher).map { rows -> rows.firstOrNull()?.toCalendarSettings() ?: CalendarSettings() }
+
+  /** Synchronous settings snapshot. Absent → feature-off default. */
+  fun calendarSettings(): CalendarSettings = q.calendarSettingsRow().executeAsOneOrNull()?.toCalendarSettings() ?: CalendarSettings()
+
+  fun setCalendarSettings(s: CalendarSettings) = withWriteGate {
+    q.setCalendarSettings(if (s.featureEnabled) 1L else 0L, json.encodeToString(CALENDAR_IDS_SER, s.selectedCalendarIds.toList()), s.lastCheckAt)
+  }
+
+  private fun com.sloopworks.dayfold.client.db.CalendarSettingsRow.toCalendarSettings() = CalendarSettings(
+    featureEnabled = feature_enabled == 1L,
+    selectedCalendarIds = decode(selected_calendar_ids, CALENDAR_IDS_SER)?.toSet() ?: emptySet(),
+    lastCheckAt = last_check_at,
+  )
 
   // ── Synchronous snapshot getters (ADR 0044 §S3) — the headless background pass reads these from the
   //    SAME process-shared connection (no Store, no 2nd connection; WAL lets it read under a fg write).

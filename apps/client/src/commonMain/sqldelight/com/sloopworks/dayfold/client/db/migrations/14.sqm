@@ -1,0 +1,29 @@
+-- Migration v14→v15 (ADR 0063 §3): device-local calendar reconciliation state.
+--
+-- calendar_binding and calendar_settings are DEVICE-LOCAL, NEVER synced (ADR 0024) — not in
+-- Changes/applyDelta/outbox. calendar_binding is wiped on wipe() (sign-out/family removal) but
+-- PRESERVED across wipeForResync()/reconcileSchemaVersion(), same class as notification_log and
+-- surfacing_state. calendar_settings is a device preference (like notif_config) and is not
+-- touched by wipe() at all.
+CREATE TABLE calendar_binding (
+  subject_key         TEXT NOT NULL PRIMARY KEY,
+  source_version      TEXT NOT NULL,
+  platform_event_id   TEXT,
+  calendar_id         TEXT,
+  fingerprint         TEXT,
+  last_seen_at        TEXT,
+  relation            TEXT NOT NULL DEFAULT 'needs_review',
+  notification_owner  TEXT NOT NULL DEFAULT 'calendar',
+  review_state        TEXT,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL
+);
+CREATE INDEX calendar_binding_relation_idx ON calendar_binding(relation);
+CREATE INDEX calendar_binding_calendar_idx ON calendar_binding(calendar_id);
+
+CREATE TABLE calendar_settings (
+  id                    INTEGER NOT NULL PRIMARY KEY,
+  feature_enabled       INTEGER NOT NULL DEFAULT 0,
+  selected_calendar_ids TEXT NOT NULL DEFAULT '[]',
+  last_check_at         TEXT
+);

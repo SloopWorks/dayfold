@@ -577,6 +577,9 @@ data class AppState(
   // surfacing); the permission slices are OS-owned (bridged from the platform controllers + re-read on
   // resume, NOT DB-cached, NOT synced — ADR 0024). Default-off / denied (opt-in, ADR 0044 §1).
   val notifications: NotificationState = NotificationState(),
+  // ADR 0063 §1/§3 — device-local, never-synced Calendar Check settings (calendar_settings is
+  // DB-fed, sole writer of this slice — same posture as notifications.config).
+  val calendar: CalendarState = CalendarState(),
 )
 
 // Actions. Card data reaches the store ONLY via CardsLoaded (the DB→store bridge);
@@ -640,6 +643,8 @@ data class SurfacingLoaded(val records: Map<String, SurfacingRecord>) : Action
 data class NotifConfigLoaded(val config: NotifConfig) : Action
 data class LocationPermissionLoaded(val state: LocationPermission) : Action
 data class NotificationPermissionLoaded(val state: NotificationPermission) : Action
+// ADR 0063 §1/§3 — device-local, never-synced Calendar Check settings (DB→store bridge).
+data class CalendarSettingsLoaded(val settings: CalendarSettings) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
 data class HubAudienceRequested(val hubId: String, val request: HubRequestKey) : Action
 data class HubAudienceLoaded(

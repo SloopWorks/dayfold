@@ -52,6 +52,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
+  is CalendarSettingsLoaded -> reduceCalendar(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested, is InviteLinkStashed, is InviteLinkConsumed -> reduceSession(state, action)
   is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceNavigation(reduceFamilyAdmin(state, action), action)
   is OpenDevices, is DevicesLoaded, is DeviceRevoked, is DeviceOpRequested, is DevicesRequested, is DevicesFailed, is OpenEnterCode, is OpenScan, is ScanPermissionGranted, is ScanPermissionDenied, is DeviceLookupRequested, is DevicePendingLoaded, is DeviceLookupNotFound, is DeviceLookupFailed, is ApproveDeviceRequested, is DenyDeviceRequested, is DeviceApproved, is DeviceDenied, is DeviceApproveExpired, is DeviceOpFailed, is CloseDeviceFlow, is DeviceLinkStashed, is DeviceLinkConsumed -> reduceNavigation(reduceDevices(state, action), action)
@@ -83,6 +84,10 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
 private fun signedOutState(state: AppState) = AppState(
   navigation = NavigationState(route = Route.SignIn),
   notifications = state.notifications,
+  // ADR 0063 §1/§3 — calendar_settings is a device preference (like notif config), not tenant
+  // data: it survives sign-out. calendar_binding itself is dropped by ContentStore.wipe(); the
+  // in-memory settings slice here just isn't reset back to defaults on the same transition.
+  calendar = state.calendar,
   routines = state.routines.resetFamilyScoped(),
 )
 

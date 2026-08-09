@@ -559,3 +559,74 @@ SELECT count(*) FROM response_offer WHERE subject_ref = ?;
 
 wipeResponseOffers:
 DELETE FROM response_offer;
+
+-- ── Calendar reconciliation (ADR 0063 §3) — DEVICE-LOCAL, NEVER synced (not in Changes/
+-- applyDelta/outbox; ADR 0024). calendar_binding holds only the minimum mechanical state per
+-- Dayfold subject: which platform calendar event it matched (if any), the fingerprint that
+-- proved the match, and the local relation/notification-owner/review decision. Raw event
+-- fields (attendees, description, meeting links, reminders) are never stored here — they stay
+-- in-memory-only per CalendarEventObservation. Wiped on wipe() (sign-out/family removal, same
+-- boundary as notification_log/surfacing_state) but PRESERVED across
+-- wipeForResync()/reconcileSchemaVersion() — a staleness reset must not re-litigate matches a
+-- member already resolved on this device.
+CREATE TABLE calendar_binding (
+  subject_key         TEXT NOT NULL PRIMARY KEY,
+  source_version      TEXT NOT NULL,
+  platform_event_id   TEXT,
+  calendar_id         TEXT,
+  fingerprint         TEXT,
+  last_seen_at        TEXT,
+  relation            TEXT NOT NULL DEFAULT 'needs_review',
+  notification_owner  TEXT NOT NULL DEFAULT 'calendar',
+  review_state        TEXT,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL
+);
+CREATE INDEX calendar_binding_relation_idx ON calendar_binding(relation);
+CREATE INDEX calendar_binding_calendar_idx ON calendar_binding(calendar_id);
+
+upsertCalendarBinding:
+INSERT INTO calendar_binding(subject_key, source_version, platform_event_id, calendar_id, fingerprint, last_seen_at, relation, notification_owner, review_state, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(subject_key) DO UPDATE SET
+  source_version=excluded.source_version, platform_event_id=excluded.platform_event_id,
+  calendar_id=excluded.calendar_id, fingerprint=excluded.fingerprint, last_seen_at=excluded.last_seen_at,
+  relation=excluded.relation, notification_owner=excluded.notification_owner,
+  review_state=excluded.review_state, updated_at=excluded.updated_at;
+
+calendarBindingBySubjectKey:
+SELECT subject_key, source_version, platform_event_id, calendar_id, fingerprint, last_seen_at, relation, notification_owner, review_state, created_at, updated_at
+FROM calendar_binding WHERE subject_key = ?;
+
+calendarBindingsByRelation:
+SELECT subject_key, source_version, platform_event_id, calendar_id, fingerprint, last_seen_at, relation, notification_owner, review_state, created_at, updated_at
+FROM calendar_binding WHERE relation = ?;
+
+-- A deselected calendar's matches return to review (ADR 0063 §1/§5): drop every binding that
+-- pointed at it rather than leaving a dangling calendar_id a later scan can't re-resolve.
+deleteCalendarBindingsForCalendar:
+DELETE FROM calendar_binding WHERE calendar_id = ?;
+
+wipeCalendarBindings:
+DELETE FROM calendar_binding;
+
+-- Device-local calendar-check settings (ADR 0063 §1/§3) — single row (id=0), same shape as
+-- notif_config. Never synced (ADR 0024): which native calendars a member has opted in to
+-- reconcile is a per-device choice, not family content. Survives wipe() like notif_config (a
+-- device preference, not tenant data) — sign-out only clears calendar_binding above.
+CREATE TABLE calendar_settings (
+  id                    INTEGER NOT NULL PRIMARY KEY,
+  feature_enabled       INTEGER NOT NULL DEFAULT 0,
+  selected_calendar_ids TEXT NOT NULL DEFAULT '[]',
+  last_check_at         TEXT
+);
+
+calendarSettingsRow:
+SELECT feature_enabled, selected_calendar_ids, last_check_at FROM calendar_settings WHERE id = 0;
+
+setCalendarSettings:
+INSERT INTO calendar_settings(id, feature_enabled, selected_calendar_ids, last_check_at)
+VALUES (0, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  feature_enabled=excluded.feature_enabled, selected_calendar_ids=excluded.selected_calendar_ids,
+  last_check_at=excluded.last_check_at;
