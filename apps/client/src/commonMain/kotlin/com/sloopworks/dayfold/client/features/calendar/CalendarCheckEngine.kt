@@ -75,25 +75,27 @@ class CalendarCheckEngine(
     store.dispatch(CalendarCheckCompleted(result, permission, nowIso, stale = false))
   }
 
-  /** User confirms a suggested match (rung c) is correct — persist the binding, then resolve it. */
+  /** User confirms a suggested match (rung c) is correct — persist the binding, then resolve it.
+   *  A no-op if [subjectKey]/[eventId] no longer names a pending pair (e.g. a fresh check landed
+   *  between render and tap) — the stale UI item is left for the next CalendarCheckCompleted to
+   *  correct, rather than dispatching a resolve that silently drops it with nothing persisted. */
   suspend fun confirmMatch(subjectKey: String, eventId: String) {
-    persistConfirmedMatch(subjectKey, eventId)
-    store.dispatch(ConfirmMatch(subjectKey, eventId))
+    if (persistConfirmedMatch(subjectKey, eventId)) store.dispatch(ConfirmMatch(subjectKey, eventId))
   }
 
-  /** User picks the correct event among an ambiguous candidate's multiple strict hits. */
+  /** User picks the correct event among an ambiguous candidate's multiple strict hits. Same
+   *  stale-pair no-op guard as [confirmMatch]. */
   suspend fun resolveAmbiguous(subjectKey: String, chosenEventId: String) {
-    persistConfirmedMatch(subjectKey, chosenEventId)
-    store.dispatch(ResolveAmbiguous(subjectKey, chosenEventId))
+    if (persistConfirmedMatch(subjectKey, chosenEventId)) store.dispatch(ResolveAmbiguous(subjectKey, chosenEventId))
   }
 
-  private suspend fun persistConfirmedMatch(subjectKey: String, eventId: String) {
+  private suspend fun persistConfirmedMatch(subjectKey: String, eventId: String): Boolean {
     val results = store.state.calendar.check.results
     val pair = results.suggested.firstOrNull { it.candidate.subjectKey == subjectKey && it.observation.platformEventId == eventId }
       ?.let { it.candidate to it.observation }
       ?: results.ambiguous.firstOrNull { it.candidate.subjectKey == subjectKey }
         ?.let { am -> am.observations.firstOrNull { it.platformEventId == eventId }?.let { obs -> am.candidate to obs } }
-      ?: return
+      ?: return false
     val (candidate, obs) = pair
     val nowIso = nowProvider()
     withContext(databaseDispatcher) {
@@ -113,6 +115,7 @@ class CalendarCheckEngine(
         ),
       )
     }
+    return true
   }
 
   /** Flips which side owns the generic start-time alert for an already-matched subject (ADR 0063 §7). */

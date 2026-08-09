@@ -159,6 +159,22 @@ class CalendarCheckEngineTest {
     assertTrue(h.store.state.calendar.check.results.suggested.isEmpty())
   }
 
+  @Test fun `confirmMatch on a stale pair (already superseded by a fresh check) writes nothing and does not dispatch`() = runBlocking {
+    // Simulates a race: the UI still holds a suggested pair from a prior CalendarCheckCompleted,
+    // but a newer pass has already replaced state.calendar.check.results without it.
+    val h = Harness(FakeCalendarPort())
+    h.engine.confirmMatch("hub:h1", "evt-1")
+    assertNull(h.contentStore.calendarBindingBySubjectKey("hub:h1"))
+    assertEquals(ReconcileResult(), h.store.state.calendar.check.results)
+  }
+
+  @Test fun `resolveAmbiguous on a stale pair writes nothing and does not dispatch`() = runBlocking {
+    val h = Harness(FakeCalendarPort())
+    h.engine.resolveAmbiguous("hub:h1", "evt-1")
+    assertNull(h.contentStore.calendarBindingBySubjectKey("hub:h1"))
+    assertEquals(ReconcileResult(), h.store.state.calendar.check.results)
+  }
+
   @Test fun `resolveAmbiguous persists the chosen event and resolves the ambiguity`() = runBlocking {
     val c = DayfoldEventCandidate("hub:h1", "Standup", "2026-07-10T09:00:00Z", null, false, "UTC", null, "v1", null)
     val obsA = CalendarEventObservation("evt-a", "cal-a", "Standup", "2026-07-10T09:00:00Z", null, false, "UTC", null, false, null)
