@@ -25,6 +25,7 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -129,7 +130,8 @@ private fun RenderItem(item: NowItem, emphasized: Boolean, softened: Boolean, ca
     val card = cardsById[item.id.removePrefix("authored:")]
     if (card != null) {
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (card.type != null) TypedCardItem(card, onAction) else CardItem(card)
+        // ADR 0064 — BOTH card renderers own the respond ⋮ themselves, inside the card.
+        if (card.type != null) TypedCardItem(card, onAction) else CardItem(card, onAction)
       }
       return
     }
@@ -158,12 +160,18 @@ private fun DerivedNowCard(item: NowItem, emphasized: Boolean, softened: Boolean
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       if (emphasized) NearbyPulse()
       // hero "why" — softened items de-emphasize (the calm "easing off" treatment), never nag.
-      Text(
-        item.why,
-        style = if (item.reasonKind == ReasonKind.COUNTDOWN) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
-        color = if (softened) cs.onSurfaceVariant else cs.onSurface,
-      )
-      WhyChip(item)
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(
+          item.why,
+          style = if (item.reasonKind == ReasonKind.COUNTDOWN) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+          color = if (softened) cs.onSurfaceVariant else cs.onSurface,
+          modifier = Modifier.weight(1f),
+        )
+        RespondOverflow(item, onAction)
+      }
+      // ADR 0064 entry point B — the provenance chip is the DOOR to the sheet. Teaching lives
+      // where the explanation lives, which is why "why am I seeing this" is never a row inside.
+      WhyChip(item, onClick = { onAction(item.respondAction()) })
     }
   }
 }
@@ -175,7 +183,7 @@ private fun DerivedNowCard(item: NowItem, emphasized: Boolean, softened: Boolean
 // "· location never leaves" suffix was the ADR 0044 §3 P0 honesty bug (it read as "saved coords never
 // leave", which is false) — killed here. Authored derived-mapped items fall through to a plain label.
 @Composable
-private fun WhyChip(item: NowItem) {
+private fun WhyChip(item: NowItem, onClick: () -> Unit = {}) {
   val label = when (item.reasonKind) {
     ReasonKind.GEO -> "Matched on your device"
     ReasonKind.COUNTDOWN, ReasonKind.MILESTONE, ReasonKind.CHECKLIST, ReasonKind.WHEN -> "On your device"
@@ -190,7 +198,7 @@ private fun WhyChip(item: NowItem) {
     else -> DayfoldIcons.Event
   }
   AssistChip(
-    onClick = {},
+    onClick = onClick,
     label = { Text(label, style = MaterialTheme.typography.labelSmall) },
     leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
     colors = AssistChipDefaults.assistChipColors(),
@@ -218,3 +226,37 @@ private fun CaughtUpHeader() {
     )
   }
 }
+
+
+// ── ADR 0064 — the response entry points on the Now surface ──────────────────────────────
+//
+// Entry point A: the ⋮ overflow. Baseline and keyboard/TalkBack-reachable, which is why it
+// exists alongside the (more discoverable) provenance chip rather than instead of it.
+@Composable
+private fun RespondOverflow(item: NowItem, onAction: (CardAction) -> Unit) {
+  IconButton(
+    onClick = { onAction(item.respondAction()) },
+    modifier = Modifier.size(32.dp).semantics {
+      contentDescription = "Respond to ${item.title}"
+    },
+  ) {
+    Icon(
+      DayfoldIcons.MoreVert,
+      contentDescription = null,
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.size(20.dp),
+    )
+  }
+}
+
+/** The subject a response is about, taken from the item the engine already ranked. */
+internal fun NowItem.respondAction(atScope: Boolean = false): CardAction.Respond =
+  CardAction.Respond(
+    subjectRef = subjectKey,
+    subjectTitle = title,
+    reasonKind = reasonKind,
+    source = authoredSource,
+    atScope = atScope,
+  )
+
+

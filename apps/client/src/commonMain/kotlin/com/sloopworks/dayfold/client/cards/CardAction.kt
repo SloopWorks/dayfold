@@ -29,4 +29,20 @@ sealed interface CardAction {
   data class Copy(val text: String) : CardAction
   /** Share sheet. */
   data class Share(val text: String) : CardAction
+
+  /**
+   * ADR 0064 — open the smart-content response sheet for this subject.
+   *
+   * It rides CardAction because that is the one channel BOTH Now lanes already share: an
+   * authored card and a derived item render through different composables but emit the same
+   * action type, so a single host mounts one sheet for both.
+   */
+  data class Respond(
+    val subjectRef: String,
+    val subjectTitle: String,
+    val reasonKind: String,
+    val source: String?,
+    /** Opens straight at the scope step when the member already chose to hide (GAP 4). */
+    val atScope: Boolean = false,
+  ) : CardAction
 }

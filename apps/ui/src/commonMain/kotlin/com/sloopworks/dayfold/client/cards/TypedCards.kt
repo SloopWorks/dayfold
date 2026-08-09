@@ -16,6 +16,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import com.sloopworks.dayfold.client.DayfoldIcons
+import com.sloopworks.dayfold.client.subjectKeyFor
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -152,12 +156,16 @@ private fun BaseCard(
       Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AccentTile(monogram, accent, solidAccent,
           modifier = if (keys.tile) Modifier.cardSharedElement("tile-${card.id}") else Modifier)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           KickerChip(kickerFor(card), accent, solidAccent,
             modifier = if (keys.kicker) Modifier.cardSharedElement("kicker-${card.id}") else Modifier)
           Text(card.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = if (keys.title) Modifier.cardSharedElement("title-${card.id}") else Modifier)
         }
+        // ADR 0064 — the respond door, INSIDE the card and centred against the title. It sat in
+        // a row below the card before, which read as a detached control floating in the gap
+        // between cards, ambiguous about which card it belonged to.
+        RespondOverflowButton(card, onAction)
       }
       bodySummaryFor(card)?.let {
         Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -250,5 +258,36 @@ internal fun MapStrip() {
         Surface(color = ext.mapLine, modifier = Modifier.fillMaxWidth().height(6.dp)) {}
       }
     }
+  }
+}
+
+
+/**
+ * ADR 0064 — the ⋮ that opens the smart-content response sheet for an authored card.
+ *
+ * Keyed with the SAME subjectKeyFor() the ranker uses, so the rule a member writes is about
+ * the subject they were actually looking at.
+ */
+@Composable
+internal fun RespondOverflowButton(card: Card, onAction: (CardAction) -> Unit) {
+  IconButton(
+    onClick = {
+      onAction(
+        CardAction.Respond(
+          subjectRef = subjectKeyFor(card),
+          subjectTitle = card.title,
+          reasonKind = card.kind,
+          source = card.provenance?.source,
+        ),
+      )
+    },
+    modifier = Modifier.size(32.dp).semantics { contentDescription = "Respond to ${card.title}" },
+  ) {
+    Icon(
+      DayfoldIcons.MoreVert,
+      contentDescription = null,
+      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.size(20.dp),
+    )
   }
 }

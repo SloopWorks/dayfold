@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.datetime.toLocalDateTime
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.cards.TypedCardItem
+import com.sloopworks.dayfold.client.cards.RespondOverflowButton
 import com.sloopworks.dayfold.client.ui.DayfoldAvatar
 import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 
@@ -54,7 +55,8 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), // ADR 0064 — APPENDED, not inserted: this list has positional call sites.
+  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}, onDone: (String?) -> Unit = {}) {
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
@@ -143,6 +145,79 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
       }
     }
   }
+
+  // ADR 0064 — ONE sheet for both Now lanes. It lives here, not inside the card composables,
+  // because an authored card and a derived item render through different renderers but emit the
+  // same CardAction.Respond; mounting per-card would give the same subject two sheets.
+  state.responseSheet?.let { sheet ->
+    when (sheet.step) {
+      ResponseStep.SCOPE -> ResponseSheet(
+        sheet = sheet,
+        onVerb = onVerb,
+        onDismiss = onCloseSheet,
+        scopeContent = {
+          ResponseScopeStep(
+            sheet = sheet,
+            onScope = onScope,
+            onAudience = onAudience,
+            onOpenRoutines = onOpenRoutines,
+            onCommit = onCommitMute,
+          )
+        },
+      )
+      ResponseStep.DONE_NOTE -> ResponseSheet(
+        sheet = sheet,
+        onVerb = onVerb,
+        onDismiss = onCloseSheet,
+        scopeContent = {
+          DoneNoteStep(
+            sheet = sheet,
+            onJustDone = { onDone(null) },
+            onSaveNote = { onDone(it) },
+          )
+        },
+      )
+      else -> ResponseSheet(sheet = sheet, onVerb = onVerb, onDismiss = onCloseSheet)
+    }
+  }
+
+  // The receipt: snackbar + Undo at act time (NOTES.md § Persistence contract).
+  state.responseReceipt?.let { receipt ->
+    ResponseReceiptBar(receipt, onUndo = onUndoResponse, onDismiss = onDismissReceipt)
+  }
+}
+
+/**
+ * ADR 0064 — the act-time receipt. A single-action bar, never two buttons: Undo is the only
+ * thing offered, and it works offline because the queued write has not left the device.
+ */
+@Composable
+private fun ResponseReceiptBar(receipt: ResponseReceipt, onUndo: () -> Unit, onDismiss: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    Surface(
+      shape = RoundedCornerShape(14.dp),
+      color = cs.inverseSurface,
+      modifier = Modifier.padding(14.dp).fillMaxWidth(),
+    ) {
+      Row(
+        Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          receipt.message,
+          style = MaterialTheme.typography.bodyMedium,
+          color = cs.inverseOnSurface,
+          modifier = Modifier.weight(1f),
+        )
+        if (receipt.undoable) {
+          TextButton(onClick = onUndo) { Text("Undo", color = cs.inversePrimary) }
+        } else {
+          TextButton(onClick = onDismiss) { Text("Dismiss", color = cs.inversePrimary) }
+        }
+      }
+    }
+  }
 }
 
 // #164 CL-A8 — the headline new state: an ESTABLISHED family with nothing pressing right
@@ -226,7 +301,7 @@ private fun RefreshErrorBanner(onRefresh: () -> Unit) {
 }
 
 @Composable
-internal fun CardItem(card: Card) {
+internal fun CardItem(card: Card, onAction: (CardAction) -> Unit = {}) {
   val m = card.media
   ElevatedCard(Modifier.fillMaxWidth()) {
     Row(Modifier.padding(16.dp)) {
@@ -235,6 +310,9 @@ internal fun CardItem(card: Card) {
         EnrichedThumbnail(m.thumbnailUrl, m.imageFit, m.icon, m.accentColor, m.imageAlt, size = 60.dp, corner = 16.dp)
         Spacer(Modifier.width(14.dp))
       }
+      // ADR 0064 — the respond ⋮ sits INSIDE this card as the row's trailing element (see
+      // the Column's weight(1f) above), not in a row beneath it: a control floating in the
+      // gap between cards reads as detached and ambiguous about which card it belongs to.
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       // kind chip: accent chip (icon + derived accent) when enriched, else the
       // existing plain label (info = none). accentColor never touches body text.
@@ -265,6 +343,7 @@ internal fun CardItem(card: Card) {
         )
       }
       }   // Column
+      RespondOverflowButton(card, onAction)
     }     // Row
   }
 }
