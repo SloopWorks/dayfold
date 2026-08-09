@@ -55,6 +55,26 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   A write to a muted or completed subject now returns **409** — an expected,
   reportable outcome for an authoring routine, not a failure.
 
+### Deployed
+- **Live in production 2026-08-09** (ADR 0012 prod-action log). Migration `0020`
+  applied to Neon first (additive columns + `content_responses`, safe against the
+  then-running older code), then the Vercel function published. Verified: `/health`
+  200 — which is itself the proof that the four new `SENTRY_*`/`POSTHOG_*` env vars
+  are set, since ADR 0059's `initSwip({required:true})` throws at module scope
+  without them; `PUT /families/…/responses/…` returns 401 rather than 404, so the
+  new routes are live; and a `dayfold pull` returns every card carrying a
+  backfilled `subject_ref`, which only exists after `0020`.
+- **Two failed builds preceded it**, neither of which reached production (a failed
+  Vercel build never promotes). Both 404'd installing `@sloopworks/swip-js` from
+  npmjs — those publish to GitHub Packages. The previous production deployment was
+  28 days old and predated ADR 0059, so this install path had never run. Fixed by
+  moving those packages to the workspace root: `build-fn.mjs` inlines them into the
+  committed bundle by design, so nothing resolves them at runtime and the deploy
+  path needs no registry credential.
+- **One-time full content re-sync:** `0020`'s backfill touched every existing card
+  and block row, bumping `updated_at`, so each device re-downloads its content once
+  on the next sync. Idempotent and self-correcting.
+
 ### Notes
 - See ADR 0064. The corrections ("fix it" / wrong hub / outdated) channel is
   **not** included — it's deferred to its own ADR, blocked on the run-receipt
