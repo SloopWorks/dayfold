@@ -273,6 +273,15 @@ docker run --rm --memory=7g -v "$(git rev-parse --show-toplevel)":/repo -w /repo
 ```
 Then **eyeball the changed PNGs** before committing.
 
+**⚠ Headless-session TCC hang (2026-08-09 incident):** never read anything under
+`~/Library/Group Containers/` (e.g. probing Docker Desktop's
+`group.com.docker/settings-store.json` for memory settings) — the path is
+macOS-TCC-protected and a headless agent session blocks **forever** on the
+consent check (0 CPU, no child process, no error; killed two runner sessions).
+The docker recipe above already passes `--memory=7g` — run it as written, no
+pre-flight probes. If the docker run itself fails, record the macOS set only
+and say "linux goldens pending" honestly.
+
 **Golden dashboard (HTML):** render all 131 shots + verify against a golden
 set + emit a self-contained `index.html` (per-shot image, verdict + diff%,
 magenta diff overlay on mismatch, failures sorted first):
