@@ -147,3 +147,61 @@ describe("response endpoints (ADR 0064)", () => {
     expect([403, 404]).toContain(res.status);
   });
 });
+
+
+// ADR 0064 — the READ side, which is what lets the authoring loop avoid producing similar
+// content rather than merely having it rejected after the fact.
+describe("GET /responses — what the authoring path reads before it writes", () => {
+  it("returns family rules with their human-readable labels", async () => {
+    const o = await ownerOf("resp-get-1");
+    await putResp(o.familyId, "r_w", o.token, mute({
+      audience_scope: "family", label: "Weather cards", sublabel: "From Morning briefing",
+    }));
+    const res = await app.request(`/families/${o.familyId}/responses`, {
+      headers: { authorization: `Bearer ${o.token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const row = body.responses.find((r: any) => r.id === "r_w");
+    // The labels are the SEMANTIC signal — the server never reads them, the agent does.
+    expect(row.label).toBe("Weather cards");
+    expect(row.sublabel).toBe("From Morning briefing");
+    expect(row.subject_ref).toBe("kind:weather");
+    expect(row.match_scope).toBe("kind");
+  });
+
+  it("includes done records, so a resolved subject is not re-authored", async () => {
+    const o = await ownerOf("resp-get-2");
+    await putResp(o.familyId, "d1", o.token, {
+      kind: "done", subject_ref: "card:c_task", match_scope: "subject",
+      audience_scope: "family", label: "Verify emergency contact",
+    });
+    const body = await (await app.request(`/families/${o.familyId}/responses`, {
+      headers: { authorization: `Bearer ${o.token}` },
+    })).json();
+    expect(body.responses.some((r: any) => r.kind === "done" && r.id === "d1")).toBe(true);
+  });
+
+  // Another member's personal rule is COUNTED, never disclosed: the author learns that
+  // suppression exists without learning who muted what.
+  it("counts another member's personal rules without exposing them", async () => {
+    const o = await ownerOf("resp-get-3");
+    const m = await memberOf("resp-get-3-b", o.familyId);
+    await putResp(o.familyId, "r_theirs", m.token, mute({ audience_scope: "personal" }));
+    const body = await (await app.request(`/families/${o.familyId}/responses`, {
+      headers: { authorization: `Bearer ${o.token}` },
+    })).json();
+    expect(body.responses.some((r: any) => r.id === "r_theirs")).toBe(false);
+    expect(body.personal_rules_not_visible).toBe(1);
+  });
+
+  it("shows a member their OWN personal rule", async () => {
+    const o = await ownerOf("resp-get-4");
+    await putResp(o.familyId, "r_mine", o.token, mute({ audience_scope: "personal" }));
+    const body = await (await app.request(`/families/${o.familyId}/responses`, {
+      headers: { authorization: `Bearer ${o.token}` },
+    })).json();
+    expect(body.responses.some((r: any) => r.id === "r_mine")).toBe(true);
+    expect(body.personal_rules_not_visible).toBe(0);
+  });
+});
