@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
@@ -91,7 +92,10 @@ class AuthFlowUiTest {
 
     // 4) Account → sign out → confirm dialog → confirm
     waitUntil(timeoutMillis = 5_000L) { seen("Sign out") }
-    onNodeWithText("Sign out").performClick()                 // opens the confirm dialog
+    // Scroll it into view first: the account screen is a scrolling column, and a node outside
+    // the viewport takes a click that lands nowhere (this passed only while the screen
+    // happened to fit — adding one settings row broke it).
+    onNodeWithText("Sign out").performScrollTo().performClick()   // opens the confirm dialog
     waitUntil(timeoutMillis = 5_000L) { seen("Sign out?") }
     onNodeWithTag("confirm-signout").performClick()
 

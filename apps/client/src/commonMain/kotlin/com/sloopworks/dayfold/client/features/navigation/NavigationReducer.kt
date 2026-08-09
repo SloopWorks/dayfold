@@ -13,6 +13,8 @@ fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is FamilyCreated -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is RestoreFailed -> state.copy(navigation = state.navigation.copy(route = Route.AuthError))
   is OpenAccount -> state.copy(navigation = state.navigation.copy(route = Route.Account))
+  is OpenSmartContent -> state.copy(navigation = state.navigation.copy(route = Route.SmartContent))
+  is CloseSmartContent -> state.copy(navigation = state.navigation.copy(route = Route.Account))
   is CloseAccount -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is OpenSmartBriefings, is RestoreSmartBriefings -> if (
     routinePreviewAvailable(state) && state.session.activeFamilyId != null

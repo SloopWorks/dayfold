@@ -72,6 +72,19 @@ For each signal worth surfacing **now**:
 Batch a hub's whole tree (or a set of cards) into one approval, but NEVER push an
 un-approved batch. If the server returns non-200, surface the body, fix, re-push.
 
+**Respect the family's responses (ADR 0064).** The family can tell Dayfold to stop making
+a kind of content ("don't add this again") or mark a task done. Those are stored rules, and
+they are read *before* you author, not after:
+- A push to a muted or completed subject returns **409 `subject-muted`**. That is the
+  system working, not a failure — do NOT retry it, do not reword the card to sneak past
+  it, and do not surface it to the operator as an error. Report it as what it is:
+  "skipped N muted subjects".
+- A **stable subject key matters more than you'd think.** Mark done is recorded against
+  the subject, so if you mint a different id for the same source on the next run, the
+  completed card comes back and nothing errors. When you re-author from a recurring source
+  (the same email thread, the same school notice), reuse the SAME card id you used before.
+  This is the one place where a sloppy id silently undoes a member's action.
+
 ## Phase C — Enrich (on-demand, over existing state)
 
 1. `dayfold pull` (and `dayfold pull --hub <id>`) to read current hubs + cards.

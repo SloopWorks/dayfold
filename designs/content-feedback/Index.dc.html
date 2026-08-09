@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: inherit; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+</style>
+</helmet>
+<div style="min-height:100vh;background:{{ c.pageBg }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};padding:44px 40px 96px;transition:background .3s;">
+  <div style="max-width:1360px;margin:0 auto;">
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;" data-screen-label="Header">
+      <a href="../Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:13px;font-weight:600;color:{{ c.crumbFg }};background:{{ c.crumbBg }};border:1px solid {{ c.crumbBorder }};border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>All designs</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:5px 11px;"><span class="msr fill" style="font-size:14px;">verified</span>APPROVED · Aug 8, 2026 · SPEC TRACK</span>
+      <span style="font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:{{ c.onSurfaceVar }};">Responses to smart content</span>
+      <div style="margin-left:auto;display:inline-flex;background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:4px;gap:2px;">
+        <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+        <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+      </div>
+    </div>
+
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:40px;letter-spacing:-0.02em;margin:0 0 12px;line-height:1.05;max-width:26ch;">Responses to smart content — the hi-fi set</h1>
+    <p style="font-size:15px;line-height:1.55;color:{{ c.onSurfaceVar }};margin:0 0 22px;max-width:92ch;">The five-verb vocabulary (not-now / hide / done / mute / fix-it) was <b>approved on the exploration board</b>, with all six open questions operator-decided. This gallery closes the gaps the board left unmocked. The base sheet, done-with-note flow and live demo stay on the board.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px;">
+      <a href="Feedback-Options.dc.html" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-size:13.5px;font-weight:600;color:{{ c.onSecondaryContainer }};background:{{ c.secondaryContainer }};border-radius:999px;padding:11px 18px;"><span class="msr fill" style="font-size:17px;">dashboard</span>The approved exploration board<span class="msr" style="font-size:16px;">arrow_forward</span></a>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surface }};border:1px solid {{ c.outlineVar }};border-radius:999px;padding:11px 18px;"><span class="msr" style="font-size:17px;">description</span>NOTES.md — decisions &amp; contract</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:44px;" data-screen-label="Gap set">
+      <sc-for list="{{ gaps }}" as="g" hint-placeholder-count="6">
+        <section style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;">
+          <div style="flex:none;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-bottom:10px;">{{ g.tag }}</div>
+            <dc-import name="Response-Phone" mode="{{ mode }}" view="{{ g.view }}" hint-size="392px,704px"></dc-import>
+          </div>
+          <div style="flex:1;min-width:280px;max-width:520px;padding-top:26px;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span class="msr fill" style="font-size:21px;color:{{ c.secondary }};">{{ g.icon }}</span><h2 style="font-family:'Outfit';font-weight:600;font-size:20px;margin:0;">{{ g.t }}</h2></div>
+            <div style="font-size:13.5px;line-height:1.6;color:{{ c.onSurfaceVar }};margin-bottom:14px;">{{ g.d }}</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ g.points }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;align-items:flex-start;gap:8px;"><span class="msr" style="font-size:16px;color:{{ c.secondary }};margin-top:2px;">check_circle</span><span style="font-size:12.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">{{ p }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+      </sc-for>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:960},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: props.mode === 'dark' ? 'dark' : 'light' }; }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', onSurface:'#271814', onSurfaceVar:'#5A423C', outlineVar:'#E6D2CB',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      surfaceContainerHighest:'#F0DFDA',
+      pageBg:'#E9DDD7', crumbFg:'#7A2615', crumbBg:'#FCEBE6', crumbBorder:'#EBD3CB',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainer:'#271D1A', onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outlineVar:'#3D322E',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      surfaceContainerHighest:'#3D322E',
+      pageBg:'#161210', crumbFg:'#FFB4A3', crumbBg:'#271D1A', crumbBorder:'#3D322E',
+    };
+    const c = mode === 'dark' ? dark : light;
+    return {
+      c, mode,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode==='light' ? c.secondaryContainer : 'transparent',
+      lightPillFg: mode==='light' ? c.onSecondaryContainer : c.onSurfaceVar,
+      darkPillBg: mode==='dark' ? c.surfaceContainerHighest : 'transparent',
+      darkPillFg: mode==='dark' ? c.onSurface : c.onSurfaceVar,
+      gaps: [
+        { view:'scope', tag:'GAP 1 · SCOPE + WHO', icon:'groups', t:'The precision step, with the decided me/family choice',
+          d:'The mute scope step now carries the operator-decided audience segment. Personal is the default and preselected; family-wide is an explicit second choice — never the fast path — and the consequence is spoken before the commit button.',
+          points:['“For you” preselected; the commit button names the final action: “Mute weather cards for you.”','Family-wide: visible to everyone in Settings, removable by any adult, always attributed (decided Q2).','Weather is the example on purpose — family-scoped noise is where family-wide muting is legitimate.'] },
+        { view:'detail', tag:'GAP 2 · DETAIL VIEW', icon:'open_in_full', t:'Detail: respond where the explanation lives',
+          d:'Tap-to-detail is where “why is this here?” gets asked, so the provenance footer owns the affordances: Mark done is the primary on a task-shaped card, Respond opens the same sheet. The top-bar ⋮ is the a11y door — no second vocabulary.',
+          points:['Provenance footer: who added it, when, from what source, into which hub.','Mark done primary, Respond tonal — the sheet verbs, same order as everywhere.','The source email is a real attachment row, deep-linking to what the card was extracted from.'] },
+        { view:'hub', tag:'GAP 3 · HUB BLOCK', icon:'space_dashboard', t:'Hub blocks: mute vs the delete pairing',
+          d:'A routine-enriched block gets the same sheet from its ⋮, with hub copy. The new fourth row pairs W4 delete with the rule — “Remove, and don’t re-add” — so cleaning up an unwanted block never becomes whack-a-mole. Delete keeps its calm, consequence-naming style.',
+          points:['“Don’t add to this hub again” leaves the existing block; only future enrichment stops.','“Remove, and don’t re-add” is one action, two effects — stated in the sub-line, coral like all deletes.','No swipe on hub blocks — it fights scroll and reorder (placement matrix).'] },
+        { view:'swipe', tag:'GAP 4 · SWIPE ESCALATION', icon:'swipe_left', t:'After a swipe-hide: the one-time offer',
+          d:'Swipe stays hide-only (W5). When the hidden card was smart content, the snackbar’s action slot carries the single escalation: “Don’t add again?” — opening the scope step. Offered once per subject, ever; a second hide of the same subject gets a plain snackbar.',
+          points:['Standard single-action snackbar — no two-button invention; Undo moves to the hidden section’s Show.','The once-ever flag is Tier-0 device state — behavioral, never synced.','Declining costs nothing: the card is already hidden either way.'] },
+        { view:'settings', tag:'GAP 5 · MANAGEMENT SURFACE', icon:'tune', t:'Settings › Smart content — every rule provenance, one list',
+          d:'The full management surface: personal, family-wide (attributed, any-adult-removable) and device-only derived rules in one list, each honest about where it lives — plus the Done records with byline and note, and the run receipt that closes the loop.',
+          points:['Three rule provenances distinguished by sub-line copy, never by colour alone.','Done rows keep the byline + quoted note — hubless completions live here (hub-linked ones in their hub).','Run receipt gains “saw 1 marked done” — completions are acknowledged, not just skipped.'] },
+        { view:'offline', tag:'GAP 6 · OFFLINE', icon:'cloud_off', t:'Offline: the P1 vocabulary applied to responses',
+          d:'Responses are optimistic writes like any other (States P1). Offline, the mute applies locally at once, the receipt row wears the cloud_off state, and the copy is honest about timing: a rule can’t stop a run that already happened — it takes effect next run.',
+          points:['“Saved on this phone — syncs & takes effect next run” — no instant-effect pretence.','The offline banner is the standard top-bar sub-row, not a modal.','Undo works offline — the queued write is simply dropped.'] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

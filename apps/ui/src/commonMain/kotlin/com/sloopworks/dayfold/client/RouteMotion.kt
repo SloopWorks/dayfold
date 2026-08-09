@@ -20,6 +20,8 @@ fun routeSpec(route: Route): RouteSpec = when (route) {
   Route.Hubs -> RouteSpec(0, NavKind.Tab, tabIndex = 1)
   Route.Account -> RouteSpec(1, NavKind.Modal)
   Route.SmartBriefings -> RouteSpec(2, NavKind.Push)
+  // ADR 0064 — an Account child, like Devices/Members/Proximity.
+  Route.SmartContent -> RouteSpec(2, NavKind.Push)
   Route.Proximity -> RouteSpec(2, NavKind.Push)
   Route.Devices -> RouteSpec(2, NavKind.Push)
   Route.Members -> RouteSpec(2, NavKind.Push)

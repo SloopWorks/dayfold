@@ -3398,8 +3398,12 @@ var init_security = __esm({
       "deleted_at",
       "body_ref",
       // M1 object-storage spill key — never client-set at M0
-      "provenance"
+      "provenance",
       // defense-in-depth: rebuilt server-side by stampProvenance
+      "subject_ref"
+      // ADR 0064 suppression key — derived server-side from the id/node path.
+      // An author-chosen key would let a write pick a key no rule matches,
+      // i.e. opt itself out of the family's mutes.
     ];
   }
 });
@@ -3690,6 +3694,50 @@ var init_visibility = __esm({
   }
 });
 
+// src/content/subject-ref.ts
+function isSafeRefComponent(id3) {
+  return id3.length > 0 && !RESERVED_REF_MARKERS.some((m) => id3.includes(m));
+}
+function assertSafe(id3) {
+  if (!isSafeRefComponent(id3)) throw new UnsafeSubjectRefComponent(id3);
+  return id3;
+}
+function buildCardSubjectRef(cardId) {
+  return `${CARD}${assertSafe(cardId)}`;
+}
+function buildBlockSubjectRef(hubId, sectionId, blockId) {
+  return buildNodeSubjectRef(hubId, sectionId, blockId);
+}
+function buildNodeSubjectRef(hubId, sectionId, blockId) {
+  assertSafe(hubId);
+  let out = `${HUB}${hubId}`;
+  if (sectionId) out += `${SECTION_MARK}${assertSafe(sectionId)}`;
+  if (blockId) out += `${BLOCK_MARK}${assertSafe(blockId)}`;
+  return out;
+}
+function isRuleRef(ref) {
+  return ref.startsWith(KIND) || ref.startsWith(SOURCE);
+}
+var CARD, HUB, KIND, SOURCE, SECTION_MARK, BLOCK_MARK, RESERVED_REF_MARKERS, UnsafeSubjectRefComponent;
+var init_subject_ref = __esm({
+  "src/content/subject-ref.ts"() {
+    "use strict";
+    CARD = "card:";
+    HUB = "hub:";
+    KIND = "kind:";
+    SOURCE = "source:";
+    SECTION_MARK = "/section:";
+    BLOCK_MARK = "/block:";
+    RESERVED_REF_MARKERS = [SECTION_MARK, BLOCK_MARK];
+    UnsafeSubjectRefComponent = class extends Error {
+      constructor(component) {
+        super("subject-ref component contains a reserved marker");
+        this.component = component;
+      }
+    };
+  }
+});
+
 // src/repo.ts
 async function upsertCard(familyId, id3, b) {
   const visibility = b.visibility === "restricted" ? "restricted" : "family";
@@ -3698,8 +3746,9 @@ async function upsertCard(familyId, id3, b) {
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
-        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,1)
+        type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media,
+        subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -3709,6 +3758,7 @@ async function upsertCard(familyId, id3, b) {
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
        visibility=EXCLUDED.visibility, audience=EXCLUDED.audience, media=EXCLUDED.media,
+       subject_ref=EXCLUDED.subject_ref,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
     [
@@ -3733,7 +3783,8 @@ async function upsertCard(familyId, id3, b) {
       b.relatedKicker ?? null,
       visibility,
       audience,
-      J(b.media)
+      J(b.media),
+      buildCardSubjectRef(id3)
     ]
   );
   return r.rows[0];
@@ -3782,6 +3833,16 @@ async function syncContent(familyId, su, st, si, limit = SYNC_LIMIT) {
          JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
          JOIN hubs h ON h.family_id=s.family_id AND h.id=s.hub_id
         WHERE b.family_id=$1
+       UNION ALL
+       -- ADR 0064 \u2014 Tier-1 response rows ride the SAME keyset cursor as content, so a
+       -- rule reaches every device on the cadence the family already has. Per-member
+       -- visibility (a personal rule is its owner's alone) is applied in the projection,
+       -- not here: filtering in SQL would make a page of another member's rules shrink the
+       -- window and stall the cursor.
+       SELECT updated_at, 'response' AS type, id, family_id, deleted_at,
+              to_jsonb(content_responses.*) AS payload,
+              NULL::text AS hub_id, NULL::text AS hub_visibility, NULL::text AS hub_created_by
+         FROM content_responses WHERE family_id=$1
      ) merged
      WHERE (updated_at, type, id) > ($2::timestamptz, $3, $4)
      ORDER BY updated_at, type, id LIMIT $5`,
@@ -3795,6 +3856,7 @@ var init_repo = __esm({
     "use strict";
     init_db();
     init_visibility();
+    init_subject_ref();
     J = (v) => v == null ? null : JSON.stringify(v);
     SYNC_LIMIT = 200;
   }
@@ -4182,15 +4244,17 @@ async function getBlock(familyId, id3) {
 }
 async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
   const allowResurrect = opts.allowResurrect !== false;
-  const live = await q(`SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
+  const live = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
   if (live.rowCount === 0) return null;
+  const subjectRef = buildBlockSubjectRef(live.rows[0].hub_id, sectionId, id3);
   const r = await q(
-    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
+    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
        body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
        triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+       subject_ref=EXCLUDED.subject_ref,
        version=blocks.version + 1, deleted_at=NULL
        ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
      RETURNING *`,
@@ -4206,7 +4270,8 @@ async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
       J2(b.triggers),
       J2(b.actions),
       b.ord ?? 0,
-      opts.createdBy ?? null
+      opts.createdBy ?? null,
+      subjectRef
     ]
   );
   return r.rows[0] ?? null;
@@ -4216,7 +4281,82 @@ var init_hubs = __esm({
   "src/content/hubs.ts"() {
     "use strict";
     init_db();
+    init_subject_ref();
     J2 = (v) => v == null ? null : JSON.stringify(v);
+  }
+});
+
+// src/content/responses.ts
+function matchesRule(row, rule) {
+  switch (rule.match_scope) {
+    // EXACT equality, never prefix containment: a hub-level key is a prefix of every block
+    // under that hub, so a prefix match would silently mute the whole hub.
+    case "subject":
+      return row.subjectRef === rule.subject_ref;
+    case "kind":
+      return row.kind != null && `kind:${row.kind}` === rule.subject_ref;
+    case "source":
+      return row.source != null && `source:${row.source}` === rule.subject_ref;
+  }
+}
+async function listActive(familyId) {
+  const r = await q(
+    `SELECT ${COLS} FROM content_responses WHERE family_id=$1 AND deleted_at IS NULL`,
+    [familyId]
+  );
+  return r.rows;
+}
+async function findResponse(familyId, id3) {
+  const r = await q(
+    `SELECT ${COLS} FROM content_responses
+      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
+    [familyId, id3]
+  );
+  return r.rows[0] ?? null;
+}
+async function upsertResponse(familyId, id3, input) {
+  const r = await q(
+    `INSERT INTO content_responses
+       (id, family_id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
+        label, sublabel, note)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (family_id, id) DO UPDATE SET
+       label = EXCLUDED.label, sublabel = EXCLUDED.sublabel, note = EXCLUDED.note,
+       deleted_at = NULL,
+       version = content_responses.version + 1,
+       updated_at = now()
+     RETURNING ${COLS}`,
+    [
+      id3,
+      familyId,
+      input.kind,
+      input.subjectRef,
+      input.matchScope,
+      input.audienceScope,
+      input.userId,
+      input.createdBy,
+      input.label,
+      input.sublabel,
+      input.note
+    ]
+  );
+  return r.rows[0];
+}
+async function softDeleteResponse(familyId, id3) {
+  const r = await q(
+    `UPDATE content_responses SET deleted_at = now(), version = version + 1, updated_at = now()
+      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
+    [familyId, id3]
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+var COLS;
+var init_responses = __esm({
+  "src/content/responses.ts"() {
+    "use strict";
+    init_db();
+    COLS = `id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
+              label, sublabel, note, version`;
   }
 });
 
@@ -4255,12 +4395,23 @@ async function hubWriteGate(familyId, hubId, caller) {
   if (!hubWritableByMember(hub, { userId: caller.userId, legacy: caller.legacy }, role)) return "denied";
   return "ok";
 }
+function suppressedBy(rules, subject) {
+  let blocked = false;
+  const exclude = /* @__PURE__ */ new Set();
+  for (const r of rules) {
+    if (!matchesRule(subject, r)) continue;
+    if (r.kind === "done" || r.audience_scope === "family") blocked = true;
+    else if (r.user_id) exclude.add(r.user_id);
+  }
+  return { blocked, excludeUserIds: [...exclude] };
+}
 var init_write_guard = __esm({
   "src/content/write-guard.ts"() {
     "use strict";
     init_db();
     init_hubs();
     init_scope();
+    init_responses();
   }
 });
 
@@ -4321,7 +4472,7 @@ async function sweep(graceMs = 24 * 3600 * 1e3) {
   )).rowCount ?? 0;
   const tombGrace = new Date(Date.now() - CONTENT_TOMBSTONE_RETENTION_MS).toISOString();
   let contentTombstones = 0;
-  for (const table of ["blocks", "sections", "briefing_cards", "hubs"]) {
+  for (const table of ["blocks", "sections", "briefing_cards", "hubs", "content_responses"]) {
     contentTombstones += (await q(
       `DELETE FROM ${table} WHERE deleted_at IS NOT NULL AND deleted_at < $1`,
       [tombGrace]
@@ -5010,6 +5161,12 @@ async function resolveVisibleHub(fid, hubId, caller) {
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return null;
   return { hub, allow };
 }
+async function tombstoneSubject(fid, subjectRef) {
+  await q(`UPDATE briefing_cards SET deleted_at = now(), version = version + 1, updated_at = now()
+            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
+  await q(`UPDATE blocks SET deleted_at = now(), version = version + 1, updated_at = now()
+            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
+}
 async function ownerGate(c, fid) {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return { status: a.status };
@@ -5032,6 +5189,8 @@ var init_app = __esm({
     init_visibility();
     init_write_guard();
     init_oplog();
+    init_responses();
+    init_subject_ref();
     init_sweep();
     init_audit();
     init_ratelimit();
@@ -5356,7 +5515,18 @@ var init_app = __esm({
       const mediaIssues = validateCardMedia(media);
       if (mediaIssues.length) return c.json({ type: "validation", issues: mediaIssues }, 422);
       if (media?.accentColor) media.accentColor = normalizedAccent(media.accentColor);
-      return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience }), 200);
+      const gate = suppressedBy(await listActive(fid), {
+        subjectRef: buildCardSubjectRef(id3),
+        kind: parsed.data.kind ?? null,
+        source: parsed.data.provenance?.source ?? null
+      });
+      if (gate.blocked) return problem(c, 409, "subject-muted");
+      let finalAudience = audience;
+      if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
+        finalAudience = finalAudience.filter((u) => !gate.excludeUserIds.includes(u));
+        if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
+      }
+      return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience: finalAudience }), 200);
     });
     app.get("/families/:fid/cards", async (c) => {
       const fid = c.req.param("fid");
@@ -5616,6 +5786,12 @@ var init_app = __esm({
       const st = await blockState(fid, id3);
       if (member && st.deleted) return c.body(null, 410);
       if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+      const suppression = suppressedBy(await listActive(fid), {
+        subjectRef: buildBlockSubjectRef(hubId, sectionId, id3),
+        kind: null,
+        source: parsed.data.provenance?.source ?? null
+      });
+      if (suppression.blocked) return problem(c, 409, "subject-muted");
       const row = await upsertBlock(fid, id3, sectionId, parsed.data, { allowResurrect: !member, createdBy: a.userId });
       if (!row) {
         return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
@@ -5648,6 +5824,79 @@ var init_app = __esm({
       const ok = await softDeleteBlock(fid, id3);
       if (opId) await recordOp(fid, opId, "block", id3, null);
       return c.body(null, ok ? 204 : 404);
+    });
+    app.put("/families/:fid/responses/:id", async (c) => {
+      const fid = c.req.param("fid"), id3 = c.req.param("id");
+      {
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
+      }
+      const a = await authorizeTenant(c, fid);
+      if ("status" in a) return c.body(null, a.status);
+      if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
+      const caller = callerFrom(a);
+      if (!caller.userId) return problem(c, 403, "member-required");
+      const opId = c.req.header("idempotency-key");
+      if (opId && await findOp(fid, opId)) {
+        const prior = await findResponse(fid, id3);
+        if (prior) return c.json(prior, 200);
+        return c.body(null, 204);
+      }
+      const rb = await requireJsonObject(c);
+      if ("error" in rb) return rb.error;
+      const b = rb.value;
+      if (typeof b.subject_ref !== "string" || !b.subject_ref) return problem(c, 422, "bad-subject-ref");
+      if (typeof b.label !== "string" || !b.label) return problem(c, 422, "bad-label");
+      const kind = b.kind === "done" ? "done" : "mute";
+      if (!["subject", "kind", "source"].includes(b.match_scope)) return problem(c, 422, "bad-match-scope");
+      const matchScope = b.match_scope;
+      if (isRuleRef(b.subject_ref) !== (matchScope !== "subject")) return problem(c, 422, "ref-scope-mismatch");
+      const audienceScope = b.audience_scope === "family" ? "family" : "personal";
+      if (kind === "done" && (audienceScope !== "family" || matchScope !== "subject")) {
+        return problem(c, 422, "bad-done-shape");
+      }
+      const row = await upsertResponse(fid, id3, {
+        kind,
+        subjectRef: b.subject_ref,
+        matchScope,
+        audienceScope,
+        // Ownership comes from the TOKEN. A body-supplied user_id is ignored: otherwise one
+        // member could author rules that suppress content for another.
+        userId: audienceScope === "personal" ? caller.userId : null,
+        createdBy: caller.userId,
+        label: b.label,
+        sublabel: typeof b.sublabel === "string" ? b.sublabel : null,
+        note: typeof b.note === "string" ? b.note : null
+      });
+      if (kind === "done") await tombstoneSubject(fid, b.subject_ref);
+      if (opId) await recordOp(fid, opId, "response", id3, Number(row.version));
+      return c.json(row, 200);
+    });
+    app.delete("/families/:fid/responses/:id", async (c) => {
+      const fid = c.req.param("fid"), id3 = c.req.param("id");
+      {
+        const e = idErrorResponse(c, id3);
+        if (e) return e;
+      }
+      const a = await authorizeTenant(c, fid);
+      if ("status" in a) return c.body(null, a.status);
+      if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
+      const caller = callerFrom(a);
+      if (!caller.userId) return problem(c, 403, "member-required");
+      const opId = c.req.header("idempotency-key");
+      if (opId && await findOp(fid, opId)) return c.body(null, 204);
+      const cur = await q(
+        `SELECT audience_scope, user_id FROM content_responses
+      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
+        [fid, id3]
+      );
+      const row = cur.rows[0];
+      if (row && row.audience_scope === "personal" && row.user_id !== caller.userId) {
+        return problem(c, 403, "not-your-rule");
+      }
+      await softDeleteResponse(fid, id3);
+      if (opId) await recordOp(fid, opId, "response", id3, null);
+      return c.body(null, 204);
     });
     app.post("/device/authorize", async (c) => {
       const ip = clientIp(c);
@@ -5920,7 +6169,7 @@ var init_app = __esm({
         } else if (parts.length === 3) {
           const validTs = !Number.isNaN(Date.parse(parts[0]));
           if (!validTs) return problem(c, 400, "bad-cursor");
-          if (["card", "hub", "section", "block"].includes(parts[1])) {
+          if (["card", "hub", "section", "block", "response"].includes(parts[1])) {
             [su, st, si] = parts;
           }
         } else {
@@ -5954,7 +6203,7 @@ var init_app = __esm({
           allowSets.get(row.hub_id).add(row.user_id);
         }
       }
-      const changes = { cards: [], hubs: [], sections: [], blocks: [] };
+      const changes = { cards: [], hubs: [], sections: [], blocks: [], responses: [] };
       const tombstones = [];
       for (const r of rows) {
         let visible;
@@ -5964,6 +6213,8 @@ var init_app = __esm({
           visible = cardVisible(r.payload, caller);
         } else if (r.type === "hub") {
           visible = hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+        } else if (r.type === "response") {
+          visible = r.payload.audience_scope === "family" || !!caller.userId && r.payload.user_id === caller.userId;
         } else {
           const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
           visible = hubVisible(parentHub, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
@@ -5972,6 +6223,7 @@ var init_app = __esm({
           if (r.type === "card") changes.cards.push(r.payload);
           else if (r.type === "hub") changes.hubs.push(r.payload);
           else if (r.type === "section") changes.sections.push(r.payload);
+          else if (r.type === "response") changes.responses.push(r.payload);
           else changes.blocks.push(r.payload);
         } else {
           tombstones.push({ type: r.type, id: r.id });

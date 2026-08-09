@@ -60,6 +60,28 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-response-subjectref-stability** — *opened 2026-08-08 by ADR 0064 (Accepted).* The
+  suppression key is now load-bearing in a way it wasn't as a dedup key. If extraction mints a
+  **different** `subjectRef` for the same source across runs, Mark done silently stops working:
+  the completed card comes back, and nothing errors. Today the only thing holding the key stable
+  is a convention in the authoring skill — not a constraint the code can enforce. Worth deciding
+  whether the routine contract should require a declared stable key per source (and reject an op
+  without one) before the ADR 0061 gateway starts authoring at volume.
+- **OQ-response-corrections** — *opened 2026-08-08 by ADR 0064 (Accepted), deferred there.* The
+  "fix it" verbs — wrong hub, outdated/not accurate — are Tier 2 in the design notes and were
+  explicitly left out of ADR 0064. They need a persistence contract of their own (structured
+  feedback into the next run's input, outcome on the run receipt), which depends on ADR 0062's
+  durable run records. Blocked on that; gets its own ADR.
+- **OQ-response-minor-rights** — *opened 2026-08-08 by ADR 0064 (Accepted).* "Any adult sets, any
+  adult removes" a family-wide mute is currently enforced by **nothing**, because ADR 0004's
+  adults-only MVP makes every account holder an adult. Accepting ADR 0005 (14+ minor accounts)
+  turns that into a real gate that does not exist — `app.ts`'s response routes are the code that
+  would have to change. Personal responses are assumed available to any member.
+- **OQ-response-partial-writes** — *opened 2026-08-08 by ADR 0064 (Accepted).* A personal mute
+  makes one write partially succeed: the card is written for four members and stripped for the
+  fifth, and the 200 tells the author nothing about the strip. Fine for the CLI (it can diff), but
+  a routine reporting "added 3" when one of them reached fewer people is arguably under-reporting.
+  Consider returning the stripped count if author-side visibility turns out to matter.
 - **OQ-notbefore-gating** — **RESOLVED 2026-06-30 by ADR 0043 (Accepted)**: the on-device
   priority/ordering engine gates `not_before` (a derived/authored item surfaces only once its
   window opens). Original question retained: Should the **client feed gate `not_before`**, or is

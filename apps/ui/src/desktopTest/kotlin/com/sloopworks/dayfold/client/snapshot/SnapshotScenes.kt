@@ -14,6 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.AccountScreen
+import com.sloopworks.dayfold.client.ResponseScopeStep
+import com.sloopworks.dayfold.client.ResponseSheetContent
+import com.sloopworks.dayfold.client.ResponseStep
+import com.sloopworks.dayfold.client.ResponseSurface
+import com.sloopworks.dayfold.client.SmartContentModel
+import com.sloopworks.dayfold.client.SmartContentScreen
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.AvatarPickerContent
 import com.sloopworks.dayfold.client.AuthorizeDeviceScreen
@@ -199,6 +205,44 @@ val clientSnapshots: SnapshotApp = snapshotApp {
           accountViewState(app),
           smartBriefingsPreviewAvailable = preset == "smart-briefings",
         )
+      }
+    }
+  }
+
+  // ADR 0064 — Settings › Smart content. Presets mirror the design's GAP-5 and GAP-6 views:
+  // the three rule provenances side by side (where "distinguished by sub-line copy, never
+  // colour alone" is actually visible), the pending/offline state, and the empty case.
+  scene("smart-content") {
+    presets("default", "offline", "empty")
+    render { args ->
+      themed(args.theme) {
+        val preset = presetName(args.input)
+        SmartContentScreen(
+          model = if (preset == "empty") SmartContentModel() else SmartContentFixtures.model(pending = preset == "offline"),
+          memberNames = SmartContentFixtures.names,
+          offline = preset == "offline",
+          onRemove = {},
+          onBack = {},
+        )
+      }
+    }
+  }
+
+  // The sheet's CONTENT, not the ModalBottomSheet wrapper: a headless single-frame render
+  // never paints a dialog's separate compose scene, so scening the wrapper goldens an empty
+  // frame (same reason AvatarPickerContent is split out).
+  scene("response-sheet") {
+    presets("now", "hub", "scope")
+    render { args ->
+      themed(args.theme) {
+        when (presetName(args.input)) {
+          "hub" -> ResponseSheetContent(SmartContentFixtures.sheet(ResponseSurface.HUB), onVerb = {})
+          "scope" -> ResponseScopeStep(
+            sheet = SmartContentFixtures.sheet(ResponseSurface.NOW).copy(step = ResponseStep.SCOPE),
+            onScope = {}, onAudience = {}, onOpenRoutines = {}, onCommit = {},
+          )
+          else -> ResponseSheetContent(SmartContentFixtures.sheet(ResponseSurface.NOW), onVerb = {})
+        }
       }
     }
   }

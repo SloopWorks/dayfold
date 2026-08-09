@@ -234,12 +234,20 @@ class SyncEngine(
         // every other op (toggle, future upsert) is a whole-block PUT.
         sessionCoordinator.authorizedCall(context) { current ->
           current.withFamilyAndAccessToken { familyId, accessToken ->
-            val sent = if (op.type == "delete") {
-              syncClient.deleteBlock(familyId, accessToken, op.targetId, op.opId)
-            } else {
-              syncClient.putBlock(
-                familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId,
-              )
+            // ADR 0064 — dispatch on targetKind FIRST: a response op goes to the response
+            // endpoints, which take no If-Match. Falling through to the block path would PUT
+            // a rule at /blocks/<ruleId> and 404 into a silent Drop.
+            val sent = when {
+              op.targetKind == "response" && op.type == "delete" ->
+                syncClient.deleteResponse(familyId, accessToken, op.targetId, op.opId)
+              op.targetKind == "response" ->
+                syncClient.putResponse(familyId, accessToken, op.targetId, op.payload, op.opId)
+              op.type == "delete" ->
+                syncClient.deleteBlock(familyId, accessToken, op.targetId, op.opId)
+              else ->
+                syncClient.putBlock(
+                  familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId,
+                )
             }
             if (sent.status == 401) throw SyncHttpException(401)
             sent

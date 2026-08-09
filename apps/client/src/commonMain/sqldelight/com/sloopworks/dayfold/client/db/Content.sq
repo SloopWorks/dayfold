@@ -281,6 +281,19 @@ enqueueOp:
 INSERT INTO outbox(op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?);
 
+-- ADR 0064 undo — drop EVERY queued op for a target regardless of type/state. Undo works
+-- offline precisely because the write has not left the device: the queued op is simply gone.
+deleteOpsForTarget:
+DELETE FROM outbox WHERE target_id=?;
+
+-- ADR 0064 echo-suppress for responses. The block path drops acked ops by result_version
+-- (dropAckedAtOrBelow), but a response DELETE acks with a null version and its echo is a
+-- tombstone, not a row — so version-keyed suppression can never fire and the acked row would
+-- linger in the outbox forever. Responses have no local merge to protect, so dropping every
+-- acked op for the target on echo is both sufficient and correct.
+dropAckedForTarget:
+DELETE FROM outbox WHERE target_id=? AND state='acked';
+
 -- FIFO drain: the next sendable ops (pending only; inflight is in-flight, acked awaits echo).
 pendingOps:
 SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, result_version, created_at
@@ -481,3 +494,68 @@ SELECT subject_key, notified_at FROM notification_log;
 
 wipeNotificationLog:
 DELETE FROM notification_log;
+
+-- ── ADR 0064 — Tier-1 SYNCED response rows (mute rules + done records). Unlike `hidden` and
+-- `surfacing_state` above, this table IS synced: a rule is an intentional, user-authored
+-- policy statement, not passive behavior, so publishing it to the family is what the member
+-- asked for. Applied by applyDelta from the /sync `response` rows; written optimistically by
+-- ResponseEngine and drained through the shared outbox.
+-- Wiped on wipe() (tenancy revocation) AND on wipeSyncedContent() — it is family content, not
+-- device-local personal state.
+CREATE TABLE content_response (
+  id             TEXT NOT NULL PRIMARY KEY,
+  kind           TEXT NOT NULL,
+  subject_ref    TEXT NOT NULL,
+  match_scope    TEXT NOT NULL,
+  audience_scope TEXT NOT NULL,
+  user_id        TEXT,
+  created_by     TEXT NOT NULL,
+  label          TEXT NOT NULL,
+  sublabel       TEXT,
+  note           TEXT,
+  version        INTEGER NOT NULL DEFAULT 1,
+  -- Optimistic-write UI state: 1 while the outbox op is unacked (States P1), cleared by the
+  -- /sync echo. NOT a wire field.
+  pending        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX content_response_subject_idx ON content_response(subject_ref);
+
+upsertResponse:
+INSERT INTO content_response(id, kind, subject_ref, match_scope, audience_scope, user_id,
+                             created_by, label, sublabel, note, version, pending)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(id) DO UPDATE SET
+  kind=excluded.kind, subject_ref=excluded.subject_ref, match_scope=excluded.match_scope,
+  audience_scope=excluded.audience_scope, user_id=excluded.user_id,
+  created_by=excluded.created_by, label=excluded.label, sublabel=excluded.sublabel,
+  note=excluded.note, version=excluded.version, pending=excluded.pending;
+
+deleteResponse:
+DELETE FROM content_response WHERE id = ?;
+
+allResponses:
+SELECT id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
+       label, sublabel, note, version, pending
+FROM content_response;
+
+wipeResponses:
+DELETE FROM content_response;
+
+-- ── ADR 0064 GAP 4 — the once-ever swipe-escalation offer. Tier 0: behavioral, device-local,
+-- NEVER synced (not in Changes/applyDelta/outbox), same boundary as `hidden` + surfacing above
+-- and covered by ADR 0024's never-syncs rule. One row per subject, ever — a second hide of the
+-- same subject gets a plain snackbar, because a repeat offer is a nag.
+CREATE TABLE response_offer (
+  subject_ref TEXT NOT NULL PRIMARY KEY,
+  offered_at  TEXT NOT NULL
+);
+
+recordResponseOffer:
+INSERT INTO response_offer(subject_ref, offered_at) VALUES (?, ?)
+ON CONFLICT(subject_ref) DO NOTHING;
+
+wasResponseOffered:
+SELECT count(*) FROM response_offer WHERE subject_ref = ?;
+
+wipeResponseOffers:
+DELETE FROM response_offer;

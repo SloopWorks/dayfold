@@ -20,7 +20,8 @@ const dev = { "content-type":"application/json", authorization:"Bearer dev" };
 async function ownerOf(uid: string) {
   const t = (await (await app.request("/auth/dev-token",{method:"POST",headers:dev,body:JSON.stringify({provider:"dev",provider_uid:uid})})).json()).access;
   const fam = await (await app.request("/families",{method:"POST",headers:{...dev,authorization:`Bearer ${t}`},body:JSON.stringify({name:uid})})).json();
-  return { token: t, familyId: fam.familyId };
+  const me = await (await app.request("/auth/me",{headers:{authorization:`Bearer ${t}`}})).json();
+  return { token: t, familyId: fam.familyId, userId: me.user_id as string };
 }
 
 describe("retention sweep", () => {
@@ -71,6 +72,29 @@ describe("retention sweep", () => {
     expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_oldtomb'`)).rowCount).toBe(0);     // purged (past floor)
     expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_recenttomb'`)).rowCount).toBe(1);  // kept (within floor — slow clients still get the delete)
     expect((await q(`SELECT 1 FROM briefing_cards WHERE id='c_live'`)).rowCount).toBe(1);         // kept (live)
+  });
+
+  // ADR 0064 — response tombstones ride the SAME cursor as content, so they must share the
+  // same floor. A retained-forever rule tombstone is a rule the member deleted coming back
+  // on a device that was offline past the floor; the full-resync directive is what covers
+  // that case, and it only works once the tombstone is actually gone.
+  it("hard-purges response tombstones on the same floor as content", async () => {
+    const o = await ownerOf("resp-tombowner");
+    const old = new Date(Date.now() - 200 * 24 * 3600 * 1000).toISOString();
+    const ins = (id: string, deletedAt: string | null) => q(
+      `INSERT INTO content_responses
+         (id, family_id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
+          label, deleted_at, updated_at)
+       VALUES ($1,$2,'mute','kind:weather','kind','family',NULL,$3,'Weather',$4,COALESCE($4, now()))`,
+      [id, o.familyId, o.userId, deletedAt]);
+    await ins("rr_oldtomb", old);
+    await ins("rr_recenttomb", new Date().toISOString());
+    await ins("rr_live", null);
+
+    await sweep();
+    expect((await q(`SELECT 1 FROM content_responses WHERE id='rr_oldtomb'`)).rowCount).toBe(0);     // purged
+    expect((await q(`SELECT 1 FROM content_responses WHERE id='rr_recenttomb'`)).rowCount).toBe(1);  // kept
+    expect((await q(`SELECT 1 FROM content_responses WHERE id='rr_live'`)).rowCount).toBe(1);        // kept
   });
 
   it("deletes an orphan expired invite but KEEPS one a membership references", async () => {

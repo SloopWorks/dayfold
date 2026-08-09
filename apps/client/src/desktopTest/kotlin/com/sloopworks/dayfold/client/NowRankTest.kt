@@ -40,10 +40,10 @@ class NowRankTest {
 
   @Test fun `dedup is exact-key only - a hub countdown and a block-level item stay separate`() {
     // Exact-key dedup (not prefix-containment): a hub-level countdown must NOT swallow every block
-    // under the hub. The countdown ("hub:h1") and the checklist ("hub:h1/sec:s1/blk:b1") are
+    // under the hub. The countdown ("hub:h1") and the checklist ("hub:h1/section:s1/block:b1") are
     // distinct subjects → two distinct rows.
     val countdown = item("derived:countdown:h1", "hub:h1", triggerAt = "2026-07-01T12:00:00Z")
-    val checklist = item("derived:checklist:b1", "hub:h1/sec:s1/blk:b1", kind = ReasonKind.CHECKLIST, triggerAt = "2026-07-01T12:00:00Z")
+    val checklist = item("derived:checklist:b1", "hub:h1/section:s1/block:b1", kind = ReasonKind.CHECKLIST, triggerAt = "2026-07-01T12:00:00Z")
     val f = rank(listOf(countdown, checklist), now, null, emptyMap(), zone)
     assertEquals(2, (f.now + f.soon + f.later + f.overflow).size)
   }
@@ -60,14 +60,14 @@ class NowRankTest {
   }
 
   @Test fun `two sibling blocks do NOT merge (neither key is a prefix of the other)`() {
-    val b1 = item("derived:milestone:b1", "hub:h1/sec:s1/blk:b1", kind = ReasonKind.MILESTONE, triggerAt = "2026-07-01T12:00:00Z")
-    val b2 = item("derived:milestone:b2", "hub:h1/sec:s1/blk:b2", kind = ReasonKind.MILESTONE, triggerAt = "2026-07-01T12:00:00Z")
+    val b1 = item("derived:milestone:b1", "hub:h1/section:s1/block:b1", kind = ReasonKind.MILESTONE, triggerAt = "2026-07-01T12:00:00Z")
+    val b2 = item("derived:milestone:b2", "hub:h1/section:s1/block:b2", kind = ReasonKind.MILESTONE, triggerAt = "2026-07-01T12:00:00Z")
     val f = rank(listOf(b1, b2), now, null, emptyMap(), zone)
     assertEquals(2, (f.now + f.soon + f.later + f.overflow).size)
   }
 
   @Test fun `geo-active item is emphasized and banded NOW even with no triggerAt`() {
-    val geo = item("derived:geo:b1", "hub:h1/sec:s1/blk:b1", kind = ReasonKind.GEO, geoActive = true, distanceM = 30.0)
+    val geo = item("derived:geo:b1", "hub:h1/section:s1/block:b1", kind = ReasonKind.GEO, geoActive = true, distanceM = 30.0)
     val f = rank(listOf(geo), now, DeviceLocation(1.0, 2.0), emptyMap(), zone)
     assertEquals(1, f.now.size)
     assertTrue(f.now.single().emphasized)
@@ -120,7 +120,7 @@ class NowRankTest {
   }
 
   @Test fun `importance is capped - an authored item cannot pin itself above an urgent one`() {
-    val urgent = item("derived:when:b1", "hub:h1/sec:s1/blk:b1", kind = ReasonKind.WHEN, triggerAt = "2026-06-30T12:30:00Z", weight = 0.65)
+    val urgent = item("derived:when:b1", "hub:h1/section:s1/block:b1", kind = ReasonKind.WHEN, triggerAt = "2026-06-30T12:30:00Z", weight = 0.65)
     val spam = item("authored:c1", "card:c1", origin = Origin.AUTHORED, weight = 100.0)   // attempt to pin to top
     val f = rank(listOf(urgent, spam), now, null, emptyMap(), zone)
     val order = (f.now + f.soon + f.later + f.overflow).map { it.item.id }
@@ -130,7 +130,7 @@ class NowRankTest {
   @Test fun `rank is pure - identical inputs give identical output`() {
     val items = listOf(
       item("derived:countdown:h1", "hub:h1", triggerAt = "2026-07-01T12:00:00Z"),
-      item("derived:geo:b1", "hub:h2/sec:s1/blk:b1", kind = ReasonKind.GEO, geoActive = true, distanceM = 50.0),
+      item("derived:geo:b1", "hub:h2/section:s1/block:b1", kind = ReasonKind.GEO, geoActive = true, distanceM = 50.0),
     )
     assertEquals(rank(items, now, null, emptyMap(), zone), rank(items, now, null, emptyMap(), zone))
   }

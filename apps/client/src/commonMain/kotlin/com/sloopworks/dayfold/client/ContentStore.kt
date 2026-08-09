@@ -78,6 +78,7 @@ class ContentStore(driver: SqlDriver) {
     nextCursor: String?,
     nowIso: String,
     changedPlaces: List<Place> = emptyList(),   // ADR 0043 Phase A — named places (geo-proximity source)
+    changedResponses: List<ContentResponse> = emptyList(),  // ADR 0064 — Tier-1 mute/done rows
   ) = withWriteGate {
     q.transaction {
       changedCards.forEach { c ->
@@ -135,6 +136,16 @@ class ContentStore(driver: SqlDriver) {
       changedPlaces.forEach { p ->
         q.upsertPlace(p.id, p.kind, p.label, p.lat, p.lng, p.radiusM, nowIso)
       }
+      changedResponses.forEach { r ->
+        // The server row is the synced truth: land it with pending cleared. The echo is what
+        // ends the optimistic state, exactly as the block path clears local_state.
+        q.upsertResponse(
+          r.id, r.kind.wire, r.subjectRef, r.matchScope.wire, r.audienceScope.wire,
+          r.userId, r.createdBy, r.label, r.sublabel, r.note, r.version, 0L,
+        )
+        // Echo-suppress: the write came back, so its acked op is done.
+        q.dropAckedForTarget(r.id)
+      }
       tombstones.forEach { t ->
         when (t.type) {
           "card"    -> q.markDeleted(nowIso, t.id)
@@ -142,6 +153,9 @@ class ContentStore(driver: SqlDriver) {
           "section" -> q.markSectionDeleted(nowIso, t.id)
           "block"   -> q.markBlockDeleted(nowIso, t.id)
           "place"   -> q.markPlaceDeleted(nowIso, t.id)
+          // A rule tombstone is a hard delete, not a soft one: there is no "removed rule"
+          // surface to render, and a personal rule reaches non-owners ONLY as a tombstone.
+          "response" -> { q.deleteResponse(t.id); q.dropAckedForTarget(t.id) }
         }
       }
       if (nextCursor != null) q.setCursor(nextCursor, nowIso)
@@ -203,6 +217,10 @@ class ContentStore(driver: SqlDriver) {
         q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor()
         q.wipeOutbox(); q.wipeHidden(); q.wipePlaces(); q.wipeSurfacing()
         q.wipeNotificationLog(); q.wipeMembership()
+        // ADR 0064 — rules are family content, so tenancy revocation drops them with the rest.
+        // response_offer is device-local Tier 0, but it keys on subjects of a family this
+        // device may no longer read; keeping it would leak "this household had a card here".
+        q.wipeResponses(); q.wipeResponseOffers()
         // notif_config is a device preference, not tenant data. It deliberately
         // survives sign-out/family replacement; the device bridge remains active.
       }
@@ -227,6 +245,62 @@ class ContentStore(driver: SqlDriver) {
   // (tenancy revocation) — the same boundary as cards.
   private fun wipeSyncedContent() {
     q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces()
+    // ADR 0064 — synced family content, so a from-∞ rebuild replaces it too. response_offer is
+    // NOT wiped here: it is device-local anti-nag history, like `hidden` and surfacing_state,
+    // and a staleness reset must not re-offer an escalation the member already declined.
+    q.wipeResponses()
+  }
+
+  // ── ADR 0064 — smart-content responses (Tier 1, SYNCED) + the Tier-0 offer flag.
+
+  fun allResponses(): List<ContentResponse> =
+    q.allResponses().executeAsList().map {
+      ContentResponse(
+        id = it.id,
+        kind = ResponseKind.of(it.kind),
+        subjectRef = it.subject_ref,
+        matchScope = MatchScope.of(it.match_scope),
+        audienceScope = AudienceScope.of(it.audience_scope),
+        userId = it.user_id,
+        createdBy = it.created_by,
+        label = it.label,
+        sublabel = it.sublabel,
+        note = it.note,
+        version = it.version,
+        pending = it.pending != 0L,
+      )
+    }
+
+  /** Optimistic local write — lands at once, `pending` until the /sync echo clears it. */
+  fun upsertResponseLocal(r: ContentResponse) = withWriteGate {
+    q.upsertResponse(
+      r.id, r.kind.wire, r.subjectRef, r.matchScope.wire, r.audienceScope.wire,
+      r.userId, r.createdBy, r.label, r.sublabel, r.note, r.version, if (r.pending) 1L else 0L,
+    )
+  }
+
+  fun deleteResponseLocal(id: String) = withWriteGate { q.deleteResponse(id) }
+
+  /**
+   * Queue a response op. `target_kind = "response"` routes it to the response endpoints in the
+   * drain loop; `type` is "upsert" or "delete". base_version is 0 — a response takes no
+   * If-Match: there is no local merge to re-run, and the server's identity columns are
+   * immutable after creation, so a stale base has nothing to clobber.
+   */
+  fun enqueueResponseOp(opId: String, id: String, type: String, payload: String, nowIso: String) =
+    withWriteGate {
+      q.enqueueOp(opId, "response", id, type, payload, 0L, null, nowIso)
+    }
+
+  /** Undo — drop the queued write entirely. Works offline: nothing has left the device yet. */
+  fun dropQueuedOpsFor(targetId: String) = withWriteGate { q.deleteOpsForTarget(targetId) }
+
+  /** Tier-0, never synced: has this subject already been offered the escalation, ever? */
+  fun wasResponseOffered(subjectRef: String): Boolean =
+    q.wasResponseOffered(subjectRef).executeAsOne() > 0L
+
+  fun recordResponseOffer(subjectRef: String, nowIso: String) = withWriteGate {
+    q.recordResponseOffer(subjectRef, nowIso)
   }
 
   // ── Membership cache (ADR 0052) — last-known family list for the DB-first cold-start route
@@ -519,6 +593,30 @@ class ContentStore(driver: SqlDriver) {
   fun surfacingFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<Map<String, SurfacingRecord>> =
     q.allSurfacing().asFlow().mapToList(dispatcher).map { rows ->
       rows.associate { it.subject_key to SurfacingRecord(it.subject_key, it.last_shown_at, it.dismissed_at) }
+    }
+
+  /**
+   * ADR 0064 — the reactive rules projection. Family-scoped SYNCED content, so it rides the
+   * family bridge alongside cards/hubs, not the device bridge that carries notif config.
+   */
+  fun responsesFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<List<ContentResponse>> =
+    q.allResponses().asFlow().mapToList(dispatcher).map { rows ->
+      rows.map {
+        ContentResponse(
+          id = it.id,
+          kind = ResponseKind.of(it.kind),
+          subjectRef = it.subject_ref,
+          matchScope = MatchScope.of(it.match_scope),
+          audienceScope = AudienceScope.of(it.audience_scope),
+          userId = it.user_id,
+          createdBy = it.created_by,
+          label = it.label,
+          sublabel = it.sublabel,
+          note = it.note,
+          version = it.version,
+          pending = it.pending != 0L,
+        )
+      }
     }
 
   /** Record that a subject was surfaced (anti-nag decay clock). LOCAL-ONLY — never synced. */

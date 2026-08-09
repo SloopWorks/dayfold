@@ -47,6 +47,7 @@ class SyncDrainer(
             nextCursor = resp.nextCursor,
             nowIso = nowIso(),
             changedPlaces = resp.changes.places,
+            changedResponses = resp.changes.responses.map { it.toDomain() },
           )
         }
       }
@@ -62,5 +63,8 @@ class SyncDrainer(
       changes.sections.isNotEmpty() ||
       changes.blocks.isNotEmpty() ||
       changes.places.isNotEmpty() ||
+      // ADR 0064 — a rule arriving alone is material: it changes what the derived lane
+      // surfaces, so the store must be reloaded even though no card or block moved.
+      changes.responses.isNotEmpty() ||
       tombstones.isNotEmpty()
 }

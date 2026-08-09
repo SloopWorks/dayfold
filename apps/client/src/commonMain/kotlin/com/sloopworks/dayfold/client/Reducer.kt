@@ -50,6 +50,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is CloseRoutineRevokeSheet, is RoutineOfflineChanged -> reduceRoutines(state, action)
   is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded, is HubNotFound, is CloseHub, is CloseHubToFeed, is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded, is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded, is CloseAudienceSheet, is AudienceFailed, is HubManageFailed -> reduceNavigation(reduceHubs(state, action), action)
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
+  is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested, is InviteLinkStashed, is InviteLinkConsumed -> reduceSession(state, action)
   is OpenMembers, is RosterLoaded, is MemberRemoved, is ApprovalsRequested, is ApprovalsLoaded, is OpenInvite, is InviteModeSelected, is MintRequested, is InviteMinted, is MintFailed, is InviteRevokeRequested, is InviteRevoked, is InviteRevokeFailed, is InviteDismissed, is MemberResolved, is ApprovalsFailed, is MemberOpRequested, is RosterRequested, is RosterFailed -> reduceNavigation(reduceFamilyAdmin(state, action), action)
@@ -69,6 +70,10 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     content = ContentState(),
     now = NowState(),
     hubs = HubState(),
+    // ADR 0064 — rules are family-scoped synced content, so a family switch invalidates them
+    // exactly like cards and hubs. Carrying them across would let one family's mutes suppress
+    // another's feed until the first sync landed.
+    responses = ResponseState(),
     familyAdmin = FamilyAdminState(),
     routines = updated.routines.resetFamilyScoped(),
   ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))

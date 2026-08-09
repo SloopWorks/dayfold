@@ -11,8 +11,10 @@ import * as repo from "./repo.ts";
 import { authorizeTenant, bearer } from "./auth/middleware.ts";
 import { requireScope, grantScopes, resolveGrants, scopeAllows, grantedHubIds, hubGrantsFor } from "./auth/scope.ts";
 import { cardVisible } from "./content/visibility.ts";
-import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate } from "./content/write-guard.ts";
+import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate, suppressedBy } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
+import * as responses from "./content/responses.ts";
+import { isRuleRef, buildCardSubjectRef, buildBlockSubjectRef } from "./content/subject-ref.ts";
 import { CONTENT_TOMBSTONE_RETENTION_DAYS, sweep } from "./auth/sweep.ts";
 import { audit } from "./auth/audit.ts";
 import { clientIp, hit, isLocked, recordFailure, resetFailures } from "./auth/ratelimit.ts";
@@ -494,7 +496,27 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const mediaIssues = validateCardMedia(media);
   if (mediaIssues.length) return c.json({ type: "validation", issues: mediaIssues }, 422);
   if (media?.accentColor) media.accentColor = normalizedAccent(media.accentColor);  // lowercase on write
-  return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience }), 200);
+
+  // ADR 0064 — suppression, mechanically by ID. 409 (not 4xx-generic) so the authoring path
+  // can report "skipped N muted subjects" on its run receipt instead of treating a rule the
+  // family deliberately wrote as an error.
+  const gate = suppressedBy(await responses.listActive(fid), {
+    subjectRef: buildCardSubjectRef(id),
+    kind: (parsed.data as any).kind ?? null,
+    source: (parsed.data as any).provenance?.source ?? null,
+  });
+  if (gate.blocked) return problem(c, 409, "subject-muted");
+  // A personal mute does not block: it removes its owner from the audience so the routine
+  // still mints for everyone else. Stripping only bites on a restricted card — a
+  // family-visible card has no audience list to remove anyone from, and narrowing one to a
+  // restricted list here would be the server inventing an ACL the author never asked for.
+  let finalAudience = audience;
+  if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
+    finalAudience = finalAudience.filter((u: string) => !gate.excludeUserIds.includes(u));
+    // Nobody left to write for → writing anyway would create a card no member can see.
+    if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
+  }
+  return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience: finalAudience }), 200);
 });
 
 app.get("/families/:fid/cards", async (c) => {
@@ -843,6 +865,19 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   if (member && st.deleted) return c.body(null, 410);
   // If-Match optimistic concurrency: stale base version → 412 re-merge-retry (ADR 0038 §6.2).
   if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+  // ADR 0064 — suppression, mechanically by ID. `kind` is deliberately null here: a block's
+  // `type` (text/checklist/…) is a DIFFERENT vocabulary from a card's `kind`
+  // (action/info/weather/…), and feeding it in would let a "kind:text" rule mute every text
+  // block — a scope no surface offers and no member asked for. `source` is the same
+  // vocabulary on both, so a source rule applies to routine-authored blocks too.
+  const suppression = suppressedBy(await responses.listActive(fid), {
+    subjectRef: buildBlockSubjectRef(hubId, sectionId, id),
+    kind: null,
+    source: (parsed.data as any).provenance?.source ?? null,
+  });
+  // Blocks carry no audience[] (ADR 0030 scopes them through their hub), so there is nothing
+  // to strip — a personal rule cannot partially apply here. Only a blocking rule bites.
+  if (suppression.blocked) return problem(c, 409, "subject-muted");
   const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data, { allowResurrect: !member, createdBy: a.userId });
   if (!row) {
     // member path + lost the resurrection race → the block was tombstoned → 410; else the
@@ -885,6 +920,107 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   if (opId) await recordOp(fid, opId, "block", id, null);
   return c.body(null, ok ? 204 : 404);
 });
+
+// ── ADR 0064 — smart-content responses (mute rules + done records) ─────────────────────
+// Scope: `content:write`. A response is a content-adjacent write by the acting member, so it
+// needs no new grant vocabulary — the app credential already holds it for member writes and
+// the CLI credential holds it for the authoring path.
+app.put("/families/:fid/responses/:id", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id");
+  { const e = idErrorResponse(c, id); if (e) return e; }
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
+  const caller = callerFrom(a);
+  // A response is authored BY a member and is always attributed. A non-legacy NULL-user
+  // credential authors nothing, so it must never pass — the same "NULL → god-mode" hole the
+  // visibility and delete gates guard (write-guard.ts).
+  if (!caller.userId) return problem(c, 403, "member-required");
+
+  const opId = c.req.header("idempotency-key");
+  if (opId && (await findOp(fid, opId))) {
+    // Replay returns the SAME shape as a fresh write, not a {id, version} stub: the client
+    // applies this response to its local row, and a drained retry must not hand it a
+    // different shape (or a differently-typed version) than the first attempt did.
+    const prior = await responses.findResponse(fid, id);
+    if (prior) return c.json(prior, 200);
+    return c.body(null, 204);   // replay of an op whose row was since deleted
+  }
+
+  const rb = await requireJsonObject(c);
+  if ("error" in rb) return rb.error;
+  const b = rb.value;
+  if (typeof b.subject_ref !== "string" || !b.subject_ref) return problem(c, 422, "bad-subject-ref");
+  if (typeof b.label !== "string" || !b.label) return problem(c, 422, "bad-label");
+
+  const kind: responses.ResponseKind = b.kind === "done" ? "done" : "mute";
+  if (!["subject", "kind", "source"].includes(b.match_scope)) return problem(c, 422, "bad-match-scope");
+  const matchScope = b.match_scope as responses.MatchScope;
+  // A class ref (kind:/source:) may only carry a class match scope, and a concrete subject
+  // may only carry `subject`. Otherwise a rule could claim to match one namespace while
+  // keyed into the other, and match nothing at all — a mute that silently never fires.
+  if (isRuleRef(b.subject_ref) !== (matchScope !== "subject")) return problem(c, 422, "ref-scope-mismatch");
+  const audienceScope: responses.AudienceScope = b.audience_scope === "family" ? "family" : "personal";
+  // Mirrors the CHECK constraint so a bad shape is a 422, not a 500 from the DB (§5).
+  if (kind === "done" && (audienceScope !== "family" || matchScope !== "subject")) {
+    return problem(c, 422, "bad-done-shape");
+  }
+
+  const row = await responses.upsertResponse(fid, id, {
+    kind, subjectRef: b.subject_ref, matchScope, audienceScope,
+    // Ownership comes from the TOKEN. A body-supplied user_id is ignored: otherwise one
+    // member could author rules that suppress content for another.
+    userId: audienceScope === "personal" ? caller.userId : null,
+    createdBy: caller.userId,
+    label: b.label,
+    sublabel: typeof b.sublabel === "string" ? b.sublabel : null,
+    note: typeof b.note === "string" ? b.note : null,
+  });
+
+  // A done row resolves the subject for EVERYONE: tombstone it so it leaves every member's
+  // Now on the next sync (ADR 0064 §5 — it shouldn't nag the people who didn't do it).
+  if (kind === "done") await tombstoneSubject(fid, b.subject_ref);
+
+  if (opId) await recordOp(fid, opId, "response", id, Number(row.version));
+  return c.json(row, 200);
+});
+
+// Remove a rule. Any adult may remove a FAMILY rule (decided Q2); a personal rule is its
+// owner's alone. Soft delete so /sync emits the tombstone (ADR 0040).
+app.delete("/families/:fid/responses/:id", async (c) => {
+  const fid = c.req.param("fid"), id = c.req.param("id");
+  { const e = idErrorResponse(c, id); if (e) return e; }
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
+  const caller = callerFrom(a);
+  if (!caller.userId) return problem(c, 403, "member-required");
+
+  const opId = c.req.header("idempotency-key");
+  if (opId && (await findOp(fid, opId))) return c.body(null, 204);
+
+  const cur = await q(
+    `SELECT audience_scope, user_id FROM content_responses
+      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
+  const row = cur.rows[0];
+  if (row && row.audience_scope === "personal" && row.user_id !== caller.userId) {
+    return problem(c, 403, "not-your-rule");
+  }
+  await responses.softDeleteResponse(fid, id);   // absent / already gone → still 204
+  if (opId) await recordOp(fid, opId, "response", id, null);
+  return c.body(null, 204);
+});
+
+/**
+ * Resolve a subject_ref to its content row and soft-delete it. By ID only — the server does
+ * not look at what the card says, just which row carries that key.
+ */
+async function tombstoneSubject(fid: string, subjectRef: string): Promise<void> {
+  await q(`UPDATE briefing_cards SET deleted_at = now(), version = version + 1, updated_at = now()
+            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
+  await q(`UPDATE blocks SET deleted_at = now(), version = version + 1, updated_at = now()
+            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
+}
 
 app.post("/device/authorize", async (c) => {
   const ip = clientIp(c);
@@ -1173,7 +1309,7 @@ app.get("/families/:fid/sync", async (c) => {
       // 3-part merged cursor: validate ts + type. Unknown type → full resync (not an error).
       const validTs = !Number.isNaN(Date.parse(parts[0]));
       if (!validTs) return problem(c, 400, "bad-cursor");
-      if (["card", "hub", "section", "block"].includes(parts[1])) {
+      if (["card", "hub", "section", "block", "response"].includes(parts[1])) {
         [su, st, si] = parts;
       }
       // else: unknown type → su/st/si stay "" → full resync
@@ -1231,7 +1367,7 @@ app.get("/families/:fid/sync", async (c) => {
     }
   }
 
-  const changes = { cards: [] as any[], hubs: [] as any[], sections: [] as any[], blocks: [] as any[] };
+  const changes = { cards: [] as any[], hubs: [] as any[], sections: [] as any[], blocks: [] as any[], responses: [] as any[] };
   const tombstones: { type: string; id: string }[] = [];
   for (const r of rows) {
     let visible: boolean;
@@ -1241,6 +1377,12 @@ app.get("/families/:fid/sync", async (c) => {
       visible = cardVisible(r.payload, caller);
     } else if (r.type === "hub") {
       visible = hubs.hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
+    } else if (r.type === "response") {
+      // ADR 0064 — a family rule is everyone's; a personal rule is its owner's alone.
+      // Everyone else gets a TOMBSTONE rather than an omission, so the cursor still advances
+      // and a rule that changed hands leaves the other member's cache.
+      visible = r.payload.audience_scope === "family" ||
+        (!!caller.userId && r.payload.user_id === caller.userId);
     } else {
       // section or block: visibility = parent hub's visibility
       const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
@@ -1250,6 +1392,7 @@ app.get("/families/:fid/sync", async (c) => {
       if (r.type === "card") changes.cards.push(r.payload);
       else if (r.type === "hub") changes.hubs.push(r.payload);
       else if (r.type === "section") changes.sections.push(r.payload);
+      else if (r.type === "response") changes.responses.push(r.payload);
       else changes.blocks.push(r.payload);
     } else {
       tombstones.push({ type: r.type, id: r.id });

@@ -169,6 +169,7 @@ class DayfoldRuntimeFactory(
     lateinit var syncCoordinator: SyncCoordinator
     lateinit var hubEngine: HubEngine
     lateinit var nowEngine: NowEngine
+    lateinit var responseEngine: ResponseEngine
     lateinit var commands: DayfoldCommands
     lateinit var coordinator: SessionCoordinator
     lateinit var externalHubTargets: PendingExternalHubTargetCoordinator
@@ -262,6 +263,20 @@ class DayfoldRuntimeFactory(
             databaseDispatcher = databaseDispatcher,
             sessionCoordinator = coordinator,
           )
+          responseEngine = ResponseEngine(
+            store = store,
+            contentStore = contentStore,
+            syncEngine = syncEngine,
+            // There is no connectivity API in this client, so "online" is approximated by the
+            // last sync outcome: a failed sync means we could not reach the server, which is
+            // what the receipt copy is actually about. It only chooses which honest sentence
+            // to show — the write lands locally and queues either way, so a wrong guess costs
+            // a word, never a write.
+            isOnline = { store.state.content.error == null },
+            nowProvider = nowProvider,
+            idProvider = idProvider,
+            databaseDispatcher = databaseDispatcher,
+          )
           externalHubTargets = PendingExternalHubTargetCoordinator(
             scope = rootScope,
             isCurrent = coordinator::isCurrent,
@@ -281,6 +296,7 @@ class DayfoldRuntimeFactory(
             syncCoordinator = syncCoordinator,
             hubEngine = hubEngine,
             nowEngine = nowEngine,
+            responseEngine = responseEngine,
             contentStore = contentStore,
             sessionCoordinator = coordinator,
             externalHubTargets = externalHubTargets,

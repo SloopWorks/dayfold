@@ -59,6 +59,9 @@ fun AccountScreen(
   onUpdateName: (String) -> Unit = {},                        // profile name edit → AuthEngine.updateDisplayName
   smartBriefingsPreviewAvailable: Boolean = false,
   onOpenSmartBriefings: () -> Unit = {},
+  // ADR 0064 — appended, not inserted: this parameter list has positional call sites, and
+  // slotting a new lambda mid-list silently shifts every argument after it.
+  onOpenSmartContent: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.activeFamily
@@ -256,6 +259,25 @@ fun AccountScreen(
             modifier = Modifier.size(24.dp),
           )
         }
+      }
+
+      Spacer(Modifier.height(10.dp))
+      // ADR 0064 — the management surface for every response the family has made. It belongs
+      // in FAMILY, not "ON THIS DEVICE": a mute rule is synced, attributed family policy,
+      // which is exactly what separates it from a hide.
+      Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(onClick = onOpenSmartContent).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text("Smart content", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(
+            "Muted rules and what's been marked done",
+            style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+          )
+        }
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
       Spacer(Modifier.height(22.dp))
