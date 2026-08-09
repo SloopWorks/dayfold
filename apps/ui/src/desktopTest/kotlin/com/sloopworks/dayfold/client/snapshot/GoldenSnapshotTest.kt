@@ -230,31 +230,17 @@ class GoldenSnapshotTest {
   @Test fun timelineDetailBothToggle() = golden("timeline-detail", "both-toggle")
   @Test fun timelineDetailDerived() = golden("timeline-detail", "derived")
 
-  // ── Calendar Check (WI-447, ADR 0063) ─────────────────────────────────────
+  // ── Calendar Check (WI-447 + WI-446, ADR 0063) ────────────────────────────
   // No committed-golden @Test gate: the linux docker recording run OOM-killed the
   // gradle daemon compiling :ui at the documented ~7.65GB wall (same failure mode as
-  // the hub-people/smart-content/account/authorize-* scenes above), so only the macOS
-  // set could be recorded this session. Per-OS gating would fail CI on the missing
-  // linux goldens. The scenes stay registered in SnapshotScenes for the snapshotUi
-  // visual dashboard, and the macOS PNGs are committed below via osTag. Semantics
-  // coverage lives in CalendarSettingsSemanticsTest. Re-add these gates once a linux
-  // golden is recorded in CI (see the OS-record note above).
-
-  // ── Calendar Check — Now card + review flow (WI-446, ADR 0063) ────────────
-  @Test fun calendarNowTwoGaps() = golden("calendar-now", "two-gaps")
-  @Test fun calendarNowTwoGapsDark() = golden("calendar-now", "two-gaps", theme = "dark")
-  @Test fun calendarNowBusy() = golden("calendar-now", "busy")
-  @Test fun calendarNowAllClear() = golden("calendar-now", "all-clear")
-  @Test fun calendarNowOffline() = golden("calendar-now", "offline")
-  @Test fun calendarReviewList() = golden("calendar-review", "list")
-  @Test fun calendarReviewListDark() = golden("calendar-review", "list", theme = "dark")
-  @Test fun calendarMatchSuggested() = golden("calendar-match", "suggested")
-  @Test fun calendarMatchSuggestedDark() = golden("calendar-match", "suggested", theme = "dark")
-  @Test fun calendarMatchAmbiguous() = golden("calendar-match", "ambiguous")
-  @Test fun calendarDiffer() = golden("calendar-differ", "default")
-  @Test fun calendarDifferDark() = golden("calendar-differ", "default", theme = "dark")
-  @Test fun calendarMatched() = golden("calendar-matched", "default")
-  @Test fun calendarMatchedDark() = golden("calendar-matched", "default", theme = "dark")
+  // the hub-people/smart-content/account/authorize-* scenes above), confirmed again
+  // this session (three docker attempts, up to --memory=10g/-Xmx6g, same daemon-
+  // disappeared crash) — so only the macOS set could be recorded. Per-OS gating would
+  // fail CI on the missing linux goldens. The scenes stay registered in SnapshotScenes
+  // for the snapshotUi visual dashboard, and the macOS PNGs are committed below via
+  // osTag. Semantics coverage lives in CalendarSettingsSemanticsTest and
+  // CalendarReviewFlowSemanticsTest. Re-add these gates once a linux golden is
+  // recorded in CI (see the OS-record note above).
 
   companion object {
     private val osTag = if (System.getProperty("os.name").lowercase().contains("mac")) "macos" else "linux"
