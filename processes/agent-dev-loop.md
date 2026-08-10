@@ -190,6 +190,15 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugrepor
   or sanitizer in `apps/swip-wiring/`. Resolving `works.sloop.swip:*` needs GitHub
   Packages credentials: `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties`
   (read:packages PAT) or `SLOOPWORKS_PACKAGES_TOKEN` env (CI secret).
+- **`ReachabilityGuardTest` (WI-462, `:ui:desktopTest`):** a permanent text-scan guard for the
+  "every part built and tested, but nothing wires it up" bug class (three of these have shipped
+  to `main`; see the WI). It fails when a `Route` has no production dispatcher, a `*Host`/`*Screen`
+  composable under `features/*/` has no real call site anywhere in production, or a
+  `sealed interface *Action` member is never referenced outside its own declaration and its
+  reducer's `is X ->` arm. If you deliberately leave a new surface dark (staged epic, preview-only
+  route), add it to `WIRING_ALLOW_LIST` in that file with a dated reason — don't just let the test
+  fail and get skipped by CI. It runs automatically with the rest of `:ui:desktopTest`, no separate
+  command needed.
 - Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Post-merge of CL-SNAP (#277): 440 + 329 = 769 (CL-SNAP's 18 snapshot tests relocated to `:ui`).
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is

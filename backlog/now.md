@@ -300,6 +300,22 @@ a linux golden is recorded in CI. Open follow-ups are in `context/open-questions
 
 ## Operator actions pending
 
+- [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
+  found 10 already-orphaned actions + 3 additional dark Calendar Check
+  composables on `main` on its first run (2026-08-10)** — allow-listed with
+  reasons (see `ReachabilityGuardTest.kt`'s `WIRING_ALLOW_LIST`) rather than
+  fixed, since deciding dead-code-vs-real-gap per item is a product/eng call
+  outside that WI's scope. Needs a follow-up triage pass (mirrors how WI-461
+  was spawned from the Calendar Check wiring gap): `HubsFailed`/`HubNotFound`
+  (hub-list error/404 paths — may be superseded by DB-driven sync, or a real
+  gap), `CalendarSettingsLoaded` (reducer arm with no dispatcher),
+  `ResponseStepBack` (no back affordance wired in `ResponseSheet`), and 6
+  `RoutinePreviewAction` members the Smart Briefings preview's
+  `smartBriefingsPreviewActions()` doesn't yet map (low risk — closed local
+  fixture, no real provider ever invoked). `CalendarAlertOverrideHost`,
+  `CalendarMatchedSummaryScreen`, `CalendarReturnScreen` are the additional
+  Calendar Check (ADR 0063, still Proposed) surfaces beyond the three WI-461
+  is already wiring — same staged-epic posture, revisit alongside it.
 - [ ] **Restart Claude Code once and confirm `dayfold-curator` still lists as a
   skill** (2026-07-30, harness-neutral skill move). The skill's real files moved
   to `.agents/skills/dayfold-curator/` — Codex's repo skills root, so one copy
