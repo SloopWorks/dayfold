@@ -148,8 +148,13 @@ by design (`adr/0007-prototype-scope.md`) and location data device-local
    else. The derived lane has no server row to reject, so the *same* rule list
    is enforced on-device in `nowFeed()` — which is also what keeps a muted
    subject from producing a notification (step 7 shares that entry point). The
-   authoring CLI reads the list pre-run so a suppressed op reports as "skipped
-   N muted subjects" rather than a failed write.
+   authoring CLI reads the list pre-run (`dayfold responses`, and automatically on
+   `push`) so a suppressed op reports as "skipped" rather than a failed write.
+   That read is the part the *server* deliberately cannot do: it matches by ID and
+   never reads a label, so only the authoring agent can avoid composing something
+   **similar** in the first place — the labels ("Weather cards", "From Morning
+   briefing") are that signal, and the brief is written as instructions to a model
+   rather than as rows.
 7. **Background notifications (ADR 0044, Phase B).** On Android, a background
    pass re-runs the *same* `rank()`/notification-selection code the foreground
    feed uses, over the on-device cache plus live (never-persisted) location, to

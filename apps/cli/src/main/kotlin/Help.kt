@@ -100,6 +100,25 @@ val COMMANDS: List<HelpCommand> = listOf(
     examples = listOf("dayfold pull", "dayfold pull --hub 01J000000000000000000HUB"),
   ),
   HelpCommand(
+    name = "responses",
+    synopsis = "responses [--json]",
+    summary = "What the family asked you to STOP making — read this before authoring.",
+    details = listOf(
+      "Prints the family's mute rules and done records (ADR 0064) as a short brief: what not " +
+        "to author, and what is already resolved.",
+      "Read it BEFORE composing. The server enforces these by ID and never reads a label, so a " +
+        "rejected push only tells you that one exact key is muted — the labels are what let you " +
+        "avoid writing something SIMILAR, which is what the family actually asked for.",
+      "Other members' PERSONAL rules are counted, never shown: you learn that suppression " +
+        "exists without learning who muted what. Those members are excluded server-side anyway.",
+      "`push` runs this same check automatically and skips a matching card (see --no-preflight).",
+    ),
+    options = listOf(
+      HelpOption("--json", null, "Print the raw API response instead of the brief."),
+    ),
+    examples = listOf("dayfold responses", "dayfold responses --json"),
+  ),
+  HelpCommand(
     name = "changeset",
     synopsis = "changeset <validate|diff> <manifest.json> <changeset.json> [--current <pull.json>]",
     summary = "Validate or compare a create-only local shadow changeset; never write or apply.",
@@ -142,6 +161,7 @@ val COMMANDS: List<HelpCommand> = listOf(
       HelpOption("--type", "<t>",
         "Run local typed-card validation against the generated schema before the server. " +
           "t ∈ file|link|invite|contact|geo|email. Cards only."),
+      HelpOption("--no-preflight", null, "Skip the ADR 0064 rule lookup before pushing. The server still rejects a muted subject with 409; this only skips the friendly local skip."),
       HelpOption("--no-linkify", description =
         "Don't auto-wrap bare phone/email in body_md as tappable links (the default rewrites them)."),
     ),

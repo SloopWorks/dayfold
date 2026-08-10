@@ -922,6 +922,34 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
 });
 
 // ── ADR 0064 — smart-content responses (mute rules + done records) ─────────────────────
+//
+// The authoring path READS this before it writes. That is the whole point of the labels: the
+// server matches by ID and never reads them, but the agent composing content needs to know
+// *what kind of thing* the family asked it to stop making ("Weather cards", "Traffic cards")
+// so it does not author something similar and get 409'd — or worse, author a near-duplicate
+// that dodges the key and lands anyway.
+app.get("/families/:fid/responses", async (c) => {
+  const fid = c.req.param("fid");
+  const a = await authorizeTenant(c, fid);
+  if ("status" in a) return c.body(null, a.status);
+  if (!(await requireScope(a.cred.id, "content", "read"))) return c.json({ type: "forbidden" }, 403);
+  const caller = callerFrom(a);
+  const all = await responses.listActive(fid);
+  // A personal rule is its owner's alone (same rule /sync applies). The CLI authors for the
+  // whole family, so it also needs to know a personal rule EXISTS without being told whose:
+  // the response carries family rules in full, plus a count of the personal ones it must not
+  // read, so an author can say "3 members have personal mutes" without naming them.
+  const visible = all.filter(
+    (r) => r.audience_scope === "family" || (!!caller.userId && r.user_id === caller.userId),
+  );
+  const hiddenPersonal = all.length - visible.length;
+  return c.json({
+    responses: visible,
+    personal_rules_not_visible: hiddenPersonal,
+  });
+});
+
+
 // Scope: `content:write`. A response is a content-adjacent write by the acting member, so it
 // needs no new grant vocabulary — the app credential already holds it for member writes and
 // the CLI credential holds it for the authoring path.

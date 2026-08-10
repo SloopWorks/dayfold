@@ -5825,6 +5825,22 @@ var init_app = __esm({
       if (opId) await recordOp(fid, opId, "block", id3, null);
       return c.body(null, ok ? 204 : 404);
     });
+    app.get("/families/:fid/responses", async (c) => {
+      const fid = c.req.param("fid");
+      const a = await authorizeTenant(c, fid);
+      if ("status" in a) return c.body(null, a.status);
+      if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
+      const caller = callerFrom(a);
+      const all = await listActive(fid);
+      const visible = all.filter(
+        (r) => r.audience_scope === "family" || !!caller.userId && r.user_id === caller.userId
+      );
+      const hiddenPersonal = all.length - visible.length;
+      return c.json({
+        responses: visible,
+        personal_rules_not_visible: hiddenPersonal
+      });
+    });
     app.put("/families/:fid/responses/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
       {
