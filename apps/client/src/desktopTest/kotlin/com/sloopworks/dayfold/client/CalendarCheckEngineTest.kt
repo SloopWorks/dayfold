@@ -1,6 +1,11 @@
 package com.sloopworks.dayfold.client
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,6 +50,10 @@ class CalendarCheckEngineTest {
     port: CalendarPort,
     initial: AppState = AppState(),
     nowIso: String = "2026-08-09T12:00:00Z",
+    // Most tests drive `runCheck()` directly and never touch this. Injecting it lets the one test
+    // that goes through the fire-and-forget `startCheck()` path join the pass it launches instead
+    // of racing it — see the SAVED-outcome test below.
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   ) {
     val contentStore = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
     val store = createTestAppStore(initial, debug = false)
@@ -52,6 +61,7 @@ class CalendarCheckEngineTest {
       store = store,
       contentStore = contentStore,
       calendarPort = port,
+      scope = scope,
       nowProvider = { nowIso },
       zoneProvider = { TimeZone.UTC },
     )
@@ -267,14 +277,23 @@ class CalendarCheckEngineTest {
 
   @Test fun `openEventEditor routes a saved outcome into the shared action and checks permission to start a fresh check`() = runBlocking {
     val port = FakeCalendarPort(permission = CalendarPermission.Granted)
-    val h = Harness(port)
+    val checkScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val h = Harness(port, scope = checkScope)
 
     h.engine.openEventEditor(prefill())
     assertEquals(prefill(), port.lastEditorPrefill)
     port.lastEditorOnResult!!.invoke(CalendarEditorOutcome.SAVED)
 
     assertEquals(CalendarEditorOutcome.SAVED, h.store.state.calendar.check.editorReturn)
-    assertEquals(1, port.permissionStateCallCount)
+
+    // SAVED consults permission inline as the gate, then `startCheck()` launches a pass that
+    // consults it a second time. Sampling the counter here read whichever value the scheduler
+    // happened to have produced — 1 or 2 — and failed CI intermittently. Join the launched pass
+    // instead: the count is then deterministic, the cross-thread read is ordered by the join, and
+    // asserting 2 proves the fresh check actually ran rather than only that the gate was consulted.
+    checkScope.coroutineContext.job.children.toList().forEach { it.join() }
+    assertEquals(2, port.permissionStateCallCount)
+    checkScope.cancel()
   }
 
   @Test fun `openEventEditor routes a canceled outcome into the shared action without checking permission`() = runBlocking {
