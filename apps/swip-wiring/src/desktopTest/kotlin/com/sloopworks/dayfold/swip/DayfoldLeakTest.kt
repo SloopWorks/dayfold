@@ -1,15 +1,25 @@
 package com.sloopworks.dayfold.swip
 
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.CalendarCheckCompleted
 import com.sloopworks.dayfold.client.CalendarCheckState
+import com.sloopworks.dayfold.client.CalendarEventObservation
+import com.sloopworks.dayfold.client.CalendarImportProposal
+import com.sloopworks.dayfold.client.CalendarPermission
 import com.sloopworks.dayfold.client.CalendarState
 import com.sloopworks.dayfold.client.CandidateLocation
+import com.sloopworks.dayfold.client.ConfirmMatch
 import com.sloopworks.dayfold.client.DayfoldEventCandidate
 import com.sloopworks.dayfold.client.DeviceCalendar
+import com.sloopworks.dayfold.client.EventInstant
 import com.sloopworks.dayfold.client.FamilyCreated
 import com.sloopworks.dayfold.client.HubRequestKey
 import com.sloopworks.dayfold.client.HubState
 import com.sloopworks.dayfold.client.HubTenantGeneration
+import com.sloopworks.dayfold.client.HubVisibilityChoice
+import com.sloopworks.dayfold.client.ImportDestination
+import com.sloopworks.dayfold.client.ImportProposalState
+import com.sloopworks.dayfold.client.ImportSaved
 import com.sloopworks.dayfold.client.InviteRedeemed
 import com.sloopworks.dayfold.client.InviteRejected
 import com.sloopworks.dayfold.client.NavToDetail
@@ -25,6 +35,8 @@ import com.sloopworks.dayfold.client.Session
 import com.sloopworks.dayfold.client.SessionState
 import com.sloopworks.dayfold.client.NavigationState
 import com.sloopworks.dayfold.client.SignInSucceeded
+import com.sloopworks.dayfold.client.StartCalendarCheck
+import com.sloopworks.dayfold.client.StartCalendarImport
 import com.sloopworks.dayfold.client.SyncFailed
 import com.sloopworks.dayfold.client.createAppStore
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -75,6 +87,20 @@ class DayfoldLeakTest {
         ),
       ),
       availableCalendars = listOf(DeviceCalendar(id = "cal-salted", displayName = "Salted Calendar", accountLabel = "s•••@example.com")),
+      // WI-451 (CAL-11) — the CAL-10 import wizard's in-progress review is ALSO part of
+      // state.calendar and must stay out of the journal exactly like `check`: a mid-review member
+      // is actively looking at a raw title/location the household hasn't decided to keep.
+      importState = ImportProposalState.ChoosingDestination(
+        CalendarImportProposal(
+          proposalId = "prop-salted",
+          title = "Salted Surprise Party",
+          start = EventInstant.Timed("2026-08-09T18:00:00Z"),
+          end = null,
+          timezone = "UTC",
+          location = com.sloopworks.dayfold.client.StructuredLocation(label = "Salted Venue", address = "456 Salted Blvd"),
+          destination = ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("u_salted_importer")),
+        ),
+      ),
     ),
   )
 
@@ -112,6 +138,13 @@ class DayfoldLeakTest {
     assertFalse("123 Salted Ave" in text)
     assertFalse("Salted Calendar" in text)
     assertFalse("cal-salted" in text)
+    // WI-451 — the CAL-10 import wizard's in-progress proposal (also under state.calendar) is
+    // equally absent, mid-review title/location included.
+    assertFalse("Salted Surprise Party" in text)
+    assertFalse("Salted Venue" in text)
+    assertFalse("456 Salted Blvd" in text)
+    assertFalse("prop-salted" in text)
+    assertFalse("u_salted_importer" in text)
     // pseudonymous + derived slices ARE present (registry works)
     assertTrue("card_salt_1" in text)     // detailStack ids allowed (internal debug)
     assertTrue("cardsCount" in text)
@@ -196,5 +229,59 @@ class DayfoldLeakTest {
     assertFalse(SALT in dump, "analytics leak: $dump")
     // sanity: the mappers DID emit (guard isn't vacuous)
     assertTrue(rec.events.isNotEmpty())
+  }
+
+  /**
+   * WI-451 (CAL-11, ADR 0063 §3/§6 acceptance gate 6, ADR 0057) — no calendar action is mapped by
+   * [dayfoldMappers], so a full calendar-check/import pass tracks ZERO SwipEvents, salted content
+   * included. This is also the transitive proof for the ADR-0057 debug inspector:
+   * `SwipInspectorGlue.debugSink()`'s `RingDebugSink` is fed via the SAME `Swip.init(debugSink =
+   * sink)` call that receives exactly what reaches [SloopAnalytics.track] (ADR 0057 §2 — "shared
+   * between plugin registration and Swip.init") — there is no second, inspector-only data path a
+   * calendar action could take. Zero tracked events therefore means zero inspector entries to mask
+   * (or fail to mask); this repo has no desktop target for `works.sloop.swip:swip-debug` itself
+   * (Android-debug-only per ADR 0057 §6), so this transitive proof is the strongest guard available
+   * from `:swip-wiring`'s desktopTest gate.
+   */
+  @Test fun calendar_actions_produce_zero_analytics_events_so_the_debug_inspector_never_sees_them_either() {
+    val SALT = "CALLEAK9931"
+    val actions = listOf<Any>(
+      StartCalendarCheck,
+      CalendarCheckCompleted(
+        results = ReconcileResult(
+          dayfoldOnly = listOf(
+            DayfoldEventCandidate(
+              subjectKey = "hub:$SALT", title = "$SALT Family Reunion", startAt = "2026-08-09T00:00:00Z",
+              endAt = null, allDay = false, timezone = "UTC", location = null, sourceVersion = "v1", deepLink = null,
+            ),
+          ),
+        ),
+        permission = CalendarPermission.Granted,
+        checkedAt = "2026-08-09T00:00:00Z",
+      ),
+      ConfirmMatch("hub:$SALT", "evt_$SALT"),
+      StartCalendarImport(
+        CalendarImportProposal(
+          proposalId = "prop_$SALT", title = "$SALT Party", start = EventInstant.Timed("2026-08-09T18:00:00Z"),
+          end = null, timezone = "UTC", location = null,
+        ),
+      ),
+      ImportSaved("only you can see it — $SALT"),
+    )
+    val rec = object : SloopAnalytics {
+      val events = mutableListOf<SwipEvent>()
+      override fun track(event: SwipEvent) { events.add(event) }
+      override fun identify(distinctId: String, traits: Map<String, JsonElement?>) = error("must not identify")
+      override fun alias(previousId: String) {}
+      override fun reset() {}
+      override suspend fun flush() = FlushResult(0, 0)
+      override fun setConsent(consent: Map<ConsentScope, ConsentDecision>) {}
+      override fun optIn(scope: ConsentScope) {}
+      override fun optOut(scope: ConsentScope) {}
+    }
+    val store = createAppStore(notificationContext = NotificationContext.Inline, debug = false)
+    val chain = swipMiddleware<AppState>(rec, NoOpErrors, dayfoldMappers(), null, ReplayGuard.fixed(false))(store)({ it })
+    actions.forEach { chain(it) }
+    assertTrue(rec.events.isEmpty(), "a calendar action reached analytics (and therefore the inspector): ${rec.events}")
   }
 }

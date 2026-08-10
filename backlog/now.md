@@ -35,6 +35,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
+### Calendar Check epic (CAL, ADR 0063 — Proposed, not yet Accepted) — 2026-08-09
+
+Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built
+and merged to `main`: device-local reconcile + gap review, Android/iOS native
+add-event handoff, a reviewed Calendar→Dayfold import wizard, and
+Calendar-owned start-alert suppression. WI-451 (CAL-11) closed the epic's
+privacy proof — permanent guard tests across `:client`/`:swip-wiring`
+desktopTest asserting raw calendar identifiers/fingerprints/observations
+never reach sync/outbox payloads, logs, analytics, or the SWIP debug
+inspector (ADR 0063 acceptance gate 6). **Full epic detail, remaining
+operator gates (mockup sign-off record, horizon-constant ratification,
+permission-copy device review, store data-safety disclosures, ADR
+acceptance reviews), and the on-device smoke checklist live in the shipyard
+epic — this is a pointer, not the record.**
+
 ### Active — TASK-CLIENT-RUNTIME-HARDENING (started 2026-07-14)
 
 PR 1 plus the runtime/session, engine-hardening, immutable-command,

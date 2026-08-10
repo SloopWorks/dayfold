@@ -33,7 +33,7 @@ class CalendarImportEngineTest {
     override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int) = events
     override suspend fun listCalendars() = emptyList<DeviceCalendar>()
     override fun permissionState() = CalendarPermission.Granted
-    override fun openEventEditor(prefill: EventPrefill) {}
+    override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {}
     override fun requestPermission() {}
   }
 
@@ -124,7 +124,7 @@ class CalendarImportEngineTest {
       override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int) = emptyList<CalendarEventObservation>()
       override suspend fun listCalendars() = emptyList<DeviceCalendar>()
       override fun permissionState() = CalendarPermission.Denied
-      override fun openEventEditor(prefill: EventPrefill) {}
+      override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {}
       override fun requestPermission() {}
     }
     val e = engine(store, cs, calendarPort = revokedPort)

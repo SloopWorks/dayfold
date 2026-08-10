@@ -101,7 +101,10 @@ class AndroidCalendarPort(context: Context) : CalendarPort {
       rows.map(::mapCalendarInstanceRow)
     }
 
-  override fun openEventEditor(prefill: EventPrefill) {
+  // ADR 0063 §1/§8 — the ACTION_INSERT handoff cannot promise a result at all (unlike iOS's
+  // EventKitUI delegate), so [onResult] is accepted for interface conformance but never invoked;
+  // the caller relies on a post-return rescan instead (CalendarCheckEngine/CalendarActivityBridge).
+  override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {
     val spec = eventEditorIntentSpec(prefill)
     val intent = Intent(spec.action, Uri.parse(spec.dataUri))
     for ((key, value) in spec.extras) {

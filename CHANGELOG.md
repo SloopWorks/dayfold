@@ -7,6 +7,37 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-09 — Calendar Check (device-local calendar reconciliation)
+
+### Added
+- **Calendar Check** (ADR 0063, Proposed — pending the operator gates below):
+  Dayfold can now compare its own dated content (Hub dates, milestones, time
+  triggers) against the calendars a member selects on their own device, and
+  surface the gaps as one calm review, never a per-event notification. A
+  dayfold-only item can open the native, prefilled event editor (Android
+  ACTION_INSERT / iOS EventKitUI) so the member adds it to their calendar with
+  final control over destination and details; a calendar-only event can be
+  kept separate, ignored, or brought into Dayfold through a reviewed
+  **Calendar → Dayfold import wizard** that previews every field before it's
+  written and defaults a new imported Hub to restricted-to-importer. Matching
+  is deterministic and conservative — a strict fingerprint or an explicit
+  confirmation only, never a silent auto-merge — and a confirmed match hands
+  the generic start-time alert to Calendar so Dayfold doesn't double-notify.
+- **Privacy proof, not just a privacy intent.** Everything calendar-shaped
+  (event titles, platform calendar/event ids, account labels, match
+  fingerprints, local review decisions) stays device-local by construction —
+  and now by permanent, CI-gated tripwire tests: raw calendar data cannot
+  enter a sync/outbox payload, a log line, a product-analytics event, or the
+  SWIP debug inspector without one of these tests failing first (ADR 0063
+  acceptance gate 6).
+
+### Not yet
+- The feature is built and merged but **ADR 0063 itself is still Proposed**,
+  not Accepted — full acceptance (design sign-off record, the 14-day dogfood
+  horizon's ratification, permission-copy review on real devices, app-store
+  data-safety disclosures) is an operator gate, tracked in the shipyard
+  Calendar Check epic rather than repeated here.
+
 ## 2026-08-08 — Responses to smart content (mute rules + family Done)
 
 ### Added
