@@ -84,7 +84,10 @@ mkdirSync(ktDir, { recursive: true });
 const ktPath = resolve(ktDir, "Content.kt");
 try {
   execSync(
-    `npx --yes quicktype -s schema --lang kotlin --framework kotlinx --package com.sloopworks.dayfold.schema -o "${ktPath}" "${wrapPath}"`,
+    // Pinned: `quicktype` unpinned means an upstream release can rewrite this generated file
+    // under a run that changed nothing, which has broken `main` before (PR #353). Bump
+    // deliberately, with the regenerated output in the same commit.
+    `npx --yes quicktype@26.0.0 -s schema --lang kotlin --framework kotlinx --package com.sloopworks.dayfold.schema -o "${ktPath}" "${wrapPath}"`,
     { stdio: "inherit", cwd: here }
   );
   console.log(`KT  codegen OK → ${ktPath}`);
