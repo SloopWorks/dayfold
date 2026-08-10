@@ -44,6 +44,16 @@ Level-2 source-info needs the Compose compiler flag left on (debug keeps it).
 Design/plan lineage: `specs/cl-snap-agent-snapshot-loop-design.md`,
 `docs/superpowers/plans/2026-07-02-cl-snap-agent-snapshot-loop.md`, PR #277.
 
+**2026-08-10 live-surface counterpart:** the same geometry/source projection is
+now reviewed for the shared on-device debug drawer + SWIP report flow. SWIP accepts
+UI-tree JSON and Point snaps to supplied bounds, but Dayfold supplies no tree and
+Point currently loses component identity/source. Keep one schema/hit-test model
+between headless snapshots and live capture, but do not couple their lifecycles;
+typed SWIP selection/handoff is a prerequisite. Live integrations choose
+`Disabled`, `BoundsOnly`, or `SourceOnDemand` per build; the shared plugin shows
+availability and enablement help without forcing the tooling provider dependency.
+See `docs/superpowers/specs/2026-08-10-debugdrawer-component-reporting-review.md`.
+
 
 ## TASK-WEATHER — weather-conditional content (PARKED 2026-07-31)
 

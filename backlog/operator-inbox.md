@@ -16,6 +16,25 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-38 · 2026-08-10 · med · open — publish shared debugdrawer 0.1.0 and
+  authorize the component-picker design pass?** `SloopWorks/debugdrawer` PR #1
+  (WI-256) is merged + CI-green and declares the standalone repo the source of
+  truth, but its manual/operator-only Maven `publish` workflow has never run.
+  Dayfold therefore still compiles the embedded `apps/debugdrawer*` copy. The
+  review also found that SWIP accepts UI-tree JSON and Point can snap to its
+  bounds, but Point discards node identity/source and there is no preseeded
+  frozen-capture handoff. **Direction recorded 2026-08-10:** integrating apps
+  control UI-tree tooling per build (`Disabled` / `BoundsOnly` /
+  `SourceOnDemand`); shared drawer/reporting plugins show availability and concise
+  enablement help when unavailable. **Remaining proposed default:** dispatch
+  the shared repo's 0.1.0 publish workflow, let this branch migrate Dayfold and
+  delete the embedded modules, then run/sign off
+  `designs/DESIGN-BRIEF-debugdrawer-component-reporting.md` before the new
+  Components panel/live picker is built (ADR 0008). Approve a capture-feasibility
+  spike and the typed SWIP handoff as explicit prerequisites. Keep it
+  debug/internal-only; do not preserve Compose source strings through R8. Context:
+  `docs/superpowers/specs/2026-08-10-debugdrawer-component-reporting-review.md`.
+
 - **INB-36 · 2026-08-08 · high · open — accept the client-owned Calendar Check
   boundary after design/review?** The operator approved the feature direction and
   requested an ADR + design prompts. Proposed ADR 0063 keeps raw calendar access,

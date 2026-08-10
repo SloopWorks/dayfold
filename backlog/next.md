@@ -137,6 +137,42 @@ touches it needs `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties` (or
 `SLOOPWORKS_PACKAGES_TOKEN` env). CI has the secret. Documented in
 `processes/agent-dev-loop.md`.
 
+**7. Shared drawer migration + component-aware reports (reviewed 2026-08-10).**
+Dayfold's host wiring already uses the reusable `DebugDrawerHost`/plugin contract,
+but its dependencies still point at the embedded `apps/debugdrawer*` modules.
+The extracted `SloopWorks/debugdrawer` 0.1.0 source is merged + CI-green and is
+now the declared source of truth; its operator-only Maven publish has not run, so
+Dayfold cannot yet replace the project dependencies. Separately, SWIP already has
+`UiTreeProvider`/`UI_TREE` and a Point tool that snaps to supplied bounds, but
+Dayfold supplies no tree, so Point currently degrades to a manual rectangle.
+Even with a tree, Point currently discards node identity/parents/source and SWIP
+has no preseeded frozen-capture handoff from the drawer.
+
+**Operator direction 2026-08-10:** shared drawer/reporting plugins own the UI-tree
+capability/status UX, while integrating apps choose per build between `Disabled`,
+`BoundsOnly`, and `SourceOnDemand`. Keep a tooling-free `debugdrawer-components`
+artifact for the panel/help UI and an optional Android
+`debugdrawer-compose-inspector` provider as the only artifact that pulls Compose
+tooling data. In developer builds where the plugin is present but tooling is not,
+show the reason, a short enablement recipe/Copy setup snippet, and manual report
+annotation fallback. Public release registers neither surface.
+
+**Sequence:** operator publishes shared drawer 0.1.0 (INB-38) → Dayfold migrates
+and deletes embedded modules → run/sign off the Components panel + live picker
+design brief (ADR 0008) → spike source activation, semantics feasibility, and a
+clean PixelCopy/tree pair → add typed selection + preseeded capture handoff to
+SWIP → implement the tooling-free Components plugin + optional Android Compose
+provider in the shared repo → wire its privacy-filtered frozen capture into
+Dayfold developer builds with an explicit mode. Source attribution requires
+`SourceOnDemand` + completed recomposition and remains optional. Public release
+has no viewer; a future explicitly approved,
+never-published `internalMinified` variant with the inspector enabled may test
+group-key/R8 mapping. Never retain Compose source strings with release keep rules.
+Full review/spec:
+`docs/superpowers/specs/2026-08-10-debugdrawer-component-reporting-review.md`;
+design brief: `designs/DESIGN-BRIEF-debugdrawer-component-reporting.md`;
+Claude Design prompt: `designs/PROMPT-debugdrawer-component-reporting-hifi.md`.
+
 ## TASK-INVITE-APPROVAL-IDENTITY — show who's actually joining (name/email/time/provenance)
 
 **Added 2026-07-07 (operator).** When a new user redeems an invite they land in the
