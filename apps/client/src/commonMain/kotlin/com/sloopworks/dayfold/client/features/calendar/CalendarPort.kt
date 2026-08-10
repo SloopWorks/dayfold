@@ -29,6 +29,10 @@ data class EventPrefill(
   val allDay: Boolean,
   val timezone: String,
   val location: CandidateLocation? = null,
+  // CAL-8 — the candidate's own deep-link target, folded into the editor's description (short
+  // note + link back to the Hub) so a saved event can point back to Dayfold. Null candidates
+  // (e.g. a bare card with no hub target) simply get no link line.
+  val deepLink: DeepLinkTarget? = null,
 )
 
 // One observed platform calendar event (ADR 0063 §3), bounded + in-memory only — never persisted

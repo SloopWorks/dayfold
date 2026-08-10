@@ -1,6 +1,11 @@
 package com.sloopworks.dayfold.swip
 
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.CalendarCheckState
+import com.sloopworks.dayfold.client.CalendarState
+import com.sloopworks.dayfold.client.CandidateLocation
+import com.sloopworks.dayfold.client.DayfoldEventCandidate
+import com.sloopworks.dayfold.client.DeviceCalendar
 import com.sloopworks.dayfold.client.FamilyCreated
 import com.sloopworks.dayfold.client.HubRequestKey
 import com.sloopworks.dayfold.client.HubState
@@ -11,6 +16,7 @@ import com.sloopworks.dayfold.client.NavToDetail
 import com.sloopworks.dayfold.client.OpenSmartBriefings
 import com.sloopworks.dayfold.client.OpenHub
 import com.sloopworks.dayfold.client.ProfileState
+import com.sloopworks.dayfold.client.ReconcileResult
 import com.sloopworks.dayfold.client.RoutineExternalSource
 import com.sloopworks.dayfold.client.RoutineProvider
 import com.sloopworks.dayfold.client.RoutineProviderSelected
@@ -53,6 +59,23 @@ class DayfoldLeakTest {
       provider = RoutineProvider.CLAUDE,
       externalSources = setOf(RoutineExternalSource.GMAIL),
     ),
+    // ADR 0063 §3/§6 acceptance gate — calendar content must never enter a journal. `calendar` is
+    // simply absent from dayfoldSlices() (docs/12 fence 1), but this proves it concretely: a raw
+    // event title/location/masked-account-looking string salted into state stays out of the text.
+    calendar = CalendarState(
+      check = CalendarCheckState(
+        results = ReconcileResult(
+          dayfoldOnly = listOf(
+            DayfoldEventCandidate(
+              subjectKey = "hub:salted", title = "Salted Recital Event", startAt = "2026-08-09T00:00:00Z",
+              endAt = null, allDay = false, timezone = "UTC",
+              location = CandidateLocation(address = "123 Salted Ave"), sourceVersion = "v1", deepLink = null,
+            ),
+          ),
+        ),
+      ),
+      availableCalendars = listOf(DeviceCalendar(id = "cal-salted", displayName = "Salted Calendar", accountLabel = "s•••@example.com")),
+    ),
   )
 
   @Test fun journal_never_contains_salted_pii() = runTest {
@@ -85,6 +108,10 @@ class DayfoldLeakTest {
     assertFalse("GMAIL" in text)
     assertFalse("SmartBriefings" in text)       // route is mapped to its non-routine Account entry point
     assertFalse("RoutineProviderSelected" in text) // routine actions are recorded only as PrivateUiAction
+    assertFalse("Salted Recital Event" in text) // ADR 0063 §3/§6 — calendar slice stays outside the SWIP allowlist
+    assertFalse("123 Salted Ave" in text)
+    assertFalse("Salted Calendar" in text)
+    assertFalse("cal-salted" in text)
     // pseudonymous + derived slices ARE present (registry works)
     assertTrue("card_salt_1" in text)     // detailStack ids allowed (internal debug)
     assertTrue("cardsCount" in text)

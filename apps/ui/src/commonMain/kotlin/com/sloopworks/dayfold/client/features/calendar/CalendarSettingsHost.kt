@@ -4,6 +4,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,18 +55,25 @@ fun CalendarSettingsHost(
       onSetUp = { step = CalendarSetupStep.PRIMER },
       modifier = modifier,
     )
-    CalendarSetupStep.PRIMER -> CalendarPrimerScreen(
-      onNotNow = { step = CalendarSetupStep.OFF },
-      onContinue = {
-        commands.requestCalendarPermission()
+    CalendarSetupStep.PRIMER -> {
+      // The OS permission prompt is asynchronous (the user must tap Allow/Deny) — requestCalendarPermission()
+      // only fires it; it can't tell us the answer synchronously the way onContinue used to assume. Once
+      // the real determination lands in ui.permission (a fresh CalendarCheckCompleted from the port's
+      // launcher callback re-reading OS truth), react to it here instead of guessing at tap time.
+      LaunchedEffect(ui.permission) {
         when (ui.permission) {
           CalendarPermission.Granted -> { commands.loadAvailableCalendars(); step = CalendarSetupStep.CHOOSER }
+          CalendarPermission.Denied, CalendarPermission.Restricted -> step = CalendarSetupStep.DENIED
           CalendarPermission.Unavailable -> step = CalendarSetupStep.NO_CALENDARS
-          else -> step = CalendarSetupStep.DENIED
+          CalendarPermission.NotRequested -> Unit // no answer yet — stay on the primer
         }
-      },
-      modifier = modifier,
-    )
+      }
+      CalendarPrimerScreen(
+        onNotNow = { step = CalendarSetupStep.OFF },
+        onContinue = { commands.requestCalendarPermission() },
+        modifier = modifier,
+      )
+    }
     CalendarSetupStep.CHOOSER -> {
       var selected by remember { mutableStateOf(ui.selectedCalendarIds) }
       val groups = remember(ui.availableCalendars) { groupCalendarsByAccount(ui.availableCalendars) }

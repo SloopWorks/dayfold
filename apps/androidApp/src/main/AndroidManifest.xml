@@ -18,6 +18,21 @@
          the app still installs on camera-less devices → enter-code fallback). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- ADR 0063 §1 — Calendar Check "reconcile" rung: reads the device's own calendar events to
+         compare against Dayfold content. Requested ONLY from the Calendar Check primer's Continue
+         (never at startup/sign-in/hub-view). The "add only" rung (native ACTION_INSERT handoff)
+         needs no calendar permission at all. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
+    <!-- Android 11+ package visibility: without this, PackageManager can't resolve the native
+         Calendar Provider event-editor Intent to any app, so ACTION_INSERT silently fails to
+         launch. (developer.android.com/identity/providers/calendar-provider) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.item/event" />
+        </intent>
+    </queries>
 
     <application
         android:name=".DayfoldApp"

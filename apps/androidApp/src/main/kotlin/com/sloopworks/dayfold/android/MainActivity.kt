@@ -63,6 +63,24 @@ class MainActivity : ComponentActivity() {
     androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
   ) { locationPermission.refresh(); notificationPermission.refresh() }
 
+  // CAL-8 (ADR 0063 §1) — the calendar permission ceremony + native-editor handoff. Both launchers
+  // are registered here (Activity-owned, required before STARTED) and rebound into
+  // CalendarActivityBridge every onCreate, since AndroidCalendarPort itself is retained across
+  // Activity recreation inside the ViewModel-scoped runtime graph (see CalendarActivityBridge kdoc).
+  // Neither callback assumes WHAT happened (grant vs deny; saved vs canceled) — both just trigger a
+  // fresh reconciliation pass so the real observed truth drives the next state (ADR 0063 §5 honesty).
+  private val calendarPermissionLauncher = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+  ) { if (::runtimeViewModel.isInitialized) runtimeViewModel.commands.startCalendarCheck() }
+
+  private val calendarEditorLauncher = registerForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+  ) {
+    // ACTION_INSERT often returns RESULT_CANCELED even on a successful save (calendar apps vary),
+    // so the result code is never trusted — the rescan below is the only honest signal (ADR 0063 §5).
+    if (::runtimeViewModel.isInitialized) runtimeViewModel.commands.startCalendarCheck()
+  }
+
   private fun granted(permission: String): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(this, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
@@ -130,6 +148,13 @@ class MainActivity : ComponentActivity() {
     // icons stay legible in both themes). Inset *padding* is applied in shared UI
     // (FeedApp safe-area wrapper + DetailScreen hero), not here.
     enableEdgeToEdge()
+    // CAL-8 — rebind every onCreate (see CalendarActivityBridge kdoc): this Activity instance and
+    // its launchers are new on a config-change recreation even though the calendar port they back
+    // is retained.
+    com.sloopworks.dayfold.client.CalendarActivityBridge.launchPermissionRequest = {
+      calendarPermissionLauncher.launch(android.Manifest.permission.READ_CALENDAR)
+    }
+    com.sloopworks.dayfold.client.CalendarActivityBridge.launchEditorIntent = { intent -> calendarEditorLauncher.launch(intent) }
     // SloopWorks debug drawer (debug builds only; a no-op facade in release). Install
     // BEFORE any HTTP client is built so backendUrl() can reflect a chosen override.
     DebugDrawer.install(
@@ -192,6 +217,7 @@ class MainActivity : ComponentActivity() {
         // Capability is injected only when the selected scenario actually resolved to the debug
         // MockEngine. Release's inert fake adapter can never expose the preview.
         initialState = if (isFake) initialStateForFakeScenario(scenarioId) else AppState(),
+        calendarPort = com.sloopworks.dayfold.client.AndroidCalendarPort(appContext),
       ).create()
       RetainedDayfoldRuntime(
         handle = GraphDayfoldRuntimeHandle(graph),

@@ -61,7 +61,7 @@ private fun calendarDot(state: AppState, calendarId: String?): String? =
   calendarId?.let { id -> state.calendar.availableCalendars.firstOrNull { it.id == id } }?.color
 
 fun DayfoldEventCandidate.toEventPrefill(): EventPrefill =
-  EventPrefill(title = title, startAt = startAt, endAt = endAt, allDay = allDay, timezone = timezone, location = location)
+  EventPrefill(title = title, startAt = startAt, endAt = endAt, allDay = allDay, timezone = timezone, location = location, deepLink = deepLink)
 
 private fun candidateMeta(state: AppState, candidate: DayfoldEventCandidate): String {
   val whenLabel = formatMetaWhen(candidate.startAt) ?: candidate.startAt

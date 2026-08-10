@@ -149,6 +149,9 @@ class DayfoldRuntimeFactory(
   private val devProvider: String = "dev",
   private val devProviderUid: String = "dev-user",
   private val onResourcesClosed: () -> Unit = {},
+  // CAL-8 (ADR 0063) — the device calendar seam. NoOpCalendarPort everywhere except the real
+  // Android adapter, mirroring how notificationContext/tokenStore are host-supplied.
+  private val calendarPort: CalendarPort = NoOpCalendarPort,
 ) {
   /** Creates an independent graph whose complete coroutine tree is owned by its runtime. */
   fun create(): DayfoldRuntimeGraph {
@@ -170,6 +173,7 @@ class DayfoldRuntimeFactory(
     lateinit var hubEngine: HubEngine
     lateinit var nowEngine: NowEngine
     lateinit var responseEngine: ResponseEngine
+    lateinit var calendarCheckEngine: CalendarCheckEngine
     lateinit var commands: DayfoldCommands
     lateinit var coordinator: SessionCoordinator
     lateinit var externalHubTargets: PendingExternalHubTargetCoordinator
@@ -277,6 +281,14 @@ class DayfoldRuntimeFactory(
             idProvider = idProvider,
             databaseDispatcher = databaseDispatcher,
           )
+          calendarCheckEngine = CalendarCheckEngine(
+            store = store,
+            contentStore = contentStore,
+            calendarPort = calendarPort,
+            scope = rootScope.supervisedChild(),
+            nowProvider = nowProvider,
+            databaseDispatcher = databaseDispatcher,
+          )
           externalHubTargets = PendingExternalHubTargetCoordinator(
             scope = rootScope,
             isCurrent = coordinator::isCurrent,
@@ -300,6 +312,7 @@ class DayfoldRuntimeFactory(
             contentStore = contentStore,
             sessionCoordinator = coordinator,
             externalHubTargets = externalHubTargets,
+            calendarCheckEngine = calendarCheckEngine,
             bindSelectedFamily = {
               val auth = coordinator.authSnapshot()
               val familyId = store.state.session.activeFamilyId
@@ -352,6 +365,7 @@ class DayfoldRuntimeFactory(
           syncEngine.stop()
           hubEngine.stop()
           nowEngine.stop()
+          calendarCheckEngine.stop()
           http.close()
           onResourcesClosed()
         },
