@@ -16,19 +16,23 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
-- **INB-38 · 2026-08-10 · med · open — publish shared debugdrawer 0.1.0 and
-  authorize the component-picker design pass?** `SloopWorks/debugdrawer` PR #1
+- **INB-38 · 2026-08-10 · med · open — authorize the component-picker design
+  pass?** `SloopWorks/debugdrawer` PR #1
   (WI-256) is merged + CI-green and declares the standalone repo the source of
-  truth, but its manual/operator-only Maven `publish` workflow has never run.
-  Dayfold therefore still compiles the embedded `apps/debugdrawer*` copy. The
-  review also found that SWIP accepts UI-tree JSON and Point can snap to its
+  truth. Its first manual/operator-only Maven `publish` attempt failed: the
+  repository supplied an empty `SLOOPWORKS_PACKAGES_TOKEN`, excluded the SWIP
+  adapter, and GitHub Packages rejected core/noop uploads with 401.
+  Per the operator's repository-sharing fallback, Dayfold PR #379 now pins the
+  exact shared commit as a private submodule and substitutes its Gradle projects
+  behind the stable 0.1.0 coordinates. It removes the embedded copy without
+  waiting for package publication. The review also found
+  that SWIP accepts UI-tree JSON and Point can snap to its
   bounds, but Point discards node identity/source and there is no preseeded
   frozen-capture handoff. **Direction recorded 2026-08-10:** integrating apps
   control UI-tree tooling per build (`Disabled` / `BoundsOnly` /
   `SourceOnDemand`); shared drawer/reporting plugins show availability and concise
-  enablement help when unavailable. **Remaining proposed default:** dispatch
-  the shared repo's 0.1.0 publish workflow, let this branch migrate Dayfold and
-  delete the embedded modules, then run/sign off
+  enablement help when unavailable. **Remaining proposed default:** merge the
+  verified Dayfold migration, then run/sign off
   `designs/DESIGN-BRIEF-debugdrawer-component-reporting.md` before the new
   Components panel/live picker is built (ADR 0008). Approve a capture-feasibility
   spike and the typed SWIP handoff as explicit prerequisites. Keep it

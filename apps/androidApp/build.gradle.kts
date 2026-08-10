@@ -110,14 +110,15 @@ dependencies {
   implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
-  // SloopWorks in-app debug drawer (in-repo, not yet published). Debug build = the
+  // Shared SloopWorks in-app debug drawer, resolved from the pinned composite build.
+  // Debug build = the
   // real drawer (AppInfo + Backend-switch + Logs built-ins) + the redux DevTools
   // panel; release = the no-op facade (same API, zero overhead, no bubble). The
   // redux panel pulls redux-kotlin-devtools-inapp transitively (debug-only).
-  debugImplementation(project(":debugdrawer"))
-  debugImplementation(project(":debugdrawer-redux"))
-  debugImplementation(project(":debugdrawer-swip"))
-  releaseImplementation(project(":debugdrawer-noop"))
+  debugImplementation("com.sloopworks.debugdrawer:debugdrawer:0.1.0")
+  debugImplementation("com.sloopworks.debugdrawer:debugdrawer-redux:0.1.0")
+  debugImplementation("com.sloopworks.debugdrawer:debugdrawer-swip:0.1.0")
+  releaseImplementation("com.sloopworks.debugdrawer:debugdrawer-noop:0.1.0")
 
   // The shell now wires the HTTP client explicitly (to inject the fake backend), so
   // ktor-client-core's types must be on the compile classpath in BOTH variants.
@@ -141,7 +142,7 @@ dependencies {
   // but as `implementation`, so it isn't on our compile classpath — declare it explicitly.
   debugImplementation("androidx.lifecycle:lifecycle-process:2.9.4")
   // RingDebugSink (SWIP inspector's capture sink) is referenced directly by the host glue
-  // (SwipAnalyticsGlue/SwipInspectorGlue) — :debugdrawer-swip depends on it as `implementation`
+  // (SwipAnalyticsGlue/SwipInspectorGlue) — debugdrawer-swip depends on it as `implementation`
   // (intentionally not `api`), so androidApp needs its own direct debugImplementation too.
   debugImplementation("works.sloop.swip:swip-debug:0.1.0")
   // SWIP crash/error reporter (debug ONLY, ADR 0060). Pulls io.sentry:sentry-kotlin-multiplatform

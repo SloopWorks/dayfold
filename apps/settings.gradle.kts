@@ -1,5 +1,6 @@
-// TASK-KMP: single Gradle build for the client/ui multiplatform modules, the thin
-// Android application, and the debug-drawer library modules (see include() below).
+// TASK-KMP: single Gradle build for the client/ui multiplatform modules and the thin
+// Android application. The reusable debug drawer is a pinned composite build from its
+// standalone repository (see ../third_party/debugdrawer).
 // (api = TS, cli = its own Kotlin build — both are sibling dirs, intentionally NOT
 // included here.)
 pluginManagement {
@@ -10,12 +11,17 @@ pluginManagement {
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
   }
 }
+
+val hasSloopworksPackagesCredential =
+  !System.getenv("SLOOPWORKS_PACKAGES_TOKEN").isNullOrBlank() ||
+    !providers.gradleProperty("gpr.token").orNull.isNullOrBlank()
+
 dependencyResolutionManagement {
   repositories {
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    // SWIP bug reporter + SloopWorks design tokens (private GitHub Packages).
+    // SWIP and SloopWorks design tokens (private GitHub Packages).
     // Local dev: gpr.user/gpr.token in ~/.gradle/gradle.properties (read:packages PAT).
     // CI: SLOOPWORKS_PACKAGES_TOKEN secret.
     listOf(
@@ -34,4 +40,19 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "dayfold-apps"
-include(":client", ":ui", ":androidApp", ":debugdrawer", ":debugdrawer-noop", ":debugdrawer-redux", ":debugdrawer-swip", ":swip-wiring")
+include(":client", ":ui", ":androidApp", ":swip-wiring")
+
+val debugDrawerBuild = file("../third_party/debugdrawer")
+check(debugDrawerBuild.resolve("settings.gradle.kts").isFile) {
+  "Shared DebugDrawer is not initialized. Run: git submodule update --init third_party/debugdrawer"
+}
+includeBuild(debugDrawerBuild) {
+  dependencySubstitution {
+    substitute(module("com.sloopworks.debugdrawer:debugdrawer")).using(project(":debugdrawer"))
+    substitute(module("com.sloopworks.debugdrawer:debugdrawer-noop")).using(project(":debugdrawer-noop"))
+    substitute(module("com.sloopworks.debugdrawer:debugdrawer-redux")).using(project(":debugdrawer-redux"))
+    if (hasSloopworksPackagesCredential) {
+      substitute(module("com.sloopworks.debugdrawer:debugdrawer-swip")).using(project(":debugdrawer-swip"))
+    }
+  }
+}

@@ -4,7 +4,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.sloopworks.dayfold.swip.inspector.SecureWindow
+import com.sloopworks.debugdrawer.swip.SecureWindow
 import java.lang.ref.WeakReference
 import works.sloop.swip.ExperimentalSwipDebugApi
 import works.sloop.swip.debug.RingDebugSink
