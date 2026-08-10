@@ -7,6 +7,43 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-10 — Authoring routines read the family's rules before writing
+
+### Added
+- **`dayfold responses`** prints the family's active mute rules and Done
+  records. It prints a *brief*, not a table: `Weather cards — any card of this
+  kind` is something a model can act on, where `kind:weather` is not. `--json`
+  gives the raw rows for scripting.
+- **`dayfold push` now runs this as a pre-flight** and skips a card that a rule
+  already covers, so an authoring loop stops producing unwanted content instead
+  of having it rejected. `--no-preflight` opts out, and a failed lookup is
+  deliberately non-fatal: the write boundary still enforces every rule, so a
+  transient read error must not block authoring.
+- **`GET /families/:fid/responses`** backs both of the above.
+
+### Changed
+- **Rules now reach the thing that decides what to write.** The server's 409 was
+  a floor, not the feature — a rejection tells an agent *that exact key* is
+  muted, which does not stop it composing something similar on the next run. And
+  the server cannot help here by design: ADR 0064 has it match on identifiers and
+  never read a label. So the read belongs in the authoring path, which is where
+  it now happens. `docs/architecture.md` previously claimed the CLI already did
+  this; that line described an intention, and now describes the code.
+
+### Security / privacy
+- Other members' **personal** rules are counted, never disclosed — an author
+  learns that suppression exists without learning who muted what. Those members
+  are excluded server-side regardless of what the CLI shows.
+
+### Deployed
+- **Live in production 2026-08-10** (ADR 0012 prod-action log). Committed bundle
+  verified byte-identical to a fresh `build:fn` before deploying; previous prod
+  deployment `family-ai-dashboard-4girg2l38` retained as the rollback target.
+  Verified after: `/health` 200, `GET /families/…/responses` returns 401 rather
+  than 404 (the route exists and is auth-gated), and an unknown path under the
+  same prefix still returns 404 — so the 401 is route-specific, not a blanket
+  auth response. No migration needed; `0020` was already applied.
+
 ## 2026-08-09 — Calendar Check (device-local calendar reconciliation)
 
 ### Added
