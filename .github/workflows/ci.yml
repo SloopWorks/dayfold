@@ -79,12 +79,14 @@ jobs:
     name: Client core + feed UI (Compose, headless)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # GitHub Packages credentials for the swip bugreport artifacts (settings.gradle.kts
-    # reads this env var; repo secret = read:packages PAT).
+    # Reads SWIP packages and the private DebugDrawer source submodule.
     env:
       SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.DEBUGDRAWER_REPO_TOKEN }}
       - uses: ./.github/actions/setup-jvm
       # Cheap guard: every commonMain `expect` has an `actual` per platform (android/
       # desktop/ios). CI doesn't compile iOS, so a missing iosMain actual would merge
@@ -117,31 +119,18 @@ jobs:
           path: apps/ui/.rk-snapshots
           if-no-files-found: ignore
 
-  debugdrawer:
-    name: Debug Drawer (Compose-MP lib, headless)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # :debugdrawer-swip depends on works.sloop.swip:swip-debug from GitHub Packages
-    # (same credential the client/android jobs already set — settings.gradle.kts
-    # reads this env var; repo secret = read:packages PAT).
-    env:
-      SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-jvm
-      - working-directory: apps
-        run: ./gradlew --no-daemon :debugdrawer:desktopTest :debugdrawer-noop:desktopTest :debugdrawer-redux:desktopTest :debugdrawer-swip:desktopTest
-
   android:
-    name: Android app (assembleDebug — compile smoke)
+    name: Android app (debug + release boundary)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # GitHub Packages credentials for the swip bugreport artifacts (settings.gradle.kts
-    # reads this env var; repo secret = read:packages PAT).
+    # Reads SWIP packages and the private DebugDrawer source submodule.
     env:
       SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.DEBUGDRAWER_REPO_TOKEN }}
       - uses: ./.github/actions/setup-jvm
       # google-services.json is gitignored + per-env (the real config is a release
       # secret). For a compile-only smoke a stub is enough — it satisfies the gms
@@ -168,10 +157,13 @@ jobs:
           yes 2>/dev/null | "$SDK" --licenses >/dev/null 2>&1 || true
           "$SDK" "platforms;android-37" "build-tools;36.0.0" >/dev/null 2>&1 \
             || "$SDK" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null 2>&1 || true
-      # Builds the real Compose app (debug variant): :client + debug drawer + fake backend.
-      - name: assembleDebug
+      # Builds the real Compose app with the shared drawer in debug and the no-op facade
+      # in release. The release check verifies both the resolved graph and final AAB DEX.
+      - name: Build debug + release
         working-directory: apps
-        run: ./gradlew --no-daemon :androidApp:assembleDebug
+        run: ./gradlew --no-daemon :androidApp:assembleDebug :androidApp:bundleRelease
+      - name: Shared debug drawer release boundary
+        run: bash scripts/check-debugdrawer-release.sh
 
   naming-guard:
     name: No legacy com.familyai package (ADR 0026)

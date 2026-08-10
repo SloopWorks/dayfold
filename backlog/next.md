@@ -138,11 +138,14 @@ touches it needs `gpr.user`/`gpr.token` in `~/.gradle/gradle.properties` (or
 `processes/agent-dev-loop.md`.
 
 **7. Shared drawer migration + component-aware reports (reviewed 2026-08-10).**
-Dayfold's host wiring already uses the reusable `DebugDrawerHost`/plugin contract,
-but its dependencies still point at the embedded `apps/debugdrawer*` modules.
-The extracted `SloopWorks/debugdrawer` 0.1.0 source is merged + CI-green and is
-now the declared source of truth; its operator-only Maven publish has not run, so
-Dayfold cannot yet replace the project dependencies. Separately, SWIP already has
+Dayfold's host wiring already uses the reusable `DebugDrawerHost`/plugin contract.
+PR #379 now pins `SloopWorks/debugdrawer` commit `92fec3b` as a private submodule,
+substitutes its four Gradle projects behind the stable 0.1.0 coordinates, and
+removes the embedded `apps/debugdrawer*` modules. This follows the operator's
+repository-sharing fallback after the first operator-only Maven publish failed
+with an empty package secret/HTTP 401. Publication is no longer on Dayfold's
+critical path; it remains useful for consumers that prefer binary distribution.
+Separately, SWIP already has
 `UiTreeProvider`/`UI_TREE` and a Point tool that snaps to supplied bounds, but
 Dayfold supplies no tree, so Point currently degrades to a manual rectangle.
 Even with a tree, Point currently discards node identity/parents/source and SWIP
@@ -157,13 +160,13 @@ tooling data. In developer builds where the plugin is present but tooling is not
 show the reason, a short enablement recipe/Copy setup snippet, and manual report
 annotation fallback. Public release registers neither surface.
 
-**Sequence:** operator publishes shared drawer 0.1.0 (INB-38) → Dayfold migrates
-and deletes embedded modules → run/sign off the Components panel + live picker
-design brief (ADR 0008) → spike source activation, semantics feasibility, and a
-clean PixelCopy/tree pair → add typed selection + preseeded capture handoff to
-SWIP → implement the tooling-free Components plugin + optional Android Compose
-provider in the shared repo → wire its privacy-filtered frozen capture into
-Dayfold developer builds with an explicit mode. Source attribution requires
+**Sequence:** verify and merge Dayfold PR #379 against the pinned shared source →
+run/sign off the Components panel + live picker design brief (ADR 0008) → spike
+source activation, semantics feasibility, and a clean PixelCopy/tree pair → add
+typed selection + preseeded capture handoff to SWIP → implement the tooling-free
+Components plugin + optional Android Compose provider in the shared repo → wire
+its privacy-filtered frozen capture into Dayfold developer builds with an explicit
+mode. Source attribution requires
 `SourceOnDemand` + completed recomposition and remains optional. Public release
 has no viewer; a future explicitly approved,
 never-published `internalMinified` variant with the inspector enabled may test

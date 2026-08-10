@@ -3,7 +3,7 @@ package com.sloopworks.dayfold.android
 import androidx.activity.ComponentActivity
 import com.sloopworks.debugdrawer.DebugPlugin
 import com.sloopworks.debugdrawer.redux.ReduxDevToolsDebugPlugin
-import com.sloopworks.dayfold.swip.inspector.SwipInspectorPlugin
+import com.sloopworks.debugdrawer.swip.SwipInspectorPlugin
 
 // Debug variant only: redux DevTools + (when the gated capture sink is installed) the SWIP
 // inspector. Both are debug-only modules wired debugImplementation → release never references them.

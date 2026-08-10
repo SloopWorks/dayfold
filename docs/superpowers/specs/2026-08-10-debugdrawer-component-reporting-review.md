@@ -38,14 +38,16 @@ Dayfold has one host integration, not competing drawer UIs:
 - `MainActivity` calls `DebugDrawer.install(...)`, resolves the backend through
   `DebugDrawer.backendUrl(...)`, and wraps the app with `DebugDrawerHost`.
 - Debug plugins are registered through `debugDrawerPlugins(...)`.
-- Debug uses `:debugdrawer`, `:debugdrawer-redux`, and `:debugdrawer-swip`.
-- Release uses `:debugdrawer-noop`; plugin mirrors return empty/inert values.
+- Debug resolves the shared `debugdrawer`, `debugdrawer-redux`, and
+  `debugdrawer-swip` projects from the pinned composite build.
+- Release resolves the shared `debugdrawer-noop` project; plugin mirrors
+  return empty/inert values.
 
-The integration shape is correct. Draft PR
+The integration shape is correct. PR
 [`SloopWorks/dayfold#379`](https://github.com/SloopWorks/dayfold/pull/379) replaces
-the in-repo modules with shared `0.1.0` coordinates, updates the shared SWIP
-namespace, removes the embedded source, and adds dependency/DEX release checks.
-It is intentionally draft until the artifacts resolve remotely.
+the in-repo modules with a submodule pinned at `92fec3b`, substitutes the shared
+projects behind stable `0.1.0` coordinates, updates the shared SWIP namespace,
+removes the embedded source, and adds dependency/DEX release checks.
 
 ### Shared component extraction
 
@@ -59,8 +61,10 @@ The package is **not published yet**. The first operator-only
 [`publish` run](https://github.com/SloopWorks/debugdrawer/actions/runs/31438033231)
 received an empty `SLOOPWORKS_PACKAGES_TOKEN`, excluded `debugdrawer-swip`, and
 GitHub Packages rejected core/noop uploads with HTTP 401. The shared repository
-must receive a write-capable packages secret and publish all platform variants
-before a clean consumer can verify the migration.
+would need a write-capable packages secret before binary consumers can resolve
+all platform variants. Dayfold no longer waits on that distribution path: the
+operator-approved repository-sharing fallback pins the exact private repository
+commit and consumes it as a Gradle composite build.
 
 ### Organization consumer audit
 
@@ -68,8 +72,7 @@ An audit of all eight active SloopWorks repositories found one current runtime
 consumer and one committed future consumer:
 
 - **Dayfold** is the only app currently mounting `DebugDrawerHost`; its default
-  branch still contains the embedded modules until PR #379 passes the remote-only
-  gate and merges.
+  branch still contains the embedded modules until PR #379 passes CI and merges.
 - **Dinners/PickedPlate** has accepted ADR 0028 requiring the shared drawer, but
   currently wires only its app-owned debug `:swip-inspector` data module. It does
   not yet resolve or mount `com.sloopworks.debugdrawer:*`.
@@ -78,7 +81,8 @@ consumer and one committed future consumer:
 
 Therefore “shared drawer adoption” is not complete when Dayfold migrates. The
 shared API, setup copy, and tests must stay product-neutral, and portfolio closure
-requires a Dinners consumer PR after the base artifacts publish. Source-copying
+requires a Dinners consumer PR using either a pinned repository integration or
+published artifacts. Source-copying
 the drawer or recreating a Dinners-specific shell remains prohibited.
 
 ### Component-aware SWIP reporting
@@ -695,31 +699,24 @@ release requirement is total feature/dependency absence.
 
 ## 6. Sequencing and gates
 
-### Gate A — publish and migrate shared drawer
+### Gate A — pin and migrate shared drawer
 
-Operator action:
+Dayfold PR #379:
 
-1. configure a write-capable `SLOOPWORKS_PACKAGES_TOKEN` for
-   `SloopWorks/debugdrawer`; the first run at exact source SHA `92fec3b` failed
-   with an empty token/HTTP 401 and excluded the SWIP adapter;
-2. rerun `SloopWorks/debugdrawer/.github/workflows/publish.yml` for 0.1.0 after
-   confirming producer CI is green (the publish workflow itself does not test);
-3. verify all four Maven artifacts, platform variants, and Gradle metadata resolve
-   in a clean consumer.
-
-Then Dayfold draft PR #379:
-
-1. add the `SloopWorks/debugdrawer` Maven repository alongside SWIP;
-2. replace project dependencies with `com.sloopworks.debugdrawer:*:0.1.0`;
+1. pin exact producer commit `92fec3b` as `third_party/debugdrawer` and initialize
+   the private submodule in app-build CI with the existing SloopWorks credential;
+2. substitute `com.sloopworks.debugdrawer:*:0.1.0` with the matching projects from
+   that composite build;
 3. change SWIP inspector imports to `com.sloopworks.debugdrawer.swip.*`;
 4. remove `:debugdrawer*` includes and embedded source directories;
 5. sweep repository references, replacing the CI job that invokes local
    `:debugdrawer*` tasks and stale `processes/mobile-release.md` instructions;
-6. run debug tests/build, release bundle, and the new artifact leak checks.
+6. run shared producer tests, Dayfold debug tests/build, release bundle, and the
+   new dependency/DEX leak checks.
 
 Do not keep a fallback embedded copy after migration; that recreates two sources
-of truth. After the base artifact is available, Dinners/PickedPlate must replace
-its planned app-owned drawer work with a shared-artifact integration. That
+of truth. Dinners/PickedPlate must replace its planned app-owned drawer work with
+a pinned shared-repository integration or published artifacts. That
 portfolio follow-through is tracked independently from Dayfold's component-picker
 delivery, but shared adoption cannot be described as organization-complete until
 it lands.
@@ -932,7 +929,8 @@ text/description/parameter canaries.
 
 ## 8. Definition of done
 
-- Dayfold consumes published shared drawer artifacts; embedded modules are gone.
+- Dayfold consumes a pinned shared DebugDrawer repository revision; embedded
+  modules are gone.
 - One shared component tree powers both drawer viewing and SWIP Point annotation.
 - A user can tap a component, inspect its hierarchy/source, and attach it to a
   report.

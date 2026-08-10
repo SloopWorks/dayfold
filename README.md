@@ -60,6 +60,7 @@ For the full design system and every screen, see the hi-fi mockups in
 | `apps/cli` | The `dayfold` CLI (Kotlin) — `login` · `push` · `pull` · `template` · `delete` · `whoami` · `update`; authors content into the API (`push --type` runs local structural validation before every network call). Every command has `--help`; add `--json` (e.g. `dayfold help --json`) for a machine-readable command/flag/exit-code model AI loops can parse directly. |
 | `packages/schema` | Generated content schema (`content.schema.json` → Kotlin/TS) — the card/hub contract. |
 | `packages/linkrules` | Shared Kotlin (`commonMain`) srcdir'd into CLI + client — link/URL vetting, the ULID minter, media validation. |
+| `third_party/debugdrawer` | Pinned private submodule for the shared SloopWorks DebugDrawer; Gradle substitutes its four projects for the stable `com.sloopworks.debugdrawer:*` coordinates. |
 
 - **Build & run the apps:** `processes/agent-dev-loop.md` (fixed toolchain + the cheap
   feedback loop) and `specs/prototype/00-build-spec-plan.md` (the live M0).

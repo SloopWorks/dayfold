@@ -41,6 +41,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5    # v4 (SHA-pinned)
+        with:
+          submodules: recursive
+          token: ${{ secrets.DEBUGDRAWER_REPO_TOKEN }}
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9  # v4 (SHA-pinned)
         with: { distribution: temurin, java-version: "17" }
 
