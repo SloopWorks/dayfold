@@ -23,6 +23,8 @@ fun routeSpec(route: Route): RouteSpec = when (route) {
   // ADR 0064 — an Account child, like Devices/Members/Proximity.
   Route.SmartContent -> RouteSpec(2, NavKind.Push)
   Route.Proximity -> RouteSpec(2, NavKind.Push)
+  // ADR 0063 / WI-461 — an Account child, like Devices/Members/Proximity/SmartContent.
+  Route.Calendar -> RouteSpec(2, NavKind.Push)
   Route.Devices -> RouteSpec(2, NavKind.Push)
   Route.Members -> RouteSpec(2, NavKind.Push)
   Route.Invite -> RouteSpec(3, NavKind.Push)

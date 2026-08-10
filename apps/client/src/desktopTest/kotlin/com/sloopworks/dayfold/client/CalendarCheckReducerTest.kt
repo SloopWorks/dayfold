@@ -220,4 +220,25 @@ class CalendarCheckReducerTest {
     val next = rootReducer(saved, CalendarEditorReturned(CalendarEditorOutcome.CANCELED))
     assertEquals(CalendarEditorOutcome.CANCELED, next.calendar.check.editorReturn)
   }
+
+  // ── WI-461 — the Now card's "Review" tap, and the two never-reachable pieces it exposed ──
+
+  @Test fun `OpenCalendarReview and CloseCalendarReview toggle the Feed substate flag`() {
+    val opened = rootReducer(AppState(), OpenCalendarReview)
+    assertTrue(opened.calendar.check.reviewOpen)
+    val closed = rootReducer(opened, CloseCalendarReview)
+    assertFalse(closed.calendar.check.reviewOpen)
+  }
+
+  @Test fun `OpenCalendarSettings routes to Calendar, CloseCalendarSettings routes back to Account`() {
+    val opened = rootReducer(AppState(), OpenCalendarSettings)
+    assertEquals(Route.Calendar, opened.navigation.route)
+    val closed = rootReducer(opened, CloseCalendarSettings)
+    assertEquals(Route.Account, closed.navigation.route)
+  }
+
+  @Test fun `calendarCheckAvailable defaults true, the single build-level flag that can flip it off`() {
+    assertTrue(calendarCheckAvailable(AppState()))
+    assertFalse(calendarCheckAvailable(AppState(calendar = CalendarState(checkAvailable = false))))
+  }
 }

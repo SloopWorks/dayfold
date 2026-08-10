@@ -79,6 +79,9 @@ data class AccountViewState(
   val nameError: String?,
   val proximityEnabled: Boolean,
   val signOutBusy: Boolean,
+  // WI-461 — CalendarSettings.featureEnabled (ADR 0063 §1), the member's own on/off, for the
+  // settings row subtitle. Distinct from calendarCheckAvailable (the entry point's visibility).
+  val calendarCheckEnabled: Boolean,
 )
 
 fun accountViewState(state: AppState): AccountViewState = AccountViewState(
@@ -92,6 +95,7 @@ fun accountViewState(state: AppState): AccountViewState = AccountViewState(
   nameError = state.profile.nameError,
   proximityEnabled = state.notifications.config.enabled,
   signOutBusy = state.session.signOutBusy,
+  calendarCheckEnabled = state.calendar.settings.featureEnabled,
 )
 
 @Immutable

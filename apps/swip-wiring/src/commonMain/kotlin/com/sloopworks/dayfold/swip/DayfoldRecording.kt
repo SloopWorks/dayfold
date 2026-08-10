@@ -52,8 +52,12 @@ fun dayfoldSlices(): List<SliceSpec<AppState>> = slices {
 // route naming a privacy-shaped surface must be added here deliberately. Smart content lists
 // mute labels and Done notes, so even the route name is a weak signal about what a household
 // suppresses; journal it as its Account entry point, exactly as SmartBriefings already is.
+// WI-461 — Calendar joins the same list: ADR 0063 forbids raw calendar state (events, ids,
+// account names, match decisions) from ever entering a journal, and even "the family opened
+// Calendar Check settings" is a weak signal about a household's calendar-sync posture worth
+// folding into the same Account bucket rather than a distinguishable route name.
 private fun recordedRoute(route: Route): String =
-  if (route == Route.SmartBriefings || route == Route.SmartContent) Route.Account.name else route.name
+  if (route == Route.SmartBriefings || route == Route.SmartContent || route == Route.Calendar) Route.Account.name else route.name
 
 /**
  * The SECOND fence (sanitize-at-write, swip docs/12 §6): drops any journaled

@@ -32,6 +32,7 @@ import com.sloopworks.dayfold.client.cards.PlatformUriHandler
 import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
 import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
+import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsHost
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
@@ -149,6 +150,16 @@ internal fun RouteHost(
         onOpenSmartBriefings = { store.dispatch(OpenSmartBriefings) },
         onUpdateAvatar = commands::updateAvatar,
         onUpdateName = commands::updateDisplayName,
+        calendarCheckAvailable = state.calendarCheckAvailable,
+        onOpenCalendarSettings = { store.dispatch(OpenCalendarSettings) },
+      )
+    }
+    Route.Calendar -> {
+      CalendarSettingsHost(
+        store = store,
+        commands = commands,
+        platformActions = platformActions,
+        onBack = { store.dispatch(CloseCalendarSettings) },
       )
     }
     Route.SmartContent -> {

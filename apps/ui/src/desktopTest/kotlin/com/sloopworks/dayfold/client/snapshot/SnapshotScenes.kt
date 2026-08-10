@@ -238,7 +238,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
   }
 
   scene("account") {
-    presets("default", "signout-busy", "smart-briefings")
+    presets("default", "signout-busy", "smart-briefings", "calendar-check")
     render { args ->
       themed(args.theme) {
         val preset = presetName(args.input)
@@ -248,6 +248,8 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         AccountScreen(
           accountViewState(app),
           smartBriefingsPreviewAvailable = preset == "smart-briefings",
+          // WI-461 (ADR 0063) — the Calendar Check entry point row, ON THIS DEVICE.
+          calendarCheckAvailable = preset == "calendar-check",
         )
       }
     }

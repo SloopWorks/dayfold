@@ -52,3 +52,9 @@ data class SetNotificationOwner(val subjectKey: String, val owner: CalendarNotif
  *  from CalendarPort.openEventEditor's onResult callback. The shared action every platform's
  *  return-state UI reads (Native-Handoff.dc.html §11). */
 data class CalendarEditorReturned(val outcome: CalendarEditorOutcome) : CalendarCheckAction
+
+/** WI-461 — the Now card's "Review" tap mounts CalendarReviewHost as a Feed substate. */
+data object OpenCalendarReview : CalendarCheckAction
+
+/** WI-461 — CalendarReviewHost's back arrow/system back dismisses it, back to the Feed. */
+data object CloseCalendarReview : CalendarCheckAction

@@ -451,7 +451,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity, Calendar }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -698,6 +698,8 @@ data object OpenAccount : Action                           // Feed → Account (
 data object CloseAccount : Action                          // Account → back to the route gate (Feed)
 data object OpenProximity : Action                         // Account → Background-proximity settings (ADR 0044)
 data object CloseProximity : Action                        // Proximity → back to Account
+data object OpenCalendarSettings : Action                  // Account → Calendar Check settings (ADR 0063, WI-461)
+data object CloseCalendarSettings : Action                 // Calendar settings → back to Account
 data object SignOutRequested : Action
 data object SignedOut : Action                             // clears session + feed → SignIn
 // invitee-join (S5 slice-2). RedeemRequested is an effect trigger (AuthEngine);

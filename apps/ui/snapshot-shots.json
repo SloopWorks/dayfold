@@ -22,6 +22,11 @@
    "preset": "smart-briefings"
   },
   {
+   "id": "account-calendar-check",
+   "scene": "account",
+   "preset": "calendar-check"
+  },
+  {
    "id": "auth-createfamily",
    "scene": "auth",
    "preset": "createfamily"

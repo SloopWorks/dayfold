@@ -7,6 +7,24 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-10 — Calendar Check is now reachable from the app
+
+### Added
+- **Calendar Check has a front door.** The engine and Android adapter shipped
+  in the epic below, but nothing in the app could reach them: no route, no
+  Account settings row, and the Now card's "Review" pill was silently a
+  no-op. Account → **ON THIS DEVICE** now has a **Calendar Check** row (a
+  build-level flag, default on) that opens the existing setup wizard /
+  on-state settings screen; the Now card's Review pill now opens the real
+  review flow. Also fixed the aggregate Now card itself: the ranking
+  projection threaded to `FeedScreen` never carried calendar state, so the
+  card could never render even before today's fix.
+
+### Not yet
+- "Add to a Hub" from a calendar-only review row does not yet open the
+  Calendar → Dayfold import wizard — `CalendarImportHost` stays unreached
+  dead code, deferred to a follow-on work item.
+
 ## 2026-08-09 — Calendar Check (device-local calendar reconciliation)
 
 ### Added

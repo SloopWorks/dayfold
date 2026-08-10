@@ -37,7 +37,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is CardsLoaded -> reduceContent(state, action).copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack.filter { id -> action.cards.any { it.id == id } }))
   is SyncStarted, is SyncSucceeded, is SyncStopped, is SyncFailed -> reduceContent(state, action)
   is MembershipsLoaded, is FamilyCreated -> reduceRoutedFeatureWithFamilyTransition(state, action)
-  is NavToDetail, is NavBack, is RestoreDetailStack, is AuthRestoring, is SessionRestored, is SignInSucceeded, is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity, is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
+  is NavToDetail, is NavBack, is RestoreDetailStack, is AuthRestoring, is SessionRestored, is SignInSucceeded, is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity, is OpenCalendarSettings, is CloseCalendarSettings, is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
   is OpenSmartBriefings, is RestoreSmartBriefings, is CloseSmartBriefings -> reduceNavigation(reduceRoutines(state, action), action)
   is RoutineContinue, is RoutineNavigateBack,
   is RoutineProviderSelected, is RoutineSourcesSelected, is RoutineHubFixtureSelected,

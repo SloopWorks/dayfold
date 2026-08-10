@@ -76,6 +76,9 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
     is SetNotificationOwner -> check.copy(notificationOwnerOverrides = check.notificationOwnerOverrides + (action.subjectKey to action.owner))
 
     is CalendarEditorReturned -> check.copy(editorReturn = action.outcome)
+
+    OpenCalendarReview -> check.copy(reviewOpen = true)
+    CloseCalendarReview -> check.copy(reviewOpen = false)
   }
   return state.copy(calendar = state.calendar.copy(check = next))
 }

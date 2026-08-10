@@ -22,6 +22,8 @@ fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is CloseSmartBriefings -> state.copy(navigation = state.navigation.copy(route = Route.Account))
   is OpenProximity -> state.copy(navigation = state.navigation.copy(route = Route.Proximity))
   is CloseProximity -> state.copy(navigation = state.navigation.copy(route = Route.Account))
+  is OpenCalendarSettings -> state.copy(navigation = state.navigation.copy(route = Route.Calendar))
+  is CloseCalendarSettings -> state.copy(navigation = state.navigation.copy(route = Route.Account))
   is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected -> state.copy(navigation = state.navigation.copy(route = Route.JoinInvite))
   is JoinDismissed -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is OpenHubs, is OpenHub -> state.copy(navigation = state.navigation.copy(route = Route.Hubs))

@@ -96,6 +96,11 @@ data class CalendarCheckState(
   // CAL-9 — the most recent platform editor handoff's completion outcome (Native-Handoff.dc.html
   // §11 return states). Set by CalendarEditorReturned; replaced by the next editor session.
   val editorReturn: CalendarEditorOutcome? = null,
+  // WI-461 — is the review flow (CalendarReviewHost) mounted right now? A Feed substate, like
+  // detailStack, not a Route: the review flow owns its own local step navigation (see
+  // CalendarReviewHost's doc comment) and is reached only from the Now card's "Review" tap, never
+  // from the route graph.
+  val reviewOpen: Boolean = false,
 )
 
 // WI-447 (ADR 0063 §1) — the chooser's candidate list: calendars this device exposes, re-read
@@ -107,4 +112,14 @@ data class CalendarState(
   // CAL-10 (ADR 0063 §6) — the reviewed Calendar→Dayfold import wizard's in-progress state.
   // Ephemeral like `check`: resets on family switch/sign-out (Reducer.kt), never synced.
   val importState: ImportProposalState = ImportProposalState.None,
+  // WI-461 — the build-level flag gating the Calendar Check ENTRY POINT (the Settings row)
+  // visibility. Distinct from CalendarSettings.featureEnabled, which is the member's own on/off
+  // choice reached THROUGH that entry point (ADR 0063 §1) — this one is never surfaced to a
+  // family; flipping it off just hides the door. Default true (mirrors routinePreviewAvailable's
+  // shape, opposite polarity); the single source of truth is this default parameter.
+  val checkAvailable: Boolean = true,
 )
+
+/** WI-461 — mirrors routinePreviewAvailable's shape: whether the Calendar Check entry point
+ *  (the Account settings row) should be shown at all. See [CalendarState.checkAvailable]. */
+fun calendarCheckAvailable(state: AppState): Boolean = state.calendar.checkAvailable

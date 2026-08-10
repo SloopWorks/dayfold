@@ -66,7 +66,7 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
   // now/timeZone default to the live clock; snapshot renders pin them so goldens are date-stable.
   // Ranking is intentionally memoized here rather than run in selectorState: selectors execute
   // on every store notification, including unrelated features. The ranker remains a pure function.
-  val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing) {
+  val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing, state.calendarCheck) {
     state.rankingState()
   }
   val nowFeedRanked = remember(rankingState, now, location, timeZone) {
