@@ -196,10 +196,10 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest  # swip bugrepor
   composable under `features/*/` has no real call site anywhere in production, or a
   `sealed interface *Action` member is never referenced outside its own declaration and its
   reducer's `is X ->` arm. If you deliberately leave a new surface dark (staged epic, preview-only
-  route), add it to `WIRING_ALLOW_LIST` in that file with a dated reason — don't just let the test
-  fail and get skipped by CI. It runs automatically with the rest of `:ui:desktopTest`, no separate
-  command needed.
-- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Post-merge of CL-SNAP (#277): 440 + 329 = 769 (CL-SNAP's 18 snapshot tests relocated to `:ui`).
+  route), add it to the matching `ROUTE_ALLOW_LIST`/`COMPOSABLE_ALLOW_LIST`/`ACTION_ALLOW_LIST` in
+  that file with a dated reason — don't just let the test fail and get skipped by CI. It runs
+  automatically with the rest of `:ui:desktopTest`, no separate command needed.
+- Edit guidance: touching `:client` only → `./gradlew :client:desktopTest` (~2.4s compile + tests); touching `:ui` → `./gradlew :ui:desktopTest` (~2.6s compile + tests, :client recompiled first due to jar dependency). Test counts drift too often to keep a number pinned here (both modules are well past the counts in the commands above, e.g. WI-462 added another 19 to `:ui`) — read the Gradle test-summary line for the current count instead of trusting this file's.
 - **JUnit gotcha:** a `@Test fun x() = runBlocking { … }` whose LAST expression
   isn't `Unit` (e.g. ends in `assertFailsWith` → returns `Throwable`) is
   **silently NOT run** (JUnit ignores non-void test methods). Use

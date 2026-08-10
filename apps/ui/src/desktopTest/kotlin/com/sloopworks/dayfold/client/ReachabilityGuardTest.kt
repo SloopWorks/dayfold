@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
 //      still counts; only a symbol with NO call site at all, own file included, is a violation
 //   3. a `sealed interface *Action` member never referenced from production code anywhere except
 //      the reducer arm that pattern-matches it (a reducer arm alone does not dispatch the action)
-// It is NOT a compiler and NOT a full call-graph — see WIRING_ALLOW_LIST below for genuine
-// exceptions and the reasoning for each.
+// It is NOT a compiler and NOT a full call-graph — see ROUTE_ALLOW_LIST / COMPOSABLE_ALLOW_LIST /
+// ACTION_ALLOW_LIST below for genuine exceptions and the reasoning for each.
 
 internal data class SourceFile(val path: String, val text: String)
 internal data class DeclaredSymbol(val name: String, val file: String)
@@ -111,7 +111,13 @@ internal fun findHostScreenDeclarations(files: List<SourceFile>): List<DeclaredS
 // ---- Check 3: sealed interface *Action members ----
 
 private val ACTION_FAMILY_DECL = Regex("""sealed interface\s+(\w*Action)\b""")
-private val IMPLEMENTER_DECL_START = Regex("""^\s*(?:data\s+)?(object|class)\s+(\w+)""")
+// Tolerates an optional single-line annotation (`@Serializable`) and visibility/data modifiers
+// in any order (`internal data class`, `private data object`, ...) before the `class`/`object`
+// keyword — an implementer declared with any of these was previously invisible to this scanner
+// entirely (not flagged, not even discovered), the exact "found nothing wrong" failure mode this
+// guard exists to close.
+private val IMPLEMENTER_DECL_START =
+  Regex("""^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:data|internal|private|public|protected)\s+)*(object|class)\s+(\w+)""")
 private val SUPERTYPE_AFTER_PARAMS = Regex("""^\s*:\s*(\w+)""")
 private val NON_LEAF_PREFIX = Regex("""^\s*(?:sealed\s+)?(?:interface|abstract\s+class)\b""")
 private val REDUCER_FILE = Regex("""(?:^|/)\w*Reducer\w*\.kt$""")
@@ -121,6 +127,25 @@ internal fun findActionFamilies(files: List<SourceFile>): Set<String> {
   val out = mutableSetOf<String>()
   for (f in files) ACTION_FAMILY_DECL.findAll(stripComments(f.text)).forEach { out += it.groupValues[1] }
   return out
+}
+
+// Advances past an optional `<...>` generic parameter list starting at [from] (spaces allowed
+// before it) — so `data class OpenFoo<T>(val payload: T) : FooAction<T>` doesn't leave the `<T>`
+// sitting between the name and `(`, which would otherwise make skipBalancedParams below think
+// there's no parameter list to skip at all (its blank-gap check would see `<T>`, not blank).
+private fun skipGenericParams(line: String, from: Int): Int {
+  var i = from
+  while (i < line.length && line[i] == ' ') i++
+  if (i >= line.length || line[i] != '<') return from
+  var depth = 0
+  while (i < line.length) {
+    when (line[i]) {
+      '<' -> depth++
+      '>' -> { depth--; if (depth == 0) return i + 1 }
+    }
+    i++
+  }
+  return from
 }
 
 // Advances past a balanced `(...)` parameter list starting at [from] IF the next non-space
@@ -154,7 +179,8 @@ internal fun findActionImplementers(files: List<SourceFile>, families: Set<Strin
       if (NON_LEAF_PREFIX.containsMatchIn(line)) continue
       val start = IMPLEMENTER_DECL_START.find(line) ?: continue
       val name = start.groupValues[2]
-      val afterParams = skipBalancedParams(line, start.range.last + 1)
+      val afterGeneric = skipGenericParams(line, start.range.last + 1)
+      val afterParams = skipBalancedParams(line, afterGeneric)
       val superMatch = SUPERTYPE_AFTER_PARAMS.find(line.substring(afterParams)) ?: continue
       if (superMatch.groupValues[1] in families) out += DeclaredSymbol(name, f.path)
     }
@@ -165,7 +191,11 @@ internal fun findActionImplementers(files: List<SourceFile>, families: Set<Strin
 // ---- Check 1: Route members ----
 
 private val ROUTE_ENUM_DECL = Regex("""enum class Route\s*\{([^}]*)\}""")
-private val ROUTE_ASSIGNMENT = Regex("""(?:=|->)\s*Route\.(\w+)\b""")
+// The `=` alternative must NOT match the trailing `=` of a comparison (`==`, `!=`, `<=`, `>=`) —
+// `state.navigation.route == Route.Feed` (real code in AppShellSelectors.kt/BackNav.kt) is a
+// read, not a production dispatcher; a regex that can't tell the two apart would credit every
+// Route ever merely COMPARED against as "reachable," defeating this check's entire purpose.
+private val ROUTE_ASSIGNMENT = Regex("""(?:(?<![=!<>+\-*/])=(?!=)|->)\s*Route\.(\w+)\b""")
 
 internal fun findRouteMembers(modelFileText: String): List<String> {
   val m = ROUTE_ENUM_DECL.find(modelFileText) ?: return emptyList()
@@ -209,9 +239,20 @@ internal fun findUnreferenced(
 // The recorded exceptions. Every entry must say WHY — a deliberately dark
 // surface, a preview-only route, or a dated pointer to the WI actively wiring
 // it (remove the entry once that WI lands and the guard would pass without it).
+//
+// Three SEPARATE maps, not one shared one: Route names, composable names, and action names are
+// different namespaces that can coincidentally collide (e.g. a Route and an unrelated Action both
+// named the same thing) — a single flat allow-list would let an entry meant to excuse one kind of
+// violation silently also excuse an unrelated one sharing its name, with zero visibility.
 // ---------------------------------------------------------------------------
 
-internal val WIRING_ALLOW_LIST: Map<String, String> = mapOf(
+private const val CALENDAR_CHECK_STAGED_EPIC_NOTE =
+  "ADR 0063 (Calendar Check, still Proposed) — staged incrementally; same posture as the other " +
+    "unwired Calendar Check surfaces in this list, revisit together. "
+
+internal val ROUTE_ALLOW_LIST: Map<String, String> = emptyMap()
+
+internal val COMPOSABLE_ALLOW_LIST: Map<String, String> = mapOf(
   "CalendarSettingsHost" to
     "WI-461 (in review as of 2026-08-10) wires this from Account > On this device. Remove once merged.",
   "CalendarReviewHost" to
@@ -221,17 +262,24 @@ internal val WIRING_ALLOW_LIST: Map<String, String> = mapOf(
       "CalendarImportEngine.eligibleDestinationHubs() plumbing, out of that WI's scope) — a recorded " +
       "decision, not an accident. Revisit when that plumbing lands.",
   "CalendarAlertOverrideHost" to
-    "ADR 0063 (Calendar Check, still Proposed) — its own doc comment says it's opened from a matched " +
-      "review item, and that caller isn't wired yet either. Same staged-epic posture as the Calendar " +
-      "Check hosts above; revisit alongside them.",
+    CALENDAR_CHECK_STAGED_EPIC_NOTE + "Its own doc comment says it's opened from a matched review " +
+      "item, and that caller isn't wired yet either.",
   "CalendarMatchedSummaryScreen" to
-    "ADR 0063 (Calendar Check, still Proposed) — its own doc comment: 'A future WI supplies real " +
-      "values from wherever this screen is entered ... same deferred-nav posture as the rest of this " +
-      "epic pending ADR 0063 acceptance.' Not an accident.",
+    CALENDAR_CHECK_STAGED_EPIC_NOTE + "Its own doc comment: 'A future WI supplies real values from " +
+      "wherever this screen is entered ... same deferred-nav posture as the rest of this epic " +
+      "pending ADR 0063 acceptance.'",
   "CalendarReturnScreen" to
-    "ADR 0063 (Calendar Check, still Proposed) — the native-calendar-handoff return screen (WI-447); " +
-      "not yet mounted anywhere production reaches. Same staged-epic posture as the other Calendar " +
-      "Check surfaces above.",
+    CALENDAR_CHECK_STAGED_EPIC_NOTE + "The native-calendar-handoff return screen (WI-447), not yet " +
+      "mounted anywhere production reaches.",
+)
+
+private const val ROUTINE_PREVIEW_FIXTURE_REASON =
+  "RoutinePreviewAction is a closed, local-only fixture demonstrating the deferred (G1 content-" +
+    "authoring loop) Smart Briefings preview — see RoutineActions.kt's own doc comment. " +
+    "smartBriefingsPreviewActions() doesn't map every declared preview transition yet; no real " +
+    "provider/effect is ever invoked by this family. Found 2026-08-10; low-risk completeness gap."
+
+internal val ACTION_ALLOW_LIST: Map<String, String> = mapOf(
   // --- found by this guard's first real run (2026-08-10) — genuinely orphaned, not yet triaged.
   // Each is either dead code from a superseded path or a real gap; deciding which is a product call
   // outside WI-462's scope (ADR governance: scope/product decisions aren't agent-autonomous). Tracked
@@ -259,12 +307,6 @@ internal val WIRING_ALLOW_LIST: Map<String, String> = mapOf(
   "RoutineProviderReturnCompleted" to ROUTINE_PREVIEW_FIXTURE_REASON,
   "RoutineOfflineChanged" to ROUTINE_PREVIEW_FIXTURE_REASON,
 )
-
-private const val ROUTINE_PREVIEW_FIXTURE_REASON =
-  "RoutinePreviewAction is a closed, local-only fixture demonstrating the deferred (G1 content-" +
-    "authoring loop) Smart Briefings preview — see RoutineActions.kt's own doc comment. " +
-    "smartBriefingsPreviewActions() doesn't map every declared preview transition yet; no real " +
-    "provider/effect is ever invoked by this family. Found 2026-08-10; low-risk completeness gap."
 
 // ---------------------------------------------------------------------------
 // Repo/file-system plumbing for the integration checks below.
@@ -434,6 +476,45 @@ class ReachabilityGuardDetectorTest {
   }
 
   @Test
+  fun aVisibilityModifierBeforeDataClassDoesNotHideTheImplementerFromDiscovery() {
+    // Regression: `internal`/`private` (a common Kotlin idiom this repo already uses for DTOs)
+    // before `data class`/`data object` used to make IMPLEMENTER_DECL_START fail to match at
+    // all — the implementer wasn't flagged as unreferenced, it was never even discovered.
+    val decl = SourceFile(
+      "client/features/foo/FooActions.kt",
+      "sealed interface FooAction : Action\ninternal data class OpenFoo(val id: String) : FooAction",
+    )
+    val families = findActionFamilies(listOf(decl))
+    val declared = findActionImplementers(listOf(decl), families)
+    assertEquals(listOf(DeclaredSymbol("OpenFoo", decl.path)), declared)
+  }
+
+  @Test
+  fun anAnnotatedSingleLineDataClassImplementerIsDiscovered() {
+    val decl = SourceFile(
+      "client/features/foo/FooActions.kt",
+      "sealed interface FooAction : Action\n@Serializable private data class OpenFoo(val id: String) : FooAction",
+    )
+    val families = findActionFamilies(listOf(decl))
+    val declared = findActionImplementers(listOf(decl), families)
+    assertEquals(listOf(DeclaredSymbol("OpenFoo", decl.path)), declared)
+  }
+
+  @Test
+  fun aGenericActionImplementerIsDiscoveredAndItsSupertypeCorrectlyRead() {
+    // Regression: `<T>` between the class name and `(` used to make skipBalancedParams think
+    // there was no parameter list to skip, so the supertype regex ran against `<T>(val
+    // payload: T) : FooAction` instead of `: FooAction` and never matched.
+    val decl = SourceFile(
+      "client/features/foo/FooActions.kt",
+      "sealed interface FooAction : Action\ndata class OpenFoo<T>(val payload: T) : FooAction",
+    )
+    val families = findActionFamilies(listOf(decl))
+    val declared = findActionImplementers(listOf(decl), families)
+    assertEquals(listOf(DeclaredSymbol("OpenFoo", decl.path)), declared)
+  }
+
+  @Test
   fun routeAssignedViaEqualsIsRecognized() {
     val f = SourceFile("client/Reducer.kt", "state.copy(route = Route.Account)")
     assertEquals(setOf("Account"), findRoutesAssignedInProduction(listOf(f)))
@@ -454,6 +535,22 @@ class ReachabilityGuardDetectorTest {
   }
 
   @Test
+  fun aComparisonAgainstARouteIsNotMistakenForAssigningIt() {
+    // Regression: real code (AppShellSelectors.kt, BackNav.kt) reads
+    // `state.navigation.route == Route.Feed`. The trailing "=" of "==" must not satisfy the
+    // assignment regex — a route only ever COMPARED against, never produced, would otherwise
+    // look reachable and the whole check would defeat its own purpose.
+    val f = SourceFile("ui/AppShellSelectors.kt", "val onFeed = state.navigation.route == Route.Feed")
+    assertTrue(findRoutesAssignedInProduction(listOf(f)).isEmpty())
+  }
+
+  @Test
+  fun aNotEqualsComparisonAgainstARouteIsNotMistakenForAssigningIt() {
+    val f = SourceFile("ui/BackNav.kt", "if (state.navigation.route != Route.SmartBriefings) return")
+    assertTrue(findRoutesAssignedInProduction(listOf(f)).isEmpty())
+  }
+
+  @Test
   fun routeMembersParseFromTheEnumDeclaration() {
     val text = "enum class Route { Loading, SignIn, Account }"
     assertEquals(listOf("Loading", "SignIn", "Account"), findRouteMembers(text))
@@ -469,23 +566,32 @@ class ReachabilityGuardTest {
   private val appsRoot = findAppsRoot()
   private val prodFiles = loadProductionSourceFiles(appsRoot)
   private val evidenceFiles = prodFiles.map { it.copy(text = cleanForReferenceScan(it.text)) }
+  private val nonReducerEvidenceFiles = evidenceFiles.filterNot { REDUCER_FILE.containsMatchIn(it.path) }
+
+  private fun assertNoViolations(violations: List<String>, header: String, fixHint: String) {
+    assertTrue(
+      violations.isEmpty(),
+      buildString {
+        appendLine(header)
+        for (v in violations) {
+          appendLine(" - $v")
+          appendLine("   $fixHint")
+        }
+      },
+    )
+  }
 
   @Test
   fun everyHostAndScreenComposableIsCalledFromProductionCode() {
     val declared = findHostScreenDeclarations(prodFiles)
     assertTrue(declared.isNotEmpty(), "found zero *Host/*Screen composables under features/ — the scan is broken")
-    val violations = findUnreferenced(declared, evidenceFiles, WIRING_ALLOW_LIST.keys)
-    assertTrue(
-      violations.isEmpty(),
-      buildString {
-        appendLine("Unreachable composable(s) — declared under features/ with no real call site anywhere in")
-        appendLine("production (only tests, comments, or imports mention them):")
-        for (v in violations) {
-          appendLine(" - ${v.name} (${v.file})")
-          appendLine("   Fix: wire it from a real host/route call site, or add it to WIRING_ALLOW_LIST in")
-          appendLine("   ReachabilityGuardTest.kt with a dated reason (see WI-462).")
-        }
-      },
+    val violations = findUnreferenced(declared, evidenceFiles, COMPOSABLE_ALLOW_LIST.keys)
+    assertNoViolations(
+      violations.map { "${it.name} (${it.file})" },
+      "Unreachable composable(s) — declared under features/ with no real call site anywhere in " +
+        "production (only tests, comments, or imports mention them):",
+      "Fix: wire it from a real host/route call site, or add it to COMPOSABLE_ALLOW_LIST in " +
+        "ReachabilityGuardTest.kt with a dated reason (see WI-462).",
     )
   }
 
@@ -494,20 +600,14 @@ class ReachabilityGuardTest {
     val families = findActionFamilies(prodFiles)
     val declared = findActionImplementers(prodFiles, families)
     assertTrue(declared.isNotEmpty(), "found zero sealed-interface *Action members — the scan is broken")
-    val nonReducerEvidence = evidenceFiles.filterNot { REDUCER_FILE.containsMatchIn(it.path) }
-    val violations = findUnreferenced(declared, nonReducerEvidence, WIRING_ALLOW_LIST.keys)
-    assertTrue(
-      violations.isEmpty(),
-      buildString {
-        appendLine("Unreachable action(s) — declared as a *Action member but never referenced from")
-        appendLine("production code outside their own declaration and their reducer's `is X ->` arm")
-        appendLine("(a reducer arm alone does not dispatch the action — nothing else does):")
-        for (v in violations) {
-          appendLine(" - ${v.name} (${v.file})")
-          appendLine("   Fix: dispatch it from a real UI/command call site, or add it to")
-          appendLine("   WIRING_ALLOW_LIST in ReachabilityGuardTest.kt with a dated reason (see WI-462).")
-        }
-      },
+    val violations = findUnreferenced(declared, nonReducerEvidenceFiles, ACTION_ALLOW_LIST.keys)
+    assertNoViolations(
+      violations.map { "${it.name} (${it.file})" },
+      "Unreachable action(s) — declared as a *Action-family member but has no real call/dispatch " +
+        "site in production outside its own declaration (a reducer's `is X ->` pattern-match, " +
+        "where the family is reducer-driven, does not count as dispatching it):",
+      "Fix: dispatch/construct it from a real UI/command call site, or add it to " +
+        "ACTION_ALLOW_LIST in ReachabilityGuardTest.kt with a dated reason (see WI-462).",
     )
   }
 
@@ -518,18 +618,13 @@ class ReachabilityGuardTest {
     val routes = findRouteMembers(modelFile.text)
     assertTrue(routes.size > 5, "found suspiciously few Route members (${routes.size}) — the scan is broken")
     val assigned = findRoutesAssignedInProduction(evidenceFiles)
-    val violations = routes.filter { it !in assigned && it !in WIRING_ALLOW_LIST.keys }
-    assertTrue(
-      violations.isEmpty(),
-      buildString {
-        appendLine("Route(s) with no production code that ever assigns state.route to them — they exist in")
-        appendLine("the enum and RouteHost can render them, but nothing in production navigates there:")
-        for (v in violations) {
-          appendLine(" - Route.$v")
-          appendLine("   Fix: add the reducer arm that produces this route from a real action, or add it")
-          appendLine("   to WIRING_ALLOW_LIST in ReachabilityGuardTest.kt with a dated reason (see WI-462).")
-        }
-      },
+    val violations = routes.filter { it !in assigned && it !in ROUTE_ALLOW_LIST.keys }
+    assertNoViolations(
+      violations.map { "Route.$it" },
+      "Route(s) with no production code that ever assigns state.route to them — they exist in the " +
+        "enum and RouteHost can render them, but nothing in production navigates there:",
+      "Fix: add the reducer arm that produces this route from a real action, or add it to " +
+        "ROUTE_ALLOW_LIST in ReachabilityGuardTest.kt with a dated reason (see WI-462).",
     )
   }
 }
