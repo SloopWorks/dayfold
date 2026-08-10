@@ -47,3 +47,8 @@ data object ResetLocalMatches : CalendarCheckAction
 
 /** Flips which side owns the generic start-time alert for a matched subject (ADR 0063 §7). Reversible. */
 data class SetNotificationOwner(val subjectKey: String, val owner: CalendarNotificationOwner) : CalendarCheckAction
+
+/** CAL-9 — the platform editor handoff's completion outcome, routed here by CalendarCheckEngine
+ *  from CalendarPort.openEventEditor's onResult callback. The shared action every platform's
+ *  return-state UI reads (Native-Handoff.dc.html §11). */
+data class CalendarEditorReturned(val outcome: CalendarEditorOutcome) : CalendarCheckAction

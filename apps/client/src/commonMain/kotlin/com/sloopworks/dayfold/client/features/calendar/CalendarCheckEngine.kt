@@ -138,8 +138,20 @@ class CalendarCheckEngine(
   /** WI-447 primer "Continue" — fires the OS permission prompt seam (no result promise). */
   fun requestPermission() { calendarPort.requestPermission() }
 
-  /** WI-447 native handoff — fires the native event editor. UI/host owns the prefill data. */
-  fun openEventEditor(prefill: EventPrefill) { calendarPort.openEventEditor(prefill) }
+  /** WI-447 native handoff — fires the native event editor. UI/host owns the prefill data.
+   *  CAL-9 — routes the platform's completion outcome (when it can reliably report one) into the
+   *  shared CalendarEditorReturned action. A SAVED outcome with calendar access already granted
+   *  also kicks off a fresh check in the background: the delegate result alone is honest enough to
+   *  claim "added" immediately, but a real binding (with the platform event id) still needs a pass
+   *  over observeEvents. */
+  fun openEventEditor(prefill: EventPrefill) {
+    calendarPort.openEventEditor(prefill) { outcome ->
+      store.dispatch(CalendarEditorReturned(outcome))
+      if (outcome == CalendarEditorOutcome.SAVED && calendarPort.permissionState() == CalendarPermission.Granted) {
+        startCheck()
+      }
+    }
+  }
 
   /** WI-447 Settings on/off toggle. Fire-and-forget, mirrors [startCheck]. */
   fun setEnabled(enabled: Boolean) {

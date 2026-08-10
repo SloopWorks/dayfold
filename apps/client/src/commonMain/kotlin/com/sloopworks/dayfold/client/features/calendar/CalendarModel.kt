@@ -93,6 +93,9 @@ data class CalendarCheckState(
   val ignoreHistory: List<String> = emptyList(),
   val notificationOwnerOverrides: Map<String, CalendarNotificationOwner> = emptyMap(),
   val pendingWrites: List<PendingFieldWrite> = emptyList(),
+  // CAL-9 — the most recent platform editor handoff's completion outcome (Native-Handoff.dc.html
+  // §11 return states). Set by CalendarEditorReturned; replaced by the next editor session.
+  val editorReturn: CalendarEditorOutcome? = null,
 )
 
 // WI-447 (ADR 0063 §1) — the chooser's candidate list: calendars this device exposes, re-read

@@ -29,8 +29,14 @@ class CalendarCheckEngineTest {
       return observations
     }
     override suspend fun listCalendars(): List<DeviceCalendar> = emptyList()
-    override fun permissionState(): CalendarPermission = permission
-    override fun openEventEditor(prefill: EventPrefill) {}
+    var permissionStateCallCount = 0
+    override fun permissionState(): CalendarPermission { permissionStateCallCount++; return permission }
+    var lastEditorPrefill: EventPrefill? = null
+    var lastEditorOnResult: ((CalendarEditorOutcome) -> Unit)? = null
+    override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {
+      lastEditorPrefill = prefill
+      lastEditorOnResult = onResult
+    }
     var requestPermissionCallCount = 0
     override fun requestPermission() { requestPermissionCallCount++ }
   }
@@ -253,5 +259,32 @@ class CalendarCheckEngineTest {
 
     assertTrue(h.store.state.calendar.check.results.dayfoldOnly.isEmpty(), "the out-of-horizon candidate must not surface as a gap")
     assertTrue(h.contentStore.allCalendarBindings().isEmpty())
+  }
+
+  // ── CAL-9 — the editor handoff's return-state routing ──
+
+  private fun prefill() = EventPrefill("Ski trip", "2026-07-10T09:00:00Z", null, false, "UTC")
+
+  @Test fun `openEventEditor routes a saved outcome into the shared action and checks permission to start a fresh check`() = runBlocking {
+    val port = FakeCalendarPort(permission = CalendarPermission.Granted)
+    val h = Harness(port)
+
+    h.engine.openEventEditor(prefill())
+    assertEquals(prefill(), port.lastEditorPrefill)
+    port.lastEditorOnResult!!.invoke(CalendarEditorOutcome.SAVED)
+
+    assertEquals(CalendarEditorOutcome.SAVED, h.store.state.calendar.check.editorReturn)
+    assertEquals(1, port.permissionStateCallCount)
+  }
+
+  @Test fun `openEventEditor routes a canceled outcome into the shared action without checking permission`() = runBlocking {
+    val port = FakeCalendarPort(permission = CalendarPermission.Granted)
+    val h = Harness(port)
+
+    h.engine.openEventEditor(prefill())
+    port.lastEditorOnResult!!.invoke(CalendarEditorOutcome.CANCELED)
+
+    assertEquals(CalendarEditorOutcome.CANCELED, h.store.state.calendar.check.editorReturn)
+    assertEquals(0, port.permissionStateCallCount)
   }
 }

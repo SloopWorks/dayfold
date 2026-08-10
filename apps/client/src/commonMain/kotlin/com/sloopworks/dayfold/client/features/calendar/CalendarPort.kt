@@ -31,9 +31,21 @@ data class EventPrefill(
   val location: CandidateLocation? = null,
   // CAL-8 — the candidate's own deep-link target, folded into the editor's description (short
   // note + link back to the Hub) so a saved event can point back to Dayfold. Null candidates
-  // (e.g. a bare card with no hub target) simply get no link line.
+  // (e.g. a bare card with no hub target) simply get no link line. Android's ACTION_INSERT
+  // adapter reads this to build the description extra; iOS's EventKitUI adapter has no
+  // description field to set directly (see [notes]).
   val deepLink: DeepLinkTarget? = null,
+  // Optional short note the caller may prefill (e.g. a plain-text pointer back to the source
+  // Hub). No caller populates this yet — CalendarSelectors.toEventPrefill() leaves it null; the
+  // adapter's job is only to plumb whatever is here into the editor's notes field.
+  val notes: String? = null,
 )
+
+// The iOS EKEventEditViewController delegate's completion action (RELIABLE on iOS — unlike
+// Android's ACTION_INSERT handoff, which cannot promise a result at all). Shared across platforms
+// so CalendarCheckEngine's routing stays one code path even though Android's adapter (a later WI)
+// may never be able to report SAVED/DELETED and will just not call back.
+enum class CalendarEditorOutcome { SAVED, CANCELED, DELETED }
 
 // One observed platform calendar event (ADR 0063 §3), bounded + in-memory only — never persisted
 // raw. Strictly typed-field-only, mirroring DayfoldEventCandidate's discipline in the other
@@ -64,8 +76,10 @@ interface CalendarPort {
   /** Current OS calendar-access authorization. Re-queried, never DB-cached (mirrors LocationPermissionController). */
   fun permissionState(): CalendarPermission
 
-  /** Fire the native event editor prefilled from [prefill]. No result promise — return handling is a later WI. */
-  fun openEventEditor(prefill: EventPrefill)
+  /** Fire the native event editor prefilled from [prefill]. [onResult] carries the platform's
+   *  completion outcome when the platform can reliably report one (iOS EventKitUI's delegate
+   *  always calls back; a future Android ACTION_INSERT adapter may never invoke it). */
+  fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit = {})
 
   /** Fire the OS calendar-access permission prompt (WI-447 primer "Continue"). Real Android/iOS
    *  prompts are a later platform WI; this seam exists now so the primer has something to call. */
@@ -78,6 +92,6 @@ object NoOpCalendarPort : CalendarPort {
   override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int): List<CalendarEventObservation> = emptyList()
   override suspend fun listCalendars(): List<DeviceCalendar> = emptyList()
   override fun permissionState(): CalendarPermission = CalendarPermission.Unavailable
-  override fun openEventEditor(prefill: EventPrefill) {}
+  override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) = onResult(CalendarEditorOutcome.CANCELED)
   override fun requestPermission() {}
 }

@@ -209,4 +209,15 @@ class CalendarCheckReducerTest {
     assertEquals(settings, next.calendar.settings)
     assertEquals(CalendarCheckState(), next.calendar.check)
   }
+
+  @Test fun `CalendarEditorReturned records the editor's completion outcome`() {
+    val next = rootReducer(AppState(), CalendarEditorReturned(CalendarEditorOutcome.SAVED))
+    assertEquals(CalendarEditorOutcome.SAVED, next.calendar.check.editorReturn)
+  }
+
+  @Test fun `CalendarEditorReturned replaces a prior outcome on the next editor session`() {
+    val saved = rootReducer(AppState(), CalendarEditorReturned(CalendarEditorOutcome.SAVED))
+    val next = rootReducer(saved, CalendarEditorReturned(CalendarEditorOutcome.CANCELED))
+    assertEquals(CalendarEditorOutcome.CANCELED, next.calendar.check.editorReturn)
+  }
 }
