@@ -7,6 +7,27 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-10 — Calendar Check follow-up fixes (WI-463)
+
+### Fixed
+- **A calendar-bound authored card's own start alert can now actually be
+  suppressed.** An authored card (e.g. a Claude-authored reminder) whose
+  `when.at` trigger matched and got bound to a real calendar event previously
+  still fired Dayfold's own duplicate start-time notification — the ADR 0063
+  §7 "hand the alert to Calendar" suppression only ever looked at the
+  derived-lane reasonKinds, which an authored item's reasonKind (its
+  provenance — weather/email/claude/external) can never be.
+- **A device's notification-owner override now survives a binding re-bind.**
+  If the linked calendar event was deleted and recreated with a new platform
+  event id, re-matching the pair used to silently reset "let Dayfold notify
+  instead" back to Calendar-owned — a member's explicit choice getting undone
+  without them touching anything.
+- **The Calendar Check all-clear/stale footer and aggregate review card can
+  now actually render in the Now feed** — `FeedScreen` never threaded
+  `state.calendar` into the view the ranker reads, and its empty-feed gate
+  didn't count the footer as content, so both stayed dark even once a check
+  had run.
+
 ## 2026-08-09 — Calendar Check (device-local calendar reconciliation)
 
 ### Added

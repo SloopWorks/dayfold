@@ -65,6 +65,21 @@ data class NowItem(
   // to 3 preview rows. Null/empty for every other reasonKind.
   val calendarCheckCount: Int? = null,
   val calendarCheckPreviews: List<CalendarCheckPreview> = emptyList(),
+  // ADR 0063 §7 — true when this item's triggerAtIso represents "this event starts", the generic
+  // alert a matched calendar event's own native alert would duplicate. The derived lane expresses
+  // this via reasonKind (EVENT_START_REASON_KINDS in NowNotify.kt); an AUTHORED card's reasonKind
+  // is always its provenance (weather/email/claude/external), which can never land in that set, so
+  // an authored when-trigger card needs this separate flag to be calendar-suppressible the same way.
+  // Harmless when the subject never becomes calendar-bound: NowNotify only consults this flag for
+  // subjects already in calendarOwnedSubjects.
+  // KNOWN LIMITATION (WI-463 follow-up): calendarOwnedSubjects is a subjectKey SET, not a per-
+  // trigger identity — if a second card deep-links to the SAME node as a calendar-bound block/card
+  // (subjectKeyFor collapses onto the shared hub/section/block) and also happens to carry its own
+  // unrelated when-trigger, it is suppressed too, even though its trigger is not the one the
+  // reconciler actually bound. Narrower than "this exact trigger produced the bound candidate"
+  // would require threading candidate/trigger identity through calendarOwnedSubjects — left as a
+  // follow-up (same class of gap as the WI-445 review that spawned this fix).
+  val isEventStartAlert: Boolean = false,
 )
 
 // One preview row on the aggregate Calendar Check Now unit — a title plus which reconciliation

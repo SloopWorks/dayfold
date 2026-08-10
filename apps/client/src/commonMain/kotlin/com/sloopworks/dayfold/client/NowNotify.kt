@@ -114,7 +114,15 @@ private fun notifiableItem(r: RankedItem, calendarOwnedSubjects: Set<String>): N
 
 private fun isNotificationEligible(item: NowItem, calendarOwnedSubjects: Set<String>): Boolean =
   item.reasonKind != ReasonKind.CALENDAR_CHECK &&
-    (item.subjectKey !in calendarOwnedSubjects || item.reasonKind !in EVENT_START_REASON_KINDS)
+    (item.subjectKey !in calendarOwnedSubjects || !isEventStartCandidate(item))
+
+// The derived lane signals "this event starts" via reasonKind (EVENT_START_REASON_KINDS); the
+// authored lane has no spare reasonKind slot for it (reasonKind there IS the provenance), so it
+// carries the same signal on isEventStartAlert instead (WI-463 follow-up on ADR 0063 §7).
+// internal, not private: BackgroundNotify.kt's planExactSchedules reuses this exact predicate so
+// the exact-alarm suppression and the foreground/background notify suppression can never drift apart.
+internal fun isEventStartCandidate(item: NowItem): Boolean =
+  item.reasonKind in EVENT_START_REASON_KINDS || item.isEventStartAlert
 
 // Wrap-aware: a window with start > end (e.g. 22:00→08:00) spans midnight. End-exclusive.
 fun inQuietHours(minuteOfDay: Int, config: NotifConfig): Boolean {

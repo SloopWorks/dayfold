@@ -44,6 +44,39 @@ class NowFeedTest {
     assertEquals("2026-07-08T09:00:00-07:00", cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z).triggerAtIso)
   }
 
+  // WI-463 follow-up on WI-445 — cardToNowItem's reasonKind is always the card's provenance
+  // (weather/email/claude/external), never one of EVENT_START_REASON_KINDS, so a calendar-bound
+  // authored when.at card needs isEventStartAlert to be suppressible via NowNotify's filter at all.
+  @Test fun `cardToNowItem flags isEventStartAlert when a future when-trigger anchors the item`() {
+    val z = TimeZone.currentSystemDefault()
+    val card = Card(id = "c1", kind = "action", title = "Soccer practice", provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-08T10:00:00-07:00"))))
+    assertTrue(cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z).isEventStartAlert)
+  }
+
+  @Test fun `cardToNowItem does not flag isEventStartAlert when anchored on not_before alone`() {
+    val z = TimeZone.currentSystemDefault()
+    val card = Card(id = "c1", kind = "info", title = "X", provenance = Provenance("user"),
+      notBefore = "2026-07-08T09:00:00-07:00")
+    assertEquals(false, cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z).isEventStartAlert)
+  }
+
+  // deriveEventCandidates (CalendarCandidates.kt) binds a card's DayfoldEventCandidate on the
+  // FIRST when-trigger (firstNotNullOfOrNull), not the soonest-FUTURE one whenAnchor picks — a
+  // card whose only/first when-trigger has already elapsed can still be the trigger a real
+  // calendar event got auto-bound from. isEventStartAlert must track "any when trigger present",
+  // not "a future one anchors the item", or that subject's suppression silently breaks.
+  @Test fun `cardToNowItem flags isEventStartAlert for an elapsed when-trigger too`() {
+    val z = TimeZone.currentSystemDefault()
+    val card = Card(id = "c1", kind = "action", title = "Soccer practice", provenance = Provenance("claude"),
+      notBefore = "2026-07-09T09:00:00-07:00", // still future, so triggerAtIso falls back to this
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-01T10:00:00-07:00"))) // elapsed
+    )
+    val item = cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z)
+    assertEquals("2026-07-09T09:00:00-07:00", item.triggerAtIso) // anchored on not_before, not the elapsed trigger
+    assertTrue(item.isEventStartAlert)
+  }
+
   @Test fun `authoredGeoItems emits a distinct-id NOW item inside an inline-coord radius`() {
     val card = geoCard("c1", TriggerGeo(lat = 47.7601, lng = -122.6610, radiusM = 800, label = "Firestone Poulsbo"))
     val items = authoredGeoItems(listOf(card), emptyList(), DeviceLocation(47.7605, -122.6612), DeriveConfig(), placeRefOnly = false)

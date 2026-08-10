@@ -66,7 +66,11 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
   // now/timeZone default to the live clock; snapshot renders pin them so goldens are date-stable.
   // Ranking is intentionally memoized here rather than run in selectorState: selectors execute
   // on every store notification, including unrelated features. The ranker remains a pure function.
-  val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing) {
+  // Keyed on the two calendar sub-slices nowFeed's calendarCheckDisplay actually reads (check +
+  // settings.lastCheckAt), not the whole CalendarState — WI-463 follow-up: keying on state.calendar
+  // wholesale would force a full re-rank on every CAL-10 import-wizard step / device-calendar-list
+  // refresh, neither of which affects ranking output.
+  val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing, state.calendar.check, state.calendar.settings.lastCheckAt) {
     state.rankingState()
   }
   val nowFeedRanked = remember(rankingState, now, location, timeZone) {
@@ -78,7 +82,9 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
   // NowEngine debounces + starts each subject's decay clock once (so anti-nag softening engages).
   val visibleSubjects = nowFeedRanked.visibleSubjectKeys()
   LaunchedEffect(visibleSubjects) { if (visibleSubjects.isNotEmpty()) onShown(visibleSubjects) }
-  val hasNowContent = nowFeedRanked.run { this.now.isNotEmpty() || soon.isNotEmpty() || later.isNotEmpty() || overflow.isNotEmpty() }
+  // calendarCheckFooter (ADR 0063 §5, WI-463 follow-up on WI-445) must count as content too — an
+  // otherwise-empty feed with an all-clear/stale footer to show is NOT the zero-content case.
+  val hasNowContent = nowFeedRanked.run { this.now.isNotEmpty() || soon.isNotEmpty() || later.isNotEmpty() || overflow.isNotEmpty() || calendarCheckFooter != null }
   val cardsById = remember(state.cards) { state.cards.associateBy { it.id } }
   Scaffold(
     topBar = {

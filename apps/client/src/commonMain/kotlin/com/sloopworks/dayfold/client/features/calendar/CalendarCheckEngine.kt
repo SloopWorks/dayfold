@@ -99,6 +99,11 @@ class CalendarCheckEngine(
     val (candidate, obs) = pair
     val nowIso = nowProvider()
     withContext(databaseDispatcher) {
+      // WI-463 follow-up on WI-445 — this user-confirmed bind can still be a RE-bind of a subject
+      // that had a prior binding row (e.g. the linked event was deleted/recreated with a new
+      // platformEventId). Preserve any prior SetNotificationOwner override instead of silently
+      // resetting it to CALENDAR; only a subject with no prior binding at all defaults to CALENDAR.
+      val priorOwner = contentStore.calendarBindingBySubjectKey(candidate.subjectKey)?.notificationOwner
       contentStore.upsertCalendarBinding(
         CalendarBinding(
           subjectKey = candidate.subjectKey,
@@ -108,7 +113,7 @@ class CalendarCheckEngine(
           fingerprint = fingerprintOfObservation(obs),
           lastSeenAt = nowIso,
           relation = CalendarRelation.MATCHED,
-          notificationOwner = CalendarNotificationOwner.CALENDAR,
+          notificationOwner = priorOwner ?: CalendarNotificationOwner.CALENDAR,
           reviewState = null,
           createdAt = nowIso,
           updatedAt = nowIso,

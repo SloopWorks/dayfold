@@ -215,6 +215,9 @@ private fun WhyChip(item: NowItem, onClick: () -> Unit = {}) {
     ReasonKind.WEATHER -> "Weather"
     ReasonKind.EMAIL -> "From your email"
     ReasonKind.CLAUDE -> "Added by Claude"
+    // ADR 0063 §5 — defensive: the aggregate unit gets its own dedicated card (RenderItem), never
+    // this generic chip, but a CALENDAR_CHECK item reaching here must never mislabel as AI-authored.
+    ReasonKind.CALENDAR_CHECK -> "On your device"
     else -> "Added by Claude"
   }
   val icon = when (item.reasonKind) {
