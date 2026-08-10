@@ -107,6 +107,17 @@ data class BlockPayload (
     val date: String? = null,
 
     /**
+     * ADR 0063 §6 CAL-10 — additive optional (OD-4); an instant or a bare YYYY-MM-DD, matching
+     * `date`'s own convention
+     */
+    val end: String? = null,
+
+    /**
+     * ADR 0063 §6 CAL-10 — additive optional (OD-4); IANA zone id
+     */
+    val tz: String? = null,
+
+    /**
      * decorative-only accent seed (ADR 0036)
      */
     val accentColor: String? = null,

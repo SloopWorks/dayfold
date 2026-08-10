@@ -52,7 +52,7 @@ export type ChecklistPayload = z.infer<typeof ChecklistPayloadSchema>;
 export const DocumentPayloadSchema = z.object({ "ref": z.string().describe("url | fileRef (links+small refs at MVP)"), "label": z.string().optional(), "kind": z.string().optional(), "thumbnailUrl": z.string().url().max(2048).describe("document preview image; https + allowlisted host (ADR 0036)").optional(), "thumbnailAlt": z.string().max(256).describe("a11y alt for thumbnailUrl").optional() }).strict()
 export type DocumentPayload = z.infer<typeof DocumentPayloadSchema>;
 
-export const MilestonePayloadSchema = z.object({ "date": z.any(), "label": z.string(), "end": z.any().optional(), "tz": z.string().optional() }).strict()
+export const MilestonePayloadSchema = z.object({ "date": z.any(), "label": z.string(), "end": z.any().describe("ADR 0063 §6 CAL-10 — additive optional (OD-4); an instant or a bare YYYY-MM-DD, matching `date`'s own convention").optional(), "tz": z.string().describe("ADR 0063 §6 CAL-10 — additive optional (OD-4); IANA zone id").optional() }).strict()
 export type MilestonePayload = z.infer<typeof MilestonePayloadSchema>;
 
 export const ContactPayloadSchema = z.object({ "name": z.string(), "role": z.string().optional(), "phone": z.string().optional(), "email": z.string().optional(), "avatarUrl": z.string().url().max(2048).describe("contact avatar photo; https + allowlisted host (ADR 0036); falls back to initials").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed (ADR 0036)").optional() }).strict()
