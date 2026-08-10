@@ -46,10 +46,11 @@ class CalendarReconcilerTest {
     calendarId: String? = "cal-1",
     fingerprint: String? = "stale-fp",
     relation: CalendarRelation = CalendarRelation.MATCHED,
+    notificationOwner: CalendarNotificationOwner = CalendarNotificationOwner.CALENDAR,
   ) = CalendarBinding(
     subjectKey = subjectKey, sourceVersion = sourceVersion, platformEventId = platformEventId, calendarId = calendarId,
     fingerprint = fingerprint, lastSeenAt = "2026-08-01T00:00:00Z", relation = relation,
-    notificationOwner = CalendarNotificationOwner.CALENDAR, reviewState = null,
+    notificationOwner = notificationOwner, reviewState = null,
     createdAt = "2026-08-01T00:00:00Z", updatedAt = "2026-08-01T00:00:00Z",
   )
 
@@ -106,6 +107,28 @@ class CalendarReconcilerTest {
     assertTrue(result.dayfoldOnly.isEmpty())
     assertTrue(result.calendarOnly.isEmpty())
     assertTrue(result.ambiguous.isEmpty())
+  }
+
+  // WI-463 follow-up on WI-445 — the linked event was deleted/recreated with a new platformEventId,
+  // so rung a's still-valid-binding path falls through and this re-bind happens via rung b instead.
+  // A prior SetNotificationOwner(DAYFOLD) override on the stale binding must survive the re-bind.
+  @Test fun `rung b re-bind preserves a prior notificationOwner override, not a silent reset to CALENDAR`() {
+    val c = candidate()
+    val obs = observation(platformEventId = "evt-2") // new platform event id — rung a's binding no longer resolves
+    val staleBinding = binding(platformEventId = "gone-evt", notificationOwner = CalendarNotificationOwner.DAYFOLD)
+    val result = CalendarReconciler.reconcile(listOf(c), listOf(obs), listOf(staleBinding), now)
+
+    val bound = result.autoBindings.single()
+    assertEquals("evt-2", bound.platformEventId)
+    assertEquals(CalendarNotificationOwner.DAYFOLD, bound.notificationOwner)
+  }
+
+  @Test fun `rung b fresh bind with no prior binding defaults notificationOwner to CALENDAR`() {
+    val c = candidate()
+    val obs = observation()
+    val result = CalendarReconciler.reconcile(listOf(c), listOf(obs), emptyList(), now)
+
+    assertEquals(CalendarNotificationOwner.CALENDAR, result.autoBindings.single().notificationOwner)
   }
 
   @Test fun `multiple strict fingerprint hits are ambiguous, never auto-bound`() {

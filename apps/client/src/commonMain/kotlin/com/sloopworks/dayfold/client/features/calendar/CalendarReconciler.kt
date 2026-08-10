@@ -84,7 +84,12 @@ object CalendarReconciler {
               fingerprint = cfp,
               lastSeenAt = nowIso,
               relation = CalendarRelation.MATCHED,
-              notificationOwner = CalendarNotificationOwner.CALENDAR,
+              // WI-463 follow-up on WI-445 — this "fresh bind" can still be a RE-bind of a subject
+              // that had a prior binding row (e.g. the linked event was deleted/recreated with a new
+              // platformEventId, so rung a's still-valid-binding path fell through to here). Preserve
+              // any prior SetNotificationOwner override instead of silently resetting it to CALENDAR;
+              // only a subject with no prior binding at all defaults to CALENDAR (ADR 0063 §7).
+              notificationOwner = bindingBySubject[c.subjectKey]?.notificationOwner ?: CalendarNotificationOwner.CALENDAR,
               reviewState = null,
               createdAt = nowIso,
               updatedAt = nowIso,

@@ -156,6 +156,12 @@ fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone
     // importance is clamped to the engine cap here too (defense-in-depth; rank also clamps).
     weight = card.importance?.coerceIn(0.0, config.importanceCap) ?: DEFAULT_AUTHORED_WEIGHT,
     authoredSource = card.provenance?.source,
+    // ADR 0063 §7 (WI-463 follow-up) — a when.at trigger is exactly the field deriveEventCandidates
+    // builds a DayfoldEventCandidate from (CalendarCandidates.kt: firstNotNullOfOrNull, NOT the
+    // soonest-future one whenAnchor above picks) — so this checks for ANY when trigger, not just a
+    // future one, to stay aligned with which trigger can actually become calendar-bound. NowNotify
+    // only acts on this when the subjectKey is confirmed calendar-owned, so it's safe either way.
+    isEventStartAlert = card.triggers?.any { it.whenTrigger != null } == true,
   )
 }
 

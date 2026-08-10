@@ -18,11 +18,12 @@ class NowNotifyTest {
 
   private fun item(
     id: String, subject: String = id, geo: Boolean = false, hub: String? = null, block: String? = null,
-    reasonKind: String = ReasonKind.WHEN,
+    reasonKind: String = ReasonKind.WHEN, origin: Origin = Origin.DERIVED, isEventStartAlert: Boolean = false,
   ) =
     NowItem(
-      id = id, origin = Origin.DERIVED, reasonKind = reasonKind, title = id, why = id,
+      id = id, origin = origin, reasonKind = reasonKind, title = id, why = id,
       subjectKey = subject, target = hub?.let { DeepLinkTarget(it, blockId = block) }, geoActive = geo,
+      isEventStartAlert = isEventStartAlert,
     )
 
   private fun feed(now: List<NowItem> = emptyList(), soon: List<NowItem> = emptyList()) =
@@ -160,6 +161,42 @@ class NowNotifyTest {
       calendarOwnedSubjects = setOf("hub:h1"),
     )
     assertEquals(listOf("other"), plan.toPost.map { it.id })
+  }
+
+  // WI-463 follow-up on WI-445 — an AUTHORED card's reasonKind is always its provenance
+  // (weather/email/claude/external), never one of EVENT_START_REASON_KINDS, so a calendar-bound
+  // authored when.at card relied on isEventStartAlert (cardToNowItem) to be suppressible at all.
+  @Test fun `an authored card flagged isEventStartAlert is suppressed for a calendar-owned subject`() {
+    val plan = selectNotifications(
+      feed(now = listOf(
+        item("authored:c1", subject = "hub:h1", reasonKind = ReasonKind.CLAUDE, origin = Origin.AUTHORED, isEventStartAlert = true),
+      )),
+      noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertTrue(plan.toPost.isEmpty())
+  }
+
+  @Test fun `an authored card without isEventStartAlert still posts for a calendar-owned subject`() {
+    val plan = selectNotifications(
+      feed(now = listOf(
+        item("authored:c2", subject = "hub:h1", reasonKind = ReasonKind.EMAIL, origin = Origin.AUTHORED, isEventStartAlert = false),
+      )),
+      noon, zone, on,
+      calendarOwnedSubjects = setOf("hub:h1"),
+    )
+    assertEquals(listOf("authored:c2"), plan.toPost.map { it.id })
+  }
+
+  @Test fun `an authored isEventStartAlert card for a NOT calendar-owned subject still posts`() {
+    val plan = selectNotifications(
+      feed(now = listOf(
+        item("authored:c3", subject = "hub:h1", reasonKind = ReasonKind.CLAUDE, origin = Origin.AUTHORED, isEventStartAlert = true),
+      )),
+      noon, zone, on,
+      calendarOwnedSubjects = emptySet(),
+    )
+    assertEquals(listOf("authored:c3"), plan.toPost.map { it.id })
   }
 
   @Test fun `the CALENDAR_CHECK aggregate is never an OS-notification candidate, calendar-owned or not`() {

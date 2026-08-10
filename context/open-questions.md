@@ -93,6 +93,28 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-calendar-suppression-subjectkey-granularity** — *opened 2026-08-10, WI-463
+  independent review.* `NowNotify.isEventStartCandidate`'s `isEventStartAlert` flag
+  (WI-463, ADR 0063 §7) is set per-card ("does this card have a when-trigger") but
+  consumed per-subjectKey via `calendarOwnedSubjects` (a `Set<String>`, no per-trigger
+  identity). If a second authored card deep-links to the same hub/section/block as a
+  calendar-bound block/card (`subjectKeyFor` collapses onto the shared node) and also
+  carries its own unrelated when-trigger, it is suppressed too, even though its trigger
+  is not the one the reconciler actually bound. Closing this precisely needs candidate/
+  trigger identity threaded through `calendarOwnedSubjects`, not just a subjectKey set —
+  a larger change than the WI-463 fix scope. Narrow edge case (requires two content
+  items to intentionally target the exact same node, each with its own when-trigger);
+  documented at `NowItem.isEventStartAlert`'s declaration (`NowDerive.kt`).
+- **OQ-feedscreen-rankingstate-remember-key** — *opened 2026-08-10, WI-463 independent
+  review.* `FeedScreen.kt`'s `remember(...)` key for `rankingState` omits
+  `state.responseRules`/`state.viewerUserId`, both of which `FeedViewState
+  .rankingState()` (`ContentSelectors.kt`) folds into the ranked `AppState`. A mute/
+  response action that changes only `state.responses.rules` (no card/hub/nowContent/
+  surfacing/calendar change) is silently ignored by the memoized ranking until an
+  unrelated field forces a recompute — the just-muted item can keep rendering/
+  notifying. Pre-existing (not introduced by WI-463, which only added the calendar
+  sub-slices to this same key) — flagged for a follow-up WI rather than fixed here to
+  keep WI-463 scoped to its three named review findings.
 - **OQ-response-subjectref-stability** — *opened 2026-08-08 by ADR 0064 (Accepted).* The
   suppression key is now load-bearing in a way it wasn't as a dedup key. If extraction mints a
   **different** `subjectRef` for the same source across runs, Mark done silently stops working:

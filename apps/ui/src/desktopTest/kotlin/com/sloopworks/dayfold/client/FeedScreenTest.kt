@@ -110,6 +110,17 @@ class FeedScreenTest {
     assertTrue(retried)                                        // retry triggers a re-sync
   }
 
+  // WI-463 follow-up on WI-445 — hasNowContent didn't account for calendarCheckFooter: an
+  // otherwise-empty feed with an all-clear/stale line to show rendered the onboarding null-state
+  // instead, hiding the footer entirely.
+  @Test
+  fun calendarCheckFooterAloneCountsAsContentNotTheEmptyState() = runComposeUiTest {
+    val state = AppState(calendar = CalendarState(settings = CalendarSettings(lastCheckAt = "2026-08-09T09:32:00Z")))
+    setContent { MaterialTheme { FeedScreen(state) } }
+    onNodeWithText("Your family space is ready").assertDoesNotExist()
+    onNodeWithText("Calendar check: all clear", substring = true).assertIsDisplayed()
+  }
+
   @Test
   fun caughtUpHubsPillNavigatesToHubs() = runComposeUiTest {
     // #164: the caught-up state's quiet forward path must actually navigate to Hubs, not

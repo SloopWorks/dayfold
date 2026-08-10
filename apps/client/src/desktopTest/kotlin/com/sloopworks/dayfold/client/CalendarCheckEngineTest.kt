@@ -177,6 +177,31 @@ class CalendarCheckEngineTest {
     assertTrue(h.store.state.calendar.check.results.suggested.isEmpty())
   }
 
+  // WI-463 follow-up on WI-445 — the linked event was deleted/recreated with a new platformEventId
+  // (surfacing as a suggested match again instead of a still-valid binding), so this confirm is a
+  // RE-bind of a subject that already had a binding row. A prior SetNotificationOwner(DAYFOLD)
+  // override on that stale row must survive, not be silently reset to CALENDAR.
+  @Test fun `confirmMatch on a re-bind preserves a prior notificationOwner override`() = runBlocking {
+    val c = DayfoldEventCandidate("hub:h1", "Ski trip to Tahoe", "2026-07-10T09:00:00Z", null, false, "UTC", null, "v1", null)
+    val obs = CalendarEventObservation("evt-2", "cal-a", "Ski Trip Tahoe", "2026-07-10T09:00:00Z", null, false, "UTC", null, false, null)
+    val initial = AppState(calendar = CalendarState(check = CalendarCheckState(results = ReconcileResult(suggested = listOf(SuggestedMatch(c, obs, listOf("same start time")))))))
+    val h = Harness(FakeCalendarPort(), initial)
+    h.contentStore.upsertCalendarBinding(
+      CalendarBinding(
+        subjectKey = "hub:h1", sourceVersion = "v1", platformEventId = "gone-evt", calendarId = "cal-a",
+        fingerprint = "stale-fp", lastSeenAt = "2026-08-01T00:00:00Z", relation = CalendarRelation.MATCHED,
+        notificationOwner = CalendarNotificationOwner.DAYFOLD, reviewState = null,
+        createdAt = "2026-08-01T00:00:00Z", updatedAt = "2026-08-01T00:00:00Z",
+      ),
+    )
+
+    h.engine.confirmMatch("hub:h1", "evt-2")
+
+    val bound = h.contentStore.calendarBindingBySubjectKey("hub:h1")
+    assertEquals("evt-2", bound?.platformEventId)
+    assertEquals(CalendarNotificationOwner.DAYFOLD, bound?.notificationOwner)
+  }
+
   @Test fun `confirmMatch on a stale pair (already superseded by a fresh check) writes nothing and does not dispatch`() = runBlocking {
     // Simulates a race: the UI still holds a suggested pair from a prior CalendarCheckCompleted,
     // but a newer pass has already replaced state.calendar.check.results without it.

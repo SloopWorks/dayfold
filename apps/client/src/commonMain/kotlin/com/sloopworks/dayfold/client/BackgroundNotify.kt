@@ -224,8 +224,11 @@ fun planExactSchedules(
     snapshot.responses,
     snapshot.viewerUserId,
   )
+  // ADR 0063 §7 (WI-463 follow-up) — reuses NowNotify.kt's isEventStartCandidate (the exact same
+  // predicate selectNotifications applies) so the exact-alarm and foreground/background notify
+  // paths can never silently diverge on which items count as a calendar-suppressible event start.
   val calendarSuppressed = responseSuppressed.filterNot {
-    it.subjectKey in snapshot.calendarOwnedSubjects && it.reasonKind in EVENT_START_REASON_KINDS
+    it.subjectKey in snapshot.calendarOwnedSubjects && isEventStartCandidate(it)
   }
 
   // keep the soonest future trigger per subject, within the horizon.

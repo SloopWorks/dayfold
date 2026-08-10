@@ -83,4 +83,18 @@ class ExactScheduleTest {
 
     assertEquals(listOf("tomorrow-1"), selected.map { it.spec.subjectKey })
   }
+
+  // WI-463 follow-up on WI-445 — an authored card's own when.at trigger must be suppressible via
+  // calendarOwnedSubjects too (isEventStartAlert), the same as it is in selectNotifications.
+  @Test fun `a calendar-owned authored when-trigger card is not armed`() {
+    val whenCard = Card(
+      id = "c1", title = "Soccer practice", bodyMd = "why", provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T14:00:00Z"))),
+    )
+    val schedules = planExactSchedules(
+      NotifSnapshot(cards = listOf(whenCard), config = NotifConfig(enabled = true), calendarOwnedSubjects = setOf("card:c1")),
+      noon, zone,
+    )
+    assertTrue(schedules.isEmpty())
+  }
 }
