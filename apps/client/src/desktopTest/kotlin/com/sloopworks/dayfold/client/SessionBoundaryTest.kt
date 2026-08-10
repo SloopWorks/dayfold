@@ -7,13 +7,18 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /** Deterministic identity-boundary races spanning AuthEngine and SessionCoordinator. */
 class SessionBoundaryTest {
@@ -31,6 +36,11 @@ class SessionBoundaryTest {
     val store = createTestAppStore(debug = false)
     val whoamiStarted = CompletableDeferred<Unit>()
     val whoamiFinished = CompletableDeferred<Unit>()
+    // The contract under test is that sign-out joins the reconcile *coroutine* before wiping the
+    // tenant — so assert on that job, not on `whoamiFinished`. Ktor runs the engine handler in its
+    // own call context, which `cancelAndJoin()` does not cover, so the handler's `finally` can land
+    // after cleanup on a contended machine. That timing gap failed CI while passing locally.
+    val reconcile = AtomicReference<Job?>(null)
     var cacheClearedAfterReconcile = false
     val auth = AuthEngine(
       store = store,
@@ -52,15 +62,18 @@ class SessionBoundaryTest {
       loadCachedMemberships = {
         listOf(FamilyMembership("fam1", "Family", "owner", "active"))
       },
-      clearCache = { cacheClearedAfterReconcile = whoamiFinished.isCompleted },
+      clearCache = { cacheClearedAfterReconcile = reconcile.get()?.isCompleted == true },
     )
 
     auth.restore()
     whoamiStarted.await()
+    reconcile.set(auth.reconcileJob)
+    assertNotNull(reconcile.get(), "a cached restore must leave a reconcile in flight")
     auth.signOut()
 
-    assertTrue(whoamiFinished.isCompleted, "sign-out must join reconcile before cache cleanup")
-    assertTrue(cacheClearedAfterReconcile)
+    // Cancellation still has to reach the blocked request; await it rather than sampling it.
+    withTimeout(5.seconds) { whoamiFinished.await() }
+    assertTrue(cacheClearedAfterReconcile, "sign-out must join reconcile before cache cleanup")
     assertNull(tokenStore.session)
     assertEquals(Route.SignIn, store.state.navigation.route)
   }
