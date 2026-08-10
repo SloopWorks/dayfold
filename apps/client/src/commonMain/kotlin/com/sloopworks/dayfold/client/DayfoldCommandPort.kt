@@ -75,4 +75,18 @@ interface DayfoldCommandPort {
   fun undoCalendarIgnore(itemKey: String)
   fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution)
   fun keepCalendarSeriesOnly(subjectKey: String)
+  // CAL-10 (ADR 0063 §6, calendar-import-contract-design.md) — the reviewed Calendar→Dayfold
+  // import wizard. startCalendarImport begins a review from a calendar-only observation;
+  // confirmCalendarImport mints ids + revalidates + enqueues (engine-owned); the rest are pure
+  // wizard-navigation/field edits (reducer-owned, dispatched directly).
+  fun startCalendarImport(observation: CalendarEventObservation)
+  fun chooseImportDestination(destination: ImportDestination)
+  fun setImportDescriptionOptIn(description: String?)
+  fun proceedImportToAudience()
+  fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>)
+  fun proceedImportToConfirm()
+  fun backImportStep()
+  fun confirmCalendarImport()
+  fun reconfirmCalendarImport()
+  fun discardCalendarImport()
 }

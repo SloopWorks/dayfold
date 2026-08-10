@@ -17,6 +17,7 @@ class SnapshotScenesTest {
         "calendar-settings", "calendar-primer", "calendar-chooser", "calendar-denied",
         "calendar-no-calendars", "calendar-prefill", "calendar-return", "calendar-reset",
         "calendar-now", "calendar-review", "calendar-match", "calendar-differ", "calendar-matched",
+        "calendar-import",
       ),
       clientSnapshots.scenes.map { it.name }.toSet(),
     )

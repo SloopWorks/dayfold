@@ -362,6 +362,7 @@ data class BlockPayload(
   val name: String? = null, val role: String? = null, val phone: String? = null, val email: String? = null,    // contact
   val address: String? = null, val lat: Double? = null, val lng: Double? = null, val mapUrl: String? = null,    // location (mapUrl = schema name)
   val date: String? = null,                                 // milestone
+  val end: String? = null, val tz: String? = null,          // milestone (additive, OD-4: ADR 0063 §6 import)
   val total: Double? = null, val spent: Double? = null,     // budget summary (client) — or derived from `items` (schema)
   // ADR 0036 block media: link/document preview thumbnail, contact avatar + accent.
   val thumbnailUrl: String? = null, val thumbnailAlt: String? = null,

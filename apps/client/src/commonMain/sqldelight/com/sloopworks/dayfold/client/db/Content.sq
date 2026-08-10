@@ -253,6 +253,12 @@ WHERE deleted=0 ORDER BY ord, id;
 allSections:
 SELECT id, hub_id, title, ord FROM hub_section WHERE deleted=0 ORDER BY ord, id;
 
+-- CAL-10 (ADR 0063 §6, import contract spec §3.1 OD-6) — the existing-Hub import path appends
+-- into the destination Hub's LAST live section rather than stacking a new "From your calendar"
+-- section per import.
+lastLiveSectionForHub:
+SELECT id FROM hub_section WHERE hub_id=? AND deleted=0 ORDER BY ord DESC, id DESC LIMIT 1;
+
 -- ADR 0038/0039 — the egress outbox. EGRESS-ONLY (ADR 0020): the UI never reads this;
 -- it is the write-only lane DB→outbox→network. One typed op per row (the reserved
 -- envelope: type discriminator + target_kind + nullable depends_on). op_id is the
@@ -360,6 +366,17 @@ UPDATE outbox SET state='pending', attempts=0 WHERE target_id=? AND state='faile
 
 outboxSize:
 SELECT count(*) FROM outbox;
+
+-- CAL-10 (ADR 0063 §6, import contract spec §3.1) — cascade-drop: every op whose depends_on
+-- chains (directly) to a just-dropped/failed op. The caller walks this transitively (a chain is
+-- at most hub→section→block, so recursion depth is bounded).
+opsDependingOn:
+SELECT op_id FROM outbox WHERE depends_on = ?;
+
+-- Poll a specific op's outbox state (import apply-status observation) — null/absent means the op
+-- was dropped (only Drop deletes the row; Acked/Failed leave it for this exact read).
+outboxOpState:
+SELECT state FROM outbox WHERE op_id = ?;
 
 wipeOutbox:
 DELETE FROM outbox;
@@ -621,6 +638,49 @@ DELETE FROM calendar_binding WHERE calendar_id = ?;
 
 wipeCalendarBindings:
 DELETE FROM calendar_binding;
+
+-- CAL-10 (ADR 0063 §6, calendar-import-contract-design.md §3.5/§6 build-step-3) — the local
+-- proposal + revalidation record for an in-flight Calendar→Dayfold import. Written ONLY at
+-- confirm (never during the earlier wizard steps, which live in ephemeral Redux state) so a
+-- crash/offline-restart between confirm and the final ack can resume the SAME client-minted ids
+-- rather than minting new ones (the idempotency root, spec §3.3). DEVICE-LOCAL, NEVER synced (not
+-- in Changes/applyDelta/outbox — same boundary as calendar_binding). Wiped on wipe() (sign-out/
+-- family removal, same reasoning as calendar_binding: it names a hub id in a family this device
+-- may no longer read); PRESERVED across wipeForResync() (not synced content).
+CREATE TABLE calendar_import (
+  proposal_id      TEXT NOT NULL PRIMARY KEY,
+  proposal_json    TEXT NOT NULL,
+  destination_json TEXT NOT NULL,
+  hub_id           TEXT,
+  section_id       TEXT NOT NULL,
+  block_ids_json   TEXT NOT NULL,
+  status           TEXT NOT NULL,   -- applying | offline_queued | saved
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL
+);
+
+upsertCalendarImport:
+INSERT INTO calendar_import(proposal_id, proposal_json, destination_json, hub_id, section_id, block_ids_json, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(proposal_id) DO UPDATE SET
+  proposal_json=excluded.proposal_json, destination_json=excluded.destination_json,
+  hub_id=excluded.hub_id, section_id=excluded.section_id, block_ids_json=excluded.block_ids_json,
+  status=excluded.status, updated_at=excluded.updated_at;
+
+calendarImportByProposalId:
+SELECT proposal_id, proposal_json, destination_json, hub_id, section_id, block_ids_json, status, created_at, updated_at
+FROM calendar_import WHERE proposal_id = ?;
+
+-- Resume-on-launch: every import not yet known-saved (spec §3.5 states 1/3 — Applying/OfflineQueued).
+unresolvedCalendarImports:
+SELECT proposal_id, proposal_json, destination_json, hub_id, section_id, block_ids_json, status, created_at, updated_at
+FROM calendar_import WHERE status != 'saved';
+
+deleteCalendarImport:
+DELETE FROM calendar_import WHERE proposal_id = ?;
+
+wipeCalendarImports:
+DELETE FROM calendar_import;
 
 -- Device-local calendar-check settings (ADR 0063 §1/§3) — single row (id=0), same shape as
 -- notif_config. Never synced (ADR 0024): which native calendars a member has opted in to

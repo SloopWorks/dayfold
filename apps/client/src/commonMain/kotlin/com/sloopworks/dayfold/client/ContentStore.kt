@@ -226,6 +226,9 @@ class ContentStore(driver: SqlDriver) {
         // ADR 0063 §3 — calendar_binding keys on subjects of a family this device may no longer
         // read (same reasoning as response_offer above), so a removed/non-member drops it too.
         q.wipeCalendarBindings()
+        // CAL-10 (ADR 0063 §6) — an in-flight import's proposal record names a destination hub id
+        // in this family; same reasoning as calendar_binding above.
+        q.wipeCalendarImports()
         // notif_config and calendar_settings are device preferences, not tenant data. They
         // deliberately survive sign-out/family replacement; the device bridges remain active.
       }
@@ -711,6 +714,82 @@ class ContentStore(driver: SqlDriver) {
     relation = CalendarRelation.of(relation), notificationOwner = CalendarNotificationOwner.of(notification_owner),
     reviewState = review_state, createdAt = created_at, updatedAt = updated_at,
   )
+
+  // ── Calendar→Dayfold import (ADR 0063 §6, calendar-import-contract-design.md §3) — DEVICE-LOCAL,
+  // NEVER synced. Egress uses the SAME outbox as every other member write (ADR 0038/0039); the
+  // methods below are import-specific bookkeeping on top of it: the durable proposal/ids record
+  // (calendar_import), enqueueing the materialized op chain, and depends_on cascade-drop.
+
+  /** spec §3.1 — enqueue [ops] atomically, coalescing any still-pending op for the same target+type
+   *  first (a re-confirm after source-changed/version-conflict reuses the SAME ids, per §3.3). */
+  fun enqueueImportOps(ops: List<MaterializedOp>, nowIso: String) = withWriteGate {
+    q.transaction {
+      ops.forEach { op ->
+        q.deletePendingForTarget(op.targetId, op.type)
+        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso)
+      }
+    }
+  }
+
+  /** The current outbox state for each of [opIds] — null when the row is absent (only Drop removes
+   *  a row outright; Acked/Failed leave it in place for exactly this read, see Content.sq). */
+  fun outboxOpStates(opIds: List<String>): Map<String, String?> =
+    opIds.associateWith { q.outboxOpState(it).executeAsOneOrNull() }
+
+  /** spec §3.1 cascade-drop: an op that reached Drop/Failed takes every op depending on it (directly
+   *  or transitively) with it — nothing has left the device for a not-yet-sent dependent, so this is
+   *  a pure local delete, never a compensating request. Bounded depth (hub→section→block). */
+  fun cascadeDropDependents(opId: String) = withWriteGate {
+    q.transaction {
+      val queue = ArrayDeque<String>().apply { add(opId) }
+      while (queue.isNotEmpty()) {
+        val parent = queue.removeFirst()
+        q.opsDependingOn(parent).executeAsList().forEach { child ->
+          q.deleteOp(child)
+          queue.add(child)
+        }
+      }
+    }
+  }
+
+  /** spec §3.5 — persisted ONLY at confirm (never during the earlier wizard steps). [proposalJson]/
+   *  [destinationJson] are opaque strings the caller builds — ContentStore does not know the
+   *  proposal's shape, matching every other content-blind local cache in this file. */
+  fun upsertCalendarImport(
+    proposalId: String,
+    proposalJson: String,
+    destinationJson: String,
+    hubId: String?,
+    sectionId: String,
+    blockIds: List<String>,
+    status: String,
+    nowIso: String,
+  ) = withWriteGate {
+    val existing = q.calendarImportByProposalId(proposalId).executeAsOneOrNull()
+    q.upsertCalendarImport(
+      proposalId, proposalJson, destinationJson, hubId, sectionId,
+      json.encodeToString(CALENDAR_IDS_SER, blockIds), status, existing?.created_at ?: nowIso, nowIso,
+    )
+  }
+
+  fun setCalendarImportStatus(proposalId: String, status: String, nowIso: String) = withWriteGate {
+    val row = q.calendarImportByProposalId(proposalId).executeAsOneOrNull() ?: return@withWriteGate
+    q.upsertCalendarImport(
+      row.proposal_id, row.proposal_json, row.destination_json, row.hub_id, row.section_id,
+      row.block_ids_json, status, row.created_at, nowIso,
+    )
+  }
+
+  fun deleteCalendarImport(proposalId: String) = withWriteGate { q.deleteCalendarImport(proposalId) }
+
+  /** The ids already minted for [proposalId] (a retry/re-confirm), or null on first confirm. */
+  fun calendarImportIds(proposalId: String): ImportOpIds? =
+    q.calendarImportByProposalId(proposalId).executeAsOneOrNull()?.let { row ->
+      ImportOpIds(row.hub_id, row.section_id, decode(row.block_ids_json, CALENDAR_IDS_SER) ?: emptyList())
+    }
+
+  /** spec §3.1 OD-6 — the existing-Hub import path's section-reuse lookup. */
+  fun liveSectionIdForHub(hubId: String): String? = q.lastLiveSectionForHub(hubId).executeAsOneOrNull()
 
   // ── Calendar Check settings (ADR 0063 §1) — DEVICE-LOCAL, NEVER synced. Same shape/posture as
   // notif config: a device preference, not touched by wipe() (survives sign-out/family removal).

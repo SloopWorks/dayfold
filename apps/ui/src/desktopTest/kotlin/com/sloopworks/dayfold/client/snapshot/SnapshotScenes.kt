@@ -29,6 +29,12 @@ import androidx.compose.material.icons.filled.Title
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.AvatarPickerContent
 import com.sloopworks.dayfold.client.CalendarNotificationOwner
+import com.sloopworks.dayfold.client.CalendarImportProposal
+import com.sloopworks.dayfold.client.EventInstant
+import com.sloopworks.dayfold.client.HubVisibilityChoice
+import com.sloopworks.dayfold.client.ImportDestination
+import com.sloopworks.dayfold.client.ImportFieldDiff
+import com.sloopworks.dayfold.client.StructuredLocation
 import com.sloopworks.dayfold.client.DeviceCalendar
 import com.sloopworks.dayfold.client.features.calendar.CalendarAccountGroup
 import com.sloopworks.dayfold.client.features.calendar.CalendarAmbiguousMatchScreen
@@ -37,6 +43,16 @@ import com.sloopworks.dayfold.client.features.calendar.CalendarCheckFooterLine
 import com.sloopworks.dayfold.client.features.calendar.CalendarCheckNowCard
 import com.sloopworks.dayfold.client.features.calendar.CalendarDeniedScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarDetailsDifferScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportApplyScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportAudienceExistingHubScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportAudienceNewHubScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportConfirmScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportDestinationScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportFieldsScreen
+import com.sloopworks.dayfold.client.features.calendar.ImportApplyAction
+import com.sloopworks.dayfold.client.features.calendar.ImportApplyKind
+import com.sloopworks.dayfold.client.features.calendar.ImportDestinationRow
+import com.sloopworks.dayfold.client.features.calendar.audienceLine
 import com.sloopworks.dayfold.client.features.calendar.CalendarMatchedSummaryScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarNoCalendarsScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarPrimerScreen
@@ -700,6 +716,57 @@ val clientSnapshots: SnapshotApp = snapshotApp {
             MatchedChecklistItem("Pack cleats", done = true),
           ),
         )
+      }
+    }
+  }
+
+  // ── CAL-10 (ADR 0063 §6) — reviewed Calendar→Dayfold import wizard ──
+  scene("calendar-import") {
+    presets("destination", "fields", "audience-new", "audience-existing", "confirm", "apply-saved", "apply-conflict")
+    render { args ->
+      val proposal = CalendarImportProposal(
+        proposalId = "prop-1", title = "Grandma's 80th lunch",
+        start = EventInstant.Timed("2026-06-28T12:00:00-07:00"), end = EventInstant.Timed("2026-06-28T14:00:00-07:00"),
+        timezone = "Pacific Time", location = StructuredLocation("Harvest Table", "88 Vine St"),
+      )
+      themedSurface(args.theme) {
+        run {
+          when (presetName(args.input)) {
+            "destination" -> CalendarImportDestinationScreen(
+              existingHubs = listOf(ImportDestinationRow("hub-beach", "Beach Week", "contributor"), ImportDestinationRow("hub-leo", "Leo's birthday", "co_owner")),
+              onChooseNewHub = {}, onChooseExistingHub = {}, onClose = {},
+            )
+            "fields" -> CalendarImportFieldsScreen(
+              proposal = proposal, descriptionAvailable = true, descriptionIncluded = false,
+              onToggleDescription = {}, onBack = {}, onNext = {},
+            )
+            "audience-new" -> CalendarImportAudienceNewHubScreen(
+              visibility = HubVisibilityChoice.RESTRICTED, familyMemberNames = "Pat, Maya, Leo and Sam can see it",
+              onSelect = {}, onBack = {}, onNext = {},
+            )
+            "audience-existing" -> CalendarImportAudienceExistingHubScreen(
+              hubTitle = "Beach Week", role = "contributor", namedAudience = listOf("Pat", "Maya", "Leo", "Sam"),
+              widerThanSource = true, onBack = {}, onNext = {},
+            )
+            "confirm" -> CalendarImportConfirmScreen(
+              proposal = proposal, audienceLine = ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("u1")).audienceLine(),
+              onBack = {}, onConfirm = {},
+            )
+            "apply-saved" -> CalendarImportApplyScreen(
+              kind = ImportApplyKind.SAVED, title = "Hub created — only you can see it", meta = "Grandma's 80th lunch · Sun, Jun 28",
+              body = "The event and your new Hub are linked on this phone.", diff = null,
+              footer = "Sharing later names exactly who will see it.",
+              actions = listOf(ImportApplyAction("Open Hub", true, {}), ImportApplyAction("Share with family", false, {})),
+            )
+            "apply-conflict" -> CalendarImportApplyScreen(
+              kind = ImportApplyKind.VERSION_CONFLICT, title = "Beach Week changed while you reviewed", meta = null,
+              body = "Someone edited that Hub since you started. Refresh, then confirm against the current version.",
+              diff = null, footer = "Dayfold never merges silently.",
+              actions = listOf(ImportApplyAction("Refresh and re-confirm", true, {}), ImportApplyAction("Discard import", false, {})),
+            )
+            else -> error("unknown calendar-import preset")
+          }
+        }
       }
     }
   }

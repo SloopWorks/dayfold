@@ -22,6 +22,7 @@ class DayfoldCommands internal constructor(
   private val sessionCoordinator: SessionCoordinator? = null,
   private val externalHubTargets: PendingExternalHubTargetCoordinator? = null,
   private val calendarCheckEngine: CalendarCheckEngine? = null,
+  private val calendarImportEngine: CalendarImportEngine? = null,
   private val bindSelectedFamily: suspend () -> Unit = {},
 ) : DayfoldCommandPort {
   companion object {
@@ -220,6 +221,19 @@ class DayfoldCommands internal constructor(
   override fun undoCalendarIgnore(itemKey: String) { store.dispatch(UndoIgnore(itemKey)) }
   override fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution) { store.dispatch(FieldChoice(subjectKey, field, resolution)) }
   override fun keepCalendarSeriesOnly(subjectKey: String) { store.dispatch(KeepSeriesCalendarOnly(subjectKey)) }
+  // CAL-10 (ADR 0063 §6) — startCalendarImport/confirmCalendarImport/reconfirmCalendarImport are
+  // engine-owned effects (id minting, revalidation, DB/outbox writes); the rest are pure wizard-
+  // navigation dispatched directly by the engine (a thin passthrough here, same as DiscardCalendarImport).
+  override fun startCalendarImport(observation: CalendarEventObservation) { calendarImportEngine?.startImport(observation) }
+  override fun chooseImportDestination(destination: ImportDestination) { calendarImportEngine?.chooseDestination(destination) }
+  override fun setImportDescriptionOptIn(description: String?) { calendarImportEngine?.setDescriptionOptIn(description) }
+  override fun proceedImportToAudience() { calendarImportEngine?.proceedToAudience() }
+  override fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>) { calendarImportEngine?.setAudience(visibility, audience) }
+  override fun proceedImportToConfirm() { calendarImportEngine?.proceedToConfirm() }
+  override fun backImportStep() { calendarImportEngine?.back() }
+  override fun confirmCalendarImport() { calendarImportEngine?.confirm() }
+  override fun reconfirmCalendarImport() { calendarImportEngine?.reconfirm() }
+  override fun discardCalendarImport() { calendarImportEngine?.discard() }
 
   private fun launchIdentity(block: suspend (AuthSessionContext) -> Unit) {
     val context = sessionCoordinator?.authSnapshot() ?: return

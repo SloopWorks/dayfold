@@ -65,6 +65,56 @@ class SyncClient(
   }
 
   /**
+   * CAL-10 (ADR 0063 §6, import contract spec §3.1) — PUT one Hub. Used only by the outbox
+   * sender's "hub" dispatch arm; `baseVersion` is always null for that caller (a client-minted,
+   * not-yet-existing row — spec §3.4), but the parameter mirrors [putBlock] for consistency.
+   */
+  suspend fun putHub(
+    familyId: String,
+    accessToken: String,
+    hubId: String,
+    body: String,
+    baseVersion: Long?,
+    opId: String,
+  ): PutResult {
+    val resp = http.put("$api/families/$familyId/hubs/$hubId") {
+      header("authorization", "Bearer $accessToken")
+      header("content-type", "application/json")
+      if (baseVersion != null) header("if-match", baseVersion.toString())
+      header("idempotency-key", opId)
+      setBody(body)
+    }
+    val status = resp.status.value
+    val version = if (status == 200) runCatching {
+      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() else null
+    return PutResult(status, version)
+  }
+
+  /** CAL-10 (ADR 0063 §6, import contract spec §3.1) — PUT one Hub section. Same posture as [putHub]. */
+  suspend fun putSection(
+    familyId: String,
+    accessToken: String,
+    sectionId: String,
+    body: String,
+    baseVersion: Long?,
+    opId: String,
+  ): PutResult {
+    val resp = http.put("$api/families/$familyId/sections/$sectionId") {
+      header("authorization", "Bearer $accessToken")
+      header("content-type", "application/json")
+      if (baseVersion != null) header("if-match", baseVersion.toString())
+      header("idempotency-key", opId)
+      setBody(body)
+    }
+    val status = resp.status.value
+    val version = if (status == 200) runCatching {
+      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() else null
+    return PutResult(status, version)
+  }
+
+  /**
    * Egress (ADR 0038 §W4): DELETE one block with an Idempotency-Key and no body
    * or If-Match. The caller supplies one captured family/session snapshot.
    */

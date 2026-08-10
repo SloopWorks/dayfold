@@ -242,6 +242,15 @@ class GoldenSnapshotTest {
   // CalendarReviewFlowSemanticsTest. Re-add these gates once a linux golden is
   // recorded in CI (see the OS-record note above).
 
+  // ── Calendar→Dayfold reviewed import (CAL-10, ADR 0063 §6) ────────────────
+  // Same macOS-only posture as Calendar Check just above, for the same reason (this
+  // agent loop cannot record a linux golden — no docker retry attempted here given the
+  // documented OOM history). The 7 apply/wizard scenes stay registered in
+  // SnapshotScenes/snapshot-shots.json for the snapshotUi visual dashboard, and the
+  // macOS PNGs are committed under osTag. :client-side state-machine/materialize/
+  // cascade-drop coverage is exhaustive (CalendarImport{Model,Materialize,Reducer,
+  // Engine,Sender}Test); re-add per-OS golden gates once a linux golden exists in CI.
+
   companion object {
     private val osTag = if (System.getProperty("os.name").lowercase().contains("mac")) "macos" else "linux"
     val GOLDEN_DIR = File("src/desktopTest/resources/snapshots/$osTag")

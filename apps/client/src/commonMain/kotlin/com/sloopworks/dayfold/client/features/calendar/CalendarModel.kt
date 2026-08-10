@@ -104,4 +104,7 @@ data class CalendarState(
   val settings: CalendarSettings = CalendarSettings(),
   val check: CalendarCheckState = CalendarCheckState(),
   val availableCalendars: List<DeviceCalendar> = emptyList(),
+  // CAL-10 (ADR 0063 §6) — the reviewed Calendar→Dayfold import wizard's in-progress state.
+  // Ephemeral like `check`: resets on family switch/sign-out (Reducer.kt), never synced.
+  val importState: ImportProposalState = ImportProposalState.None,
 )

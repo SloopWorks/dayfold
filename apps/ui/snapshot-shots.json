@@ -1042,6 +1042,41 @@
    "scene": "calendar-matched",
    "preset": "default",
    "theme": "dark"
+  },
+  {
+   "id": "calendar-import-destination",
+   "scene": "calendar-import",
+   "preset": "destination"
+  },
+  {
+   "id": "calendar-import-fields",
+   "scene": "calendar-import",
+   "preset": "fields"
+  },
+  {
+   "id": "calendar-import-audience-new",
+   "scene": "calendar-import",
+   "preset": "audience-new"
+  },
+  {
+   "id": "calendar-import-audience-existing",
+   "scene": "calendar-import",
+   "preset": "audience-existing"
+  },
+  {
+   "id": "calendar-import-confirm",
+   "scene": "calendar-import",
+   "preset": "confirm"
+  },
+  {
+   "id": "calendar-import-apply-saved",
+   "scene": "calendar-import",
+   "preset": "apply-saved"
+  },
+  {
+   "id": "calendar-import-apply-conflict",
+   "scene": "calendar-import",
+   "preset": "apply-conflict"
   }
  ]
 }

@@ -242,6 +242,13 @@ class SyncEngine(
                 syncClient.deleteResponse(familyId, accessToken, op.targetId, op.opId)
               op.targetKind == "response" ->
                 syncClient.putResponse(familyId, accessToken, op.targetId, op.payload, op.opId)
+              // CAL-10 (ADR 0063 §6, import contract spec §3.1) — the two-branch addition for the
+              // Calendar→Dayfold import's hub/section ops. base_version is always null here (a
+              // client-minted, not-yet-existing row — spec §3.4), matching op.baseVersion already.
+              op.targetKind == "hub" ->
+                syncClient.putHub(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
+              op.targetKind == "section" ->
+                syncClient.putSection(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
               op.type == "delete" ->
                 syncClient.deleteBlock(familyId, accessToken, op.targetId, op.opId)
               else ->
@@ -264,17 +271,29 @@ class SyncEngine(
       }
       val shouldReturn = withContext(databaseDispatcher) {
         var stop = false
+        // CAL-10 — the import's own op types have no toggle successor to advance and no local
+        // block row to re-merge (a brand-new client-minted row): ack/re-merge just record the
+        // outbox row's own state, leaving the import engine's poll (outboxOpStates) to observe it.
+        val isImportOp = op.type == "upsertHub" || op.type == "upsertSection" || op.type == "upsertBlock"
         val committed = sessionCoordinator.commitIfCurrent(context) {
           when (OutboxSender.classify(result.status, op.attempts.toInt())) {
-            SendOutcome.Acked -> stop = contentStore.ackOpAndAdvanceSuccessor(
-              opId = op.opId,
-              targetId = op.targetId,
-              resultVersion = result.version,
-              nowIso = nowProvider(),
-            )
-            SendOutcome.ReMerge -> contentStore.rebaseOpFromLocal(op.opId, op.targetId, nowProvider())
-            SendOutcome.Drop -> contentStore.dropOp(op.opId, op.targetId)
-            SendOutcome.Failed -> contentStore.failOp(op.opId, op.targetId)
+            SendOutcome.Acked -> stop = if (isImportOp) {
+              contentStore.ackOp(op.opId, result.version); false
+            } else {
+              contentStore.ackOpAndAdvanceSuccessor(
+                opId = op.opId,
+                targetId = op.targetId,
+                resultVersion = result.version,
+                nowIso = nowProvider(),
+              )
+            }
+            SendOutcome.ReMerge -> if (isImportOp) {
+              contentStore.failOp(op.opId, op.targetId); contentStore.cascadeDropDependents(op.opId)
+            } else {
+              contentStore.rebaseOpFromLocal(op.opId, op.targetId, nowProvider())
+            }
+            SendOutcome.Drop -> { contentStore.dropOp(op.opId, op.targetId); contentStore.cascadeDropDependents(op.opId) }
+            SendOutcome.Failed -> { contentStore.failOp(op.opId, op.targetId); contentStore.cascadeDropDependents(op.opId) }
             is SendOutcome.Backoff -> { contentStore.bumpOpAttempt(op.opId); stop = true }
           }
         }
