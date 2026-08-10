@@ -2,9 +2,11 @@
 
 **Date:** 2026-08-10
 
-**Status:** reviewed design proposal; implementation blocked on the gates below
-**Verdict:** migrate first, then build one shared component-capture engine. Do not
-add another Dayfold-owned drawer or a second annotation implementation.
+**Status:** reviewed design proposal, updated with the organization consumer audit
+and backend source-resolution contract; implementation blocked on the gates below
+**Verdict:** migrate every consumer to the shared drawer, then build one shared
+component-capture engine and one exact-build source resolver. Do not add another
+app-owned drawer, annotation implementation, or source-linking heuristic.
 
 ## 1. Requested outcome
 
@@ -21,6 +23,11 @@ add another Dayfold-owned drawer or a second annotation implementation.
 5. Public release retains no viewer, source strings, or SWIP debug dependencies.
    A future never-published `internalMinified` canary deliberately enables the
    feature to measure degraded/best-effort mapped attribution.
+6. Submitted component details can be traced back to authoring code when the
+   report references an immutable build manifest and the backend has the matching
+   source index or Compose/R8 mapping. Exact, best-effort, ambiguous, and
+   unavailable results are distinguishable; the system never links against the
+   latest branch or guesses silently.
 
 ## 2. What exists today
 
@@ -34,9 +41,11 @@ Dayfold has one host integration, not competing drawer UIs:
 - Debug uses `:debugdrawer`, `:debugdrawer-redux`, and `:debugdrawer-swip`.
 - Release uses `:debugdrawer-noop`; plugin mirrors return empty/inert values.
 
-The integration shape is correct, but the dependencies still point at the
-in-repo modules. Their build file still describes them as “in-repo, not yet
-published.”
+The integration shape is correct. Draft PR
+[`SloopWorks/dayfold#379`](https://github.com/SloopWorks/dayfold/pull/379) replaces
+the in-repo modules with shared `0.1.0` coordinates, updates the shared SWIP
+namespace, removes the embedded source, and adds dependency/DEX release checks.
+It is intentionally draft until the artifacts resolve remotely.
 
 ### Shared component extraction
 
@@ -46,10 +55,31 @@ source matches Dayfold's embedded copy; differences are publishing configuration
 the non-snapshot version, compile SDK, and the shared SWIP adapter package
 (`com.sloopworks.debugdrawer.swip`).
 
-The package is **not published yet**: there is no `publish` workflow run and no
-GitHub Maven package for the repository. Its workflow is deliberately
-`workflow_dispatch` and operator-only. Dayfold cannot migrate to a reproducible
-binary until that action occurs.
+The package is **not published yet**. The first operator-only
+[`publish` run](https://github.com/SloopWorks/debugdrawer/actions/runs/31438033231)
+received an empty `SLOOPWORKS_PACKAGES_TOKEN`, excluded `debugdrawer-swip`, and
+GitHub Packages rejected core/noop uploads with HTTP 401. The shared repository
+must receive a write-capable packages secret and publish all platform variants
+before a clean consumer can verify the migration.
+
+### Organization consumer audit
+
+An audit of all eight active SloopWorks repositories found one current runtime
+consumer and one committed future consumer:
+
+- **Dayfold** is the only app currently mounting `DebugDrawerHost`; its default
+  branch still contains the embedded modules until PR #379 passes the remote-only
+  gate and merges.
+- **Dinners/PickedPlate** has accepted ADR 0028 requiring the shared drawer, but
+  currently wires only its app-owned debug `:swip-inspector` data module. It does
+  not yet resolve or mount `com.sloopworks.debugdrawer:*`.
+- **SWIP** contains integration contracts and design handoffs, not another drawer
+  runtime. The remaining repositories contain no runtime drawer usage.
+
+Therefore “shared drawer adoption” is not complete when Dayfold migrates. The
+shared API, setup copy, and tests must stay product-neutral, and portfolio closure
+requires a Dinners consumer PR after the base artifacts publish. Source-copying
+the drawer or recreating a Dinners-specific shell remains prohibited.
 
 ### Component-aware SWIP reporting
 
@@ -154,6 +184,55 @@ Implications:
 - never add release keep rules solely to retain source strings. That would add
   binary size and expose implementation detail in every distributed APK.
 
+### Backend traceability to authoring code
+
+Tracing a selected UI node back to authoring code is feasible, but a basename and
+line number alone are not a durable key. `ResponseSheet.kt:146` may exist in more
+than one module, line numbers move between revisions, local builds may be dirty,
+and minified builds may retain only an integer Compose group key. The backend must
+resolve against the **exact producing build**, never current `main`.
+
+Every build for which backend code links are promised registers an immutable
+`BuildSourceManifest` out of band from CI/build tooling. It is keyed by the
+report's existing app/build id and contains:
+
+- an allowlisted repository key and exact Git revision;
+- variant, version code/name, dirty flag, Kotlin/Compose compiler versions;
+- an immutable source-index id + SHA-256 digest;
+- when R8 is enabled, the Compose/R8 mapping artifact id + digest;
+- creation/retention metadata and authorization scope.
+
+The manifest and mapping artifacts are never bundled into the client report. A
+node carries only privacy-bounded lookup hints: display basename, optional
+validated repository-relative path, one-based line, optional function name,
+package hash/source offset when Compose supplies them, and an integer Compose
+group key when the runtime key is actually an `Int`. The adapter must not invent
+a repository-relative path from a basename. Absolute paths, source contents, raw
+mapping contents, arbitrary runtime-key strings, and client-supplied repository
+URLs are forbidden.
+
+The resolver follows a deterministic confidence ladder:
+
+1. **Exact direct** — a normalized repository-relative path exists at the
+   manifest revision and the line is in range; link to that immutable commit.
+2. **Exact mapped** — the integer group key resolves through the mapping artifact
+   whose digest is registered for that exact build.
+3. **Best-effort unique** — basename plus package/function/line hints yields one
+   candidate in the source index at that revision; label it best-effort, not exact.
+4. **Ambiguous** — multiple candidates remain; return the candidates and evidence
+   without choosing or enabling a single “Open source” action.
+5. **Unavailable** — the build is unregistered/dirty, source was not recorded, the
+   mapping is missing, or no candidate exists. Preserve the raw safe display
+   reference and reason; never fall forward to another revision.
+
+The resolver treats all report hints as untrusted input: reject absolute paths,
+`..` traversal, unknown repositories/build ids, digest mismatches, and commits
+outside the configured repository. Source links inherit repository/report access
+control and audit logging. A dirty local build may still show file/line on-device,
+but the backend reports `Build not indexed` unless a deliberate internal build
+pipeline registered that exact source state; it never uploads a developer's
+working tree automatically.
+
 ## 4. Proposed architecture
 
 ### 4.1 Ownership
@@ -176,7 +255,22 @@ SWIP owns:
 - preserving the selected component id in the vector annotation/report rather
   than reducing a component highlight to an anonymous rectangle.
 
-Dayfold owns only variant wiring and product leak tests.
+Build/CI infrastructure owns:
+
+- producing and registering the immutable `BuildSourceManifest`, source index,
+  and optional Compose/R8 mapping under one exact build id;
+- retaining mapping artifacts according to the report retention window;
+- proving that the manifest digest matches the artifact used by the resolver.
+
+The reporting backend owns:
+
+- validated, access-controlled resolution against the registered exact build;
+- exact/best-effort/ambiguous/unavailable confidence and evidence;
+- immutable source permalinks and audit logging, never latest-branch links.
+
+Each integrating app owns only variant wiring, a stable app/build identity, and
+product leak tests. Dayfold and Dinners must not fork the capture, setup, or
+source-resolution contracts.
 
 ### 4.2 Shared modules
 
@@ -281,6 +375,20 @@ data class ComponentNode(
   val bounds: PixelBounds,
   val source: ComponentSource?,
 )
+
+data class ComponentSource(
+  val displayFile: String,
+  val repositoryRelativePath: String?,
+  val line: Int?,
+  val function: String?,
+  val packageHash: Int?,
+  val sourceOffset: Int?,
+)
+
+data class BuildSourceRef(
+  val buildId: String,
+  val dirty: Boolean,
+)
 ```
 
 The integrating app calls `registerUiTree(...)` once per build variant and passes
@@ -351,6 +459,15 @@ The capture implementation must not copy or expose `Group.data`, parameters,
 text, descriptions, state, or modifier values. Those can contain family data
 even when the property name looks harmless. SWIP's encoder receives only the
 already-pruned generic capture and owns the report representation.
+
+`BuildSourceRef` is created by trusted build wiring, not inferred from UI-tree
+data. Source-index/mapping artifact ids stay in the backend manifest and are not
+accepted from the client. `repositoryRelativePath` is populated only when
+tooling/build metadata supplies a path that normalizes beneath an allowlisted
+source root; otherwise it is null and `displayFile` remains basename-only. The
+mobile detail surface shows the safe code reference it has, but backend resolution
+status is unknown until upload unless the build manifest was already confirmed
+locally.
 
 Compose tooling exposes `Group.key` as `Any?`, including joined or application
 keys. `composeGroupKey` is populated only when the runtime key is already an
@@ -448,6 +565,7 @@ Extend the existing UI-tree part without creating a second report part:
 ```json
 {
   "schema": "swip:bugreport:ui-tree:1",
+  "build_ref": "dayfold-android-debug-1842",
   "viewport": {"width": 1080, "height": 2400},
   "selected": "n_42",
   "nodes": [{
@@ -456,16 +574,29 @@ Extend the existing UI-tree part without creating a second report part:
     "compose_group_key": 123456789,
     "name": "ResponseSheet",
     "bounds": {"l": 72, "t": 2010, "r": 1008, "b": 2160},
-    "source": {"file": "ResponseSheet.kt", "line": 146}
+    "source": {
+      "display_file": "ResponseSheet.kt",
+      "repo_path": "apps/ui/src/commonMain/kotlin/example/ResponseSheet.kt",
+      "line": 146,
+      "function": "ResponseSheet",
+      "package_hash": 481516,
+      "source_offset": 9124
+    }
   }]
 }
 ```
 
 Rules:
 
-- `source.file` is basename only; no absolute build path;
+- `build_ref` joins to a separately registered immutable build manifest; it is
+  not a repository URL and the UI-tree part does not contain mapping artifacts;
+- `source.display_file` is basename only;
+- `source.repo_path` is optional, normalized repository-relative, and omitted
+  unless trusted build/tooling metadata supplied and validated it;
+- absolute paths, path traversal, source contents, and client-supplied repository
+  URLs are rejected;
 - line is one-based at the serialized boundary;
-- name/source may be absent;
+- name/source and every source hint may be absent;
 - `compose_group_key` is retained only for an actual integer Compose group key;
 - arbitrary/joined runtime keys are omitted, never stringified;
 - Dayfold v1 omits role and test tag; any future semantics extension requires a
@@ -490,6 +621,36 @@ The review surface must make the consent payload inspectable. Expanding the
 screenshot/component row shows selected name/path/source when present, node
 count, trimmed status, and “No text or state included.” Its single screenshot
 toggle removes PNG, UI tree, selected id, and component highlight together.
+The component source hints are removed with that toggle. The report-level build
+identity may remain because it describes the app binary and is also needed for
+ordinary crash/symbol resolution; it does not reveal selected UI structure.
+
+### 4.7 Backend source resolution
+
+On ingestion, the backend joins `build_ref` to the registered
+`BuildSourceManifest`, validates its repository/revision/digests, and resolves the
+selected node plus retained ancestors. It stores the safe submitted hints and a
+separate derived result:
+
+```json
+{
+  "status": "exact_direct | exact_mapped | best_effort_unique | ambiguous | unavailable",
+  "revision": "4f8c2ab...",
+  "repo_path": "apps/ui/src/commonMain/kotlin/example/ResponseSheet.kt",
+  "line": 146,
+  "confidence": "exact | best_effort | none",
+  "reason": null,
+  "candidates": []
+}
+```
+
+Derived links always pin the manifest revision. Re-resolution is allowed only
+against the same immutable manifest (for example after a delayed mapping upload)
+and records an audit event; it cannot silently change to a newer commit. The
+report detail UI shows **Open source** only for `exact_direct` or `exact_mapped`.
+`best_effort_unique` requires an explicit **Open best-effort match** label;
+`ambiguous` lists candidates without preselecting one; `unavailable` shows the
+reason and retains Copy code reference when safe hints exist.
 
 ## 5. Debug, release, and obfuscation posture
 
@@ -520,6 +681,11 @@ is a separate consent/privacy ADR. Its component metadata contract should be:
 - exact build id in the manifest and matching mapping stored in CI;
 - never upload R8/Compose mapping files in the client report itself.
 
+Backend source resolution is not permission to retain more client metadata. The
+public-release posture remains independently gated: build manifests/mappings may
+exist for normal crash symbolication, but no component node/source hint is sent
+unless a separately approved report surface captures it with consent.
+
 Dayfold's release build is currently non-minified and intentionally contains no
 inspector/SWIP report code, so v1 cannot exercise mapped capture there. Obfuscation
 testing is future work: an explicitly approved, never-published `internalMinified`
@@ -533,13 +699,15 @@ release requirement is total feature/dependency absence.
 
 Operator action:
 
-1. confirm CI is green at exact source SHA `92fec3b` (the manual publish workflow
-   itself does not run tests);
-2. dispatch `SloopWorks/debugdrawer/.github/workflows/publish.yml` for 0.1.0;
+1. configure a write-capable `SLOOPWORKS_PACKAGES_TOKEN` for
+   `SloopWorks/debugdrawer`; the first run at exact source SHA `92fec3b` failed
+   with an empty token/HTTP 401 and excluded the SWIP adapter;
+2. rerun `SloopWorks/debugdrawer/.github/workflows/publish.yml` for 0.1.0 after
+   confirming producer CI is green (the publish workflow itself does not test);
 3. verify all four Maven artifacts, platform variants, and Gradle metadata resolve
    in a clean consumer.
 
-Then Dayfold:
+Then Dayfold draft PR #379:
 
 1. add the `SloopWorks/debugdrawer` Maven repository alongside SWIP;
 2. replace project dependencies with `com.sloopworks.debugdrawer:*:0.1.0`;
@@ -550,7 +718,11 @@ Then Dayfold:
 6. run debug tests/build, release bundle, and the new artifact leak checks.
 
 Do not keep a fallback embedded copy after migration; that recreates two sources
-of truth.
+of truth. After the base artifact is available, Dinners/PickedPlate must replace
+its planned app-owned drawer work with a shared-artifact integration. That
+portfolio follow-through is tracked independently from Dayfold's component-picker
+delivery, but shared adoption cannot be described as organization-complete until
+it lands.
 
 ### Gate B — design sign-off
 
@@ -593,7 +765,28 @@ removal, component tap, and manual rectangle fallback. V1 component handoff is
 Bug-only: hide/disable Feedback for this preseeded draft unless SWIP makes typed
 draft reclassification update the persisted manifest and tests it end-to-end.
 
-### Gate E — shared implementation
+### Gate E — build provenance and backend source resolver
+
+Before claiming “open authoring code”:
+
+1. define the immutable `BuildSourceManifest` and make CI register exact revision,
+   source-index digest, optional Compose/R8 mapping digest, compiler versions, and
+   dirty state under the report build id;
+2. prove direct repository-relative path resolution pins an immutable commit and
+   rejects traversal, absolute paths, unknown repositories, digest mismatches, and
+   out-of-range lines;
+3. prove basename-only hints return best-effort/ambiguous/unavailable without
+   guessing, and that dirty/unregistered builds never fall forward to `main`;
+4. prove integer group-key resolution uses only the exact build's Compose/R8
+   mapping and handles absent/expired/corrupt mappings honestly;
+5. define retention, access control, and audit behavior for manifests, mappings,
+   candidates, source links, and re-resolution.
+
+The mobile feature may ship with safe file/line display before this gate, but it
+must say `Resolved after upload`/`Build not indexed` rather than promise a link.
+The backend **Open source** action is blocked until this gate passes.
+
+### Gate F — shared implementation
 
 Implement `debugdrawer-components` plus the Compose provider in
 `SloopWorks/debugdrawer` and publish the next version. Components/status UI must
@@ -602,7 +795,7 @@ work without a tooling dependency; the provider's target matrix is Android-only
 iOS matrix. Update the SWIP adapter to consume the same capability/availability
 contract. Dayfold upgrades only after shared CI + consumer smoke tests pass.
 
-### Gate F — Dayfold adapter
+### Gate G — Dayfold adapter
 
 Wire the shared provider into Dayfold's developer build with an explicit mode and
 pass its frozen capture through the published typed SWIP adapter—Dayfold must not
@@ -636,7 +829,8 @@ text/description/parameter canaries.
   approved, then deepest source call;
 - parent/child stepping is deterministic;
 - generic capture copies only allowlisted primitive fields;
-- salted text, descriptions, state, parameters, and absolute paths never appear;
+- salted text, descriptions, state, parameters, absolute paths, traversal paths,
+  repository URLs, and raw mapping contents never appear;
 - non-integer/joined/application group keys are omitted without invoking their
   string representation;
 - if the semantics adapter is approved, it reads only Role/TestTag even when the
@@ -665,6 +859,23 @@ text/description/parameter canaries.
 - screenshot consent removes PNG, tree, selection, and highlights together;
 - Point parser and report bundle accept the versioned emitted schema.
 
+### Backend source-resolution tests
+
+- build id resolves only to an immutable allowlisted repository/revision manifest;
+- exact relative path + valid line produces a commit-pinned link;
+- basename-only unique match is labeled best-effort, duplicate basename is
+  ambiguous, and neither silently becomes exact;
+- unknown/dirty/unregistered build, missing source, missing/expired mapping, digest
+  mismatch, invalid line, absolute path, and traversal yield explicit unavailable
+  reasons without falling back to another revision;
+- integer group keys resolve only through the exact build's Compose/R8 mapping;
+  arbitrary key strings and mapping contents never enter the report/UI;
+- delayed mapping upload may re-resolve against the same manifest with an audit
+  event, but cannot alter the build revision;
+- report/repository authorization controls source links and candidate disclosure;
+- deleting screenshot consent data removes node source hints and derived component
+  resolution while retaining only ordinary report-level build identity.
+
 ### Shared Compose integration tests
 
 - product subcomposition root + descendant product subcomposition registration,
@@ -691,6 +902,17 @@ text/description/parameter canaries.
   no real drawer, components, inspector tooling, or SWIP reporter/debug artifacts;
 - public release scan proves complete feature/dependency absence; future
   `internalMinified` mapping verification is not a v1 completion gate.
+
+### Portfolio consumer tests
+
+- the shared repository publishes a minimal external-consumer fixture for core,
+  noop, redux, SWIP, Components, and the optional Compose inspector without
+  relying on a Dayfold source tree;
+- Dayfold and Dinners resolve the same base artifact coordinates and do not carry
+  embedded/source-copied drawer modules;
+- setup snippets and availability copy contain no Dayfold/PickedPlate package,
+  module, backend, or build-variant assumptions;
+- each app's public release proves the real drawer and optional tooling absent.
 
 ### Mandatory device smoke
 
@@ -721,6 +943,10 @@ text/description/parameter canaries.
 - The report tree passes the product leak test and carries no UI text/values.
 - Debug source attribution works after explicit tooling activation where Compose
   supplies it; missing source is handled honestly.
+- Submitted component metadata joins to an immutable build manifest and produces
+  exact, best-effort, ambiguous, or unavailable authoring-code resolution without
+  linking to a different revision. Raw mappings and absolute paths never enter the
+  report.
 - Public release contains no viewer, SWIP report path, debug source strings, or
   tooling dependencies; future obfuscation behavior remains explicitly gated.
 - Debug, release, desktop tests, Android debug/release builds, and the physical
@@ -732,5 +958,9 @@ text/description/parameter canaries.
 - sending composable parameters, state, text, or accessibility descriptions;
 - reflection into private Android Compose view/node implementations;
 - preserving source-info strings through R8 with keep rules;
+- treating basename + line or latest-branch lookup as an exact source link;
+- uploading source code, local working trees, absolute paths, or R8/Compose
+  mapping contents in a report;
+- a general IDE/editor integration or automatic code modification from a report;
 - iOS component capture in v1;
 - a separate Dayfold-only inspector implementation.

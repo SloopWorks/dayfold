@@ -39,6 +39,9 @@ A developer or dogfooder can:
 7. reselect a component with Point or drag a manual rectangle;
 8. understand exactly what component metadata will be attached and remove it by
    turning off screenshot consent.
+9. after upload, distinguish exact, mapped, best-effort, ambiguous, and unavailable
+   authoring-code resolution and open only a commit-pinned source link whose
+   confidence is honestly labeled.
 
 This is a compact mobile Layout Inspector, not a general developer console. It
 should feel calm, dense, precise, trustworthy, and fast under debugging cognitive
@@ -59,6 +62,15 @@ load.
   carry no component identity.
 - Do not show, copy, or report raw test tags, component text, parameters, state,
   accessibility descriptions, absolute file paths, or mapping-file contents.
+- A mobile capture may know a safe file/line but cannot promise backend resolution
+  before upload. Use `Resolved after upload` or `Build not indexed`; never imply
+  that basename + line is an exact link.
+- Backend source links resolve only against the immutable producing build. Never
+  design a latest-branch fallback, silently choose among candidates, or expose
+  source/mapping contents.
+- This is shared SloopWorks tooling. Dayfold is the current runtime consumer and
+  Dinners/PickedPlate is the committed next consumer; setup copy and states must
+  contain no product-specific module/package/backend assumptions.
 - The report handoff is Bug-only unless SWIP later supports real persisted type
   reclassification.
 - Failures must preserve manual annotation and report submission.
@@ -77,7 +89,9 @@ Produce:
 4. `Reporting-Handoff.dc.html` — SWIP annotation and consent/review states.
 5. `Adaptive-and-States.dc.html` — 420dp side sheet, degraded states, text scale,
    accessibility, and motion notes.
-6. `spec.md` — implementation-ready visual, interaction, state, copy,
+6. `Backend-Traceability.dc.html` — post-upload component-source card with exact,
+   mapped, best-effort, ambiguous, and unavailable states.
+7. `spec.md` — implementation-ready visual, interaction, state, copy,
    accessibility, and responsive specification.
 
 Use the repository's existing `.dc.html` conventions and assets. Reuse established
@@ -174,7 +188,12 @@ Show a phone peek sheet and expanded side-sheet version.
   preview.
 - Show selected composable name with `Unknown component` fallback.
 - Show hierarchy summary plus Parent / Child.
-- Key/value rows: bounds, source file, line, and group-key/build mapping status.
+- Key/value rows: bounds, safe source reference, and build/source-index status.
+- Show `Code link · resolved after upload`, `Code link · build not indexed`, and
+  `Source unavailable in this build` without turning any into an error that blocks
+  selection/reporting.
+- Group-key lookup hint is a pre-upload status (`Captured` / `Not captured`), not
+  a raw key dump. Mapping availability is shown only in the post-upload result.
 - Missing values use `Unavailable in this build`.
 - Actions: **Add to report**, Copy details, Select another, Close.
 - Back returns to Components. Select another begins a new capture.
@@ -210,7 +229,36 @@ count, trimmed status, and `No text or state included`. Turning off screenshot
 consent removes screenshot, component tree, selected identity, and highlight
 together.
 
-### F. Feedback and accessibility states
+### F. Post-upload authoring-code traceability
+
+Create a compact report-detail component-source card/state sheet rather than a
+new dashboard shell. Show:
+
+1. **Exact source**
+   - sanitized repository-relative path + line;
+   - short immutable revision and `Exact build match`;
+   - **Open source** and Copy code reference.
+2. **Mapped source**
+   - same exact presentation;
+   - `Resolved from this build's Compose/R8 mapping`;
+   - never expose/download the mapping.
+3. **Best-effort unique**
+   - `One likely match` with concise evidence;
+   - action labeled **Open best-effort match**, never **Open source**.
+4. **Ambiguous**
+   - `Multiple source matches` and two or more candidate path/line rows;
+   - no candidate is preselected and no single Open action appears.
+5. **Unavailable**
+   - distinct reasons: `Build not indexed`, `Source not recorded`, `Mapping
+     unavailable for this build`, and `No source match`;
+   - preserve Copy code reference when safe file/line hints exist.
+
+Do not show absolute paths, branch-latest links, source text, credentials, raw
+group keys, raw mappings, digests as user-facing noise, or repository controls.
+The report/backend authorization boundary is outside the card but must be noted in
+the spec.
+
+### G. Feedback and accessibility states
 
 Show/annotate:
 
@@ -240,6 +288,10 @@ Specify:
   touch interception.
 - A valid empty tree is different from capture failure.
 - Source degradation is different from bounds unavailability.
+- Pre-upload source availability is different from post-upload resolution
+  confidence.
+- Backend re-resolution may change unavailable→resolved only for the same
+  immutable build manifest; it never moves to a newer revision.
 - Public release registers none of these states or help surfaces.
 
 ## Visual direction
@@ -262,6 +314,8 @@ In `spec.md`, include:
 - frame inventory and journey map;
 - component inventory and reuse/new-component mapping;
 - exact copy table for every availability/source state;
+- exact copy/action table for backend exact, mapped, best-effort, ambiguous, and
+  unavailable resolution;
 - interaction/state-transition table;
 - selection hit-path and Parent/Child behavior;
 - phone/expanded responsive rules;
@@ -271,6 +325,8 @@ In `spec.md`, include:
 - accessibility semantics, focus order, announcements, text scaling, contrast,
   keyboard, and reduced-motion behavior;
 - privacy/consent notes and explicit forbidden metadata;
+- build-provenance presentation rules: sanitized relative path, immutable short
+  revision, honest confidence, no latest-branch fallback, and no raw mapping;
 - implementation acceptance checklist.
 
 ## Quality bar and handoff
@@ -283,8 +339,10 @@ Before finishing:
 4. Confirm setup guidance is reason-specific and never appears in submitted data.
 5. Confirm public release has no Components/help state.
 6. Confirm light/dark, 200% text, focus, contrast, and reduced-motion annotations.
-7. Confirm no raw test tags, text/state/parameters, absolute paths, or mapping data
-   appear in the UI or spec.
+7. Confirm backend source states never present best-effort/ambiguous results as
+   exact and never enable a single Open action for ambiguous candidates.
+8. Confirm no raw test tags, text/state/parameters, absolute paths, source content,
+   credentials, or mapping-file contents appear in the UI or spec.
 
 Do not implement application code. Deliver the hi-fi `.dc.html` files and
 `spec.md`, then summarize the recommended phone detail-sheet height and any

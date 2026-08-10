@@ -5,7 +5,9 @@
 Extend the approved SloopWorks debug drawer and SWIP bug-report annotation flow
 with a developer-only component viewer. A dogfooder can open the drawer, choose
 **Components**, tap the live app, inspect the selected Compose component and its
-ancestor path, then attach that selection to a bug report.
+ancestor path, then attach that selection to a bug report. After upload, a
+developer can see whether the exact producing build resolves that selection to
+authoring code and open a commit-pinned source location when confidence permits.
 
 The interaction should feel like a compact mobile Layout Inspector: precise and
 fast, but legible on a phone and safe over arbitrary app content.
@@ -24,6 +26,11 @@ Claude Design execution handoff:
 
 Do not redesign the drawer or reporter. Add the smallest coherent component flow
 using their established chrome and tokens.
+
+The surface is shared SloopWorks tooling, not Dayfold-only UI. Dayfold is the
+current runtime consumer and Dinners/PickedPlate is the committed next consumer;
+all status copy, setup snippets, component models, and backend traceability states
+must remain product-neutral.
 
 ## Required screens/states
 
@@ -94,9 +101,12 @@ instructions remain local UI and are never attached to a report.
   expanded layouts may use selectable breadcrumbs.
 - Key/value rows, using existing drawer primitives:
   - bounds;
-  - source file;
-  - line;
-  - group key/build mapping status.
+  - safe source reference (`ResponseSheet.kt · line 146` when available);
+  - build/source-index status (`Resolved after upload`, `Build not indexed`, or
+    `Source unavailable in this build`);
+  - group-key lookup hint status (`Captured` / `Not captured`) without the raw
+    key or mapping contents. Whether a matching mapping exists is a post-upload
+    backend result.
 - Values that do not exist read `Unavailable in this build`; never fake them.
 - Do not show or copy raw test tags in v1. A future role row requires the
   pinned-version semantics spike and a separate design/privacy update.
@@ -132,12 +142,39 @@ instructions remain local UI and are never attached to a report.
   `No text or state included`. The tree remains bundled with screenshot consent.
 - Toggling off screenshot visibly removes both highlight and component details.
 
+### 4a. Post-upload authoring-code traceability
+
+Design a compact component-source card for the developer-facing report detail.
+This is a content block/state sheet, not a redesign of a future SWIP dashboard.
+It must make confidence and provenance legible:
+
+- **Exact source** — repository-relative path + line, short immutable revision,
+  `Exact build match`, and **Open source**.
+- **Mapped source** — the same presentation plus `Resolved from this build's
+  Compose/R8 mapping`; never expose or download the mapping.
+- **Best-effort unique** — `One likely match` + evidence and an explicitly labeled
+  **Open best-effort match** action; never style it as exact.
+- **Ambiguous** — `Multiple source matches` with candidate path/line rows and no
+  preselected Open action.
+- **Unavailable** — distinguish `Build not indexed`, `Source not recorded`,
+  `Mapping unavailable for this build`, and `No source match` while retaining
+  **Copy code reference** when a safe file/line exists.
+
+The card shows only a sanitized repository-relative path and commit, never an
+absolute build path, branch-latest link, source content, repository credential,
+raw group key dump, or mapping-file content. It must not claim a backend result
+inside the pre-upload mobile detail; mobile uses `Resolved after upload` unless
+the exact manifest is already verified.
+
 ### 5. Empty/degraded/error states
 
 - No selectable component tree for the current screen (manual report only).
 - Component-inspection provider not connected to this build.
 - UI-tree mode disabled by host configuration.
 - Source file/line unavailable but bounds still available.
+- Source is visible on-device but the build is dirty/unregistered, so backend
+  linking will be unavailable.
+- Backend returns exact, best-effort, ambiguous, mapping-missing, or unresolved.
 - Tap lands on a decorative/unidentified region.
 - Component tree exceeded its size budget and distant nodes were trimmed.
 - Selection canceled.
@@ -186,10 +223,14 @@ mapped-source wording exists in the public release build. Design source as
 optional within debug/internal builds:
 
 - debug: `ResponseSheet.kt · line 146`;
+- pre-upload: `Code link · resolved after upload`;
+- unregistered local build: `Code link · build not indexed`;
 - unavailable: `Source unavailable in this build`.
 
 An `internalMinified` representation is future work only after that variant and
-mapping precision are explicitly approved. Never show raw mappings/absolute paths.
+mapping precision are explicitly approved. The design may document its future
+`Resolved from this build's mapping` result, but must label it gated and never show
+raw mappings/absolute paths.
 
 ## Host and shell prerequisites
 
@@ -219,6 +260,11 @@ mapping precision are explicitly approved. Never show raw mappings/absolute path
    200% text/TalkBack, reduced motion, and clean capture-frame suppression.
 8. Shared enablement-help component in drawer and reporter contexts, including
    Copy setup snippet, retry, and manual-annotation fallback.
+9. Post-upload component-source card/state sheet covering exact direct, exact
+   mapped, best-effort unique, ambiguous, and unavailable resolution.
+10. Copy/provenance rules showing the boundary between safe file/line/build
+    references and forbidden absolute paths, latest-branch links, source/mapping
+    contents, or credentials.
 
 ## Questions to surface, not invent
 
