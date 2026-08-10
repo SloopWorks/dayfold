@@ -338,6 +338,16 @@ permission-copy device review, store data-safety disclosures, ADR
 acceptance reviews), and the on-device smoke checklist live in the shipyard
 epic — this is a pointer, not the record.**
 
+WI-461 (2026-08-10) closed the epic's last unreachability gap: a build-level
+feature flag + Account settings row + real Now-card Review wiring, so the
+feature (still gated behind ADR 0063 acceptance) is now reachable end-to-end
+in the running app rather than dead code behind an unwired route. Also fixed
+a second, undocumented break found while wiring the Now card: `FeedViewState`
+/`rankingState()` never carried calendar state through the ranking
+projection, so the aggregate Calendar Check Now card could never render at
+all, independent of the Review no-op. `CalendarImportHost` ("Add to a Hub"
+from the review flow) remains unreached — deferred, not this WI's scope.
+
 ### Active — TASK-CLIENT-RUNTIME-HARDENING (started 2026-07-14)
 
 PR 1 plus the runtime/session, engine-hardening, immutable-command,

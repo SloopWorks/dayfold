@@ -320,6 +320,7 @@ fun FeedApp(
             store = store,
             detailCardId = shell.detailCardId,
             handle = handle,
+            commands = commands,
             onConnectDevice = { store.dispatch(OpenEnterCode) },
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
@@ -328,6 +329,9 @@ fun FeedApp(
             detailBackContentDescription = if (
               shell.detailReturnDestination == DetailReturnDestination.SEARCH
             ) "Back to search" else "Back to feed",
+            // WI-461 (ADR 0063 §5) — the Now card's "Review" pill mounts CalendarReviewHost
+            // (ContentHost reads calendar.check.reviewOpen directly off the store).
+            onOpenCalendarReview = { store.dispatch(OpenCalendarReview) },
             feedListState = feedListState,
           )
         },

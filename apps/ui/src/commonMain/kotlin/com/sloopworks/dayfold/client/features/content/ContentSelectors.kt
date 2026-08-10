@@ -24,6 +24,11 @@ data class FeedViewState(
   val responseRules: List<ContentResponse>,
   val responseReceipt: ResponseReceipt?,
   val viewerUserId: String?,
+  // WI-461 (ADR 0063 §5) — nowFeed() reads these to surface the aggregate Calendar Check card;
+  // omitting them here would silently keep that card unreachable, since the ranker only sees what
+  // this projection carries (exactly the responseRules comment below, for the same reason).
+  val calendarCheck: CalendarCheckState,
+  val calendarLastCheckAt: String?,
 )
 
 fun feedViewState(state: AppState): FeedViewState = FeedViewState(
@@ -41,6 +46,8 @@ fun feedViewState(state: AppState): FeedViewState = FeedViewState(
   responseRules = state.responses.rules,
   responseReceipt = state.responses.lastReceipt,
   viewerUserId = state.session.session?.userId,
+  calendarCheck = state.calendar.check,
+  calendarLastCheckAt = state.calendar.settings.lastCheckAt,
 )
 
 /** Small input used to memoize ranking away from store notification delivery. */
@@ -52,6 +59,7 @@ internal fun FeedViewState.rankingState(): AppState = AppState(
   // muted subject, since the ranker only sees what this projection carries.
   responses = ResponseState(rules = responseRules),
   session = SessionState(session = viewerUserId?.let { Session("", "", userId = it) }),
+  calendar = CalendarState(check = calendarCheck, settings = CalendarSettings(lastCheckAt = calendarLastCheckAt)),
 )
 
 @Immutable

@@ -40,8 +40,8 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NavToDetail, is NavBack, is RestoreDetailStack, is OpenSearch, is CloseSearch,
   is OpenDetailFromSearch, is AuthRestoring, is SessionRestored, is SignInSucceeded,
   is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity,
-  is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected,
-  is JoinDismissed -> reduceRoutedFeature(state, action)
+  is OpenCalendarSettings, is CloseCalendarSettings, is OpenJoinInvite, is RedeemRequested,
+  is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
   is OpenSmartBriefings, is RestoreSmartBriefings, is CloseSmartBriefings -> reduceNavigation(reduceRoutines(state, action), action)
   is RoutineContinue, is RoutineNavigateBack,
   is RoutineProviderSelected, is RoutineSourcesSelected, is RoutineHubFixtureSelected,

@@ -14,13 +14,12 @@ import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.CalendarNotificationOwner
 import com.sloopworks.dayfold.client.CalendarPermission
 import com.sloopworks.dayfold.client.DayfoldCommandPort
-import com.sloopworks.dayfold.client.cards.PlatformActions
+import com.sloopworks.dayfold.client.StablePlatformActions
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
 
 // WI-447 (ADR 0063) — wires the stateless screens/sheets in this package to the store + command
-// port. Not yet reachable from the app's route graph (ADR 0063 is still Proposed) — a later WI
-// adds the nav entry once the ADR is accepted; this Host is what that entry will call.
+// port. WI-461 mounts this Host from the real Account settings entry point (Route.Calendar).
 
 private enum class CalendarSetupStep { OFF, PRIMER, CHOOSER, DENIED, NO_CALENDARS }
 
@@ -28,7 +27,10 @@ private enum class CalendarSetupStep { OFF, PRIMER, CHOOSER, DENIED, NO_CALENDAR
 fun CalendarSettingsHost(
   store: SelectorStore<AppState>,
   commands: DayfoldCommandPort,
-  platformActions: PlatformActions,
+  // WI-461 — the Compose-stable shell boundary (same type RouteHost already threads to
+  // ProximitySettingsHost et al.), not the raw expect/actual cards.PlatformActions: RouteHost has
+  // no access to the latter, only the wrapped StablePlatformActions.
+  platformActions: StablePlatformActions,
   onBack: () -> Unit,
   modifier: Modifier = Modifier,
 ) {

@@ -107,6 +107,10 @@ class BackNavTest {
     assertEquals(OpenAccount, backAction(st(Route.Devices)))
   }
 
+  @Test fun `calendar settings resolves to OpenAccount`() {
+    assertEquals(OpenAccount, backAction(st(Route.Calendar)))
+  }
+
   @Test fun `every device-flow screen resolves to CloseDeviceFlow`() {
     for (r in listOf(Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied))
       assertEquals(CloseDeviceFlow, backAction(st(r)), "back from $r")
