@@ -7,6 +7,21 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-10 — Debug drawer component picker (debug builds only)
+
+Developer builds gain a **Components** drawer panel: tap any composable on
+screen, inspect its hierarchy (Parent/Child stepping) and best-effort source
+(file · line via Compose SourceOnDemand), with honest availability states and
+"Report without component details" fallback. Powered by the shared
+`debugdrawer-components` + `debugdrawer-compose-inspector` modules
+(SloopWorks/debugdrawer#2) and backed by the SWIP typed UI-tree contract
+(SloopWorks/swip#93) and the fixture-fed backend source resolver + Component
+source card (SloopWorks/swip#92). Public release ships none of it — the
+release scan now also bans `debugdrawer-components`,
+`debugdrawer-compose-inspector`, and `ui-tooling-data`. Attach-to-report
+handoff activates once swip-bugreport 0.1.2 is published.
+
+
 ## 2026-08-10 — Authoring routines read the family's rules before writing
 
 ### Added

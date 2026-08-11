@@ -118,6 +118,10 @@ dependencies {
   debugImplementation("com.sloopworks.debugdrawer:debugdrawer:0.1.0")
   debugImplementation("com.sloopworks.debugdrawer:debugdrawer-redux:0.1.0")
   debugImplementation("com.sloopworks.debugdrawer:debugdrawer-swip:0.1.0")
+  // Component picker (debug-only): Components panel + the Android Compose
+  // inspector — the ONLY tooling-touching artifact (review §4.2).
+  debugImplementation("com.sloopworks.debugdrawer:debugdrawer-components:0.1.0")
+  debugImplementation("com.sloopworks.debugdrawer:debugdrawer-compose-inspector:0.1.0")
   releaseImplementation("com.sloopworks.debugdrawer:debugdrawer-noop:0.1.0")
 
   // The shell now wires the HTTP client explicitly (to inject the fake backend), so

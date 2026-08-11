@@ -353,11 +353,16 @@ class MainActivity : ComponentActivity() {
         // Bug reporter overlay (edge tab + review/annotate sheets) wraps the app
         // content INSIDE the drawer host; pure passthrough in release.
         BugReporterWrapped {
-          FeedApp(
-            store = selectorStore,
-            commands = runtimeViewModel.commands,
-            platformActions = stablePlatformActions,
-          )
+          // Component-inspection recording boundary: ONLY product content is
+          // recorded — drawer/bubble/reporter chrome stay outside the registry.
+          // Pure passthrough in release.
+          ComponentsRecordedContent {
+            FeedApp(
+              store = selectorStore,
+              commands = runtimeViewModel.commands,
+              platformActions = stablePlatformActions,
+            )
+          }
         }
       }
     }

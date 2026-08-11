@@ -22,7 +22,7 @@ if ! grep -Fq 'com.sloopworks.debugdrawer:debugdrawer-noop:' "$dependency_report
 fi
 
 if banned_dependencies="$(
-  grep -E 'com\.sloopworks\.debugdrawer:debugdrawer(-redux|-swip)?:' "$dependency_report" || true
+  grep -E 'com\.sloopworks\.debugdrawer:debugdrawer(-redux|-swip|-components|-compose-inspector)?:|androidx\.compose\.ui:ui-tooling-data' "$dependency_report" || true
 )" && [[ -n "$banned_dependencies" ]]; then
   echo "release classpath contains a real shared debug drawer dependency:" >&2
   echo "$banned_dependencies" >&2
@@ -37,7 +37,7 @@ fi
 # The noop facade intentionally retains a small API-compatible
 # com.sloopworks.debugdrawer surface. These packages/classes exist only in the
 # real drawer and its optional adapters, so none may reach the release DEX.
-banned_dex_pattern='com/sloopworks/debugdrawer/(host|internal|panels|redux|swip)|works/sloop/swip/debug'
+banned_dex_pattern='com/sloopworks/debugdrawer/(host|internal|panels|redux|swip|components|compose)|androidx/compose/ui/tooling/data|works/sloop/swip/debug'
 if leaked_symbol="$(unzip -p "$bundle" 'base/dex/*.dex' | strings | grep -E -m 1 "$banned_dex_pattern" || true)" &&
   [[ -n "$leaked_symbol" ]]; then
   echo "release bundle contains a debug-only drawer/SWIP symbol: $leaked_symbol" >&2

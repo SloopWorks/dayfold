@@ -74,6 +74,18 @@ private object BugReporterHolder {
 /** Store-construction enhancer (innermost slot) — the redux timeline recorder. */
 fun bugReporterEnhancer(): StoreEnhancer<AppState>? = dayfoldRecorderEnhancer(BugReporterHolder.recorder)
 
+/**
+ * Opens an ordinary Bug draft in manual-annotation mode — the Components
+ * panel's "Report without component details" action (component reporting
+ * spec: every bounds-unavailable state preserves this path). No-op before
+ * bugReporterInstall.
+ */
+object BugReporterGlue {
+  fun openManualBugReport() {
+    BugReporterHolder.controller?.open(ReportType.BUG, trigger = "components_manual")
+  }
+}
+
 /** Idempotent per-Activity install: singletons once, per-activity shake + lifecycle. */
 fun bugReporterInstall(activity: ComponentActivity) {
   val holder = BugReporterHolder

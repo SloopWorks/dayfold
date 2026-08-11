@@ -51,6 +51,8 @@ includeBuild(debugDrawerBuild) {
     substitute(module("com.sloopworks.debugdrawer:debugdrawer")).using(project(":debugdrawer"))
     substitute(module("com.sloopworks.debugdrawer:debugdrawer-noop")).using(project(":debugdrawer-noop"))
     substitute(module("com.sloopworks.debugdrawer:debugdrawer-redux")).using(project(":debugdrawer-redux"))
+    substitute(module("com.sloopworks.debugdrawer:debugdrawer-components")).using(project(":debugdrawer-components"))
+    substitute(module("com.sloopworks.debugdrawer:debugdrawer-compose-inspector")).using(project(":debugdrawer-compose-inspector"))
     if (hasSloopworksPackagesCredential) {
       substitute(module("com.sloopworks.debugdrawer:debugdrawer-swip")).using(project(":debugdrawer-swip"))
     }
