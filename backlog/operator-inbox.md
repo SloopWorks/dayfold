@@ -16,6 +16,29 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-39 · 2026-08-10 · med · open — component picker built end-to-end; merge,
+  publish, smoke?** All four build gates of the component-reporting review ran
+  today after the /goal directive: Gate C capture spike 4/4 green on device
+  (`docs/superpowers/specs/2026-08-10-gatec-capture-spike-findings.md` — sync
+  decor draw is the pairing mechanism); Gate F shared modules
+  ([debugdrawer#2](https://github.com/SloopWorks/debugdrawer/pull/2)); Gate D
+  typed UI-tree + Point identity + preseeded Bug-only handoff
+  ([swip#93](https://github.com/SloopWorks/swip/pull/93), note: schema id is
+  `ui_tree` — SWIP's linter forbids hyphens); Gate E resolver + card landed
+  fixture-fed earlier ([swip#92](https://github.com/SloopWorks/swip/pull/92),
+  merged). Dayfold wiring is on `codex/shared-debugdrawer-integration` (PR
+  #379's branch): picker works drawer-side in developer builds, release
+  bundle + extended leak scan green, salted-canary capture leak test green on
+  emulator. **Proposed default:** (1) review/merge debugdrawer#2 then swip#93;
+  (2) run the operator-only `publish-kmp` for swip-bugreport/-ui 0.1.2 and the
+  debugdrawer publish (or keep composite pinning), after which the small
+  Add-to-report glue (inspector→typed encoder→CaptureTokens→openPreseeded)
+  lands as a follow-up; (3) re-pin `third_party/debugdrawer` to the merged
+  main sha on PR #379 before merging it; (4) physical-device smoke per review
+  §7 (I install/logcat, you drive taps — Pixel was off USB today). Backend
+  ingestion + BuildSourceManifest CI registration stay explicitly out of
+  scope (review Gate E infrastructure, separate decision).
+
 - **INB-38 · 2026-08-10 · med · open — authorize the component-picker design
   pass?** `SloopWorks/debugdrawer` PR #1
   (WI-256) is merged + CI-green and declares the standalone repo the source of
