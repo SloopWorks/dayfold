@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.android
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,5 +88,39 @@ class ComponentCaptureLeakTest {
         !serialized.contains(salt),
       )
     }
+  }
+
+  /**
+   * Regression (2026-08-10 device finding): CompositionData is per-composition,
+   * so tooling siblings in the SAME composition (drawer host, selection
+   * overlay's full-screen interception Box) leaked into captures and every
+   * hit path resolved to a full-screen node. RecordProductContent must give
+   * product content its own subcomposition root table.
+   */
+  @Test
+  fun sameComposition_toolingSiblings_areExcludedFromCapture() {
+    val inspector = ComposeUiTreeInspector()
+    rule.setContent {
+      // full-screen "tooling" sibling in the same composition, composed AFTER
+      // the product slot — mimics the selection overlay
+      Box(Modifier.fillMaxSize().testTag("tooling-overlay"))
+      inspector.RecordProductContent {
+        Box(Modifier.size(120.dp).testTag("product"))
+      }
+    }
+    rule.waitForIdle()
+    var capture: FrozenComponentCapture? = null
+    runBlocking { capture = inspector.capture(UiTreeCaptureMode.BoundsOnly) }
+    val got = capture
+    assertTrue("expected a capture", got != null && got.nodes.isNotEmpty())
+    val maxDim = 3 * 120 * rule.activity.resources.displayMetrics.density
+    val oversized = got!!.nodes.filter {
+      it.bounds.width > maxDim || it.bounds.height > maxDim
+    }
+    assertTrue(
+      "tooling-sized nodes leaked into the product capture: " +
+        oversized.take(3).map { it.bounds },
+      oversized.isEmpty(),
+    )
   }
 }
