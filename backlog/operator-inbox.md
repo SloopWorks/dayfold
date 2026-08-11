@@ -31,9 +31,9 @@ Each item: question, context link, **proposed default**, urgency.
   bundle + extended leak scan green, salted-canary capture leak test green on
   emulator. **Proposed default:** (1) review/merge debugdrawer#2 then swip#93;
   (2) run the operator-only `publish-kmp` for swip-bugreport/-ui 0.1.2 and the
-  debugdrawer publish (or keep composite pinning), after which the small
-  Add-to-report glue (inspector→typed encoder→CaptureTokens→openPreseeded)
-  lands as a follow-up; (3) re-pin `third_party/debugdrawer` to the merged
+  debugdrawer publish (or keep composite pinning), — the Add-to-report glue is now WIRED and device-green
+  (ComponentsHandoffGlue + ComponentHandoffE2ETest; resolves 0.1.2 from
+  mavenLocal locally, so dayfold CI resolution pends this publish); (3) re-pin `third_party/debugdrawer` to the merged
   main sha on PR #379 before merging it; (4) physical-device smoke per review
   §7 (I install/logcat, you drive taps — Pixel was off USB today). Backend
   ingestion + BuildSourceManifest CI registration stay explicitly out of

@@ -84,6 +84,10 @@ object BugReporterGlue {
   fun openManualBugReport() {
     BugReporterHolder.controller?.open(ReportType.BUG, trigger = "components_manual")
   }
+
+  internal fun controllerOrNull() = BugReporterHolder.controller
+
+  internal fun currentActivityOrNull() = BugReporterHolder.currentActivity?.get()
 }
 
 /** Idempotent per-Activity install: singletons once, per-activity shake + lifecycle. */

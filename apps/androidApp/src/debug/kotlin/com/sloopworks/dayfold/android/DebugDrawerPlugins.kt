@@ -14,13 +14,16 @@ fun debugDrawerPlugins(activity: ComponentActivity): List<DebugPlugin> = buildLi
     add(SwipInspectorPlugin(sink.entries, SwipInspectorGlue.secureWindow(activity)))
   }
   add(SwipErrorsTriggerPlugin())
-  // Component picker (Gate G). onAddToReport stays null until the typed SWIP
-  // handoff artifacts (swip-bugreport 0.1.2) are published — the detail sheet
-  // then omits Add to report; picking/inspection is fully functional.
+  // Component picker (Gate G): Add to report hands the frozen capture to the
+  // SWIP preseeded Bug draft (typed ui_tree part, decor-draw screenshot,
+  // node-id highlight). Resolves swip-bugreport 0.1.2 (mavenLocal until the
+  // operator publish).
   add(
     ComponentsPlugin(
       registration = ComponentsGlue.registration,
-      onAddToReport = null,
+      onAddToReport = { capture, selection ->
+        ComponentsHandoffGlue.openPreseededComponentReport(capture, selection)
+      },
       onReportWithoutDetails = { BugReporterGlue.openManualBugReport() },
     ),
   )
