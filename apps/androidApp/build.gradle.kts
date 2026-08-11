@@ -167,6 +167,9 @@ dependencies {
   // logic is covered by desktop unit tests.
   androidTestImplementation(composeBom)
   androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+  // Gate C spike only (UiTreeCaptureSpikeTest): pinned to the RESOLVED compose
+  // ui version (BOM's 1.7.x is upgraded to 1.11.2 by the CMP graph).
+  androidTestImplementation("androidx.compose.ui:ui-tooling-data:1.11.2")
   androidTestImplementation("androidx.test.ext:junit:1.2.1")
   androidTestImplementation("androidx.test:runner:1.6.2")
   androidTestImplementation("androidx.test:core:1.6.1")   // InstrumentationRegistry (Phase B notifier test)
