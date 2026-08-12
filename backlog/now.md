@@ -300,6 +300,13 @@ a linux golden is recorded in CI. Open follow-ups are in `context/open-questions
 
 ## Operator actions pending
 
+- [ ] **Accept ADR 0066 + one-time Claude cloud environment setup (INB-39,
+  2026-08-12).** Operator-requested design shipped inert: claude.ai/code sessions
+  get CLI access via per-session owner-approved device grants (no secrets in cloud
+  env config; unattended access stays with ADR 0061/INB-34). After accepting,
+  do the environment setup (network allowlist + setup script — external console
+  action) per `processes/claude-cloud-setup.md` §1 and run the first dogfood
+  session end-to-end (ADR 0066 acceptance gate 3).
 - [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
   found 10 already-orphaned actions + 3 additional dark Calendar Check
   composables on `main` on its first run (2026-08-10)** — allow-listed with

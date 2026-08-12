@@ -6,6 +6,15 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
 ## Build / infra
 
+- **OQ-hub-scoped-read** *(NEW 2026-08-12; least-privilege gap)*: a per-hub
+  device-grant credential (ADR 0029) cannot run bare `dayfold pull`,
+  `dayfold responses`, or `changeset diff` — those routes require family-wide
+  `content:read` — so least-privilege cloud sessions (ADR 0066) and the curator's
+  read-before-author loop conflict; per-hub sessions are limited to
+  `pull --hub <id>` + writes. Should the API serve a grants-filtered
+  `pull`/`responses` to hub-scoped credentials? Surfaced by the ADR 0066 design.
+  → `docs/superpowers/specs/2026-08-12-claude-cloud-cli-access-design.md` §5.
+
 - **OQ-routine-observability-boundary** *(NEW 2026-08-07; customer-data + vendor
   telemetry)*: may existing API/client SWIP postures be reused for scheduled
   routines, or does the plaintext-processing K3 gateway require a separate source

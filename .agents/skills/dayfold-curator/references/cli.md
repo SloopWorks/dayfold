@@ -20,6 +20,16 @@ keychain; on a host with no keychain, `login` refuses unless
 `--allow-env-key`, then falls back to a plaintext `0600` file at
 `~/.config/dayfold/credentials.json` (headless/CI only).
 
+**Exception — remote/cloud sessions (`CLAUDE_CODE_REMOTE=true`, ADR 0066,
+gated on that ADR's acceptance):** the operator has no terminal, so the
+agent runs `dayfold login --allow-env-key` itself, **in the background**
+(the code + verification URL print immediately; the command then polls up
+to 600s), relays the code + URL to the user in chat, and waits for the
+owner to approve on their phone. Approval on the phone stays the human
+authorization step — the agent never approves, and never places tokens in
+environment variables or copies credentials between machines. Full runbook:
+`processes/claude-cloud-setup.md`.
+
 `dayfold logout` clears the stored credential. `dayfold update` (alias
 `upgrade`) / `dayfold version` (alias `--version`, `-v`) are maintenance
 commands, not part of the authoring flow — mention them only if the operator
