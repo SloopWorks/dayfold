@@ -16,6 +16,23 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-39 · 2026-08-12 · med · open — accept ADR 0066 (Claude cloud sessions ↔
+  dayfold CLI via session-scoped device grants)?** Operator-requested design: let
+  claude.ai/code sessions read/write the operator's own account through the CLI, as
+  a generic recipe any user could replicate. The design uses only Accepted
+  mechanisms — per-session `dayfold login --allow-env-key`, the code relayed in
+  chat, owner approval on the phone (full or per-hub scope, ADR 0029), credential
+  dies with the ephemeral VM (SessionEnd `logout` + device-list revocation + 45-day
+  expiry). **No secret ever enters the cloud environment config** (plain-text
+  store), so nothing ADR 0061 rejects is used; unattended routines remain 0061/
+  INB-34's open question, untouched. Shipped inert in this change: Proposed ADR
+  0066, `processes/claude-cloud-setup.md`, `scripts/claude-cloud/*`,
+  `.claude/settings.json` hooks (cloud-gated), a curator-skill remote-session note
+  (gated on acceptance). **Proposed default: accept ADR 0066, then do the one-time
+  environment setup** (external console action — operator-only) per the runbook §1
+  and run the first dogfood session (ADR acceptance gate 3). Context:
+  `docs/superpowers/specs/2026-08-12-claude-cloud-cli-access-design.md`.
+
 - **INB-38 · 2026-08-10 · med · open — authorize the component-picker design
   pass?** `SloopWorks/debugdrawer` PR #1
   (WI-256) is merged + CI-green and declares the standalone repo the source of
