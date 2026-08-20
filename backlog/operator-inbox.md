@@ -16,6 +16,34 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-40 · 2026-08-20 · med · open — does the V0.1 schema freeze happen before
+  or after ADR 0071 is accepted?** The packet contradicts itself. The gate table
+  in `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md:66` bundles schema-writing
+  with implementation in one row — "Implement schemas/server/client with
+  synthetic data | no | ADR 0071 + constants/hosting accepted" — which gates the
+  V2 schema freeze on ADR 0071 acceptance. The plan's own sequencing diagram,
+  `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md:639-640`,
+  places "WP1 final hi-fi + schemas" *before* "STOP for ADR 0008 + ADR 0071
+  decisions", and only puts "WP2-6 server/bridge/publication implementation"
+  after it. Both citations verified 2026-08-20. This changes when a Work Package
+  may start, which `CLAUDE.md` reserves to the operator as an ADR-class
+  scope/sequencing decision; an agent may propose the fix, not decide it.
+  **Proposed default:** split "schemas" out of the gate table's bundled row and
+  give the V2 schema freeze the same gating as the adjacent "Generate final
+  hi-fi" row (`CLAUDE-HANDOFF.md:65`) — *after spike report / provider facts
+  reconciled* — leaving server/bridge/client implementation gated on ADR 0071
+  acceptance as it is today. That matches the plan's sequencing diagram, lets
+  WP1 freeze the schema from recorded provider facts without pre-committing the
+  credential model, and keeps every code-writing step behind the ADR. The
+  alternative — moving WP1 §5.3's freeze to after the ADR decision — also
+  resolves the contradiction and is the more conservative reading of the gate
+  table; it costs a serialization of WP1 behind an operator decision. Whichever
+  is chosen, the losing document must be edited so the packet stops
+  contradicting itself. Context: `research/2026-08-20-smart-briefings-v0.1-packet-reconciliation.md`
+  finding **F5** (row at line 138, and "Items that are operator decisions" item
+  2). Distinct from INB-39, which ratifies the pilot boundary and the retention
+  values, not the work-package sequencing.
+
 - **INB-39 · 2026-08-20 · high · open — ratify the Claude Bridge operator-pilot
   boundary?** The operator selected bring-your-own Claude as the proof path. The
   repository's older Proposed ADR 0061 assumes a K1/K3 gateway and the existing
