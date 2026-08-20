@@ -171,8 +171,8 @@ was re-argued. No packet file (`adr/`, `specs/`, `docs/superpowers/plans/`,
 2. **F5** — whether the V2 schema freeze (WP1 §5.3) may proceed before or only
    after ADR 0071 is accepted changes the pilot's execution sequencing and is
    therefore an ADR-class scope/sequencing call, not an agent judgment call.
-3. All nine "Operator decisions" already enumerated in
-   `specs/smart-briefings-v0.1/system-design.md` §18 (lines 567-577) remain
+3. All five "Operator decisions" already enumerated in
+   `specs/smart-briefings-v0.1/system-design.md` §18 (lines 568-576) remain
    unaffected and outstanding: accept/replace ADR 0071; authorize the external
    Claude compatibility test/preview deployment; ratify the source preset,
    retention table, value thresholds, separate Vercel bridge, and Gmail

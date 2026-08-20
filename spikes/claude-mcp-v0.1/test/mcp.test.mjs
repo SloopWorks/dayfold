@@ -897,6 +897,11 @@ describe('supplementary: transport shape, method surface and logging', () => {
       ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc('resources/list', {}) }), LOG_OUTCOME.METHOD_UNSUPPORTED],
       ['no protocol version header', () => mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) }), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT],
       ['a supported protocol version', () => mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {})), LOG_OUTCOME.OK],
+      // A 200 whose body carries the SDK's own JSON-RPC error envelope. The
+      // failure never reaches the spike's handlers, so nothing records a code
+      // and the status is a success: without the envelope check this reads as
+      // a healthy call.
+      ['an error envelope inside a 200', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, 'not-an-object') }), LOG_OUTCOME.PROTOCOL_REJECTED],
     ];
 
     for (const [label, send, expected] of cases) {
@@ -929,5 +934,113 @@ describe('supplementary: transport shape, method surface and logging', () => {
     await client.callTool({ name: TOOL_IDENTITY, arguments: { schemaVersion: 99 } });
     const outcomes = spike.lines.slice(before).map((line) => JSON.parse(line).outcome);
     assert.ok(outcomes.includes('invalid_request'), 'a rejected tool call is not logged as a success');
+  });
+});
+
+describe('13. a JSON-RPC error inside a 200 is never logged as a success', () => {
+  /**
+   * The SDK validates a request against its own zod schema before any handler
+   * runs, and answers a failure with a JSON-RPC error envelope inside an HTTP
+   * **200**. Nothing the spike owns sees that failure: no closed code is
+   * recorded and the status is a success, so the only evidence it happened is
+   * the envelope itself. The log is the operator's sole observation channel,
+   * so a line that says `ok` for a call that failed is a false record.
+   */
+  test('the SDK\'s own request-schema failure is recorded as protocol_rejected', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const before = spike.lines.length;
+
+    const response = await mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, 'not-an-object') });
+    const message = await rpcResponse(response);
+    assert.equal(response.status, 200, 'the failure really does arrive inside a 200');
+    assert.equal(message.result, undefined);
+    assert.equal(message.error.code, ErrorCode.InternalError);
+
+    assert.equal(spike.lines.length - before, 1, 'still exactly one line');
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.PROTOCOL_REJECTED);
+  });
+
+  test('a batch in which every entry fails is recorded, not just its last entry', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const before = spike.lines.length;
+
+    const response = await mcpFetch(spike, {
+      token: accessToken,
+      body: [toolCall(TOOL_IDENTITY, 'not-an-object'), toolCall(TOOL_FINISH, 'also-not-an-object')],
+    });
+    assert.equal(response.status, 200);
+    const messages = sseMessages(await response.text());
+    assert.equal(messages.length, 2, 'one response per batch entry');
+    for (const message of messages) assert.equal(message.error.code, ErrorCode.InternalError);
+
+    assert.equal(spike.lines.length - before, 1, 'a batch is still one request and one line');
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.PROTOCOL_REJECTED);
+  });
+
+  test('a healthy call in the same shape is still recorded as a success', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    await (await mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, { schemaVersion: 1 }) })).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT, 'the check must not swallow a success');
+  });
+
+  test('a closed code the spike recorded beats a nameless envelope', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    // Entry one is rejected by the spike's own validator (a closed code, worth
+    // naming); entry two fails inside the SDK (an envelope, nameless). The
+    // spike's own code is the more specific fact, so it is the one recorded.
+    await (
+      await mcpFetch(spike, {
+        token: accessToken,
+        body: [toolCall(TOOL_IDENTITY, { schemaVersion: 99 }), toolCall(TOOL_FINISH, 'not-an-object')],
+      })
+    ).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.INVALID_REQUEST);
+  });
+
+  test('a batch with two differently-coded failures records the first, not the last', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    // Two failures with *different* closed outcomes. Recording whichever
+    // handler settled last would make the line depend on scheduling; the first
+    // failure in the batch is a property of the request itself.
+    await (
+      await mcpFetch(spike, {
+        token: accessToken,
+        body: [
+          toolCall(TOOL_FINISH, finishInput('run_spike_never_minted', 'req_spike_batch')),
+          rpc('prompts/list', {}),
+        ],
+      })
+    ).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.REJECTED, 'the run_unknown from entry one');
+
+    // Reversed, the other one is first - so the order really is the request's.
+    await (
+      await mcpFetch(spike, {
+        token: accessToken,
+        body: [
+          rpc('prompts/list', {}),
+          toolCall(TOOL_FINISH, finishInput('run_spike_never_minted', 'req_spike_batch_2')),
+        ],
+      })
+    ).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.METHOD_UNSUPPORTED, 'the unknown_method from entry one');
+  });
+
+  test('an unimplemented method still reports its own closed outcome', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    // This path also produces an error envelope, but the spike's fallback
+    // handler recorded a closed code first - which is strictly more specific.
+    await (await mcpFetch(spike, { token: accessToken, body: rpc('prompts/list', {}) })).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.METHOD_UNSUPPORTED);
   });
 });

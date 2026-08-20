@@ -154,10 +154,43 @@ async function exchange(ctx, req, res, credential) {
   }
 }
 
+/**
+ * Wraps the transport's own writer so the spike sees every JSON-RPC message it
+ * puts on the wire.
+ *
+ * This is the only place the SDK's own error envelope is observable. The SDK
+ * validates a request against its own schema before any handler runs, and
+ * answers a failure by *resolving* the request with an error response
+ * (`shared/protocol.js`, the rejection branch of `_onrequest`) inside an HTTP
+ * **200**. Nothing the spike registered ever sees it, and `Protocol._onerror`
+ * does not fire for it - so without this wrap a failed call is recorded as a
+ * healthy one, in the log that is the operator's only observation channel.
+ *
+ * Sticky and per-entry: a batch is answered with one `send` per response, so a
+ * failure anywhere in a batch is caught, not just its last entry.
+ */
+function watchForErrorEnvelope(transport) {
+  const state = { seen: false };
+  const rawSend = transport.send.bind(transport);
+  transport.send = async (message, options) => {
+    const entries = Array.isArray(message) ? message : [message];
+    if (entries.some((entry) => entry?.error !== undefined)) state.seen = true;
+    return rawSend(message, options);
+  };
+  return state;
+}
+
 async function dispatch(ctx, req, res, credential, message) {
   let rejectionCode;
-  const server = createToolServer({ ctx, credential, record: (code) => { rejectionCode = code; } });
+  const server = createToolServer({
+    ctx,
+    credential,
+    // First code wins. A batch can produce several; taking the last would make
+    // the recorded outcome depend on which handler happened to settle last.
+    record: (code) => { if (rejectionCode === undefined) rejectionCode = code; },
+  });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  const envelope = watchForErrorEnvelope(transport);
 
   try {
     // The transport writes its own response, so the headers every other route
@@ -171,10 +204,12 @@ async function dispatch(ctx, req, res, credential, message) {
     await server.close().catch(() => {});
   }
 
+  // A code the spike recorded is the most specific fact available, so it wins.
   if (rejectionCode !== undefined) return outcomeForCode(rejectionCode);
-  // The transport writes its own refusals straight to the response, so a status
-  // it chose is the only evidence they happened: a 4xx is never an `ok`.
-  if (res.statusCode >= 400) return LOG_OUTCOME.PROTOCOL_REJECTED;
+  // Then the two ways a failure can happen with no code to name it: a status
+  // the transport chose, or an error envelope it wrote inside a 200. Neither
+  // is ever an `ok`.
+  if (res.statusCode >= 400 || envelope.seen) return LOG_OUTCOME.PROTOCOL_REJECTED;
   return outcomeForProtocolVersion(req.headers['mcp-protocol-version']);
 }
 
