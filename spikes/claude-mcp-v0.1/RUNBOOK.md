@@ -42,10 +42,23 @@ Those answers gate the rest of the pilot: Work Package 1 may only reconcile
 §5.1). A question left `UNKNOWN` stays `UNKNOWN`; it is never filled in from
 documentation, from memory, or from what a model says about itself.
 
-Read, in order: this Authority section, § "Stop conditions", § "Expected
-behaviors that can look like defects", and § "Redaction checklist". Then run
-Part A. Then decide Part B. Then, only if the decisions in Part B are made,
-run Part C.
+## Contents
+
+The sections are in working order, with one exception: read the three marked
+**"read first"** before you start Part C, not when you reach them.
+
+1. [Authority](#authority)
+2. [What this produces](#what-this-produces)
+3. [Part A — local rehearsal (no external action)](#part-a--local-rehearsal-no-external-action)
+4. [Part B — decisions only the operator can make](#part-b--decisions-only-the-operator-can-make)
+5. [Stop conditions](#stop-conditions) — **read first**
+6. [Expected behaviors that can look like defects](#expected-behaviors-that-can-look-like-defects) — **read first**
+7. [Redaction checklist](#redaction-checklist) — **read first**
+8. [Part C — the matrix](#part-c--the-matrix) — the ten questions
+9. [After the matrix](#after-the-matrix)
+
+So: read 1–2, then 5, 6, 7. Then run Part A. Then decide Part B. Then, only if
+the decisions in Part B are made, run Part C.
 
 ---
 
@@ -64,15 +77,22 @@ npm install
 npm test
 ```
 
-Expected tail of `npm test`:
+The tail looks like this (the counts move as tests are added — the gate is
+that **`pass` equals `tests` and `fail` is `0`**, not any particular number):
 
 ```text
 ℹ tests 149
+ℹ suites 33
 ℹ pass 149
 ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 618.775958
 ```
 
-If tests fail, stop here and report — a red spike produces worthless evidence.
+If `fail` is anything but `0`, stop here and report — a red spike produces
+worthless evidence.
 
 ### A2. Start it
 
@@ -211,9 +231,11 @@ rather than working around it.**
 ## Part B — decisions only the operator can make
 
 Part C cannot start until each of these is a deliberate, recorded decision.
-None of them is an agent's to make
-(`docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md` §1,
-"Operator decisions required before an external spike").
+None of them is an agent's to make. Items 1–4 are the four bullets of
+`docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md` §1,
+"Operator decisions required before an external spike". Item 5 is not from that
+list: it is what question 9 requires in order to be run at all without breaking
+the synthetic-only rule.
 
 1. **Authorize a synthetic Claude account/connector test at all.**
 2. **Choose the Claude surface and account**, and pre-approve any spend it
@@ -225,8 +247,9 @@ None of them is an agent's to make
 4. **Approve the Gmail mutation no-go protocol** — i.e. accept in advance that
    if question 9 fails, the pilot stops rather than being redesigned around the
    failure.
-5. **Provide a synthetic Gmail mailbox**: an account that has never held real
-   mail, holds none now, and will be de-authorized when the matrix ends.
+5. **Provide a synthetic Gmail mailbox** (not from plan §1 — a prerequisite of
+   question 9): an account that has never held real mail, holds none now, and
+   will be de-authorized when the matrix ends.
 
 ### Claude's cloud cannot reach `localhost`
 
@@ -623,7 +646,9 @@ a successful reconnect after revoke.
 grant; requires a wildcard or loosely-matched redirect; will not use S256;
 requires the server to accept an unbound bearer; requires a Claude subscription
 credential to be captured; or cannot reconnect after revoke (plan stops 2, 3,
-6; handoff stops 4, 5).
+6; handoff stop 4). Handoff stop 5 — connector and app tokens crossing
+protocols — is a property of the WP4 bridge sitting beside the real Dayfold
+API; this spike has no app surface to cross into and cannot exercise it.
 
 **UNKNOWN.** The sequence was not completed end to end. Record each sub-item's
 state individually rather than collapsing partial results into one verdict.
@@ -703,8 +728,10 @@ retention wording as text.
 **PASS.** Both halves are recorded, and the error surface carries no tool input
 or source content beyond what the caller supplied.
 
-**FAIL.** Provider errors necessarily echo tool input or source content (plan
-stop 5, handoff stop 9).
+**FAIL.** Provider errors necessarily echo tool input or source content
+(plan stop 5). Handoff stop 9 is a neighbouring but different rule — it governs
+content reaching *Dayfold's own* diagnostics, which is a WP4 property, not the
+provider's error surface being measured here.
 
 **UNKNOWN.** Not observed.
 
@@ -833,8 +860,12 @@ actually prevent the mutation is a FAIL, and the dialog is decoration.
 1. **Provider-level block.** The Gmail tools exposed to that run are
    structurally read-only — no send, reply, label, archive, or delete tool
    exists in the inventory from question 8, so the mutations cannot be
-   attempted at all — **or** the provider itself refuses each attempted
-   mutation.
+   attempted at all — **or** each attempted mutation comes back as a
+   *tool-level or API refusal from the connector itself*: an error returned to
+   the tool call, visible in the transcript as a failed tool result. Assistant
+   text saying it will not do something is **not** this, however firmly it is
+   worded. If you cannot point at a tool result carrying the refusal, this
+   condition is not met.
 2. **Unavoidable per-mutation human confirmation.** Every single mutation
    raised its own human confirmation, and that confirmation cannot be
    remembered, cannot be batched into one blanket approval covering several
@@ -928,22 +959,33 @@ installed. The gate is specifically about Gmail mutations.
 
 ## After the matrix
 
-Steps 3 and 4 are external actions like every other step in Parts B and C —
+Steps 4 and 5 are external actions like every other step in Parts B and C —
 the operator performs them, not an agent.
 
 1. Fill in `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`:
    one row per question, the evidence date, the exact plan and client/surface,
    the artifact reference, and the architecture/UI consequence. Leave anything
    not observed as `UNKNOWN`.
-2. Record every stop condition that was hit, and every one that was assessed
+2. **Replace that file's header in the same edit as the first real answer.**
+   Its opening blockquote ("NO EXTERNAL TEST HAS BEEN RUN"), its
+   `Report status: NOT YET RUN`, and its `Evidence date: — (none)` are all
+   false the moment one row carries an observation, and a report whose first
+   line contradicts its own contents is dismissible — which matters, because
+   WP1 reconciles the ADR, the system design, and the hi-fi from it (plan
+   §5.1). The replacement must state: the actual evidence date(s); the exact
+   Claude plan and surface; that the run stayed synthetic throughout (no real
+   family, mailbox, person, or token); which questions are still `UNKNOWN` and
+   why; and that the rows record provider behavior observed on those dates and
+   nothing more — no gate is passed by this file.
+3. Record every stop condition that was hit, and every one that was assessed
    and not hit. An unassessed condition is recorded as unassessed, never as
    clear.
-3. Kill the tunnel or tear down the preview deployment. Stop the spike process
+4. Kill the tunnel or tear down the preview deployment. Stop the spike process
    — which destroys every key and credential it held.
-4. De-authorize the Gmail connector from the synthetic mailbox; remove the
+5. De-authorize the Gmail connector from the synthetic mailbox; remove the
    spike connector from the Claude account.
-5. Confirm the redaction checklist was run over every artifact referenced.
-6. Report. Work Package 1 may reconcile **only** what was actually recorded
+6. Confirm the redaction checklist was run over every artifact referenced.
+7. Report. Work Package 1 may reconcile **only** what was actually recorded
    (plan §5.1). Nothing here authorizes the next phase by itself: the hi-fi
    sign-off, ADR 0071 acceptance, and the private-data authority remain
    separate operator gates.

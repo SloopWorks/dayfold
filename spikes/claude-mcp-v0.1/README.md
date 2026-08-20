@@ -28,7 +28,8 @@ Gate context: `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`.
 - Content-blind diagnostics: one JSON line per request carrying exactly
   `ts`, `testRunId`, `class`, `outcome` — closed enums, no bodies, no headers,
   no tokens, no URLs, no tool input.
-- 149 tests, `node --test`, zero test dependencies.
+- A `node --test` suite with zero test dependencies; the gate is `pass` equals
+  `tests` and `fail` is `0`.
 
 ## What it is not
 
@@ -58,7 +59,7 @@ From `spikes/claude-mcp-v0.1/`:
 
 ```sh
 npm install     # installs the single pinned dependency
-npm test        # node --test  -> 149 pass / 0 fail
+npm test        # node --test  -> pass == tests, fail 0
 npm start       # node src/main.mjs -> listens on http://127.0.0.1:8787
 ```
 
@@ -356,20 +357,22 @@ the matrix** — every one of them is written up there with what to record.
 npm test
 ```
 
-| File | Tests | Covers |
-|---|---|---|
-| `test/oauth.test.mjs` | 39 | Discovery, authorize rejections, resource-indicator recording, no auto-approval on GET, happy path, code single-use and expiry, PKCE, refresh rotation and lineage revocation, revocation, DCR, security headers, startup guard, transport limits. |
-| `test/mcp.test.mjs` | 39 | Unauthenticated and cross-bound tokens, scope authority, revoked credential, expired token, `initialize`/`tools/list` shape, identity constants, schema rejection, replay and conflict, run-ownership opacity, pre-parse body cap, deadline and concurrency caps, statelessness. |
-| `test/diagnostics.test.mjs` | 71 | Content-blindness of every line a full drive produces, leak canaries, credential material, the single-writer and no-Dayfold-env source scans, and the import allowlist. |
-| **Total** | **149** | |
+Counts move as tests are added, so none are pinned here: the gate is that
+`pass` equals `tests` and `fail` is `0`.
+
+| File | Covers |
+|---|---|
+| `test/oauth.test.mjs` | Discovery, authorize rejections, resource-indicator recording, no auto-approval on GET, happy path, code single-use and expiry, PKCE, refresh rotation and lineage revocation, revocation, DCR, security headers, startup guard, transport limits. |
+| `test/mcp.test.mjs` | Unauthenticated and cross-bound tokens, scope authority, revoked credential, expired token, `initialize`/`tools/list` shape, identity constants, schema rejection, replay and conflict, run-ownership opacity, pre-parse body cap, deadline and concurrency caps, statelessness. |
+| `test/diagnostics.test.mjs` | Content-blindness of every line a full drive produces, leak canaries, credential material, the single-writer and no-Dayfold-env source scans, and the import allowlist. |
 
 ## Provenance
 
 Built across commits `7d445960` → `1fb54d44` on branch
 `codex/v0-1-claude-handoff`. Verified locally on Node v24.13.0 / npm 11.6.2:
-`npm install`, `npm test` (149 pass / 0 fail), `npm start`, and a full
-loopback drive of authorize → approve → token → `initialize` → `tools/list` →
-`tools/call` → revoke.
+`npm install`, `npm test` (all passing — 149 tests at commit `1fb54d44`),
+`npm start`, and a full loopback drive of authorize → approve → token →
+`initialize` → `tools/list` → `tools/call` → revoke.
 
 ## Next
 

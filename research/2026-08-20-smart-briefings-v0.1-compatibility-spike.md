@@ -42,6 +42,24 @@ and Terms/spend approval).
 
 ## How to fill this in
 
+**Replace the header first — in the same edit as the first real answer.** The
+blockquote at the top of this file, the `Report status: NOT YET RUN` line, and
+`Evidence date: — (none)` all assert that nothing has been observed. One
+recorded observation makes them false, and a report whose first line
+contradicts its own contents is dismissible — which matters, because Work
+Package 1 reconciles the ADR, the system design, and the hi-fi from this file
+(plan §5.1). The replacement must assert what is then true:
+
+- `Report status:` `RUN IN PROGRESS` or `RUN COMPLETE`, not `NOT YET RUN`;
+- `Evidence date:` the actual date(s) of the run;
+- a header block stating the exact Claude plan and surface used, that the run
+  stayed synthetic throughout (no real family, mailbox, person, or token),
+  which questions remain `UNKNOWN` and why, and that the rows record provider
+  behavior observed on those dates and nothing more — **no gate is passed by
+  this file**, and nothing here authorizes the private-data phase.
+
+Then:
+
 1. One row per matrix question, in the plan's order. Do not reorder or merge.
 2. `PASS` / `FAIL` / `UNKNOWN` only. The PASS/FAIL/UNKNOWN definitions are
    per-question and live in `spikes/claude-mcp-v0.1/RUNBOOK.md` Part C — use
@@ -213,11 +231,11 @@ documents it settles or forces a revision of.
 |---|---|
 | 1 | `system-design.md` §16 bullet 1 ("supported Claude plans, clients, admin settings"); plan §1 "choose/pre-approve the eligible Claude surface/account and any spend"; ADR 0071 §8 and Consequences ("Consumer Claude subscriptions cannot satisfy the current constitutional gate") — the recorded plan determines whether an eligible no-training route exists at all. |
 | 2 | `system-design.md` §16 bullet 2 ("Gmail + custom connector coexistence on the exact surface"); ADR 0071 §2 ("Claude owns inference and Google OAuth"); plan stop 1; handoff stop 2. A FAIL invalidates the pilot's premise, not a detail of it. |
-| 3 | `system-design.md` §10 ("DCR is disabled unless the spike proves Claude requires it") and §16 bullet 1 (install URL / manual URL behavior); ADR 0071 §3 (the bridge owns "discovery, authorize, token, revoke, optional DCR, and MCP"). Decides whether WP4 ships a registration endpoint at all. |
-| 4 | `system-design.md` §10 in full — Authorization Code + S256 PKCE, exact redirect URI, exact resource/audience, 5-minute access token, opaque rotating refresh with lineage revocation, hashed single-use code, revocation checked on every bridge call; ADR 0071 §3 (separate issuer, audience, signing key, refresh store) and the cross-protocol rule; plan stops 2, 3, 6; handoff stops 4 and 5. Also settles whether the spike's deliberate leniency on an absent `resource` indicator (RUNBOOK, disclosed behavior 3) has to become strictness in WP4 or was never exercised. |
+| 3 | `system-design.md` §10 — "The bridge owns discovery, authorize, token, revoke, optional DCR, and MCP" and "DCR is disabled unless the spike proves Claude requires it" — plus §16 bullet 1 (install URL / manual URL behavior); ADR 0071 §3 (an isolated bridge with "its own discovery/authorize/token/revoke surface"). Decides whether WP4 ships a registration endpoint at all. |
+| 4 | `system-design.md` §10 in full — Authorization Code + S256 PKCE, exact redirect URI, exact resource/audience, 5-minute access token, opaque rotating refresh with lineage revocation, hashed single-use code, revocation checked on every bridge call; ADR 0071 §3 (separate issuer, audience, signing key, refresh store) and the cross-protocol rule; plan stops 2, 3, 6; handoff stop 4. (Handoff stop 5 — connector and app tokens crossing protocols — is a WP4 property; this spike has no app surface to cross into and cannot exercise it.) Also settles whether the spike's deliberate leniency on an absent `resource` indicator (RUNBOOK, disclosed behavior 3) has to become strictness in WP4 or was never exercised. |
 | 5 | `system-design.md` §8 (remote MCP contract) and §16 bullet 4; ADR 0071 §3 ("Streamable HTTP MCP"); plan stop 5. Settles whether stateless Streamable HTTP is the right transport shape for WP4, and whether closed error codes survive to the provider surface. |
 | 6 | `system-design.md` §10 (the browser approval channel: poll secret, user code, "polling never returns the authorization code") and §6 (user experience); ADR 0071 §4 ("App/Claude return alone never promotes state"); the ADR 0008 hi-fi gate — WP1 cannot draw the enrollment ceremony without this. |
-| 7 | `system-design.md` §7 (disclosure and content minimization) and §16 bullet 7 ("what Claude stores in chat and which deletion/training controls are available"); ADR 0071 §11 (content-blind connector diagnostics) and §8 (no-training constitution); plan stop 5; handoff stops 9 and 10. |
+| 7 | `system-design.md` §7 (disclosure and content minimization) and §16 bullet 7 ("what Claude stores in chat and which deletion/training controls are available"); ADR 0071 §11 (content-blind connector diagnostics) and §8 (no-training constitution); plan stop 5; handoff stop 10. (Handoff stop 9 is adjacent but different — it governs content reaching *Dayfold's own* diagnostics, a WP4 property, not the provider's error surface measured here.) |
 | 8 | `system-design.md` §9 condition 1 ("Gmail tools exposed to the run are structurally read-only") and §16 bullet 6; ADR 0071 §7. The inventory decides whether question 9's second condition is even needed. |
 | 9 | `system-design.md` §9 in full (both conditions, and "Instructions are not an authorization boundary"); ADR 0071 §7 ("Treat Gmail writes as a provider compatibility no-go gate") and Rejected-for-this-pilot ("Prompt-only Gmail write prevention"); plan §1 "Required before any private data — successful synthetic prompt-injection/write-capability test"; plan stop 4; handoff stop 3; ADR 0071 acceptance gate 4. A FAIL stops the pilot outright. |
 | 10 | `system-design.md` §9 condition 2 ("no remembered approval, silent retry, or unattended execution"); ADR 0071 §1 (manual invocation only, no schedule) and §7; handoff's boundary line forbidding schedules and unattended runs. |
