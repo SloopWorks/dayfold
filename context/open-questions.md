@@ -23,6 +23,22 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   run spike is Work Package 0 and gates final hi-fi and implementation. →
   `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`.
 
+- **OQ-claude-spike-public-endpoint** *(NEW 2026-08-20; external-action + exposure)*:
+  the compatibility spike (`spikes/claude-mcp-v0.1/`) is local-only and has no
+  route to a real Claude client until it is made publicly reachable. A tunnel
+  and a preview deployment carry different exposure and approval implications,
+  and choosing between them is an operator call, not one this phase makes —
+  `spikes/claude-mcp-v0.1/RUNBOOK.md` names it as one of the external actions
+  only the operator may perform. → INB-39.
+
+- **OQ-wp1-v1-routine-artifact-fate** *(NEW 2026-08-20; migration scope)*: the
+  plan for Work Package 1 (`docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`
+  §2, §5.3) preserves `specs/domain-model/schemas/routine-*.schema.json` and
+  `packages/routine-schema/` as "V1 shadow history" while freezing a separate
+  `routine-proposal-v2` schema. "Shadow" is not defined against a concrete
+  action — whether the V1 artifacts stay live and unused, get archived, or are
+  removed once V2 is frozen is undecided and not yet an ADR.
+
 - **OQ-routine-observability-boundary** *(NEW 2026-08-07; customer-data + vendor
   telemetry)*: may existing API/client SWIP postures be reused for scheduled
   routines, or does the plaintext-processing K3 gateway require a separate source

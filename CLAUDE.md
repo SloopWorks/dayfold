@@ -72,6 +72,7 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 | `processes/` | Planning loop, agent routing, research workflow, fleet patterns, loop journal | Source of truth for process |
 | `designs/` | Hi-fi UI/UX mockups (ADR 0008 design-first gate) | Source of truth for approved screens |
 | `backlog/` | `now.md` / `next.md` / `later.md` / `operator-inbox.md` | Working state |
+| `spikes/` | Throwaway compatibility spikes; never production, never private data | Working state |
 | `docs/architecture.md` | System diagram, components, data flow, auth, deploy — descriptive, not a design doc | Source of truth for "how it's wired" |
 | `CHANGELOG.md` | Dated log of product/API/feature changes, for release notes | Source of truth for "what shipped" |
 

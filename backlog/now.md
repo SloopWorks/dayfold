@@ -35,6 +35,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
+### Active — Smart Briefings V0.1 Claude Bridge, Phase A (2026-08-20)
+
+Work Package 0 of the Claude Bridge compatibility spike is built under
+`spikes/claude-mcp-v0.1/`: a synthetic OAuth authorization server, a
+stateless Streamable HTTP MCP surface with two spike tools, content-blind
+diagnostics, and a leak-canary suite (no caller-supplied value found reaching
+any log line, error body, SDK-originated error string, or response header).
+**149 tests pass** (`npm test` in that directory); zero production Dayfold
+code changed — nothing under `apps/`, `packages/`, or `specs/` was touched.
+The spike is **synthetic-only, local, and un-deployed**: it has never been run
+against Claude, never contacted an external service, and has processed **no
+private data**. Operator runbook: `spikes/claude-mcp-v0.1/RUNBOOK.md`. Report
+template (every answer `UNKNOWN`, no evidence yet):
+`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`.
+
 ### Active — mobile app review / Hub completion parity (2026-08-19)
 
 The cross-platform review is implemented in an isolated branch: Hub blocks expose
@@ -355,6 +370,16 @@ Gradle daemon during compilation, so those counterparts remain pending.
 
 ## Operator actions pending
 
+- [ ] **Claude Bridge Phase B is blocked on operator gates, none agent-decidable
+  (2026-08-20).** **INB-39** (open) needs ratifying the operator-pilot boundary
+  and retention constants and accepting or replacing Proposed ADR 0071. Beyond
+  that: authorize the external spike (a Claude account/plan, a connector
+  install, and a publicly reachable endpoint — tunnel or preview deployment —
+  plus any Terms acceptance or spend those require); approve the Gmail-mutation
+  no-go protocol before matrix question 9 is run; after the spike, ADR 0008
+  sign-off on the spike-informed hi-fi; and, before any private data, an
+  eligible commercial no-training posture or an explicit constitutional
+  amendment (a consumer model-improvement toggle alone is insufficient).
 - [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
   found 10 already-orphaned actions + 3 additional dark Calendar Check
   composables on `main` on its first run (2026-08-10)** — allow-listed with
