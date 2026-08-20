@@ -1,0 +1,17 @@
+{
+  "name": "@dayfold/spike-claude-mcp-v0.1",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway compatibility spike: synthetic OAuth 2.1 authorization server + MCP surface. Never production, never private data.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  }
+}

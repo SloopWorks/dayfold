@@ -8,6 +8,8 @@ rounds that link back (see `processes/research-workflow.md`).
 | *(validation round 1 lands here at bootstrap)* | | | |
 | `product-naming-2026-06.md` | 2026-06-19 | Brand-name screening; lead candidate `Dayfold` | Evidence — operator name decision pending |
 | `2026-08-20-smart-briefings-v0.1-adversarial-review.md` | 2026-08-20 | Two-round platform/security, privacy/provider, and UX/simplification review of the Claude Bridge pilot packet | Reconciled; no-ship beyond synthetic spike pending operator gates |
+| `2026-08-20-smart-briefings-v0.1-packet-reconciliation.md` | 2026-08-20 | Packet-vs-repository audit for Phase A of the Claude Bridge pilot | 4 material + 2 minor findings, none blocking Phase A; outstanding for WP1 |
+| `2026-08-20-smart-briefings-v0.1-compatibility-spike.md` | 2026-08-20 | Provider-compatibility matrix for the local Claude Bridge spike | **Template — no external test run; every answer `UNKNOWN`, not evidence** |
 
 Labeling convention: `[fact:source]` / `[estimate]` / `[assumption]`.
 Claim verdicts: confirmed / partially-confirmed / refuted / unverifiable.
