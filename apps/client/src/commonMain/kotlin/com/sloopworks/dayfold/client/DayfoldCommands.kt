@@ -1,6 +1,8 @@
 package com.sloopworks.dayfold.client
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.reduxkotlin.Store
 
@@ -16,6 +18,7 @@ class DayfoldCommands internal constructor(
   private val authEngine: AuthEngine? = null,
   private val syncCoordinator: SyncCoordinator? = null,
   private val hubEngine: HubEngine? = null,
+  private val searchEngine: SearchEngine? = null,
   private val nowEngine: NowEngine? = null,
   private val responseEngine: ResponseEngine? = null,
   private val contentStore: ContentStore? = null,
@@ -26,14 +29,72 @@ class DayfoldCommands internal constructor(
   private val foregroundNotifier: LocalNotifier? = null,
   private val familyWorkLauncher: ((FamilySessionContext, suspend (FamilySessionContext) -> Unit) -> Boolean)? = null,
   private val bindSelectedFamily: suspend () -> Unit = {},
+  private val beforeSearchNavigationCommit: suspend () -> Unit = {},
 ) : DayfoldCommandPort {
   companion object {
+    private val EMPTY_SEARCH_STATUS = MutableStateFlow(SearchStatus())
+
     /** Creates a side-effect-free command set that still performs pure Redux navigation. */
     fun navigationOnly(store: Store<AppState>): DayfoldCommands = DayfoldCommands(store)
   }
 
   /** Dispatches one already-complete pure Redux intent. */
   fun dispatch(action: Action) { store.dispatch(action) }
+
+  override val searchStatus: StateFlow<SearchStatus>
+    get() = searchEngine?.status ?: EMPTY_SEARCH_STATUS
+
+  override suspend fun search(query: String): SearchResponse =
+    searchEngine?.search(query) ?: SearchResponse(
+      requestGeneration = 0,
+      bindingGeneration = searchStatus.value.bindingGeneration,
+      corpusGeneration = searchStatus.value.corpusGeneration,
+      readiness = searchStatus.value.readiness,
+      failure = SearchFailure.UNAVAILABLE,
+    )
+
+  override fun openSearchResult(handle: SearchResultHandle) = launchEffect {
+    val resolved = searchEngine?.resolve(handle) ?: return@launchEffect
+    beforeSearchNavigationCommit()
+    val destination = resolved.destination
+    when (destination.kind) {
+      SearchDestinationKind.CARD -> {
+        val cardId = destination.cardId ?: return@launchEffect
+        sessionCoordinator?.commitIfCurrent(resolved.context) {
+          // Search's DB collector may publish before the ordinary Redux bridge at startup.
+          // Publish the same canonical projection first so detail never no-ops or renders blank.
+          store.dispatch(CardsLoaded(resolved.cards))
+          store.dispatch(OpenDetailFromSearch(cardId))
+        }
+      }
+      SearchDestinationKind.HUB,
+      SearchDestinationKind.SECTION,
+      SearchDestinationKind.BLOCK,
+      -> {
+        val hubId = destination.hubId ?: return@launchEffect
+        val arrival = when (destination.kind) {
+          SearchDestinationKind.HUB -> HubArrival(HubArrivalLevel.HUB, hubId, HubArrivalSource.SEARCH)
+          SearchDestinationKind.SECTION -> HubArrival(
+            HubArrivalLevel.SECTION,
+            destination.sectionId ?: return@launchEffect,
+            HubArrivalSource.SEARCH,
+          )
+          SearchDestinationKind.BLOCK -> HubArrival(
+            HubArrivalLevel.BLOCK,
+            destination.blockId ?: return@launchEffect,
+            HubArrivalSource.SEARCH,
+          )
+          SearchDestinationKind.CARD -> error("handled above")
+        }
+        hubEngine?.openHub(
+          context = resolved.context,
+          hubId = hubId,
+          returnDestination = HubReturnDestination.SEARCH,
+          arrival = arrival,
+        )
+      }
+    }
+  }
 
   /** Completes provider authentication from an immutable host-produced token. */
   fun signIn(provider: String, idToken: String) {
@@ -119,7 +180,7 @@ class DayfoldCommands internal constructor(
   override fun openHub(
     familyId: String,
     hubId: String,
-    focusBlockId: String?,
+    arrival: HubArrival?,
     returnDestination: HubReturnDestination,
   ) {
     if (hubEngine == null) {
@@ -133,7 +194,12 @@ class DayfoldCommands internal constructor(
     }
     launchEffect {
       if (!sessionCoordinator.isCurrent(initial)) return@launchEffect
-      if (!hubEngine.openHub(initial, hubId, focusBlockId, returnDestination)) {
+      if (!hubEngine.openHub(
+          context = initial,
+          hubId = hubId,
+          returnDestination = returnDestination,
+          arrival = arrival,
+        )) {
         Log.w("commands") { "Hub open rejected by family admission" }
       }
     }
@@ -167,7 +233,13 @@ class DayfoldCommands internal constructor(
   override fun closeHub(expectedHubId: String, destination: HubReturnDestination) {
     if (store.state.hubs.currentHubId != expectedHubId) return
     val expectedRequest = store.state.hubs.currentHubRequest
-    store.dispatch(if (destination == HubReturnDestination.FEED_DETAIL) CloseHubToFeed else CloseHub)
+    store.dispatch(
+      when (destination) {
+        HubReturnDestination.FEED_DETAIL -> CloseHubToFeed
+        HubReturnDestination.SEARCH -> CloseHubToSearch
+        HubReturnDestination.HUB_LIST -> CloseHub
+      },
+    )
     launchEffect { hubEngine?.closeHub(expectedHubId, expectedRequest) }
   }
 

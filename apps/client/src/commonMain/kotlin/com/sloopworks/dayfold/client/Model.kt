@@ -453,7 +453,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Search, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -490,9 +490,17 @@ data class SessionState(
 
 // Transient navigation is deliberately non-persisted. A cold start returns to
 // Feed rather than restoring an open card detail.
+enum class SearchOrigin { NOW, HUBS }
+
+enum class DetailReturnDestination { FEED, SEARCH }
+
 data class NavigationState(
   val route: Route = Route.Loading,
   val detailStack: List<String> = emptyList(),
+  /** Tier-1 surface restored when the query-free Search route closes. */
+  val searchOrigin: SearchOrigin = SearchOrigin.NOW,
+  /** Return target for the whole related-card detail stack. */
+  val detailReturnDestination: DetailReturnDestination = DetailReturnDestination.FEED,
 )
 
 /** Owner-side roster, approvals, and invite administration for the active family. */
@@ -597,6 +605,9 @@ data class CardsLoaded(val cards: List<Card>) : Action
 data class NavToDetail(val cardId: String) : Action
 data object NavBack : Action
 data object Back : Action                                     // system back → up one level (resolved by backAction)
+data class OpenSearch(val origin: SearchOrigin) : Action
+data object CloseSearch : Action
+data class OpenDetailFromSearch(val cardId: String) : Action
 // Restore the detail stack after an Activity recreation (3P-app return, rotation,
 // process death, "Don't keep activities"). The store is rebuilt fresh in onCreate,
 // so the shell re-dispatches the saved ids here. Dangling ids self-clean: CardsLoaded
@@ -606,7 +617,14 @@ data class RestoreDetailStack(val ids: List<String>) : Action
 // Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer
 // is pure. OpenHubs/OpenFeed flip the bottom-nav surface; OpenHub/CloseHub drive the
 // list↔detail substate (currentHubId).
-enum class HubReturnDestination { HUB_LIST, FEED_DETAIL }
+enum class HubReturnDestination { HUB_LIST, FEED_DETAIL, SEARCH }
+enum class HubArrivalLevel { HUB, SECTION, BLOCK }
+enum class HubArrivalSource { BRIEFING, SEARCH }
+data class HubArrival(
+  val level: HubArrivalLevel,
+  val id: String,
+  val source: HubArrivalSource,
+)
 data class OpenHubs(
   val returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
 ) : Action                                                    // bottom nav/cross-surface → Hubs
@@ -624,13 +642,14 @@ data class HubRequestKey(
 data class OpenHub(
   val hubId: String,
   val request: HubRequestKey,
-  val focusBlockId: String? = null,
   val returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
+  val arrival: HubArrival? = null,
 ) : Action // list/cross-surface → detail (loads the tree)
 data class HubTreeLoaded(val hubId: String, val request: HubRequestKey, val tree: HubTree) : Action
 data object HubNotFound : Action                              // 404 (restricted/absent) — back to list with a note
 data object CloseHub : Action                                 // detail → list
 data object CloseHubToFeed : Action                           // detail → back to the Feed card detail it was deep-linked from
+data object CloseHubToSearch : Action                         // detail → the in-memory Search session
 data class SetHubFilter(val filter: String) : Action          // list filter chips (all|active|planning)
 // W5 hide (ADR 0038 §W5). HiddenLoaded is the DB→store bridge (sole writer of hiddenIds);
 // SetShowHidden flips the per-view "Show hidden" toggle. Hide/unhide effects run in HubEngine.

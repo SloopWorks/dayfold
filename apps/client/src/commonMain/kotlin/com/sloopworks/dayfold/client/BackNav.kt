@@ -19,11 +19,12 @@ fun backAction(state: AppState): Action? {
     Route.Feed -> if (state.navigation.detailStack.isNotEmpty()) NavBack else null
     Route.Hubs -> when {
       state.hubs.timelineDetail != null -> CloseTimelineDetail
-      // a hub reached by a card-detail deep-link → back returns to that detail, not the hub list
-      state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> CloseHubToFeed
+      state.hubs.currentHubId != null && state.hubs.returnDestination == HubReturnDestination.FEED_DETAIL -> CloseHubToFeed
+      state.hubs.currentHubId != null && state.hubs.returnDestination == HubReturnDestination.SEARCH -> CloseHubToSearch
       state.hubs.currentHubId != null -> CloseHub
       else -> null
     }
+    Route.Search -> CloseSearch
     Route.Account -> CloseAccount
     Route.SmartBriefings -> error("handled before route dispatch")
     Route.Members, Route.Devices, Route.Proximity, Route.SmartContent -> OpenAccount

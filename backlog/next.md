@@ -71,24 +71,6 @@ Dayfold-owned Google Calendar OAuth. ADR:
 `adr/0063-client-owned-calendar-reconciliation.md`; design prompts:
 `designs/DESIGN-BRIEF-calendar-reconciliation.md`.
 
-## TASK-LOCAL-SEARCH — on-device retrieval over saved content
-
-**Added 2026-08-19 (operator-requested exploration). Status: research and hi-fi
-gallery complete; blocked on ADR 0008 operator sign-off; no build authorized.**
-Recommended first slice: a temporary search route from Now/Hubs, a derived
-permission-filtered in-memory corpus, shared-Kotlin exact/prefix/substring
-matching with bounded fuzzy fallback, one compact mixed result list, and
-canonical destination arrival. Keep query history session-only and include
-archived (not device-hidden) content. Benchmark 500/2k/10k synthetic documents
-before choosing an index; FTS5 requires a shipped-driver capability spike and
-any driver change is ADR-class. Semantic matching is a later measured
-reranker/fallback using a pinned small shared model, not an MVP dependency.
-
-Research: `research/2026-08-19-local-search-exploration.md`; adversarial review:
-`research/2026-08-19-local-search-design-review.md`; gallery:
-`designs/local-search/Index.dc.html`; repeatable Claude Code brief:
-`designs/DESIGN-BRIEF-local-search.md`.
-
 ## TASK-SWIP-BUGREPORT-FOLLOWUPS — dayfold ↔ swip integration improvements
 
 **Added 2026-07-11 (operator, after the first on-device smoke).** The swip bug

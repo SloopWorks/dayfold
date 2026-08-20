@@ -26,6 +26,7 @@ class DayfoldRuntimeGraph internal constructor(
   internal val syncEngine: SyncEngine,
   internal val syncCoordinator: SyncCoordinator,
   internal val hubEngine: HubEngine,
+  internal val searchEngine: SearchEngine,
   internal val nowEngine: NowEngine,
   internal val sessionCoordinator: SessionCoordinator,
   private val externalHubTargets: PendingExternalHubTargetCoordinator,
@@ -195,6 +196,7 @@ class DayfoldRuntimeFactory(
     lateinit var syncEngine: SyncEngine
     lateinit var syncCoordinator: SyncCoordinator
     lateinit var hubEngine: HubEngine
+    lateinit var searchEngine: SearchEngine
     lateinit var nowEngine: NowEngine
     lateinit var responseEngine: ResponseEngine
     lateinit var calendarCheckEngine: CalendarCheckEngine
@@ -219,6 +221,13 @@ class DayfoldRuntimeFactory(
             val auth = coordinator.install(session)
             coordinator.selectFamily(auth, store.state.session.activeFamilyId)
           }
+
+          searchEngine = SearchEngine(
+            contentStore = contentStore,
+            sessionCoordinator = coordinator,
+            backgroundDispatcher = backgroundDispatcher,
+            databaseDispatcher = databaseDispatcher,
+          )
 
           authEngine = AuthEngine(
             store = store,
@@ -320,8 +329,10 @@ class DayfoldRuntimeFactory(
               hubEngine.openHub(
                 context = family,
                 hubId = target.hubId,
-                focusBlockId = target.blockId,
                 onAdmitted = onAdmitted,
+                arrival = target.blockId?.let {
+                  HubArrival(HubArrivalLevel.BLOCK, it, HubArrivalSource.BRIEFING)
+                },
               )
             },
           )
@@ -331,6 +342,7 @@ class DayfoldRuntimeFactory(
             authEngine = authEngine,
             syncCoordinator = syncCoordinator,
             hubEngine = hubEngine,
+            searchEngine = searchEngine,
             nowEngine = nowEngine,
             responseEngine = responseEngine,
             contentStore = contentStore,
@@ -359,8 +371,12 @@ class DayfoldRuntimeFactory(
             ),
             bindFamilyWork = { context, familyScope, publication ->
               hubEngine.bindFamilyWork(context, familyScope, publication)
+              searchEngine.bindFamilyWork(context, familyScope, publication)
             },
-            closeFamilyWorkAdmission = hubEngine::closeFamilyAdmission,
+            closeFamilyWorkAdmission = {
+              hubEngine.closeFamilyAdmission()
+              searchEngine.closeFamilyAdmission()
+            },
           )
         },
         prepareSchema = {
@@ -390,6 +406,7 @@ class DayfoldRuntimeFactory(
         closeResources = {
           syncEngine.stop()
           hubEngine.stop()
+          searchEngine.closeFamilyAdmission()
           nowEngine.stop()
           calendarCheckEngine.stop()
           http.close()
@@ -409,6 +426,7 @@ class DayfoldRuntimeFactory(
       syncEngine = syncEngine,
       syncCoordinator = syncCoordinator,
       hubEngine = hubEngine,
+      searchEngine = searchEngine,
       nowEngine = nowEngine,
       sessionCoordinator = coordinator,
       externalHubTargets = externalHubTargets,

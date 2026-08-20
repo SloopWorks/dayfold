@@ -18,6 +18,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
@@ -93,7 +94,7 @@ internal fun routeCardAction(
       // remember we came from a Feed card detail so back returns there (not the hub list)
       val destination = if (fromFeedDetail) HubReturnDestination.FEED_DETAIL else HubReturnDestination.HUB_LIST
       if (activeFamilyId != null) {
-        commands.openHub(activeFamilyId, action.hubId, action.focusBlockId, destination)
+        commands.openHub(activeFamilyId, action.hubId, action.arrival, destination)
       }
     }
     // ADR 0064 — in-app, like OpenDetail: opening the sheet is pure navigation, so it goes to
@@ -201,6 +202,10 @@ fun FeedApp(
   // MediaValidation before Coil sees them.
   remember { setupImageLoader(); 0 }
   val shell = rememberAppShellState(store)
+  val searchStatus by commands.searchStatus.collectAsState()
+  // Always mounted so Search → canonical destination → Back restores query + list position.
+  // The opaque binding generation recreates (and disposes/clears) the session at every tenant bind.
+  val searchSession = rememberSearchSession(searchStatus)
   // Now-feed scroll position, hoisted to FeedApp (always composed) so it survives EVERY nav that
   // recomposes the feed away: the feed↔detail swap AND the Feed↔Hubs tab swap AND a Feed→Account
   // excursion. AnimatedContent has no SaveableStateHolder, so a state owned lower down (ContentHost,
@@ -257,6 +262,13 @@ fun FeedApp(
         BackTarget.FeedDetailFromHub -> shell.currentHubId?.let { id ->
           commands.closeHub(id, HubReturnDestination.FEED_DETAIL)
         }
+        BackTarget.SearchFromHub -> shell.currentHubId?.let { id ->
+          commands.closeHub(id, HubReturnDestination.SEARCH)
+        }
+        BackTarget.Search -> {
+          searchSession.clear()
+          store.dispatch(CloseSearch)
+        }
         BackTarget.Audience -> store.dispatch(CloseAudienceSheet)
         BackTarget.Timeline -> store.dispatch(CloseTimelineDetail)
         BackTarget.Account -> store.dispatch(CloseAccount)
@@ -312,6 +324,10 @@ fun FeedApp(
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
             onNowShown = commands::nowShown,
+            onSearch = { store.dispatch(OpenSearch(SearchOrigin.NOW)) },
+            detailBackContentDescription = if (
+              shell.detailReturnDestination == DetailReturnDestination.SEARCH
+            ) "Back to search" else "Back to feed",
             feedListState = feedListState,
           )
         },
@@ -321,6 +337,7 @@ fun FeedApp(
             commands = commands,
             onCardAction = handle,
             hubListState = hubListState,
+            onSearch = { store.dispatch(OpenSearch(SearchOrigin.HUBS)) },
           )
         },
       )
@@ -331,6 +348,9 @@ fun FeedApp(
           commands = commands,
           platformActions = platformActions,
           devSignIn = devSignIn,
+          searchStatus = searchStatus,
+          searchSession = searchSession,
+          offline = shell.offline,
         )
       }
     }

@@ -47,6 +47,8 @@ internal fun ContentHost(
   onNavHubs: () -> Unit = {},
   onRefresh: () -> Unit = {},
   onNowShown: (Set<String>) -> Unit = {},
+  onSearch: () -> Unit = {},
+  detailBackContentDescription: String = "Back to feed",
   feedListState: LazyListState = rememberLazyListState(),
 ) {
   val targetKey: String? = detailCardId            // top of the detail stack (null = feed)
@@ -97,6 +99,7 @@ internal fun ContentHost(
               hubName = it.hubName,
               onBack = { store.dispatch(NavBack) },
               onAction = handle,
+              backContentDescription = detailBackContentDescription,
             )
           }
         } else {
@@ -109,6 +112,7 @@ internal fun ContentHost(
             onNavHubs = onNavHubs,
             onRefresh = onRefresh,
             onShown = onNowShown,
+            onSearch = onSearch,
             listState = feedListState,
           )
         }

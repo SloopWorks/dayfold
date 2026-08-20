@@ -182,7 +182,7 @@ class NowNotifyTest {
 
   @Test fun `notificationActionFor maps target to OpenHub with focus block`() {
     val act = notificationActionFor(item("a", hub = "h1", block = "b1"))
-    assertEquals(CardAction.OpenHub("h1", "b1"), act)
+    assertEquals(CardAction.OpenHub("h1", HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING)), act)
     assertEquals(null, notificationActionFor(item("a")))   // no target → no action
   }
 

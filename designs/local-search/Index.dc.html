@@ -37,7 +37,7 @@
   <!-- ===== the mark — the one idea to review first ===== -->
   <div style="max-width:940px;background:#FFF8F6;border:1px solid #EBD3CB;border-left:5px solid #C0381E;border-radius:22px;padding:24px 28px;margin-bottom:44px;">
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span class="msr fill" style="font-size:20px;color:#C0381E;">ink_highlighter</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;">The mark travels to wherever your words actually are</span></div>
-    <div style="font-family:'Figtree';font-size:14px;line-height:1.65;color:#5A423C;margin-bottom:16px;">One tonal mark with an underline appears wherever the words actually live. A close match marks the stored word; a semantic-only result carries no mark because there is nothing true to mark.</div>
+    <div style="font-family:'Figtree';font-size:14px;line-height:1.65;color:#5A423C;margin-bottom:16px;">Exact text uses the coral mark. A close match marks the stored word in secondary teal and says so; a semantic-only result carries no mark because there is nothing true to mark. Every mark keeps the underline, so color is never the only cue.</div>
     <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;">
         <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">IN THE TITLE</span>
@@ -50,6 +50,10 @@
       <div style="display:flex;flex-direction:column;gap:5px;">
         <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">IN THE EXCERPT</span>
         <span style="font-family:'Figtree';font-size:13px;color:#5A423C;">…before every <span style="background:#FFDAD2;color:#4E1000;box-shadow:inset 0 -2px 0 #C0381E;border-radius:4px;padding:0 1px;">soccer</span> practice.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">CLOSE MATCH</span>
+        <span style="font-family:'Figtree';font-size:13px;color:#5A423C;">Orcas <span style="background:#9DF2E4;color:#00201C;box-shadow:inset 0 -2px 0 #00796F;border-radius:4px;padding:0 1px;">soccer</span> season <span style="font-size:10.5px;font-weight:600;color:#5A423C;background:#F6E5E0;border-radius:7px;padding:3px 8px;">Close match</span></span>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;">
         <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">NOWHERE — AND THAT IS THE POINT</span>
@@ -246,23 +250,23 @@ class Component extends DCLogic {
           a:'Rows are compact list items with one action: open the canonical content. Search is a temporary route above the tabs.',
           hasOpen:false },
         { n:'2', q:'Are exact, fuzzy and semantic-only matches visually honest?', where:'Match modes · boards 01–03',
-          a:'Marks mean the characters are present. Fuzzy marks the stored word and says Close match; semantic-only has no mark or score.',
-          hasOpen:true, open:'Should a Close match row look different from an exact row beyond its label?' },
+          a:'Exact uses coral. Fuzzy uses a secondary-teal mark on the stored word plus Close match disclosure; semantic-only has no mark or score.',
+          hasOpen:true, open:'Operator-directed teal Close match variant · review after refresh' },
         { n:'3', q:'Can someone understand where every result lives before tapping it?', where:'A · all result states',
-          a:'Each row has one breadcrumb and destination glyph. When the path matches, the mark appears in that breadcrumb.',
+          a:'Each row has one breadcrumb and destination glyph. When the path matches, the mark appears there. Operator: accepted.',
           hasOpen:false },
         { n:'4', q:'Does the compact row carry enough context without becoming a full card?', where:'A · Exact and Phrase',
-          a:'Glyph, title, breadcrumb, and a two-line excerpt carry the context. A quiet state label appears only when truthful.',
-          hasOpen:true, open:'Is the missing chevron a loss on touch, or a relief?' },
+          a:'Glyph, title, breadcrumb, and a two-line excerpt carry the context. Operator: LGTM, including no chevron.',
+          hasOpen:false },
         { n:'5', q:'Does offline search feel fully useful without a false freshness claim?', where:'A · Offline',
-          a:'Results and ranking stay identical; only the trust line changes. Nothing claims freshness or sync.',
+          a:'Results and ranking stay identical; only the trust line changes. Nothing claims freshness or sync. Operator: LGTM.',
           hasOpen:false },
         { n:'6', q:'Is result arrival obvious and then gracefully temporary?', where:'Result arrival board',
           a:'Open the canonical destination, pulse the actual match once, then return it to normal. Back restores the search session.',
           hasOpen:false },
         { n:'7', q:'Are filters useful, or does the simpler mixed list win?', where:'C · density pair',
-          a:'The plain list is the recommendation: it surfaces the first useful result sooner. The chips remain only as a reviewable alternative.',
-          hasOpen:true, open:'Operator call: approve the plain-list default?' },
+          a:'The plain list surfaces the first useful result sooner. Operator: accepted as the default; chips remain an exploration only.',
+          hasOpen:false },
       ],
     };
   }

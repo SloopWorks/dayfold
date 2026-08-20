@@ -179,7 +179,7 @@ class HubEngineTest {
     store.dispatch(CloseHub)
     assertNull(store.state.hubs.currentHubId)
     assertNull(store.state.hubs.currentHubTree)
-    assertNull(store.state.hubs.focusBlockId)
+    assertNull(store.state.hubs.arrival)
 
     // the tree subscription must be cancelled — a later DB write to h1 must NOT
     // re-dispatch HubTreeLoaded (else the coroutine leaks per hub open).
@@ -343,9 +343,9 @@ class HubEngineTest {
       tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-06-24T00:00:00Z",
     )
     val e = engine(store, MockEngine { respond("{}", HttpStatusCode.OK, jsonCt) }, contentStore = cs)
-    e.openHub("h1", focusBlockId = "b1")
+    e.openHub("h1", arrival = HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING))
     await(store) { it.hubs.currentHubTree != null }
-    assertEquals("b1", store.state.hubs.focusBlockId)  // SetHubFocus dispatched + survived HubTreeLoaded
+    assertEquals(HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING), store.state.hubs.arrival)
   }
 
   @Test fun `delayed close for hub A request cannot cancel reopened hub B request`() = runBlocking {
@@ -419,10 +419,10 @@ class HubEngineTest {
       publication.close()
       engine.closeFamilyAdmission()
 
-      engine.openHub("h1", focusBlockId = "b1")
+      engine.openHub("h1", arrival = HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING))
 
       assertNull(store.state.hubs.currentHubId)
-      assertNull(store.state.hubs.focusBlockId)
+      assertNull(store.state.hubs.arrival)
       assertEquals(0, collectors)
       familyJob.cancel()
       familyJob.join()

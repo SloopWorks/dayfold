@@ -175,7 +175,14 @@ private fun DerivedNowCard(item: NowItem, emphasized: Boolean, softened: Boolean
   val ringWidth by animateDpAsState(if (emphasized) 2.dp else 0.dp, spring(), label = "nowRing")
   var tap = Modifier.fillMaxWidth()
   item.target?.let { t ->
-    tap = tap.clickable { onAction(CardAction.OpenHub(t.hubId, t.blockId ?: t.sectionId)) }
+    val blockId = t.blockId
+    val sectionId = t.sectionId
+    val arrival = when {
+      blockId != null -> HubArrival(HubArrivalLevel.BLOCK, blockId, HubArrivalSource.BRIEFING)
+      sectionId != null -> HubArrival(HubArrivalLevel.SECTION, sectionId, HubArrivalSource.BRIEFING)
+      else -> null
+    }
+    tap = tap.clickable { onAction(CardAction.OpenHub(t.hubId, arrival)) }
       .semantics { contentDescription = "Open ${item.title} in its hub" }
   }
   // Apply the ring while it has width — renders during the de-emphasis spring (animates OUT, not
@@ -283,5 +290,3 @@ internal fun NowItem.respondAction(atScope: Boolean = false): CardAction.Respond
     source = authoredSource,
     atScope = atScope,
   )
-
-

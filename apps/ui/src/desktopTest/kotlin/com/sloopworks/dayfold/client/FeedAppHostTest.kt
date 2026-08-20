@@ -59,7 +59,7 @@ class FeedAppHostTest {
       override fun openHub(
         familyId: String,
         hubId: String,
-        focusBlockId: String?,
+        arrival: HubArrival?,
         returnDestination: HubReturnDestination,
       ) {
         opened = familyId to hubId

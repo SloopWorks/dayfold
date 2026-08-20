@@ -219,6 +219,58 @@ val clientSnapshots: SnapshotApp = snapshotApp {
     }
   }
 
+  // Local search is shared Compose on Android and iOS. Keep this scene un-goldened until CI can
+  // record matching macOS/Linux assets; SnapshotScenesTest still renders it as a visual smoke.
+  scene("search") {
+    presets("close-matches")
+    render { args ->
+      val status = com.sloopworks.dayfold.client.SearchStatus(
+        bindingGeneration = 1,
+        corpusGeneration = 2,
+        readiness = com.sloopworks.dayfold.client.SearchReadiness.READY,
+      )
+      val response = com.sloopworks.dayfold.client.searchCorpus(
+        corpus = com.sloopworks.dayfold.client.buildSearchCorpus(
+          com.sloopworks.dayfold.client.SearchContentSnapshot(
+            revision = 2,
+            readiness = com.sloopworks.dayfold.client.SearchReadiness.READY,
+            cards = listOf(
+              com.sloopworks.dayfold.client.Card(
+                id = "soccer-registration",
+                title = "Soccer registration closes Friday",
+                bodyMd = "Submit the permission slip before 5 PM.",
+              ),
+              com.sloopworks.dayfold.client.Card(
+                id = "soccer-practice",
+                title = "Saturday soccer practice",
+                bodyMd = "Bring the blue uniform and water bottle.",
+              ),
+            ),
+          ),
+        ),
+        query = "socer",
+        bindingGeneration = status.bindingGeneration,
+        corpusGeneration = status.corpusGeneration,
+      )
+      themed(args.theme) {
+        val session = androidx.compose.runtime.remember {
+          com.sloopworks.dayfold.client.SearchSession(status.bindingGeneration).also {
+            it.updateQuery("socer")
+            it.acceptResponse("socer", response)
+          }
+        }
+        com.sloopworks.dayfold.client.SearchScreen(
+          searchStatus = status,
+          offline = false,
+          session = session,
+          search = { response },
+          onBack = {},
+          onResultClick = {},
+        )
+      }
+    }
+  }
+
   // ── Auth / onboarding ────────────────────────────────────────────────────────
   scene("auth") {
     presets("signin", "signin-busy", "signin-error", "createfamily", "familynull", "splash")

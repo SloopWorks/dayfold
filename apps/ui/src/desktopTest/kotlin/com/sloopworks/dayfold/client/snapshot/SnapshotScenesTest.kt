@@ -9,7 +9,7 @@ class SnapshotScenesTest {
   @Test fun registeredScenes() {
     assertEquals(
       setOf(
-        "feed", "hub-detail", "hub-list", "detail",
+        "feed", "hub-detail", "hub-list", "detail", "search",
         "auth", "account", "smart-briefings", "avatar-picker", "hub-people", "join", "members", "devices", "device-approval", "scan",
         "notif", "privacy", "places", "proximity", "permission", "offline-banner", "kit",
         "timeline-card", "timeline-detail",
@@ -26,6 +26,7 @@ class SnapshotScenesTest {
     assertTrue(clientSnapshots.render("feed", SnapshotInput.Preset("busy")).png.size > 100)
     assertTrue(clientSnapshots.render("hub-detail", SnapshotInput.Preset("canonical")).png.size > 100)
     assertTrue(clientSnapshots.render("detail", SnapshotInput.Preset("invite")).png.size > 100)
+    assertTrue(clientSnapshots.render("search", SnapshotInput.Preset("close-matches")).png.size > 100)
     assertTrue(clientSnapshots.render("account", SnapshotInput.Preset("smart-briefings")).png.size > 100)
     listOf(
       "entry", "adult", "provider", "sources", "access", "schedule", "privacy", "handoff",

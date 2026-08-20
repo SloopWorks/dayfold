@@ -18,6 +18,7 @@ fun routeSpec(route: Route): RouteSpec = when (route) {
   Route.JoinInvite -> RouteSpec(2, NavKind.Modal)
   Route.Feed -> RouteSpec(0, NavKind.Tab, tabIndex = 0)
   Route.Hubs -> RouteSpec(0, NavKind.Tab, tabIndex = 1)
+  Route.Search -> RouteSpec(1, NavKind.Push)
   Route.Account -> RouteSpec(1, NavKind.Modal)
   Route.SmartBriefings -> RouteSpec(2, NavKind.Push)
   // ADR 0064 — an Account child, like Devices/Members/Proximity.

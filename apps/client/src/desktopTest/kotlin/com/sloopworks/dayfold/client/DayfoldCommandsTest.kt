@@ -44,7 +44,7 @@ class DayfoldCommandsTest {
     DayfoldCommands.navigationOnly(store).openHubs(HubReturnDestination.FEED_DETAIL)
 
     assertEquals(Route.Hubs, store.state.navigation.route)
-    assertTrue(store.state.hubs.fromFeedDetail)
+    assertEquals(HubReturnDestination.FEED_DETAIL, store.state.hubs.returnDestination)
   }
 
   @Test fun `showing Now content retracts its standing platform notifications`() {

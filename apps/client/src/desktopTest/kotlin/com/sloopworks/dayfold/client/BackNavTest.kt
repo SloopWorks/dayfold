@@ -9,19 +9,32 @@ import kotlin.test.assertTrue
 // Pure back-resolution: what does system-back do from each state?
 class BackNavTest {
   private fun st(route: Route, detail: List<String> = emptyList(), hub: String? = null,
-                 sheet: Boolean = false, resuming: Boolean = false, fromDetail: Boolean = false) =
-    AppState(navigation = NavigationState(route = route, detailStack = detail), devices = DeviceState(resuming = resuming),
-             hubs = HubState(currentHubId = hub, audienceSheetOpen = sheet, fromFeedDetail = fromDetail))
+                 sheet: Boolean = false, resuming: Boolean = false,
+                 hubReturn: HubReturnDestination = HubReturnDestination.HUB_LIST,
+                 searchOrigin: SearchOrigin = SearchOrigin.NOW,
+                 detailReturn: DetailReturnDestination = DetailReturnDestination.FEED) =
+    AppState(navigation = NavigationState(route = route, detailStack = detail, searchOrigin = searchOrigin,
+               detailReturnDestination = detailReturn), devices = DeviceState(resuming = resuming),
+             hubs = HubState(currentHubId = hub, audienceSheetOpen = sheet, returnDestination = hubReturn))
 
   @Test fun `back from a hub deep-linked from a card detail returns to the detail, not the list`() {
     // deep-linked: route=Hubs, hub open, flagged fromDetail (detailStack still holds the card)
-    assertEquals(CloseHubToFeed, backAction(st(Route.Hubs, hub = "h1", detail = listOf("c1"), fromDetail = true)))
+    assertEquals(CloseHubToFeed, backAction(st(Route.Hubs, hub = "h1", detail = listOf("c1"),
+      hubReturn = HubReturnDestination.FEED_DETAIL)))
     // normally opened (from the Hubs list): back → CloseHub → the list
-    assertEquals(CloseHub, backAction(st(Route.Hubs, hub = "h1", fromDetail = false)))
+    assertEquals(CloseHub, backAction(st(Route.Hubs, hub = "h1")))
   }
 
   @Test fun `feed with a detail open resolves to NavBack`() {
     assertEquals(NavBack, backAction(st(Route.Feed, detail = listOf("c1"))))
+  }
+
+  @Test fun `search and search-owned canonical destinations resolve through typed return actions`() {
+    assertEquals(CloseSearch, backAction(st(Route.Search, searchOrigin = SearchOrigin.HUBS)))
+    assertEquals(NavBack, backAction(st(Route.Feed, detail = listOf("c1"),
+      detailReturn = DetailReturnDestination.SEARCH)))
+    assertEquals(CloseHubToSearch, backAction(st(Route.Hubs, hub = "h1",
+      hubReturn = HubReturnDestination.SEARCH)))
   }
 
   @Test fun `an open audience sheet closes FIRST, before any nav`() {
@@ -49,6 +62,8 @@ class BackNavTest {
   @Test fun `hub detail resolves to CloseHub, hub list does not`() {
     assertEquals(CloseHub, backAction(st(Route.Hubs, hub = "h1")))
     assertNull(backAction(st(Route.Hubs)))
+    assertNull(backAction(st(Route.Hubs, hubReturn = HubReturnDestination.FEED_DETAIL)))
+    assertNull(backAction(st(Route.Hubs, hubReturn = HubReturnDestination.SEARCH)))
   }
 
   @Test fun `account resolves to CloseAccount`() {

@@ -44,6 +44,9 @@ internal fun RouteHost(
   commands: DayfoldCommandPort,
   platformActions: StablePlatformActions,
   devSignIn: (() -> Unit)?,
+  searchStatus: SearchStatus,
+  searchSession: SearchSession,
+  offline: Boolean,
 ) {
   when (route) {
     Route.Loading -> SplashScreen()
@@ -85,6 +88,14 @@ internal fun RouteHost(
         onDismiss = { store.dispatch(JoinDismissed) },
       )
     }
+    Route.Search -> SearchScreen(
+      searchStatus = searchStatus,
+      offline = offline,
+      session = searchSession,
+      search = commands::search,
+      onBack = { store.dispatch(CloseSearch) },
+      onResultClick = commands::openSearchResult,
+    )
     Route.EnterCode -> {
       val state by store.selectorState(::enterCodeViewState)
       EnterCodeScreen(

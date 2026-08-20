@@ -14,6 +14,28 @@ verification pass; don't treat their presence here as a substitute for that.
 
 ---
 
+## TASK-LOCAL-SEARCH — on-device retrieval over saved content
+
+> **STATUS 2026-08-19 — IMPLEMENTED + VERIFIED ON ANDROID/iOS SIMULATORS.**
+
+Shipped a private temporary Search route from Now and Hubs, backed by a bounded
+shared-Kotlin in-memory corpus over the active member's local cards, Hubs,
+sections, blocks, timeline stops, and structured fields. Exact, phrase, prefix,
+and substring results rank before a bounded typo-tolerant fallback; the compact
+plain list uses coral exact and teal close-match highlights. Canonical card/Hub
+navigation restores the session-only query on Back and gives section/block
+matches a one-shot source-aware arrival cue. No schema, network, analytics,
+Redux-query, browser, or embedding/model work was added. Final shared/native
+gates, the 19-test API 35 Android connected suite, and an actual Swift-host iOS
+XCUITest covering exact/fuzzy/card/nested-block/Back paths passed; final
+adversarial correctness and simplification reviews returned `PASS`.
+
+Research: `research/2026-08-19-local-search-exploration.md`; implementation plan
+and evidence: `docs/superpowers/plans/2026-08-19-local-search.md`; hi-fi gallery:
+`designs/local-search/Index.dc.html`.
+
+---
+
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 > **STATUS 2026-06-21 — M0 build order EXHAUSTED + MERGED TO MAIN** (PR #7

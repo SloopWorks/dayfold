@@ -11,6 +11,8 @@ enum class BackTarget {
   Timeline,
   HubList,
   FeedDetailFromHub,
+  Search,
+  SearchFromHub,
   Account,
   SmartBriefings,
   Members,
@@ -27,7 +29,9 @@ data class AppShellState(
   val currentHubId: String?,
   val deviceResuming: Boolean,
   val timelineDetailOpen: Boolean,
+  val offline: Boolean,
   val backTarget: BackTarget?,
+  val detailReturnDestination: DetailReturnDestination = DetailReturnDestination.FEED,
 )
 
 /** Pure shell projection. It deliberately excludes all feature collections and profile data. */
@@ -38,8 +42,12 @@ fun appShellState(state: AppState): AppShellState {
     state.hubs.audienceSheetOpen -> BackTarget.Audience
     state.navigation.route == Route.Feed && detailCardId != null -> BackTarget.FeedDetail
     state.navigation.route == Route.Hubs && state.hubs.timelineDetail != null -> BackTarget.Timeline
-    state.navigation.route == Route.Hubs && state.hubs.currentHubId != null && state.hubs.fromFeedDetail -> BackTarget.FeedDetailFromHub
+    state.navigation.route == Route.Hubs && state.hubs.currentHubId != null &&
+      state.hubs.returnDestination == HubReturnDestination.FEED_DETAIL -> BackTarget.FeedDetailFromHub
+    state.navigation.route == Route.Hubs && state.hubs.currentHubId != null &&
+      state.hubs.returnDestination == HubReturnDestination.SEARCH -> BackTarget.SearchFromHub
     state.navigation.route == Route.Hubs && state.hubs.currentHubId != null -> BackTarget.HubList
+    state.navigation.route == Route.Search -> BackTarget.Search
     state.navigation.route == Route.Account -> BackTarget.Account
     state.navigation.route == Route.SmartBriefings -> BackTarget.SmartBriefings
     state.navigation.route == Route.Members || state.navigation.route == Route.Devices || state.navigation.route == Route.Proximity -> BackTarget.Members
@@ -56,7 +64,9 @@ fun appShellState(state: AppState): AppShellState {
     currentHubId = state.hubs.currentHubId,
     deviceResuming = state.devices.resuming,
     timelineDetailOpen = state.hubs.timelineDetail != null,
+    offline = state.content.error != null,
     backTarget = backTarget,
+    detailReturnDestination = state.navigation.detailReturnDestination,
   )
 }
 
@@ -70,13 +80,13 @@ internal fun rememberAppShellState(store: SelectorStore<AppState>): AppShellStat
 data class HubRouteState(
   val activeFamilyId: String?,
   val currentHubId: String?,
-  val fromFeedDetail: Boolean,
+  val returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
   val audienceSheetOpen: Boolean,
 )
 
 fun hubRouteState(state: AppState): HubRouteState = HubRouteState(
   activeFamilyId = state.session.activeFamilyId,
   currentHubId = state.hubs.currentHubId,
-  fromFeedDetail = state.hubs.fromFeedDetail,
+  returnDestination = state.hubs.returnDestination,
   audienceSheetOpen = state.hubs.audienceSheetOpen,
 )

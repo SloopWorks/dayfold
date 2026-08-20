@@ -246,6 +246,7 @@ class MainActivity : ComponentActivity() {
       DayfoldRuntimeViewModel.Factory(retainedFactory),
     )[DayfoldRuntimeViewModel::class.java]
     store = runtimeViewModel.store
+    bugReporterBindStore(store)
     val isInitialHost = runtimeViewModel.consumeInitialStateRestore()
     val isFake = runtimeViewModel.isFakeBackend
     if (isInitialHost) {

@@ -7,6 +7,35 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-19 — Private on-device search
+
+### Added
+- **Saved Dayfold content is now searchable from Now and Hubs.** Search covers
+  every navigable card, Hub, section, and block in the active member's local
+  cache, including structured fields such as checklist items, contacts, files,
+  links, and timeline stops. Exact, phrase, prefix, and substring matches rank
+  first; a bounded typo-tolerant fallback adds clearly labelled close matches.
+- **Results are a compact mixed list with truthful context.** Matching source
+  text is highlighted, section and block rows carry their Hub breadcrumb, and
+  archived content is disclosed. A result opens the normal card or Hub screen;
+  Back restores the in-memory query and list, while section/block matches get a
+  temporary source-aware arrival cue.
+- **Search works offline on Android and iOS.** The shared Kotlin matcher derives
+  an immutable corpus from one consistent local snapshot. It needs no schema,
+  server, network request, or downloaded model; semantic retrieval remains a
+  later measured option. The repository has no browser/www target today, so this
+  slice does not claim a web implementation.
+
+### Security / privacy
+- Raw queries and result text stay in a non-saveable UI session: they are not
+  written to SQLite or Redux, sent through sync/outbox/network, recorded by
+  analytics or SWIP, or retained as search history. Debug bug reports suppress
+  screenshots while Search is visible. Family replacement, sign-out, and cache
+  invalidation clear or reject stale corpora and result taps.
+- Search reuses the permission-filtered local cache and removes personally
+  hidden, completed, and orphaned content. Archived content remains intentionally
+  searchable; a personally hidden Hub timeline contributes no timeline fields.
+
 ## 2026-08-19 — Hub completion parity and mobile response-flow repair
 
 ### Fixed

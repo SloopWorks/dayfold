@@ -148,32 +148,38 @@ class ReducerTest {
   }
 
   @Test fun `OpenHub enters a hub busy and clears any stale arrival focus`() {
-    val s = rootReducer(AppState(hubs = HubState(focusBlockId = "old-blk")), OpenHub("h9", hubRequest))
+    val s = rootReducer(AppState(hubs = HubState(arrival = HubArrival(
+      HubArrivalLevel.BLOCK, "old-blk", HubArrivalSource.BRIEFING,
+    ))), OpenHub("h9", hubRequest))
     assertEquals("h9", s.hubs.currentHubId)
     assertTrue(s.hubs.busy)
-    assertNull(s.hubs.focusBlockId)      // a fresh manual open must not carry a prior deep-link's focus
+    assertNull(s.hubs.arrival)      // a fresh manual open must not carry a prior deep-link's focus
   }
 
   @Test fun `OpenHub sets the arrival block and CloseHub clears the whole hub substate`() {
-    val focused = rootReducer(AppState(), OpenHub("h1", hubRequest, focusBlockId = "blk-7"))
-    assertEquals("blk-7", focused.hubs.focusBlockId)
+    val focused = rootReducer(AppState(), OpenHub(
+      "h1", hubRequest, arrival = HubArrival(HubArrivalLevel.BLOCK, "blk-7", HubArrivalSource.BRIEFING),
+    ))
+    assertEquals("blk-7", focused.hubs.arrival?.id)
     val closed = rootReducer(focused.copy(hubs = focused.hubs.copy(currentHubTree = HubTree(hub = hub("h1")))), CloseHub)
-    assertNull(closed.hubs.currentHubId); assertNull(closed.hubs.currentHubTree); assertNull(closed.hubs.focusBlockId)
+    assertNull(closed.hubs.currentHubId); assertNull(closed.hubs.currentHubTree); assertNull(closed.hubs.arrival)
   }
 
   @Test fun `cross-surface hub deep-link return — CloseHubToFeed routes to Feed, keeps the detail, clears the flag`() {
-    val s = AppState(navigation = NavigationState(route = Route.Hubs, detailStack = listOf("c1")), hubs = HubState(currentHubId = "h1", fromFeedDetail = true))
+    val s = AppState(navigation = NavigationState(route = Route.Hubs, detailStack = listOf("c1")), hubs = HubState(
+      currentHubId = "h1", returnDestination = HubReturnDestination.FEED_DETAIL,
+    ))
     val after = rootReducer(s, CloseHubToFeed)
     assertEquals(Route.Feed, after.navigation.route)      // back on Feed → the detailStack card detail re-renders
     assertNull(after.hubs.currentHubId)
-    assertFalse(after.hubs.fromFeedDetail)
+    assertEquals(HubReturnDestination.HUB_LIST, after.hubs.returnDestination)
     assertEquals(listOf("c1"), after.navigation.detailStack)   // the originating detail is preserved
   }
 
   @Test fun `OpenHubs atomically carries and clears the return destination`() {
-    assertTrue(rootReducer(AppState(), OpenHubs(HubReturnDestination.FEED_DETAIL)).hubs.fromFeedDetail)
-    assertFalse(rootReducer(AppState(hubs = HubState(fromFeedDetail = true)), OpenHubs()).hubs.fromFeedDetail)
-    assertFalse(rootReducer(AppState(hubs = HubState(fromFeedDetail = true)), CloseHub).hubs.fromFeedDetail)
+    assertEquals(HubReturnDestination.FEED_DETAIL, rootReducer(AppState(), OpenHubs(HubReturnDestination.FEED_DETAIL)).hubs.returnDestination)
+    assertEquals(HubReturnDestination.HUB_LIST, rootReducer(AppState(hubs = HubState(returnDestination = HubReturnDestination.FEED_DETAIL)), OpenHubs()).hubs.returnDestination)
+    assertEquals(HubReturnDestination.HUB_LIST, rootReducer(AppState(hubs = HubState(returnDestination = HubReturnDestination.FEED_DETAIL)), CloseHub).hubs.returnDestination)
   }
 
   // ADR 0030 audience sheet (who-can-see-this-hub). The non-obvious property: open AND

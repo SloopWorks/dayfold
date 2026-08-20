@@ -176,12 +176,22 @@ fun swipLifecycleInstall(app: Application, store: Store<AppState>) {
   installBackgroundFlush()
   val screens = SwipAnalyticsHolder.screenSubscription
     ?: ReplaceableStoreSubscription<AppState, String>(
-      select = { it.navigation.route.name },
+      // Search is a private local utility, not an analytics surface. Map it to the already-visible
+      // origin so entering/leaving Search produces no screen_view event or inspector entry.
+      select = ::analyticsRouteName,
       onChanged = handle::screen,
     ).also {
       SwipAnalyticsHolder.screenSubscription = it
     }
   screens.bind(store)
+}
+
+internal fun analyticsRouteName(state: AppState): String = when (state.navigation.route) {
+  com.sloopworks.dayfold.client.Route.Search -> when (state.navigation.searchOrigin) {
+    com.sloopworks.dayfold.client.SearchOrigin.NOW -> com.sloopworks.dayfold.client.Route.Feed.name
+    com.sloopworks.dayfold.client.SearchOrigin.HUBS -> com.sloopworks.dayfold.client.Route.Hubs.name
+  }
+  else -> state.navigation.route.name
 }
 
 /**

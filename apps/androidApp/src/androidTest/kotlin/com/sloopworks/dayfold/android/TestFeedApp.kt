@@ -14,6 +14,7 @@ import org.reduxkotlin.compose.rememberSelectorStore
 @Composable
 internal fun TestFeedApp(
   store: Store<AppState>,
+  commandsOverride: DayfoldCommandPort? = null,
   onSignIn: (String) -> Unit = {},
   onCreateFamily: (String) -> Unit = {},
   onSignOut: () -> Unit = {},
@@ -28,6 +29,7 @@ internal fun TestFeedApp(
   val selectorStore = rememberSelectorStore(store)
   val commands = remember(
     store,
+    commandsOverride,
     onCreateFamily,
     onSignOut,
     onRedeemInvite,
@@ -38,17 +40,19 @@ internal fun TestFeedApp(
     onLoadDevices,
     onRevokeDevice,
   ) {
-    val base = DayfoldCommands.navigationOnly(store)
-    object : DayfoldCommandPort by base {
-      override fun createFamily(name: String) = onCreateFamily(name)
-      override fun signOut() = onSignOut()
-      override fun redeemInvite(token: String) = onRedeemInvite(token)
-      override fun loadApprovals(familyId: String) = onLoadApprovals()
-      override fun approveMember(familyId: String, userId: String) = onApproveMember(userId)
-      override fun loadMembers(familyId: String) = onLoadMembers()
-      override fun removeMember(familyId: String, userId: String) = onRemoveMember(userId)
-      override fun loadDevices() = onLoadDevices()
-      override fun revokeDevice(deviceId: String) = onRevokeDevice(deviceId)
+    commandsOverride ?: run {
+      val base = DayfoldCommands.navigationOnly(store)
+      object : DayfoldCommandPort by base {
+        override fun createFamily(name: String) = onCreateFamily(name)
+        override fun signOut() = onSignOut()
+        override fun redeemInvite(token: String) = onRedeemInvite(token)
+        override fun loadApprovals(familyId: String) = onLoadApprovals()
+        override fun approveMember(familyId: String, userId: String) = onApproveMember(userId)
+        override fun loadMembers(familyId: String) = onLoadMembers()
+        override fun removeMember(familyId: String, userId: String) = onRemoveMember(userId)
+        override fun loadDevices() = onLoadDevices()
+        override fun revokeDevice(deviceId: String) = onRevokeDevice(deviceId)
+      }
     }
   }
   val platformActions = remember(store, onSignIn) { StablePlatformActions.noOp(onSignIn = onSignIn) }

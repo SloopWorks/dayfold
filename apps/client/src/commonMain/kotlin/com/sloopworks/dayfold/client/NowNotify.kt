@@ -137,7 +137,14 @@ fun nearestNPlaces(places: List<Place>, location: DeviceLocation, n: Int): List<
 
 // Notification tap → the existing Phase-A cross-surface deep-link (ADR 0043 §4 / 0006). No new surface.
 fun notificationActionFor(item: NowItem): CardAction? =
-  item.target?.let { CardAction.OpenHub(it.hubId, it.blockId) }
+  item.target?.let { target ->
+    val arrival = when {
+      target.blockId != null -> HubArrival(HubArrivalLevel.BLOCK, target.blockId, HubArrivalSource.BRIEFING)
+      target.sectionId != null -> HubArrival(HubArrivalLevel.SECTION, target.sectionId, HubArrivalSource.BRIEFING)
+      else -> null
+    }
+    CardAction.OpenHub(target.hubId, arrival)
+  }
 
 // How many of [notifiedAtIsos] fall on the same LOCAL date as [nowIso] — the cap's daily rollover,
 // computed by-date (no midnight reset job needed; survives process death). Pure.

@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+import kotlinx.coroutines.flow.StateFlow
+
 /**
  * UI-facing commands that may cross a Compose host boundary.
  *
@@ -9,6 +11,10 @@ package com.sloopworks.dayfold.client
  * [DayfoldCommands], outside this UI port.
  */
 interface DayfoldCommandPort {
+  /** Query-free engine lifecycle; raw search text never enters Redux or this stream. */
+  val searchStatus: StateFlow<SearchStatus>
+  suspend fun search(query: String): SearchResponse
+  fun openSearchResult(handle: SearchResultHandle)
   fun retryAuth()
   fun createFamily(name: String)
   fun signOut()
@@ -34,7 +40,7 @@ interface DayfoldCommandPort {
   fun openHub(
     familyId: String,
     hubId: String,
-    focusBlockId: String? = null,
+    arrival: HubArrival? = null,
     returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
   )
   fun closeHub(expectedHubId: String, destination: HubReturnDestination)

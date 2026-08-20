@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -51,9 +52,15 @@ class ContentStore(driver: SqlDriver) {
   // public mutation and every multi-query notification snapshot shares this reentrant gate.
   // Ordinary single-query reads stay lock-free and retain SQLite's read concurrency.
   private val writeGate = SynchronizedObject()
+  // Process-local search revision. This is deliberately not a sync cursor: local hide,
+  // response-completion, optimistic, resync, and tenant-wipe mutations also affect what is
+  // safely navigable from Search. Every relevant writer advances it while holding [writeGate],
+  // and [searchSnapshot] reads it under that same gate.
+  private var searchRevisionValue: Long = 0L
   // Deterministic test seam for proving the multi-query Now snapshot stays under [writeGate].
   // Production leaves it null; keeping it internal avoids widening ContentStore's public API.
   internal var nowSnapshotStageHook: ((Int) -> Unit)? = null
+  internal var searchSnapshotStageHook: ((Int) -> Unit)? = null
   // Single JSON instance. payload/privacy are (de)serialized at the DB↔store
   // PROJECTION boundary (background dispatcher) — NOT during Compose
   // recomposition (the perf finding). Re-decoded per sync emission is fine
@@ -176,6 +183,7 @@ class ContentStore(driver: SqlDriver) {
       // schema of the content currently cached".
       q.setSchemaVersion(CLIENT_SCHEMA_VERSION)
     }
+    bumpSearchRevisionLocked()
   }
 
   private fun rowToCard(row: com.sloopworks.dayfold.client.db.ActiveCards): Card = Card(
@@ -241,6 +249,7 @@ class ContentStore(driver: SqlDriver) {
         // notif_config and calendar_settings are device preferences, not tenant data. They
         // deliberately survive sign-out/family replacement; the device bridges remain active.
       }
+      bumpSearchRevisionLocked()
     }
   }
 
@@ -251,7 +260,10 @@ class ContentStore(driver: SqlDriver) {
   fun wipeForResync() {
     // Places are synced content → drop them (the rebuild page re-delivers them). surfacing_state is
     // LOCAL-ONLY personal anti-nag history → PRESERVED (parity with `hidden`; not wiped here).
-    withWriteGate { q.transaction { wipeSyncedContent() } }
+    withWriteGate {
+      q.transaction { wipeSyncedContent() }
+      bumpSearchRevisionLocked()
+    }
   }
 
   // The synced-content deletes shared by [wipeForResync] and [reconcileSchemaVersion]. NOT
@@ -297,9 +309,13 @@ class ContentStore(driver: SqlDriver) {
       r.id, r.kind.wire, r.subjectRef, r.matchScope.wire, r.audienceScope.wire,
       r.userId, r.createdBy, r.label, r.sublabel, r.note, r.createdAt, r.version, if (r.pending) 1L else 0L,
     )
+    bumpSearchRevisionLocked()
   }
 
-  fun deleteResponseLocal(id: String) = withWriteGate { q.deleteResponse(id) }
+  fun deleteResponseLocal(id: String) = withWriteGate {
+    q.deleteResponse(id)
+    bumpSearchRevisionLocked()
+  }
 
   /**
    * Queue a response op. `target_kind = "response"` routes it to the response endpoints in the
@@ -345,6 +361,7 @@ class ContentStore(driver: SqlDriver) {
       q.deleteResponse(id)
       q.enqueueOp(opId, "response", id, "delete", rollback, 0L, dependsOn, nowIso)
     }
+    bumpSearchRevisionLocked()
     true
   }
 
@@ -384,6 +401,7 @@ class ContentStore(driver: SqlDriver) {
       val stored = q.getSchemaVersion().executeAsOneOrNull()?.client_schema_version ?: 0L
       if (stored >= current) return@withWriteGate
       q.transaction { wipeSyncedContent(); q.setSchemaVersion(current) }
+      bumpSearchRevisionLocked()
     }
   }
 
@@ -522,6 +540,7 @@ class ContentStore(driver: SqlDriver) {
       if (isDelete) q.deleteResponse(targetId)
       else q.clearResponsePending(resultVersion ?: 1L, targetId)
     }
+    bumpSearchRevisionLocked()
   }
 
   /**
@@ -551,6 +570,7 @@ class ContentStore(driver: SqlDriver) {
           )
         }
       }
+      bumpSearchRevisionLocked()
     }
 
   /**
@@ -569,6 +589,7 @@ class ContentStore(driver: SqlDriver) {
           canonical.sublabel, canonical.note, canonical.createdAt, canonical.version, 0L,
         )
       }
+      bumpSearchRevisionLocked()
     }
 
   /**
@@ -595,6 +616,7 @@ class ContentStore(driver: SqlDriver) {
         }
       }
     }
+    bumpSearchRevisionLocked()
   }
 
   /** Give up after the attempt cap: park the op 'failed' + surface a calm 'failed' on the block. */
@@ -677,10 +699,16 @@ class ContentStore(driver: SqlDriver) {
   // applyDelta, not in the outbox); hide ≠ ACL, so hidden content keeps syncing normally.
 
   /** Hide an entity for this device only (idempotent; updates the stamp on re-hide). */
-  fun hide(entityId: String, nowIso: String) = withWriteGate { q.hideEntity(entityId, nowIso) }
+  fun hide(entityId: String, nowIso: String) = withWriteGate {
+    q.hideEntity(entityId, nowIso)
+    bumpSearchRevisionLocked()
+  }
 
   /** Un-hide — bring it back into the visible view. */
-  fun unhide(entityId: String) = withWriteGate { q.unhideEntity(entityId) }
+  fun unhide(entityId: String) = withWriteGate {
+    q.unhideEntity(entityId)
+    bumpSearchRevisionLocked()
+  }
 
   /** Reactive set of hidden entity ids — re-emits on any hide/unhide. The screen partitions
    *  the tree against this (the "Hidden for you" section + "Show hidden" toggle). */
@@ -997,7 +1025,70 @@ class ContentStore(driver: SqlDriver) {
   fun activeCardsFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<List<Card>> =
     q.activeCards().asFlow().mapToList(dispatcher).map { rows -> rows.map(::rowToCard) }
 
+  /**
+   * One query-invalidation stream backed by one writer-gated snapshot. Independent SQLDelight
+   * flows are wake-ups only: the published cards/Hubs/tree/hidden/completion view can never mix
+   * revisions from either side of a compound writer transaction.
+   */
+  internal fun searchContentFlow(
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default,
+  ): Flow<SearchContentSnapshot> {
+    val invalidations = merge(
+      q.activeCards().asFlow().map { Unit },
+      q.activeHubs().asFlow().map { Unit },
+      q.allSections().asFlow().map { Unit },
+      q.allBlocks().asFlow().map { Unit },
+      q.hiddenIds().asFlow().map { Unit },
+      q.allResponses().asFlow().map { Unit },
+      q.getCursor().asFlow().map { Unit },
+    )
+    return invalidations
+      .conflate()
+      .mapLatest { withContext(dispatcher) { searchSnapshot() } }
+      .distinctUntilChangedBy(SearchContentSnapshot::revision)
+  }
+
+  internal fun searchSnapshot(): SearchContentSnapshot = withWriteGate {
+    val cards = q.activeCards().executeAsList().map(::rowToCard)
+    searchSnapshotStageHook?.invoke(1)
+    val hubs = q.activeHubs().executeAsList().map(::rowToHub)
+    val sections = q.allSections().executeAsList().map(::rowToNowSection)
+    searchSnapshotStageHook?.invoke(2)
+    val blocks = q.allBlocks().executeAsList().map(::rowToNowBlock)
+    val hiddenIds = q.hiddenIds().executeAsList().toSet()
+    val completed = allResponses()
+      .asSequence()
+      .filter { it.kind == ResponseKind.DONE }
+      .map { it.subjectRef }
+      .toSet()
+    val cursor = q.getCursor().executeAsOneOrNull()?.cursor
+    searchSnapshotStageHook?.invoke(3)
+    val readiness = when {
+      cards.isNotEmpty() || hubs.isNotEmpty() || sections.isNotEmpty() || blocks.isNotEmpty() ->
+        SearchReadiness.READY
+      cursor != null -> SearchReadiness.EMPTY
+      else -> SearchReadiness.WAITING_FOR_SYNC
+    }
+    SearchContentSnapshot(
+      revision = searchRevisionValue,
+      readiness = readiness,
+      cards = cards,
+      hubs = hubs,
+      sections = sections,
+      blocks = blocks,
+      hiddenIds = hiddenIds,
+      completedSubjectRefs = completed,
+    )
+  }
+
   fun cursor(): String? = q.getCursor().executeAsOneOrNull()?.cursor
+
+  /** Current process-local search revision, used only to reject stale derived corpora/results. */
+  internal fun searchRevision(): Long = withWriteGate { searchRevisionValue }
+
+  private fun bumpSearchRevisionLocked() {
+    searchRevisionValue = if (searchRevisionValue == Long.MAX_VALUE) 1L else searchRevisionValue + 1L
+  }
 
   // MUTATION INVARIANT: this is the only entry point for public methods that change `q`.
   // New public writes must use it; multi-query reads use it only when they require one

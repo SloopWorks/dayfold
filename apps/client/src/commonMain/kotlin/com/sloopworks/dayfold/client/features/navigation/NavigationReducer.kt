@@ -3,9 +3,42 @@ package com.sloopworks.dayfold.client
 /** Feed detail navigation and session-gate routes not owned by another feature flow. */
 fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is NavToDetail -> if (state.navigation.detailStack.lastOrNull() == action.cardId || state.content.cards.none { it.id == action.cardId }) state
-    else state.copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack + action.cardId))
-  is NavBack -> state.copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack.dropLast(1)))
-  is RestoreDetailStack -> state.copy(navigation = state.navigation.copy(detailStack = action.ids))
+    else state.copy(navigation = state.navigation.copy(
+      detailStack = state.navigation.detailStack + action.cardId,
+      // The first normal Feed push starts a Feed-returning stack. Related-card
+      // pushes preserve the stack's existing return target, including Search.
+      detailReturnDestination = if (state.navigation.detailStack.isEmpty()) {
+        DetailReturnDestination.FEED
+      } else {
+        state.navigation.detailReturnDestination
+      },
+    ))
+  is OpenDetailFromSearch -> if (
+    state.navigation.route != Route.Search || state.content.cards.none { it.id == action.cardId }
+  ) state else state.copy(navigation = state.navigation.copy(
+    route = Route.Feed,
+    detailStack = listOf(action.cardId),
+    detailReturnDestination = DetailReturnDestination.SEARCH,
+  ))
+  is NavBack -> state.copy(navigation = state.navigation.popDetail())
+  is RestoreDetailStack -> state.copy(navigation = state.navigation.copy(
+    detailStack = action.ids,
+    detailReturnDestination = DetailReturnDestination.FEED,
+  ))
+  is OpenSearch -> if (state.canOpenSearch(action.origin)) state.copy(navigation = state.navigation.copy(
+    route = Route.Search,
+    detailStack = emptyList(),
+    searchOrigin = action.origin,
+    detailReturnDestination = DetailReturnDestination.FEED,
+  )) else state
+  is CloseSearch -> if (state.navigation.route != Route.Search) state else state.copy(navigation = state.navigation.copy(
+    route = when (state.navigation.searchOrigin) {
+      SearchOrigin.NOW -> Route.Feed
+      SearchOrigin.HUBS -> Route.Hubs
+    },
+    detailStack = emptyList(),
+    detailReturnDestination = DetailReturnDestination.FEED,
+  ))
   is AuthRestoring -> state.copy(navigation = state.navigation.copy(route = Route.Loading))
   is SessionRestored -> state.copy(navigation = state.navigation.copy(route = if (action.session == null) Route.SignIn else Route.Loading))
   is SignInSucceeded -> state.copy(navigation = state.navigation.copy(route = Route.Loading))
@@ -26,6 +59,7 @@ fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is JoinDismissed -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is OpenHubs, is OpenHub -> state.copy(navigation = state.navigation.copy(route = Route.Hubs))
   is OpenFeed, is CloseHubToFeed -> state.copy(navigation = state.navigation.copy(route = Route.Feed))
+  is CloseHubToSearch -> state.copy(navigation = state.navigation.copy(route = Route.Search))
   is OpenMembers -> state.copy(navigation = state.navigation.copy(route = Route.Members))
   is OpenInvite -> state.copy(navigation = state.navigation.copy(route = Route.Invite))
   is InviteDismissed -> state.copy(navigation = state.navigation.copy(route = Route.Members))
@@ -37,4 +71,23 @@ fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is DevicePendingLoaded, is DeviceLookupNotFound -> state.copy(navigation = state.navigation.copy(route = Route.AuthorizeDevice))
   is CloseDeviceFlow -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   else -> state
+}
+
+private fun AppState.canOpenSearch(origin: SearchOrigin): Boolean = when (origin) {
+  SearchOrigin.NOW -> navigation.route == Route.Feed && navigation.detailStack.isEmpty()
+  SearchOrigin.HUBS -> navigation.route == Route.Hubs && hubs.currentHubId == null
+}
+
+private fun NavigationState.popDetail(): NavigationState {
+  if (detailStack.isEmpty()) return this
+  val remaining = detailStack.dropLast(1)
+  if (remaining.isNotEmpty()) return copy(detailStack = remaining)
+  return copy(
+    route = when (detailReturnDestination) {
+      DetailReturnDestination.FEED -> Route.Feed
+      DetailReturnDestination.SEARCH -> Route.Search
+    },
+    detailStack = emptyList(),
+    detailReturnDestination = DetailReturnDestination.FEED,
+  )
 }

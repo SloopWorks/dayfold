@@ -38,6 +38,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sloopworks.dayfold.client.Card
+import com.sloopworks.dayfold.client.HubArrival
+import com.sloopworks.dayfold.client.HubArrivalLevel
+import com.sloopworks.dayfold.client.HubArrivalSource
 import com.sloopworks.dayfold.client.RelatedRef
 import com.sloopworks.dayfold.client.rememberRenderedMarkdown
 
@@ -50,21 +53,42 @@ import com.sloopworks.dayfold.client.rememberRenderedMarkdown
 // The card→hub deep-link target (ADR 0006/0022): the hub to cross to + the block to
 // highlight on arrival. `target_hub_id` wins over `hub_ref`; a blank/absent hub id
 // means no link. Pure so the signature value-prop glue is unit-tested, not just
-// inline in the Composable. Returns (hubId, focusBlockId?) or null = no deep-link.
-internal fun hubLinkTarget(card: Card): Pair<String, String?>? =
-  // focus a specific block when the card names one, else the section (deep-links are usually
-  // section-level). blk-* / sec-* are distinct id namespaces → one focus id resolves either.
-  (card.targetHubId ?: card.hubRef)?.takeIf { it.isNotBlank() }?.let { it to (card.targetBlockId ?: card.targetSectionId) }
+// inline in the Composable. Returns (hubId, typed arrival?) or null = no deep-link.
+internal fun hubLinkTarget(card: Card): Pair<String, HubArrival?>? =
+  (card.targetHubId ?: card.hubRef)?.takeIf { it.isNotBlank() }?.let { hubId ->
+    val blockId = card.targetBlockId
+    val sectionId = card.targetSectionId
+    val arrival = when {
+      blockId != null -> HubArrival(
+        HubArrivalLevel.BLOCK,
+        blockId,
+        HubArrivalSource.BRIEFING,
+      )
+      sectionId != null -> HubArrival(
+        HubArrivalLevel.SECTION,
+        sectionId,
+        HubArrivalSource.BRIEFING,
+      )
+      else -> null
+    }
+    hubId to arrival
+  }
 
 @Composable
-fun DetailScreen(card: Card, hubName: String? = null, onBack: () -> Unit, onAction: (CardAction) -> Unit) {
+fun DetailScreen(
+  card: Card,
+  hubName: String? = null,
+  onBack: () -> Unit,
+  onAction: (CardAction) -> Unit,
+  backContentDescription: String = "Back to feed",
+) {
   // CL-7b: the back GESTURE (Android predictive back / iOS interactive-pop) is owned by
   // ContentHost's PredictiveBackHandler (it scrubs the container-transform). The in-hero
   // arrow below still dispatches onBack() -> NavBack for the explicit tap path.
   val accent = accentFor(card.type)
   val (heroBg, heroFg) = accentColors(accent, solid = false) // container + onContainer (AA)
   Column(Modifier.fillMaxSize().cardSharedBounds(card.id)) { // CL-7b: morph target
-    HeroHeader(card, accent, heroBg, heroFg, onBack, onAction)
+    HeroHeader(card, accent, heroBg, heroFg, onBack, onAction, backContentDescription)
     // Bottom inset (gesture pill / nav bar) added to the scroll padding so the last
     // item clears the system bar; no Scaffold here, so the list owns its own inset.
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -86,9 +110,9 @@ fun DetailScreen(card: Card, hubName: String? = null, onBack: () -> Unit, onActi
       card.bodyMd?.takeIf { it.isNotBlank() }?.let { body ->
         item { Text(rememberRenderedMarkdown(body), style = MaterialTheme.typography.bodyMedium) }
       }
-      hubLinkTarget(card)?.let { (hub, focus) ->
+      hubLinkTarget(card)?.let { (hub, arrival) ->
         // cross-surface deep-link; target_block_id (when set) highlights on arrival
-        item { HubLink(hubName = hubName, onOpen = { onAction(CardAction.OpenHub(hub, focus)) }) }
+        item { HubLink(hubName = hubName, onOpen = { onAction(CardAction.OpenHub(hub, arrival)) }) }
       }
       detailMeta(card).takeIf { it.isNotEmpty() }?.let { rows -> item { DetailsCard(rows) } }
       card.related?.takeIf { it.isNotEmpty() }?.let { rels ->
@@ -159,6 +183,7 @@ private fun RelatedSection(kicker: String?, related: List<RelatedRef>, onAction:
 private fun HeroHeader(
   card: Card, accent: CardAccent, heroBg: androidx.compose.ui.graphics.Color,
   heroFg: androidx.compose.ui.graphics.Color, onBack: () -> Unit, onAction: (CardAction) -> Unit,
+  backContentDescription: String,
 ) {
   // Hero colour bleeds full-width *under* the status bar (edge-to-edge look); its
   // content is inset below the bar via statusBarsPadding so Back/Share + title never
@@ -167,7 +192,7 @@ private fun HeroHeader(
   val keys = sharedTransitionKeys(card)
   Column(Modifier.fillMaxWidth().background(heroBg).statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 18.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      TextButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back to feed" }) {
+      TextButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = backContentDescription }) {
         androidx.compose.material3.Icon(DayfoldIcons.ArrowBack, contentDescription = null, tint = heroFg, modifier = Modifier.size(18.dp).clearAndSetSemantics {})
         Text("Back", color = heroFg, modifier = Modifier.padding(start = 4.dp))
       }

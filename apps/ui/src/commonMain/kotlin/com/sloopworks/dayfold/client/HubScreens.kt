@@ -43,6 +43,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -67,6 +68,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -139,9 +142,26 @@ fun HubListScreen(
   // Hoisted to FeedApp so the hub-list scroll survives the Hubs↔Now tab swap + a hub-detail open
   // (both recompose this away, and AnimatedContent has no SaveableStateHolder). Default = standalone/test.
   hubListState: LazyListState = rememberLazyListState(),
+  onSearch: () -> Unit = {},
 ) {
   Scaffold(
-    topBar = { TopAppBar(title = { Text("Hubs", fontWeight = FontWeight.SemiBold) }) },
+    topBar = {
+      TopAppBar(
+        title = { Text("Hubs", fontWeight = FontWeight.SemiBold) },
+        actions = {
+          IconButton(
+            onClick = onSearch,
+            modifier = Modifier.semantics { contentDescription = "Search saved content" },
+          ) {
+            androidx.compose.material3.Icon(
+              Icons.Rounded.Search,
+              contentDescription = null,
+              modifier = Modifier.clearAndSetSemantics {},
+            )
+          }
+        },
+      )
+    },
     // Bottom bar now lives in TabShell; exclude the nav-bar inset so it isn't reserved twice.
     contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
   ) { pad ->
@@ -292,6 +312,7 @@ fun HubDetailScreen(
   // and timeline done/next markers are date-stable
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
   timeZone: TimeZone = TimeZone.currentSystemDefault(),
+  backContentDescription: String = "Back to hubs",
 ) {
   val tree = state.tree
   // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay.
@@ -337,7 +358,7 @@ fun HubDetailScreen(
         title = { Text(tree?.hub?.title ?: "Hub", fontWeight = FontWeight.SemiBold) },
         navigationIcon = {
           // glyph-only control → give the screen reader a real label, not the icon
-          IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back to hubs" }) {
+          IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = backContentDescription }) {
             androidx.compose.material3.Icon(DayfoldIcons.ArrowBack, contentDescription = null, modifier = Modifier.clearAndSetSemantics {})
           }
         },
@@ -358,22 +379,34 @@ fun HubDetailScreen(
       // above the arrival effect because the deep-link index math counts the banner items.
       val pendingWrites = tree.blocks.count { it.localState == "pending" }
       val failedWrites = tree.blocks.count { it.localState == "failed" }
+      val requestedArrival = state.arrival
+      var activeArrival by remember(requestedArrival) { mutableStateOf(requestedArrival) }
       // deep-link arrival: scroll the focused block into view. The helper must mirror the
       // LazyColumn's item construction EXACTLY — including the leading sync/queue banners and
       // the W5 hidden-block filter (partitionHidden) the render applies — else a hidden block
       // (or a queued write) before the target shifts the real index and the scroll overshoots.
       val hasCountdown = hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso) != null && tree.hub.status != "archived"
-      LaunchedEffect(state.focusBlockId, tree, state.hiddenIds) {
+      LaunchedEffect(requestedArrival) {
+        activeArrival = requestedArrival
         val leadingBanners = (if (state.syncError != null && (pendingWrites > 0 || failedWrites > 0)) 1 else 0) +
           (if (pendingWrites > 0) 1 else 0)
+        val scrollId = requestedArrival?.takeIf { it.level != HubArrivalLevel.HUB }?.id
+        val visibleTimeline = tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
+          presentTimelineCard(tl, nowIso, tz) != null
+        val hasTimelineScaleHint = tl?.let { visibleTimeline && hasBothScales(it, nowIso, tz) } == true
+        val precedingTimelineItems = (if (visibleTimeline) 1 else 0) +
+          (if (hasTimelineScaleHint) 1 else 0) +
+          (if (showTimelineNudge) 1 else 0)
         focusedBlockItemIndex(
-          tree, state.focusBlockId, hasCountdown, tree.hub.visibility == "restricted",
-          // one hoisted slot when a (non-hidden) timeline card OR the "No timeline yet" nudge shows
-          hasTimelineCard = (tl != null && !state.hiddenIds.contains("timeline:${tree.hub.id}") &&
-            presentTimelineCard(tl, nowIso, tz) != null) || showTimelineNudge,
+          tree, scrollId, hasCountdown, tree.hub.visibility == "restricted",
+          precedingTimelineItems = precedingTimelineItems,
           hiddenIds = state.hiddenIds,
           precedingBanners = leadingBanners,
         )?.let { listState.animateScrollToItem(it) }
+        if (requestedArrival != null) {
+          delay(2_200)
+          if (activeArrival == requestedArrival) activeArrival = null
+        }
       }
       LazyColumn(
         Modifier.fillMaxSize().padding(pad),
@@ -510,16 +543,20 @@ fun HubDetailScreen(
           val blocks = partitionHidden(all, state.hiddenIds).visible
           if (blocks.isEmpty()) return@forEach          // skip a section with no visible content — no bare header
           item(key = "sec-${section.id}") {
-            Text(
-              (section.title ?: "").uppercase(),
-              style = MaterialTheme.typography.labelMedium,
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            HubSectionArrivalHeader(
+              title = (section.title ?: "").uppercase(),
+              arrival = activeArrival?.takeIf {
+                it.level == HubArrivalLevel.SECTION && it.id == section.id
+              },
             )
           }
           items(blocks, key = { "blk-${it.id}" }) { block ->
             HubBlockCard(
-              hubId = tree.hub.id, block = block, focused = block.id == state.focusBlockId,
+              hubId = tree.hub.id,
+              block = block,
+              arrival = activeArrival?.takeIf {
+                it.level == HubArrivalLevel.BLOCK && it.id == block.id
+              },
               // author-gate (W4): delete is offered only to the author (set-once created_by);
               // a null author (legacy / loop-authored) is never deletable by a member.
               canDelete = block.createdBy != null && block.createdBy == selfId,
@@ -579,7 +616,7 @@ fun HubDetailScreen(
 // item (so the section scrolls to the top), a block deep-link to the block's row.
 fun focusedBlockItemIndex(
   tree: HubTree, focusId: String?, hasCountdown: Boolean, restricted: Boolean,
-  hasTimelineCard: Boolean = false,
+  precedingTimelineItems: Int = 0,
   hiddenIds: Set<String> = emptySet(),   // W5 hide — must match the render's partitionHidden filter
   precedingBanners: Int = 0,             // leading sync-banner + queue-pill items (0..2) above the status header
 ): Int? {
@@ -587,7 +624,7 @@ fun focusedBlockItemIndex(
   var idx = precedingBanners + 1                    // banners (0..2) then the status header (always)
   if (hasCountdown) idx += 1
   if (restricted) idx += 1
-  if (hasTimelineCard) idx += 1
+  idx += precedingTimelineItems
   for (section in tree.sections.sortedBy { it.ord }) {
     // Mirror the render (HubDetailScreen): only VISIBLE blocks are laid out, and a section
     // whose blocks are all hidden renders nothing (no header). Counting hidden blocks here
@@ -601,6 +638,48 @@ fun focusedBlockItemIndex(
     idx += blocks.size
   }
   return null
+}
+
+@Composable
+private fun HubSectionArrivalHeader(title: String, arrival: HubArrival?) {
+  if (arrival == null) {
+    Text(
+      title,
+      style = MaterialTheme.typography.labelMedium,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    return
+  }
+  val color = if (arrival.source == HubArrivalSource.SEARCH) {
+    MaterialTheme.colorScheme.secondary
+  } else {
+    MaterialTheme.colorScheme.primary
+  }
+  Row(
+    modifier = Modifier.fillMaxWidth()
+      .border(2.dp, color, RoundedCornerShape(12.dp))
+      .padding(horizontal = 10.dp, vertical = 6.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Text(
+      title,
+      modifier = Modifier.weight(1f),
+      style = MaterialTheme.typography.labelMedium,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Surface(color = color, shape = RoundedCornerShape(7.dp)) {
+      Text(
+        if (arrival.source == HubArrivalSource.SEARCH) "SEARCH MATCH" else "FROM YOUR BRIEFING",
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.surface,
+      )
+      }
+  }
 }
 
 // "Who can see this hub" (ADR 0030, the signed-off Hubs-Visibility sheet). Display
@@ -712,7 +791,7 @@ internal fun budgetTotals(p: BlockPayload?): Pair<Double, Double> {
 private fun HubBlockCard(
   hubId: String,
   block: HubBlock,
-  focused: Boolean = false,
+  arrival: HubArrival? = null,
   canDelete: Boolean = false,
   onToggleItem: (String, String, Boolean) -> Unit = { _, _, _ -> },
   onRetryBlock: (String) -> Unit = {},
@@ -721,6 +800,12 @@ private fun HubBlockCard(
   onCardAction: (CardAction) -> Unit = {},
   resolveDoneBy: (String?) -> String? = { null },
 ) {
+  val focused = arrival != null
+  val arrivalColor = if (arrival?.source == HubArrivalSource.SEARCH) {
+    MaterialTheme.colorScheme.secondary
+  } else {
+    MaterialTheme.colorScheme.primary
+  }
   var menuOpen by remember { mutableStateOf(false) }
   var confirmDelete by remember { mutableStateOf(false) }
 
@@ -741,7 +826,7 @@ private fun HubBlockCard(
   ) {
     Card(
       Modifier.fillMaxWidth()
-        .then(if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(22.dp)) else Modifier),
+        .then(if (focused) Modifier.border(2.dp, arrivalColor, RoundedCornerShape(22.dp)) else Modifier),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
       shape = RoundedCornerShape(22.dp),
     ) {
@@ -759,12 +844,17 @@ private fun HubBlockCard(
           ),
           verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-          // deep-link arrival badge (the design's "FROM YOUR BRIEFING" pulse)
+          // One-shot source-aware arrival disclosure. The query itself never reaches this screen.
           if (focused) {
-            Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(7.dp)) {
+            Surface(color = arrivalColor, shape = RoundedCornerShape(7.dp)) {
               Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(end = 3.dp).size(13.dp))
-                Text("FROM YOUR BRIEFING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+                androidx.compose.material3.Icon(DayfoldIcons.ArrowOutward, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.padding(end = 3.dp).size(13.dp))
+                Text(
+                  if (arrival.source == HubArrivalSource.SEARCH) "SEARCH MATCH" else "FROM YOUR BRIEFING",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.SemiBold,
+                  color = MaterialTheme.colorScheme.surface,
+                )
               }
             }
           }

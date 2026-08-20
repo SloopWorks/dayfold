@@ -162,6 +162,10 @@ dependencies {
   implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
   implementation("androidx.core:core-ktx:1.15.0")
 
+  // Debug-only host privacy assertions (search screenshot suppression and
+  // query-free analytics routing). Production artifacts do not include JUnit.
+  testImplementation("junit:junit:4.13.2")
+
   // Instrumented e2e (Slice B): drive the real route gate + screens on the
   // emulator. Hermetic — callbacks dispatch actions (no network); AuthEngine
   // logic is covered by desktop unit tests.

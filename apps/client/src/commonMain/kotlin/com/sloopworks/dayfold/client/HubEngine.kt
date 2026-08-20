@@ -279,19 +279,24 @@ class HubEngine(
   // reducer correlation is the final guard even if a cancelled/non-cooperative flow emits late.
   suspend fun openHub(
     hubId: String,
-    focusBlockId: String? = null,
+    arrival: HubArrival? = null,
     returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
   ) {
     val context = familyContext() ?: return
-    openHub(context, hubId, focusBlockId, returnDestination)
+    openHub(
+      context = context,
+      hubId = hubId,
+      returnDestination = returnDestination,
+      arrival = arrival,
+    )
   }
 
   internal suspend fun openHub(
     context: FamilySessionContext,
     hubId: String,
-    focusBlockId: String? = null,
     returnDestination: HubReturnDestination = HubReturnDestination.HUB_LIST,
     onAdmitted: () -> Unit = {},
+    arrival: HubArrival? = null,
   ): Boolean = treeMutex.withLock {
     val owner = workOwner(context) ?: return@withLock false
     val request = requestKey(context)
@@ -308,7 +313,7 @@ class HubEngine(
     // Navigation + focus are one admitted commit. If family replacement closed admission or
     // invalidated the generation, no request action lands and no collector is created.
     val admitted = commitIfAdmitted(owner, context) {
-      store.dispatch(OpenHub(hubId, request, focusBlockId, returnDestination))
+      store.dispatch(OpenHub(hubId, request, returnDestination, arrival))
     }
     if (!admitted) return@withLock false
     try {

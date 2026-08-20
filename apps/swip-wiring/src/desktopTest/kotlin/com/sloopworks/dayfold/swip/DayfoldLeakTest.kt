@@ -231,6 +231,66 @@ class DayfoldLeakTest {
     assertTrue(rec.events.isNotEmpty())
   }
 
+  @Test fun local_search_query_and_result_text_never_enter_redux_journal_or_action_analytics() = runTest {
+    val salt = "SEARCHLEAK8842"
+    val card = com.sloopworks.dayfold.client.Card(
+      id = "safe-card-id",
+      title = "$salt private appointment",
+    )
+    val response = com.sloopworks.dayfold.client.searchCorpus(
+      com.sloopworks.dayfold.client.buildSearchCorpus(
+        com.sloopworks.dayfold.client.SearchContentSnapshot(
+          revision = 1,
+          readiness = com.sloopworks.dayfold.client.SearchReadiness.READY,
+          cards = listOf(card),
+        ),
+      ),
+      query = salt,
+      corpusGeneration = 1,
+    )
+    assertTrue(response.results.single().title.contains(salt), "search proof must be non-vacuous")
+
+    val recorder = ReduxTimelineRecorder(
+      specs = dayfoldSlices(), sanitizer = dayfoldSanitizer,
+      config = RecorderConfig(appVersion = "test"), clock = Clock { 0L }, scope = this,
+    )
+    val store = createStore(
+      { state: AppState, action: Any -> com.sloopworks.dayfold.client.rootReducer(state, action) },
+      AppState(
+        navigation = com.sloopworks.dayfold.client.NavigationState(
+          route = com.sloopworks.dayfold.client.Route.Feed,
+        ),
+        content = com.sloopworks.dayfold.client.ContentState(cards = listOf(card)),
+      ),
+      dayfoldRecorderEnhancer(recorder),
+    )
+    recorder.activate()
+    store.dispatch(com.sloopworks.dayfold.client.OpenSearch(com.sloopworks.dayfold.client.SearchOrigin.NOW))
+    store.dispatch(com.sloopworks.dayfold.client.OpenDetailFromSearch("safe-card-id"))
+    advanceUntilIdle()
+    val frozen = recorder.freeze()!!
+    val journal = frozen.journalJson.decodeToString() + frozen.finalStateJson.decodeToString()
+    recorder.deactivate()
+    assertFalse(salt in journal, "local search content reached the Redux/SWIP journal: $journal")
+
+    val analytics = object : SloopAnalytics {
+      val events = mutableListOf<SwipEvent>()
+      override fun track(event: SwipEvent) { events += event }
+      override fun identify(distinctId: String, traits: Map<String, JsonElement?>) = error("must not identify")
+      override fun alias(previousId: String) {}
+      override fun reset() {}
+      override suspend fun flush() = FlushResult(0, 0)
+      override fun setConsent(consent: Map<ConsentScope, ConsentDecision>) {}
+      override fun optIn(scope: ConsentScope) {}
+      override fun optOut(scope: ConsentScope) {}
+    }
+    val analyticsStore = createAppStore(notificationContext = NotificationContext.Inline, debug = false)
+    val chain = swipMiddleware<AppState>(analytics, NoOpErrors, dayfoldMappers(), null, ReplayGuard.fixed(false))(analyticsStore)({ it })
+    chain(com.sloopworks.dayfold.client.OpenSearch(com.sloopworks.dayfold.client.SearchOrigin.NOW))
+    chain(com.sloopworks.dayfold.client.OpenDetailFromSearch("safe-card-id"))
+    assertTrue(analytics.events.isEmpty(), "search actions reached analytics: ${analytics.events}")
+  }
+
   /**
    * WI-451 (CAL-11, ADR 0063 §3/§6 acceptance gate 6, ADR 0057) — no calendar action is mapped by
    * [dayfoldMappers], so a full calendar-check/import pass tracks ZERO SwipEvents, salted content

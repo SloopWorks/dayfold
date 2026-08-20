@@ -54,7 +54,7 @@ class NowFeedScreenTest {
     setContent { MaterialTheme { NowFeedList(feed, emptyMap(), onAction = { if (it is CardAction.OpenHub) opened = it }) } }
     onNodeWithContentDescription("Open 3 left before Party in its hub").performClick()
     assertEquals("h1", opened?.hubId)
-    assertEquals("b1", opened?.focusBlockId)
+    assertEquals(HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING), opened?.arrival)
   }
 
   @Test fun `caught-up shows the calm headline and still renders the horizon`() = runComposeUiTest {

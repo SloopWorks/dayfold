@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.client.cards
 
+import com.sloopworks.dayfold.client.HubArrival
 import com.sloopworks.dayfold.client.ResponseStep
 import com.sloopworks.dayfold.client.ResponseSurface
 
@@ -15,9 +16,8 @@ import com.sloopworks.dayfold.client.ResponseSurface
 sealed interface CardAction {
   /** In-app: open this card's full detail (CL-6 builds the screen + nav). */
   data class OpenDetail(val cardId: String) : CardAction
-  /** In-app: cross-surface deep-link into the card's parent Hub (ADR 0006/0022);
-   *  focusBlockId (when set) is the block to highlight on arrival. */
-  data class OpenHub(val hubId: String, val focusBlockId: String? = null) : CardAction
+  /** In-app: cross-surface deep-link into the card's parent Hub (ADR 0006/0022). */
+  data class OpenHub(val hubId: String, val arrival: HubArrival? = null) : CardAction
   /** OS handoff: open an https URL (form, doc, link). */
   data class OpenUrl(val url: String) : CardAction
   /** OS handoff: dial a phone number (tel:). */

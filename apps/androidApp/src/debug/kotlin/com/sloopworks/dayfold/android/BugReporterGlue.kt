@@ -20,6 +20,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.Log
+import com.sloopworks.dayfold.client.Route
 import com.sloopworks.dayfold.swip.dayfoldRecorder
 import com.sloopworks.dayfold.swip.dayfoldRecorderEnhancer
 import com.sloopworks.dayfold.swip.dayfoldSlices
@@ -31,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okio.FileSystem
 import org.reduxkotlin.StoreEnhancer
+import org.reduxkotlin.Store
 import works.sloop.swip.bugreport.BugReportsConfig
 import works.sloop.swip.bugreport.ReportGate
 import works.sloop.swip.bugreport.ReportIdGenerator
@@ -65,6 +67,8 @@ private object BugReporterHolder {
     dayfoldRecorder(scope, BuildConfig.VERSION_NAME, Clock { System.currentTimeMillis() })
   }
   var controller: BugReporterController? = null
+  @Volatile var currentRoute: Route = Route.Loading
+  var unsubscribeStore: (() -> Unit)? = null
 
   /** 32-deep breadcrumb ring fed by wrapping Log.sink. Guarded by itself. */
   val crumbs = ArrayDeque<String>()
@@ -73,6 +77,18 @@ private object BugReporterHolder {
 
 /** Store-construction enhancer (innermost slot) — the redux timeline recorder. */
 fun bugReporterEnhancer(): StoreEnhancer<AppState>? = dayfoldRecorderEnhancer(BugReporterHolder.recorder)
+
+/** Rebinds the retained reporter to the current store without retaining an old Activity store. */
+fun bugReporterBindStore(store: Store<AppState>) {
+  val holder = BugReporterHolder
+  holder.unsubscribeStore?.invoke()
+  holder.currentRoute = store.state.navigation.route
+  holder.unsubscribeStore = store.subscribe {
+    holder.currentRoute = store.state.navigation.route
+  }
+}
+
+internal fun bugReportScreenshotAllowed(route: Route): Boolean = route != Route.Search
 
 /** Idempotent per-Activity install: singletons once, per-activity shake + lifecycle. */
 fun bugReporterInstall(activity: ComponentActivity) {
@@ -109,7 +125,11 @@ fun bugReporterInstall(activity: ComponentActivity) {
         identity = { null to null },       // ANONYMOUS — no swip identity stack in dayfold yet
         configState = { null to emptyMap() },
         sources = CaptureSources(
-          screenshot = AndroidScreenshotProvider { holder.currentActivity?.get() },
+          // Search pixels contain the raw, deliberately non-persisted query and local excerpts.
+          // A Search-route report keeps query-free timeline/breadcrumb context but no screenshot.
+          screenshot = AndroidScreenshotProvider {
+            holder.currentActivity?.get()?.takeIf { bugReportScreenshotAllowed(holder.currentRoute) }
+          },
           breadcrumbs = BreadcrumbsProvider { max -> synchronized(holder.crumbs) { holder.crumbs.toList() }.takeLast(max) },
           timeline = holder.recorder,
         ),

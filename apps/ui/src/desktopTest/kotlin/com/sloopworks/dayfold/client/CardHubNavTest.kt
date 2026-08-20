@@ -13,9 +13,10 @@ import org.reduxkotlin.compose.rememberSelectorStore
 @OptIn(ExperimentalTestApi::class)
 class CardHubNavTest {
   @Test fun `hubLinkTarget prefers target_hub_id, falls back to hub_ref, carries the focus block`() {
-    assertEquals("h1" to "b1", hubLinkTarget(Card("c", title = "X", targetHubId = "h1", targetBlockId = "b1")))
+    assertEquals("h1" to HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING), hubLinkTarget(Card("c", title = "X", targetHubId = "h1", targetBlockId = "b1")))
     assertEquals("hr" to null, hubLinkTarget(Card("c", title = "X", hubRef = "hr")))            // no target_hub_id → hub_ref
-    assertEquals("h1" to "b9", hubLinkTarget(Card("c", title = "X", targetHubId = "h1", hubRef = "hr", targetBlockId = "b9"))) // target_hub_id wins
+    assertEquals("h1" to HubArrival(HubArrivalLevel.BLOCK, "b9", HubArrivalSource.BRIEFING), hubLinkTarget(Card("c", title = "X", targetHubId = "h1", hubRef = "hr", targetBlockId = "b9"))) // target_hub_id wins
+    assertEquals("h1" to HubArrival(HubArrivalLevel.SECTION, "s1", HubArrivalSource.BRIEFING), hubLinkTarget(Card("c", title = "X", targetHubId = "h1", targetSectionId = "s1")))
   }
 
   @Test fun `hubLinkTarget is null when there's no hub to cross to (no link shown)`() {
@@ -28,18 +29,18 @@ class CardHubNavTest {
       AppState(session = SessionState(activeFamilyId = "family-1"), navigation = NavigationState(route = Route.Feed)),
       debug = false,
     )
-    var loadedHub: String? = null; var loadedFocus: String? = "UNSET"
+    var loadedHub: String? = null; var loadedArrival: HubArrival? = null
     val base = DayfoldCommands.navigationOnly(store)
     val commands = object : DayfoldCommandPort by base {
       override fun openHub(
         familyId: String,
         hubId: String,
-        focusBlockId: String?,
+        arrival: HubArrival?,
         returnDestination: HubReturnDestination,
       ) {
         store.dispatch(OpenHubs(returnDestination))
         loadedHub = hubId
-        loadedFocus = focusBlockId
+        loadedArrival = arrival
       }
     }
     lateinit var selectorStore: SelectorStore<AppState>
@@ -51,11 +52,11 @@ class CardHubNavTest {
       StablePlatformActions.noOp(),
       activeFamilyId = "family-1",
       fromFeedDetail = false,
-      action = CardAction.OpenHub("h_party", "blk_chk"),
+      action = CardAction.OpenHub("h_party", HubArrival(HubArrivalLevel.BLOCK, "blk_chk", HubArrivalSource.BRIEFING)),
     )
     assertEquals(Route.Hubs, store.state.navigation.route)   // cross-surface nav (OpenHubs dispatched)
     assertEquals("h_party", loadedHub)            // engine load triggered with the hub id
-    assertEquals("blk_chk", loadedFocus)          // + the deep-link focus block (arrival highlight)
+    assertEquals(HubArrival(HubArrivalLevel.BLOCK, "blk_chk", HubArrivalSource.BRIEFING), loadedArrival)
   }
 
   @Test fun `OpenDetail still routes to the card detail stack (unchanged)`() = runComposeUiTest {
@@ -90,13 +91,13 @@ class CardHubNavTest {
     routeCardAction(
       store = selectorStore,
       platformActions = StablePlatformActions.noOp(),
-      action = CardAction.OpenHub("hub-1", "block-1"),
+      action = CardAction.OpenHub("hub-1", HubArrival(HubArrivalLevel.BLOCK, "block-1", HubArrivalSource.BRIEFING)),
       commands = DayfoldCommands.navigationOnly(store),
       activeFamilyId = "family-1",
       fromFeedDetail = true,
     )
 
     assertEquals(Route.Hubs, store.state.navigation.route)
-    assertEquals(true, store.state.hubs.fromFeedDetail)
+    assertEquals(HubReturnDestination.FEED_DETAIL, store.state.hubs.returnDestination)
   }
 }

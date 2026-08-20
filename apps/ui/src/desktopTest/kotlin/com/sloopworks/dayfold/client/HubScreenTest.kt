@@ -1,6 +1,9 @@
 package com.sloopworks.dayfold.client
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -116,6 +119,7 @@ class HubScreenTest {
   }
 
   @Test fun deepLinkArrivalBadgesTheFocusedBlock() = runComposeUiTest {
+    mainClock.autoAdvance = false
     val tree = HubTree(
       hub = Hub(id = "h1", title = "Party", status = "active", visibility = "family"),
       sections = listOf(HubSection(id = "s1", hubId = "h1", title = "Shopping", ord = 0)),
@@ -125,10 +129,21 @@ class HubScreenTest {
       ),
     )
     // arrived via a card deep-link focused on b2
-    val state = AppState(hubs = HubState(currentHubId = "h1", currentHubTree = tree, focusBlockId = "b2"))
+    var state by mutableStateOf(AppState(hubs = HubState(
+      currentHubId = "h1",
+      currentHubTree = tree,
+      arrival = HubArrival(HubArrivalLevel.BLOCK, "b2", HubArrivalSource.BRIEFING),
+    )))
     setContent { MaterialTheme { HubDetailScreen(state) } }
+    waitForIdle()
     onNodeWithText("Order balloons").assertIsDisplayed()
     onNodeWithText("FROM YOUR BRIEFING", substring = true).assertIsDisplayed()  // arrival badge on the focused block
+    mainClock.advanceTimeBy(2_300)
+    waitForIdle()
+    onAllNodesWithText("FROM YOUR BRIEFING", substring = true).assertCountEquals(0)
+    runOnIdle { state = state.copy(hubs = state.hubs.copy(hiddenIds = setOf("unrelated"))) }
+    waitForIdle()
+    onAllNodesWithText("FROM YOUR BRIEFING", substring = true).assertCountEquals(0)
   }
 
   @Test fun iconOnlyControlsExposeAccessibleLabels() = runComposeUiTest {

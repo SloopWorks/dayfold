@@ -34,10 +34,14 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
   is SignedOut -> signedOutState(state)
   is SessionExpired -> expiredSessionState(state)
-  is CardsLoaded -> reduceContent(state, action).copy(navigation = state.navigation.copy(detailStack = state.navigation.detailStack.filter { id -> action.cards.any { it.id == id } }))
+  is CardsLoaded -> reduceContent(state, action).copy(navigation = navigationAfterCardsLoaded(state, action.cards))
   is SyncStarted, is SyncSucceeded, is SyncStopped, is SyncFailed -> reduceContent(state, action)
   is MembershipsLoaded, is FamilyCreated -> reduceRoutedFeatureWithFamilyTransition(state, action)
-  is NavToDetail, is NavBack, is RestoreDetailStack, is AuthRestoring, is SessionRestored, is SignInSucceeded, is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity, is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
+  is NavToDetail, is NavBack, is RestoreDetailStack, is OpenSearch, is CloseSearch,
+  is OpenDetailFromSearch, is AuthRestoring, is SessionRestored, is SignInSucceeded,
+  is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity,
+  is OpenJoinInvite, is RedeemRequested, is InviteRedeemed, is InviteRejected,
+  is JoinDismissed -> reduceRoutedFeature(state, action)
   is OpenSmartBriefings, is RestoreSmartBriefings, is CloseSmartBriefings -> reduceNavigation(reduceRoutines(state, action), action)
   is RoutineContinue, is RoutineNavigateBack,
   is RoutineProviderSelected, is RoutineSourcesSelected, is RoutineHubFixtureSelected,
@@ -48,7 +52,12 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is RoutineReviewSources, is RoutineReviewPrivacy,
   is OpenRoutineDetails, is CloseRoutineDetails, is OpenRoutineRevokeSheet,
   is CloseRoutineRevokeSheet, is RoutineOfflineChanged -> reduceRoutines(state, action)
-  is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded, is HubNotFound, is CloseHub, is CloseHubToFeed, is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded, is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded, is CloseAudienceSheet, is AudienceFailed, is HubManageFailed -> reduceNavigation(reduceHubs(state, action), action)
+  is OpenHubs, is OpenFeed, is HubsLoaded, is HubsFailed, is OpenHub, is HubTreeLoaded,
+  is HubNotFound, is CloseHub, is CloseHubToFeed, is CloseHubToSearch,
+  is OpenTimelineDetail, is CloseTimelineDetail, is SetHubFilter, is HiddenLoaded,
+  is SetShowHidden, is OpenAudienceSheet, is HubAudienceRequested, is HubAudienceLoaded,
+  is CloseAudienceSheet, is AudienceFailed, is HubManageFailed ->
+    reduceNavigation(reduceHubs(state, action), action)
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
@@ -70,6 +79,11 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
   val updated = reduceSession(state, action)
   val familyChanged = state.session.activeFamilyId != updated.session.activeFamilyId
   val familyScoped = if (familyChanged) updated.copy(
+    navigation = updated.navigation.copy(
+      detailStack = emptyList(),
+      searchOrigin = SearchOrigin.NOW,
+      detailReturnDestination = DetailReturnDestination.FEED,
+    ),
     content = ContentState(),
     now = NowState(),
     hubs = HubState(),
@@ -86,6 +100,21 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     calendar = updated.calendar.copy(check = CalendarCheckState(), importState = ImportProposalState.None),
   ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))
   return reduceNavigation(familyScoped, action)
+}
+
+private fun navigationAfterCardsLoaded(state: AppState, cards: List<Card>): NavigationState {
+  val filtered = state.navigation.detailStack.filter { id -> cards.any { it.id == id } }
+  if (filtered.isNotEmpty() || state.navigation.detailStack.isEmpty()) {
+    return state.navigation.copy(detailStack = filtered)
+  }
+  return state.navigation.copy(
+    route = when (state.navigation.detailReturnDestination) {
+      DetailReturnDestination.FEED -> Route.Feed
+      DetailReturnDestination.SEARCH -> Route.Search
+    },
+    detailStack = emptyList(),
+    detailReturnDestination = DetailReturnDestination.FEED,
+  )
 }
 
 private fun signedOutState(state: AppState) = AppState(

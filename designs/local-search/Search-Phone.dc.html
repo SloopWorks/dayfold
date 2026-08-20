@@ -252,6 +252,7 @@ class Component extends DCLogic {
       chromeBg:'#FFF8F6', keyboardBg:'#F0DFDA', keyBg:'#FFFBFA', keyFg:'#271814', keyAltBg:'#E4D2CC',
       // the match mark: tonal wash + a rule underneath, so hue is never the only cue
       markBg:'#FFDAD2', markFg:'#4E1000', markRule:'#C0381E',
+      fuzzyMarkBg:'#9DF2E4', fuzzyMarkFg:'#00201C', fuzzyMarkRule:'#00796F',
     };
     const dark = {
       surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
@@ -263,12 +264,16 @@ class Component extends DCLogic {
       navBg:'#271D1A', navActivePill:'#9A2A12', navActiveIcon:'#FFDAD2', navActiveLabel:'#F0DFDA', navInactive:'#A08D87',
       chromeBg:'#1A110E', keyboardBg:'#231916', keyBg:'#3A2E2A', keyFg:'#F0DFDA', keyAltBg:'#2C221E',
       markBg:'#9A2A12', markFg:'#FFEDE8', markRule:'#FFB4A3',
+      fuzzyMarkBg:'#005048', fuzzyMarkFg:'#A8F4E7', fuzzyMarkRule:'#50DBC9',
     };
     const c = mode === 'dark' ? dark : light;
 
     // ---- the match mark: [bracketed] text is what the query actually matched.
     // Built as nodes here so no template whitespace can ever leak into a match. ----
-    const MARK = { background:c.markBg, color:c.markFg, boxShadow:'inset 0 -2px 0 ' + c.markRule, borderRadius:'4px', padding:'0 1px' };
+    const markTokens = view === 'fuzzy'
+      ? { bg:c.fuzzyMarkBg, fg:c.fuzzyMarkFg, rule:c.fuzzyMarkRule }
+      : { bg:c.markBg, fg:c.markFg, rule:c.markRule };
+    const MARK = { background:markTokens.bg, color:markTokens.fg, boxShadow:'inset 0 -2px 0 ' + markTokens.rule, borderRadius:'4px', padding:'0 1px' };
     const hl = (s) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
       (p.charAt(0) === '[' && p.charAt(p.length - 1) === ']')
         ? React.createElement('span', { key:i, style:MARK }, p.slice(1, -1))

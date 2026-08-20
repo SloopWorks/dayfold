@@ -268,7 +268,9 @@ class AuthReducerTest {
       hubs = HubState(
         hubs = listOf(Hub(id = "h1", title = "Butler", status = "active", visibility = "family")),
         currentHubId = "h1", currentHubTree = HubTree(Hub(id = "h1", title = "Butler", status = "active", visibility = "family"), emptyList(), emptyList()),
-        currentHubRequest = hubRequest, focusBlockId = "b1", audienceSheetOpen = true,
+        currentHubRequest = hubRequest,
+        arrival = HubArrival(HubArrivalLevel.BLOCK, "b1", HubArrivalSource.BRIEFING),
+        audienceSheetOpen = true,
         currentAudience = HubAudience("family"), currentAudienceRequest = audienceRequest,
       ),
     )
@@ -280,7 +282,7 @@ class AuthReducerTest {
     assertTrue(out.content.cards.isEmpty())
     assertTrue(out.familyAdmin.pendingApprovals.isEmpty())
     assertNull(out.devices.pendingDevice); assertNull(out.devices.pendingLink)
-    assertTrue(out.hubs.hubs.isEmpty()); assertNull(out.hubs.currentHubId); assertNull(out.hubs.currentHubTree); assertNull(out.hubs.currentHubRequest); assertNull(out.hubs.focusBlockId)
+    assertTrue(out.hubs.hubs.isEmpty()); assertNull(out.hubs.currentHubId); assertNull(out.hubs.currentHubTree); assertNull(out.hubs.currentHubRequest); assertNull(out.hubs.arrival)
     assertFalse(out.hubs.audienceSheetOpen); assertNull(out.hubs.currentAudience); assertNull(out.hubs.currentAudienceRequest)
   }
 

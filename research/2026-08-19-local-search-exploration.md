@@ -1,8 +1,9 @@
 # Local Search Exploration — Fast, Private Content Retrieval
 
 **Date:** 2026-08-19
-**Status:** Exploratory recommendation; no architecture or feature-scope decision
-has been accepted.
+**Status:** Recommendation adopted for the reviewed lexical/fuzzy implementation
+scope by explicit operator directive on 2026-08-19. Semantic search remains
+deferred and any model/runtime adoption remains ADR-class.
 **Question:** How should Dayfold let a member quickly find any content already
 available to that member on their device, including useful typo tolerance and a
 possible later semantic layer?
@@ -189,6 +190,19 @@ large share of unrelated family prose. When the winning excerpt depends on that
 fallback, show **Close match** and highlight the actual matched target token.
 Never visually mark characters that are not present in the result.
 
+Current search practice supports the disclosure/ranking split: Algolia ranks
+zero-typo hits ahead of one- and two-typo hits and exposes typo count so custom
+UIs can decide whether and how to highlight them
+[fact:[Algolia typo-tolerance guidance](https://www.algolia.com/doc/guides/managing-results/optimize-search-results/typo-tolerance)]
+[fact:[Algolia typo-highlighting guidance](https://support.algolia.com/hc/en-us/articles/6558731269649-How-do-I-prevent-highlighting-results-with-typos)].
+Baymard's mobile testing likewise found that preserving useful corrected
+suggestions avoids forcing people to repair a query character by character
+[fact:[Baymard misspelling research](https://baymard.com/blog/offer-autocomplete-suggestions-for-misspellings)].
+Dayfold's operator-directed exploration therefore keeps the heading and label,
+but uses a secondary-teal wash/rule for the actual stored target word while
+exact matches remain coral. This is a Dayfold design synthesis, not a claimed
+industry-standard color mapping.
+
 ### Stable result order
 
 Suggested starting weights (implementation constants, not accepted product
@@ -339,7 +353,7 @@ result behavior, and destination arrival. This clears understanding, not build.
 - 500/2k/10k benchmark on representative Android/iOS hardware.
 - No UI, schema, telemetry, server, or persisted search history.
 
-### S2 — local-search product slice (only after ADR 0008 sign-off)
+### S2 — local-search product slice (authorized 2026-08-19)
 
 - Content snapshot → corpus engine with family/session fencing.
 - Search route and navigation entry points.
@@ -386,7 +400,7 @@ improves retrieval and remains operationally boring.
 5. **Semantic:** treat embeddings as a later measured reranker/fallback, not an
    MVP requirement? **Recommended: yes.**
 
-None of these recommendations authorizes implementation. The new surface still
-requires ADR 0008 mockup sign-off; adopting FTS5 as a hard dependency, changing
-SQLite drivers, or adding an embedding runtime/model is ADR-class platform and
-maintenance work.
+The operator accepted the reviewed hi-fi and explicitly directed implementation
+on 2026-08-19, authorizing S2 under ADR 0008. Adopting FTS5 as a hard dependency,
+changing SQLite drivers, or adding an embedding runtime/model remains ADR-class
+platform and maintenance work outside that authorization.

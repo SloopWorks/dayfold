@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.runComposeUiTest
@@ -34,6 +35,20 @@ class DetailBodyRenderTest {
     // bold rendered as its content (no raw `**`), link rendered as its label
     onNodeWithText("Bring the wheel-lock key.", substring = true).assertIsDisplayed()
     onNodeWithText("Directions", substring = true).assertIsDisplayed()
+  }
+
+  @Test fun searchOriginUsesAnHonestBackLabel() = runComposeUiTest {
+    setContent {
+      DayfoldTheme {
+        DetailScreen(
+          card,
+          onBack = {},
+          onAction = {},
+          backContentDescription = "Back to search",
+        )
+      }
+    }
+    onNodeWithContentDescription("Back to search").assertExists()
   }
 
   private val hubCard = Card(

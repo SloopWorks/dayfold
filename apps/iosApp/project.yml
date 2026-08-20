@@ -69,3 +69,16 @@ targets:
           # Copy Compose Multiplatform resources (fonts/images) into the app bundle. Reads the Xcode
           # env (BUILT_PRODUCTS_DIR / CONTENTS_FOLDER_PATH / CONFIGURATION / ARCHS) → syncs into the .app.
           ./gradlew :ui:syncComposeResourcesForIos
+
+  iosAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/iosAppUITests
+    dependencies:
+      - target: iosApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sloopworks.dayfold.uitests
+        TEST_TARGET_NAME: iosApp
+        CODE_SIGNING_ALLOWED: NO

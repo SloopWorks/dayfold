@@ -42,6 +42,7 @@ internal fun HubsHost(
   commands: DayfoldCommandPort,
   onCardAction: (CardAction) -> Unit = {},
   hubListState: LazyListState = rememberLazyListState(),
+  onSearch: () -> Unit = {},
 ) {
   val route by store.selectorState(::hubRouteState)
   // ADR 0045: timeline open/close callbacks dispatch to the store; the detail scale is state
@@ -65,11 +66,16 @@ internal fun HubsHost(
         HubDetailScreen(
           // the on-screen back arrow mirrors system back: cross back to the originating detail when deep-linked.
           state,
+          backContentDescription = if (route.returnDestination == HubReturnDestination.SEARCH) {
+            "Back to search"
+          } else {
+            "Back to hubs"
+          },
           onBack = {
             route.currentHubId?.let { id ->
               commands.closeHub(
                 id,
-                if (route.fromFeedDetail) HubReturnDestination.FEED_DETAIL else HubReturnDestination.HUB_LIST,
+                route.returnDestination,
               )
             }
           },
@@ -116,6 +122,7 @@ internal fun HubsHost(
           onFilter = { store.dispatch(SetHubFilter(it)) },
           onRetry = commands::loadHubs,
           hubListState = hubListState,
+          onSearch = onSearch,
         )
       }
     }

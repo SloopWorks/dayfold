@@ -44,11 +44,12 @@ class HubArrivalIndexTest {
     assertNull(focusedBlockItemIndex(tree, "nope", hasCountdown = false, restricted = false))
   }
 
-  @Test fun timelineCardShiftsIndexByOne() {
-    // hasTimelineCard=true must return exactly 1 more than hasTimelineCard=false
-    val withoutTl = focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hasTimelineCard = false)
-    val withTl    = focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false, hasTimelineCard = true)
-    assertEquals(withoutTl!! + 1, withTl)
+  @Test fun timelineCardAndScaleHintShiftByTheirExactItemCount() {
+    val withoutTl = focusedBlockItemIndex(tree, "b3", hasCountdown = false, restricted = false)
+    val withCardAndHint = focusedBlockItemIndex(
+      tree, "b3", hasCountdown = false, restricted = false, precedingTimelineItems = 2,
+    )
+    assertEquals(withoutTl!! + 2, withCardAndHint)
   }
 
   @Test fun emptySectionRendersNothingAndDoesNotShiftTheIndex() {
