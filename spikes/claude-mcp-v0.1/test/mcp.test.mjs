@@ -23,11 +23,19 @@ import {
   MCP_MAX_CONCURRENT_PER_CREDENTIAL,
   MCP_REQUIRED_SCOPE,
   SCOPES,
+  SCOPE_CONTEXT_READ,
+  SCOPE_DRAFT_SUBMIT,
   STATIC_CLIENT_ID,
   SUBJECT,
 } from '../src/constants.mjs';
 import { hmacBase64Url, randomKey } from '../src/crypto.mjs';
-import { ALL_LOG_OUTCOMES, LOG_CLASS, LOG_OUTCOME } from '../src/log.mjs';
+import {
+  ALL_LOG_OUTCOMES,
+  ALL_PROTOCOL_VERSION_OUTCOMES,
+  LOG_CLASS,
+  LOG_OUTCOME,
+  outcomeForProtocolVersion,
+} from '../src/log.mjs';
 import {
   IDENTITY_STATUS,
   MAX_CLIENT_REQUEST_ID_LENGTH,
@@ -43,6 +51,14 @@ import { createSpikeServer } from '../src/server.mjs';
 const REDIRECT_URI = 'https://example.invalid/spike-callback';
 const START_MS = Date.UTC(2026, 7, 20, 12, 0, 0);
 const MCP_ACCEPT = 'application/json, text/event-stream';
+
+/**
+ * Pinned whole, not by substring: a regression that dropped `default-src` or
+ * `base-uri` while keeping `frame-ancestors` would pass a substring check.
+ * Written out as a literal rather than read from `src/`, so the assertion is
+ * about the header the server actually sends and not about itself.
+ */
+const EXPECTED_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 const openServers = [];
 const openClients = [];
@@ -805,7 +821,7 @@ describe('supplementary: transport shape, method surface and logging', () => {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
-    assert.ok(response.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
+    assert.equal(response.headers.get('content-security-policy'), EXPECTED_CSP);
     // Recorded deviation: the SDK's event-stream response replaces the staged
     // `no-store` with the streaming `no-cache, no-transform`. Both forbid a
     // cached copy; the value is the transport's, not the spike's.
@@ -896,7 +912,7 @@ describe('supplementary: transport shape, method surface and logging', () => {
       ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: '1.0', id: 1, method: 'tools/list' } }), LOG_OUTCOME.PROTOCOL_REJECTED],
       ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc('resources/list', {}) }), LOG_OUTCOME.METHOD_UNSUPPORTED],
       ['no protocol version header', () => mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) }), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT],
-      ['a supported protocol version', () => mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {})), LOG_OUTCOME.OK],
+      ['a supported protocol version', () => mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {})), outcomeForProtocolVersion(LATEST_PROTOCOL_VERSION)],
       // A 200 whose body carries the SDK's own JSON-RPC error envelope. The
       // failure never reaches the spike's handlers, so nothing records a code
       // and the status is a success: without the envelope check this reads as
@@ -1042,5 +1058,129 @@ describe('13. a JSON-RPC error inside a 200 is never logged as a success', () =>
     // handler recorded a closed code first - which is strictly more specific.
     await (await mcpFetch(spike, { token: accessToken, body: rpc('prompts/list', {}) })).text();
     assert.equal(lastOutcome(spike), LOG_OUTCOME.METHOD_UNSUPPORTED);
+  });
+});
+
+describe('14. the negotiated protocol version is recorded as its own closed outcome', () => {
+  test('each version the pinned SDK supports has a distinct declared outcome', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const seen = new Set();
+    for (const version of SUPPORTED_PROTOCOL_VERSIONS) {
+      await (await mcpFetchWithVersion(spike, accessToken, version, rpc('tools/list', {}))).text();
+      const outcome = lastOutcome(spike);
+      assert.ok(ALL_LOG_OUTCOMES.has(outcome), `${version} produced an undeclared outcome ${outcome}`);
+      assert.ok(ALL_PROTOCOL_VERSION_OUTCOMES.has(outcome), `${version} was not recorded by value`);
+      assert.ok(outcome.includes(version.replaceAll('-', '_')), `${outcome} does not name ${version}`);
+      assert.ok(!seen.has(outcome), `${version} shares an outcome with another version`);
+      seen.add(outcome);
+    }
+    assert.equal(seen.size, SUPPORTED_PROTOCOL_VERSIONS.length);
+  });
+
+  test('the line keeps its four keys and its closed enums', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    await (await mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {}))).text();
+    const line = JSON.parse(spike.lines.at(-1));
+    assert.deepEqual(Object.keys(line), ['ts', 'testRunId', 'class', 'outcome']);
+    assert.equal(line.class, LOG_CLASS.MCP);
+    assert.ok(ALL_LOG_OUTCOMES.has(line.outcome));
+  });
+
+  test('an absent header is still the absent outcome', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    await (await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) })).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT);
+  });
+
+  test('a version outside the SDK\'s list is a plain ok, never a manufactured outcome', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const outOfList = '2099-01-01';
+    assert.ok(!SUPPORTED_PROTOCOL_VERSIONS.includes(outOfList));
+
+    // `initialize` is the one message the version screen skips, so it is the
+    // only way an unlisted value reaches the recorder at all. It has no closed
+    // outcome of its own by construction: the enum is the SDK's list, and the
+    // value itself is never written anywhere.
+    await (await mcpFetchWithVersion(spike, accessToken, outOfList, initializeMessage())).text();
+    assert.equal(lastOutcome(spike), LOG_OUTCOME.OK);
+    assert.ok(!spike.lines.at(-1).includes(outOfList), 'the value itself must never be written');
+  });
+
+  test('every outcome the recorder can return is declared', () => {
+    for (const version of [...SUPPORTED_PROTOCOL_VERSIONS, '2099-01-01', 'constructor', '__proto__']) {
+      const outcome = outcomeForProtocolVersion(version);
+      assert.equal(typeof outcome, 'string', `${version} produced a non-string outcome`);
+      assert.ok(ALL_LOG_OUTCOMES.has(outcome), `${version} produced an undeclared outcome`);
+    }
+    assert.equal(outcomeForProtocolVersion(undefined), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT);
+  });
+});
+
+describe('15. each tool requires its own scope, not one blanket scope', () => {
+  test('a read-narrowed credential may read identity but may not submit a finish', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike, { scopes: [SCOPE_CONTEXT_READ] });
+    const client = await connectClient(spike, accessToken);
+
+    const runId = await mintRun(client);
+    const refused = await client.callTool({ name: TOOL_FINISH, arguments: finishInput(runId, 'req_spike_narrow') });
+    assert.equal(toolErrorCode(refused), CODES.SCOPE_INSUFFICIENT);
+  });
+
+  test('the same finish succeeds on a credential that holds the submit scope', async () => {
+    const spike = await startSpike();
+    const client = await connectClient(spike, grant(spike).accessToken);
+
+    const runId = await mintRun(client);
+    const receipt = toolPayload(
+      await client.callTool({ name: TOOL_FINISH, arguments: finishInput(runId, 'req_spike_wide') }),
+    );
+    assert.equal(receipt.runId, runId);
+  });
+
+  test('a refusal on scope is recorded as its own closed outcome, never as ok', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike, { scopes: [SCOPE_CONTEXT_READ] });
+    const client = await connectClient(spike, accessToken);
+    const runId = await mintRun(client);
+
+    const before = spike.lines.length;
+    await client.callTool({ name: TOOL_FINISH, arguments: finishInput(runId, 'req_spike_logged') });
+    const outcomes = spike.lines.slice(before).map((line) => JSON.parse(line).outcome);
+    assert.ok(outcomes.includes(LOG_OUTCOME.REJECTED), `a scope refusal was logged as ${outcomes.join(',')}`);
+  });
+
+  test('the scope check runs before the tool sees its arguments', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike, { scopes: [SCOPE_CONTEXT_READ] });
+    const client = await connectClient(spike, accessToken);
+
+    // Arguments that would fail schema validation. Reporting the schema code
+    // here would tell a caller its narrowed credential *would* have been
+    // allowed to submit, which the scope refusal exists to withhold.
+    const refused = await client.callTool({ name: TOOL_FINISH, arguments: { schemaVersion: 99 } });
+    assert.equal(toolErrorCode(refused), CODES.SCOPE_INSUFFICIENT);
+  });
+
+  test('a narrowing that drops the connection scope is refused before any tool runs', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike, { scopes: [SCOPE_DRAFT_SUBMIT] });
+
+    const response = await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) });
+    assert.equal(response.status, 401);
+    assert.equal(await errorCode(response), CODES.UNAUTHORIZED);
+  });
+
+  test('the two tools do not share one scope', () => {
+    assert.notEqual(SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT);
+    assert.deepEqual([...SCOPES].sort(), [SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT].sort());
+    assert.equal(MCP_REQUIRED_SCOPE, SCOPE_CONTEXT_READ);
   });
 });

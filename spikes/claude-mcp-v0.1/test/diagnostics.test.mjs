@@ -24,7 +24,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
 
 import { ALL_CODES, CODES } from '../src/codes.mjs';
 import {
@@ -33,6 +33,7 @@ import {
   MCP_MAX_CONCURRENT_PER_CREDENTIAL,
   OAUTH_BODY_LIMIT_BYTES,
   SCOPES,
+  SCOPE_CONTEXT_READ,
   STATIC_CLIENT_ID,
 } from '../src/constants.mjs';
 import { hmacBase64Url, sha256Base64Url } from '../src/crypto.mjs';
@@ -91,6 +92,23 @@ async function startSpike(overrides = {}) {
   });
   openHandles.push(handle);
   return { ...handle, lines, clock };
+}
+
+/**
+ * Starts a server the startup guard is expected to refuse. The handle is
+ * registered for cleanup **before** it is returned, so that if a regression
+ * ever lets one start, the caller's assertion fails and is reported - rather
+ * than leaving a live listener that makes `node --test` hang forever.
+ */
+async function startExpectingRefusal(env) {
+  const handle = await createSpikeServer({
+    port: 0,
+    env,
+    redirectUri: REDIRECT_URI,
+    sink: { write() {} },
+  });
+  openHandles.push(handle);
+  return handle;
 }
 
 // --------------------------------------------------------------------------
@@ -249,12 +267,12 @@ async function grantTokens(spike) {
  * issuer, so every check `/mcp` performs is performed for real. The OAuth dance
  * itself is covered by the flow helpers above and by `oauth.test.mjs`.
  */
-function grant(spike) {
+function grant(spike, { scopes = [...SCOPES] } = {}) {
   const credential = spike.context.store.createCredential({
     clientId: STATIC_CLIENT_ID,
     redirectUri: REDIRECT_URI,
     resource: spike.resourceOrigin,
-    scopes: [...SCOPES],
+    scopes,
   });
   return {
     credential,
@@ -484,6 +502,19 @@ describe('1. every diagnostic line the full drive produces is content-blind', ()
     await mcpPost(spike, accessToken, rpc('prompts/list', {}));
     await mcpPost(spike, accessToken, { jsonrpc: '1.0', id: 1, method: 'tools/list' });
     await mcpPost(spike, accessToken, rpc('tools/list', {}), { 'mcp-protocol-version': '1999-01-01' });
+    // The SDK's own request-schema failure, which arrives inside a 200.
+    await mcpPost(spike, accessToken, toolCall(TOOL_IDENTITY, 'not-an-object'));
+    // A read-narrowed credential reaching for the write tool.
+    await mcpPost(
+      spike,
+      grant(spike, { scopes: [SCOPE_CONTEXT_READ] }).accessToken,
+      toolCall(TOOL_FINISH, finishInput(runId, 'req_spike_narrowed')),
+    );
+    // One request per protocol version the pinned SDK supports, so every closed
+    // version outcome is exercised - and shown to carry no version string.
+    for (const version of SUPPORTED_PROTOCOL_VERSIONS) {
+      await mcpPost(spike, accessToken, rpc('tools/list', {}), { 'mcp-protocol-version': version });
+    }
     await rawRequest(spike, { method: 'POST', path: '/mcp', headers: mcpHeaders(accessToken), body: '{' });
     await rawRequest(spike, { method: 'GET', path: '/mcp', headers: mcpHeaders(accessToken) });
     await rawRequest(spike, { method: 'POST', path: '/mcp', headers: JSON_HEADERS, body: '{}' });
@@ -1699,13 +1730,7 @@ describe('4. src/ writes only through the logging front door and reads no Dayfol
     // The refusal is real, not just a predicate: a novel prefix member stops
     // the factory, with one closed code and no hint which variable was seen.
     await assert.rejects(
-      () =>
-        createSpikeServer({
-          port: 0,
-          env: { PATH: '/usr/bin', DAYFOLD_SESSION_SECRET: 'synthetic-value' },
-          redirectUri: REDIRECT_URI,
-          sink: { write() {} },
-        }),
+      () => startExpectingRefusal({ PATH: '/usr/bin', DAYFOLD_SESSION_SECRET: 'synthetic-value' }),
       (error) => {
         assert.equal(error.code, CODES.ENV_CONTAMINATED);
         assert.equal(error.message, CODES.ENV_CONTAMINATED, 'the guard leaks no variable name');

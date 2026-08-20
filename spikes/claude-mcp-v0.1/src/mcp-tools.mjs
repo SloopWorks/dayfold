@@ -2,7 +2,10 @@
 //
 // `Server` (not `McpServer`) is deliberate: the low-level server dispatches
 // without validating tool input, so the spike owns its hand-authored strict
-// schemas and its closed error codes end to end, and takes no zod dependency.
+// schemas and its closed error codes end to end, and imports no zod. (zod is
+// still loaded - the SDK's own `types.js` pulls it in, and its request-schema
+// prose is the one library string the runbook discloses. The point is that no
+// schema the spike authors is a zod schema.)
 // Exactly two tools are registered and only the `tools` capability is declared.
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -18,6 +21,7 @@ import {
   TOOLS,
   TOOL_FINISH,
   TOOL_IDENTITY,
+  TOOL_SCOPES,
   validateFinishInput,
   validateIdentityInput,
 } from './mcp-schema.mjs';
@@ -70,10 +74,20 @@ function finish(ctx, credential, args) {
   return { payload: recorded.receipt };
 }
 
-function callTool(ctx, credential, params) {
+/**
+ * Scope first, then arguments. Reporting a schema failure to a caller that was
+ * never allowed to submit would tell it its narrowed credential *would* have
+ * been accepted - which is the thing the scope refusal exists to withhold.
+ *
+ * @param {string[]} granted the scopes this call actually holds.
+ */
+function callTool(ctx, credential, granted, params) {
+  const required = TOOL_SCOPES.get(params.name);
+  if (required === undefined) return { code: CODES.UNKNOWN_TOOL };
+  if (!granted.includes(required)) return { code: CODES.SCOPE_INSUFFICIENT };
+
   if (params.name === TOOL_IDENTITY) return identity(ctx, credential, params.arguments);
-  if (params.name === TOOL_FINISH) return finish(ctx, credential, params.arguments);
-  return { code: CODES.UNKNOWN_TOOL };
+  return finish(ctx, credential, params.arguments);
 }
 
 /**
@@ -84,9 +98,10 @@ function callTool(ctx, credential, params) {
  * @param {object} options
  * @param {object} options.ctx
  * @param {object} options.credential the live credential record for this call.
+ * @param {string[]} options.granted scopes held by both the token and the record.
  * @param {(code: string) => void} options.record
  */
-export function createToolServer({ ctx, credential, record }) {
+export function createToolServer({ ctx, credential, granted, record }) {
   const server = new Server(
     { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
     { capabilities: { tools: {} } },
@@ -95,7 +110,7 @@ export function createToolServer({ ctx, credential, record }) {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...TOOLS] }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const outcome = callTool(ctx, credential, request.params);
+    const outcome = callTool(ctx, credential, granted, request.params);
     if (outcome.code !== undefined) {
       record(outcome.code);
       // A tool error is one closed code and nothing else: no field name, no

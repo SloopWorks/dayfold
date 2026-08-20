@@ -8,6 +8,8 @@
 // and it writes only through an injectable sink so tests can capture lines
 // in-process. Task 4 extends the enums; it does not add a second writer.
 
+import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
+
 import { CODES } from './codes.mjs';
 
 export const LOG_CLASS = Object.freeze({
@@ -55,8 +57,35 @@ export const LOG_OUTCOME = Object.freeze({
   ERROR: 'error',
 });
 
+/**
+ * One closed outcome per protocol version the pinned SDK supports.
+ *
+ * *Which* version a client negotiates is the more useful fact than merely
+ * whether it sent one: it is the floor the real bridge has to support. It is
+ * also still content-blind - the value set is `SUPPORTED_PROTOCOL_VERSIONS`,
+ * an enum owned by a pinned dependency and fully knowable to Dayfold before
+ * any client connects. The same reasoning already justifies
+ * `ok_resource_absent` and `ok_protocol_version_absent`: protocol shape, not
+ * content. A value outside the set gets no outcome of its own and is never
+ * written anywhere - see `outcomeForProtocolVersion`.
+ *
+ * A `Map`, not an object: the lookup key is a caller-supplied header value, and
+ * an object would answer `constructor` or `toString` with something off
+ * `Object.prototype`.
+ */
+const PROTOCOL_VERSION_OUTCOMES = new Map(
+  SUPPORTED_PROTOCOL_VERSIONS.map((version) => [
+    version,
+    `ok_protocol_version_${version.replaceAll('-', '_')}`,
+  ]),
+);
+
+export const ALL_PROTOCOL_VERSION_OUTCOMES = Object.freeze(new Set(PROTOCOL_VERSION_OUTCOMES.values()));
+
 export const ALL_LOG_CLASSES = Object.freeze(new Set(Object.values(LOG_CLASS)));
-export const ALL_LOG_OUTCOMES = Object.freeze(new Set(Object.values(LOG_OUTCOME)));
+export const ALL_LOG_OUTCOMES = Object.freeze(
+  new Set([...Object.values(LOG_OUTCOME), ...ALL_PROTOCOL_VERSION_OUTCOMES]),
+);
 
 /**
  * Closed code -> closed outcome. Every code in `CODES` maps to exactly one
@@ -87,6 +116,11 @@ const OUTCOME_BY_CODE = Object.freeze({
   [CODES.TOO_MANY_REQUESTS]: LOG_OUTCOME.THROTTLED,
   [CODES.DEADLINE_EXCEEDED]: LOG_OUTCOME.DEADLINE_EXCEEDED,
   [CODES.UNKNOWN_TOOL]: LOG_OUTCOME.INVALID_REQUEST,
+  // Deliberately not `unauthorized`: that outcome is how the bearer check
+  // refuses a whole request at the HTTP layer, and the runbook reads it as the
+  // revocation signal. A scope refusal on one tool is a live credential the
+  // spike answered on its own terms, which is what `rejected` records.
+  [CODES.SCOPE_INSUFFICIENT]: LOG_OUTCOME.REJECTED,
   [CODES.UNKNOWN_METHOD]: LOG_OUTCOME.METHOD_UNSUPPORTED,
   [CODES.UNSUPPORTED_PROTOCOL_VERSION]: LOG_OUTCOME.INVALID_REQUEST,
   [CODES.RUN_UNKNOWN]: LOG_OUTCOME.REJECTED,
@@ -117,10 +151,18 @@ export function outcomeForResource(resourceParam) {
 
 /**
  * Success outcome for a request that may carry an `MCP-Protocol-Version`
- * header. Records presence only - never the value.
+ * header. Absent is its own outcome; a version the SDK lists is recorded as
+ * the closed outcome that names it; anything else is a plain `ok`.
+ *
+ * The fallback is only reachable on an `initialize`, which negotiates its
+ * version in the body and is therefore exempt from the header screen in
+ * `src/mcp.mjs`. Recording it as `ok` rather than inventing an outcome from
+ * the value is what keeps the enum closed - a plain `ok` on an `mcp` line is
+ * itself the observation that the client named something the SDK does not.
  */
 export function outcomeForProtocolVersion(headerValue) {
-  return headerValue === undefined ? LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT : LOG_OUTCOME.OK;
+  if (headerValue === undefined) return LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT;
+  return PROTOCOL_VERSION_OUTCOMES.get(headerValue) ?? LOG_OUTCOME.OK;
 }
 
 /**

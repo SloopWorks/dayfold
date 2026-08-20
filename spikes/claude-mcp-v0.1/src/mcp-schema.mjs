@@ -7,10 +7,26 @@
 // neither the offending field nor its value.
 
 import { CODES } from './codes.mjs';
+import { SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT } from './constants.mjs';
 import { isBoundedString, validateObject } from './validate.mjs';
 
 export const TOOL_IDENTITY = 'dayfold_spike_identity';
 export const TOOL_FINISH = 'dayfold_spike_finish';
+
+/**
+ * The scope each tool requires, on top of the connection-level
+ * `MCP_REQUIRED_SCOPE`. The two-scope model is advertised, granted, and
+ * narrowable at refresh, so it has to be enforced somewhere or it teaches the
+ * real bridge nothing: a credential narrowed to the read scope must be able to
+ * read and unable to submit.
+ *
+ * A `Map`, not an object: the lookup key is the caller-supplied tool name, and
+ * an object would answer `constructor` or `toString` off `Object.prototype`.
+ */
+export const TOOL_SCOPES = new Map([
+  [TOOL_IDENTITY, SCOPE_CONTEXT_READ],
+  [TOOL_FINISH, SCOPE_DRAFT_SUBMIT],
+]);
 
 export const SCHEMA_VERSION = 1;
 export const SPIKE_INSTALL_ID = 'inst_spike_constant';

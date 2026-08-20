@@ -5,7 +5,14 @@
 export const AUDIENCE = 'dayfold-mcp-spike';
 export const SUBJECT = 'user_spike_local';
 
-export const SCOPES = Object.freeze(['mcp:context.read', 'mcp:draft.submit']);
+// The two scopes are named individually because the MCP surface enforces them
+// individually: `mcp:context.read` reaches `/mcp` and reads, `mcp:draft.submit`
+// writes. A credential narrowed to the read scope can still connect and still
+// call the read tool - it just cannot submit.
+export const SCOPE_CONTEXT_READ = 'mcp:context.read';
+export const SCOPE_DRAFT_SUBMIT = 'mcp:draft.submit';
+
+export const SCOPES = Object.freeze([SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT]);
 
 export const STATIC_CLIENT_ID = 'client_spike_static';
 export const STATIC_CLIENT_NAME = 'Spike Synthetic Connector';
@@ -28,7 +35,9 @@ export const MAX_CLIENT_NAME_DISPLAY_LENGTH = 64;
 // takes the deadline as an option so a test can drive it without waiting.
 export const MCP_SERVER_NAME = 'dayfold-spike-claude-mcp';
 export const MCP_SERVER_VERSION = '0.1.0';
-export const MCP_REQUIRED_SCOPE = 'mcp:context.read';
+/** The scope a credential must hold to reach `/mcp` at all. Per-tool scopes are
+ * enforced separately, in `src/mcp-schema.mjs` and `src/mcp-tools.mjs`. */
+export const MCP_REQUIRED_SCOPE = SCOPE_CONTEXT_READ;
 export const MCP_BODY_LIMIT_BYTES = 64 * 1024;
 export const MCP_DEADLINE_MS = 10 * 1000;
 export const MCP_MAX_CONCURRENT_PER_CREDENTIAL = 4;

@@ -20,6 +20,7 @@ import {
   STATIC_CLIENT_ID,
   STATIC_CLIENT_NAME,
 } from '../src/constants.mjs';
+import { randomSecret } from '../src/crypto.mjs';
 import {
   ALL_LOG_OUTCOMES,
   ALL_MAPPED_CODES,
@@ -32,6 +33,9 @@ import { createSpikeServer } from '../src/server.mjs';
 const REDIRECT_URI = 'https://example.invalid/spike-callback';
 const OTHER_REDIRECT_URI = 'https://example.invalid/other-callback';
 const START_MS = Date.UTC(2026, 7, 20, 12, 0, 0);
+
+/** The whole header, written out as a literal - see `assertSecurityHeaders`. */
+const EXPECTED_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 const openHandles = [];
 
@@ -53,6 +57,23 @@ async function startSpike(overrides = {}) {
   });
   openHandles.push(handle);
   return { ...handle, lines, clock };
+}
+
+/**
+ * Starts a server the startup guard is expected to refuse. The handle is
+ * registered for cleanup **before** it is returned, so that if a regression
+ * ever lets one start, the caller's assertion fails and is reported - rather
+ * than leaving a live listener that makes `node --test` hang forever.
+ */
+async function startExpectingRefusal(env) {
+  const handle = await createSpikeServer({
+    port: 0,
+    env,
+    redirectUri: REDIRECT_URI,
+    sink: { write() {} },
+  });
+  openHandles.push(handle);
+  return handle;
 }
 
 function base64url(buffer) {
@@ -632,9 +653,9 @@ describe('11. security headers', () => {
     for (const [header, value] of Object.entries(expected)) {
       assert.equal(response.headers.get(header), value, `${label} is missing ${header}`);
     }
-    const csp = response.headers.get('content-security-policy');
-    assert.ok(csp, `${label} is missing a content-security-policy`);
-    assert.ok(csp.includes("frame-ancestors 'none'"), `${label} CSP must deny framing`);
+    // Pinned whole: a regression that dropped `default-src` or `base-uri`
+    // while keeping `frame-ancestors` would pass a substring check.
+    assert.equal(response.headers.get('content-security-policy'), EXPECTED_CSP, `${label} CSP changed`);
   }
 
   test('authorize, approve and token responses all carry the security headers', async () => {
@@ -676,13 +697,7 @@ describe('12. startup guard', () => {
   for (const name of contaminated) {
     test(`refuses to start when ${name} is present`, async () => {
       await assert.rejects(
-        () =>
-          createSpikeServer({
-            port: 0,
-            env: { PATH: '/usr/bin', [name]: 'synthetic-value' },
-            redirectUri: REDIRECT_URI,
-            sink: { write() {} },
-          }),
+        () => startExpectingRefusal({ PATH: '/usr/bin', [name]: 'synthetic-value' }),
         (error) => {
           assert.equal(error.code, CODES.ENV_CONTAMINATED);
           assert.equal(error.message, CODES.ENV_CONTAMINATED, 'the guard leaks no variable name');
@@ -692,11 +707,99 @@ describe('12. startup guard', () => {
     });
   }
 
+  test('a guard regression fails the suite instead of hanging it', async () => {
+    // The exact path a regression takes: the factory returns a live server
+    // rather than refusing. `startExpectingRefusal` must register that handle
+    // for cleanup, or the failed assertion is never reported at all - the
+    // listener stays open and `node --test` waits on it indefinitely.
+    const before = openHandles.length;
+    const handle = await startExpectingRefusal({ PATH: '/usr/bin' });
+
+    assert.equal(openHandles.length, before + 1, 'a started server was not registered for cleanup');
+    assert.equal(openHandles.at(-1), handle);
+    assert.equal((await fetch(`${handle.url}/healthz`)).status, 200, 'it really is a live listener');
+  });
+
   test('starts on an environment that carries only spike variables', async () => {
     const spike = await startSpike({
       env: { PATH: '/usr/bin', SPIKE_PORT: '0', SPIKE_DCR: 'off' },
     });
     assert.equal((await fetch(`${spike.url}/healthz`)).status, 200);
+  });
+});
+
+describe('13. minted identifiers carry no mint counter', () => {
+  // `src/mcp-runs.mjs` mints run ids from randomness alone, on the stated
+  // ground that a counter would tell each caller how many runs were minted
+  // before theirs. A credential id needs that at least as much: it rides
+  // inside the access token's own decodable `cred` claim, so a counter there
+  // tells any token holder how many credentials the process has ever issued.
+  const RANDOM_SUFFIX_LENGTH = randomSecret(8).length;
+
+  function mintCredential(spike) {
+    return spike.context.store.createCredential({
+      clientId: STATIC_CLIENT_ID,
+      redirectUri: REDIRECT_URI,
+      resource: spike.url,
+      scopes: [...SCOPES],
+    });
+  }
+
+  test('a credential id is one fixed prefix plus one random block, and nothing else', async () => {
+    const spike = await startSpike();
+    const ids = Array.from({ length: 8 }, () => mintCredential(spike).credentialId);
+
+    assert.equal(new Set(ids).size, ids.length, 'ids must still be unique');
+    for (const id of ids) {
+      assert.ok(id.startsWith('cred_spike_'), `${id} is not self-evidently synthetic`);
+      assert.equal(
+        id.length,
+        'cred_spike_'.length + RANDOM_SUFFIX_LENGTH,
+        `${id} carries a segment beyond the random block`,
+      );
+    }
+  });
+
+  test('the id inside a token\'s decodable cred claim carries no counter', async () => {
+    const spike = await startSpike();
+    const credential = mintCredential(spike);
+    const token = spike.context.tokens.issue({
+      issuer: spike.resourceOrigin,
+      resource: credential.resource,
+      credentialId: credential.credentialId,
+      clientId: credential.clientId,
+      scopes: credential.scopes,
+    });
+
+    // The payload is base64url, not encrypted: any token holder can read it.
+    const claims = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'));
+    assert.equal(claims.cred, credential.credentialId);
+    assert.equal(claims.cred.length, 'cred_spike_'.length + RANDOM_SUFFIX_LENGTH);
+  });
+
+  test('a dynamically registered client id carries no counter either', async () => {
+    const spike = await startSpike({ dcr: true });
+    const ids = [];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await fetch(`${spike.url}/oauth/register`, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ redirect_uris: [REDIRECT_URI] }),
+      });
+      assert.equal(response.status, 201);
+      ids.push((await response.json()).client_id);
+    }
+
+    assert.equal(new Set(ids).size, ids.length);
+    for (const id of ids) {
+      assert.ok(id.startsWith('client_spike_dcr_'), `${id} is not self-evidently synthetic`);
+      assert.equal(
+        id.length,
+        'client_spike_dcr_'.length + RANDOM_SUFFIX_LENGTH,
+        `${id} carries a segment beyond the random block`,
+      );
+    }
   });
 });
 

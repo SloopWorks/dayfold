@@ -11,11 +11,12 @@ import { randomSecret, sha256Base64Url } from './crypto.mjs';
 
 /** @param {{now: () => number}} options */
 export function createStore({ now }) {
-  let sequence = 0;
-  const nextId = (prefix) => {
-    sequence += 1;
-    return `${prefix}_${sequence}_${randomSecret(8)}`;
-  };
+  // Random only, for the same reason `mcp-runs.mjs` mints run ids that way: a
+  // counter would tell each caller how many identifiers the process minted
+  // before theirs. A credential id needs it at least as much, because it rides
+  // inside the access token's own decodable `cred` claim - so a counter there
+  // is readable by any token holder.
+  const nextId = (prefix) => `${prefix}_${randomSecret(8)}`;
 
   const clients = new Map();
   const approvals = new Map();

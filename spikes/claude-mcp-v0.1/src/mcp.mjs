@@ -63,19 +63,24 @@ function unauthorized(ctx, res) {
 }
 
 /**
- * Bearer plus scope. The required scope must be carried by the signed token
- * *and* still held by the live credential record. The record is the authority:
- * a narrowing refresh overwrites it, so the pair can only ever downgrade - an
- * older, wider token cannot outlive a narrowing (ADR 0071 section 3).
+ * Bearer plus scope. A scope counts as held only if it is carried by the signed
+ * token *and* still held by the live credential record - so the effective grant
+ * is the intersection of the two. The record is the authority: a narrowing
+ * refresh overwrites it, so the pair can only ever downgrade - an older, wider
+ * token cannot outlive a narrowing (ADR 0071 section 3).
+ *
+ * Returns the credential plus that intersection; the per-tool checks in
+ * `mcp-tools.mjs` read the same set, so no tool can be reached with a scope
+ * the connection did not actually prove.
  */
 function authorizeCall(ctx, req) {
   const verified = verifyBearer(ctx, req.headers.authorization);
   if (!verified.ok) return null;
 
   const claimed = typeof verified.claims.scope === 'string' ? verified.claims.scope.split(' ') : [];
-  if (!claimed.includes(MCP_REQUIRED_SCOPE)) return null;
-  if (!verified.credential.scopes.includes(MCP_REQUIRED_SCOPE)) return null;
-  return verified.credential;
+  const granted = verified.credential.scopes.filter((scope) => claimed.includes(scope));
+  if (!granted.includes(MCP_REQUIRED_SCOPE)) return null;
+  return { credential: verified.credential, granted };
 }
 
 /**
@@ -127,7 +132,7 @@ function startDeadline(ctx, res) {
 }
 
 /** Never rejects: every failure becomes one closed code, so the race is safe. */
-async function exchange(ctx, req, res, credential) {
+async function exchange(ctx, req, res, authorized) {
   try {
     const body = await readBody(req, MCP_BODY_LIMIT_BYTES);
     if (!body.ok) return fail(res, 413, body.code);
@@ -147,7 +152,7 @@ async function exchange(ctx, req, res, credential) {
       return fail(res, 400, CODES.UNSUPPORTED_PROTOCOL_VERSION);
     }
 
-    return await dispatch(ctx, req, res, credential, message);
+    return await dispatch(ctx, req, res, authorized, message);
   } catch {
     if (res.headersSent || res.writableEnded) return LOG_OUTCOME.ERROR;
     return fail(res, 500, CODES.INTERNAL);
@@ -180,11 +185,12 @@ function watchForErrorEnvelope(transport) {
   return state;
 }
 
-async function dispatch(ctx, req, res, credential, message) {
+async function dispatch(ctx, req, res, authorized, message) {
   let rejectionCode;
   const server = createToolServer({
     ctx,
-    credential,
+    credential: authorized.credential,
+    granted: authorized.granted,
     // First code wins. A batch can produce several; taking the last would make
     // the recorded outcome depend on which handler happened to settle last.
     record: (code) => { if (rejectionCode === undefined) rejectionCode = code; },
@@ -214,15 +220,15 @@ async function dispatch(ctx, req, res, credential, message) {
 }
 
 export async function mcpPost(ctx, req, res) {
-  const credential = authorizeCall(ctx, req);
-  if (!credential) return unauthorized(ctx, res);
+  const authorized = authorizeCall(ctx, req);
+  if (!authorized) return unauthorized(ctx, res);
 
-  const slot = ctx.mcp.limiter.acquire(credential.credentialId);
+  const slot = ctx.mcp.limiter.acquire(authorized.credential.credentialId);
   if (!slot.ok) return fail(res, 429, CODES.TOO_MANY_REQUESTS);
 
   const deadline = startDeadline(ctx, res);
   try {
-    return await Promise.race([deadline.expiry, exchange(ctx, req, res, credential)]);
+    return await Promise.race([deadline.expiry, exchange(ctx, req, res, authorized)]);
   } finally {
     deadline.clear();
     slot.release();
