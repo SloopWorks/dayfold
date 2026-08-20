@@ -12,7 +12,7 @@ import { CODES } from './codes.mjs';
 import { OAUTH_BODY_LIMIT_BYTES, SCOPES } from './constants.mjs';
 import { constantTimeEquals, sha256Base64Url } from './crypto.mjs';
 import { fail, hasContentType, readBody, sendHtml, sendRedirect } from './http.mjs';
-import { LOG_OUTCOME } from './log.mjs';
+import { outcomeForResource } from './log.mjs';
 import { renderApprovalPage } from './pages.mjs';
 import { parseScopes, validateParams } from './validate.mjs';
 
@@ -39,8 +39,11 @@ export function authorize(ctx, req, res, url) {
   const client = ctx.store.getClient(params.client_id);
   if (!client) return fail(res, 400, CODES.UNKNOWN_CLIENT);
   if (params.redirect_uri !== client.redirectUri) return fail(res, 400, CODES.REDIRECT_MISMATCH);
-  // Matched exactly when present; see the note in token-endpoint.mjs on why an absent
-  // `resource` is not itself a refusal.
+  // Matched exactly when present; see the note in token-endpoint.mjs on why an
+  // absent `resource` is not itself a refusal. The approval record below
+  // backfills the configured origin either way, so presence is recorded in the
+  // log outcome - otherwise the spike could not answer whether the client
+  // sent one.
   if (params.resource !== undefined && params.resource !== ctx.resourceOrigin) {
     return fail(res, 400, CODES.RESOURCE_MISMATCH);
   }
@@ -67,7 +70,7 @@ export function authorize(ctx, req, res, url) {
     200,
     renderApprovalPage({ clientName: client.clientName, scopes: scopes.scopes, ticket }),
   );
-  return LOG_OUTCOME.OK;
+  return outcomeForResource(params.resource);
 }
 
 export async function approve(ctx, req, res) {

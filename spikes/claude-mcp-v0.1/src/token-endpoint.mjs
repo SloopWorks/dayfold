@@ -9,7 +9,7 @@ import { matchesChallenge } from './authorize.mjs';
 import { CODES } from './codes.mjs';
 import { OAUTH_BODY_LIMIT_BYTES } from './constants.mjs';
 import { fail, hasContentType, readBody, sendJson } from './http.mjs';
-import { LOG_OUTCOME } from './log.mjs';
+import { LOG_OUTCOME, outcomeForResource } from './log.mjs';
 import { parseScopes, validateParams } from './validate.mjs';
 
 const CODE_GRANT_SPEC = {
@@ -86,6 +86,8 @@ function exchangeCode(ctx, res, rawParams) {
   // `resource` is matched exactly when present. A client that omits it is not
   // refused: the spike is probing what a connector client sends, and a hard
   // requirement here would end the probe before anything else is observed.
+  // Presence is recorded in the log outcome instead - and it is recorded per
+  // endpoint, because a client may send it at one and not the other.
   if (params.resource !== undefined && params.resource !== grant.resource) {
     return fail(res, 400, CODES.RESOURCE_MISMATCH);
   }
@@ -100,7 +102,7 @@ function exchangeCode(ctx, res, rawParams) {
     scopes: grant.scopes,
   });
   sendJson(res, 200, issueTokens(ctx, credential));
-  return LOG_OUTCOME.OK;
+  return outcomeForResource(params.resource);
 }
 
 function exchangeRefresh(ctx, res, rawParams) {
@@ -126,7 +128,7 @@ function exchangeRefresh(ctx, res, rawParams) {
   credential.scopes = scopes.scopes;
 
   sendJson(res, 200, issueTokens(ctx, credential));
-  return LOG_OUTCOME.OK;
+  return outcomeForResource(params.resource);
 }
 
 /**

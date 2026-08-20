@@ -25,6 +25,11 @@ export const LOG_CLASS = Object.freeze({
 
 export const LOG_OUTCOME = Object.freeze({
   OK: 'ok',
+  // A success where the caller sent no RFC 8707 `resource` indicator. Whether
+  // the parameter was present is a boolean about protocol shape, not content,
+  // so recording it stays content-blind - and it is one of the questions the
+  // spike exists to answer.
+  OK_RESOURCE_ABSENT: 'ok_resource_absent',
   REJECTED: 'rejected',
   INVALID_REQUEST: 'invalid_request',
   INVALID_GRANT: 'invalid_grant',
@@ -66,8 +71,23 @@ const OUTCOME_BY_CODE = Object.freeze({
   [CODES.ENV_CONTAMINATED]: LOG_OUTCOME.REJECTED,
 });
 
+/**
+ * Every code carried by this table has a declared outcome; the fallback exists
+ * only so an unmapped code degrades instead of crashing a response. A test
+ * asserts the table is total over `CODES`, so the fallback stays unreachable.
+ */
+export const ALL_MAPPED_CODES = Object.freeze(new Set(Object.keys(OUTCOME_BY_CODE)));
+
 export function outcomeForCode(code) {
   return OUTCOME_BY_CODE[code] ?? LOG_OUTCOME.ERROR;
+}
+
+/**
+ * Success outcome for a request that may carry a `resource` indicator.
+ * Records presence only - never the value.
+ */
+export function outcomeForResource(resourceParam) {
+  return resourceParam === undefined ? LOG_OUTCOME.OK_RESOURCE_ABSENT : LOG_OUTCOME.OK;
 }
 
 /**

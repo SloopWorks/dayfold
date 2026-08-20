@@ -20,6 +20,13 @@ import {
   STATIC_CLIENT_ID,
   STATIC_CLIENT_NAME,
 } from '../src/constants.mjs';
+import {
+  ALL_LOG_OUTCOMES,
+  ALL_MAPPED_CODES,
+  LOG_CLASS,
+  LOG_OUTCOME,
+  outcomeForCode,
+} from '../src/log.mjs';
 import { createSpikeServer } from '../src/server.mjs';
 
 const REDIRECT_URI = 'https://example.invalid/spike-callback';
@@ -121,24 +128,40 @@ async function authorizeAndApprove(spike, overrides = {}) {
   };
 }
 
-function exchangeCode(spike, { code, verifier, redirectUri = REDIRECT_URI, clientId = STATIC_CLIENT_ID }) {
+function exchangeCode(
+  spike,
+  { code, verifier, redirectUri = REDIRECT_URI, clientId = STATIC_CLIENT_ID, resource = spike.url },
+) {
   return postForm(`${spike.url}/oauth/token`, {
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
     client_id: clientId,
     code_verifier: verifier,
-    resource: spike.url,
+    ...(resource === null ? {} : { resource }),
   });
 }
 
-function refresh(spike, refreshToken, clientId = STATIC_CLIENT_ID) {
+/** `resource: null` omits the indicator entirely (`undefined` would take the default). */
+function refresh(spike, refreshToken, { clientId = STATIC_CLIENT_ID, resource = spike.url } = {}) {
   return postForm(`${spike.url}/oauth/token`, {
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     client_id: clientId,
-    resource: spike.url,
+    ...(resource === null ? {} : { resource }),
   });
+}
+
+/** The outcome of the most recent log line for a route class. */
+function lastOutcome(spike, logClass) {
+  const outcomes = spike.lines
+    .map((line) => JSON.parse(line))
+    .filter((entry) => entry.class === logClass)
+    .map((entry) => entry.outcome);
+  assert.ok(outcomes.length > 0, `no log line recorded for ${logClass}`);
+  const outcome = outcomes.at(-1);
+  assert.ok(ALL_LOG_OUTCOMES.has(outcome), `${outcome} is not a declared outcome`);
+  return outcome;
 }
 
 /** Full happy path, returned as a token response body. */
@@ -235,6 +258,65 @@ describe('2. authorize rejections', () => {
       }
     });
   }
+});
+
+describe('2b. the resource indicator is recorded, per endpoint', () => {
+  // The spike accepts a request that omits RFC 8707 `resource`, so the only
+  // way it can answer "did the client send one?" is the log outcome. Presence
+  // is recorded separately at each endpoint, because a client may send it at
+  // one and not the other, and that difference is itself the evidence.
+  test('a present indicator records `ok` at both endpoints', async () => {
+    const spike = await startSpike();
+
+    const granted = await authorizeAndApprove(spike);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_AUTHORIZE), LOG_OUTCOME.OK);
+
+    assert.equal((await exchangeCode(spike, granted)).status, 200);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_TOKEN), LOG_OUTCOME.OK);
+  });
+
+  test('an indicator absent at authorize is recorded at authorize only', async () => {
+    const spike = await startSpike();
+
+    const granted = await authorizeAndApprove(spike, { resource: undefined });
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_AUTHORIZE), LOG_OUTCOME.OK_RESOURCE_ABSENT);
+
+    assert.equal((await exchangeCode(spike, granted)).status, 200);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_TOKEN), LOG_OUTCOME.OK);
+  });
+
+  test('an indicator absent at the token endpoint is recorded there, on both grants', async () => {
+    const spike = await startSpike();
+
+    const granted = await authorizeAndApprove(spike);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_AUTHORIZE), LOG_OUTCOME.OK);
+
+    // authorization_code grant, indicator omitted
+    const exchanged = await exchangeCode(spike, { ...granted, resource: null });
+    assert.equal(exchanged.status, 200);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_TOKEN), LOG_OUTCOME.OK_RESOURCE_ABSENT);
+
+    // refresh_token grant, indicator present
+    const tokens = await exchanged.json();
+    const rotated = await refresh(spike, tokens.refresh_token);
+    assert.equal(rotated.status, 200);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_TOKEN), LOG_OUTCOME.OK);
+
+    // refresh_token grant, indicator omitted
+    const next = await rotated.json();
+    assert.equal((await refresh(spike, next.refresh_token, { resource: null })).status, 200);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_TOKEN), LOG_OUTCOME.OK_RESOURCE_ABSENT);
+  });
+
+  test('a mismatched indicator is still a rejection, not a recorded success', async () => {
+    const spike = await startSpike();
+    const { params } = authorizeParams(spike, { resource: 'https://mcp.other.example.invalid' });
+
+    const response = await fetch(authorizeUrl(spike.url, params), { redirect: 'manual' });
+    assert.equal(response.status, 400);
+    assert.equal(await errorCode(response), CODES.RESOURCE_MISMATCH);
+    assert.equal(lastOutcome(spike, LOG_CLASS.OAUTH_AUTHORIZE), LOG_OUTCOME.INVALID_REQUEST);
+  });
 });
 
 describe('3. no auto-approval on GET', () => {
@@ -662,6 +744,13 @@ describe('supplementary: transport limits and unknown routes', () => {
     });
     assert.equal(response.status, 400);
     assert.equal(await errorCode(response), CODES.SCHEMA_INVALID);
+  });
+
+  test('every closed code maps to a declared outcome', () => {
+    for (const code of ALL_CODES) {
+      assert.ok(ALL_MAPPED_CODES.has(code), `${code} has no declared outcome`);
+      assert.ok(ALL_LOG_OUTCOMES.has(outcomeForCode(code)), `${code} maps outside the enum`);
+    }
   });
 
   test('every request writes exactly one log line to the injected sink', async () => {
