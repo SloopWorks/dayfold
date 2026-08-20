@@ -7,12 +7,15 @@ import { CODES } from './codes.mjs';
 
 const FORBIDDEN_NAMES = Object.freeze([
   'DATABASE_URL',
-  'DAYFOLD_API',
   'FAMILY_ID',
   'HOUSEHOLD_SECRET',
 ]);
 
-const FORBIDDEN_PREFIXES = Object.freeze(['AUTH_']);
+// Prefix rules, not just the literal names above: a family of variables shares
+// a prefix, and blocking only the members that happened to exist when this was
+// written would leave the next one through. `DAYFOLD_` covers `DAYFOLD_API`,
+// which is why that name no longer needs its own entry.
+const FORBIDDEN_PREFIXES = Object.freeze(['AUTH_', 'DAYFOLD_']);
 
 export function isForbiddenEnvName(name) {
   return FORBIDDEN_NAMES.includes(name) || FORBIDDEN_PREFIXES.some((prefix) => name.startsWith(prefix));

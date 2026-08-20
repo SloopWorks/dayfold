@@ -24,6 +24,8 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+
 import { ALL_CODES, CODES } from '../src/codes.mjs';
 import {
   MAX_CLIENT_NAME_LENGTH,
@@ -315,7 +317,13 @@ function sseMessages(text) {
     .map((data) => JSON.parse(data));
 }
 
+/**
+ * The transport answers a well-formed POST with an event stream, but rejects a
+ * malformed envelope with a bare JSON body. Both framings are read here so an
+ * assertion can name the JSON-RPC error code either way.
+ */
 function singleRpcMessage(response) {
+  if (!response.body.includes('data:')) return JSON.parse(response.body);
   const messages = sseMessages(response.body);
   assert.equal(messages.length, 1, 'one JSON-RPC response per request');
   return messages[0];
@@ -655,10 +663,13 @@ async function waitUntil(predicate, label) {
  *
  * `allow` values:
  *  - `undefined`: the canary may appear nowhere in the response at all.
- *  - `'body'`: the canary may appear in the response body (RFC 7591 requires
- *    the DCR success body to echo the registered `client_name`).
+ *  - `'dcr-client-name'`: the canary may appear only as the `client_name` of
+ *    the registration success body, which RFC 7591 has the response echo.
  *  - `'rpc-id'`: the canary may appear only as the JSON-RPC `id`, which
  *    JSON-RPC 2.0 requires the response to carry back verbatim.
+ *
+ * Both exemptions are one named field, asserted present and then stripped -
+ * never a blanket pass over a whole body or a whole probe.
  *
  * The two remaining permitted appearances - `state` in a redirect Location and
  * an HTML-escaped `client_name` on the consent page - each get their own test
@@ -1061,7 +1072,7 @@ const PROBES = [
     label: 'register: client_name (echoed by RFC 7591)',
     canary: CANARY.CHILD_NAME,
     setup: 'dcr',
-    expect: { status: 201, allow: 'body' },
+    expect: { status: 201, allow: 'dcr-client-name' },
     build: () => ({
       method: 'POST',
       path: '/oauth/register',
@@ -1220,14 +1231,17 @@ const PROBES = [
     label: 'mcp: a malformed JSON-RPC envelope',
     canary: CANARY.PROVIDER_ERROR,
     setup: 'mcp',
-    expect: { status: 400 },
+    // The numeric code is pinned so the row cannot quietly start probing a
+    // different layer if a future SDK moves the rejection. The message text is
+    // still never asserted - only the canary's absence from it.
+    expect: { status: 400, rpcErrorCode: ErrorCode.ParseError },
     build: (env) => mcpBody(env, { jsonrpc: CANARY.PROVIDER_ERROR, id: 1, method: 'tools/list' }),
   },
   {
     label: 'mcp: non-object tool arguments',
     canary: CANARY.MEDICAL,
     setup: 'mcp',
-    expect: { status: 200 },
+    expect: { status: 200, rpcErrorCode: ErrorCode.InternalError },
     build: (env) => mcpBody(env, toolCall(TOOL_IDENTITY, CANARY.MEDICAL)),
   },
   {
@@ -1373,6 +1387,13 @@ describe('2. leak canaries', () => {
       if (probe.expect.rpcErrorMessage !== undefined) {
         assert.equal(singleRpcMessage(response).error.message, probe.expect.rpcErrorMessage);
       }
+      if (probe.expect.rpcErrorCode !== undefined) {
+        assert.equal(
+          singleRpcMessage(response).error.code,
+          probe.expect.rpcErrorCode,
+          `${probe.label}: the rejection moved to a different JSON-RPC layer`,
+        );
+      }
 
       // Exactly one line, and it is content blind.
       const written = env.spike.lines.slice(before);
@@ -1383,7 +1404,11 @@ describe('2. leak canaries', () => {
       // this probe's own setup.
       assertNoCanaryInLog(env.spike, probe.label);
 
-      // ...and no response surface, except the one channel the probe declares.
+      // ...and no response surface, except the one field the probe declares.
+      // A permitted echo is asserted positively and then removed, so the
+      // exemption covers exactly that field - not the whole body, and not the
+      // probe's other canaries - and so a future change that silently stopped
+      // echoing would fail here rather than pass unnoticed.
       let body = response.body;
       if (probe.expect.allow === 'rpc-id') {
         const message = singleRpcMessage(response);
@@ -1391,9 +1416,18 @@ describe('2. leak canaries', () => {
         delete message.id;
         body = JSON.stringify(message);
       }
+      if (probe.expect.allow === 'dcr-client-name') {
+        const registered = JSON.parse(response.body);
+        assert.equal(
+          registered.client_name,
+          probe.canary,
+          `${probe.label}: RFC 7591 has the registration response echo the registered name`,
+        );
+        delete registered.client_name;
+        body = JSON.stringify(registered);
+      }
       for (const canary of canaries) {
         assertAbsent(response.rawHeaders, canary, `${probe.label}: a response header`);
-        if (probe.expect.allow === 'body') continue;
         assertAbsent(body, canary, `${probe.label}: the response body`);
       }
     });
@@ -1564,7 +1598,12 @@ describe('3. no credential material reaches a log line', () => {
 const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
 function sourceFiles() {
-  const files = readdirSync(SRC_DIR)
+  // Recursive: the property these scans assert is over `src/**`, not over its
+  // top level. `src/` happens to be flat today, so a non-recursive walk would
+  // pass while silently ceasing to cover the first module anyone nests.
+  // `name` is the path relative to `src/`, so a nested file cannot borrow a
+  // top-level file's allow-list entry.
+  const files = readdirSync(SRC_DIR, { recursive: true })
     .filter((name) => name.endsWith('.mjs'))
     .map((name) => ({ name, path: join(SRC_DIR, name), text: readFileSync(join(SRC_DIR, name), 'utf8') }));
   assert.ok(files.length >= 20, `expected the whole spike source tree, found ${files.length} files`);
@@ -1583,7 +1622,14 @@ const DAYFOLD_ENV_NAMES = Object.freeze([
   'HOUSEHOLD_SECRET',
   'AUTH_SECRET',
   'AUTH_GOOGLE_CLIENT_ID',
+  // Prefix members that exist in no list anywhere: the guard must refuse a
+  // name because of its shape, not because someone remembered to enumerate it.
+  'DAYFOLD_SESSION_SECRET',
+  'AUTH_TRUST_HOST',
 ]);
+
+/** The two prefixes the guard refuses wholesale. */
+const DAYFOLD_ENV_PREFIXES = Object.freeze(['AUTH_', 'DAYFOLD_']);
 
 /** The four knobs `main.mjs` is allowed to read. */
 const SPIKE_ENV_NAMES = Object.freeze([
@@ -1620,18 +1666,52 @@ describe('4. src/ writes only through the logging front door and reads no Dayfol
       for (const name of DAYFOLD_ENV_NAMES) {
         assert.ok(!file.text.includes(name), `src/${file.name} mentions the Dayfold variable ${name}`);
       }
-      // The prefix rule, not just the sample names above. Scoped to string
+      // The prefix rules, not just the sample names above. Scoped to string
       // literals, because an env variable can only be read by name: the spike's
       // own `AUTH_CODE_TTL_MS` constant is an identifier, not a lookup key.
-      assert.ok(
-        !/['"`]AUTH_[A-Z0-9_]*['"`]/.test(file.text),
-        `src/${file.name} names an AUTH_* variable`,
-      );
-      assert.ok(
-        !/\bprocess\s*\.\s*env\s*\.\s*AUTH_/.test(file.text),
-        `src/${file.name} reads an AUTH_* variable`,
-      );
+      for (const prefix of DAYFOLD_ENV_PREFIXES) {
+        assert.ok(
+          !new RegExp(`['"\`]${prefix}[A-Z0-9_]*['"\`]`).test(file.text),
+          `src/${file.name} names a ${prefix}* variable`,
+        );
+        assert.ok(
+          !new RegExp(`\\bprocess\\s*\\.\\s*env\\s*\\.\\s*${prefix}`).test(file.text),
+          `src/${file.name} reads a ${prefix}* variable`,
+        );
+      }
     }
+  });
+
+  test('the startup guard refuses a whole Dayfold prefix, not an enumerated list', async () => {
+    // A prefix hole here would undercut global constraint 2 rather than merely
+    // a test: the guard is the structural proof that the spike cannot borrow a
+    // real credential, so a `DAYFOLD_*` name nobody thought to enumerate must
+    // still stop the server from starting.
+    for (const prefix of DAYFOLD_ENV_PREFIXES) {
+      const invented = `${prefix}NAME_THAT_IS_IN_NO_LIST`;
+      assert.ok(isForbiddenEnvName(invented), `the guard admits ${invented}`);
+    }
+    // ...while everything the spike legitimately reads still starts.
+    for (const allowed of [...SPIKE_ENV_NAMES, 'PATH', 'HOME', 'NODE_ENV']) {
+      assert.ok(!isForbiddenEnvName(allowed), `the guard refuses ${allowed}`);
+    }
+
+    // The refusal is real, not just a predicate: a novel prefix member stops
+    // the factory, with one closed code and no hint which variable was seen.
+    await assert.rejects(
+      () =>
+        createSpikeServer({
+          port: 0,
+          env: { PATH: '/usr/bin', DAYFOLD_SESSION_SECRET: 'synthetic-value' },
+          redirectUri: REDIRECT_URI,
+          sink: { write() {} },
+        }),
+      (error) => {
+        assert.equal(error.code, CODES.ENV_CONTAMINATED);
+        assert.equal(error.message, CODES.ENV_CONTAMINATED, 'the guard leaks no variable name');
+        return true;
+      },
+    );
   });
 
   test('process.env is read in exactly two places, and only for SPIKE_* knobs', () => {
