@@ -239,9 +239,16 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   2.5 GB, deterministic-enough, we ship + pin the model ourselves (so no device-variance),
   and it runs well on exactly the runtimes that are *bad* at LLMs (ONNX Runtime, LiteRT).
   **This is the best on-device-AI opportunity in Dayfold — and it isn't an agent.**
-  Not yet load-bearing (only bites when E2EE flips at M1); needs its own investigation
-  (model choice, index shape, KMP seam, recall at family-data volume). →
-  `research/2026-07-13-on-device-llm-assessment.md` §5.
+  **Investigated for local search 2026-08-19:** technically feasible, but not the
+  MVP. Ship/dogfood a derived lexical corpus plus bounded fuzzy fallback first;
+  then evaluate a pinned small cross-platform TFLite embedder as a conservative
+  reranker/fallback on 30–50 synthetic queries. Exact hits remain inviolable;
+  semantic-only rows get no fabricated highlight and never drive actions or
+  completion state. The current small USE artifact (~6.1 MB) is proportionate;
+  the current 300M EmbeddingGemma task (~184 MB) is not. Runtime/model adoption
+  remains an ADR-class decision. →
+  `research/2026-07-13-on-device-llm-assessment.md` §5,
+  `research/2026-08-19-local-search-exploration.md`.
 - **OQ-objectstore-vendor** *(vendor + spend)*: member media = the first binary
   Dayfold stores → object store needed. **Cloudflare R2 (zero egress)** vs all-Vercel
   (Blob, egress-billed). → §4-W1 / INB-26 #3. ADR 0036 Phase-2.

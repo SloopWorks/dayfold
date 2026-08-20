@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .mm-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;padding:44px 40px 80px;">
+
+  <!-- intro -->
+  <div style="max-width:880px;margin-bottom:30px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Local search</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">E · Match modes — exploration</span>
+      <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#7A2615;background:#FFDAD2;border-radius:7px;padding:4px 10px;">NOT A COMMITTED SCREEN</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:-0.02em;margin:0 0 10px;line-height:1.08;">Three ways to match, three honest things to say</h1>
+    <p style="font-family:'Figtree';font-size:15px;line-height:1.6;color:#5A423C;margin:0 0 6px;">Same corpus, three queries, three matchers. The interesting part is not the ranking — it is what each row is <i>allowed to claim</i>. A mark means the typed words are really there. A <b>Close match</b> means the row was reached through one typo, and the mark sits on the real word. A <b>Related result</b> means no typed word appears anywhere, so nothing is marked at all.</p>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.6;color:#5A423C;margin:0 0 18px;max-width:88ch;">The production default is the first two boards. The third exists to be compared against them and, per the research report, to be measured before anyone ships it.</p>
+    <div style="display:inline-flex;background:#FFF8F6;border:1px solid #D8C2BB;border-radius:999px;padding:4px;gap:2px;">
+      <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+      <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+    </div>
+  </div>
+
+  <!-- three boards -->
+  <div style="display:flex;gap:34px;align-items:flex-start;margin-bottom:44px;">
+    <sc-for list="{{ boards }}" as="b" hint-placeholder-count="3">
+      <div style="flex:0 0 390px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;flex-wrap:wrap;">
+          <span style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:#8C726B;">{{ b.kicker }}</span>
+          <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ b.pillFg }};background:{{ b.pillBg }};border-radius:7px;padding:3px 9px;">{{ b.pill }}</span>
+        </div>
+        <h2 style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;margin:0 0 6px;">{{ b.title }}</h2>
+        <p style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#5A423C;margin:0 0 16px;min-height:60px;">{{ b.desc }}</p>
+
+        <div style="width:390px;height:640px;border-radius:40px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 46px rgba(39,24,20,0.22);display:flex;flex-direction:column;">
+          <div style="height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;"><span style="font-family:'Figtree';font-weight:600;font-size:13px;color:{{ c.onSurface }};">9:41</span><div style="display:flex;gap:6px;color:{{ c.onSurface }};"><span class="msr fill" style="font-size:15px;">wifi</span><span class="msr fill" style="font-size:17px;">battery_full</span></div></div>
+
+          <div style="padding:2px 12px 0;">
+            <div style="display:flex;align-items:center;gap:6px;height:56px;background:{{ c.surfaceContainerHigh }};border-radius:28px;padding:0 6px;">
+              <span style="width:44px;height:44px;flex:0 0 44px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span></span>
+              <span style="flex:1;min-width:0;font-family:'Figtree';font-size:15px;color:{{ c.onSurface }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ b.query }}</span>
+              <span style="width:44px;height:44px;flex:0 0 44px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">close</span></span>
+            </div>
+          </div>
+          <div style="padding:9px 22px 2px;display:flex;align-items:center;gap:6px;"><span class="msr fill" style="font-size:15px;color:{{ c.privacyFg }};">verified_user</span><span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.privacyFg }};">On this device</span></div>
+
+          <sc-if value="{{ b.hasHeading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:12px 22px 0;font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">{{ b.heading }}</div>
+          </sc-if>
+
+          <div class="mm-scroll" style="flex:1;overflow-y:auto;padding:6px 0 20px;">
+            <sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:13px 22px 13px 18px;">
+                <span style="width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-top:1px;"><span class="msr" style="font-size:20px;color:{{ r.glyphFg }};">{{ r.icon }}</span></span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'Outfit';font-weight:600;font-size:16px;line-height:1.28;color:{{ c.onSurface }};margin-bottom:3px;">{{ r.title }}</div>
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px;">
+                    <span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.bc }}</span>
+                    <sc-if value="{{ r.hasLabel }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};border-radius:7px;padding:3px 8px;">{{ r.label }}</span></sc-if>
+                  </div>
+                  <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurfaceVar }};">{{ r.ex }}</div>
+                </div>
+              </div>
+              <sc-if value="{{ r.hasDivider }}" hint-placeholder-val="{{ true }}"><div style="height:1px;background:{{ c.outlineVar }};margin:0 22px 0 68px;"></div></sc-if>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="width:390px;margin-top:14px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:16px;padding:14px 16px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;margin-bottom:6px;">WHAT THIS ROW MAY CLAIM</div>
+          <div style="font-family:'Figtree';font-size:13px;line-height:1.55;color:#5A423C;">{{ b.claim }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- rejected treatments -->
+  <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;max-width:1250px;">
+    <div style="flex:1;min-width:520px;background:#FFF8F6;border:1px solid #EBD3CB;border-left:5px solid #C0381E;border-radius:20px;padding:24px 26px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span class="msr" style="font-size:21px;color:#C0381E;">block</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;">Rejected: “AI match” and confidence percentages</span></div>
+      <p style="font-family:'Figtree';font-size:13.5px;line-height:1.6;color:#5A423C;margin:0 0 16px;">Every rejected treatment here fails the same test: it describes the machine instead of the content, or it puts a number on something a person cannot verify.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <sc-for list="{{ rejected }}" as="j" hint-placeholder-count="4">
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <span style="flex:0 0 auto;font-family:'Figtree';font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:8px;padding:5px 10px;text-decoration:line-through;">{{ j.bad }}</span>
+            <span style="flex:1;font-family:'Figtree';font-size:13px;line-height:1.55;color:#5A423C;">{{ j.why }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:0 0 380px;background:#F4ECFB;border:1px solid #E0CDF5;border-radius:20px;padding:24px 26px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span class="msr" style="font-size:21px;color:#6438AE;">science</span><span style="font-family:'Outfit';font-weight:600;font-size:17px;color:#3A0080;">If semantic is ever built</span></div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span class="msr" style="font-size:17px;color:#6438AE;margin-top:1px;">check_circle</span>
+            <span style="font-family:'Figtree';font-size:13px;line-height:1.55;color:#4C2092;">{{ r }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top:16px;font-family:'Figtree';font-size:12px;line-height:1.55;color:#4C2092;border-top:1px solid #E0CDF5;padding-top:12px;">Board three is a drawing, not a plan. No embedding model, vector, or ranking exists in any file here.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1330,&quot;height&quot;:1120},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: props.mode === 'dark' ? 'dark' : 'light' };
+  }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', secondary:'#00796F', privacyFg:'#0B5048',
+      markBg:'#FFDAD2', markFg:'#4E1000', markRule:'#C0381E',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', secondary:'#50DBC9', privacyFg:'#A8F4E7',
+      markBg:'#9A2A12', markFg:'#FFEDE8', markRule:'#FFB4A3',
+    };
+    const c = mode === 'dark' ? dark : light;
+    // [bracketed] text is what the query actually matched — semantic rows carry none
+    const MARK = { background:c.markBg, color:c.markFg, boxShadow:'inset 0 -2px 0 ' + c.markRule, borderRadius:'4px', padding:'0 1px' };
+    const hl = (s) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
+      (p.charAt(0) === '[' && p.charAt(p.length - 1) === ']')
+        ? React.createElement('span', { key:i, style:MARK }, p.slice(1, -1))
+        : React.createElement(React.Fragment, { key:i }, p));
+    const NOW = c.primary, HUB = c.secondary;
+    const row = (icon, glyphFg, title, bc, ex, label) => ({ icon, glyphFg, title: hl(title), bc: hl(bc), ex: hl(ex), hasLabel: !!label, label: label || '' });
+    const withDividers = (rows) => rows.map((r, i) => ({ ...r, hasDivider: i < rows.length - 1 }));
+
+    const boards = [
+      {
+        kicker:'01 · lexical exact', pill:'PRODUCTION DEFAULT', pillFg:'#00504B', pillBg:'#D8F5EE',
+        title:'The words are really there',
+        desc:'The exact phrase appears in the block; the excerpt proves it and the breadcrumb shows where it lives.',
+        query:'permission slip', hasHeading:false, heading:'',
+        claim:'A tonal mark plus its underline: “these exact characters are in this content.” Nothing else is asserted — no score, no reason, no model.',
+        rows: withDividers([
+          row('checklist', HUB, 'Field trip — what’s due Thursday', 'Fall at Lincoln Elementary › Forms', 'Maya’s [permission slip] still needs a signature — back to Ms. Alvarez by Thursday.'),
+          row('description', HUB, '[permission-slip].pdf', 'Fall at Lincoln Elementary › Forms', 'PDF · 240 KB · from the school email'),
+          row('today', NOW, 'School forms due Thursday', 'Now › School', 'The [permission slip] is the only one still unsigned.'),
+        ]),
+      },
+      {
+        kicker:'02 · bounded fuzzy', pill:'PRODUCTION DEFAULT · FALLBACK ONLY', pillFg:'#00504B', pillBg:'#D8F5EE',
+        title:'One typo away, and it says so',
+        desc:'The field keeps socer; every fallback row says Close match and marks the stored word soccer.',
+        query:'socer', hasHeading:true, heading:'CLOSE MATCHES FOR “socer”',
+        claim:'“Close match” plus a mark on the real word: “you typed something one letter away from this.” The mark never lands on characters the content does not contain.',
+        rows: withDividers([
+          row('dashboard', HUB, 'Orcas [soccer] season', 'Hubs', 'Season through Nov 22 · Meadowbrook Field', 'Close match'),
+          row('today', NOW, 'Rain at [soccer] — pack jackets', 'Now › Weather', 'Showers start at 3:40, just before the 4:00 kickoff.', 'Close match'),
+          row('checklist', HUB, 'Pack cleats, water, and rain jackets', 'Orcas [soccer] season › Packing', 'Bag by the door before every [soccer] practice.', 'Close match'),
+        ]),
+      },
+      {
+        kicker:'03 · semantic only', pill:'EXPLORATION — NOT SHIPPED', pillFg:'#7A2615', pillBg:'#FFDAD2',
+        title:'Nothing typed appears anywhere',
+        desc:'A paraphrase with no shared words gets a neutral label and no mark, below lexical results.',
+        query:'things to bring for Saturday’s game', hasHeading:false, heading:'',
+        claim:'A neutral label and no mark at all. The absence of the mark is the honest signal: this row was reached by resemblance, not by your words.',
+        rows: withDividers([
+          row('checklist', HUB, 'Pack cleats, water, and rain jackets', 'Orcas soccer season › Packing', 'Cleats · two water bottles · rain jackets ×2 · shin guards', 'Related result'),
+          row('sticky_note_2', HUB, 'Snack rotation', 'Orcas soccer season › Notes', 'Week 4 is us — orange slices and water.', 'Related result'),
+        ]),
+      },
+    ];
+
+    return {
+      c, mode, boards,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode === 'light' ? '#9DF2E4' : 'transparent',
+      lightPillFg: mode === 'light' ? '#00201C' : '#5A423C',
+      darkPillBg: mode === 'dark' ? '#3D2D28' : 'transparent',
+      darkPillFg: mode === 'dark' ? '#F0DFDA' : '#5A423C',
+      rejected: [
+        { bad:'AI match / answer', why:'Names the mechanism or makes an answer claim instead of identifying retrievable content.' },
+        { bad:'93% match', why:'A number nobody can check, derived from a cosine distance that means nothing to a parent looking for a permission slip. Confidence percentages are banned everywhere in Dayfold.' },
+        { bad:'highlighted paraphrase', why:'Marking “game” because the query said “game” when the content says “practice” is a lie in the one place the design asks to be trusted.' },
+        { bad:'semantic above exact', why:'A resemblance hit must never displace a row that literally contains the typed words. Exact stays inviolable, per the research report.' },
+      ],
+      rules: [
+        'Lexical and close matches rank above it, always.',
+        'Neutral label, at most: “Related result”.',
+        'No mark, score, model name, sparkle, action, or completion state.',
+        'Ships only after the measured recall gate in the research report, behind its own decision.',
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

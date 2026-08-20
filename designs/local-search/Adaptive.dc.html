@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .ad-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  .ad-shell:focus { outline: none; }
+  .ad-row { cursor: pointer; transition: background .14s cubic-bezier(.2,0,0,1); }
+  .ad-tip { position: relative; }
+  .ad-tip .ad-tip-body { opacity: 0; transform: translateY(4px); transition: opacity .14s, transform .14s; pointer-events: none; }
+  .ad-tip:hover .ad-tip-body { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .ad-row, .ad-tip .ad-tip-body { transition: none !important; } }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;padding:44px 40px 80px;">
+
+  <!-- intro -->
+  <div style="max-width:860px;margin-bottom:34px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap;">
+      <a href="Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Local search</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">D · Adaptive</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:-0.02em;margin:0 0 10px;line-height:1.08;">Same list, more room — never a console</h1>
+    <p style="font-family:'Figtree';font-size:15px;line-height:1.6;color:#5A423C;margin:0 0 18px;">Compact keeps the focused route and pushes to the destination. At medium and expanded the field moves into the toolbar, results take the list pane, and the canonical destination opens in the detail pane — the same <code style="font-family:monospace;background:#FCEBE6;padding:1px 5px;border-radius:5px;font-size:12.5px;">ListDetailPaneScaffold</code> the content designs already use. Wider does not mean denser: no result table, no counts, no metrics.</p>
+    <div style="display:inline-flex;background:#FFF8F6;border:1px solid #D8C2BB;border-radius:999px;padding:4px;gap:2px;">
+      <span onClick="{{ setLight }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ lightPillBg }};color:{{ lightPillFg }};"><span class="msr" style="font-size:16px;">light_mode</span>Light</span>
+      <span onClick="{{ setDark }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;background:{{ darkPillBg }};color:{{ darkPillFg }};"><span class="msr" style="font-size:16px;">dark_mode</span>Dark</span>
+    </div>
+  </div>
+
+  <!-- ============ COMPACT ============ -->
+  <section style="margin-bottom:56px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span class="msr" style="font-size:22px;color:#C0381E;">smartphone</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Compact · one pane</h2>
+      <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">&lt;600dp · the focused search route pushes to the destination</span>
+    </div>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:74ch;">Search takes the whole screen while it is the task, and gives it all back on arrival. The bottom navigation is hidden inside the route — search is a temporary destination above the tabs, not a third one.</p>
+    <div style="display:flex;gap:26px;align-items:center;">
+      <sc-for list="{{ compactFrames }}" as="f" hint-placeholder-count="2">
+        <div style="flex:0 0 auto;">
+          <div style="width:300px;height:620px;border-radius:38px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 46px rgba(39,24,20,0.24);display:flex;flex-direction:column;">
+            <div style="height:38px;flex:0 0 38px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;"><span style="font-family:'Figtree';font-weight:600;font-size:12px;color:{{ c.onSurface }};">9:41</span><div style="display:flex;gap:5px;color:{{ c.onSurface }};"><span class="msr fill" style="font-size:13px;">wifi</span><span class="msr fill" style="font-size:14px;">battery_full</span></div></div>
+
+            <!-- search route -->
+            <sc-if value="{{ f.isSearch }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:2px 10px 0;">
+                <div style="display:flex;align-items:center;gap:4px;height:48px;background:{{ c.surfaceContainerHigh }};border-radius:24px;padding:0 6px;">
+                  <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};padding:0 6px;">arrow_back</span>
+                  <span style="flex:1;font-family:'Figtree';font-size:14px;color:{{ c.onSurface }};">soccer</span>
+                  <span class="msr" style="font-size:18px;color:{{ c.onSurfaceVar }};padding:0 6px;">close</span>
+                </div>
+              </div>
+              <div style="padding:8px 18px 2px;display:flex;align-items:center;gap:6px;"><span class="msr fill" style="font-size:13px;color:{{ c.privacyFg }};">verified_user</span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.privacyFg }};">On this device</span></div>
+              <div style="flex:1;overflow:hidden;padding:6px 0;">
+                <sc-for list="{{ miniRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;gap:11px;padding:11px 16px;">
+                    <span style="width:30px;height:30px;flex:0 0 30px;border-radius:10px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:17px;color:{{ r.glyphFg }};">{{ r.icon }}</span></span>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-family:'Outfit';font-weight:600;font-size:13.5px;color:{{ c.onSurface }};line-height:1.25;">{{ r.title }}</div>
+                      <div style="font-family:'Figtree';font-size:11px;color:{{ c.onSurfaceVar }};">{{ r.bc }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- pushed destination -->
+            <sc-if value="{{ f.isDetail }}" hint-placeholder-val="{{ false }}">
+              <div style="background:{{ c.surfaceContainer }};padding:6px 16px 14px;">
+                <span class="msr" style="font-size:20px;color:{{ c.onSurface }};">arrow_back</span>
+                <div style="display:flex;align-items:center;gap:9px;margin:10px 0 9px;"><div style="width:36px;height:36px;border-radius:12px;background:{{ c.primary }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:20px;color:{{ c.onPrimary }};">sports_soccer</span></div></div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:21px;color:{{ c.onSurface }};letter-spacing:-0.015em;">Orcas soccer season</div>
+              </div>
+              <div style="flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:11px;">
+                <div style="font-family:'Figtree';font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin-left:4px;">PACKING</div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:13px 15px;box-shadow:0 0 0 3px {{ c.primary }};">
+                  <div style="font-family:'Outfit';font-weight:600;font-size:14px;color:{{ c.onSurface }};margin-bottom:8px;">Pack cleats, water, and rain jackets</div>
+                  <div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">Cleats · water ×2 · rain jackets ×2</div>
+                </div>
+                <div style="font-family:'Figtree';font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:6px 0 0 4px;">CONTACTS</div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:18px;padding:13px 15px;font-family:'Figtree';font-size:13px;color:{{ c.onSurface }};">Coach Ramírez</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="width:300px;margin-top:12px;font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#8C726B;">{{ f.caption }}</div>
+        </div>
+      </sc-for>
+      <div style="align-self:center;"><span class="msr" style="font-size:30px;color:#A98B84;">arrow_forward</span></div>
+    </div>
+  </section>
+
+  <!-- ============ MEDIUM — interactive ============ -->
+  <section style="margin-bottom:56px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span class="msr" style="font-size:22px;color:#00796F;">tablet_mac</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Medium · two panes</h2>
+      <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">600–840dp · NavigationRail · field in the toolbar</span>
+      <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#005048;background:#D8F5EE;border-radius:7px;padding:3px 9px;">INTERACTIVE — click the frame, then ↑ ↓ Enter Esc</span>
+    </div>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 16px;max-width:80ch;">Results stay one ranked list; the pane on the right holds the real destination, not a preview of it. Narrow the query and a still-matching selection stays put — that is the whole reason for two panes. When the selection stops matching, the pane clears quietly instead of arguing.</p>
+
+    <!-- query controls -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">TYPE:</span>
+      <sc-for list="{{ queryBtns }}" as="q" hint-placeholder-count="3">
+        <span onClick="{{ q.onPick }}" style="cursor:pointer;font-family:'Figtree';font-size:13px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.border }};border-radius:999px;padding:7px 15px;">{{ q.label }}</span>
+      </sc-for>
+      <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">{{ narrowNote }}</span>
+    </div>
+
+    <div ref="{{ shellRef }}" class="ad-shell" tabIndex="0" onKeyDown="{{ onKey }}" onClick="{{ onFocusShell }}" style="position:relative;width:1000px;height:660px;border-radius:28px;overflow:hidden;background:{{ c.surface }};box-shadow:{{ shellShadow }};display:flex;">
+
+      <!-- navigation rail -->
+      <div style="flex:0 0 88px;background:{{ c.navBg }};display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:8px;">
+        <div style="width:40px;height:40px;border-radius:13px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);margin-bottom:14px;"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;background:{{ c.navActivePill }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:22px;color:{{ c.navActiveIcon }};">today</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ c.onSurface }};">Now</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.navInactive }};">dashboard</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.navInactive }};">Hubs</span></div>
+        <div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="width:56px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:21px;color:{{ c.navInactive }};">settings</span></span><span style="font-family:'Figtree';font-size:11px;font-weight:500;color:{{ c.navInactive }};">Settings</span></div>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+        <!-- toolbar with the search field -->
+        <div style="flex:0 0 auto;padding:14px 18px 10px;display:flex;align-items:center;gap:14px;">
+          <div class="ad-tip" style="display:flex;align-items:center;gap:8px;flex:0 0 380px;height:52px;background:{{ c.surfaceContainerHigh }};border-radius:26px;padding:0 8px 0 16px;box-shadow:{{ fieldRing }};">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">search</span>
+            <span style="flex:1;font-family:'Figtree';font-size:15px;color:{{ c.onSurface }};">{{ query }}</span>
+            <span style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">close</span></span>
+            <span class="ad-tip-body" style="position:absolute;top:56px;left:14px;background:{{ c.tooltipBg }};color:{{ c.tooltipFg }};font-family:'Figtree';font-size:12px;font-weight:500;padding:6px 10px;border-radius:8px;white-space:nowrap;z-index:20;">Search saved content · ⌘F</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;"><span class="msr fill" style="font-size:15px;color:{{ c.privacyFg }};">verified_user</span><span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.privacyFg }};">On this device</span></div>
+        </div>
+
+        <div style="flex:1;display:flex;min-height:0;">
+          <!-- list pane -->
+          <div class="ad-scroll" style="flex:0 0 372px;border-right:1px solid {{ c.outlineVar }};overflow-y:auto;padding:4px 0 20px;">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+              <div class="ad-row" onClick="{{ r.onSelect }}" style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin:2px 8px;border-radius:16px;background:{{ r.bg }};box-shadow:{{ r.ring }};">
+                <span style="width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:{{ r.glyphBg }};display:flex;align-items:center;justify-content:center;margin-top:1px;"><span class="msr" style="font-size:19px;color:{{ r.glyphFg }};">{{ r.icon }}</span></span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'Outfit';font-weight:600;font-size:15px;line-height:1.25;color:{{ c.onSurface }};margin-bottom:2px;">{{ r.title }}</div>
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px;">
+                    <span style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};">{{ r.bc }}</span>
+                    <sc-if value="{{ r.hasLabel }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:10.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};border-radius:7px;padding:2px 8px;">{{ r.label }}</span></sc-if>
+                  </div>
+                  <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ r.ex }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- detail pane -->
+          <div class="ad-scroll" style="flex:1;min-width:0;overflow-y:auto;background:{{ c.surfaceContainerLow }};">
+            <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+              <div style="background:{{ c.surfaceContainer }};padding:18px 26px 22px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                  <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span>
+                  <span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">more_vert</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;"><div style="width:44px;height:44px;border-radius:15px;background:{{ sel.heroBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:23px;color:{{ sel.heroFg }};">{{ sel.heroIcon }}</span></div><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:4px 10px;border-radius:8px;">{{ sel.crumb }}</span></div>
+                <h2 style="font-family:'Outfit';font-weight:600;font-size:26px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 4px;line-height:1.12;">{{ sel.heading }}</h2>
+                <div style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};">{{ sel.sub }}</div>
+              </div>
+              <div style="padding:18px 26px 30px;display:flex;flex-direction:column;gap:14px;">
+                <sc-for list="{{ sel.blocks }}" as="b" hint-placeholder-count="2">
+                  <div>
+                    <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 8px;">{{ b.label }}</div>
+                    <div style="background:{{ c.surfaceContainer }};border-radius:20px;padding:16px 18px;box-shadow:{{ b.ring }};">
+                      <div style="font-family:'Figtree';font-size:14px;line-height:1.5;color:{{ c.onSurface }};">{{ b.body }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+              <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;">
+                <div style="width:64px;height:64px;border-radius:20px;background:{{ c.surfaceContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr" style="font-size:30px;color:{{ c.outline }};">left_panel_open</span></div>
+                <div style="font-family:'Outfit';font-weight:600;font-size:17px;color:{{ c.onSurface }};margin-bottom:6px;">{{ emptyPaneTitle }}</div>
+                <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};max-width:32ch;">{{ emptyPaneBody }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      <!-- focus hint -->
+      <div style="position:absolute;right:16px;bottom:14px;display:flex;align-items:center;gap:7px;background:{{ c.surfaceContainerHigh }};border-radius:999px;padding:7px 13px;opacity:{{ hintOpacity }};transition:opacity .2s;">
+        <span class="msr" style="font-size:16px;color:{{ c.onSurfaceVar }};">keyboard</span>
+        <span style="font-family:'Figtree';font-size:11.5px;font-weight:500;color:{{ c.onSurfaceVar }};">{{ hintText }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KEYBOARD MAP ============ -->
+  <section style="margin-bottom:56px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span class="msr" style="font-size:22px;color:#6438AE;">keyboard_alt</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Keyboard &amp; pointer</h2>
+      <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">the field keeps focus; the list is traversed, not tabbed through</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,420px));gap:12px 20px;max-width:880px;">
+      <sc-for list="{{ keymap }}" as="k" hint-placeholder-count="6">
+        <div style="display:flex;align-items:flex-start;gap:13px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:16px;padding:14px 16px;">
+          <span style="flex:0 0 auto;font-family:monospace;font-size:12px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:8px;padding:5px 9px;">{{ k.key }}</span>
+          <span style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#5A423C;">{{ k.what }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- ============ EXPANDED ============ -->
+  <section>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span class="msr" style="font-size:22px;color:#6438AE;">desktop_windows</span>
+      <h2 style="font-family:'Outfit';font-weight:600;font-size:23px;margin:0;">Expanded · drawer + two panes</h2>
+      <span style="font-family:'Figtree';font-size:12.5px;color:#8C726B;">≥840dp · NavigationDrawer · the list pane does not grow into a table</span>
+    </div>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.5;color:#5A423C;margin:0 0 20px;max-width:78ch;">Extra width goes to the destination, not to the results. The list pane keeps its compact row and its comfortable measure; the detail pane gets the room. There is no third search pane, no metrics strip, and still no result count.</p>
+
+    <div style="width:1280px;height:700px;border-radius:28px;overflow:hidden;background:{{ c.surface }};box-shadow:0 16px 44px rgba(39,24,20,0.18);display:flex;">
+      <div style="flex:0 0 236px;background:{{ c.navBg }};padding:22px 14px;display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 20px;"><div style="width:36px;height:36px;border-radius:12px;position:relative;overflow:hidden;background:linear-gradient(143deg,#FF8A6E,#C0381E);"><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:linear-gradient(225deg,#FFE2D8,#FFB4A3);clip-path:polygon(100% 0,100% 100%,0 0);"></div><div style="position:absolute;top:0;right:0;width:46%;height:46%;background:rgba(90,17,0,0.20);clip-path:polygon(0 0,100% 100%,0 100%);"></div></div><span style="font-family:'Outfit';font-weight:700;font-size:18px;letter-spacing:-0.02em;color:{{ c.onSurface }};">Dayfold</span></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:12px 18px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">today</span><span style="font-family:'Figtree';font-weight:500;font-size:14px;color:{{ c.navInactive }};">Now</span></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:12px 18px;border-radius:999px;background:{{ c.navActivePill }};"><span class="msr fill" style="font-size:20px;color:{{ c.navActiveIcon }};">dashboard</span><span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.navActiveIcon }};">Hubs</span></div>
+        <div style="display:flex;align-items:center;gap:13px;padding:12px 18px;border-radius:999px;"><span class="msr" style="font-size:20px;color:{{ c.navInactive }};">settings</span><span style="font-family:'Figtree';font-weight:500;font-size:14px;color:{{ c.navInactive }};">Settings</span></div>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+        <div style="flex:0 0 auto;padding:16px 22px 12px;display:flex;align-items:center;gap:14px;">
+          <div style="display:flex;align-items:center;gap:10px;flex:0 0 420px;height:52px;background:{{ c.surfaceContainerHigh }};border-radius:26px;padding:0 10px 0 16px;">
+            <span class="msr" style="font-size:21px;color:{{ c.onSurfaceVar }};">search</span>
+            <span style="flex:1;font-family:'Figtree';font-size:15px;color:{{ c.onSurface }};">permission slip</span>
+            <span class="msr" style="font-size:20px;color:{{ c.onSurfaceVar }};">close</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;"><span class="msr fill" style="font-size:15px;color:{{ c.privacyFg }};">verified_user</span><span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ c.privacyFg }};">On this device</span></div>
+        </div>
+        <div style="flex:1;display:flex;min-height:0;">
+          <div class="ad-scroll" style="flex:0 0 380px;border-right:1px solid {{ c.outlineVar }};overflow-y:auto;padding:4px 0 20px;">
+            <sc-for list="{{ xpRows }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin:2px 8px;border-radius:16px;background:{{ r.bg }};box-shadow:{{ r.ring }};">
+                <span style="width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:{{ r.glyphBg }};display:flex;align-items:center;justify-content:center;margin-top:1px;"><span class="msr" style="font-size:19px;color:{{ r.glyphFg }};">{{ r.icon }}</span></span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'Outfit';font-weight:600;font-size:15px;line-height:1.25;color:{{ c.onSurface }};margin-bottom:2px;">{{ r.title }}</div>
+                  <div style="font-family:'Figtree';font-size:11.5px;color:{{ c.onSurfaceVar }};margin-bottom:3px;">{{ r.crumb }}</div>
+                  <div style="font-family:'Figtree';font-size:12.5px;line-height:1.4;color:{{ c.onSurfaceVar }};">{{ r.ex }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="ad-scroll" style="flex:1;min-width:0;overflow-y:auto;background:{{ c.surfaceContainerLow }};">
+            <div style="background:{{ c.surfaceContainer }};padding:20px 30px 24px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">arrow_back</span><div style="display:flex;gap:8px;color:{{ c.onSurfaceVar }};"><span class="msr" style="font-size:21px;">ios_share</span><span class="msr" style="font-size:21px;">more_vert</span></div></div>
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;"><div style="width:46px;height:46px;border-radius:15px;background:{{ c.secondaryContainer }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:{{ c.onSecondaryContainer }};">school</span></div><span style="font-family:'Figtree';font-size:11.5px;font-weight:600;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};padding:4px 10px;border-radius:8px;">Fall at Lincoln Elementary › Forms</span></div>
+              <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;color:{{ c.onSurface }};margin:0 0 5px;line-height:1.1;">Field trip — what’s due Thursday</h2>
+              <div style="font-family:'Figtree';font-size:13.5px;color:{{ c.onSurfaceVar }};">Updated Tuesday · from the school email</div>
+            </div>
+            <div style="padding:22px 30px 32px;display:flex;flex-direction:column;gap:16px;">
+              <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:18px 20px;box-shadow:0 0 0 3px {{ c.primary }};">
+                <div style="font-family:'Figtree';font-size:15px;line-height:1.55;color:{{ c.onSurface }};">Maya’s permission slip still needs a signature — back to Ms. Alvarez by Thursday. The museum fee is already paid.</div>
+              </div>
+              <div>
+                <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};margin:0 4px 8px;">FILES</div>
+                <div style="background:{{ c.surfaceContainer }};border-radius:22px;padding:15px 18px;display:flex;align-items:center;gap:13px;"><span style="width:38px;height:38px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ c.secondary }};">description</span></span><div><div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">permission-slip.pdf</div><div style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">240 KB · 2 pages</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;font-family:'Figtree';font-size:12.5px;color:#8C726B;max-width:78ch;">This still frame freezes the one-shot arrival moment. In the product the ring clears after the pulse, leaving the canonical detail unchanged.</div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1100},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.shellRef = React.createRef();
+    this.state = { mode: props.mode === 'dark' ? 'dark' : 'light', query: 'soccer', cursor: 2, selId: 'packing', arrivalId: null, focused: false };
+  }
+  // raw fixtures — [bracketed] text is what the query actually matched
+  corpus() {
+    return {
+      soccer: [
+        { id:'hub', kind:'hub', icon:'dashboard', title:'Orcas [soccer] season', bc:'Hubs', ex:'Season through Nov 22 · Meadowbrook Field' },
+        { id:'rain', kind:'now', icon:'today', title:'Rain at [soccer] — pack jackets', bc:'Now › Weather', ex:'Showers start at 3:40, just before the 4:00 kickoff.' },
+        { id:'packing', kind:'hub', icon:'checklist', title:'Pack cleats, water, and rain jackets', bc:'Orcas [soccer] season › Packing', ex:'Bag by the door before every [soccer] practice.' },
+        { id:'schedule', kind:'hub', icon:'segment', title:'Game schedule', bc:'Orcas [soccer] season', ex:'Sat 4:00 · Meadowbrook · vs Ferndale' },
+        { id:'coach', kind:'hub', icon:'person', title:'Coach Ramírez', bc:'Orcas [soccer] season › Contacts', ex:'Texts before 8pm · team parent list' },
+      ],
+      'soccer pack': [
+        { id:'packing', kind:'hub', icon:'checklist', title:'[Pack] cleats, water, and rain jackets', bc:'Orcas [soccer] season › [Pack]ing', ex:'Bag by the door before every [soccer] practice.' },
+        { id:'packsec', kind:'hub', icon:'segment', title:'[Pack]ing', bc:'Orcas [soccer] season', ex:'One list for games, one for the tournament weekend.' },
+      ],
+      tahoe: [
+        { id:'tahoehub', kind:'hub', icon:'dashboard', title:'Lake [Tahoe] trip', bc:'Hubs', ex:'Feb 14–18 · cabin on the north shore', label:'Archived' },
+        { id:'chains', kind:'hub', icon:'checklist', title:'Snow chains live in the garage bin', bc:'Home & car › Storage', ex:'Bought for the [Tahoe] trip — still in the blue bin.' },
+      ],
+    };
+  }
+  details(c) {
+    return {
+      hub:      { heroIcon:'sports_soccer', crumb:'Hubs', heading:'Orcas soccer season', sub:'18 games · through Nov 22', blocks:[ { label:'OVERVIEW', body:'Saturdays at Meadowbrook, 4:00 kickoff. Leo is on the Orcas with Coach Ramírez.', ring:'none' } ] },
+      rain:     { heroIcon:'rainy', crumb:'Now › Weather', heading:'Rain at soccer — pack jackets', sub:'Today · 3:40 PM', blocks:[ { label:'THE CARD', body:'Showers start at 3:40, just before the 4:00 kickoff at Meadowbrook. Jackets are on the Packing list.', ring:'none' } ] },
+      packing:  { heroIcon:'checklist', crumb:'Orcas soccer season › Packing', heading:'Pack cleats, water, and rain jackets', sub:'4 items · 1 done', blocks:[ { label:'PACKING', body:'Cleats · two water bottles · rain jackets ×2 · shin guards (done). Bag by the door before every soccer practice.', ring:'ring' } ] },
+      schedule: { heroIcon:'segment', crumb:'Orcas soccer season', heading:'Game schedule', sub:'Section · 18 games', blocks:[ { label:'NEXT UP', body:'Sat 4:00 · Meadowbrook · vs Ferndale. Then Oct 4 at Bellwood, carpool with the Okonkwos.', ring:'none' } ] },
+      coach:    { heroIcon:'person', crumb:'Orcas soccer season › Contacts', heading:'Coach Ramírez', sub:'Contact · team parent list', blocks:[ { label:'CONTACT', body:'Texts before 8pm. Reaches the whole team parent list; cancellations come through here first.', ring:'none' } ] },
+      packsec:  { heroIcon:'segment', crumb:'Orcas soccer season', heading:'Packing', sub:'Section · 2 lists', blocks:[ { label:'IN THIS SECTION', body:'One list for games, one for the tournament weekend. Nothing here is shared outside the family.', ring:'none' } ] },
+      tahoehub: { heroIcon:'downhill_skiing', crumb:'Hubs · Archived', heading:'Lake Tahoe trip', sub:'Feb 14–18 · archived', blocks:[ { label:'OVERVIEW', body:'Cabin on the north shore. Kept for the chains, the directions, and the rental contact.', ring:'none' } ] },
+      chains:   { heroIcon:'checklist', crumb:'Home & car › Storage', heading:'Snow chains live in the garage bin', sub:'Note · updated in March', blocks:[ { label:'STORAGE', body:'Bought for the Tahoe trip — still in the blue bin on the left-hand shelf.', ring:'ring' } ] },
+    };
+  }
+  pick(q) {
+    const rows = this.corpus()[q] || [];
+    const stillThere = rows.some((r) => r.id === this.state.selId);
+    const nextSel = stillThere ? this.state.selId : null;
+    const cursor = stillThere ? Math.max(0, rows.findIndex((r) => r.id === this.state.selId)) : 0;
+    clearTimeout(this._arrivalTimer);
+    this.setState({ query: q, selId: nextSel, arrivalId: null, cursor });
+  }
+  move(delta) {
+    const rows = this.corpus()[this.state.query] || [];
+    if (!rows.length) return;
+    const next = Math.min(rows.length - 1, Math.max(0, this.state.cursor + delta));
+    this.setState({ cursor: next });
+  }
+  selectResult(id, cursor) {
+    clearTimeout(this._arrivalTimer);
+    this.setState({ selId: id, cursor, focused: true, arrivalId: id });
+    this._arrivalTimer = setTimeout(() => this.setState({ arrivalId: null }), 1900);
+  }
+  openCursor() {
+    const rows = this.corpus()[this.state.query] || [];
+    const r = rows[this.state.cursor];
+    if (r) this.selectResult(r.id, this.state.cursor);
+  }
+  onKey(e) {
+    const k = e.key;
+    if (k === 'ArrowDown') { e.preventDefault(); this.move(1); }
+    else if (k === 'ArrowUp') { e.preventDefault(); this.move(-1); }
+    else if (k === 'Enter') { e.preventDefault(); this.openCursor(); }
+    else if (k === 'Escape') { e.preventDefault(); this.setState({ selId: null }); }
+  }
+  renderVals() {
+    const mode = this.state.mode;
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      privacyFg:'#0B5048', tooltipBg:'#3B2C27', tooltipFg:'#FFEDE8',
+      navBg:'#F6E5E0', navActivePill:'#FFDAD2', navActiveIcon:'#5A1100', navInactive:'#5A423C',
+      markBg:'#FFDAD2', markFg:'#4E1000', markRule:'#C0381E',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      privacyFg:'#A8F4E7', tooltipBg:'#F0DFDA', tooltipFg:'#382E2A',
+      navBg:'#271D1A', navActivePill:'#9A2A12', navActiveIcon:'#FFDAD2', navInactive:'#A08D87',
+      markBg:'#9A2A12', markFg:'#FFEDE8', markRule:'#FFB4A3',
+    };
+    const c = mode === 'dark' ? dark : light;
+    // [bracketed] text is what the query actually matched
+    const MARK = { background:c.markBg, color:c.markFg, boxShadow:'inset 0 -2px 0 ' + c.markRule, borderRadius:'4px', padding:'0 1px' };
+    const hl = (s) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
+      (p.charAt(0) === '[' && p.charAt(p.length - 1) === ']')
+        ? React.createElement('span', { key:i, style:MARK }, p.slice(1, -1))
+        : React.createElement(React.Fragment, { key:i }, p));
+
+    const corpus = this.corpus();
+    const raw = corpus[this.state.query] || [];
+    const selId = this.state.selId;
+    const rows = raw.map((r, i) => {
+      const isSel = r.id === selId;
+      const isCursor = i === this.state.cursor && this.state.focused;
+      return { ...r,
+        title: hl(r.title), bc: hl(r.bc), ex: hl(r.ex),
+        glyphFg: r.kind === 'now' ? c.primary : c.secondary,
+        hasLabel: !!r.label, label: r.label || '',
+        glyphBg: c.surfaceContainerHigh,
+        bg: isSel ? c.surfaceContainerHigh : 'transparent',
+        ring: isCursor ? ('0 0 0 2px ' + c.primary) : (isSel ? ('0 0 0 1px ' + c.outlineVar) : 'none'),
+        onSelect: () => this.selectResult(r.id, i),
+      };
+    });
+    const det = this.details(c);
+    const selRaw = selId ? det[selId] : null;
+    const sel = selRaw ? { ...selRaw,
+      heroBg: c.surfaceContainerHigh,
+      heroFg: selId === 'rain' ? c.primary : c.secondary,
+      blocks: selRaw.blocks.map((b) => ({ ...b, ring: b.ring === 'ring' && this.state.arrivalId === selId ? ('0 0 0 3px ' + c.primary) : 'none' })),
+    } : { heroBg:'transparent', heroFg:'transparent', heroIcon:'', crumb:'', heading:'', sub:'', blocks:[] };
+
+    const clearedByNarrow = !selId && this.state.query !== 'soccer';
+    const queries = ['soccer', 'soccer pack', 'tahoe'];
+    const queryBtns = queries.map((q) => {
+      const on = q === this.state.query;
+      return { label: q, on,
+        bg: on ? '#C0381E' : '#FFF8F6', fg: on ? '#FFFFFF' : '#5A423C', border: on ? '#C0381E' : '#D8C2BB',
+        onPick: () => this.pick(q) };
+    });
+
+    const narrowNote = this.state.query === 'soccer pack'
+      ? 'Narrowed — the open Packing list still matches, so the pane holds.'
+      : (this.state.query === 'tahoe' ? 'New query — the old selection no longer matches, so the pane cleared quietly.' : 'Five kinds, one relevance order.');
+
+    return {
+      c, mode, rows, sel,
+      hasSel: !!selId, noSel: !selId,
+      emptyPaneTitle: clearedByNarrow ? 'Nothing open here' : 'Pick a result',
+      emptyPaneBody: clearedByNarrow ? 'The last thing you opened is not in these results. Choose one of the results on the left.' : 'Results open here. The list on the left stays put while you look.',
+      shellRef: this.shellRef,
+      onKey: (e) => this.onKey(e),
+      onFocusShell: () => { this.setState({ focused: true }); if (this.shellRef.current) this.shellRef.current.focus(); },
+      shellShadow: this.state.focused ? '0 0 0 3px #C0381E, 0 16px 44px rgba(39,24,20,0.18)' : '0 16px 44px rgba(39,24,20,0.18)',
+      fieldRing: this.state.focused ? ('0 0 0 2px ' + c.primary) : 'none',
+      hintOpacity: this.state.focused ? 1 : 0.55,
+      hintText: this.state.focused ? '↑ ↓ move · Enter opens · Esc clears the pane' : 'click to give the frame focus',
+      query: this.state.query,
+      queryBtns, narrowNote,
+      setLight: () => this.setState({ mode:'light' }),
+      setDark: () => this.setState({ mode:'dark' }),
+      lightPillBg: mode === 'light' ? '#9DF2E4' : 'transparent',
+      lightPillFg: mode === 'light' ? '#00201C' : '#5A423C',
+      darkPillBg: mode === 'dark' ? '#3D2D28' : 'transparent',
+      darkPillFg: mode === 'dark' ? '#F0DFDA' : '#5A423C',
+
+      compactFrames: [
+        { isSearch:true, isDetail:false, caption:'The route owns the screen: field, one trust line, one ranked list. No bottom bar, no tabs to switch inside search.' },
+        { isSearch:false, isDetail:true, caption:'Frozen mid-pulse: the ring clears once arrival is established. Back returns to the same query.' },
+      ],
+      miniRows: [
+        { icon:'dashboard', glyphFg:c.secondary, title:hl('Orcas [soccer] season'), bc:hl('Hubs') },
+        { icon:'today', glyphFg:c.primary, title:hl('Rain at [soccer] — pack jackets'), bc:hl('Now › Weather') },
+        { icon:'checklist', glyphFg:c.secondary, title:hl('Pack cleats, water, and rain jackets'), bc:hl('Orcas [soccer] season › Packing') },
+        { icon:'segment', glyphFg:c.secondary, title:hl('Game schedule'), bc:hl('Orcas [soccer] season') },
+      ],
+      keymap: [
+        { key:'↑ ↓', what:'Move through results without leaving the field — the query stays editable the whole time.' },
+        { key:'Enter', what:'Open the highlighted result in the detail pane (compact: push to the destination).' },
+        { key:'Esc', what:'First press clears the open destination; a second press with an empty selection closes the search route.' },
+        { key:'Tab', what:'Field → result list → detail pane. The list is one stop; arrows traverse inside it.' },
+        { key:'⌘F / Ctrl+F', what:'Opens search from Now or Hubs — same route the app-bar icon opens.' },
+        { key:'hover', what:'Pointer gets a tooltip on the search action and a hover fill on rows; touch gets neither, and needs neither.' },
+      ],
+      xpRows: [
+        { id:'x1', icon:'checklist', glyphFg:c.secondary, glyphBg:c.surfaceContainerHigh, bg:c.surfaceContainerHigh, ring:'0 0 0 1px ' + c.outlineVar,
+          title:hl('Field trip — what’s due Thursday'), crumb:'Fall at Lincoln Elementary › Forms',
+          ex:hl('Maya’s [permission slip] still needs a signature.') },
+        { id:'x2', icon:'description', glyphFg:c.secondary, glyphBg:c.surfaceContainerHigh, bg:'transparent', ring:'none',
+          title:hl('[permission-slip].pdf'), crumb:'Fall at Lincoln Elementary › Forms',
+          ex:hl('PDF · 240 KB · from the school email') },
+        { id:'x3', icon:'today', glyphFg:c.primary, glyphBg:c.surfaceContainerHigh, bg:'transparent', ring:'none',
+          title:hl('School forms due Thursday'), crumb:'Now › School',
+          ex:hl('The [permission slip] is the only one still unsigned.') },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
