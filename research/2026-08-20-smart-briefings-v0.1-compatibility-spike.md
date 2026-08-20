@@ -19,7 +19,12 @@
 **Scope:** Work Package 0 of
 `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md` §4.
 **Local artifact under test:** `spikes/claude-mcp-v0.1/` (built, tested, never
-deployed; commits `7d445960` → `1fb54d44`).
+deployed). The directory begins at commit `7d445960` on branch
+`codex/v0-1-claude-handoff`; its source landed through `1fb54d44`, its
+`README.md`/`RUNBOOK.md` were added at `e3ce04b5`, and review fixes have landed
+since. `git log -- spikes/claude-mcp-v0.1` is the authoritative history — no
+end SHA is pinned here, because any run must record the commit it actually
+tested in the run-metadata table below.
 **Authority:** every external step is operator-only
 (`specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`, gate table row "Deploy/run
 spike in Claude": *not allowed* without explicit account, preview deployment,

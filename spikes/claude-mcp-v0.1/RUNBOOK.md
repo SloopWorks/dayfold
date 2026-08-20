@@ -81,9 +81,9 @@ The tail looks like this (the counts move as tests are added — the gate is
 that **`pass` equals `tests` and `fail` is `0`**, not any particular number):
 
 ```text
-ℹ tests 149
-ℹ suites 33
-ℹ pass 149
+ℹ tests 170
+ℹ suites 37
+ℹ pass 170
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
@@ -263,7 +263,7 @@ may execute any of them, and none has been executed.**
 | Option | What it is | Trade-offs |
 |---|---|---|
 | **A. Stay local** | Run Part A only; record every matrix answer as `UNKNOWN`. | Zero exposure, zero cost, zero external action — and zero evidence. Legitimate: it leaves WP1 blocked, which is the honest state. |
-| **B. Ephemeral HTTPS tunnel** from the operator's own machine | A tunnel client (Cloudflare quick tunnel, ngrok, Tailscale funnel, or similar) run **by the operator**, publishing `127.0.0.1:8787` at a random public hostname for the length of the session. | Fastest path to evidence and no deployment pipeline. But: it exposes a throwaway process to the public internet, whose approval-ticket and run state grow unbounded in memory and which has no rate limit beyond a per-credential in-flight cap; some vendors interpose an interstitial page or rewrite headers, which can confound the very behavior being measured; and creating a tunnel account, accepting its Terms, or paying it are separate gated external actions. Kill the tunnel the moment the matrix ends. |
+| **B. Ephemeral HTTPS tunnel** from the operator's own machine | A tunnel client (Cloudflare quick tunnel, ngrok, Tailscale funnel, or similar) run **by the operator**, publishing `127.0.0.1:8787` at a random public hostname for the length of the session. | Fastest path to evidence and no deployment pipeline. But: it exposes a throwaway process to the public internet, whose consent flow **authenticates nobody** (see below), whose approval-ticket and run state grow unbounded in memory, and which has no rate limit beyond a per-credential in-flight cap; some vendors interpose an interstitial page or rewrite headers, which can confound the very behavior being measured; and creating a tunnel account, accepting its Terms, or paying it are separate gated external actions. Bring the tunnel up only for the minutes a question is actually running, and kill it the moment the matrix ends. |
 | **C. Throwaway preview deployment** | A separate, disposable preview project — never the Dayfold project, never production. | Closest to WP4's eventual shape and gives a stable URL. **But the spike keeps every credential, code, ticket, and run in process memory**, so it must run as one long-lived process: any serverless or multi-instance host will split the flow across isolates and produce spurious `spike.approval_invalid`, `spike.invalid_grant`, and `spike.unauthorized` that look like provider behavior and are not. If the host cannot guarantee a single persistent process, do not use this option. A preview deployment also needs explicit operator authorization (plan §1) and may carry spend. |
 | **D. Defer** | Decide the matrix is not worth the exposure this cycle. | Same recorded state as A, reached deliberately. |
 
@@ -278,7 +278,11 @@ If B or C is chosen:
 - restart the process between long sessions to bound memory. **Restarting
   regenerates the signing key and invalidates every token ever issued**, so the
   connector must be reconnected afterwards. Plan restarts between questions,
-  not in the middle of one.
+  not in the middle of one;
+- keep the exposure window as short as the question allows — up when a question
+  starts, down when it ends. See disclosed behavior 10: the spike authenticates
+  nobody, so every minute it is reachable is a minute anything on the internet
+  can write lines into the log you are about to cite as evidence.
 
 ### The first connect will probably fail — this is expected
 
@@ -445,6 +449,45 @@ the permanent record.
    restart; that is the design, not a revocation event, and it must not be
    recorded as one under question 4.
 
+10. **The consent flow authenticates nobody.** `GET /oauth/authorize` renders a
+    page with a bare Approve button, and `POST /oauth/approve` needs only the
+    ticket printed on that page. There is no sign-in, no password, no session:
+    anyone who can reach the URL can walk authorize → approve → token
+    unattended, and so can anything automated. That is deliberate for a
+    throwaway on `127.0.0.1` — there is no account to sign in to — and the blast
+    radius stays small even exposed: the two tools return constants and closed
+    enums, runs belong to one credential each, and nothing Dayfold-owned is
+    reachable from here at all.
+
+    **The cost is evidence integrity, not data.** Random tunnel hostnames get
+    scanned as a matter of routine, and `/.well-known/*` and `/healthz` are
+    standard scan targets — exactly the `discovery.*` and `health` classes
+    question 3 tells you to watch. An unsolicited request writes a log line
+    byte-for-byte indistinguishable from Claude's, into the log you are about to
+    paste verbatim as the record of provider behavior. So:
+
+    - **Correlate by timestamp to your own actions.** A `discovery.*`,
+      `health`, or `oauth.authorize` line is not Claude's just because it is in
+      the log. Note the wall-clock time when you start and finish each question,
+      and treat lines outside those windows as unattributed.
+    - **Bring the tunnel up only for the minutes a question is running**, and
+      take it down in between. A short window is the cheapest way to keep the
+      log attributable.
+    - An unexplained `oauth.approve` or `oauth.token` line is worth reporting in
+      its own right — it means something other than the client under test
+      completed a consent.
+
+11. **One cross-field rule on `dayfold_spike_finish` is enforced but not
+    advertised.** `sources[].recordsReported` must be `0` unless that row's
+    `outcome` is `reported_observed`; a row saying `reported_zero_results` with
+    a non-zero count is `spike.schema_invalid`. The published JSON Schema
+    bounds the count `0..100` but cannot express the dependency, so a client
+    that conforms to the advertised schema can still be refused.
+    Under-advertising is the safe direction — the spike never accepts more than
+    it declares — but the refusal reads like a client defect and is not one.
+    Record it as *the client sent a non-zero count against a non-observed
+    outcome*, under question 5.
+
 ### Caps you may hit legitimately
 
 Not defects, but they produce refusals that can be misread:
@@ -459,6 +502,7 @@ Not defects, but they produce refusals that can be misread:
 | `504 spike.deadline_exceeded` | One `/mcp` exchange ran longer than the handling deadline | 10 s |
 | `413 spike.too_large` | Body over the cap (64 KiB on `/mcp`, 16 KiB on OAuth routes) | — |
 | `406` / `415` on `/mcp` | `Accept` lacking `application/json` **or** `text/event-stream`; or a non-JSON content type | — |
+| `spike.scope_insufficient` on `dayfold_spike_finish` | The credential holds `mcp:context.read` (enough to connect and to call `dayfold_spike_identity`) but not `mcp:draft.submit`. Each tool requires its own scope. If the client asked for a narrowed scope at authorize, or narrowed it at refresh, that is **evidence about the client** for question 4 — record which scopes it requested | — |
 | `405` on `GET`/`DELETE /mcp` | Stateless mode has no session to delete and no standalone event stream | — |
 
 ---
@@ -670,9 +714,30 @@ raw results rather than paraphrase: `initialize` (implicit in connecting),
 - a second, distinct finish on the same run → expect `spike.run_closed`.
 
 Record whether the client copes with a stateless server that issues no session
-id; whether it sends `MCP-Protocol-Version` (`ok` vs
-`ok_protocol_version_absent` in the log); whether it retries automatically
+id; **which protocol version it negotiates**; whether it retries automatically
 after an error, and how many times.
+
+The version comes straight off the `mcp` log outcomes, which name it:
+
+- `ok_protocol_version_2025_11_25` (or `..._2025_06_18`, `..._2025_03_26`,
+  `..._2024_11_05`, `..._2024_10_07`) — the client sent that exact version.
+  **This is the number Work Package 4 needs**: it is the floor SDK version the
+  real bridge has to support. Record the highest and the lowest seen across the
+  session, since a client may not send the same value on every call;
+- `ok_protocol_version_absent` — it sent no `MCP-Protocol-Version` header at
+  all;
+- a plain `ok` on an `mcp` line — it sent a version the pinned SDK 1.30.0 does
+  not list, on an `initialize` (the one message exempt from the version screen).
+  That is itself a finding: record it, and note that the spike deliberately
+  never writes the value, so the version string has to come from the client's
+  own side;
+- `400 spike.unsupported_protocol_version` — an unlisted version on a
+  non-`initialize` message (disclosed behavior 6).
+
+A `protocol_rejected` line means the spike's own checks all passed and the MCP
+transport refused anyway — either with a 4xx/5xx of its own, or with a JSON-RPC
+error envelope inside an HTTP 200. Both are worth reporting here; neither is a
+tool-level result.
 
 **Capture.** Redacted transcript of the tool calls and the raw tool results;
 the spike log lines; a note of every retry.

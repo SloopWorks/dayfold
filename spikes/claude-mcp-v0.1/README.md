@@ -41,9 +41,13 @@ Gate context: `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`.
 - **Not a Gmail client.** It never contacts Google, Anthropic, or any other
   host. It has no outbound network call of any kind.
 - **Not a security-hardened public service.** Approval-ticket and run state
-  grow unbounded in memory, and there is no rate limit beyond a per-credential
-  in-flight cap. That is correct for a throwaway bound to `127.0.0.1` and it is
-  a real consideration the moment the operator fronts it with a tunnel — see
+  grow unbounded in memory, there is no rate limit beyond a per-credential
+  in-flight cap, and — most importantly — **the consent flow authenticates
+  nobody**. `GET /oauth/authorize` renders a page with a bare Approve button and
+  `POST /oauth/approve` needs only the ticket from that page, so anyone who
+  reaches the server can walk authorize → approve → token unattended. All three
+  are correct for a throwaway bound to `127.0.0.1` and all three become real
+  considerations the moment the operator fronts it with a tunnel — see
   `RUNBOOK.md` § "Expected behaviors that can look like defects".
 - **Not evidence.** No file here may be cited as proof of Claude behavior, of a
   Gmail read, or of any gate being passed.
@@ -51,7 +55,17 @@ Gate context: `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`.
 ## Requirements
 
 - Node >= 20 (verified on v24.13.0).
-- Exactly one dependency: `@modelcontextprotocol/sdk`, pinned to `1.30.0`.
+- **One declared dependency, 94 installed packages, 8 loaded at runtime.**
+  `package.json` names exactly `@modelcontextprotocol/sdk`, pinned to `1.30.0`
+  with no range — but that SDK has its own tree, so `npm install` resolves
+  **94** packages into `node_modules/`, including `express`, `cors`, `jose`,
+  `ajv`, `eventsource`, and `qs`. Driving the whole surface loads **8** of
+  them: `@modelcontextprotocol/sdk`, `@hono/node-server`, `hono`, `zod`,
+  `zod-to-json-schema`, `ajv`, `ajv-formats`, `content-type` (155 module files
+  in total). Both numbers are counted, not estimated — the lock file's
+  `node_modules/*` entries, and an ESM load hook over a full local drive. The
+  spike's own code imports none of them but the SDK; the rest arrive through
+  it. Worth knowing before fronting this with a tunnel.
 
 ## Install, test, run
 
@@ -154,6 +168,15 @@ Both input schemas are hand-authored JSON Schema with
 time by the same module (`src/mcp-schema.mjs`), so the advertised contract and
 the enforced contract cannot drift.
 
+**Each tool requires its own scope**, checked before its arguments are looked
+at. `dayfold_spike_identity` needs `mcp:context.read` — which is also the scope
+required to reach `/mcp` at all — and `dayfold_spike_finish`, a write, needs
+`mcp:draft.submit`. A credential narrowed at refresh to `mcp:context.read` can
+still connect and still read; a finish on it is `spike.scope_insufficient`. The
+scope must be carried by the signed token **and** still held by the live
+credential record: the effective grant is the intersection, so the pair can only
+ever downgrade.
+
 ### `dayfold_spike_identity`
 
 Input: `{ "schemaVersion": 1 }` — nothing else is accepted.
@@ -228,6 +251,13 @@ An unregistered JSON-RPC method (a client probing `prompts/list` or
 `resources/list` against a tools-only server) is a JSON-RPC error with the
 standard `-32601` code and the closed message `spike.unknown_method`.
 
+A JSON-RPC **error envelope also arrives inside an HTTP 200** when the SDK's own
+request-schema validation rejects a message — for example `params.arguments`
+that is not an object, which produces `-32603` carrying library prose. That
+failure never reaches the spike's handlers, so the only way to observe it is at
+the transport's writer; `src/mcp.mjs` wraps `transport.send` to catch it and
+records the request as `protocol_rejected` rather than a success.
+
 ## Caps, TTLs, and limits
 
 | Thing | Value | Source |
@@ -262,7 +292,7 @@ the server invalidates every token it ever issued.**
 
 ## Closed error codes
 
-Every error the spike can produce is one of these 31 strings. Nothing else
+Every error the spike can produce is one of these 32 strings. Nothing else
 ever reaches a response body: no library message, no provider message, no echo
 of caller input, no indication that another tenant exists.
 
@@ -291,6 +321,7 @@ of caller input, no indication that another tenant exists.
 | `spike.too_many_requests` | 429 | More than 4 in-flight `/mcp` calls for one credential. |
 | `spike.deadline_exceeded` | 504 | `/mcp` exchange still running after 10 s. |
 | `spike.unknown_tool` | 200 (tool error) | `tools/call` naming a tool that is not one of the two. |
+| `spike.scope_insufficient` | 200 (tool error) | `tools/call` on a tool whose scope this credential does not hold. Raised **before** the arguments are validated, so it never reveals that the input would otherwise have been accepted. |
 | `spike.unknown_method` | JSON-RPC `-32601` | A JSON-RPC method with no registered handler. |
 | `spike.unsupported_protocol_version` | 400 | `MCP-Protocol-Version` header present, unsupported, on a non-`initialize` message. |
 | `spike.run_unknown` | 200 (tool error) | `runId` unknown **or** owned by another credential. |
@@ -320,34 +351,52 @@ worth reporting.
 `oauth.register`, `oauth.authorize`, `oauth.approve`, `oauth.token`,
 `oauth.revoke`, `mcp`.
 
-**`outcome`** (16): `ok`, `ok_resource_absent`,
-`ok_protocol_version_absent`, `rejected`, `invalid_request`, `invalid_grant`,
-`unauthorized`, `not_found`, `method_not_allowed`, `too_large`, `throttled`,
-`protocol_rejected`, `method_unsupported`, `deadline_exceeded`, `conflict`,
-`error`.
+**`outcome`** — 16 fixed values, plus one per protocol version the pinned SDK
+supports (five at 1.30.0, so 21 in all).
 
-Three outcomes carry the spike's own observations rather than a plain success:
+The 16: `ok`, `ok_resource_absent`, `ok_protocol_version_absent`, `rejected`,
+`invalid_request`, `invalid_grant`, `unauthorized`, `not_found`,
+`method_not_allowed`, `too_large`, `throttled`, `protocol_rejected`,
+`method_unsupported`, `deadline_exceeded`, `conflict`, `error`.
+
+The version outcomes, generated from the SDK's exported
+`SUPPORTED_PROTOCOL_VERSIONS`: `ok_protocol_version_2025_11_25`,
+`ok_protocol_version_2025_06_18`, `ok_protocol_version_2025_03_26`,
+`ok_protocol_version_2024_11_05`, `ok_protocol_version_2024_10_07`.
+
+Four kinds of outcome carry the spike's own observations rather than a plain
+success:
 
 - `ok_resource_absent` — the request succeeded and carried **no** RFC 8707
   `resource` indicator. Recorded independently at `/oauth/authorize` and
   `/oauth/token`, because a client may send it at one and not the other.
 - `ok_protocol_version_absent` — the request succeeded and carried **no**
   `MCP-Protocol-Version` header.
+- `ok_protocol_version_<version>` — the request succeeded carrying that exact
+  version. Which version a client negotiates is the fact that sets the floor
+  SDK version the real bridge has to support, and the `initialize` response
+  that carries it goes to the client's cloud, not to any surface the operator
+  can read — so it is recorded here or nowhere.
 - `protocol_rejected` — the spike's own checks all passed and the MCP transport
-  still answered 4xx/5xx.
+  refused anyway: either a 4xx/5xx it chose, or a JSON-RPC error envelope it
+  wrote inside a 200 (see the *Response shape* note below).
 
-Presence, never value: whether a client sends `resource` or a protocol version
-is protocol shape, which is exactly what the spike exists to observe; the value
-itself is never written anywhere.
+Closed set, never free text: the version outcomes are generated from a list the
+pinned SDK exports, so the whole enum is knowable before any client connects.
+A version outside that list — reachable only on an `initialize`, which
+negotiates in the body and is exempt from the header screen — is recorded as a
+plain `ok`, and the value the caller sent is never written anywhere.
 
 ## Deliberate behaviors that can look like defects
 
-Nine of them, each designed, each capable of reading as a broken spike if it is
-hit unannounced: strict empty-value rejection, the strict six-field DCR
+Eleven of them, each designed, each capable of reading as a broken spike if it
+is hit unannounced: strict empty-value rejection, the strict six-field DCR
 allowlist, lenient handling of an absent `resource`, two static SDK strings on
 the wire, three protocol-mandated reflections, the protocol-version screen's
 `initialize` exemption, unbounded in-memory ticket state, the startup guard,
-and the per-process signing key. **Read
+the per-process signing key, the consent flow authenticating nobody, and one
+cross-field rule on `recordsReported` that the published JSON Schema does not
+advertise. **Read
 `RUNBOOK.md` § "Expected behaviors that can look like defects" before running
 the matrix** — every one of them is written up there with what to record.
 
@@ -362,17 +411,62 @@ Counts move as tests are added, so none are pinned here: the gate is that
 
 | File | Covers |
 |---|---|
-| `test/oauth.test.mjs` | Discovery, authorize rejections, resource-indicator recording, no auto-approval on GET, happy path, code single-use and expiry, PKCE, refresh rotation and lineage revocation, revocation, DCR, security headers, startup guard, transport limits. |
-| `test/mcp.test.mjs` | Unauthenticated and cross-bound tokens, scope authority, revoked credential, expired token, `initialize`/`tools/list` shape, identity constants, schema rejection, replay and conflict, run-ownership opacity, pre-parse body cap, deadline and concurrency caps, statelessness. |
+| `test/oauth.test.mjs` | Discovery, authorize rejections, resource-indicator recording, no auto-approval on GET, happy path, code single-use and expiry, PKCE, refresh rotation and lineage revocation, revocation, DCR, security headers, startup guard, transport limits, counter-free identifiers. |
+| `test/mcp.test.mjs` | Unauthenticated and cross-bound tokens, scope authority, per-tool scope enforcement, revoked credential, expired token, `initialize`/`tools/list` shape, identity constants, schema rejection, replay and conflict, run-ownership opacity, pre-parse body cap, deadline and concurrency caps, statelessness, error envelopes inside a 200, protocol-version recording. |
 | `test/diagnostics.test.mjs` | Content-blindness of every line a full drive produces, leak canaries, credential material, the single-writer and no-Dayfold-env source scans, and the import allowlist. |
+
+## What WP4 inherits
+
+Four things learned building this that the real bridge has to know. They are
+recorded here because the workspace that held the task reports and the decision
+ledger is git-ignored — it evaporates when this worktree is cleaned — and
+nothing else in the repository carries them.
+
+1. **`transport.send` is the interception point for the SDK's own error
+   envelope.** Closed-codes-only is otherwise unachievable at the JSON-RPC
+   envelope layer: the SDK validates a request against its own schema before
+   any registered handler runs, and a failure is *resolved* into an error
+   response rather than thrown — `Protocol._onerror` never fires for it, and no
+   handler you register ever sees it. Wrapping the transport's writer is the
+   only place the message is observable before it reaches the wire. It is how
+   `src/mcp.mjs` stops a failed call being logged as a success, and it is the
+   same hook a real bridge needs to keep library prose off the wire.
+
+2. **The protocol-version screen must mirror `messages.some(isInitializeRequest)`.**
+   An `initialize` negotiates its version in the body, so the SDK never
+   validates the `MCP-Protocol-Version` header for one — batch included.
+   Screening uniformly refuses a connection the real bridge would accept, which
+   manufactures a false no-go against a listed operator stop condition. Proven
+   here by parity probe against a bare SDK 1.30.0 server, not by reading the
+   spec.
+
+3. **Stateless Streamable HTTP plus in-memory state is incompatible with
+   serverless hosting.** The transport keeps no session, but this server keeps
+   every credential, code, ticket, and run in process memory. On any
+   multi-instance or per-request-isolate host the flow splits across isolates
+   and produces spurious `approval_invalid` / `invalid_grant` / `unauthorized`
+   that look exactly like provider behavior. WP4 either externalizes that state
+   or guarantees one persistent process.
+
+4. **The `resource`-indicator leniency here is a spike-only deviation.** This
+   server accepts a missing RFC 8707 `resource` and records it as
+   `ok_resource_absent`, so the probe survives long enough to produce evidence.
+   `specs/smart-briefings-v0.1/system-design.md` §10 requires exact binding;
+   WP4 must restore it and must not carry this leniency across.
 
 ## Provenance
 
-Built across commits `7d445960` → `1fb54d44` on branch
-`codex/v0-1-claude-handoff`. Verified locally on Node v24.13.0 / npm 11.6.2:
-`npm install`, `npm test` (all passing — 149 tests at commit `1fb54d44`),
-`npm start`, and a full loopback drive of authorize → approve → token →
-`initialize` → `tools/list` → `tools/call` → revoke.
+The source landed across commits `7d445960` → `1fb54d44` on branch
+`codex/v0-1-claude-handoff`; `README.md` and `RUNBOOK.md` were added at
+`e3ce04b5` and have been revised since, and review fixes have landed on top.
+`git log -- spikes/claude-mcp-v0.1` is the authoritative history — no SHA is
+pinned here, because pinning one would go stale on the next fix.
+
+Verified locally on Node v24.13.0 / npm 11.6.2: `npm install`, `npm test`
+(all passing — 170 tests / 37 suites at the time of writing; the gate is `pass`
+equals `tests` and `fail` is `0`, not the number), `npm start`, and a full
+loopback drive of authorize → approve → token → `initialize` → `tools/list` →
+`tools/call` → revoke.
 
 ## Next
 
