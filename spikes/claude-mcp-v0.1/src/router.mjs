@@ -1,13 +1,14 @@
 // The routing table. One entry per (method, path); each entry names the log
 // class for that route and the handler, which returns the closed log outcome.
 //
-// Task 3 adds its `/mcp` entries to ROUTES; nothing else has to change.
+// Task 4 hardens the thrown-error mapper; nothing else has to change.
 
 import { approve, authorize } from './authorize.mjs';
 import { CODES } from './codes.mjs';
 import { authorizationServer, health, protectedResource } from './discovery.mjs';
 import { fail } from './http.mjs';
 import { LOG_CLASS, LOG_OUTCOME } from './log.mjs';
+import { mcpMethodNotAllowed, mcpPost } from './mcp.mjs';
 import { register } from './register.mjs';
 import { revoke, token } from './token-endpoint.mjs';
 
@@ -29,6 +30,9 @@ export const ROUTES = Object.freeze([
   { method: 'POST', path: '/oauth/approve', logClass: LOG_CLASS.OAUTH_APPROVE, handler: approve },
   { method: 'POST', path: '/oauth/token', logClass: LOG_CLASS.OAUTH_TOKEN, handler: token },
   { method: 'POST', path: '/oauth/revoke', logClass: LOG_CLASS.OAUTH_REVOKE, handler: revoke },
+  { method: 'POST', path: '/mcp', logClass: LOG_CLASS.MCP, handler: mcpPost },
+  { method: 'GET', path: '/mcp', logClass: LOG_CLASS.MCP, handler: mcpMethodNotAllowed },
+  { method: 'DELETE', path: '/mcp', logClass: LOG_CLASS.MCP, handler: mcpMethodNotAllowed },
   { method: 'GET', path: '/healthz', logClass: LOG_CLASS.HEALTH, handler: health },
 ]);
 
@@ -55,7 +59,6 @@ export function createRouter(ctx) {
         outcome = await entry.handler(ctx, req, res, url);
       } catch {
         // No thrown error ever reaches a body: it becomes one closed code.
-        // Task 4 hardens this mapper.
         outcome = res.headersSent ? LOG_OUTCOME.ERROR : fail(res, 500, CODES.INTERNAL);
         if (!res.writableEnded) res.end();
       }

@@ -6,7 +6,7 @@
 //
 // This module is the only place in `src/` allowed to write to stdout/stderr,
 // and it writes only through an injectable sink so tests can capture lines
-// in-process. Tasks 3 and 4 extend the enums; they do not add a second writer.
+// in-process. Task 4 extends the enums; it does not add a second writer.
 
 import { CODES } from './codes.mjs';
 
@@ -21,6 +21,7 @@ export const LOG_CLASS = Object.freeze({
   OAUTH_APPROVE: 'oauth.approve',
   OAUTH_TOKEN: 'oauth.token',
   OAUTH_REVOKE: 'oauth.revoke',
+  MCP: 'mcp',
 });
 
 export const LOG_OUTCOME = Object.freeze({
@@ -37,6 +38,9 @@ export const LOG_OUTCOME = Object.freeze({
   NOT_FOUND: 'not_found',
   METHOD_NOT_ALLOWED: 'method_not_allowed',
   TOO_LARGE: 'too_large',
+  THROTTLED: 'throttled',
+  DEADLINE_EXCEEDED: 'deadline_exceeded',
+  CONFLICT: 'conflict',
   ERROR: 'error',
 });
 
@@ -67,6 +71,14 @@ const OUTCOME_BY_CODE = Object.freeze({
   [CODES.CODE_EXPIRED]: LOG_OUTCOME.INVALID_GRANT,
   [CODES.CODE_ALREADY_USED]: LOG_OUTCOME.INVALID_GRANT,
   [CODES.PKCE_VERIFIER_MISMATCH]: LOG_OUTCOME.INVALID_GRANT,
+  [CODES.NOT_ACCEPTABLE]: LOG_OUTCOME.INVALID_REQUEST,
+  [CODES.UNSUPPORTED_MEDIA_TYPE]: LOG_OUTCOME.INVALID_REQUEST,
+  [CODES.TOO_MANY_REQUESTS]: LOG_OUTCOME.THROTTLED,
+  [CODES.DEADLINE_EXCEEDED]: LOG_OUTCOME.DEADLINE_EXCEEDED,
+  [CODES.UNKNOWN_TOOL]: LOG_OUTCOME.INVALID_REQUEST,
+  [CODES.RUN_UNKNOWN]: LOG_OUTCOME.REJECTED,
+  [CODES.RUN_CLOSED]: LOG_OUTCOME.CONFLICT,
+  [CODES.REPLAY_MISMATCH]: LOG_OUTCOME.CONFLICT,
   [CODES.UNAUTHORIZED]: LOG_OUTCOME.UNAUTHORIZED,
   [CODES.ENV_CONTAMINATED]: LOG_OUTCOME.REJECTED,
 });

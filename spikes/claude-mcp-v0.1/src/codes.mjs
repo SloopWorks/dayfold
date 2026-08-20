@@ -2,7 +2,7 @@
 // here: a bounded Dayfold-owned string, never a library or provider message and
 // never an echo of caller input.
 //
-// Tasks 3 and 4 extend this module; they do not replace it.
+// Task 4 extends this module; it does not replace it.
 
 export const CODES = Object.freeze({
   // Transport / routing
@@ -28,6 +28,18 @@ export const CODES = Object.freeze({
   CODE_EXPIRED: 'spike.code_expired',
   CODE_ALREADY_USED: 'spike.code_already_used',
   PKCE_VERIFIER_MISMATCH: 'spike.pkce_verifier_mismatch',
+
+  // MCP surface
+  NOT_ACCEPTABLE: 'spike.not_acceptable',
+  UNSUPPORTED_MEDIA_TYPE: 'spike.unsupported_media_type',
+  TOO_MANY_REQUESTS: 'spike.too_many_requests',
+  DEADLINE_EXCEEDED: 'spike.deadline_exceeded',
+  UNKNOWN_TOOL: 'spike.unknown_tool',
+
+  // Spike runs
+  RUN_UNKNOWN: 'spike.run_unknown',
+  RUN_CLOSED: 'spike.run_closed',
+  REPLAY_MISMATCH: 'spike.replay_mismatch',
 
   // Bearer / registration / startup
   UNAUTHORIZED: 'spike.unauthorized',

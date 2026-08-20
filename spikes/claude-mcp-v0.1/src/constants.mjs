@@ -23,3 +23,12 @@ export const OAUTH_BODY_LIMIT_BYTES = 16 * 1024;
 export const MAX_PARAM_LENGTH = 2048;
 export const MAX_CLIENT_NAME_LENGTH = 256;
 export const MAX_CLIENT_NAME_DISPLAY_LENGTH = 64;
+
+// The MCP surface. The caps are the ones the spike ships with; the factory
+// takes the deadline as an option so a test can drive it without waiting.
+export const MCP_SERVER_NAME = 'dayfold-spike-claude-mcp';
+export const MCP_SERVER_VERSION = '0.1.0';
+export const MCP_REQUIRED_SCOPE = 'mcp:context.read';
+export const MCP_BODY_LIMIT_BYTES = 64 * 1024;
+export const MCP_DEADLINE_MS = 10 * 1000;
+export const MCP_MAX_CONCURRENT_PER_CREDENTIAL = 4;

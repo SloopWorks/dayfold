@@ -11,12 +11,16 @@ import {
   DEFAULT_HOST,
   DEFAULT_PORT,
   DEFAULT_REDIRECT_URI,
+  MCP_DEADLINE_MS,
+  MCP_MAX_CONCURRENT_PER_CREDENTIAL,
   STATIC_CLIENT_ID,
   STATIC_CLIENT_NAME,
 } from './constants.mjs';
 import { randomKey, randomSecret } from './crypto.mjs';
 import { assertCleanEnvironment } from './guard.mjs';
 import { LOG_CLASS, LOG_OUTCOME, createLogger } from './log.mjs';
+import { createConcurrencyLimiter } from './mcp.mjs';
+import { createRunRegistry } from './mcp-runs.mjs';
 import { createRouter } from './router.mjs';
 import { createStore } from './store.mjs';
 import { createTokenIssuer, verifyBearer } from './access-token.mjs';
@@ -31,6 +35,8 @@ import { createTokenIssuer, verifyBearer } from './access-token.mjs';
  * @param {Record<string, unknown>} [options.env] environment inspected by the startup guard.
  * @param {{write: (line: string) => void}} [options.sink] log sink; defaults to process.stdout.
  * @param {() => number} [options.now] injectable clock.
+ * @param {number} [options.mcpDeadlineMs] per-request /mcp handling deadline.
+ * @param {Buffer} [options.signingKey] access-token signing key; a fresh random key by default.
  * @param {string} [options.testRunId]
  */
 export async function createSpikeServer(options = {}) {
@@ -55,7 +61,12 @@ export async function createSpikeServer(options = {}) {
     now,
     log,
     store,
-    tokens: createTokenIssuer({ signingKey: randomKey(32), now }),
+    tokens: createTokenIssuer({ signingKey: options.signingKey ?? randomKey(32), now }),
+    mcp: {
+      limiter: createConcurrencyLimiter({ maxConcurrent: MCP_MAX_CONCURRENT_PER_CREDENTIAL }),
+      deadlineMs: options.mcpDeadlineMs ?? MCP_DEADLINE_MS,
+      runs: createRunRegistry(),
+    },
   };
 
   const route = createRouter(ctx);
