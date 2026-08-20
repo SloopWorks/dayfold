@@ -2,6 +2,8 @@ package com.sloopworks.dayfold.client
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -27,10 +29,66 @@ data class NotifSnapshot(
   val surfacing: Map<String, SurfacingRecord> = emptyMap(),
   val config: NotifConfig = NotifConfig(),
   val log: List<NotifLogRow> = emptyList(),
+  // The cache already contains only responses visible to this device's member. Done/family rows
+  // apply without identity; viewerUserId lets the shared foreground selector apply personal mutes.
+  val responses: List<ContentResponse> = emptyList(),
+  val viewerUserId: String? = null,
   // ADR 0063 §7 — subjectKeys whose calendar_binding.notification_owner is `calendar`; threaded
   // straight into selectNotifications' event-start suppression, never re-derived here.
   val calendarOwnedSubjects: Set<String> = emptySet(),
 )
+
+/**
+ * Process-local admission fence for notification work that touches both the family cache and OS state.
+ *
+ * A caller captures the current generation before waiting for the execution gate, then re-checks it
+ * after entering. Closing admission invalidates already-queued callers and waits for an already-running
+ * caller to finish before platform cleanup begins. Reopening mints another generation, so an old queued
+ * caller still cannot revive an outgoing family's alarms or notification ledger after cleanup.
+ */
+internal enum class NotificationAdmissionBlocker { FAMILY, CONFIG }
+
+internal class NotificationPassAdmissionCoordinator {
+  private val stateGate = SynchronizedObject()
+  private val executionGate = SynchronizedObject()
+  private var generation = 0L
+  private val blockers = mutableSetOf<NotificationAdmissionBlocker>()
+
+  fun <T> runIfAdmitted(
+    orElse: () -> T,
+    afterAdmissionCaptured: () -> Unit = {},
+    action: () -> T,
+  ): T {
+    val admittedGeneration = synchronized(stateGate) {
+      generation.takeIf { blockers.isEmpty() }
+    } ?: return orElse()
+    afterAdmissionCaptured()
+
+    return synchronized(executionGate) {
+      val stillCurrent = synchronized(stateGate) {
+        blockers.isEmpty() && generation == admittedGeneration
+      }
+      if (stillCurrent) action() else orElse()
+    }
+  }
+
+  fun closeAndDrain(
+    blocker: NotificationAdmissionBlocker,
+    afterAdmissionClosed: () -> Unit = {},
+    cleanup: () -> Unit,
+  ) {
+    synchronized(stateGate) {
+      generation += 1L
+      blockers += blocker
+    }
+    afterAdmissionClosed()
+    synchronized(executionGate, cleanup)
+  }
+
+  fun openAdmission(blocker: NotificationAdmissionBlocker) = synchronized(stateGate) {
+    if (blockers.remove(blocker)) generation += 1L
+  }
+}
 
 // Default foreground-suppression window: a subject shown in-feed within this window is NOT also
 // notified (no double-nag with the in-feed surfacing). Tunable; conservative by default.
@@ -54,8 +112,12 @@ fun planBackgroundNotifications(
   if (!snapshot.config.enabled) return NotifPlan()
 
   val state = AppState(
+    session = SessionState(
+      session = snapshot.viewerUserId?.let { Session(access = "", refresh = "", userId = it) },
+    ),
     content = ContentState(cards = snapshot.cards),
     hubs = HubState(hubs = snapshot.hubs),
+    responses = ResponseState(rules = snapshot.responses),
     now = NowState(
       content = NowContent(sections = snapshot.sections, blocks = snapshot.blocks, places = snapshot.places),
       surfacing = snapshot.surfacing,
@@ -92,13 +154,30 @@ class BackgroundNotificationRunner(
     nowIso: String,
     location: DeviceLocation?,
     zone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(),
+    onComplete: () -> Unit = {},
   ): NotifPlan {
+    // A Done response is authoritative even if its source tombstone was skipped by an old cursor.
+    // Clear any already-delivered notification before planning new work for this snapshot.
+    completedNotificationSubjects(snapshot).forEach(notifier::cancel)
     val plan = planBackgroundNotifications(snapshot, nowIso, location, zone)
     val specs = plan.toPost.map { it.toNotificationSpec() }
-    if (specs.isNotEmpty()) {
+    if (specs.isEmpty()) {
+      onComplete()
+      return plan
+    }
+    try {
       notifier.ensureChannel()
-      notifier.postGroup(specs)
-      plan.toPost.forEach { recordPosted(it.subjectKey, nowIso) }
+      notifier.postGroup(specs) { accepted ->
+        try {
+          plan.toPost.filter { it.subjectKey in accepted }
+            .forEach { recordPosted(it.subjectKey, nowIso) }
+        } finally {
+          onComplete()
+        }
+      }
+    } catch (error: Throwable) {
+      onComplete()
+      throw error
     }
     return plan
   }
@@ -140,7 +219,12 @@ fun planExactSchedules(
     nowIso = nowIso, location = null, zone = zone, config = deriveConfig,
   )
   val authored = snapshot.cards.map { cardToNowItem(it, rankConfig, nowIso, zone) }
-  val calendarSuppressed = (derived + authored).filterNot {
+  val responseSuppressed = ResponseRules.suppress(
+    derived + authored,
+    snapshot.responses,
+    snapshot.viewerUserId,
+  )
+  val calendarSuppressed = responseSuppressed.filterNot {
     it.subjectKey in snapshot.calendarOwnedSubjects && it.reasonKind in EVENT_START_REASON_KINDS
   }
 
@@ -155,11 +239,162 @@ fun planExactSchedules(
     .map { ExactSchedule(atIso = it.triggerAtIso!!, spec = it.toNotificationSpec()) }
 }
 
+/** Done subjects whose posted/exact notifications must be cancelled even if source rows remain stale. */
+internal fun completedNotificationSubjects(snapshot: NotifSnapshot): Set<String> =
+  snapshot.responses.asSequence()
+    .filter { it.kind == ResponseKind.DONE }
+    .map { it.subjectRef }
+    .toSet()
+
+/**
+ * Subjects whose exact-notification source still exists and is visible to this viewer. Unlike
+ * [planExactSchedules], this deliberately keeps past triggers: after iOS fires an exact request it
+ * moves from pending to delivered, and an ordinary reconciliation must not erase that unread banner
+ * merely because its trigger is now behind the clock.
+ */
+internal fun activeExactNotificationSubjects(
+  snapshot: NotifSnapshot,
+  nowIso: String,
+  zone: TimeZone = TimeZone.currentSystemDefault(),
+  rankConfig: RankConfig = RankConfig(),
+): Set<String> {
+  if (!snapshot.config.enabled) return emptySet()
+
+  val now = parseInstantFlexible(nowIso, zone)
+  val candidates = mutableListOf<NowItem>()
+  snapshot.cards.asSequence()
+    // A card can remain useful after its timed reminder is removed. In that case the card itself is
+    // still live, but it no longer owns an exact-notification source and must not preserve old history.
+    .filter { card -> card.notBefore != null || card.triggers.orEmpty().any { it.whenTrigger?.at != null } }
+    .filter { card ->
+      now == null || card.expiresAt == null ||
+        (parseInstantFlexible(card.expiresAt, zone)?.let { it > now } ?: true)
+    }
+    .mapTo(candidates) { cardToNowItem(it, rankConfig, nowIso, zone) }
+
+  snapshot.hubs.forEach { hub ->
+    val trigger = hub.countdownTo ?: hub.startAt ?: return@forEach
+    candidates += exactSourceItem(
+      id = "exact-source:countdown:${hub.id}",
+      kind = ReasonKind.COUNTDOWN,
+      title = hub.title,
+      subjectKey = SubjectRef.node(hub.id),
+      triggerAtIso = trigger,
+    )
+  }
+
+  val hubIdBySection = snapshot.sections.mapNotNull { section ->
+    section.hubId?.let { section.id to it }
+  }.toMap()
+  val hubById = snapshot.hubs.associateBy { it.id }
+  snapshot.blocks.forEach { block ->
+    val hubId = block.sectionId?.let(hubIdBySection::get) ?: return@forEach
+    val subjectKey = SubjectRef.node(hubId, block.sectionId, block.id)
+    val title = block.bodyMd?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()
+      ?: block.payload?.label
+      ?: "Reminder"
+
+    block.payload?.date?.takeIf { block.type == "milestone" }?.let { date ->
+      candidates += exactSourceItem(
+        id = "exact-source:milestone:${block.id}",
+        kind = ReasonKind.MILESTONE,
+        title = title,
+        subjectKey = subjectKey,
+        triggerAtIso = date,
+      )
+    }
+    if (block.type == "checklist" && block.payload?.items?.any { !it.done } == true) {
+      val hubTrigger = hubById[hubId]?.let { it.countdownTo ?: it.startAt }
+      if (hubTrigger != null) candidates += exactSourceItem(
+        id = "exact-source:checklist:${block.id}",
+        kind = ReasonKind.CHECKLIST,
+        title = title,
+        subjectKey = subjectKey,
+        triggerAtIso = hubTrigger,
+      )
+    }
+    block.triggers.orEmpty().forEachIndexed { index, trigger ->
+      trigger.whenTrigger?.at?.let { at ->
+        candidates += exactSourceItem(
+          id = "exact-source:when:${block.id}:$index",
+          kind = ReasonKind.WHEN,
+          title = title,
+          subjectKey = subjectKey,
+          triggerAtIso = at,
+        )
+      }
+    }
+  }
+
+  return ResponseRules.suppress(
+    candidates.filterNot {
+      it.subjectKey in snapshot.calendarOwnedSubjects && it.reasonKind in EVENT_START_REASON_KINDS
+    },
+    snapshot.responses,
+    snapshot.viewerUserId,
+  ).mapTo(linkedSetOf()) { it.subjectKey }
+}
+
+private fun exactSourceItem(
+  id: String,
+  kind: String,
+  title: String,
+  subjectKey: String,
+  triggerAtIso: String,
+) = NowItem(
+  id = id,
+  origin = Origin.DERIVED,
+  reasonKind = kind,
+  title = title,
+  why = title,
+  subjectKey = subjectKey,
+  target = null,
+  triggerAtIso = triggerAtIso,
+)
+
+/**
+ * iOS delivers exact requests without a fire-time app pass, so posture is baked into the pending
+ * plan. Apply cap and dedup per schedule's local date: exhausting today's allowance must not erase
+ * tomorrow's already-armable reminders when Notification Center receives the replacement plan.
+ */
+internal fun selectIosExactSchedules(
+  schedules: List<ExactSchedule>,
+  config: NotifConfig,
+  log: List<NotifLogRow>,
+  zone: TimeZone,
+): List<ExactSchedule> {
+  if (!config.enabled || config.dailyCap <= 0) return emptyList()
+
+  val postedByDate = mutableMapOf<kotlinx.datetime.LocalDate, Int>()
+  val notifiedSubjectsByDate = mutableMapOf<kotlinx.datetime.LocalDate, MutableSet<String>>()
+  log.forEach { row ->
+    val date = parseInstantFlexible(row.notifiedAtIso, zone)?.toLocalDateTime(zone)?.date
+      ?: return@forEach
+    postedByDate[date] = (postedByDate[date] ?: 0) + 1
+    notifiedSubjectsByDate.getOrPut(date) { mutableSetOf() } += row.subjectKey
+  }
+
+  val plannedByDate = mutableMapOf<kotlinx.datetime.LocalDate, Int>()
+  return schedules.filter { schedule ->
+    val local = parseInstantFlexible(schedule.atIso, zone)?.toLocalDateTime(zone)
+      ?: return@filter false
+    val date = local.date
+    if (schedule.spec.subjectKey in notifiedSubjectsByDate[date].orEmpty()) return@filter false
+    if ((postedByDate[date] ?: 0) + (plannedByDate[date] ?: 0) >= config.dailyCap) {
+      return@filter false
+    }
+    val minuteOfDay = local.hour * 60 + local.minute
+    if (!schedule.spec.urgent && inQuietHours(minuteOfDay, config)) return@filter false
+    plannedByDate[date] = (plannedByDate[date] ?: 0) + 1
+    true
+  }
+}
+
 // Foreground-surfaced suppression (the other direction): when an item becomes visible in the live feed,
 // cancel any standing notification for it — the user is looking right at it. Called from the render path
 // with the feed's visible subject keys.
 fun cancelForegroundVisible(notifier: LocalNotifier, visibleSubjectKeys: Set<String>) {
-  visibleSubjectKeys.forEach { notifier.cancel(it) }
+  visibleSubjectKeys.forEach { notifier.cancelDelivered(it) }
 }
 
 // Subjects shown in-feed within [window] before [nowIso] — suppressed from a background notification so

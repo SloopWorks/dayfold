@@ -37,11 +37,18 @@ const val ANDROID_REGION_CAP = 100
 
 // Posts LOCAL notifications (no FCM/APNs — dumb-server invariant). ensureChannel is idempotent (Android
 // channel / iOS category). postGroup posts a grouped digest with the on-device subtext + a deep-link
-// action. cancel/cancelAll clear items now visible in the foreground (foreground-surfaced suppression).
+// action. cancel is the all-lanes subject teardown used by Done; cancelDelivered is the narrower
+// foreground-surfaced operation and must not discard a future exact reminder.
 interface LocalNotifier {
   fun ensureChannel()
-  fun postGroup(specs: List<NotificationSpec>)
+  /**
+   * Posts [specs], then calls [onAccepted] exactly once with only the subjects whose request the
+   * platform accepted. Implementations must read current OS authorization before posting; callers use
+   * the callback (rather than enqueue intent) to decide what consumes the daily delivery ledger.
+   */
+  fun postGroup(specs: List<NotificationSpec>, onAccepted: (Set<String>) -> Unit)
   fun cancel(subjectKey: String)
+  fun cancelDelivered(subjectKey: String) = cancel(subjectKey)
   fun cancelAll()
 }
 
@@ -59,6 +66,7 @@ interface GeofenceController {
 interface ExactNotificationScheduler {
   fun schedule(atIso: String, spec: NotificationSpec)
   fun cancel(subjectKey: String)
+  fun cancelAll()
 }
 
 // Location permission is OS-owned truth (never DB-cached). The Flow bridges OS changes → a

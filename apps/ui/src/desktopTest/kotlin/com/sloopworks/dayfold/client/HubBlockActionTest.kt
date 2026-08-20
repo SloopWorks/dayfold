@@ -56,4 +56,51 @@ class HubBlockActionTest {
     onNodeWithText("Directions").performClick()
     assertEquals(CardAction.Navigate("4600 Sunset Ave, Indianapolis"), got)
   }
+
+  @Test fun `Mark done on a hub block opens the direct completion step for its exact subject`() = runComposeUiTest {
+    var got: CardAction? = null
+    val block = HubBlock(
+      id = "b_task", sectionId = "s1", type = "text", bodyMd = "Call the caterer",
+      provenance = Provenance(source = "Weekend planner"),
+    )
+    setContent { MaterialTheme { HubDetailScreen(state(tree(block)), onCardAction = { got = it }) } }
+
+    onNodeWithContentDescription("More options for Call the caterer").performClick()
+    onNodeWithText("Mark done").performClick()
+
+    assertEquals(
+      CardAction.Respond(
+        subjectRef = "hub:h1/section:s1/block:b_task",
+        subjectTitle = "Call the caterer",
+        reasonKind = "text",
+        source = "Weekend planner",
+        surface = ResponseSurface.HUB,
+        initialStep = ResponseStep.DONE_NOTE,
+      ),
+      got,
+    )
+  }
+
+  @Test fun `response subject labels strip every markdown heading marker`() {
+    assertEquals(
+      "Party day plan",
+      responseSubjectTitleFor(HubBlock("b", type = "markdown", bodyMd = "## Party day plan\n\nDoors at 3")),
+    )
+  }
+
+  @Test fun `response subject labels strip list checkbox emphasis and link markdown`() {
+    assertEquals("Confirm caterer menu", markdownPreviewText("- [ ] **Confirm [caterer](https://example.com) menu**"))
+  }
+
+  @Test fun `response subject labels skip separators and strip blockquotes`() {
+    assertEquals(
+      "Important update",
+      responseSubjectTitleFor(HubBlock("b", type = "markdown", bodyMd = "---\n\n> Important update")),
+    )
+  }
+
+  @Test fun `hub dates are human readable instead of raw wire timestamps`() {
+    assertEquals("Due Jun 21, 1:00 PM", checklistDueLabel("2026-06-21T13:00:00Z"))
+    assertEquals("Jun 21, 3:00 PM", milestoneDateLabel("2026-06-21T15:00:00Z"))
+  }
 }

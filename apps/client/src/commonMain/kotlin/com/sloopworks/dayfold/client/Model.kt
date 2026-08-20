@@ -157,6 +157,7 @@ data class CardPrivacy(val storage: String? = null)
   val label: String,
   val sublabel: String? = null,
   val note: String? = null,
+  @SerialName("created_at") val createdAt: String = "",
   val version: Long = 1L,
 ) {
   fun toDomain(): ContentResponse = ContentResponse(
@@ -170,6 +171,7 @@ data class CardPrivacy(val storage: String? = null)
     label = label,
     sublabel = sublabel,
     note = note,
+    createdAt = createdAt,
     version = version,
   )
 }

@@ -16,7 +16,15 @@ kotlin {
   androidTarget()
   jvm("desktop")
   listOf(iosArm64(), iosSimulatorArm64()).forEach {
-    it.binaries.framework { baseName = "client"; isStatic = true }
+    it.binaries.framework {
+      baseName = "client"
+      isStatic = true
+      // The Swift host owns background refresh and notification startup, so it calls the
+      // public iOS glue that still lives in :client. An api dependency is not re-exported
+      // from a Kotlin/Native framework automatically; without this the app compiles the
+      // Compose entry point but Swift cannot see IosNotifGlue / bgRefresh.
+      export(project(":client"))
+    }
   }
 
   sourceSets {

@@ -519,7 +519,7 @@ fun HubDetailScreen(
           }
           items(blocks, key = { "blk-${it.id}" }) { block ->
             HubBlockCard(
-              block, focused = block.id == state.focusBlockId,
+              hubId = tree.hub.id, block = block, focused = block.id == state.focusBlockId,
               // author-gate (W4): delete is offered only to the author (set-once created_by);
               // a null author (legacy / loop-authored) is never deletable by a member.
               canDelete = block.createdBy != null && block.createdBy == selfId,
@@ -527,6 +527,19 @@ fun HubDetailScreen(
               onDeleteBlock = onDeleteBlock, onHideBlock = onHideBlock,
               onCardAction = onCardAction, resolveDoneBy = resolveDoneBy,
             )
+          }
+        }
+        if (state.completed.isNotEmpty()) {
+          item(key = "completed-header") {
+            Text(
+              "DONE",
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          items(state.completed, key = { "done-${it.id}" }) { completion ->
+            HubCompletionCard(completion)
           }
         }
         // ── "Hidden for you" (W5) — a collapsed, personal section; never a family-visible
@@ -697,6 +710,7 @@ internal fun budgetTotals(p: BlockPayload?): Pair<Double, Double> {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HubBlockCard(
+  hubId: String,
   block: HubBlock,
   focused: Boolean = false,
   canDelete: Boolean = false,
@@ -732,7 +746,19 @@ private fun HubBlockCard(
       shape = RoundedCornerShape(22.dp),
     ) {
       Box {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val contactUsesWrappedActions = block.type == "contact" && !blockFallsBackToBodyMd(block)
+        // Most content reserves a trailing touch-target lane. Contacts instead wrap their OS
+        // actions onto a second row: three 48dp actions plus an avatar cannot share a compact
+        // phone row with a useful name column after a permanent 56dp deduction.
+        Column(
+          Modifier.padding(
+            start = 16.dp,
+            top = 16.dp,
+            end = if (contactUsesWrappedActions) 16.dp else 56.dp,
+            bottom = 16.dp,
+          ),
+          verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
           // deep-link arrival badge (the design's "FROM YOUR BRIEFING" pulse)
           if (focused) {
             Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(7.dp)) {
@@ -761,10 +787,22 @@ private fun HubBlockCard(
         // Overflow (the a11y fallback — keyboard- and screen-reader-reachable): Hide for me
         // always, Delete only for the author. Both gestures reach the same actions.
         Box(Modifier.align(Alignment.TopEnd)) {
-          IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "More options" }) {
+          val subjectTitle = responseSubjectTitleFor(block)
+          IconButton(
+            onClick = { menuOpen = true },
+            modifier = Modifier.semantics { contentDescription = "More options for $subjectTitle" },
+          ) {
             androidx.compose.material3.Icon(DayfoldIcons.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clearAndSetSemantics {})
           }
           DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+              text = { Text("Mark done") },
+              leadingIcon = { androidx.compose.material3.Icon(DayfoldIcons.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp)) },
+              onClick = {
+                menuOpen = false
+                onCardAction(hubCompletionAction(hubId, block))
+              },
+            )
             DropdownMenuItem(
               text = { Text("Hide for me") },
               leadingIcon = { androidx.compose.material3.Icon(DayfoldIcons.VisibilityOff, contentDescription = null, modifier = Modifier.size(20.dp)) },
@@ -804,6 +842,64 @@ private fun HubBlockCard(
           modifier = Modifier.fillMaxWidth(),
         ) { Text("Delete for everyone") }
         TextButton(onClick = { confirmDelete = false }, modifier = Modifier.fillMaxWidth()) { Text("Keep it") }
+      }
+    }
+  }
+}
+
+internal fun hubCompletionAction(hubId: String, block: HubBlock): CardAction.Respond =
+  CardAction.Respond(
+    subjectRef = SubjectRef.node(hubId, block.sectionId, block.id),
+    subjectTitle = responseSubjectTitleFor(block),
+    reasonKind = block.type,
+    source = block.provenance?.source,
+    surface = ResponseSurface.HUB,
+    initialStep = ResponseStep.DONE_NOTE,
+  )
+
+internal fun responseSubjectTitleFor(block: HubBlock): String =
+  blockPreviewText(block)
+    .replace(Regex("\\s+"), " ")
+    .trim()
+    .ifBlank { "Hub item" }
+    .take(120)
+
+@Composable
+private fun HubCompletionCard(completion: HubCompletion) {
+  val date = formatLocalDate(completion.createdAt)
+    ?: "recently"
+  val byline = if (completion.pending) "Done by ${completion.doneBy} · saving…"
+    else "Done by ${completion.doneBy} · $date"
+  val description = listOfNotNull("Done: ${completion.title}", byline, completion.note).joinToString(". ")
+  Card(
+    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+      contentDescription = description
+    },
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)),
+    shape = RoundedCornerShape(18.dp),
+  ) {
+    Row(
+      Modifier.fillMaxWidth().padding(16.dp),
+      verticalAlignment = Alignment.Top,
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      androidx.compose.material3.Icon(
+        DayfoldIcons.CheckCircle,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.size(22.dp).clearAndSetSemantics {},
+      )
+      Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+          completion.title,
+          style = MaterialTheme.typography.bodyLarge,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(byline, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        completion.note?.takeIf { it.isNotBlank() }?.let {
+          Text("“$it”", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
       }
     }
   }
@@ -967,10 +1063,27 @@ internal fun deleteSheetTitle(block: HubBlock): String =
 // A one-line preview of a block for the hidden card + the delete sheet: the first non-blank
 // line of body_md, else a typed-payload label/name, else the block type.
 internal fun blockPreviewText(block: HubBlock): String {
-  block.bodyMd?.lineSequence()?.map { it.trim() }?.firstOrNull { it.isNotBlank() }?.let { return it.removePrefix("#").trim() }
+  block.bodyMd?.lineSequence()?.map { it.trim() }
+    ?.firstOrNull { it.isNotBlank() && !PREVIEW_SEPARATOR.matches(it) }?.let {
+    return markdownPreviewText(it).ifBlank { block.type }
+  }
   block.payload?.let { p -> (p.label ?: p.name ?: p.items?.firstOrNull { it.text != null }?.text)?.let { return it } }
   return block.type
 }
+
+private val PREVIEW_LINK = Regex("!?\\[([^]]+)]\\([^)]+\\)")
+private val PREVIEW_LEAD = Regex("^\\s*(?:(?:>\\s*)+|#{1,6}\\s+|[-*+]\\s+(?:\\[[ xX]\\]\\s*)?|\\d+[.)]\\s+)")
+private val PREVIEW_MARKS = Regex("[*_`~]")
+private val PREVIEW_SEPARATOR = Regex("^\\s{0,3}(?:(?:-\\s*){3,}|(?:\\*\\s*){3,}|(?:_\\s*){3,})$")
+
+/** Plain one-line labels for response sheets/a11y; never expose authored Markdown syntax. */
+internal fun markdownPreviewText(line: String): String = line
+  .replace(PREVIEW_LINK, "$1")
+  .replace(PREVIEW_LEAD, "")
+  .replace(PREVIEW_MARKS, "")
+  .replace(Regex("<[^>]+>"), "")
+  .replace(Regex("\\s+"), " ")
+  .trim()
 
 // Slice 4 (ADR 0038 §4) — the interactive checklist. The check IS a fold: a freshly
 // tapped row stays live + struck through one shared ~2s burst, then the whole batch
@@ -1096,7 +1209,7 @@ private fun ChecklistRow(item: ChecklistItem, onToggle: ((Boolean) -> Unit)? = n
       )
       // subline: the conflict/remote byline ("✓ Mom") when done, else due · assignee.
       val sub = if (done && item.doneBy != null) "✓ ${resolveDoneBy(item.doneBy) ?: "a family member"}"
-        else listOfNotNull(item.due?.let { "Due $it" }, item.assignee).joinToString(" · ")
+        else listOfNotNull(checklistDueLabel(item.due), item.assignee).joinToString(" · ")
       if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall, color = onSurfaceVar)
     }
   }
@@ -1209,23 +1322,39 @@ private fun LinkRow(block: HubBlock) {
 
 @Composable
 private fun ContactRow(p: BlockPayload?, onAction: (CardAction) -> Unit) {
-  Row(verticalAlignment = Alignment.CenterVertically) {
-    // ADR 0036: avatarUrl photo → initials fallback (invisible on miss).
-    ContactAvatar(p?.name, p?.avatarUrl)
-    Column(Modifier.padding(horizontal = 13.dp).weight(1f)) {
-      Text(p?.name ?: "Contact", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-      p?.role?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+      Modifier.fillMaxWidth().padding(end = 40.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      // ADR 0036: avatarUrl photo → initials fallback (invisible on miss).
+      ContactAvatar(p?.name, p?.avatarUrl)
+      Column(Modifier.padding(start = 13.dp).weight(1f)) {
+        Text(p?.name ?: "Contact", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        p?.role?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+      }
     }
     // round Call / Text / Email affordances → OS handoff (tel: / sms: / mailto:) via CardAction,
-    // the same channel the Now contact card uses. Only shown for the fields the contact carries.
-    p?.phone?.let { phone ->
-      RoundAffordance(DayfoldIcons.Call, "Call") { onAction(CardAction.Call(phone)) }
-      Box(Modifier.width(8.dp))
-      RoundAffordance(DayfoldIcons.Message, "Message") { onAction(CardAction.Message(phone)) }
-    }
-    p?.email?.let { email ->
-      if (p.phone != null) Box(Modifier.width(8.dp))
-      RoundAffordance(DayfoldIcons.Email, "Email") { onAction(CardAction.Email("mailto:$email")) }
+    // the same channel the Now contact card uses. A dedicated second row keeps all 48dp
+    // targets and a readable identity column at 320–360dp widths.
+    val phone = p?.phone
+    val email = p?.email
+    if (phone != null || email != null) {
+      Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        phone?.let { number ->
+          RoundAffordance(DayfoldIcons.Call, "Call") { onAction(CardAction.Call(number)) }
+          Box(Modifier.width(8.dp))
+          RoundAffordance(DayfoldIcons.Message, "Message") { onAction(CardAction.Message(number)) }
+        }
+        email?.let { address ->
+          if (phone != null) Box(Modifier.width(8.dp))
+          RoundAffordance(DayfoldIcons.Email, "Email") { onAction(CardAction.Email("mailto:$address")) }
+        }
+      }
     }
   }
 }
@@ -1267,10 +1396,15 @@ private fun MilestoneRow(p: BlockPayload?, bodyMd: String?) {
     Box(Modifier.size(11.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))  // timeline dot
     Column(Modifier.padding(start = 12.dp)) {
       Text(p?.label ?: bodyMd ?: "Milestone", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-      p?.date?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+      milestoneDateLabel(p?.date)?.let {
+        Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
     }
   }
 }
+
+internal fun checklistDueLabel(due: String?): String? = formatMetaWhen(due)?.let { "Due $it" }
+internal fun milestoneDateLabel(date: String?): String? = formatMetaWhen(date)
 
 @Composable
 private fun BudgetBar(p: BlockPayload?) {

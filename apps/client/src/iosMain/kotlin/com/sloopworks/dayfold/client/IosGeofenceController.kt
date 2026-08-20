@@ -8,7 +8,10 @@ import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
 import platform.CoreLocation.CLRegion
+import platform.Foundation.NSThread
 import platform.darwin.NSObject
+import platform.darwin.dispatch_get_main_queue
+import platform.darwin.dispatch_sync
 
 // ADR 0044 §S3 — iOS geofencing (GeofenceController impl), mirroring AndroidGeofenceController +
 // onGeofenceEnter. CLLocationManager region monitoring; honors the iOS 20-region hard cap via nearest-N
@@ -33,22 +36,29 @@ class IosGeofenceController : GeofenceController {
 
   @OptIn(ExperimentalForeignApi::class)
   override fun register(regions: List<GeoRegion>) {
-    deregisterAll()
-    if (regions.isEmpty()) return
-    regions.take(IOS_REGION_CAP).forEach { r ->
-      val region = CLCircularRegion(
-        center = CLLocationCoordinate2DMake(r.lat, r.lng),
-        radius = r.radiusM,
-        identifier = r.id,
-      ).apply {
-        notifyOnEntry = true
-        notifyOnExit = false
+    onMain {
+      deregisterAllOnMain()
+      if (regions.isEmpty()) return@onMain
+      regions.take(IOS_REGION_CAP).forEach { r ->
+        val region = CLCircularRegion(
+          center = CLLocationCoordinate2DMake(r.lat, r.lng),
+          radius = r.radiusM,
+          identifier = r.id,
+        ).apply {
+          notifyOnEntry = true
+          notifyOnExit = false
+        }
+        manager.startMonitoringForRegion(region)
       }
-      manager.startMonitoringForRegion(region)
     }
   }
 
-  override fun deregisterAll() {
+  override fun deregisterAll() = onMain { deregisterAllOnMain() }
+
+  private fun deregisterAllOnMain() {
+    // Invalidate any outstanding nearest-N request first. A late location callback from the outgoing
+    // family then observes no work and cannot resurrect its saved-place regions after cache cleanup.
+    pendingNearest = emptyList()
     // Stop ALL OS-persisted monitored regions (they survive app kill/reboot independent of the DB — a
     // stale region from a previous tenant must never fire for the next; ADR 0044 privacy boundary).
     manager.monitoredRegions.forEach { (it as? CLRegion)?.let { r -> manager.stopMonitoringForRegion(r) } }
@@ -57,8 +67,17 @@ class IosGeofenceController : GeofenceController {
   // >cap saved places: take a single location fix, then register the nearest IOS_REGION_CAP. Called by
   // reRegisterGeofences only when needed; the fix is used to choose + is discarded (never persisted).
   fun registerNearest(places: List<Place>) {
-    pendingNearest = places
-    manager.requestLocation()
+    onMain {
+      pendingNearest = places
+      manager.requestLocation()
+    }
+  }
+
+  // Family teardown can arrive on the database dispatcher. Serialize every CLLocationManager call and
+  // pendingNearest transition on main, and wait for cleanup to finish before the new identity proceeds.
+  private inline fun onMain(crossinline block: () -> Unit) {
+    if (NSThread.isMainThread()) block()
+    else dispatch_sync(dispatch_get_main_queue()) { block() }
   }
 
   // Region-enter delivers an identifier, not a location — resolve it to the arrived saved-place coord

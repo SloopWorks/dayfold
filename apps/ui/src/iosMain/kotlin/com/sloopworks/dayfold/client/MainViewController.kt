@@ -6,6 +6,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeUIViewController
+import com.sloopworks.dayfold.client.fake.fakeClientForApi
+import com.sloopworks.dayfold.client.fake.initialStateForFakeScenario
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.reduxkotlin.compose.rememberSelectorStore
@@ -18,21 +20,35 @@ import platform.UIKit.UIApplicationWillResignActiveNotification
 import platform.UIKit.UIViewController
 
 // iOS entry — the SHARED FeedApp with the AUTH-S5 route gate. Session persists via
-// NSUserDefaults (IosTokenStore). The dev-token sign-in secret + a real API base
-// stay unset here (iOS run config is operator-gated on Mac/Xcode), so sign-in is
-// inert on-device this slice; the gate + onboarding UI + restore are all wired.
+// NSUserDefaults (IosTokenStore). Release keeps the real API base operator-gated;
+// DEBUG uses the same deterministic busy-family backend as Android's “Dev sign-in
+// (fake)” affordance so that the labelled action is functional on the simulator.
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)   // Platform.isDebugBinary (release-gate DevTools)
 fun MainViewController(): UIViewController {
   // One runtime graph belongs to exactly one controller invocation. Keeping construction outside
   // composition prevents a disposed/recreated composition from silently creating a second graph.
   // The database remains process-global for foreground/headless single-writer coordination.
-  val contentStore = IosContentStoreHolder.get()
+  val debug = kotlin.native.Platform.isDebugBinary
+  val scenarioId = "busy-family".takeIf { debug }
+  val fakeHttp = scenarioId?.let { fakeClientForApi("fake://$it") }
+  val usingFake = fakeHttp != null
+  val contentStore = if (usingFake) IosDebugContentStoreHolder.get() else IosContentStoreHolder.get()
+  // Headless notification callbacks must use the same selected cache. Simulator DEBUG uses the
+  // isolated fake store; production and background-before-UI keep the production-holder default.
+  IosNotificationContentStoreHolder.select(contentStore)
+  val clearFamilyNotifications = IosNotifGlue::clearFamilyNotificationState
   val graph = DayfoldRuntimeFactory(
-    api = "",
+    api = if (fakeHttp != null) "http://fake.local" else "",
     contentStore = contentStore,
-    tokenStore = IosTokenStore(),
+    tokenStore = IosTokenStore(key = if (usingFake) "dayfold_debug_fake_session" else "dayfold_session"),
     notificationContext = mainNotificationContext(),
-    debug = kotlin.native.Platform.isDebugBinary,
+    foregroundNotifier = IosNotifGlue.localNotifier,
+    httpClientFactory = { fakeHttp ?: io.ktor.client.HttpClient() },
+    devSecret = "fake".takeIf { fakeHttp != null },
+    initialState = initialStateForFakeScenario(scenarioId),
+    debug = debug,
+    onFamilyDataCleared = clearFamilyNotifications,
+    onFamilyDataClearFinished = IosNotifGlue::finishFamilyNotificationStateClear,
   ).create()
   // ADR 0020 R3 — register as soon as this runtime is live, mirroring the Android ViewModel's
   // RuntimeHandleHolder registration. A headless caller (the BGAppRefreshTask, same process) must
@@ -49,16 +65,23 @@ fun MainViewController(): UIViewController {
       graph = graph,
       contentStore = contentStore,
       runtimeHandleRegistration = runtimeHandleRegistration,
+      seedSampleContent = !usingFake,
+      resetFakeContent = usingFake,
+      usingFake = usingFake,
+      clearFamilyNotifications = clearFamilyNotifications,
     )
   }
 }
 
 @Composable
-@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 private fun IosControllerContent(
   graph: DayfoldRuntimeGraph,
   contentStore: ContentStore,
   runtimeHandleRegistration: suspend () -> Boolean,
+  seedSampleContent: Boolean,
+  resetFakeContent: Boolean,
+  usingFake: Boolean,
+  clearFamilyNotifications: () -> Unit,
 ) {
   // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
@@ -103,12 +126,31 @@ private fun IosControllerContent(
   // place added/removed, new timed items). Live position never leaves the device. Mirrors MainActivity.
   LaunchedEffect(Unit) {
     contentStore.notifConfigFlow().collect { cfg ->
-      if (cfg.enabled) { reRegisterGeofences(); reconcileExactSchedules() } else { IosNotifGlue.geofence.deregisterAll() }
+      if (cfg.enabled) {
+        reRegisterGeofences()
+        reconcileExactSchedules()
+      } else {
+        IosNotifGlue.geofence.deregisterAll()
+        IosExactNotificationScheduler().cancelAll()
+        IosLocalNotifier().cancelAll()
+      }
     }
   }
   LaunchedEffect(Unit) {
     contentStore.nowContentFlow().collect {
       if (contentStore.notifConfig().enabled) { reRegisterGeofences(); reconcileExactSchedules() }
+    }
+  }
+  // A response-table write does not invalidate nowContentFlow. Observe it independently so a local
+  // or canonical Done immediately retracts both pending and already-delivered notifications.
+  LaunchedEffect(Unit) {
+    contentStore.responsesFlow().collect {
+      if (contentStore.notifConfig().enabled) reconcileExactSchedules()
+    }
+  }
+  LaunchedEffect(Unit) {
+    contentStore.activeCardsFlow().collect {
+      if (contentStore.notifConfig().enabled) reconcileExactSchedules()
     }
   }
   // Pause the 45s poll when the app is backgrounded; resume when it returns to foreground.
@@ -121,7 +163,18 @@ private fun IosControllerContent(
     val lifecycle = IosControllerRuntimeOwner(
       scope = scope,
       startRuntime = {
-        seedDebugContent(contentStore)
+        // The fake transport is rebuilt in memory for every controller launch. Reset its
+        // disposable cache at the same boundary so a prior simulated completion cannot outlive
+        // the backend that acknowledged it and poison the next device-verification run.
+        if (resetFakeContent) withContext(Dispatchers.Default) {
+          clearFamilyNotifications()
+          try {
+            contentStore.wipe()
+          } finally {
+            IosNotifGlue.finishFamilyNotificationStateClear()
+          }
+        }
+        if (seedSampleContent) seedDebugContent(contentStore)
         graph.start()
       },
       resumeRuntime = graph::resume,
@@ -165,13 +218,15 @@ private fun IosControllerContent(
     }
   }
   val selectorStore = rememberSelectorStore(store)
-  val stablePlatformActions = remember(actions, locPerm, notifPerm) {
+  val stablePlatformActions = remember(actions, locPerm, notifPerm, usingFake) {
     StablePlatformActions(
       platformActions = actions,
       // Native provider UI is not implemented on iOS yet. A provider tap is therefore a no-op;
       // importantly it cannot fall through into the debug-token path.
       onSignIn = {},
-      onDevSignIn = if (kotlin.native.Platform.isDebugBinary) graph.commands::devSignIn else null,
+      // iosArm64 intentionally has no fake transport and no configured production API yet. Hiding
+      // this affordance there prevents a labelled sign-in action that can only fail/no-op.
+      onDevSignIn = graph.commands::devSignIn.takeIf { usingFake },
       onRequestProximityPermissions = { notifPerm.request(); locPerm.requestAlways() },
       onOpenAppSettings = locPerm::openOsSettings,
     )

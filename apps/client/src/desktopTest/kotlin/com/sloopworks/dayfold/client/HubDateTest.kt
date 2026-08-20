@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -26,6 +27,13 @@ class HubDateTest {
     assertNull(formatMetaWhen(null))
     assertNull(formatMetaWhen("   "))
     assertEquals("someday", formatMetaWhen("someday"))   // unparseable → unchanged, never blanked
+  }
+
+  @Test fun completionDatesUseTheViewerTimezoneAcrossMidnight() {
+    val losAngeles = TimeZone.of("America/Los_Angeles")
+    assertEquals("Aug 18", formatLocalDate("2026-08-19T06:30:00Z", losAngeles))
+    assertEquals("Aug 19", formatLocalDate("2026-08-19T08:30:00Z", losAngeles))
+    assertNull(formatLocalDate("not-a-date", losAngeles))
   }
 
   // DB-shaped timestamptz → ISO the parser accepts

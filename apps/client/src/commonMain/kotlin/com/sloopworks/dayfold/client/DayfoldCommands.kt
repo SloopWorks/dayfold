@@ -23,6 +23,8 @@ class DayfoldCommands internal constructor(
   private val externalHubTargets: PendingExternalHubTargetCoordinator? = null,
   private val calendarCheckEngine: CalendarCheckEngine? = null,
   private val calendarImportEngine: CalendarImportEngine? = null,
+  private val foregroundNotifier: LocalNotifier? = null,
+  private val familyWorkLauncher: ((FamilySessionContext, suspend (FamilySessionContext) -> Unit) -> Boolean)? = null,
   private val bindSelectedFamily: suspend () -> Unit = {},
 ) : DayfoldCommandPort {
   companion object {
@@ -101,7 +103,11 @@ class DayfoldCommands internal constructor(
 
   override fun refresh() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
   override fun loadHubs() { syncCoordinator?.requestSync(SyncReason.MANUAL_REFRESH) }
-  override fun nowShown(subjectKeys: Set<String>) { nowEngine?.noteShown(subjectKeys.toSet()) }
+  override fun nowShown(subjectKeys: Set<String>) {
+    val captured = subjectKeys.toSet()
+    foregroundNotifier?.let { cancelForegroundVisible(it, captured) }
+    nowEngine?.noteShown(captured)
+  }
 
   /** Opens the list with its return destination represented by one atomic Redux action. */
   override fun openHubs(returnDestination: HubReturnDestination) {
@@ -193,17 +199,19 @@ class DayfoldCommands internal constructor(
     audience: AudienceScope,
     label: String,
     sublabel: String?,
-  ) = launchEffect { responseEngine?.mute(subjectRef, matchScope, audience, label, sublabel) }
+  ) = launchCurrentFamily {
+    responseEngine?.mute(it, subjectRef, matchScope, audience, label, sublabel)
+  }
 
   override fun markDone(subjectRef: String, label: String, note: String?) =
-    launchEffect { responseEngine?.markDone(subjectRef, label, note) }
+    launchCurrentFamily { responseEngine?.markDone(it, subjectRef, label, note) }
 
-  override fun removeResponse(id: String) = launchEffect { responseEngine?.removeResponse(id) }
+  override fun removeResponse(id: String) = launchCurrentFamily { responseEngine?.removeResponse(it, id) }
 
-  override fun undoLastResponse() = launchEffect { responseEngine?.undoLastResponse() }
+  override fun undoLastResponse() = launchCurrentFamily { responseEngine?.undoLastResponse(it) }
 
   override fun recordResponseOffer(subjectRef: String) =
-    launchEffect { responseEngine?.recordResponseOffer(subjectRef) }
+    launchCurrentFamily { responseEngine?.recordResponseOffer(it, subjectRef) }
 
   override fun setCalendarEnabled(enabled: Boolean) { calendarCheckEngine?.setEnabled(enabled) }
   override fun setSelectedCalendars(calendarIds: Set<String>) { calendarCheckEngine?.setSelectedCalendars(calendarIds) }
@@ -243,6 +251,19 @@ class DayfoldCommands internal constructor(
   private fun launchFamily(familyId: String, block: suspend (FamilySessionContext) -> Unit) {
     val context = sessionCoordinator?.familySnapshot(familyId) ?: return
     launchEffect { if (sessionCoordinator.isCurrent(context)) block(context) }
+  }
+
+  /** Captures the selected tenant at the command edge and submits only to its replaceable scope. */
+  private fun launchCurrentFamily(block: suspend (FamilySessionContext) -> Unit) {
+    val familyId = store.state.session.activeFamilyId ?: return
+    val context = sessionCoordinator?.familySnapshot(familyId) ?: return
+    val launcher = familyWorkLauncher
+    if (launcher != null) {
+      if (!launcher(context, block)) Log.w("commands") { "Response write rejected by family admission" }
+    } else {
+      // Unit-test/legacy construction has no runtime family owner; currentness still fences it.
+      launchEffect { if (sessionCoordinator.isCurrent(context)) block(context) }
+    }
   }
 
   private fun launchEffect(block: suspend () -> Unit) { scope?.launch { block() } }

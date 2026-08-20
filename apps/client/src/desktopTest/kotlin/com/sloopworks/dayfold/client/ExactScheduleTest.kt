@@ -43,8 +43,44 @@ class ExactScheduleTest {
     assertTrue(planExactSchedules(snap(card("past", "2026-06-30T11:00:00Z")), noon, zone).isEmpty())
   }
 
+  @Test fun `a Done response retracts a future exact schedule even when the source card is stale`() {
+    val future = card("soon", "2026-06-30T14:00:00Z")
+    val done = ContentResponse(
+      id = "r1", kind = ResponseKind.DONE, subjectRef = "card:soon",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u2", label = "Event soon",
+    )
+    val snapshot = NotifSnapshot(
+      cards = listOf(future), responses = listOf(done), config = NotifConfig(enabled = true),
+    )
+
+    assertTrue(planExactSchedules(snapshot, noon, zone).isEmpty())
+    assertEquals(setOf("card:soon"), completedNotificationSubjects(snapshot))
+  }
+
   @Test fun `a custom horizon narrows the window`() {
     // a 30-min horizon drops the +2h item.
     assertTrue(planExactSchedules(snap(card("soon", "2026-06-30T14:00:00Z")), noon, zone, horizon = 30.minutes).isEmpty())
+  }
+
+  @Test fun `iOS schedule posture applies the cap independently to each local date`() {
+    val spec: (String) -> NotificationSpec = { id ->
+      NotificationSpec(id, "Event $id", "why $id", "On your device", null, urgent = false)
+    }
+    val schedules = listOf(
+      ExactSchedule("2026-06-30T14:00:00Z", spec("today")),
+      ExactSchedule("2026-07-01T10:00:00Z", spec("tomorrow-1")),
+      ExactSchedule("2026-07-01T11:00:00Z", spec("tomorrow-2")),
+    )
+    val selected = selectIosExactSchedules(
+      schedules = schedules,
+      config = NotifConfig(
+        enabled = true, quietStartMinuteOfDay = 0, quietEndMinuteOfDay = 0, dailyCap = 1,
+      ),
+      log = listOf(NotifLogRow("already-today", "2026-06-30T09:00:00Z")),
+      zone = zone,
+    )
+
+    assertEquals(listOf("tomorrow-1"), selected.map { it.spec.subjectKey })
   }
 }

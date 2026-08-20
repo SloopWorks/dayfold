@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.sloopworks.dayfold.client.onGeofenceEnter
 import com.sloopworks.dayfold.client.reRegisterGeofences
+import com.sloopworks.dayfold.client.reconcileExactSchedules
 import com.sloopworks.dayfold.client.runBackgroundNotificationPass
 
 // ADR 0044 §S3 — the headless background entry points. Thin: all decision logic lives in :client
@@ -32,19 +33,31 @@ class ExactAlarmReceiver : BroadcastReceiver() {
   }
 }
 
-// BOOT_COMPLETED / MY_PACKAGE_REPLACED → re-arm geofences (the OS drops them on reboot / app update).
+// BOOT_COMPLETED / MY_PACKAGE_REPLACED → re-arm geofences and exact alarms (the OS drops both on
+// reboot; package replacement can also invalidate alarms).
 class BootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val pending = goAsync()
     Thread {
       try {
         reRegisterGeofences(context.applicationContext)
+        reconcileExactSchedules(context.applicationContext)
         // ADR 0020 R3 — WorkManager persists work across reboots, but re-enqueueing with KEEP is
         // free and covers an install whose work was cleared (force-stop, app data clear).
         com.sloopworks.dayfold.client.ensurePeriodicRefresh(context.applicationContext)
       } finally {
         pending.finish()
       }
+    }.start()
+  }
+}
+
+/** Exact-alarm special access changed: replace approximate alarms with exact ones when granted. */
+class ExactAlarmPermissionReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    val pending = goAsync()
+    Thread {
+      try { reconcileExactSchedules(context.applicationContext) } finally { pending.finish() }
     }.start()
   }
 }

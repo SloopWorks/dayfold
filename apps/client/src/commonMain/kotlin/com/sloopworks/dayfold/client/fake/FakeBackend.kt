@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client.fake
 
 import com.sloopworks.dayfold.client.Changes
+import com.sloopworks.dayfold.client.ContentResponseWire
 import com.sloopworks.dayfold.client.DeviceCredential
 import com.sloopworks.dayfold.client.FamilyMember
 import com.sloopworks.dayfold.client.Hub
@@ -17,6 +18,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 // ── Fake backend (debug-only) ────────────────────────────────────────────────
 // A pure, platform-agnostic router that answers the dayfold API surface from a
@@ -48,7 +52,10 @@ data class FakeScenario(val id: String, val label: String, val data: FakeBackend
  * serializes them). `sync.changes` carries cards + hubs + sections + blocks.
  */
 data class FakeBackendData(
-  val session: Session = Session("fake-access", "fake-refresh", "fake-user"),
+  // Debug hosts enter fake scenarios through AuthEngine.devSignIn(), whose local actor is
+  // `dev-user`. Keep the fake server's acting identity aligned so echoed writes still render
+  // as "You" after their optimistic rows are replaced by sync.
+  val session: Session = Session("fake-access", "fake-refresh", "dev-user"),
   val whoami: WhoamiResponse,
   val sync: SyncResponse,
   val members: List<FamilyMember> = emptyList(),
@@ -59,7 +66,7 @@ data class FakeBackendData(
   val newFamilyId: String = "fam_fake_new",
   /** GET/PATCH /auth/me — the caller's own profile (task 4). Both routes serve this
    *  same canned value (the fake router is stateless — a PATCH doesn't persist). */
-  val me: MeProfile = MeProfile(userId = "fake-user", displayName = "Pat", avatarColor = "teal", avatarRef = "avatar:fox-01"),
+  val me: MeProfile = MeProfile(userId = "dev-user", displayName = "Pat", avatarColor = "teal", avatarRef = "avatar:fox-01"),
   /** Override the /sync status to model an error path (e.g. 500). 200 = serve `sync`. */
   val syncStatus: Int = 200,
   /** Artificial per-request delay (debug-only) so loading states are observable. */
@@ -81,13 +88,16 @@ class FakeBackend(
   val data: FakeBackendData,
   private val json: Json = Json { encodeDefaults = false; explicitNulls = false },
 ) {
+  private val responseRows = data.sync.changes.responses.associateBy { it.id }.toMutableMap()
+  private val responseTombstones = mutableSetOf<String>()
+
   /**
    * Route one request. [path] is the URL's encoded path (no host/query); [userCode]
    * is the `user_code` query param (only the device-pending route reads a query).
    * Unknown routes → 404. The host the client used is irrelevant (MockEngine routes
    * by path), so scenarios match any family id.
    */
-  fun handle(method: String, path: String, userCode: String?): FakeResponse {
+  fun handle(method: String, path: String, userCode: String?, body: String? = null): FakeResponse {
     val segs = path.trim('/').split('/').filter { it.isNotEmpty() }
     fun <T> ok(ser: kotlinx.serialization.KSerializer<T>, value: T) =
       FakeResponse(200, json.encodeToString(ser, value))
@@ -117,7 +127,13 @@ class FakeBackend(
       when {
         tail == listOf("sync") ->
           return if (data.syncStatus != 200) FakeResponse(data.syncStatus, "")
-          else ok(SyncResponse.serializer(), data.sync)
+          else ok(
+            SyncResponse.serializer(),
+            data.sync.copy(
+              changes = data.sync.changes.copy(responses = responseRows.values.toList()),
+              tombstones = data.sync.tombstones + responseTombstones.map { com.sloopworks.dayfold.client.Tombstone("response", it) },
+            ),
+          )
         tail == listOf("hubs") ->
           return ok(ListSerializer(Hub.serializer()), data.sync.changes.hubs)
         tail.size == 3 && tail[0] == "hubs" && tail[2] == "tree" ->
@@ -133,6 +149,35 @@ class FakeBackend(
         tail.size == 4 && tail[0] == "hubs" && tail[2] == "participants" && method == "DELETE" -> return FakeResponse(204, "")
         // PUT …/hubs/{id}/visibility (ADR 0053 DC2/DC4) — same stateless 200 ack.
         tail.size == 3 && tail[0] == "hubs" && tail[2] == "visibility" && method == "PUT" -> return FakeResponse(200, "{}")
+        tail.size == 2 && tail[0] == "responses" && method == "PUT" -> {
+          val obj = runCatching { json.parseToJsonElement(body.orEmpty()).jsonObject }.getOrNull()
+            ?: return FakeResponse(422, "")
+          fun str(name: String): String? = obj[name]?.jsonPrimitive?.contentOrNull
+          val row = ContentResponseWire(
+            id = tail[1],
+            kind = str("kind") ?: return FakeResponse(422, ""),
+            subjectRef = str("subject_ref") ?: return FakeResponse(422, ""),
+            matchScope = str("match_scope") ?: return FakeResponse(422, ""),
+            audienceScope = str("audience_scope") ?: return FakeResponse(422, ""),
+            userId = if (str("audience_scope") == "personal") data.session.userId else null,
+            createdBy = data.session.userId ?: "dev-user",
+            label = str("label") ?: return FakeResponse(422, ""),
+            sublabel = str("sublabel"),
+            note = str("note"),
+            createdAt = kotlin.time.Clock.System.now().toString(),
+            // Keep the version non-default so encodeDefaults=false still emits it, matching
+            // the real response endpoint shape SyncClient uses to clear optimistic state.
+            version = (responseRows[tail[1]]?.version ?: 1L) + 1L,
+          )
+          responseRows[row.id] = row
+          responseTombstones.remove(row.id)
+          return ok(ContentResponseWire.serializer(), row)
+        }
+        tail.size == 2 && tail[0] == "responses" && method == "DELETE" -> {
+          responseRows.remove(tail[1])
+          responseTombstones.add(tail[1])
+          return noContent
+        }
         tail == listOf("members") && method == "GET" ->
           return ok(MembersOut.serializer(), MembersOut(data.members))
         tail == listOf("invites") ->

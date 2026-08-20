@@ -86,6 +86,26 @@ describe("If-Match → 412 (ADR 0038 §6.2)", () => {
     const stale = await putBlock(o.familyId, "blk", o.token, sec, [{ id: "i1", text: "x", done: false }], { "if-match": "1" });
     expect(stale.status).toBe(412); // base v1 is stale (current v2)
   });
+
+  it("serializes concurrent section updates before checking the same base version", async () => {
+    const o = await ownerOf("mw-section-ifm-race");
+    await putHub(o.familyId, "hubSectionIfm", o.token, {});
+    expect((await putSection(o.familyId, "sectionIfm", o.token, "hubSectionIfm")).status).toBe(200);
+
+    const update = (title: string) => app.request(
+      `/families/${o.familyId}/sections/sectionIfm`,
+      {
+        method: "PUT",
+        headers: H(o.token, { "if-match": "1" }),
+        body: JSON.stringify({ hubId: "hubSectionIfm", title }),
+      },
+    );
+    const results = await Promise.all([update("First"), update("Second")]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 412]);
+    expect(Number((await q(
+      `SELECT version FROM sections WHERE family_id=$1 AND id='sectionIfm'`, [o.familyId],
+    )).rows[0].version)).toBe(2);
+  });
 });
 
 describe("410-on-tombstone (ADR 0038 §6.3 — no member resurrection)", () => {
@@ -134,5 +154,40 @@ describe("op_id idempotency (ADR 0039 §6.5)", () => {
     // replay with the now-stale If-Match: 1 — op_id short-circuit must win over the 412
     const replay = await putBlock(o.familyId, "o2", o.token, sec, [{ id: "i1", text: "x", done: true }], { "idempotency-key": "op-2", "if-match": "1" });
     expect(replay.status).toBe(200);
+  });
+
+  it("binds a block op key to its id and target and rechecks the current Hub ACL", async () => {
+    const o = await ownerOf("mw-op-bound-owner");
+    const m = await memberOf("mw-op-bound-member", o.familyId);
+    const source = await hubWithSection(o, "hubOpBoundSource", "secOpBoundSource");
+    const alternate = await hubWithSection(o, "hubOpBoundAlternate", "secOpBoundAlternate");
+    await q(`INSERT INTO resource_visibility(family_id,hub_id,user_id,role) VALUES
+      ($1,'hubOpBoundSource',$2,'contributor'),
+      ($1,'hubOpBoundAlternate',$2,'contributor')`, [o.familyId, m.userId]);
+
+    expect((await putBlock(o.familyId, "boundBlock", m.token, source,
+      [{ id: "i1", text: "Private task" }], { "idempotency-key": "bound-op" })).status).toBe(200);
+
+    const wrongTarget = await putBlock(o.familyId, "boundBlock", m.token, alternate,
+      [{ id: "i1", text: "Private task" }], { "idempotency-key": "bound-op" });
+    expect(wrongTarget.status).toBe(409);
+    expect((await wrongTarget.json()).type).toBe("idempotency-key-reused");
+
+    const wrongId = await putBlock(o.familyId, "differentBlock", m.token, alternate,
+      [{ id: "i1", text: "Different task" }], { "idempotency-key": "bound-op" });
+    expect(wrongId.status).toBe(409);
+    expect((await wrongId.json()).type).toBe("idempotency-key-reused");
+
+    // Move the original row into a Hub the member cannot see. Replaying the old request still
+    // passes its visible destination gate, so only a current-row ACL check prevents disclosure.
+    const hidden = await hubWithSection(o, "hubOpBoundHidden", "secOpBoundHidden", {
+      visibility: "restricted", audience: [o.userId],
+    });
+    expect((await putBlock(o.familyId, "boundBlock", o.token, hidden,
+      [{ id: "i1", text: "Private task" }])).status).toBe(200);
+    const hiddenReplay = await putBlock(o.familyId, "boundBlock", m.token, source,
+      [{ id: "i1", text: "Private task" }], { "idempotency-key": "bound-op" });
+    expect(hiddenReplay.status).toBe(404);
+    expect(await hiddenReplay.text()).toBe("");
   });
 });

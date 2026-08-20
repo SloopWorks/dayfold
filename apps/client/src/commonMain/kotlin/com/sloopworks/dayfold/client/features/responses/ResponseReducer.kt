@@ -15,6 +15,7 @@ fun reduceResponses(state: AppState, action: Any): AppState = when (action) {
         source = action.source,
         surface = action.surface,
         step = action.step,
+        entryStep = action.step,
       ),
     ),
   )
@@ -23,7 +24,11 @@ fun reduceResponses(state: AppState, action: Any): AppState = when (action) {
 
   is ResponseStepScope -> state.withSheet { it.copy(step = ResponseStep.SCOPE) }
   is ResponseStepDoneNote -> state.withSheet { it.copy(step = ResponseStep.DONE_NOTE) }
-  is ResponseStepBack -> state.withSheet { it.copy(step = ResponseStep.VERBS) }
+  is ResponseStepBack -> if (state.responses.sheet?.entryStep == ResponseStep.VERBS) {
+    state.withSheet { it.copy(step = ResponseStep.VERBS) }
+  } else {
+    state.copy(responses = state.responses.copy(sheet = null))
+  }
 
   is SetResponseMatchScope -> state.withSheet { it.copy(pendingMatchScope = action.scope) }
   is SetResponseAudience -> state.withSheet { it.copy(pendingAudience = action.audience) }

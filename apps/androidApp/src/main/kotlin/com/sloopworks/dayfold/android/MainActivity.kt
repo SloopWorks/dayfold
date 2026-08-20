@@ -11,22 +11,22 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.sloopworks.dayfold.client.AndroidApiConfigHolder
-import com.sloopworks.dayfold.client.AndroidGeofenceController
 import com.sloopworks.dayfold.client.AndroidLocalNotifier
 import com.sloopworks.dayfold.client.AndroidLocationPermissionController
 import com.sloopworks.dayfold.client.AndroidNotificationPermissionController
 import com.sloopworks.dayfold.client.AndroidTokenStore
-import com.sloopworks.dayfold.client.DEFAULT_GEOFENCE_RADIUS_M
 import com.sloopworks.dayfold.client.DayfoldRuntimeFactory
 import com.sloopworks.dayfold.client.DeepLinkTarget
 import com.sloopworks.dayfold.client.FeedApp
-import com.sloopworks.dayfold.client.GeoRegion
 import com.sloopworks.dayfold.client.LocationPermissionLoaded
 import com.sloopworks.dayfold.client.NotificationPermissionLoaded
 import com.sloopworks.dayfold.client.StablePlatformActions
-import com.sloopworks.dayfold.client.ANDROID_REGION_CAP
 import com.sloopworks.dayfold.client.AppState
+import com.sloopworks.dayfold.client.clearAndroidFamilyNotificationState
+import com.sloopworks.dayfold.client.disableAndroidNotificationState
+import com.sloopworks.dayfold.client.enableAndroidNotificationState
 import com.sloopworks.dayfold.client.fake.initialStateForFakeScenario
+import com.sloopworks.dayfold.client.finishAndroidFamilyNotificationStateClear
 import com.sloopworks.dayfold.client.mainNotificationContext
 import com.sloopworks.debugdrawer.Backend
 import com.sloopworks.debugdrawer.BuildInfo
@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
     // on a local/fake backend would have prod rows and a prod cursor written into the same cache.
     AndroidApiConfigHolder.apiBase = apiBase
     val appContext = applicationContext
+    val clearFamilyNotifications = { clearAndroidFamilyNotificationState(appContext) }
     // Fake backend (debug UI testing): a `fake://<scenario>` selection routes ALL
     // transport through an in-process MockEngine instead of the network. fakeHttp is
     // null in release and for real URLs → the shared real HttpClient is used. The
@@ -210,6 +211,7 @@ class MainActivity : ComponentActivity() {
         contentStore = cs,
         tokenStore = AndroidTokenStore(appContext),
         notificationContext = mainNotificationContext(),
+        foregroundNotifier = AndroidLocalNotifier(appContext),
         httpClientFactory = { http },
         debug = BuildConfig.DEBUG,
         extraEnhancer = debugStoreEnhancer(),
@@ -218,6 +220,8 @@ class MainActivity : ComponentActivity() {
         // MockEngine. Release's inert fake adapter can never expose the preview.
         initialState = if (isFake) initialStateForFakeScenario(scenarioId) else AppState(),
         calendarPort = com.sloopworks.dayfold.client.AndroidCalendarPort(appContext),
+        onFamilyDataCleared = clearFamilyNotifications,
+        onFamilyDataClearFinished = ::finishAndroidFamilyNotificationStateClear,
       ).create()
       RetainedDayfoldRuntime(
         handle = GraphDayfoldRuntimeHandle(graph),
@@ -225,7 +229,13 @@ class MainActivity : ComponentActivity() {
         beforeStart = if (isFake) {
           // Start clean off-main before runtime auth/sync can read the persistent database. This
           // retained startup hook runs once, so configuration changes never wipe the session.
-          suspend { withContext(Dispatchers.IO) { cs.wipe() } }
+          suspend {
+            withContext(Dispatchers.IO) {
+              clearFamilyNotifications()
+              cs.wipe()
+              finishAndroidFamilyNotificationStateClear()
+            }
+          }
         } else {
           suspend {}
         },
@@ -291,7 +301,6 @@ class MainActivity : ComponentActivity() {
     // controllers, mirroring SyncEngine's config bridge; OS-owned → re-read on resume below). Then react
     // to the device-local config: enabling background proximity registers geofences for the saved places
     // (capped); disabling de-registers them all. Live position never leaves the device.
-    val geofence = AndroidGeofenceController(applicationContext)
     store.dispatch(LocationPermissionLoaded(locationPermission.currentState()))
     store.dispatch(NotificationPermissionLoaded(notificationPermission.currentState()))
     lifecycleScope.launch { locationPermission.state.collect { store.dispatch(LocationPermissionLoaded(it)) } }
@@ -299,13 +308,13 @@ class MainActivity : ComponentActivity() {
     lifecycleScope.launch {
       cs.notifConfigFlow().collect { cfg ->
         if (cfg.enabled) {
-          val regions = cs.activePlaces().take(ANDROID_REGION_CAP)
-            .map { GeoRegion(it.id, it.lat, it.lng, it.radiusM?.toDouble() ?: DEFAULT_GEOFENCE_RADIUS_M) }
-          geofence.register(regions)
+          enableAndroidNotificationState()
+          com.sloopworks.dayfold.client.reRegisterGeofences(applicationContext)
+          maybeRequestExactAlarmAccess()
           // arm exact alarms for known future instants (when.at / countdown / milestone).
           com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
         } else {
-          geofence.deregisterAll()
+          withContext(Dispatchers.IO) { disableAndroidNotificationState(applicationContext) }
         }
       }
     }
@@ -314,9 +323,26 @@ class MainActivity : ComponentActivity() {
     lifecycleScope.launch {
       cs.nowContentFlow().collect {
         if (store.state.notifications.config.enabled) {
-          val regions = cs.activePlaces().take(ANDROID_REGION_CAP)
-            .map { GeoRegion(it.id, it.lat, it.lng, it.radiusM?.toDouble() ?: DEFAULT_GEOFENCE_RADIUS_M) }
-          geofence.register(regions)
+          com.sloopworks.dayfold.client.reRegisterGeofences(applicationContext)
+          com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
+        }
+      }
+    }
+    // Responses live in their own SQLDelight table, so a Done commit does not wake nowContentFlow.
+    // Reconcile on response changes as well: this immediately cancels a delivered or armed reminder
+    // for the completed subject, including a canonical row adopted after a competing-device 409.
+    lifecycleScope.launch {
+      cs.responsesFlow().collect {
+        if (store.state.notifications.config.enabled) {
+          com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
+        }
+      }
+    }
+    // Authored cards are a third notification input table: a new/changed card can add, move, or
+    // remove an exact trigger without touching the Hub-content query above.
+    lifecycleScope.launch {
+      cs.activeCardsFlow().collect {
+        if (store.state.notifications.config.enabled) {
           com.sloopworks.dayfold.client.reconcileExactSchedules(applicationContext)
         }
       }
@@ -361,6 +387,17 @@ class MainActivity : ComponentActivity() {
         }
       }
     }
+  }
+
+  /** Show Android's special-access guidance once; inexact alarms remain the safe fallback. */
+  private fun maybeRequestExactAlarmAccess() {
+    if (com.sloopworks.dayfold.client.canScheduleExactNotifications(this)) return
+    val prefs = getSharedPreferences("dayfold.permission_guidance", MODE_PRIVATE)
+    if (prefs.getBoolean("exact_alarm_requested", false)) return
+    val opened = runCatching {
+      startActivity(com.sloopworks.dayfold.client.exactAlarmPermissionIntent(this))
+    }.isSuccess
+    if (opened) prefs.edit().putBoolean("exact_alarm_requested", true).apply()
   }
 
 }

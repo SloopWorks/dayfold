@@ -157,7 +157,7 @@ class SyncEngine(
     if (reason == SyncReason.MANUAL_REFRESH && !isConflatedRerun) startStatus()
     return try {
       drain(context, startStatus)
-      drainOutbox(context, startStatus) // ADR 0038 — push local member writes after pulling fresh remote
+      drainOutbox(context, startStatus)
       Log.i("sync") { "sync succeeded" }
       if (statusStarted) publishSucceeded(context)
       true
@@ -279,6 +279,13 @@ class SyncEngine(
           when (OutboxSender.classify(result.status, op.attempts.toInt())) {
             SendOutcome.Acked -> stop = if (isImportOp) {
               contentStore.ackOp(op.opId, result.version); false
+            } else if (op.targetKind == "response") {
+              contentStore.ackResponseOp(
+                opId = op.opId,
+                targetId = op.targetId,
+                resultVersion = result.version,
+                isDelete = op.type == "delete" || result.status == 204,
+              ); false
             } else {
               contentStore.ackOpAndAdvanceSuccessor(
                 opId = op.opId,
@@ -292,8 +299,52 @@ class SyncEngine(
             } else {
               contentStore.rebaseOpFromLocal(op.opId, op.targetId, nowProvider())
             }
-            SendOutcome.Drop -> { contentStore.dropOp(op.opId, op.targetId); contentStore.cascadeDropDependents(op.opId) }
-            SendOutcome.Failed -> { contentStore.failOp(op.opId, op.targetId); contentStore.cascadeDropDependents(op.opId) }
+            SendOutcome.Drop -> {
+              if (op.targetKind == "response") {
+                val canonical = result.canonicalResponse
+                when {
+                  result.problemType == "subject-already-done" && canonical != null -> {
+                    contentStore.resolveResponseConflict(op.opId, op.targetId, canonical)
+                    contentStore.cascadeDropDependents(op.opId)
+                  }
+                  // Compatibility during a rolling API deployment: an older server may return
+                  // the typed conflict without the canonical row. Keep the optimistic suppressor
+                  // and retry later instead of exposing the completed subject or showing a false
+                  // byline. The new server resolves this branch on the next attempt.
+                  result.problemType == "subject-already-done" -> {
+                    contentStore.deferResponseConflict(
+                      op.opId,
+                      op.targetId,
+                      giveUp = op.attempts.toInt() + 1 >= OutboxSender.MAX_ATTEMPTS,
+                    )
+                    stop = true
+                  }
+                  else -> {
+                    contentStore.rejectResponseOp(
+                      op.opId, op.targetId, op.type == "delete", failed = false,
+                      // A response DELETE 404 means the subject or private row is no longer
+                      // readable. Restoring its captured payload would re-expose tenant data.
+                      rollbackPayload = op.payload.takeUnless { op.type == "delete" && result.status == 404 },
+                    )
+                    contentStore.cascadeDropDependents(op.opId)
+                  }
+                }
+                publishResponseRejection(op, result)
+              } else {
+                contentStore.dropOp(op.opId, op.targetId)
+                contentStore.cascadeDropDependents(op.opId)
+              }
+            }
+            SendOutcome.Failed -> {
+              if (op.targetKind == "response") {
+                contentStore.rejectResponseOp(
+                  op.opId, op.targetId, op.type == "delete", failed = true,
+                  rollbackPayload = op.payload,
+                )
+                publishResponseRejection(op, result)
+              } else contentStore.failOp(op.opId, op.targetId)
+              contentStore.cascadeDropDependents(op.opId)
+            }
             is SendOutcome.Backoff -> { contentStore.bumpOpAttempt(op.opId); stop = true }
           }
         }
@@ -302,6 +353,31 @@ class SyncEngine(
       }
       if (shouldReturn) return
     }
+  }
+
+  /** Replace an optimistic success receipt when the server terminally rejects that response. */
+  private fun publishResponseRejection(op: OutboxOp, result: PutResult) {
+    val current = store.state.responses.lastReceipt
+    // Do not overwrite feedback for a newer response; a dismissed or matching receipt can be
+    // safely replaced with the authoritative outcome.
+    if (current != null && current.responseId != op.targetId) return
+    val isDone = op.payload.contains("\"kind\":\"done\"")
+    val message = when {
+      result.problemType == "subject-already-done" -> "Already marked done"
+      op.type == "delete" -> "Couldn't remove response"
+      isDone -> "Couldn't mark done"
+      else -> "Couldn't save response"
+    }
+    store.dispatch(
+      ResponseReceiptShown(
+        ResponseReceipt(
+          responseId = op.targetId,
+          message = message,
+          undoable = false,
+          offline = false,
+        ),
+      ),
+    )
   }
 
   // ADR 0030 (round-1 P0-2): 403 (removed) / 404 (non-member) = tenancy revocation →

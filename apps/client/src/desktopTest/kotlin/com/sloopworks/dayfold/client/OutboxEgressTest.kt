@@ -45,6 +45,224 @@ class OutboxEgressTest {
   private fun bodyText(req: HttpRequestData): String =
     (req.body as io.ktor.http.content.TextContent).text
 
+  @Test fun `a delete rejected after an ACL tombstone cannot restore private response data`() = runBlocking {
+    val cs = store()
+    val response = ContentResponse(
+      id = "private-rule", kind = ResponseKind.MUTE, subjectRef = "hub:private",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.PERSONAL,
+      userId = "u1", createdBy = "u1", label = "Private label", note = "Private note",
+      createdAt = "2026-06-29T09:00:00Z", version = 2L,
+    )
+    cs.upsertResponseLocal(response)
+    assertTrue(cs.enqueueResponseDelete("delete-private", response.id, "2026-06-29T10:00:00Z"))
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        respond(
+          """{"changes":{},"tombstones":[{"type":"response","id":"private-rule"}],"has_more":false}""",
+          HttpStatusCode.OK, jsonHdr,
+        )
+      } else respond("", HttpStatusCode.NotFound)
+    })
+
+    engine(cs, sc).syncNow()
+
+    assertTrue(cs.allResponses().isEmpty())
+    assertEquals(0L, cs.outboxSize())
+  }
+
+  @Test fun `a 204 replay of a removed response PUT deletes the orphan optimistic row`() = runBlocking {
+    val cs = store()
+    val response = ContentResponse(
+      id = "orphan-rule", kind = ResponseKind.MUTE, subjectRef = "kind:weather",
+      matchScope = MatchScope.KIND, audienceScope = AudienceScope.PERSONAL,
+      userId = "u1", createdBy = "u1", label = "Weather", pending = true,
+    )
+    cs.upsertResponseLocal(response)
+    cs.enqueueResponseOp(response.id, response.id, "upsert", responseWireJson(response), "2026-06-29T10:00:00Z")
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        respond("""{"changes":{},"tombstones":[],"has_more":false}""", HttpStatusCode.OK, jsonHdr)
+      } else respond("", HttpStatusCode.NoContent)
+    })
+
+    engine(cs, sc).syncNow()
+
+    assertTrue(cs.allResponses().isEmpty())
+  }
+
+  @Test fun `a rejected response PUT rolls back the optimistic Done row`() = runBlocking {
+    val cs = store()
+    val appStore = createTestAppStore(
+      AppState(
+        session = SessionState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        responses = ResponseState(
+          lastReceipt = ResponseReceipt("done1", "Marked done", undoable = false, offline = false),
+        ),
+      ),
+      debug = false,
+    )
+    val response = ContentResponse(
+      id = "done1", kind = ResponseKind.DONE, subjectRef = "card:c1",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u1", label = "Call caterer", pending = true,
+    )
+    cs.upsertResponseLocal(response)
+    cs.enqueueResponseOp("done1", "done1", "upsert", responseWireJson(response), "2026-06-29T10:00:00Z")
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        respond("""{"changes":{},"tombstones":[],"has_more":false}""", HttpStatusCode.OK, jsonHdr)
+      } else {
+        respond("", HttpStatusCode.NotFound)
+      }
+    })
+
+    SyncEngine(
+      appStore, cs, sc, nowProvider = { "2026-06-29T10:00:00Z" },
+    ).syncNow()
+
+    assertTrue(cs.allResponses().isEmpty())
+    assertEquals(0L, cs.outboxSize())
+    assertEquals("Couldn't mark done", appStore.state.responses.lastReceipt?.message)
+    assertFalse(appStore.state.responses.lastReceipt?.undoable ?: true)
+  }
+
+  @Test fun `a racing canonical completion replaces success copy with already done`() = runBlocking {
+    val cs = store()
+    val appStore = createTestAppStore(
+      AppState(
+        session = SessionState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        responses = ResponseState(
+          lastReceipt = ResponseReceipt("done2", "Marked done", undoable = false, offline = false),
+        ),
+      ),
+      debug = false,
+    )
+    val response = ContentResponse(
+      id = "done2", kind = ResponseKind.DONE, subjectRef = "card:c2",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u1", label = "Call caterer", pending = true,
+    )
+    cs.upsertResponseLocal(response)
+    cs.enqueueResponseOp("done2", "done2", "upsert", responseWireJson(response), "2026-06-29T10:00:00Z")
+    var syncCalls = 0
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        syncCalls += 1
+        // Deliberately advance beyond the winner's transaction-start timestamp: a follow-up
+        // cursor pull could skip that row forever, so reconciliation must come from the 409.
+        respond(
+          """{"changes":{},"tombstones":[],"next_cursor":"2026-06-29T10:00:02Z|later","has_more":false}""",
+          HttpStatusCode.OK,
+          jsonHdr,
+        )
+      } else {
+        respond(
+          """{"type":"subject-already-done","response":{"id":"canonical-done","kind":"done","subject_ref":"card:c2","match_scope":"subject","audience_scope":"family","user_id":null,"created_by":"u2","label":"Call caterer","created_at":"2026-06-29T10:00:01Z","version":1}}""",
+          HttpStatusCode.Conflict,
+          jsonHdr,
+        )
+      }
+    })
+
+    SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-29T10:00:00Z" }).syncNow()
+
+    val canonical = cs.allResponses().single()
+    assertEquals("canonical-done", canonical.id)
+    assertFalse(canonical.pending)
+    assertEquals(1, syncCalls)
+    assertEquals("Already marked done", appStore.state.responses.lastReceipt?.message)
+  }
+
+  @Test fun `an older server conflict keeps suppression without false attribution`() = runBlocking {
+    val cs = store()
+    val appStore = createTestAppStore(
+      AppState(
+        session = SessionState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        responses = ResponseState(
+          lastReceipt = ResponseReceipt("done-old", "Marked done", undoable = false, offline = false),
+        ),
+      ),
+      debug = false,
+    )
+    val response = ContentResponse(
+      id = "done-old", kind = ResponseKind.DONE, subjectRef = "card:c-old",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u1", label = "Call caterer", note = "I handled it", pending = true,
+    )
+    cs.upsertResponseLocal(response)
+    cs.enqueueResponseOp("done-old", "done-old", "upsert", responseWireJson(response), "2026-06-29T10:00:00Z")
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        respond("""{"changes":{},"tombstones":[],"has_more":false}""", HttpStatusCode.OK, jsonHdr)
+      } else {
+        respond("""{"type":"subject-already-done"}""", HttpStatusCode.Conflict, jsonHdr)
+      }
+    })
+
+    SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-29T10:00:00Z" }).syncNow()
+
+    val retained = cs.allResponses().single()
+    assertEquals("done-old", retained.id)
+    assertTrue(retained.pending)
+    assertEquals("", retained.createdBy)
+    assertNull(retained.note)
+    assertEquals(1L, cs.outboxSize())
+    assertEquals("Already marked done", appStore.state.responses.lastReceipt?.message)
+  }
+
+  @Test fun `an older server conflict stops retrying at the cap and stays anonymous`() = runBlocking {
+    val cs = store()
+    val appStore = createTestAppStore(
+      AppState(
+        session = SessionState(session = Session("tok", "refresh"), activeFamilyId = "fam1"),
+        responses = ResponseState(
+          lastReceipt = ResponseReceipt("done-old", "Marked done", undoable = false, offline = false),
+        ),
+      ),
+      debug = false,
+    )
+    val response = ContentResponse(
+      id = "done-old", kind = ResponseKind.DONE, subjectRef = "card:c-old",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u1", label = "Call caterer", pending = true,
+      createdAt = "2026-06-29T10:00:00Z",
+    )
+    cs.upsertResponseLocal(response)
+    cs.enqueueResponseOp("done-old", "done-old", "upsert", responseWireJson(response), "2026-06-29T10:00:00Z")
+    var putCalls = 0
+    val sc = client(MockEngine { req ->
+      if (req.url.encodedPath.endsWith("/sync")) {
+        respond("""{"changes":{},"tombstones":[],"has_more":false}""", HttpStatusCode.OK, jsonHdr)
+      } else {
+        putCalls += 1
+        respond("""{"type":"subject-already-done"}""", HttpStatusCode.Conflict, jsonHdr)
+      }
+    })
+    val sync = SyncEngine(appStore, cs, sc, nowProvider = { "2026-06-29T10:00:00Z" })
+
+    repeat(OutboxSender.MAX_ATTEMPTS) { sync.syncNow() }
+
+    val retained = cs.allResponses().single()
+    assertEquals(OutboxSender.MAX_ATTEMPTS, putCalls)
+    assertEquals("", retained.createdBy)
+    assertEquals("", retained.createdAt, "unknown winner time must not be presented as our attempt")
+    assertFalse(retained.pending)
+    assertEquals(0L, cs.outboxSize())
+
+    val canonical = ContentResponse(
+      id = "done-canonical", kind = ResponseKind.DONE, subjectRef = "card:c-old",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u2", label = "Call caterer",
+      createdAt = "2026-06-29T09:59:00Z",
+    )
+    cs.applyDelta(
+      changedCards = emptyList(), changedHubs = emptyList(), tombstones = emptyList(),
+      nextCursor = "canonical", nowIso = "2026-06-29T10:05:00Z",
+      changedResponses = listOf(canonical),
+    )
+    assertEquals(listOf("done-canonical"), cs.allResponses().map { it.id })
+  }
+
   @Test fun `toggle → PUT with If-Match + Idempotency-Key → ack → echo clears pending`() = runBlocking {
     val cs = store()
     seed(cs, block(done = false, version = 1), "c0")

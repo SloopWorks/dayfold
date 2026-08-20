@@ -39,7 +39,7 @@ private val CALENDAR_IDS_SER = ListSerializer(String.serializer())     // ADR 00
 //       them, and incremental sync never prunes undelivered rows. reconcileSchemaVersion wipes
 //       synced content+cursor once so the next sync full-rehydrates from the server (truth). The
 //       seed source was removed (MainActivity), so this is a durable heal, not a recurring one.
-const val CLIENT_SCHEMA_VERSION: Long = 3L   // 2→3 (#299): cards now carry decoded triggers (when/geo)
+const val CLIENT_SCHEMA_VERSION: Long = 4L   // 3→4: response createdAt drives durable Hub completion history
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
@@ -143,10 +143,19 @@ class ContentStore(driver: SqlDriver) {
         // ends the optimistic state, exactly as the block path clears local_state.
         q.upsertResponse(
           r.id, r.kind.wire, r.subjectRef, r.matchScope.wire, r.audienceScope.wire,
-          r.userId, r.createdBy, r.label, r.sublabel, r.note, r.version, 0L,
+          r.userId, r.createdBy, r.label, r.sublabel, r.note, r.createdAt, r.version, 0L,
         )
         // Echo-suppress: the write came back, so its acked op is done.
         q.dropAckedForTarget(r.id)
+        if (r.kind == ResponseKind.DONE) {
+          // If a winner arrived during the initial pull, remove any losing optimistic copy and
+          // its op before the outbox drain. This prevents duplicate completion history and avoids
+          // retrying a conflict the cache has already resolved authoritatively.
+          q.otherDoneIdsForSubject(r.subjectRef, r.id).executeAsList().forEach { duplicateId ->
+            q.deleteOpsForTarget(duplicateId)
+            q.deleteResponse(duplicateId)
+          }
+        }
       }
       tombstones.forEach { t ->
         when (t.type) {
@@ -253,10 +262,12 @@ class ContentStore(driver: SqlDriver) {
   // (tenancy revocation) — the same boundary as cards.
   private fun wipeSyncedContent() {
     q.wipeCards(); q.wipeHubs(); q.wipeSections(); q.wipeBlocks(); q.wipeCursor(); q.wipePlaces()
-    // ADR 0064 — synced family content, so a from-∞ rebuild replaces it too. response_offer is
-    // NOT wiped here: it is device-local anti-nag history, like `hidden` and surfacing_state,
-    // and a staleness reset must not re-offer an escalation the member already declined.
-    q.wipeResponses()
+    // ADR 0064 — acknowledged rows are synced family content, so a from-∞ rebuild replaces them.
+    // Pending rows stay paired with the outbox that this same boundary deliberately preserves;
+    // dropping only the row would resurrect completed/muted content until the queued write drains.
+    // response_offer is also preserved: it is device-local anti-nag history, like `hidden` and
+    // surfacing_state, and a staleness reset must not re-offer an escalation already declined.
+    q.wipeSyncedResponses()
   }
 
   // ── ADR 0064 — smart-content responses (Tier 1, SYNCED) + the Tier-0 offer flag.
@@ -274,6 +285,7 @@ class ContentStore(driver: SqlDriver) {
         label = it.label,
         sublabel = it.sublabel,
         note = it.note,
+        createdAt = it.created_at,
         version = it.version,
         pending = it.pending != 0L,
       )
@@ -283,7 +295,7 @@ class ContentStore(driver: SqlDriver) {
   fun upsertResponseLocal(r: ContentResponse) = withWriteGate {
     q.upsertResponse(
       r.id, r.kind.wire, r.subjectRef, r.matchScope.wire, r.audienceScope.wire,
-      r.userId, r.createdBy, r.label, r.sublabel, r.note, r.version, if (r.pending) 1L else 0L,
+      r.userId, r.createdBy, r.label, r.sublabel, r.note, r.createdAt, r.version, if (r.pending) 1L else 0L,
     )
   }
 
@@ -300,8 +312,41 @@ class ContentStore(driver: SqlDriver) {
       q.enqueueOp(opId, "response", id, type, payload, 0L, null, nowIso)
     }
 
-  /** Undo — drop the queued write entirely. Works offline: nothing has left the device yet. */
-  fun dropQueuedOpsFor(targetId: String) = withWriteGate { q.deleteOpsForTarget(targetId) }
+  /**
+   * Optimistically remove a response while retaining a private rollback snapshot in the DELETE
+   * outbox row. DELETE sends no body, so the payload is device-local recovery data only; a
+   * terminal server rejection can restore the exact synced rule even after the inbound cursor
+   * has advanced past it.
+   */
+  fun enqueueResponseDelete(opId: String, id: String, nowIso: String): Boolean = withWriteGate {
+    val response = allResponses().firstOrNull { it.id == id } ?: return@withWriteGate false
+    val rollback = json.encodeToString(
+      ContentResponseWire.serializer(),
+      ContentResponseWire(
+        id = response.id,
+        kind = response.kind.wire,
+        subjectRef = response.subjectRef,
+        matchScope = response.matchScope.wire,
+        audienceScope = response.audienceScope.wire,
+        userId = response.userId,
+        createdBy = response.createdBy,
+        label = response.label,
+        sublabel = response.sublabel,
+        note = response.note,
+        createdAt = response.createdAt,
+        version = response.version,
+      ),
+    )
+    q.transaction {
+      // Undo is a causal successor of the original PUT. Wall-clock timestamps and ULID tails are not
+      // an ordering primitive (equal timestamps and clock rollback are both legal), so persist the
+      // explicit dependency. pendingOps admits the DELETE only after this PUT is acked or removed.
+      val dependsOn = q.latestOpenResponseUpsert(id).executeAsOneOrNull()
+      q.deleteResponse(id)
+      q.enqueueOp(opId, "response", id, "delete", rollback, 0L, dependsOn, nowIso)
+    }
+    true
+  }
 
   /** Tier-0, never synced: has this subject already been offered the escalation, ever? */
   fun wasResponseOffered(subjectRef: String): Boolean =
@@ -463,6 +508,95 @@ class ContentStore(driver: SqlDriver) {
     needsRepull
   }
 
+  /** A successful response write is authoritative: settle its optimistic state immediately. */
+  fun ackResponseOp(
+    opId: String,
+    targetId: String,
+    resultVersion: Long?,
+    isDelete: Boolean = false,
+  ) = withWriteGate {
+    q.transaction {
+      q.markAcked(resultVersion, opId)
+      // A from-infinity pull can race a queued DELETE and materialize the still-live server row
+      // before egress drains. The acknowledged DELETE must win over that older snapshot.
+      if (isDelete) q.deleteResponse(targetId)
+      else q.clearResponsePending(resultVersion ?: 1L, targetId)
+    }
+  }
+
+  /**
+   * A terminally rejected optimistic response must not hide content behind “saving…” forever.
+   * Upserts are rolled back; deletes already removed the local row and need only drop/park the op.
+   */
+  fun rejectResponseOp(
+    opId: String,
+    targetId: String,
+    isDelete: Boolean,
+    failed: Boolean,
+    rollbackPayload: String? = null,
+  ) =
+    withWriteGate {
+      val rollback = if (isDelete) rollbackPayload?.let { payload ->
+        runCatching { json.decodeFromString(ContentResponseWire.serializer(), payload).toDomain() }.getOrNull()
+      } else null
+      q.transaction {
+        if (failed) q.markFailed(opId) else q.deleteOp(opId)
+        if (!isDelete) {
+          q.deleteResponse(targetId)
+        } else if (rollback != null) {
+          q.upsertResponse(
+            rollback.id, rollback.kind.wire, rollback.subjectRef, rollback.matchScope.wire,
+            rollback.audienceScope.wire, rollback.userId, rollback.createdBy, rollback.label,
+            rollback.sublabel, rollback.note, rollback.createdAt, rollback.version, 0L,
+          )
+        }
+      }
+    }
+
+  /**
+   * Another device completed the subject first. Replace our optimistic row with the server's
+   * already-authorized canonical Done row in one transaction, so the subject never flashes
+   * live between rollback and reconciliation and correctness does not depend on sync cursors.
+   */
+  fun resolveResponseConflict(opId: String, targetId: String, canonical: ContentResponse) =
+    withWriteGate {
+      q.transaction {
+        q.deleteOp(opId)
+        q.deleteResponse(targetId)
+        q.upsertResponse(
+          canonical.id, canonical.kind.wire, canonical.subjectRef, canonical.matchScope.wire,
+          canonical.audienceScope.wire, canonical.userId, canonical.createdBy, canonical.label,
+          canonical.sublabel, canonical.note, canonical.createdAt, canonical.version, 0L,
+        )
+      }
+    }
+
+  /**
+   * Older-server fallback. Prefer an already-cached canonical Done; otherwise retain one anonymous
+   * suppressor and retry only to the normal cap, avoiding false attribution/timing and an endless
+   * 409 loop. A later canonical echo prunes this fallback even after the cap cleared its pending bit.
+   */
+  fun deferResponseConflict(opId: String, targetId: String, giveUp: Boolean) = withWriteGate {
+    q.transaction {
+      val subjectRef = allResponses().firstOrNull { it.id == targetId }?.subjectRef
+      val canonicalId = subjectRef?.let {
+        q.syncedDoneIdForSubject(it, targetId).executeAsOneOrNull()
+      }
+      if (canonicalId != null) {
+        q.deleteOp(opId)
+        q.deleteResponse(targetId)
+      } else {
+        q.markResponseConflictPending(targetId)
+        if (giveUp) {
+          q.deleteOp(opId)
+          q.clearResponsePending(1L, targetId)
+        } else {
+          q.bumpAttempt(opId)
+        }
+      }
+    }
+  }
+
   /** Give up after the attempt cap: park the op 'failed' + surface a calm 'failed' on the block. */
   fun failOp(opId: String, targetId: String) {
     withWriteGate { q.transaction { q.markFailed(opId); q.setBlockLocalState("failed", targetId) } }
@@ -621,6 +755,7 @@ class ContentStore(driver: SqlDriver) {
           label = it.label,
           sublabel = it.sublabel,
           note = it.note,
+          createdAt = it.created_at,
           version = it.version,
           pending = it.pending != 0L,
         )
@@ -836,6 +971,7 @@ class ContentStore(driver: SqlDriver) {
    * planBackgroundNotifications, which builds a minimal AppState and reuses nowFeed + selectNotifications.
    */
   fun notifSnapshot(): NotifSnapshot = withWriteGate {
+    val responses = allResponses()
     NotifSnapshot(
       cards = activeCards(),
       hubs = activeHubs(),
@@ -845,6 +981,11 @@ class ContentStore(driver: SqlDriver) {
       surfacing = surfacing(),
       config = notifConfig(),
       log = notificationLog(),
+      responses = responses,
+      // /sync exposes a personal rule only to its owner, so any cached personal response identifies
+      // the viewer for the headless pass. With no personal rules, null is sufficient: family/Done
+      // responses apply without an identity.
+      viewerUserId = responses.firstOrNull { it.audienceScope == AudienceScope.PERSONAL }?.userId,
       calendarOwnedSubjects = calendarBindingSubjectKeysByNotificationOwner(CalendarNotificationOwner.CALENDAR),
     )
   }

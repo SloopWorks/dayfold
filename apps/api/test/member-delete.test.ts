@@ -91,6 +91,21 @@ describe("W4 delete — content:delete scope + author-gate (ADR 0038 §W4)", () 
     expect((await delBlock(o.familyId, "bIdem", o.token, { "idempotency-key": "OPDEL1" })).status).toBe(204);
   });
 
+  it("does not accept a block PUT operation key as a DELETE replay", async () => {
+    const o = await ownerOf("del-op-verb");
+    const sec = await hubWithSection(o, "hOpVerb", "sOpVerb");
+    expect((await putBlock(
+      o.familyId, "bOpVerb", o.token, sec, { "idempotency-key": "OPVERB" },
+    )).status).toBe(200);
+
+    const reused = await delBlock(o.familyId, "bOpVerb", o.token, { "idempotency-key": "OPVERB" });
+    expect(reused.status).toBe(409);
+    expect((await reused.json()).type).toBe("idempotency-key-reused");
+    expect((await q(
+      `SELECT deleted_at FROM blocks WHERE family_id=$1 AND id='bOpVerb'`, [o.familyId],
+    )).rows[0].deleted_at).toBeNull();
+  });
+
   it("deleting a block that never existed → 404", async () => {
     const o = await ownerOf("del-owner6");
     await hubWithSection(o, "hNone", "sNone");

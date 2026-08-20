@@ -76,7 +76,7 @@ fun hasActionLinks(md: String): Boolean =
 // FIRST so `![a](u)` is taken as an image (consuming the `!`), not a link with a stray
 // leading `!`. Bare email is LAST so an email inside a [label](mailto:…) link or a URL
 // is consumed by those first. Images are still never inline-loaded (OQ: host-gated
-// async) — they degrade to a 🖼 + alt label that links out (vetted) so the syntax
+// async) — they degrade to an ASCII "Image:" + alt label that links out (vetted) so the syntax
 // never shows raw.
 private val INLINE = Regex("""!\[([^\]]+)]\(([^)]+)\)|\*\*(.+?)\*\*|\[([^\]]+)]\(([^)]+)\)|_([^_]+?)_|(https?://[^\s)]+)|([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z0-9.-]+)""")
 private val CHECKBOX = Regex("""^(\s*)[-*]\s+\[([ xX])]\s+(.*)$""")
@@ -98,8 +98,10 @@ private fun AnnotatedString.Builder.appendInline(text: String) {
     if (m.range.first < i) continue
     append(text.substring(i, m.range.first))
     when {
-      m.groupValues[1].isNotEmpty() -> {                      // ![alt](url) image → 🖼 alt (links out, never inline-loaded)
-        val label = "🖼 ${m.groupValues[1]}"; val url = m.groupValues[2]
+      m.groupValues[1].isNotEmpty() -> {                      // ![alt](url) image → labeled link (never inline-loaded)
+        // Compose's bundled display font has no emoji fallback on iOS; the former picture
+        // glyph rendered as a boxed question mark. Keep the fallback explicit and portable.
+        val label = "Image: ${m.groupValues[1]}"; val url = m.groupValues[2]
         if (schemeOf(url) in ALLOWED_SCHEMES) withLink(LinkAnnotation.Url(url, LINK_STYLE)) { append(label) }
         else append(label)
       }

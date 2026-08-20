@@ -106,4 +106,22 @@ class FakeBackendTest {
     // a served route returns 200
     assertEquals(200, backend.handle("GET", "/auth/whoami", null).status)
   }
+
+  @Test fun `response writes succeed and echo through fake sync`() = runBlocking<Unit> {
+    val backend = FakeBackend(FakeScenarios.byId("busy-family")!!.data)
+    val h = fakeHttpClient(backend)
+    val sc = SyncClient("https://fake.test", h)
+    val row = ContentResponse(
+      id = "fake_done", kind = ResponseKind.DONE, subjectRef = "card:c1",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "dev-user", label = "Call the caterer",
+    )
+
+    val put = sc.putResponse("fam_fake", "fake-access", row.id, responseWireJson(row), row.id)
+    assertEquals(200, put.status)
+    assertEquals(2L, put.version)
+    val echoed = sc.fetchPage("fam_fake", "fake-access", null).changes.responses.single { it.id == "fake_done" }
+    assertEquals("fake_done", echoed.id)
+    assertEquals("dev-user", echoed.createdBy)
+  }
 }

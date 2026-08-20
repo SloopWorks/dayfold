@@ -18,6 +18,17 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DayfoldCommandsTest {
+  private class RecordingNotifier : LocalNotifier {
+    val cancelledAllLanes = mutableListOf<String>()
+    val cancelledDelivered = mutableListOf<String>()
+    override fun ensureChannel() = Unit
+    override fun postGroup(specs: List<NotificationSpec>, onAccepted: (Set<String>) -> Unit) =
+      onAccepted(emptySet())
+    override fun cancel(subjectKey: String) { cancelledAllLanes += subjectKey }
+    override fun cancelDelivered(subjectKey: String) { cancelledDelivered += subjectKey }
+    override fun cancelAll() = Unit
+  }
+
   private class MemoryTokenStore(private var session: Session?) : TokenStore {
     override fun load(): Session? = session
     override fun save(session: Session) { this.session = session }
@@ -34,6 +45,17 @@ class DayfoldCommandsTest {
 
     assertEquals(Route.Hubs, store.state.navigation.route)
     assertTrue(store.state.hubs.fromFeedDetail)
+  }
+
+  @Test fun `showing Now content retracts its standing platform notifications`() {
+    val store = createTestAppStore(AppState(), debug = false)
+    val notifier = RecordingNotifier()
+    val commands = DayfoldCommands(store = store, foregroundNotifier = notifier)
+
+    commands.nowShown(setOf("card:c1", "hub:h1/section:s1/block:b1"))
+
+    assertEquals(setOf("card:c1", "hub:h1/section:s1/block:b1"), notifier.cancelledDelivered.toSet())
+    assertTrue(notifier.cancelledAllLanes.isEmpty())
   }
 
   @Test fun `close is expected-hub correlated and cannot clear a replacement hub`() {
@@ -147,4 +169,30 @@ class DayfoldCommandsTest {
       assertEquals(listOf(pending), store.state.familyAdmin.pendingApprovals)
       http.close()
     }
+
+  @Test fun `response commands are admitted through the captured family owner`() {
+    val session = Session("access", "refresh", "user")
+    val store = createTestAppStore(
+      AppState(session = SessionState(session = session, activeFamilyId = "family-a")),
+      debug = false,
+    )
+    val coordinator = SessionCoordinator(
+      refreshScope = CoroutineScope(Job()),
+      refreshSession = { error("refresh not expected") },
+      commitRotation = {},
+    )
+    coordinator.selectFamily(coordinator.install(session), "family-a")
+    var admitted: FamilySessionContext? = null
+    val commands = DayfoldCommands(
+      store = store,
+      scope = CoroutineScope(Job()),
+      sessionCoordinator = coordinator,
+      familyWorkLauncher = { context, _ -> admitted = context; true },
+    )
+
+    commands.markDone("card:c1", "Call Grandma", null)
+
+    assertEquals("family-a", admitted?.familyId)
+    assertTrue(coordinator.isCurrent(admitted!!))
+  }
 }

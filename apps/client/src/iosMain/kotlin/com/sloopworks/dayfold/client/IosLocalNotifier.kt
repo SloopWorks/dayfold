@@ -36,6 +36,64 @@ private const val UI_BLOCK_ID = "dayfold.blockId"
 private const val UI_SUBJECT_KEY = "dayfold.subjectKey"
 
 /**
+ * Process-wide fence for asynchronous UN permission/request callbacks.
+ *
+ * Every IosLocalNotifier instance shares this generation. Done cancellation and identity teardown
+ * invalidate it before removing requests. [completeIfCurrent] holds the same gate while the runner
+ * records its ledger entries, so family cleanup cannot wipe the cache and then admit an outgoing-family
+ * record. A callback that lost the generation retracts every request accepted by its stale batch.
+ */
+internal object IosNotificationPostFence {
+  private val gate = SynchronizedObject()
+  private var generation = 0L
+  private var admissionOpen = true
+
+  fun begin(): Long? = synchronized(gate) { generation.takeIf { admissionOpen } }
+  fun currentOpenGeneration(): Long? = synchronized(gate) { generation.takeIf { admissionOpen } }
+  fun isCurrent(token: Long): Boolean = synchronized(gate) { admissionOpen && generation == token }
+  fun invalidate(): Long = synchronized(gate) { generation += 1L; generation }
+  /**
+   * Invalidate only after [prepare] has made every dependent state change while this gate is held.
+   * A completion callback therefore observes either the old generation and the old state, or the
+   * new generation and fully-prepared invalidation state; it can never land in between them.
+   */
+  fun invalidateIf(prepare: (nextGeneration: Long) -> Boolean): Long? = synchronized(gate) {
+    val next = generation + 1L
+    if (!prepare(next)) return@synchronized null
+    generation = next
+    next
+  }
+  fun closeAdmission() = synchronized(gate) {
+    generation += 1L
+    admissionOpen = false
+  }
+  fun openAdmission() = synchronized(gate) {
+    generation += 1L
+    admissionOpen = true
+  }
+
+  fun completeIfCurrent(token: Long, complete: () -> Unit): Boolean = synchronized(gate) {
+    if (!admissionOpen || generation != token) return@synchronized false
+    complete()
+    true
+  }
+}
+
+/** Foreground visibility invalidates only immediate posts, leaving future exact work untouched. */
+internal object IosImmediateNotificationFence {
+  private val gate = SynchronizedObject()
+  private var generation = 0L
+  fun begin(): Long = synchronized(gate) { generation }
+  fun isCurrent(token: Long): Boolean = synchronized(gate) { generation == token }
+  fun invalidate() = synchronized(gate) { generation += 1L }
+  fun completeIfCurrent(token: Long, complete: () -> Unit): Boolean = synchronized(gate) {
+    if (generation != token) return@synchronized false
+    complete()
+    true
+  }
+}
+
+/**
  * Opaque replay item used to claim one notification tap across controller replacement.
  */
 class IosDeepLinkTap internal constructor(internal val target: DeepLinkTarget)
@@ -114,29 +172,140 @@ internal fun buildContent(spec: NotificationSpec): UNMutableNotificationContent 
     })
   }
 
-class IosLocalNotifier : LocalNotifier {
+class IosLocalNotifier private constructor(
+  private val admittedGeneration: Long? = null,
+  @Suppress("UNUSED_PARAMETER") marker: Unit,
+) : LocalNotifier {
+  /** Public platform seam used by the UI host for ordinary Done cancellation. */
+  constructor() : this(null, Unit)
+
+  /** A coordinator-owned notifier whose own stale-subject cleanup retains the admitted pass token. */
+  internal constructor(admittedGeneration: Long) : this(admittedGeneration, Unit)
+
   private val center get() = UNUserNotificationCenter.currentNotificationCenter()
 
   // iOS has no notification "channel"; categories/actions are optional. No-op keeps the seam parity
   // (a body-tap deep-link needs no category; an explicit "Open" action is a future enhancement).
   override fun ensureChannel() {}
 
-  override fun postGroup(specs: List<NotificationSpec>) {
-    if (specs.isEmpty()) return
-    specs.forEach { spec ->
-      // trigger = null → deliver immediately (the geofence/BGTask pass posts "now"). Stable id =
-      // subjectKey so a re-post replaces rather than stacks, and cancel() can target it.
-      val request = UNNotificationRequest.requestWithIdentifier(spec.subjectKey, buildContent(spec), null)
-      center.addNotificationRequest(request, withCompletionHandler = null)
+  override fun postGroup(specs: List<NotificationSpec>, onAccepted: (Set<String>) -> Unit) {
+    if (specs.isEmpty()) {
+      onAccepted(emptySet())
+      return
+    }
+    val generation = admittedGeneration ?: IosNotificationPostFence.begin()
+    if (generation == null) {
+      onAccepted(emptySet())
+      return
+    }
+    val immediateGeneration = IosImmediateNotificationFence.begin()
+
+    // Never gate a background wake on the permission controller's launch-time cache. A cold region
+    // callback can arrive before start()'s asynchronous refresh completes. Read current UN settings for
+    // this pass, then count only requests whose enqueue completion reports success.
+    IosNotifGlue.notificationPermission.readFresh { permission ->
+      if (permission != NotificationPermission.Granted) {
+        onAccepted(emptySet())
+      } else {
+        enqueueSequentially(
+          specs,
+          index = 0,
+          accepted = linkedSetOf(),
+          generation = generation,
+          immediateGeneration = immediateGeneration,
+          onAccepted = onAccepted,
+        )
+      }
     }
   }
 
+  private fun enqueueSequentially(
+    specs: List<NotificationSpec>,
+    index: Int,
+    accepted: LinkedHashSet<String>,
+    generation: Long,
+    immediateGeneration: Long,
+    onAccepted: (Set<String>) -> Unit,
+  ) {
+    if (!IosNotificationPostFence.isCurrent(generation) ||
+      !IosImmediateNotificationFence.isCurrent(immediateGeneration)) {
+      finishStale(accepted, onAccepted)
+      return
+    }
+    if (index == specs.size) {
+      // The callback writes notification_log synchronously while the generation gate is held. Family
+      // teardown must invalidate this fence before wiping the cache, so either the outgoing record
+      // finishes first and is then cleared, or it is rejected here and can never cross the boundary.
+      // Hold the immediate gate around the nested family completion too: foreground visibility cannot
+      // retract this batch between the last current-check and its durable ledger acknowledgement.
+      var familyCompleted = false
+      val immediateCompleted = IosImmediateNotificationFence.completeIfCurrent(immediateGeneration) {
+        familyCompleted = IosNotificationPostFence.completeIfCurrent(generation) {
+          onAccepted(accepted)
+        }
+      }
+      if (!immediateCompleted || !familyCompleted) {
+        finishStale(accepted, onAccepted)
+      }
+      return
+    }
+    val spec = specs[index]
+    // trigger = null → deliver immediately (the geofence/BGTask pass posts "now"). Stable id =
+    // subjectKey so a re-post replaces rather than stacks, and cancel() can target it.
+    val request = UNNotificationRequest.requestWithIdentifier(spec.subjectKey, buildContent(spec), null)
+    center.addNotificationRequest(request) { error ->
+      if (error == null) accepted += spec.subjectKey
+      if (!IosNotificationPostFence.isCurrent(generation) ||
+        !IosImmediateNotificationFence.isCurrent(immediateGeneration)) {
+        finishStale(accepted, onAccepted)
+      } else {
+        enqueueSequentially(
+          specs, index + 1, accepted, generation, immediateGeneration, onAccepted,
+        )
+      }
+    }
+  }
+
+  private fun finishStale(accepted: Set<String>, onAccepted: (Set<String>) -> Unit) {
+    // Invalidation can race between the pre-enqueue check and Notification Center accepting a request.
+    // Teardown's earlier removeAll may therefore miss that late request; retract it explicitly here.
+    accepted.forEach { subjectKey ->
+      center.removePendingNotificationRequestsWithIdentifiers(listOf(subjectKey))
+      center.removeDeliveredNotificationsWithIdentifiers(listOf(subjectKey))
+    }
+    onAccepted(emptySet())
+  }
+
   override fun cancel(subjectKey: String) {
+    // A UI/runtime Done must invalidate an already-planned asynchronous pass. A coordinator-admitted
+    // pass is cancelling stale completed subjects from its own snapshot and must retain its generation.
+    if (admittedGeneration == null) {
+      IosNotificationPostFence.invalidate()
+      IosImmediateNotificationFence.invalidate()
+    }
+    cancelWithoutInvalidating(subjectKey)
+  }
+
+  override fun cancelDelivered(subjectKey: String) {
+    // Foreground visibility means the user has seen the current banner. Remove an immediate request
+    // that has not yet presented and all delivered forms, but leave the prefixed future exact request
+    // armed. This path intentionally does not invalidate exact/background reconciliation.
+    IosImmediateNotificationFence.invalidate()
     center.removePendingNotificationRequestsWithIdentifiers(listOf(subjectKey))
-    center.removeDeliveredNotificationsWithIdentifiers(listOf(subjectKey))
+    center.removeDeliveredNotificationsWithIdentifiers(
+      listOf(subjectKey, iosExactNotificationIdentifier(subjectKey)),
+    )
+  }
+
+  internal fun cancelWithoutInvalidating(subjectKey: String) {
+    val identifiers = listOf(subjectKey, iosExactNotificationIdentifier(subjectKey))
+    center.removePendingNotificationRequestsWithIdentifiers(identifiers)
+    center.removeDeliveredNotificationsWithIdentifiers(identifiers)
   }
 
   override fun cancelAll() {
+    IosNotificationPostFence.invalidate()
+    IosImmediateNotificationFence.invalidate()
     center.removeAllPendingNotificationRequests()
     center.removeAllDeliveredNotifications()
   }
@@ -179,8 +348,8 @@ class IosUNDelegate : NSObject(), UNUserNotificationCenterDelegateProtocol {
 
 // Notification authorization request — used by the permission ladder (formal controller lands in S4).
 // [.alert,.sound,.badge]; the completion is fire-and-forget (state is re-read via getNotificationSettings).
-internal fun requestNotificationAuthorization() {
+internal fun requestNotificationAuthorization(onComplete: () -> Unit = {}) {
   UNUserNotificationCenter.currentNotificationCenter().requestAuthorizationWithOptions(
     UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge,
-  ) { _, _ -> }
+  ) { _, _ -> onComplete() }
 }

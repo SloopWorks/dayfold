@@ -49,4 +49,14 @@ object SubjectRef {
   /** The card id inside a card ref, or null for any other form. */
   fun cardIdOf(subjectRef: String): String? =
     if (subjectRef.startsWith("card:")) subjectRef.removePrefix("card:").ifEmpty { null } else null
+
+  /** The hub id inside a node ref, or null for cards and class rules. */
+  fun hubIdOf(subjectRef: String): String? {
+    if (!subjectRef.startsWith("hub:")) return null
+    val rest = subjectRef.removePrefix("hub:")
+    val sectionAt = rest.indexOf("/section:").takeIf { it >= 0 }
+    val blockAt = rest.indexOf("/block:").takeIf { it >= 0 }
+    val end = listOfNotNull(sectionAt, blockAt).minOrNull() ?: rest.length
+    return rest.substring(0, end).ifEmpty { null }
+  }
 }

@@ -74,7 +74,7 @@ object FakeScenarios {
   )
   private val partyBlocks = listOf(
     // markdown block → the full renderBlockMarkdown path: heading, bold/italic, a
-    // table, a vetted link, and an ![image](https) that degrades to a 🖼 label.
+    // table, a vetted link, and an ![image](https) that degrades to an Image label.
     HubBlock(id = "b_party_brief", sectionId = "s_party_plan", type = "markdown",
       bodyMd = """
         ## Party day plan

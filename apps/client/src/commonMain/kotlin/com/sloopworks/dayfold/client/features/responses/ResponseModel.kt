@@ -50,6 +50,8 @@ data class ContentResponse(
   val label: String,
   val sublabel: String? = null,
   val note: String? = null,
+  /** Server creation time; optimistic rows use the local enqueue clock. */
+  val createdAt: String = "",
   val version: Long = 1L,
   /** Optimistic local write not yet acked — the States-P1 offline vocabulary. */
   val pending: Boolean = false,
@@ -67,6 +69,8 @@ data class ResponseSheetState(
   val source: String?,
   val surface: ResponseSurface,
   val step: ResponseStep = ResponseStep.VERBS,
+  /** Where this presentation began, so Back does not reveal an unrelated verb list. */
+  val entryStep: ResponseStep = step,
   val pendingMatchScope: MatchScope = MatchScope.KIND,
   // Personal is the default and the only scope the swipe path can ever reach (ADR 0064 §4).
   val pendingAudience: AudienceScope = AudienceScope.PERSONAL,

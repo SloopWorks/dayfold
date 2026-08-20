@@ -9,6 +9,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -58,10 +59,11 @@ class SyncClient(
       setBody(body)
     }
     val status = resp.status.value
-    val version = if (status == 200) runCatching {
-      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
-    }.getOrNull() else null
-    return PutResult(status, version)
+    val responseBody = runCatching { resp.bodyAsText() }.getOrDefault("")
+    val responseJson = runCatching { json.parseToJsonElement(responseBody).jsonObject }.getOrNull()
+    val version = if (status == 200) responseJson?.get("version")?.jsonPrimitive?.longOrNull else null
+    val problemType = if (status >= 400) responseJson?.get("type")?.jsonPrimitive?.contentOrNull else null
+    return PutResult(status, version, problemType)
   }
 
   /**
@@ -85,10 +87,11 @@ class SyncClient(
       setBody(body)
     }
     val status = resp.status.value
-    val version = if (status == 200) runCatching {
-      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
-    }.getOrNull() else null
-    return PutResult(status, version)
+    val responseBody = runCatching { resp.bodyAsText() }.getOrDefault("")
+    val responseJson = runCatching { json.parseToJsonElement(responseBody).jsonObject }.getOrNull()
+    val version = if (status == 200) responseJson?.get("version")?.jsonPrimitive?.longOrNull else null
+    val problemType = if (status >= 400) responseJson?.get("type")?.jsonPrimitive?.contentOrNull else null
+    return PutResult(status, version, problemType)
   }
 
   /** CAL-10 (ADR 0063 §6, import contract spec §3.1) — PUT one Hub section. Same posture as [putHub]. */
@@ -151,10 +154,18 @@ class SyncClient(
       setBody(body)
     }
     val status = resp.status.value
-    val version = if (status == 200) runCatching {
-      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
-    }.getOrNull() else null
-    return PutResult(status, version)
+    val responseBody = runCatching { resp.bodyAsText() }.getOrDefault("")
+    val responseJson = runCatching { json.parseToJsonElement(responseBody).jsonObject }.getOrNull()
+    val version = if (status == 200) responseJson?.get("version")?.jsonPrimitive?.longOrNull else null
+    val problemType = if (status >= 400) responseJson?.get("type")?.jsonPrimitive?.contentOrNull else null
+    val canonicalResponse = if (problemType == "subject-already-done") {
+      responseJson?.get("response")?.let { element ->
+        runCatching {
+          json.decodeFromJsonElement(ContentResponseWire.serializer(), element).toDomain()
+        }.getOrNull()
+      }
+    } else null
+    return PutResult(status, version, problemType, canonicalResponse)
   }
 
   /** Egress (ADR 0064): DELETE one response row. Idempotent server-side — absent is still 204. */
@@ -174,7 +185,12 @@ class SyncClient(
 
 /** Result of an egress PUT — the status drives the sender state machine; version (on 200)
  *  is stored for echo-suppression. */
-data class PutResult(val status: Int?, val version: Long?)
+data class PutResult(
+  val status: Int?,
+  val version: Long?,
+  val problemType: String? = null,
+  val canonicalResponse: ContentResponse? = null,
+)
 
 /** Non-200 from /sync, carrying the status so the engine can distinguish a tenancy
  *  revocation (403 removed / 404 non-member → wipe the cache) from a transient

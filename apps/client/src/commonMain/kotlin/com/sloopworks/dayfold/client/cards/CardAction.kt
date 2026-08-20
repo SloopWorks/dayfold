@@ -1,5 +1,8 @@
 package com.sloopworks.dayfold.client.cards
 
+import com.sloopworks.dayfold.client.ResponseStep
+import com.sloopworks.dayfold.client.ResponseSurface
+
 // CL-5 (ADR 0022) — the closed, typed union of things a Now card can ask for.
 // The UI builds a CardAction and hands it to `onAction`; the PLATFORM EFFECT
 // LAYER (expect/actual PlatformActions — a CL-6 prerequisite shared with
@@ -44,5 +47,9 @@ sealed interface CardAction {
     val source: String?,
     /** Opens straight at the scope step when the member already chose to hide (GAP 4). */
     val atScope: Boolean = false,
+    /** Preserve the surface-specific navigation contract at the shared root overlay. */
+    val surface: ResponseSurface = ResponseSurface.NOW,
+    /** A Hub completion enters the note step directly; null retains the legacy atScope rule. */
+    val initialStep: ResponseStep? = null,
   ) : CardAction
 }

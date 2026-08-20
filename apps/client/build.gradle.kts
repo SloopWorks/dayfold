@@ -71,6 +71,9 @@ kotlin {
       implementation("app.cash.sqldelight:native-driver:2.3.2")
       implementation("io.ktor:ktor-client-darwin:3.5.0")
     }
+    val iosSimulatorArm64Main by getting {
+      dependencies { implementation("io.ktor:ktor-client-mock:3.5.0") }
+    }
     val desktopTest by getting {
       dependencies {
         implementation(kotlin("test"))

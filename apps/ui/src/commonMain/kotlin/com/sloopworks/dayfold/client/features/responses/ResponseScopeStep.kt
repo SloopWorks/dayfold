@@ -10,12 +10,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -87,20 +97,29 @@ fun ResponseScopeStep(
   onAudience: (AudienceScope) -> Unit,
   onOpenRoutines: () -> Unit,
   onCommit: () -> Unit,
+  onBack: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
-  Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 22.dp)) {
-    Column(Modifier.padding(horizontal = 8.dp).padding(bottom = 12.dp)) {
-      Text("Don't add this again", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-      Text(
-        "How much should stop?",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = cs.onSurface,
-      )
+  Column(
+    Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
+      .padding(horizontal = 14.dp).padding(bottom = 22.dp),
+  ) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+      IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "Back" }) {
+        Icon(DayfoldIcons.ArrowBack, contentDescription = null, modifier = Modifier.size(22.dp).clearAndSetSemantics {})
+      }
+      Column(Modifier.weight(1f).padding(end = 8.dp)) {
+        Text("Don't add this again", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        Text(
+          "How much should stop?",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = cs.onSurface,
+        )
+      }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
       scopeRowsFor(sheet).forEach { row ->
         ScopeRowItem(row, onClick = { if (row.deepLinksToRoutines) onOpenRoutines() else onScope(row.scope) })
       }
@@ -115,7 +134,7 @@ fun ResponseScopeStep(
       modifier = Modifier.padding(horizontal = 8.dp),
     )
     Spacer(Modifier.height(9.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       AudienceChip("For you", DayfoldIcons.Check, sheet.pendingAudience == AudienceScope.PERSONAL, Modifier.weight(1f)) {
         onAudience(AudienceScope.PERSONAL)
       }
@@ -147,12 +166,14 @@ fun ResponseScopeStep(
 @Composable
 private fun ScopeRowItem(row: ScopeRow, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
+  val selection = if (row.deepLinksToRoutines) Modifier.clickable(onClick = onClick)
+    else Modifier.selectable(selected = row.selected, role = Role.RadioButton, onClick = onClick)
   Row(
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(14.dp))
       .background(if (row.selected) cs.secondaryContainer else cs.surface)
-      .clickable(onClick = onClick)
+      .then(selection)
       .heightIn(min = 48.dp)
       .padding(horizontal = 10.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -187,7 +208,7 @@ private fun AudienceChip(
     modifier
       .clip(RoundedCornerShape(999.dp))
       .then(if (selected) Modifier.background(cs.secondaryContainer) else Modifier.border(1.dp, cs.outline, RoundedCornerShape(999.dp)))
-      .clickable(onClick = onClick)
+      .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
       .heightIn(min = 48.dp)
       .padding(horizontal = 12.dp),
     verticalAlignment = Alignment.CenterVertically,

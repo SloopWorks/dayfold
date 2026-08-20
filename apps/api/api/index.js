@@ -3342,14 +3342,23 @@ var init_swip = __esm({
 // src/db.ts
 var db_exports = {};
 __export(db_exports, {
+  currentDbClient: () => currentDbClient,
   pool: () => pool,
-  q: () => q
+  q: () => q,
+  withDbClient: () => withDbClient
 });
 import pg from "pg";
-function q(text, params) {
-  return pool.query(text, params);
+import { AsyncLocalStorage } from "node:async_hooks";
+function currentDbClient() {
+  return requestClient.getStore();
 }
-var Pool, types, pool;
+function withDbClient(client, action) {
+  return requestClient.run(client, action);
+}
+function q(text, params) {
+  return (currentDbClient() ?? pool).query(text, params);
+}
+var Pool, types, pool, requestClient;
 var init_db = __esm({
   "src/db.ts"() {
     "use strict";
@@ -3362,6 +3371,7 @@ var init_db = __esm({
       // fail fast instead of hanging if the DB is unreachable (serverless).
       connectionTimeoutMillis: 1e4
     });
+    requestClient = new AsyncLocalStorage();
   }
 });
 
@@ -3718,6 +3728,41 @@ function buildNodeSubjectRef(hubId, sectionId, blockId) {
 function isRuleRef(ref) {
   return ref.startsWith(KIND) || ref.startsWith(SOURCE);
 }
+function parseSubjectRef(ref) {
+  if (!ref) return null;
+  if (ref.startsWith(CARD)) {
+    const cardId = ref.slice(CARD.length);
+    return cardId ? { form: "card", cardId } : null;
+  }
+  if (ref.startsWith(KIND)) {
+    const value = ref.slice(KIND.length);
+    return value ? { form: "kind", value } : null;
+  }
+  if (ref.startsWith(SOURCE)) {
+    const value = ref.slice(SOURCE.length);
+    return value ? { form: "source", value } : null;
+  }
+  if (!ref.startsWith(HUB)) return null;
+  const rest = ref.slice(HUB.length);
+  if (!rest) return null;
+  let head = rest;
+  let blockId;
+  const blockAt = rest.lastIndexOf(BLOCK_MARK);
+  if (blockAt !== -1) {
+    if (blockAt === 0) return null;
+    blockId = rest.slice(blockAt + BLOCK_MARK.length);
+    if (!blockId) return null;
+    head = rest.slice(0, blockAt);
+  }
+  const sectionAt = head.indexOf(SECTION_MARK);
+  if (sectionAt === -1) {
+    return head ? { form: "node", hubId: head, ...blockId ? { blockId } : {} } : null;
+  }
+  const hubId = head.slice(0, sectionAt);
+  const sectionId = head.slice(sectionAt + SECTION_MARK.length);
+  if (!hubId || !sectionId) return null;
+  return { form: "node", hubId, sectionId, ...blockId ? { blockId } : {} };
+}
 var CARD, HUB, KIND, SOURCE, SECTION_MARK, BLOCK_MARK, RESERVED_REF_MARKERS, UnsafeSubjectRefComponent;
 var init_subject_ref = __esm({
   "src/content/subject-ref.ts"() {
@@ -3739,11 +3784,22 @@ var init_subject_ref = __esm({
 });
 
 // src/repo.ts
+async function touchResponsesForCard(client, familyId, id3) {
+  await client.query(
+    `UPDATE content_responses SET updated_at=now()
+      WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`,
+    [familyId, buildCardSubjectRef(id3)]
+  );
+}
 async function upsertCard(familyId, id3, b) {
   const visibility = b.visibility === "restricted" ? "restricted" : "family";
   const audience = visibility === "restricted" && Array.isArray(b.audience) ? b.audience : null;
-  const r = await q(
-    `INSERT INTO briefing_cards
+  const inherited = currentDbClient();
+  const client = inherited ?? await pool.connect();
+  try {
+    if (!inherited) await client.query("BEGIN");
+    const r = await client.query(
+      `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
         type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media,
@@ -3761,33 +3817,41 @@ async function upsertCard(familyId, id3, b) {
        subject_ref=EXCLUDED.subject_ref,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
-    [
-      id3,
-      familyId,
-      b.kind ?? "info",
-      b.title,
-      b.body_md ?? null,
-      b.target?.hubId ?? null,
-      b.target?.sectionId ?? null,
-      b.target?.blockId ?? null,
-      J(b.provenance),
-      J(b.triggers),
-      J(b.actions),
-      b.not_before ?? null,
-      b.expires_at ?? null,
-      b.type ?? null,
-      J(b.payload),
-      J(b.privacy),
-      b.hubRef ?? null,
-      J(b.related),
-      b.relatedKicker ?? null,
-      visibility,
-      audience,
-      J(b.media),
-      buildCardSubjectRef(id3)
-    ]
-  );
-  return r.rows[0];
+      [
+        id3,
+        familyId,
+        b.kind ?? "info",
+        b.title,
+        b.body_md ?? null,
+        b.target?.hubId ?? null,
+        b.target?.sectionId ?? null,
+        b.target?.blockId ?? null,
+        J(b.provenance),
+        J(b.triggers),
+        J(b.actions),
+        b.not_before ?? null,
+        b.expires_at ?? null,
+        b.type ?? null,
+        J(b.payload),
+        J(b.privacy),
+        b.hubRef ?? null,
+        J(b.related),
+        b.relatedKicker ?? null,
+        visibility,
+        audience,
+        J(b.media),
+        buildCardSubjectRef(id3)
+      ]
+    );
+    await touchResponsesForCard(client, familyId, id3);
+    if (!inherited) await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) {
+    if (!inherited) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inherited) client.release();
+  }
 }
 async function listCards(familyId, caller) {
   const vis = cardVisibilityClause(caller, 2);
@@ -3799,12 +3863,24 @@ async function listCards(familyId, caller) {
   return r.rows;
 }
 async function softDeleteCard(familyId, id3) {
-  const r = await q(
-    `UPDATE briefing_cards SET deleted_at=now()
-     WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id`,
-    [familyId, id3]
-  );
-  return (r.rowCount ?? 0) > 0;
+  const inherited = currentDbClient();
+  const client = inherited ?? await pool.connect();
+  try {
+    if (!inherited) await client.query("BEGIN");
+    const r = await client.query(
+      `UPDATE briefing_cards SET deleted_at=now()
+       WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id`,
+      [familyId, id3]
+    );
+    if ((r.rowCount ?? 0) > 0) await touchResponsesForCard(client, familyId, id3);
+    if (!inherited) await client.query("COMMIT");
+    return (r.rowCount ?? 0) > 0;
+  } catch (e) {
+    if (!inherited) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inherited) client.release();
+  }
 }
 async function syncContent(familyId, su, st, si, limit = SYNC_LIMIT) {
   const r = await q(
@@ -4009,6 +4085,40 @@ var init_scope = __esm({
 });
 
 // src/content/hubs.ts
+async function blockSubjectRef(familyId, blockId) {
+  const row = await q(
+    // Include tombstones: the member route must authorize the block's historical source Hub before
+    // returning its 410, otherwise a guessed id in a restricted Hub becomes an existence oracle.
+    `SELECT subject_ref FROM blocks WHERE family_id=$1 AND id=$2`,
+    [familyId, blockId]
+  );
+  return row.rows[0]?.subject_ref ?? null;
+}
+async function sectionMoveLockPlan(familyId, sectionId, newHubId) {
+  const section = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2`, [familyId, sectionId]);
+  const oldHubId = section.rows[0]?.hub_id ?? null;
+  const children = oldHubId ? await q(
+    `SELECT id,subject_ref FROM blocks
+      WHERE family_id=$1 AND section_id=$2 AND deleted_at IS NULL ORDER BY id`,
+    [familyId, sectionId]
+  ) : { rows: [] };
+  const childSubjects = children.rows.map((row) => row.subject_ref);
+  const lockSubjects = [buildSectionSubjectRef(newHubId, sectionId)];
+  if (oldHubId) lockSubjects.push(buildSectionSubjectRef(oldHubId, sectionId));
+  for (const row of children.rows) {
+    lockSubjects.push(row.subject_ref, buildBlockSubjectRef(newHubId, sectionId, row.id));
+  }
+  return { oldHubId, childSubjects, lockSubjects };
+}
+async function touchResponsesForHub(client, familyId, hubId) {
+  const root = `hub:${hubId}`;
+  await client.query(
+    `UPDATE content_responses SET updated_at=now()
+      WHERE family_id=$1 AND deleted_at IS NULL
+        AND (subject_ref=$2 OR left(subject_ref, length($2) + 1)=$2 || '/')`,
+    [familyId, root]
+  );
+}
 function hubVisible(row, caller, allowListHas = () => false) {
   if (caller.legacy) return true;
   if (!row.visibility || row.visibility === "family") return true;
@@ -4098,6 +4208,7 @@ async function upsertHub(familyId, id3, b, caller, visibility, audience) {
       );
     for (const uid of targetAudience)
       await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id3, uid]);
+    await touchResponsesForHub(client, familyId, id3);
     await client.query("COMMIT");
     return r.rows[0];
   } catch (e) {
@@ -4127,6 +4238,7 @@ async function softDeleteHub(familyId, id3) {
           AND section_id IN (SELECT id FROM sections WHERE family_id=$1 AND hub_id=$2)`,
       [familyId, id3]
     );
+    await touchResponsesForHub(client, familyId, id3);
     await client.query("COMMIT");
     return true;
   } catch (e) {
@@ -4141,10 +4253,15 @@ async function softDeleteBlock(familyId, id3) {
   return (r.rowCount ?? 0) > 0;
 }
 async function blockForDelete(familyId, id3) {
-  const r = await q(`SELECT section_id, created_by, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id3]);
+  const r = await q(`SELECT section_id, subject_ref, created_by, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id3]);
   if (r.rowCount === 0) return null;
   const row = r.rows[0];
-  return { section_id: row.section_id, created_by: row.created_by ?? null, deleted: row.deleted_at != null };
+  return {
+    section_id: row.section_id,
+    subject_ref: row.subject_ref,
+    created_by: row.created_by ?? null,
+    deleted: row.deleted_at != null
+  };
 }
 async function getHubTree(familyId, hubId) {
   const hub = await getHub(familyId, hubId);
@@ -4190,31 +4307,64 @@ async function canManageHub(familyId, hubId, caller) {
   return (r.rowCount ?? 0) > 0;
 }
 async function setParticipant(familyId, hubId, uid, role) {
-  const r = await q(
-    `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
-     VALUES ($1,$2,$3,$4)
-     ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
-     RETURNING *`,
-    [familyId, hubId, uid, role]
-  );
-  return r.rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
+       RETURNING *`,
+      [familyId, hubId, uid, role]
+    );
+    await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 async function removeParticipant(familyId, hubId, uid) {
-  const r = await q(
-    `DELETE FROM resource_visibility rv
-      WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
-        AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
-      RETURNING 1`,
-    [familyId, hubId, uid]
-  );
-  return (r.rowCount ?? 0) > 0;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `DELETE FROM resource_visibility rv
+        WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
+          AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
+        RETURNING 1`,
+      [familyId, hubId, uid]
+    );
+    if ((r.rowCount ?? 0) > 0) await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return (r.rowCount ?? 0) > 0;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 async function setHubVisibility(familyId, hubId, visibility) {
-  const r = await q(
-    `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
-    [familyId, hubId, visibility]
-  );
-  return r.rows[0] ?? null;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
+      [familyId, hubId, visibility]
+    );
+    if (r.rows[0]) await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return r.rows[0] ?? null;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 async function liveHubOfSection(familyId, sectionId) {
   const r = await q(
@@ -4224,19 +4374,67 @@ async function liveHubOfSection(familyId, sectionId) {
   );
   return r.rows[0]?.hub_id ?? null;
 }
-async function upsertSection(familyId, id3, hubId, b) {
-  const live = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, hubId]);
-  if (live.rowCount === 0) return null;
-  const r = await q(
-    `INSERT INTO sections (id, family_id, hub_id, title, ord, version)
-     VALUES ($1,$2,$3,$4,$5,1)
-     ON CONFLICT (family_id, id) DO UPDATE SET
-       hub_id=EXCLUDED.hub_id, title=EXCLUDED.title, ord=EXCLUDED.ord,
-       version=sections.version + 1, deleted_at=NULL
-     RETURNING *`,
-    [id3, familyId, hubId, b.title ?? null, b.ord ?? 0]
-  );
-  return r.rows[0];
+async function upsertSection(familyId, id3, hubId, b, expected = null) {
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
+  try {
+    if (!inheritedClient) await client.query("BEGIN");
+    const requiredHubIds = [...new Set(
+      [hubId, expected?.oldHubId].filter((x) => !!x)
+    )].sort();
+    const live = await client.query(
+      `SELECT id FROM hubs
+        WHERE family_id=$1 AND id = ANY($2::text[]) AND deleted_at IS NULL
+        ORDER BY id FOR UPDATE`,
+      [familyId, requiredHubIds]
+    );
+    if (live.rowCount !== requiredHubIds.length) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const previous = await client.query(
+      `SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 FOR UPDATE`,
+      [familyId, id3]
+    );
+    const oldHubId = previous.rows[0]?.hub_id ?? null;
+    const children = await client.query(
+      `SELECT id,subject_ref FROM blocks
+        WHERE family_id=$1 AND section_id=$2 AND deleted_at IS NULL ORDER BY id FOR UPDATE`,
+      [familyId, id3]
+    );
+    const childSubjects = children.rows.map((row) => row.subject_ref);
+    if (expected && (oldHubId !== expected.oldHubId || JSON.stringify(childSubjects) !== JSON.stringify(expected.childSubjects))) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const r = await client.query(
+      `INSERT INTO sections (id, family_id, hub_id, title, ord, version)
+       VALUES ($1,$2,$3,$4,$5,1)
+       ON CONFLICT (family_id, id) DO UPDATE SET
+         hub_id=EXCLUDED.hub_id, title=EXCLUDED.title, ord=EXCLUDED.ord,
+         version=sections.version + 1, deleted_at=NULL
+       RETURNING *`,
+      [id3, familyId, hubId, b.title ?? null, b.ord ?? 0]
+    );
+    if (oldHubId && oldHubId !== hubId) {
+      await client.query(
+        `UPDATE blocks
+            SET subject_ref='hub:' || $3 || '/section:' || $2 || '/block:' || id,
+                version=version+1, updated_at=now()
+          WHERE family_id=$1 AND section_id=$2`,
+        [familyId, id3, hubId]
+      );
+      await touchResponsesForHub(client, familyId, oldHubId);
+      await touchResponsesForHub(client, familyId, hubId);
+    }
+    if (!inheritedClient) await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) {
+    if (!inheritedClient) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inheritedClient) client.release();
+  }
 }
 async function getBlock(familyId, id3) {
   const r = await q(`SELECT * FROM blocks WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, id3]);
@@ -4244,45 +4442,87 @@ async function getBlock(familyId, id3) {
 }
 async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
   const allowResurrect = opts.allowResurrect !== false;
-  const live = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
-  if (live.rowCount === 0) return null;
-  const subjectRef = buildBlockSubjectRef(live.rows[0].hub_id, sectionId, id3);
-  const r = await q(
-    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
-     ON CONFLICT (family_id, id) DO UPDATE SET
-       section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
-       body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
-       triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
-       subject_ref=EXCLUDED.subject_ref,
-       version=blocks.version + 1, deleted_at=NULL
-       ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
-     RETURNING *`,
-    [
-      id3,
-      familyId,
-      sectionId,
-      b.type,
-      J2(b.payload),
-      b.body_md ?? null,
-      b.body_ref ?? null,
-      J2(b.provenance),
-      J2(b.triggers),
-      J2(b.actions),
-      b.ord ?? 0,
-      opts.createdBy ?? null,
-      subjectRef
-    ]
-  );
-  return r.rows[0] ?? null;
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
+  try {
+    if (!inheritedClient) await client.query("BEGIN");
+    const live = await client.query(
+      `SELECT hub_id FROM sections
+        WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL
+        FOR UPDATE`,
+      [familyId, sectionId]
+    );
+    if (live.rowCount === 0) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const newHubId = live.rows[0].hub_id;
+    if (opts.expectedHubId && newHubId !== opts.expectedHubId) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const previous = await client.query(
+      `SELECT b.section_id, b.subject_ref, s.hub_id
+         FROM blocks b JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2`,
+      [familyId, id3]
+    );
+    const oldSectionId = previous.rows[0]?.section_id;
+    const oldHubId = previous.rows[0]?.hub_id;
+    const oldSubjectRef = previous.rows[0]?.subject_ref;
+    if (opts.expectedOldSubjectRef !== void 0 && (oldSubjectRef ?? null) !== opts.expectedOldSubjectRef) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const subjectRef = buildBlockSubjectRef(newHubId, sectionId, id3);
+    const r = await client.query(
+      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
+       ON CONFLICT (family_id, id) DO UPDATE SET
+         section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
+         body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
+         triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+         subject_ref=EXCLUDED.subject_ref,
+         version=blocks.version + 1, deleted_at=NULL
+         ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
+       RETURNING *`,
+      [
+        id3,
+        familyId,
+        sectionId,
+        b.type,
+        J2(b.payload),
+        b.body_md ?? null,
+        b.body_ref ?? null,
+        J2(b.provenance),
+        J2(b.triggers),
+        J2(b.actions),
+        b.ord ?? 0,
+        opts.createdBy ?? null,
+        subjectRef
+      ]
+    );
+    if (r.rows[0] && oldSectionId && oldSectionId !== sectionId) {
+      if (oldHubId) await touchResponsesForHub(client, familyId, oldHubId);
+      if (newHubId !== oldHubId) await touchResponsesForHub(client, familyId, newHubId);
+    }
+    if (!inheritedClient) await client.query("COMMIT");
+    return r.rows[0] ?? null;
+  } catch (e) {
+    if (!inheritedClient) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inheritedClient) client.release();
+  }
 }
-var J2;
+var J2, buildSectionSubjectRef;
 var init_hubs = __esm({
   "src/content/hubs.ts"() {
     "use strict";
     init_db();
     init_subject_ref();
     J2 = (v) => v == null ? null : JSON.stringify(v);
+    buildSectionSubjectRef = (hubId, sectionId) => `hub:${hubId}/section:${sectionId}`;
   }
 });
 
@@ -4314,6 +4554,53 @@ async function findResponse(familyId, id3) {
   );
   return r.rows[0] ?? null;
 }
+async function findResponseRecord(familyId, id3) {
+  const r = await q(
+    `SELECT ${COLS} FROM content_responses WHERE family_id=$1 AND id=$2`,
+    [familyId, id3]
+  );
+  return r.rows[0] ?? null;
+}
+async function findDoneForSubject(familyId, subjectRef) {
+  const r = await q(
+    `SELECT ${COLS} FROM content_responses
+      WHERE family_id=$1 AND kind='done' AND subject_ref=$2 AND deleted_at IS NULL`,
+    [familyId, subjectRef]
+  );
+  return r.rows[0] ?? null;
+}
+async function withSubjectWriteLock(familyId, subjectRef, action) {
+  return withSubjectWriteLocks(familyId, [subjectRef], action);
+}
+async function withSubjectWriteLocks(familyId, subjectRefs, action) {
+  const refs = [...new Set(subjectRefs)].sort();
+  const inheritedClient = currentDbClient();
+  if (inheritedClient) {
+    for (const ref of refs) {
+      const key = JSON.stringify([familyId, ref]);
+      await inheritedClient.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [key]);
+    }
+    return action();
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await withDbClient(client, async () => {
+      for (const ref of refs) {
+        const key = JSON.stringify([familyId, ref]);
+        await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [key]);
+      }
+      return action();
+    });
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
 async function upsertResponse(familyId, id3, input) {
   const r = await q(
     `INSERT INTO content_responses
@@ -4325,6 +4612,12 @@ async function upsertResponse(familyId, id3, input) {
        deleted_at = NULL,
        version = content_responses.version + 1,
        updated_at = now()
+     WHERE content_responses.kind = EXCLUDED.kind
+       AND content_responses.subject_ref = EXCLUDED.subject_ref
+       AND content_responses.match_scope = EXCLUDED.match_scope
+       AND content_responses.audience_scope = EXCLUDED.audience_scope
+       AND content_responses.user_id IS NOT DISTINCT FROM EXCLUDED.user_id
+       AND content_responses.created_by = EXCLUDED.created_by
      RETURNING ${COLS}`,
     [
       id3,
@@ -4340,7 +4633,80 @@ async function upsertResponse(familyId, id3, input) {
       input.note
     ]
   );
-  return r.rows[0];
+  return r.rows[0] ?? null;
+}
+async function completeResponse(familyId, id3, input) {
+  const run = async (client2) => {
+    const inserted = await client2.query(
+      `INSERT INTO content_responses
+         (id, family_id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
+          label, sublabel, note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT DO NOTHING
+       RETURNING ${COLS}`,
+      [
+        id3,
+        familyId,
+        input.kind,
+        input.subjectRef,
+        input.matchScope,
+        input.audienceScope,
+        input.userId,
+        input.createdBy,
+        input.label,
+        input.sublabel,
+        input.note
+      ]
+    );
+    let row = inserted.rows[0];
+    const created = !!row;
+    if (!row) {
+      const canonical = await client2.query(
+        `SELECT ${COLS} FROM content_responses
+          WHERE family_id=$1 AND kind='done' AND subject_ref=$2 AND deleted_at IS NULL
+          FOR UPDATE`,
+        [familyId, input.subjectRef]
+      );
+      row = canonical.rows[0];
+      if (!row) {
+        const collision = await client2.query(
+          `SELECT ${COLS} FROM content_responses
+            WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
+          [familyId, id3]
+        );
+        const existing = collision.rows[0];
+        if (!existing || existing.created_by !== input.createdBy || existing.kind !== "done" || existing.subject_ref !== input.subjectRef) {
+          return null;
+        }
+        row = existing;
+      }
+    }
+    await client2.query(
+      `UPDATE briefing_cards SET deleted_at=now(), version=version+1, updated_at=now()
+        WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`,
+      [familyId, input.subjectRef]
+    );
+    await client2.query(
+      `UPDATE blocks SET deleted_at=now(), version=version+1, updated_at=now()
+        WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`,
+      [familyId, input.subjectRef]
+    );
+    return { row, created };
+  };
+  const inheritedClient = currentDbClient();
+  if (inheritedClient) return run(inheritedClient);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await run(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 async function softDeleteResponse(familyId, id3) {
   const r = await q(
@@ -4356,7 +4722,7 @@ var init_responses = __esm({
     "use strict";
     init_db();
     COLS = `id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
-              label, sublabel, note, version`;
+              label, sublabel, note, created_at, version`;
   }
 });
 
@@ -5161,11 +5527,72 @@ async function resolveVisibleHub(fid, hubId, caller) {
   if (!hubVisible(hub, caller, () => !!caller.userId && allow.has(caller.userId))) return null;
   return { hub, allow };
 }
-async function tombstoneSubject(fid, subjectRef) {
-  await q(`UPDATE briefing_cards SET deleted_at = now(), version = version + 1, updated_at = now()
-            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
-  await q(`UPDATE blocks SET deleted_at = now(), version = version + 1, updated_at = now()
-            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
+async function responseSubjectVisible(fid, subjectRef, subject, caller) {
+  if (subject.form === "kind" || subject.form === "source") return true;
+  if (subject.form === "card") {
+    const row = await q(
+      `SELECT visibility, audience FROM briefing_cards
+        WHERE family_id=$1 AND id=$2 AND subject_ref=$3 AND deleted_at IS NULL`,
+      [fid, subject.cardId, subjectRef]
+    );
+    return row.rowCount === 1 && cardVisible(row.rows[0], caller);
+  }
+  if (!await resolveVisibleHub(fid, subject.hubId, caller)) return false;
+  if (subject.blockId) {
+    const row = await q(
+      `SELECT 1 FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2 AND b.subject_ref=$3
+          AND b.deleted_at IS NULL AND s.deleted_at IS NULL AND s.hub_id=$4
+          AND ($5::text IS NULL OR s.id=$5)`,
+      [fid, subject.blockId, subjectRef, subject.hubId, subject.sectionId ?? null]
+    );
+    return row.rowCount === 1;
+  }
+  if (subject.sectionId) {
+    const row = await q(
+      `SELECT 1 FROM sections
+        WHERE family_id=$1 AND id=$2 AND hub_id=$3 AND deleted_at IS NULL`,
+      [fid, subject.sectionId, subject.hubId]
+    );
+    return row.rowCount === 1;
+  }
+  return true;
+}
+async function responseReadable(fid, row, caller) {
+  if (row.audience_scope === "personal" && (!caller.userId || row.user_id !== caller.userId)) {
+    return false;
+  }
+  const subject = parseSubjectRef(row.subject_ref);
+  if (!subject) return false;
+  if (subject.form === "kind" || subject.form === "source") return true;
+  if (subject.form === "card") {
+    const card = await q(
+      `SELECT visibility, audience FROM briefing_cards
+        WHERE family_id=$1 AND id=$2 AND subject_ref=$3`,
+      [fid, subject.cardId, row.subject_ref]
+    );
+    return card.rowCount === 1 && cardVisible(card.rows[0], caller);
+  }
+  if (!await resolveVisibleHub(fid, subject.hubId, caller)) return false;
+  if (subject.blockId) {
+    const block = await q(
+      `SELECT 1 FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2 AND b.subject_ref=$3 AND s.hub_id=$4
+          AND ($5::text IS NULL OR s.id=$5)`,
+      [fid, subject.blockId, row.subject_ref, subject.hubId, subject.sectionId ?? null]
+    );
+    return block.rowCount === 1;
+  }
+  if (subject.sectionId) {
+    const section = await q(
+      `SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND hub_id=$3`,
+      [fid, subject.sectionId, subject.hubId]
+    );
+    return section.rowCount === 1;
+  }
+  return true;
 }
 async function ownerGate(c, fid) {
   const a = await authorizeTenant(c, fid);
@@ -5515,18 +5942,21 @@ var init_app = __esm({
       const mediaIssues = validateCardMedia(media);
       if (mediaIssues.length) return c.json({ type: "validation", issues: mediaIssues }, 422);
       if (media?.accentColor) media.accentColor = normalizedAccent(media.accentColor);
-      const gate = suppressedBy(await listActive(fid), {
-        subjectRef: buildCardSubjectRef(id3),
-        kind: parsed.data.kind ?? null,
-        source: parsed.data.provenance?.source ?? null
+      const subjectRef = buildCardSubjectRef(id3);
+      return withSubjectWriteLock(fid, subjectRef, async () => {
+        const gate = suppressedBy(await listActive(fid), {
+          subjectRef,
+          kind: parsed.data.kind ?? null,
+          source: parsed.data.provenance?.source ?? null
+        });
+        if (gate.blocked) return problem(c, 409, "subject-muted");
+        let finalAudience = audience;
+        if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
+          finalAudience = finalAudience.filter((u) => !gate.excludeUserIds.includes(u));
+          if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
+        }
+        return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience: finalAudience }), 200);
       });
-      if (gate.blocked) return problem(c, 409, "subject-muted");
-      let finalAudience = audience;
-      if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
-        finalAudience = finalAudience.filter((u) => !gate.excludeUserIds.includes(u));
-        if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
-      }
-      return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience: finalAudience }), 200);
     });
     app.get("/families/:fid/cards", async (c) => {
       const fid = c.req.param("fid");
@@ -5733,12 +6163,23 @@ var init_app = __esm({
         if (ve) return ve;
       }
       const ifMatch = c.req.header("if-match");
-      if (ifMatch) {
-        const cur = await q(`SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
-        if (ifMatchFails(ifMatch, cur.rowCount ? Number(cur.rows[0].version) : null)) return c.body(null, 412);
+      const movePlan = await sectionMoveLockPlan(fid, id3, hubId);
+      if (movePlan.oldHubId && movePlan.oldHubId !== hubId) {
+        const sourceGate = await hubWriteGate(fid, movePlan.oldHubId, callerFrom(a));
+        const sourceResponse = hubWriteGateResponse(c, sourceGate, "source hub missing or deleted");
+        if (sourceResponse) return sourceResponse;
       }
-      const row = await upsertSection(fid, id3, hubId, parsed.data);
-      return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
+      return withSubjectWriteLocks(fid, [`topology:section:${id3}`, ...movePlan.lockSubjects], async () => {
+        const current = await q(
+          `SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
+          [fid, id3]
+        );
+        if (ifMatchFails(ifMatch, current.rowCount ? Number(current.rows[0].version) : null)) {
+          return c.body(null, 412);
+        }
+        const row = await upsertSection(fid, id3, hubId, parsed.data, movePlan);
+        return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing, deleted, or moved" }, 409);
+      });
     });
     app.put("/families/:fid/blocks/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -5775,29 +6216,60 @@ var init_app = __esm({
         if (p?.accentColor) p.accentColor = normalizedAccent(p.accentColor);
       }
       const opId = c.req.header("idempotency-key");
-      if (opId) {
-        const prior = await findOp(fid, opId);
-        if (prior) {
-          const existing = prior.result_ref ? await getBlock(fid, prior.result_ref) : null;
-          return existing ? c.json(existing, 200) : c.body(null, 410);
-        }
+      const oldSubjectRef = await blockSubjectRef(fid, id3);
+      const oldSubject = oldSubjectRef ? parseSubjectRef(oldSubjectRef) : null;
+      if (oldSubject?.form === "node" && oldSubject.hubId !== hubId) {
+        const sourceGate = await hubWriteGate(fid, oldSubject.hubId, caller);
+        const sourceResponse = hubWriteGateResponse(c, sourceGate, "source hub missing or deleted");
+        if (sourceResponse) return sourceResponse;
       }
       const member = isMemberWrite(a);
-      const st = await blockState(fid, id3);
-      if (member && st.deleted) return c.body(null, 410);
-      if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
-      const suppression = suppressedBy(await listActive(fid), {
-        subjectRef: buildBlockSubjectRef(hubId, sectionId, id3),
-        kind: null,
-        source: parsed.data.provenance?.source ?? null
+      const subjectRef = buildBlockSubjectRef(hubId, sectionId, id3);
+      return withSubjectWriteLocks(fid, [
+        `topology:block:${id3}`,
+        ...opId ? [`operation:${opId}`] : [],
+        subjectRef,
+        ...oldSubjectRef ? [oldSubjectRef] : []
+      ], async () => {
+        if (opId) {
+          const prior = await findOp(fid, opId);
+          if (prior) {
+            if (prior.result_kind !== "block" || prior.result_ref !== id3) {
+              return problem(c, 409, "idempotency-key-reused");
+            }
+            const existing = await getBlock(fid, id3);
+            if (!existing) return c.body(null, 410);
+            if (existing.section_id !== sectionId) return problem(c, 409, "idempotency-key-reused");
+            const currentHubId = await liveHubOfSection(fid, existing.section_id);
+            if (!currentHubId) return c.body(null, 410);
+            const currentGate = await hubWriteGate(fid, currentHubId, caller);
+            const currentResponse = hubWriteGateResponse(c, currentGate, "parent section missing or deleted");
+            if (currentResponse) return currentResponse;
+            return c.json(existing, 200);
+          }
+        }
+        const st = await blockState(fid, id3);
+        if (member && st.deleted) return c.body(null, 410);
+        if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+        const suppression = suppressedBy(await listActive(fid), {
+          subjectRef,
+          kind: null,
+          source: parsed.data.provenance?.source ?? null
+        });
+        if (suppression.blocked) return problem(c, 409, "subject-muted");
+        const row = await upsertBlock(fid, id3, sectionId, parsed.data, {
+          allowResurrect: !member,
+          createdBy: a.userId,
+          expectedHubId: hubId,
+          expectedOldSubjectRef: oldSubjectRef
+        });
+        if (!row) {
+          const after = await blockState(fid, id3);
+          return member && after.deleted ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing, deleted, or moved" }, 409);
+        }
+        if (opId) await recordOp(fid, opId, "block", id3, Number(row.version));
+        return c.json(row, 200);
       });
-      if (suppression.blocked) return problem(c, 409, "subject-muted");
-      const row = await upsertBlock(fid, id3, sectionId, parsed.data, { allowResurrect: !member, createdBy: a.userId });
-      if (!row) {
-        return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
-      }
-      if (opId) await recordOp(fid, opId, "block", id3, Number(row.version));
-      return c.json(row, 200);
     });
     app.delete("/families/:fid/blocks/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -5809,21 +6281,36 @@ var init_app = __esm({
       if ("status" in a) return c.body(null, a.status);
       const caller = callerFrom(a);
       const opId = c.req.header("idempotency-key");
-      if (opId && await findOp(fid, opId)) return c.body(null, 204);
-      const blk = await blockForDelete(fid, id3);
-      if (!blk) return c.body(null, 404);
-      const hubId = await liveHubOfSection(fid, blk.section_id);
-      if (!hubId) return c.body(null, 404);
-      if (!await resolveVisibleHub(fid, hubId, caller)) return c.body(null, 404);
-      if (!await requireScope(a.cred.id, "content", "delete")) return c.json({ type: "forbidden" }, 403);
-      if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
-      if (blk.deleted) {
-        if (opId) await recordOp(fid, opId, "block", id3, null);
-        return c.body(null, 204);
-      }
-      const ok = await softDeleteBlock(fid, id3);
-      if (opId) await recordOp(fid, opId, "block", id3, null);
-      return c.body(null, ok ? 204 : 404);
+      const expectedSubjectRef = await blockSubjectRef(fid, id3);
+      return withSubjectWriteLocks(fid, [
+        `topology:block:${id3}`,
+        ...opId ? [`operation:${opId}`] : [],
+        ...expectedSubjectRef ? [expectedSubjectRef] : []
+      ], async () => {
+        if (opId) {
+          const prior = await findOp(fid, opId);
+          if (prior) {
+            return prior.result_kind === "block-delete" && prior.result_ref === id3 ? c.body(null, 204) : problem(c, 409, "idempotency-key-reused");
+          }
+        }
+        const blk = await blockForDelete(fid, id3);
+        if (!blk) return c.body(null, 404);
+        if (expectedSubjectRef == null || blk.subject_ref !== expectedSubjectRef) {
+          return c.json({ type: "conflict", detail: "block moved while delete was admitted" }, 409);
+        }
+        const hubId = await liveHubOfSection(fid, blk.section_id);
+        if (!hubId) return c.body(null, 404);
+        if (!await resolveVisibleHub(fid, hubId, caller)) return c.body(null, 404);
+        if (!await requireScope(a.cred.id, "content", "delete")) return c.json({ type: "forbidden" }, 403);
+        if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
+        if (blk.deleted) {
+          if (opId) await recordOp(fid, opId, "block-delete", id3, null);
+          return c.body(null, 204);
+        }
+        const ok = await softDeleteBlock(fid, id3);
+        if (opId) await recordOp(fid, opId, "block-delete", id3, null);
+        return c.body(null, ok ? 204 : 404);
+      });
     });
     app.get("/families/:fid/responses", async (c) => {
       const fid = c.req.param("fid");
@@ -5832,10 +6319,14 @@ var init_app = __esm({
       if (!await requireScope(a.cred.id, "content", "read")) return c.json({ type: "forbidden" }, 403);
       const caller = callerFrom(a);
       const all = await listActive(fid);
-      const visible = all.filter(
-        (r) => r.audience_scope === "family" || !!caller.userId && r.user_id === caller.userId
-      );
-      const hiddenPersonal = all.length - visible.length;
+      const visibility = await Promise.all(all.map(async (r) => ({
+        row: r,
+        visible: await responseReadable(fid, r, caller)
+      })));
+      const visible = visibility.filter((x) => x.visible).map((x) => x.row);
+      const hiddenPersonal = all.filter(
+        (r) => r.audience_scope === "personal" && r.user_id !== caller.userId
+      ).length;
       return c.json({
         responses: visible,
         personal_rules_not_visible: hiddenPersonal
@@ -5853,16 +6344,13 @@ var init_app = __esm({
       const caller = callerFrom(a);
       if (!caller.userId) return problem(c, 403, "member-required");
       const opId = c.req.header("idempotency-key");
-      if (opId && await findOp(fid, opId)) {
-        const prior = await findResponse(fid, id3);
-        if (prior) return c.json(prior, 200);
-        return c.body(null, 204);
-      }
       const rb = await requireJsonObject(c);
       if ("error" in rb) return rb.error;
       const b = rb.value;
       if (typeof b.subject_ref !== "string" || !b.subject_ref) return problem(c, 422, "bad-subject-ref");
       if (typeof b.label !== "string" || !b.label) return problem(c, 422, "bad-label");
+      const parsedSubject = parseSubjectRef(b.subject_ref);
+      if (!parsedSubject) return problem(c, 422, "bad-subject-ref");
       const kind = b.kind === "done" ? "done" : "mute";
       if (!["subject", "kind", "source"].includes(b.match_scope)) return problem(c, 422, "bad-match-scope");
       const matchScope = b.match_scope;
@@ -5871,7 +6359,7 @@ var init_app = __esm({
       if (kind === "done" && (audienceScope !== "family" || matchScope !== "subject")) {
         return problem(c, 422, "bad-done-shape");
       }
-      const row = await upsertResponse(fid, id3, {
+      const input = {
         kind,
         subjectRef: b.subject_ref,
         matchScope,
@@ -5883,10 +6371,63 @@ var init_app = __esm({
         label: b.label,
         sublabel: typeof b.sublabel === "string" ? b.sublabel : null,
         note: typeof b.note === "string" ? b.note : null
-      });
-      if (kind === "done") await tombstoneSubject(fid, b.subject_ref);
-      if (opId) await recordOp(fid, opId, "response", id3, Number(row.version));
-      return c.json(row, 200);
+      };
+      const persist = async () => {
+        if (opId) {
+          const recorded = await findOp(fid, opId);
+          if (recorded) {
+            if (recorded.result_kind !== "response" || recorded.result_ref !== id3) {
+              return problem(c, 409, "idempotency-key-reused");
+            }
+            const prior = await findResponse(fid, id3);
+            if (prior) {
+              if (!await responseReadable(fid, prior, caller)) return c.body(null, 404);
+              return c.json(prior, 200);
+            }
+            return c.body(null, 204);
+          }
+        }
+        const existing = await findResponseRecord(fid, id3);
+        if (existing) {
+          if (!await responseReadable(fid, existing, caller)) return c.body(null, 404);
+          const sameIdentity = existing.kind === input.kind && existing.subject_ref === input.subjectRef && existing.match_scope === input.matchScope && existing.audience_scope === input.audienceScope && existing.user_id === input.userId && existing.created_by === input.createdBy;
+          if (!sameIdentity) return problem(c, 409, "response-id-conflict");
+        }
+        if (kind === "done") {
+          const canonical = await findDoneForSubject(fid, input.subjectRef);
+          if (canonical) {
+            if (!await responseReadable(fid, canonical, caller)) return c.body(null, 404);
+            const exactReplay = canonical.id === id3 && canonical.created_by === input.createdBy && canonical.match_scope === input.matchScope && canonical.audience_scope === input.audienceScope && canonical.user_id === input.userId && canonical.label === input.label && canonical.sublabel === input.sublabel && canonical.note === input.note;
+            if (!exactReplay) {
+              return c.json({
+                type: "subject-already-done",
+                response: { ...canonical, version: Number(canonical.version) }
+              }, 409);
+            }
+            if (opId) await recordOp(fid, opId, "response", id3, Number(canonical.version));
+            return c.json(canonical, 200);
+          }
+        }
+        if (!isRuleRef(input.subjectRef) && !await responseSubjectVisible(fid, input.subjectRef, parsedSubject, caller)) {
+          return c.body(null, 404);
+        }
+        const completed = kind === "done" ? await completeResponse(fid, id3, input) : null;
+        if (completed && !completed.created && completed.row.id !== id3) {
+          return c.json({
+            type: "subject-already-done",
+            response: { ...completed.row, version: Number(completed.row.version) }
+          }, 409);
+        }
+        const row = completed?.row ?? (kind === "done" ? null : await upsertResponse(fid, id3, input));
+        if (!row) return problem(c, 409, "response-id-conflict");
+        if (opId) await recordOp(fid, opId, "response", id3, Number(row.version));
+        return c.json(row, 200);
+      };
+      return withSubjectWriteLocks(fid, [
+        `topology:response:${id3}`,
+        ...opId ? [`operation:${opId}`] : [],
+        input.subjectRef
+      ], persist);
     });
     app.delete("/families/:fid/responses/:id", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -5900,19 +6441,32 @@ var init_app = __esm({
       const caller = callerFrom(a);
       if (!caller.userId) return problem(c, 403, "member-required");
       const opId = c.req.header("idempotency-key");
-      if (opId && await findOp(fid, opId)) return c.body(null, 204);
-      const cur = await q(
-        `SELECT audience_scope, user_id FROM content_responses
-      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
-        [fid, id3]
-      );
-      const row = cur.rows[0];
-      if (row && row.audience_scope === "personal" && row.user_id !== caller.userId) {
-        return problem(c, 403, "not-your-rule");
-      }
-      await softDeleteResponse(fid, id3);
-      if (opId) await recordOp(fid, opId, "response", id3, null);
-      return c.body(null, 204);
+      return withSubjectWriteLocks(fid, [
+        `topology:response:${id3}`,
+        ...opId ? [`operation:${opId}`] : []
+      ], async () => {
+        if (opId) {
+          const prior = await findOp(fid, opId);
+          if (prior) {
+            return prior.result_kind === "response-delete" && prior.result_ref === id3 ? c.body(null, 204) : problem(c, 409, "idempotency-key-reused");
+          }
+        }
+        const row = await findResponse(fid, id3);
+        if (!row) {
+          if (opId) await recordOp(fid, opId, "response-delete", id3, null);
+          return c.body(null, 204);
+        }
+        if (row.audience_scope === "personal" && row.user_id !== caller.userId) {
+          return problem(c, 403, "not-your-rule");
+        }
+        if (!isRuleRef(row.subject_ref) && !await responseReadable(fid, row, caller)) {
+          return c.body(null, 404);
+        }
+        if (row.kind === "done") return problem(c, 409, "done-is-durable");
+        await softDeleteResponse(fid, id3);
+        if (opId) await recordOp(fid, opId, "response-delete", id3, null);
+        return c.body(null, 204);
+      });
     });
     app.post("/device/authorize", async (c) => {
       const ip = clientIp(c);
@@ -6230,7 +6784,7 @@ var init_app = __esm({
         } else if (r.type === "hub") {
           visible = hubVisible(r.payload, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));
         } else if (r.type === "response") {
-          visible = r.payload.audience_scope === "family" || !!caller.userId && r.payload.user_id === caller.userId;
+          visible = await responseReadable(fid, r.payload, caller);
         } else {
           const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };
           visible = hubVisible(parentHub, caller, (hid) => !!(caller.userId && allowSets.get(hid)?.has(caller.userId)));

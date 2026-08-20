@@ -7,8 +7,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 // ADR 0064 — the device half of the Tier-1 contract: rules land from /sync, optimistic writes
-// are pending until the echo, undo drops the queued op, and the wipe boundaries put rules on
-// the SYNCED side while the once-ever offer flag stays device-local.
+// are pending until the echo, undo drops the queued op, and resync wipes replace acknowledged
+// rules without separating an offline optimistic rule from its preserved outbox operation.
 class ResponseStoreTest {
 
   private fun store() = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
@@ -17,6 +17,7 @@ class ResponseStoreTest {
     ContentResponseWire(
       id = id, kind = "mute", subjectRef = "kind:weather", matchScope = "kind",
       audienceScope = "family", userId = null, createdBy = "u_mom", label = label,
+      createdAt = "2026-08-19T14:30:00Z",
       version = version,
     )
 
@@ -44,6 +45,7 @@ class ResponseStoreTest {
     assertEquals(ResponseKind.MUTE, rows.single().kind)
     assertEquals(MatchScope.KIND, rows.single().matchScope)
     assertEquals(AudienceScope.FAMILY, rows.single().audienceScope)
+    assertEquals("2026-08-19T14:30:00Z", rows.single().createdAt)
   }
 
   @Test
@@ -66,6 +68,107 @@ class ResponseStoreTest {
   }
 
   @Test
+  fun aSuccessfulPutClearsPendingBeforeTheNextEcho() {
+    val s = store()
+    s.upsertResponseLocal(local("r1"))
+    s.enqueueResponseOp("op1", "r1", "upsert", "{}", "2026-08-08T09:00:00Z")
+    s.claimNextPendingOp()
+    s.ackResponseOp("op1", "r1", 2L)
+    assertFalse(s.allResponses().single().pending)
+    assertEquals(2L, s.allResponses().single().version)
+  }
+
+  @Test
+  fun aRejectedOptimisticPutRollsBackItsLocalResponse() {
+    val s = store()
+    s.upsertResponseLocal(local("r1"))
+    s.enqueueResponseOp("op1", "r1", "upsert", "{}", "2026-08-08T09:00:00Z")
+    s.claimNextPendingOp()
+    s.rejectResponseOp("op1", "r1", isDelete = false, failed = false)
+    assertTrue(s.allResponses().isEmpty())
+    assertEquals(0L, s.outboxSize())
+  }
+
+  @Test
+  fun aRejectedDeleteRestoresItsExactRollbackSnapshot() {
+    val s = store()
+    s.applyResponses(listOf(wire("r1", version = 3L)))
+    assertTrue(s.enqueueResponseDelete("del1", "r1", "2026-08-19T15:00:00Z"))
+    assertTrue(s.allResponses().isEmpty())
+    val op = s.claimNextPendingOp()!!
+
+    s.rejectResponseOp(
+      op.opId, op.targetId, isDelete = true, failed = false, rollbackPayload = op.payload,
+    )
+
+    val restored = s.allResponses().single()
+    assertEquals("r1", restored.id)
+    assertEquals(3L, restored.version)
+    assertEquals("2026-08-19T14:30:00Z", restored.createdAt)
+    assertFalse(restored.pending)
+    assertEquals(0L, s.outboxSize())
+  }
+
+  @Test
+  fun responseUndoCannotOvertakeItsPendingPutWithEqualTimestampAndReverseIds() {
+    val s = store()
+    s.upsertResponseLocal(local("r1"))
+    // Lexicographically, the DELETE would win the old created_at/op_id ordering.
+    s.enqueueResponseOp("z-put", "r1", "upsert", "{}", "2026-08-19T15:00:00Z")
+    assertTrue(s.enqueueResponseDelete("a-delete", "r1", "2026-08-19T15:00:00Z"))
+
+    val put = s.claimNextPendingOp()!!
+    assertEquals("z-put", put.opId)
+    assertEquals(null, s.claimNextPendingOp(), "DELETE must wait while its PUT is inflight")
+
+    s.ackOp(put.opId, 1L)
+    val delete = s.claimNextPendingOp()!!
+    assertEquals("a-delete", delete.opId)
+  }
+
+  @Test
+  fun aSuccessfulDeleteRemovesAResponseRehydratedByFullResync() {
+    val s = store()
+    val original = wire("r1", version = 3L)
+    s.applyResponses(listOf(original))
+    assertTrue(s.enqueueResponseDelete("del1", "r1", "2026-08-19T15:00:00Z"))
+
+    // A from-infinity pull can race the queued DELETE and replay server truth before egress drains.
+    s.applyResponses(listOf(original))
+    assertEquals("r1", s.allResponses().single().id)
+    val op = s.claimNextPendingOp()!!
+
+    s.ackResponseOp(op.opId, op.targetId, resultVersion = null, isDelete = true)
+
+    assertTrue(s.allResponses().isEmpty(), "successful DELETE must win over the earlier full-sync row")
+  }
+
+  @Test
+  fun aCanonicalDonePulledBeforeDrainRemovesItsPendingDuplicateAndOp() {
+    val s = store()
+    val optimistic = ContentResponse(
+      id = "local-done", kind = ResponseKind.DONE, subjectRef = "card:c1",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u_dad", label = "Call caterer", pending = true,
+    )
+    s.upsertResponseLocal(optimistic)
+    s.enqueueResponseOp("local-done", "local-done", "upsert", "{}", "2026-08-19T15:00:00Z")
+
+    s.applyResponses(
+      listOf(
+        ContentResponseWire(
+          id = "canonical-done", kind = "done", subjectRef = "card:c1",
+          matchScope = "subject", audienceScope = "family", createdBy = "u_mom",
+          label = "Call caterer", createdAt = "2026-08-19T14:59:59Z",
+        ),
+      ),
+    )
+
+    assertEquals(listOf("canonical-done"), s.allResponses().map { it.id })
+    assertEquals(0L, s.outboxSize())
+  }
+
+  @Test
   fun enqueueingAResponseOpTargetsTheResponseLane() {
     val s = store()
     s.upsertResponseLocal(local("r1"))
@@ -74,18 +177,6 @@ class ResponseStoreTest {
     assertEquals("response", op.targetKind)
     assertEquals("r1", op.targetId)
     assertEquals("upsert", op.type)
-  }
-
-  // Undo works offline precisely because the write has not left the device.
-  @Test
-  fun undoDropsTheQueuedOpAndTheLocalRow() {
-    val s = store()
-    s.upsertResponseLocal(local("r1"))
-    s.enqueueResponseOp("op1", "r1", "upsert", "{}", "2026-08-08T09:00:00Z")
-    s.dropQueuedOpsFor("r1")
-    s.deleteResponseLocal("r1")
-    assertTrue(s.allResponses().isEmpty())
-    assertEquals(null, s.nextPendingOp())
   }
 
   // A response DELETE acks with a null version and its echo is a tombstone, not a row, so the
@@ -124,6 +215,21 @@ class ResponseStoreTest {
     s.applyResponses(listOf(wire("r2")))
     s.wipe()
     assertTrue(s.allResponses().isEmpty())
+  }
+
+  @Test
+  fun aSchemaHealPreservesPendingResponsesWithTheirOutboxOps() {
+    val s = store()
+    s.applyResponses(listOf(wire("synced")))
+    s.upsertResponseLocal(local("pending"))
+    s.enqueueResponseOp("pending", "pending", "upsert", "{}", "2026-08-19T15:00:00Z")
+
+    s.reconcileSchemaVersion(CLIENT_SCHEMA_VERSION + 1)
+
+    val retained = s.allResponses().single()
+    assertEquals("pending", retained.id, "acknowledged response is rebuilt, optimistic row remains")
+    assertTrue(retained.pending)
+    assertEquals(1L, s.outboxSize(), "queued write and its optimistic row remain paired")
   }
 
   // Tier 0 — the once-ever offer. Device-local anti-nag history, so a staleness reset must not

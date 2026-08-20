@@ -8,9 +8,9 @@ import platform.Foundation.NSUserDefaults
 // is plist-backed, not the secure enclave.
 class IosTokenStore(
   private val json: Json = Json { ignoreUnknownKeys = true },
+  private val key: String = "dayfold_session",
 ) : TokenStore {
   private val defaults = NSUserDefaults.standardUserDefaults
-  private val key = "dayfold_session"
 
   override fun load(): Session? =
     defaults.stringForKey(key)?.let { runCatching { json.decodeFromString(Session.serializer(), it) }.getOrNull() }

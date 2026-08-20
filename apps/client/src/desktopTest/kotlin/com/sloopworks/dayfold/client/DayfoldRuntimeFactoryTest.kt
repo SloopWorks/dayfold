@@ -11,6 +11,7 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -54,6 +55,112 @@ class DayfoldRuntimeFactoryTest {
   }
 
   private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+
+  @Test fun `terminal identity cleanup clears platform family notifications`() = runBlocking<Unit> {
+    val session = Session("access", "refresh", "user-1")
+    val notificationsCleared = AtomicInteger()
+    val graph = factory(
+      contentStore = freshContentStore(),
+      tokenStore = MemoryTokenStore(session),
+      initialState = readyState(session),
+      httpClientFactory = { HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }) },
+      onFamilyDataCleared = { notificationsCleared.incrementAndGet() },
+    ).create()
+
+    try {
+      graph.authEngine.signOut()
+      assertEquals(1, notificationsCleared.get())
+    } finally {
+      graph.cancel()
+      graph.awaitClosed()
+    }
+  }
+
+  @Test fun `platform family cleanup completes before tenant cache wipe`() = runBlocking<Unit> {
+    val session = Session("access", "refresh", "user-1")
+    val contentStore = freshContentStore()
+    contentStore.upsertResponseLocal(
+      ContentResponse(
+        id = "private-rule",
+        kind = ResponseKind.MUTE,
+        subjectRef = "kind:weather",
+        matchScope = MatchScope.KIND,
+        audienceScope = AudienceScope.PERSONAL,
+        userId = "user-1",
+        createdBy = "user-1",
+        label = "Weather",
+      ),
+    )
+    var platformSawOutgoingCache = false
+    var platformFinishedAfterWipe = false
+    val graph = factory(
+      contentStore = contentStore,
+      tokenStore = MemoryTokenStore(session),
+      initialState = readyState(session),
+      httpClientFactory = { HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }) },
+      onFamilyDataCleared = { platformSawOutgoingCache = contentStore.allResponses().isNotEmpty() },
+      onFamilyDataClearFinished = { platformFinishedAfterWipe = contentStore.allResponses().isEmpty() },
+    ).create()
+
+    try {
+      graph.authEngine.signOut()
+      assertTrue(platformSawOutgoingCache)
+      assertTrue(contentStore.allResponses().isEmpty())
+      assertTrue(platformFinishedAfterWipe)
+    } finally {
+      graph.cancel()
+      graph.awaitClosed()
+    }
+  }
+
+  @Test fun `failed tenant cache wipe keeps platform notification admission closed`() = runBlocking<Unit> {
+    val session = Session("access", "refresh", "user-1")
+    val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+    val contentStore = ContentStore.create(driver)
+    val platformClears = AtomicInteger()
+    val platformFinishes = AtomicInteger()
+    val graph = factory(
+      contentStore = contentStore,
+      tokenStore = MemoryTokenStore(session),
+      initialState = readyState(session),
+      httpClientFactory = { HttpClient(MockEngine { respond("", HttpStatusCode.NoContent) }) },
+      onFamilyDataCleared = { platformClears.incrementAndGet() },
+      onFamilyDataClearFinished = { platformFinishes.incrementAndGet() },
+    ).create()
+
+    // Model an unavailable/corrupt cache after the runtime has been assembled. Terminal cleanup
+    // must close OS notification admission first, surface the wipe failure, and never reopen it.
+    driver.close()
+    try {
+      assertFailsWith<Exception> { graph.authEngine.signOut() }
+      assertEquals(1, platformClears.get())
+      assertEquals(0, platformFinishes.get())
+    } finally {
+      graph.cancel()
+      graph.awaitClosed()
+    }
+  }
+
+  @Test fun `family replacement clears platform family notifications`() = runBlocking<Unit> {
+    val notificationsCleared = AtomicInteger()
+    val graph = factory(
+      contentStore = freshContentStore(),
+      tokenStore = MemoryTokenStore(),
+      initialState = AppState(),
+      httpClientFactory = { HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) },
+      onFamilyDataCleared = { notificationsCleared.incrementAndGet() },
+    ).create()
+
+    try {
+      graph.devSignIn()
+      assertEquals(1, notificationsCleared.get(), "new identity clears any previous family state")
+      assertNotNull(graph.replaceFamily("fam-2"))
+      assertEquals(2, notificationsCleared.get(), "family replacement clears the outgoing family")
+    } finally {
+      graph.cancel()
+      graph.awaitClosed()
+    }
+  }
 
   @Test fun `factory creates one transport and all engines use the shared rotated session`() =
     runBlocking<Unit> {
@@ -428,6 +535,8 @@ class DayfoldRuntimeFactoryTest {
     initialState: AppState,
     httpClientFactory: () -> HttpClient,
     onResourcesClosed: () -> Unit = {},
+    onFamilyDataCleared: () -> Unit = {},
+    onFamilyDataClearFinished: () -> Unit = {},
   ): DayfoldRuntimeFactory = DayfoldRuntimeFactory(
     api = "https://api.test",
     contentStore = contentStore,
@@ -442,6 +551,8 @@ class DayfoldRuntimeFactoryTest {
     debug = false,
     pollIntervalMs = Long.MAX_VALUE,
     onResourcesClosed = onResourcesClosed,
+    onFamilyDataCleared = onFamilyDataCleared,
+    onFamilyDataClearFinished = onFamilyDataClearFinished,
   )
 
   private fun freshContentStore(): ContentStore =

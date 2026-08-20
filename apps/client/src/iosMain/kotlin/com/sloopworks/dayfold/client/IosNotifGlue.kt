@@ -32,7 +32,26 @@ object IosNotifGlue {
     // Force creation on the main thread (each CLLocationManager wires its delegate in init).
     geofence; locationPermission; notificationPermission
     notificationPermission.refresh()   // async re-read of OS auth into its flow
-    IosContentStoreHolder.get()
+    // A headless wake before the UI exists uses production. MainViewController reselects the isolated
+    // simulator fake store only when fakeClientForApi() is actually available; physical debug builds
+    // intentionally remain on production.
+    IosNotificationContentStoreHolder.select(IosContentStoreHolder.get())
+  }
+
+  /** Clear every process-global notification artifact at an identity/family boundary. */
+  fun clearFamilyNotificationState() {
+    // Close admission before platform cleanup and keep it closed through the caller's family-cache wipe.
+    // An already-admitted post/exact replacement finishes first; every later callback loses its token.
+    IosNotificationPostFence.closeAdmission()
+    IosBackgroundNotificationPassCoordinator.cancelAll()
+    localNotifier.cancelAll()
+    geofence.deregisterAll()
+    IosExactNotificationScheduler().cancelAll()
+  }
+
+  /** Re-open notification planning only after the family cache has been wiped. */
+  fun finishFamilyNotificationStateClear() {
+    IosNotificationPostFence.openAdmission()
   }
 
   // Verification scaffold — drive the full enable path without navigating the settings UI: request the
@@ -42,7 +61,7 @@ object IosNotifGlue {
   fun debugEnableProximity() {
     notificationPermission.request()
     locationPermission.requestAlways()
-    IosContentStoreHolder.get().setNotifConfig(NotifConfig(enabled = true))
+    IosNotificationContentStoreHolder.get().setNotifConfig(NotifConfig(enabled = true))
     reRegisterGeofences()
     reconcileExactSchedules()
   }

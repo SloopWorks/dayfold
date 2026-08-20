@@ -149,6 +149,23 @@ class HubEngine(
       }
     }
 
+  /**
+   * Admits a non-Hub effect to the runtime-owned family child.
+   *
+   * Response writes use this boundary so family replacement and sign-out close admission, then
+   * cancel and join the exact scope that owns the database mutation before tenant data is wiped.
+   */
+  internal fun launchFamilyOwned(
+    context: FamilySessionContext,
+    block: suspend (FamilySessionContext) -> Unit,
+  ): Boolean {
+    val owner = workOwner(context) ?: return false
+    owner.scope.launch {
+      if (sessionCoordinator.isCurrent(context)) block(context)
+    }
+    return true
+  }
+
   private fun commitIfAdmitted(
     owner: FamilyWorkOwner,
     context: FamilySessionContext,

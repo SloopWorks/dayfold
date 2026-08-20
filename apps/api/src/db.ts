@@ -3,6 +3,8 @@
 // pooler mandatory). No serverless-driver swap, so the F3 timestamptz parser
 // below stays valid on every path.
 import pg from "pg";
+import type { PoolClient } from "pg";
+import { AsyncLocalStorage } from "node:async_hooks";
 const { Pool, types } = pg;
 
 // [F3] Return timestamptz/timestamp as the EXACT Postgres string (no JS Date
@@ -20,6 +22,19 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10_000,
 });
 
+// A route may pin all of its queries to one connection (for example while holding a
+// transaction advisory lock). This matters on Vercel where the pool max is 1: borrowing a
+// second connection from inside the lock would deadlock the request.
+const requestClient = new AsyncLocalStorage<PoolClient>();
+
+export function currentDbClient(): PoolClient | undefined {
+  return requestClient.getStore();
+}
+
+export function withDbClient<T>(client: PoolClient, action: () => Promise<T>): Promise<T> {
+  return requestClient.run(client, action);
+}
+
 export function q(text: string, params?: unknown[]) {
-  return pool.query(text, params);
+  return (currentDbClient() ?? pool).query(text, params);
 }

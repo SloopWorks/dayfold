@@ -23,8 +23,32 @@ describe("migration set is complete and applies cleanly (drift guard)", () => {
     const files = sqlFiles();
     expect(files.length).toBeGreaterThan(0);
     await q(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
-    // a broken / out-of-order migration throws here and fails the suite
-    for (const f of files) await q(readFileSync(resolve(migDir, f), "utf8"));
+    // a broken / out-of-order migration throws here and fails the suite. Immediately before
+    // 0021, model the duplicate Done state that the old concurrent endpoint could create;
+    // the upgrade must consolidate it rather than abort while building the unique index.
+    for (const f of files) {
+      if (f === "0021_unique_done_subject.sql") {
+        await q(`INSERT INTO families(id,name) VALUES ('migration-family','Migration family')`);
+        await q(`INSERT INTO users(id,display_name) VALUES ('migration-user','Pat')`);
+        await q(
+          `INSERT INTO content_responses
+             (id,family_id,kind,subject_ref,match_scope,audience_scope,created_by,label,created_at)
+           VALUES
+             ('done-old','migration-family','done','card:migration-card','subject','family','migration-user','Old','2026-01-01T00:00:00Z'),
+             ('done-new','migration-family','done','card:migration-card','subject','family','migration-user','New','2026-01-02T00:00:00Z')`,
+        );
+      }
+      await q(readFileSync(resolve(migDir, f), "utf8"));
+    }
+
+    const migratedDone = (await q(
+      `SELECT id, deleted_at IS NULL AS live, version
+         FROM content_responses WHERE family_id='migration-family' ORDER BY id`,
+    )).rows;
+    expect(migratedDone).toEqual([
+      { id: "done-new", live: false, version: "2" },
+      { id: "done-old", live: true, version: "1" },
+    ]);
 
     const tables = (await q(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`))
       .rows.map((r: any) => r.tablename).sort();

@@ -52,8 +52,22 @@ class NotifSeamsTest {
     val posted = mutableListOf<NotificationSpec>()
     val cancelled = mutableListOf<String>()
     var cancelledAll = 0
+    var postingEnabled = true
+    var rejectedSubjects = emptySet<String>()
+    var deferAcceptance = false
+    var pendingAcceptance: (() -> Unit)? = null
     override fun ensureChannel() { channelEnsured++ }
-    override fun postGroup(specs: List<NotificationSpec>) { posted += specs }
+    override fun postGroup(specs: List<NotificationSpec>, onAccepted: (Set<String>) -> Unit) {
+      if (!postingEnabled) {
+        onAccepted(emptySet())
+        return
+      }
+      posted += specs
+      val complete = {
+        onAccepted(specs.map { it.subjectKey }.filterNot { it in rejectedSubjects }.toSet())
+      }
+      if (deferAcceptance) pendingAcceptance = complete else complete()
+    }
     override fun cancel(subjectKey: String) { cancelled += subjectKey }
     override fun cancelAll() { cancelledAll++ }
   }
@@ -79,6 +93,72 @@ class NotifSeamsTest {
     runner.run(NotifSnapshot(cards = listOf(card), config = NotifConfig(enabled = false)), noon, null, zone)
     assertEquals(0, notifier.channelEnsured)
     assertTrue(notifier.posted.isEmpty() && log.isEmpty())
+  }
+
+  @Test fun `runner does not consume the cap for denied or failed notification posts`() {
+    val notifier = FakeNotifier().apply { postingEnabled = false }
+    val log = mutableListOf<Pair<String, String>>()
+    val runner = BackgroundNotificationRunner(notifier) { k, t -> log += k to t }
+    runner.run(NotifSnapshot(cards = listOf(card), config = NotifConfig(enabled = true)), noon, null, zone)
+    assertTrue(notifier.posted.isEmpty() && log.isEmpty())
+
+    notifier.postingEnabled = true
+    notifier.rejectedSubjects = setOf("card:c1")
+    runner.run(NotifSnapshot(cards = listOf(card), config = NotifConfig(enabled = true)), noon, null, zone)
+    assertEquals(listOf("card:c1"), notifier.posted.map { it.subjectKey })
+    assertTrue(log.isEmpty())
+  }
+
+  @Test fun `runner waits for platform acceptance before consuming the delivery ledger`() {
+    val notifier = FakeNotifier().apply { deferAcceptance = true }
+    val log = mutableListOf<Pair<String, String>>()
+    val runner = BackgroundNotificationRunner(notifier) { k, t -> log += k to t }
+
+    runner.run(NotifSnapshot(cards = listOf(card), config = NotifConfig(enabled = true)), noon, null, zone)
+
+    assertTrue(log.isEmpty())
+    notifier.pendingAcceptance?.invoke()
+    assertEquals(listOf("card:c1" to noon), log)
+  }
+
+  @Test fun `runner completion waits for platform acceptance and ledger commit`() {
+    val notifier = FakeNotifier().apply { deferAcceptance = true }
+    val log = mutableListOf<Pair<String, String>>()
+    var completed = false
+    val runner = BackgroundNotificationRunner(notifier) { k, t -> log += k to t }
+
+    runner.run(
+      NotifSnapshot(cards = listOf(card), config = NotifConfig(enabled = true)),
+      noon,
+      null,
+      zone,
+      onComplete = { completed = true },
+    )
+
+    assertTrue(!completed)
+    assertTrue(log.isEmpty())
+    notifier.pendingAcceptance?.invoke()
+    assertEquals(listOf("card:c1" to noon), log)
+    assertTrue(completed)
+  }
+
+  @Test fun `runner cancels a delivered notification for a completed stale subject`() {
+    val notifier = FakeNotifier()
+    val log = mutableListOf<Pair<String, String>>()
+    val done = ContentResponse(
+      id = "r1", kind = ResponseKind.DONE, subjectRef = "card:c1",
+      matchScope = MatchScope.SUBJECT, audienceScope = AudienceScope.FAMILY,
+      userId = null, createdBy = "u2", label = "Soccer at 4pm",
+    )
+    val runner = BackgroundNotificationRunner(notifier) { k, t -> log += k to t }
+
+    val plan = runner.run(
+      NotifSnapshot(cards = listOf(card), responses = listOf(done), config = NotifConfig(enabled = true)),
+      noon, null, zone,
+    )
+
+    assertEquals(listOf("card:c1"), notifier.cancelled)
+    assertTrue(notifier.posted.isEmpty() && log.isEmpty() && plan.toPost.isEmpty())
   }
 
   @Test fun `cancelForegroundVisible cancels each visible subject`() {

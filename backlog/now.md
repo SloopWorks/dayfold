@@ -35,6 +35,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
+### Active — mobile app review / Hub completion parity (2026-08-19)
+
+The cross-platform review is implemented in an isolated branch: Hub blocks expose
+**Mark done**, completion has a durable byline/date/note presentation, the root response
+overlay and Back/dismiss behavior are consistent, compact/IME/accessibility layouts are
+corrected, and rich Hub content/date/contact fallbacks are portable across Android/iOS.
+The review also hardened response tenancy/ACL/idempotency/convergence, notification
+suppression and cleanup, collision-proof Android tap/alarm identities, serialized geofence
+replacement, retained/serialized iOS region passes, topology-safe completion, causal response
+Undo ordering, and exact-alarm denial fallback/guidance. The full flow was exercised through
+durable **Done by You** on Android and iOS simulators; macOS Hub goldens were recorded and
+reviewed. API, client, UI, SWIP, Android build/connected platform tests, iOS device/simulator
+frameworks, and the iOS host build are green. Linux Hub goldens remain pending because the
+prescribed 7 GB container twice lost its Gradle daemon during compilation.
+
 ### Calendar Check epic (CAL, ADR 0063 — Proposed, not yet Accepted) — 2026-08-09
 
 Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built
@@ -297,6 +312,46 @@ count). Golden gates for the new scenes are macOS-only — docker OOMs at 7.65GB
 `:ui` here, the same wall the hub-people and authorize-* scenes hit; re-add the gates once
 a linux golden is recorded in CI. Open follow-ups are in `context/open-questions.md`
 (`OQ-response-subjectref-stability` is the one that can silently break Done).
+
+**Mobile follow-up (2026-08-19): Hub Done reachability + cross-platform audit.**
+The missing Hub entry point is now closed: a block's overflow opens the direct
+Done/note step, exact subject refs suppress only that live block, and the Hub
+retains an attributed, timestamped completion card (including honest pending
+copy offline). Response overlays now live at the app root, compact/IME/large-
+text behavior and selection semantics are explicit, and Android Back follows
+platform modal convention while the explicit sheet Back control follows the
+visible step hierarchy. The same audit repaired two iOS-host regressions:
+`:ui` now re-exports the client bridge Swift calls, and simulator Dev fake
+sign-in uses the in-process busy-family backend. The API now visibility-gates
+concrete response subjects with uniform 404s; response reads/sync obey Hub
+audience changes, response ids cannot be stolen, and one atomic Done record is
+allowed per live subject. Rejected optimistic writes roll back instead of
+leaving a ghost completion. Done and competing content writes are serialized on
+one pinned transaction with a transaction-scoped lock (also validated with the
+serverless one-connection pool); replay keys remain bound to their authorized
+response, stale section moves cannot redirect a block write, a losing device
+atomically adopts the canonical Done row without cursor dependence (and remains
+an anonymous, timestamp-free, deduplicated, retry-capped suppressor against an older API);
+schema/stale-cursor cache healing preserves pending response rows beside their queued writes; rejected
+response removal restores its rollback snapshot after cursor advance, while a successful DELETE removes
+any row rehydrated by a racing full sync; Done deletion remains durable,
+and Hub topology changes emit the right response tombstones. Done responses also
+suppress stale cached content in background/exact notification planning and
+cancel delivered or pre-scheduled reminders on both platforms; authored-card
+changes re-plan schedules, iOS removes stale/disabled requests without applying today's
+exhausted cap to tomorrow, and identity/family teardown clears platform notifications,
+exact alarms, and geofences (including Android group summaries and an outstanding iOS nearest-region
+lookup). Android boot/package replacement now restores both geofences and exact alarms, and iOS debug
+notification callbacks share the foreground fake cache. The visual audit also fixed
+compact contact actions, raw due/milestone timestamps, blocked-image labels, and
+Markdown preview leakage. Verification: API 480 passed (3 skipped),
+full `:client:desktopTest` + `:ui:desktopTest` passed, Android debug built and
+the Hub completion path was exercised on the API-37 foldable emulator through
+the durable **Done by You** state. iOS device/simulator client compilation and
+the simulator host build/install/launch are green; the full overflow → note →
+completion → durable Done path was exercised in the iOS simulator as well. macOS Hub goldens were
+re-recorded and reviewed; the prescribed 7 GB Linux container again lost its
+Gradle daemon during compilation, so those counterparts remain pending.
 
 ## Operator actions pending
 

@@ -41,6 +41,41 @@ import org.reduxkotlin.compose.selectorState
 private fun navGroupKey(route: Route): String =
   if (route == Route.Feed || route == Route.Hubs) "tabs" else route.name
 
+private fun responseOverlayState(state: AppState): ResponseState = state.responses
+
+@Composable
+private fun ConnectedResponseOverlay(
+  store: SelectorStore<AppState>,
+  commands: DayfoldCommandPort,
+  activeFamilyId: String?,
+) {
+  val state by store.selectorState(::responseOverlayState)
+  ResponseOverlay(
+    state = state,
+    onVerb = { verb ->
+      store.state.responses.sheet?.let {
+        routeResponseVerb({ action -> store.dispatch(action) }, commands, activeFamilyId, it, verb)
+      }
+    },
+    onDismiss = { store.dispatch(CloseResponseSheet) },
+    onBack = { store.dispatch(ResponseStepBack) },
+    onScope = { store.dispatch(SetResponseMatchScope(it)) },
+    onAudience = { store.dispatch(SetResponseAudience(it)) },
+    onOpenRoutines = {
+      store.dispatch(CloseResponseSheet)
+      store.dispatch(OpenSmartBriefings)
+    },
+    onCommitMute = {
+      store.state.responses.sheet?.let { commitResponseMute({ action -> store.dispatch(action) }, commands, it) }
+    },
+    onDone = { note ->
+      store.state.responses.sheet?.let { commitResponseDone({ action -> store.dispatch(action) }, commands, it, note) }
+    },
+    onUndo = commands::undoLastResponse,
+    onDismissReceipt = { store.dispatch(ResponseReceiptDismissed) },
+  )
+}
+
 // Route a card's CardAction: OpenDetail = in-app nav → store; everything else =
 // an OS handoff → the shell's PlatformActions. Extracted (non-Composable) so the
 // split is unit-testable. Returns Unit (store.dispatch returns the action).
@@ -69,8 +104,8 @@ internal fun routeCardAction(
         subjectTitle = action.subjectTitle,
         reasonKind = action.reasonKind,
         source = action.source,
-        surface = ResponseSurface.NOW,
-        step = if (action.atScope) ResponseStep.SCOPE else ResponseStep.VERBS,
+        surface = action.surface,
+        step = action.initialStep ?: if (action.atScope) ResponseStep.SCOPE else ResponseStep.VERBS,
       ),
     )
     else -> platformActions.perform(action)
@@ -277,30 +312,6 @@ fun FeedApp(
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
             onNowShown = commands::nowShown,
-            // ADR 0064 — the shell owns the response effects, so ContentHost/FeedScreen stay
-            // render-only. The sheet state is read back from the store, not held locally.
-            onVerb = { verb ->
-              store.state.responses.sheet?.let { sheet ->
-                routeResponseVerb({ store.dispatch(it) }, commands, shell.activeFamilyId, sheet, verb)
-              }
-            },
-            onCloseSheet = { store.dispatch(CloseResponseSheet) },
-            onScope = { store.dispatch(SetResponseMatchScope(it)) },
-            onAudience = { store.dispatch(SetResponseAudience(it)) },
-            onCommitMute = {
-              store.state.responses.sheet?.let { commitResponseMute({ a -> store.dispatch(a) }, commands, it) }
-            },
-            onOpenRoutines = {
-              store.dispatch(CloseResponseSheet)
-              store.dispatch(OpenSmartBriefings)
-            },
-            onUndoResponse = commands::undoLastResponse,
-            onDismissReceipt = { store.dispatch(ResponseReceiptDismissed) },
-            onDone = { note ->
-              store.state.responses.sheet?.let {
-                commitResponseDone({ a -> store.dispatch(a) }, commands, it, note)
-              }
-            },
             feedListState = feedListState,
           )
         },
@@ -324,6 +335,7 @@ fun FeedApp(
       }
     }
     }
+    ConnectedResponseOverlay(store, commands, shell.activeFamilyId)
   }
   }
 }

@@ -33,6 +33,23 @@ class ResponseReducerTest {
   fun theSheetCanOpenDirectlyAtTheScopeStep() {
     val s = reduceResponses(AppState(), open(ResponseStep.SCOPE))
     assertEquals(ResponseStep.SCOPE, s.responses.sheet?.step)
+    assertEquals(ResponseStep.SCOPE, s.responses.sheet?.entryStep)
+  }
+
+  @Test
+  fun backFromANowChildStepReturnsToVerbs() {
+    var s = reduceResponses(AppState(), open())
+    s = reduceResponses(s, ResponseStepDoneNote)
+    s = reduceResponses(s, ResponseStepBack)
+    assertEquals(ResponseStep.VERBS, s.responses.sheet?.step)
+  }
+
+  @Test
+  fun backFromADirectHubCompletionDismissesTheSheet() {
+    val direct = open(ResponseStep.DONE_NOTE).copy(surface = ResponseSurface.HUB)
+    var s = reduceResponses(AppState(), direct)
+    s = reduceResponses(s, ResponseStepBack)
+    assertNull(s.responses.sheet)
   }
 
   @Test

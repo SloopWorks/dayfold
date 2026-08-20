@@ -7,6 +7,129 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-19 — Hub completion parity and mobile response-flow repair
+
+### Fixed
+- **Hub content can now be marked done.** Every live Hub block has a **Mark done**
+  action alongside the existing personal Hide and author-only Delete actions.
+  Completion opens the same optional-note step as Now, removes the block from
+  the live section immediately, and leaves a durable **Done** card with who did
+  it, when, and the note. Pending offline work says “saving…” instead of
+  pretending the family has already received it.
+- **Response navigation is consistent across Now, detail, and Hubs.** The sheet
+  is hosted at the app root, child steps have a visible Back action, and system
+  Back, scrim taps, and drag-down gestures dismiss the modal consistently. The note
+  and scope screens scroll above the keyboard, stack actions at compact widths
+  or larger text sizes, and expose proper radio-button semantics.
+- **iOS development builds launch again.** The Compose framework now re-exports
+  the client notification/background bridge used by Swift, and simulator **Dev sign-in
+  (fake)** uses the existing in-process busy-family backend instead of sending
+  an unsupported `fake://` URL through Darwin networking. Fake response writes
+  now persist through sync and preserve the debug actor, so device verification
+  shows the same durable **Done by You** state as production. Physical-device debug
+  builds hide that control when no fake transport or production sign-in endpoint exists.
+- **Failed and racing completions stay truthful.** Successful responses clear
+  “saving…” immediately; terminal write failures roll back their optimistic Done
+  card with an accurate failure receipt; and concurrent devices can create only
+  one live completion per subject. Completion and competing card/block authoring
+  are serialized in one transaction with a transaction-scoped lock, including
+  the one-connection serverless/transaction-pool configuration; section moves
+  cannot redirect a stale block write into another Hub, exact retries stay
+  idempotent, and Done records cannot be deleted after their source content is
+  tombstoned. A losing mobile completion atomically adopts the winning Done row,
+  without briefly re-exposing the completed item or relying on a later sync cursor.
+  During a rolling deployment against an older API, the retained local suppressor
+  is anonymous rather than falsely crediting the losing member, is deduplicated as
+  soon as a canonical row is cached (even after the attempt cap), carries no invented
+  winner timestamp, and stops retrying at the normal attempt cap. A stale-cursor or
+  client-schema rebuild also preserves an optimistic response beside its preserved
+  outbox write, so offline Done/mute state cannot disappear during cache healing.
+  A rejected response removal restores its exact local rule snapshot, so advancing
+  the sync cursor cannot leave the device disagreeing with the server; a successful
+  removal also wins over a full-sync row that arrived while the DELETE was queued.
+  Response commands now run inside the captured family's replaceable work scope, so
+  sign-out and A→B family changes cancel and join a blocked database write before the
+  outgoing cache is cleared. Mute Undo always queues a causally dependent compensating
+  DELETE—even if its PUT is already in flight or acknowledged—so timestamp/operation-id
+  ordering can never send the Undo first. Replay responses that say the row
+  is gone remove any orphaned optimistic copy. A 404 on DELETE never restores a
+  private response the caller can no longer read.
+- **Completed content cannot send a stale reminder.** Cached Done responses now
+  participate in both background and exact-notification planning. Android and iOS
+  also cancel already-delivered or pre-scheduled notifications for that subject,
+  immediately on a response-table change, even when an older cursor left the source
+  card or block in the local cache. Showing a subject in the foreground now also retracts
+  its visible notification banner on both hosts without cancelling a future timed reminder.
+  Authored-card changes re-plan exact
+  reminders; iOS serializes that work with immediate posts, installs replacements before
+  pruning stale exact-lane requests, migrates legacy raw identifiers, and removes delivered
+  exact history only when stale, completed, or explicitly viewed. A failed add preserves
+  the prior valid schedule, and a fired-but-unread reminder remains in Notification Center
+  while its source is still active. Cap/dedup is applied
+  independently to each trigger date so an exhausted day does not erase tomorrow's plan.
+  Signing out or switching families clears delivered notifications, pending requests, exact alarms,
+  and geofences; iOS serializes that geofence teardown on the main thread and invalidates
+  an outstanding nearest-place lookup so a late callback cannot restore the outgoing
+  family's regions. Android re-arms both geofences and exact reminders after reboot or
+  package replacement, retracting an Android child also removes its stale grouped summary,
+  and iOS simulator notification callbacks use the same isolated fake cache as the UI.
+  Android child notifications and exact-alarm taps use full subject identities instead
+  of collision-prone integer hashes. Geofence replacement/removal is serialized, and a
+  family teardown invalidates any admitted late add before awaiting final removal. When
+  Android geofence and exact-alarm wakes overlap, one process-wide pass now owns
+  snapshot → notification → ledger work; exact-alarm reconciliation also removes tracked
+  alarms whose trigger, source, or mute state disappeared instead of waking at obsolete times.
+  When Android exact-alarm access is unavailable, reminders fall back to an approximate alarm
+  and the opt-in flow opens the OS guidance once; granting access re-arms exact reminders.
+  Denied or failed platform posts no longer consume the daily notification cap. A cold iOS
+  background wake reads fresh system authorization instead of the launch-time permission
+  cache, and records delivery only after Notification Center accepts each request. Done,
+  sign-out, and family-switch cleanup fence in-flight callbacks so late requests cannot
+  resurrect outgoing-family content or write across a cleared cache. Region-triggered
+  iOS passes retain a UIKit background-execution window through Notification Center's
+  asynchronous completion and serialize snapshot → post → ledger work, so simultaneous
+  region entries cannot all spend the same daily-cap slot. Exact reconciliation uses the
+  same retained coordinator, preventing an older plan from winning after a newer one; expiry
+  atomically closes every affected active or queued pass without losing already-accepted reminders.
+- **Hub action layout and accessibility are corrected.** Every overflow control
+  owns a reserved trailing lane and names its content, Markdown is stripped from
+  spoken/menu labels, completion dates use the viewer's timezone, and receipts
+  sit above bottom navigation with a polite accessibility announcement.
+- **The wider mobile Hub audit corrected compact and rich-content rendering.**
+  Contact actions wrap below the identity instead of crushing the contact name,
+  due dates and milestones render as readable local dates instead of raw ISO
+  timestamps, blocked Markdown images use a portable **Image: _description_**
+  label on Android and iOS, and blockquotes/rules no longer leak Markdown syntax
+  into preview text.
+
+### Security / privacy
+- A response targeting a concrete card, Hub, section, or block is accepted only
+  when that exact live subject is visible to the caller. Missing, deleted,
+  mismatched, and restricted subjects all return the same 404, closing a guessed-
+  identifier write path without creating an existence oracle.
+- Response reads and sync now apply the same audience checks, including historical
+  Hub completions. Removing access emits a tombstone, granting access backfills the
+  allowed completion, topology changes retouch affected response rows, and one
+  member cannot overwrite another member's response id. Replayed operation keys
+  are transaction-serialized and bound to their original verb and target, and response
+  replays must still pass the current ACL. Section base-version checks now occur under
+  the stable topology lock, while section create/move locks both parent Hubs so a racing
+  Hub deletion cannot leave live orphan content.
+- Personal concrete responses require both ownership and current subject access.
+  Response IDs keep immutable identity even after soft deletion, card-audience
+  changes retouch response rows, and moving a section rekeys all child block subject
+  references in the same transaction. Done locks both sides of block and section topology
+  moves; moving content requires authority on its source as well as destination Hub. Stable
+  node-ID locks also prevent simultaneous same-ID creates in different Hubs from becoming
+  an unauthorized move, and block replay keys are bound to their exact target with the
+  current Hub ACL rechecked before any row is returned.
+
+### Corrected
+- The 2026-08-08 note overstated Hub response parity: Hub blocks did not yet
+  expose those response actions. This entry records the first shipped UI path
+  for Hub **Mark done**; combined delete-and-mute remains deliberately absent
+  until it has truthful, atomic server semantics.
+
 ## 2026-08-10 — Authoring routines read the family's rules before writing
 
 ### Added
@@ -83,9 +206,8 @@ device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
   device — so the next run cheerfully added the same card again. There is now a
   response sheet on every surface smart content touches (the card's ⋮, its
   provenance chip, the detail view's footer), with the same verbs in the same
-  order: **Mark done**, **Hide for me**, and **Don't add this again**. Hub
-  blocks add a fourth, **Remove, and don't re-add**, which pairs the delete with
-  the rule so cleaning up an unwanted block doesn't turn into whack-a-mole.
+  order: **Mark done**, **Hide for me**, and **Don't add this again**. (The Hub
+  parity described here was corrected by the 2026-08-19 entry above.)
 - **"Don't add this again" is a stored rule, not a dismissal.** Choose how much
   should stop — just this card, or every card of that kind — and who it applies
   to. **For you** is the default: the routine keeps making them for everyone

@@ -133,7 +133,7 @@ never inline-loaded):
 - `| a | b |` tables (with a `|---|` separator row; the first row is the header)
 - `[label](https://…)` links and bare `https://…` autolinks — schemes limited to
   **https / mailto / tel / geo / sms** (others render as plain text)
-- `![alt](url)` images degrade to a `🖼 alt` link (tapped out, never inline-loaded)
+- `![alt](url)` images degrade to an `Image: alt` link (tapped out, never inline-loaded)
 
 ### Worked example
 

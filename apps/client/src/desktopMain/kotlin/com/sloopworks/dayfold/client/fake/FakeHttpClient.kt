@@ -6,6 +6,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.http.content.TextContent
 
 // Desktop MockEngine adapter (dev tool — desktop has no release variant, so the
 // ktor-client-mock dep lives in desktopMain). Wraps the pure FakeBackend router
@@ -24,6 +25,11 @@ fun fakeClientForApi(api: String): HttpClient? =
 fun fakeHttpClient(backend: FakeBackend): HttpClient = HttpClient(MockEngine { request ->
   val latency = System.getenv("DAYFOLD_FAKE_LATENCY")?.toLongOrNull() ?: backend.data.latencyMs
   if (latency > 0) kotlinx.coroutines.delay(latency)
-  val res = backend.handle(request.method.value, request.url.encodedPath, request.url.parameters["user_code"])
+  val res = backend.handle(
+    request.method.value,
+    request.url.encodedPath,
+    request.url.parameters["user_code"],
+    (request.body as? TextContent)?.text,
+  )
   respond(res.json, HttpStatusCode.fromValue(res.status), headersOf(HttpHeaders.ContentType, "application/json"))
 })

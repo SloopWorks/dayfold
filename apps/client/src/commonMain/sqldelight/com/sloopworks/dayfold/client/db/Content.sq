@@ -287,8 +287,8 @@ enqueueOp:
 INSERT INTO outbox(op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?);
 
--- ADR 0064 undo — drop EVERY queued op for a target regardless of type/state. Undo works
--- offline precisely because the write has not left the device: the queued op is simply gone.
+-- Remove every queued operation for a response id that the server has replaced with a
+-- different canonical completion id after a subject-already-done conflict.
 deleteOpsForTarget:
 DELETE FROM outbox WHERE target_id=?;
 
@@ -303,7 +303,19 @@ DELETE FROM outbox WHERE target_id=? AND state='acked';
 -- FIFO drain: the next sendable ops (pending only; inflight is in-flight, acked awaits echo).
 pendingOps:
 SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, result_version, created_at
-FROM outbox WHERE state='pending' ORDER BY created_at, op_id;
+FROM outbox o
+WHERE state='pending'
+  AND (depends_on IS NULL OR NOT EXISTS (
+    SELECT 1 FROM outbox parent
+      WHERE parent.op_id=o.depends_on AND parent.state IN ('pending','inflight')
+  ))
+ORDER BY created_at, op_id;
+
+latestOpenResponseUpsert:
+SELECT op_id FROM outbox
+WHERE target_kind='response' AND target_id=? AND type='upsert'
+  AND state IN ('pending','inflight')
+ORDER BY created_at DESC, op_id DESC LIMIT 1;
 
 markInflight:
 UPDATE outbox SET state='inflight' WHERE op_id=? AND state='pending';
@@ -517,8 +529,8 @@ DELETE FROM notification_log;
 -- policy statement, not passive behavior, so publishing it to the family is what the member
 -- asked for. Applied by applyDelta from the /sync `response` rows; written optimistically by
 -- ResponseEngine and drained through the shared outbox.
--- Wiped on wipe() (tenancy revocation) AND on wipeSyncedContent() — it is family content, not
--- device-local personal state.
+-- wipe() (tenancy revocation) drops every row. wipeSyncedContent() drops acknowledged rows but
+-- preserves optimistic rows beside its preserved outbox, until the full rebuild/egress converges.
 CREATE TABLE content_response (
   id             TEXT NOT NULL PRIMARY KEY,
   kind           TEXT NOT NULL,
@@ -530,6 +542,7 @@ CREATE TABLE content_response (
   label          TEXT NOT NULL,
   sublabel       TEXT,
   note           TEXT,
+  created_at     TEXT NOT NULL DEFAULT '',
   version        INTEGER NOT NULL DEFAULT 1,
   -- Optimistic-write UI state: 1 while the outbox op is unacked (States P1), cleared by the
   -- /sync echo. NOT a wire field.
@@ -539,24 +552,50 @@ CREATE INDEX content_response_subject_idx ON content_response(subject_ref);
 
 upsertResponse:
 INSERT INTO content_response(id, kind, subject_ref, match_scope, audience_scope, user_id,
-                             created_by, label, sublabel, note, version, pending)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                             created_by, label, sublabel, note, created_at, version, pending)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
   kind=excluded.kind, subject_ref=excluded.subject_ref, match_scope=excluded.match_scope,
   audience_scope=excluded.audience_scope, user_id=excluded.user_id,
   created_by=excluded.created_by, label=excluded.label, sublabel=excluded.sublabel,
-  note=excluded.note, version=excluded.version, pending=excluded.pending;
+  note=excluded.note, created_at=excluded.created_at,
+  version=excluded.version, pending=excluded.pending;
 
 deleteResponse:
 DELETE FROM content_response WHERE id = ?;
 
+clearResponsePending:
+UPDATE content_response SET pending = 0, version = max(version, ?) WHERE id = ?;
+
+-- A legacy API reported that another member completed the subject but did not return the
+-- canonical row. Keep this pending row only as a local suppressor while retrying; remove the
+-- losing member's attribution/note so completion history never claims they did the work.
+markResponseConflictPending:
+UPDATE content_response SET created_by = '', note = NULL, created_at = '', pending = 1 WHERE id = ?;
+
+otherDoneIdsForSubject:
+SELECT id FROM content_response
+WHERE kind = 'done' AND subject_ref = ? AND id != ?;
+
+syncedDoneIdForSubject:
+SELECT id FROM content_response
+WHERE kind = 'done' AND subject_ref = ? AND id != ? AND pending = 0
+ORDER BY created_at, id
+LIMIT 1;
+
 allResponses:
 SELECT id, kind, subject_ref, match_scope, audience_scope, user_id, created_by,
-       label, sublabel, note, version, pending
+       label, sublabel, note, created_at, version, pending
 FROM content_response;
 
 wipeResponses:
 DELETE FROM content_response;
+
+-- A from-infinity rebuild replaces server-acknowledged family rules, but its outbox survives.
+-- Keep each optimistic row paired with that queued operation so Done/mute suppression cannot
+-- disappear during a schema heal or stale-cursor recovery.
+wipeSyncedResponses:
+DELETE FROM content_response WHERE pending = 0;
 
 -- ── ADR 0064 GAP 4 — the once-ever swipe-escalation offer. Tier 0: behavioral, device-local,
 -- NEVER synced (not in Changes/applyDelta/outbox), same boundary as `hidden` + surfacing above

@@ -55,8 +55,7 @@ import com.sloopworks.dayfold.client.ui.loading.rememberStableLoading
 // Composable (commonMain-compatible) — the Android/iOS/desktop shells host it.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), // ADR 0064 — APPENDED, not inserted: this list has positional call sites.
-  onVerb: (Verb) -> Unit = {}, onCloseSheet: () -> Unit = {}, onScope: (MatchScope) -> Unit = {}, onAudience: (AudienceScope) -> Unit = {}, onCommitMute: () -> Unit = {}, onOpenRoutines: () -> Unit = {}, onUndoResponse: () -> Unit = {}, onDismissReceipt: () -> Unit = {}, onDone: (String?) -> Unit = {},
+fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpenAccount: () -> Unit = {}, onConnectDevice: () -> Unit = {}, onNavHubs: () -> Unit = {}, onRefresh: () -> Unit = {}, onShown: (Set<String>) -> Unit = {}, location: DeviceLocation? = null, now: kotlin.time.Instant = kotlin.time.Clock.System.now(), timeZone: kotlinx.datetime.TimeZone = kotlinx.datetime.TimeZone.currentSystemDefault(), listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
   // WI-446 (ADR 0063 §5) — APPENDED, not inserted (mirrors the ADR 0064 comment above): the
   // aggregate Calendar Check card's "Review" tap. Deferred navigation, see NowFeedList's doc.
   onOpenCalendarReview: () -> Unit = {}) {
@@ -149,78 +148,6 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
     }
   }
 
-  // ADR 0064 — ONE sheet for both Now lanes. It lives here, not inside the card composables,
-  // because an authored card and a derived item render through different renderers but emit the
-  // same CardAction.Respond; mounting per-card would give the same subject two sheets.
-  state.responseSheet?.let { sheet ->
-    when (sheet.step) {
-      ResponseStep.SCOPE -> ResponseSheet(
-        sheet = sheet,
-        onVerb = onVerb,
-        onDismiss = onCloseSheet,
-        scopeContent = {
-          ResponseScopeStep(
-            sheet = sheet,
-            onScope = onScope,
-            onAudience = onAudience,
-            onOpenRoutines = onOpenRoutines,
-            onCommit = onCommitMute,
-          )
-        },
-      )
-      ResponseStep.DONE_NOTE -> ResponseSheet(
-        sheet = sheet,
-        onVerb = onVerb,
-        onDismiss = onCloseSheet,
-        scopeContent = {
-          DoneNoteStep(
-            sheet = sheet,
-            onJustDone = { onDone(null) },
-            onSaveNote = { onDone(it) },
-          )
-        },
-      )
-      else -> ResponseSheet(sheet = sheet, onVerb = onVerb, onDismiss = onCloseSheet)
-    }
-  }
-
-  // The receipt: snackbar + Undo at act time (NOTES.md § Persistence contract).
-  state.responseReceipt?.let { receipt ->
-    ResponseReceiptBar(receipt, onUndo = onUndoResponse, onDismiss = onDismissReceipt)
-  }
-}
-
-/**
- * ADR 0064 — the act-time receipt. A single-action bar, never two buttons: Undo is the only
- * thing offered, and it works offline because the queued write has not left the device.
- */
-@Composable
-private fun ResponseReceiptBar(receipt: ResponseReceipt, onUndo: () -> Unit, onDismiss: () -> Unit) {
-  val cs = MaterialTheme.colorScheme
-  Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-    Surface(
-      shape = RoundedCornerShape(14.dp),
-      color = cs.inverseSurface,
-      modifier = Modifier.padding(14.dp).fillMaxWidth(),
-    ) {
-      Row(
-        Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        Text(
-          receipt.message,
-          style = MaterialTheme.typography.bodyMedium,
-          color = cs.inverseOnSurface,
-          modifier = Modifier.weight(1f),
-        )
-        if (receipt.undoable) {
-          TextButton(onClick = onUndo) { Text("Undo", color = cs.inversePrimary) }
-        } else {
-          TextButton(onClick = onDismiss) { Text("Dismiss", color = cs.inversePrimary) }
-        }
-      }
-    }
-  }
 }
 
 // #164 CL-A8 — the headline new state: an ESTABLISHED family with nothing pressing right

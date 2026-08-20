@@ -1,0 +1,2 @@
+-- Migration v15→v16: retain the server creation time for durable Hub completion bylines.
+ALTER TABLE content_response ADD COLUMN created_at TEXT NOT NULL DEFAULT '';

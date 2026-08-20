@@ -37,6 +37,29 @@ class ResponseEngine(
     sublabel: String? = null,
   ) {
     val viewer = viewerUserId() ?: return
+    mute(viewer, subjectRef, matchScope, audience, label, sublabel)
+  }
+
+  internal suspend fun mute(
+    context: FamilySessionContext,
+    subjectRef: String,
+    matchScope: MatchScope,
+    audience: AudienceScope,
+    label: String,
+    sublabel: String? = null,
+  ) {
+    val viewer = context.actorUserId() ?: return
+    mute(viewer, subjectRef, matchScope, audience, label, sublabel)
+  }
+
+  private suspend fun mute(
+    viewer: String,
+    subjectRef: String,
+    matchScope: MatchScope,
+    audience: AudienceScope,
+    label: String,
+    sublabel: String?,
+  ) {
     write(
       ContentResponse(
         id = idProvider(),
@@ -53,6 +76,7 @@ class ResponseEngine(
       ),
       onlineMessage = "Muted",
       offlineMessage = "Muted — will sync when you're online",
+      undoable = true,
     )
   }
 
@@ -63,6 +87,20 @@ class ResponseEngine(
    */
   suspend fun markDone(subjectRef: String, label: String, note: String? = null) {
     val viewer = viewerUserId() ?: return
+    markDone(viewer, subjectRef, label, note)
+  }
+
+  internal suspend fun markDone(
+    context: FamilySessionContext,
+    subjectRef: String,
+    label: String,
+    note: String? = null,
+  ) {
+    val viewer = context.actorUserId() ?: return
+    markDone(viewer, subjectRef, label, note)
+  }
+
+  private suspend fun markDone(viewer: String, subjectRef: String, label: String, note: String?) {
     write(
       ContentResponse(
         id = idProvider(),
@@ -79,26 +117,33 @@ class ResponseEngine(
       ),
       onlineMessage = "Marked done",
       offlineMessage = "Marked done — will sync when you're online",
+      undoable = false,
     )
   }
 
-  private suspend fun write(row: ContentResponse, onlineMessage: String, offlineMessage: String) {
+  private suspend fun write(
+    row: ContentResponse,
+    onlineMessage: String,
+    offlineMessage: String,
+    undoable: Boolean,
+  ) {
     val nowIso = nowProvider()
+    val persisted = if (row.createdAt.isBlank()) row.copy(createdAt = nowIso) else row
     val offline = !isOnline()
     withContext(databaseDispatcher) {
-      contentStore.upsertResponseLocal(row)
+      contentStore.upsertResponseLocal(persisted)
       contentStore.enqueueResponseOp(
-        opId = row.id, id = row.id, type = "upsert",
-        payload = responseWireJson(row), nowIso = nowIso,
+        opId = persisted.id, id = persisted.id, type = "upsert",
+        payload = responseWireJson(persisted), nowIso = nowIso,
       )
       reload()
     }
     store.dispatch(
       ResponseReceiptShown(
         ResponseReceipt(
-          responseId = row.id,
+          responseId = persisted.id,
           message = if (offline) offlineMessage else onlineMessage,
-          undoable = true,
+          undoable = undoable,
           offline = offline,
         ),
       ),
@@ -108,29 +153,47 @@ class ResponseEngine(
 
   /** Remove a rule from Settings. Optimistic, like every other response write. */
   suspend fun removeResponse(id: String) {
+    removeResponseInternal(id)
+  }
+
+  internal suspend fun removeResponse(context: FamilySessionContext, id: String) {
+    if (context.actorUserId() == null) return
+    removeResponseInternal(id)
+  }
+
+  private suspend fun removeResponseInternal(id: String) {
     val nowIso = nowProvider()
-    withContext(databaseDispatcher) {
-      contentStore.deleteResponseLocal(id)
-      contentStore.enqueueResponseOp(
-        opId = idProvider(), id = id, type = "delete", payload = "", nowIso = nowIso,
-      )
+    val enqueued = withContext(databaseDispatcher) {
+      val queued = contentStore.enqueueResponseDelete(idProvider(), id, nowIso)
       reload()
+      queued
     }
+    if (!enqueued) return
     syncEngine.requestSync(SyncReason.OUTBOX_MUTATION)
   }
 
   /**
-   * Undo the last response. Works offline: the queued write has not left the device, so it is
-   * simply dropped — no compensating request, nothing for the server to reconcile.
+   * Undo the last response by appending a compensating delete. The original PUT may already be
+   * in-flight or acknowledged, so preserving it and ordering the DELETE is the only convergent path.
    */
   suspend fun undoLastResponse() {
+    undoLastResponseInternal()
+  }
+
+  internal suspend fun undoLastResponse(context: FamilySessionContext) {
+    if (context.actorUserId() == null) return
+    undoLastResponseInternal()
+  }
+
+  private suspend fun undoLastResponseInternal() {
     val id = store.state.responses.lastReceipt?.responseId ?: return
+    val nowIso = nowProvider()
     withContext(databaseDispatcher) {
-      contentStore.dropQueuedOpsFor(id)
-      contentStore.deleteResponseLocal(id)
+      contentStore.enqueueResponseDelete(idProvider(), id, nowIso)
       reload()
     }
     store.dispatch(ResponseReceiptDismissed)
+    syncEngine.requestSync(SyncReason.OUTBOX_MUTATION)
   }
 
   /**
@@ -138,6 +201,15 @@ class ResponseEngine(
    * one offer per subject, ever, because a repeat offer is a nag.
    */
   suspend fun recordResponseOffer(subjectRef: String) {
+    recordResponseOfferInternal(subjectRef)
+  }
+
+  internal suspend fun recordResponseOffer(context: FamilySessionContext, subjectRef: String) {
+    if (context.actorUserId() == null) return
+    recordResponseOfferInternal(subjectRef)
+  }
+
+  private suspend fun recordResponseOfferInternal(subjectRef: String) {
     val nowIso = nowProvider()
     withContext(databaseDispatcher) { contentStore.recordResponseOffer(subjectRef, nowIso) }
   }

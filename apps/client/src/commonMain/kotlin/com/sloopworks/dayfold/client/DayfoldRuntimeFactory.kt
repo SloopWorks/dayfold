@@ -136,6 +136,7 @@ class DayfoldRuntimeFactory(
   private val contentStore: ContentStore,
   private val tokenStore: TokenStore,
   private val notificationContext: NotificationContext,
+  private val foregroundNotifier: LocalNotifier? = null,
   private val httpClientFactory: () -> HttpClient = { HttpClient() },
   private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
   private val databaseDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -149,6 +150,13 @@ class DayfoldRuntimeFactory(
   private val devProvider: String = "dev",
   private val devProviderUid: String = "dev-user",
   private val onResourcesClosed: () -> Unit = {},
+  // Platform-owned family state (delivered/pending notifications, exact alarms, geofences) must be
+  // cleared at the same identity/family boundary as the tenant cache. The callback is deliberately
+  // host-supplied because commonMain cannot enumerate those OS resources.
+  private val onFamilyDataCleared: () -> Unit = {},
+  // Some platform callbacks are asynchronous (notably iOS UN/BG reconciliation). This second phase
+  // lets a host keep their admission fence closed through the cache wipe and reopen only afterward.
+  private val onFamilyDataClearFinished: () -> Unit = {},
   // CAL-8 (ADR 0063) — the device calendar seam. NoOpCalendarPort everywhere except the real
   // Android adapter, mirroring how notificationContext/tokenStore are host-supplied.
   private val calendarPort: CalendarPort = NoOpCalendarPort,
@@ -165,6 +173,22 @@ class DayfoldRuntimeFactory(
     val authClient = AuthClient(api, http)
     val syncClient = SyncClient(api, http)
     val hubClient = HubClient(api, http)
+
+    fun clearFamilyData() {
+      // Stop OS-owned callbacks first. Android's implementation waits for its serialized
+      // geofence removal, so no late registration can observe or outlive the tenant cache wipe.
+      val platformFailure = runCatching(onFamilyDataCleared).exceptionOrNull()
+      val cacheFailure = runCatching(contentStore::wipe).exceptionOrNull()
+      // Reopening platform admission is a success commit, not unconditional cleanup. If either
+      // teardown phase failed, the outgoing tenant may still exist in SQLite or the OS; keep the
+      // fence closed until a later successful cleanup rather than notifying from signed-out data.
+      val finishFailure = if (platformFailure == null && cacheFailure == null) {
+        runCatching(onFamilyDataClearFinished).exceptionOrNull()
+      } else null
+      cacheFailure?.let { throw it }
+      platformFailure?.let { throw it }
+      finishFailure?.let { throw it }
+    }
 
     lateinit var runtime: DayfoldRuntime
     lateinit var authEngine: AuthEngine
@@ -203,7 +227,7 @@ class DayfoldRuntimeFactory(
             devSecret = devSecret,
             devProvider = devProvider,
             devProviderUid = devProviderUid,
-            clearCache = contentStore::wipe,
+            clearCache = ::clearFamilyData,
             loadCachedMemberships = contentStore::cachedMemberships,
             saveMemberships = contentStore::replaceMemberships,
             scope = rootScope.supervisedChild(),
@@ -313,6 +337,8 @@ class DayfoldRuntimeFactory(
             sessionCoordinator = coordinator,
             externalHubTargets = externalHubTargets,
             calendarCheckEngine = calendarCheckEngine,
+            foregroundNotifier = foregroundNotifier,
+            familyWorkLauncher = hubEngine::launchFamilyOwned,
             bindSelectedFamily = {
               val auth = coordinator.authSnapshot()
               val familyId = store.state.session.activeFamilyId
@@ -359,7 +385,7 @@ class DayfoldRuntimeFactory(
         },
         pauseSync = { syncCoordinator.pause() },
         wipeFamily = {
-          withContext(databaseDispatcher) { contentStore.wipe() }
+          withContext(databaseDispatcher) { clearFamilyData() }
         },
         closeResources = {
           syncEngine.stop()

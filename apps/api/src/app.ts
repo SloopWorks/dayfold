@@ -14,7 +14,7 @@ import { cardVisible } from "./content/visibility.ts";
 import { isMemberWrite, memberDeleteForbidden, ifMatchFails, blockState, hubWriteGate, suppressedBy } from "./content/write-guard.ts";
 import { findOp, recordOp } from "./content/oplog.ts";
 import * as responses from "./content/responses.ts";
-import { isRuleRef, buildCardSubjectRef, buildBlockSubjectRef } from "./content/subject-ref.ts";
+import { isRuleRef, buildCardSubjectRef, buildBlockSubjectRef, parseSubjectRef, type SubjectRef } from "./content/subject-ref.ts";
 import { CONTENT_TOMBSTONE_RETENTION_DAYS, sweep } from "./auth/sweep.ts";
 import { audit } from "./auth/audit.ts";
 import { clientIp, hit, isLocked, recordFailure, resetFailures } from "./auth/ratelimit.ts";
@@ -500,23 +500,26 @@ app.put("/families/:fid/cards/:id", async (c) => {
   // ADR 0064 — suppression, mechanically by ID. 409 (not 4xx-generic) so the authoring path
   // can report "skipped N muted subjects" on its run receipt instead of treating a rule the
   // family deliberately wrote as an error.
-  const gate = suppressedBy(await responses.listActive(fid), {
-    subjectRef: buildCardSubjectRef(id),
-    kind: (parsed.data as any).kind ?? null,
-    source: (parsed.data as any).provenance?.source ?? null,
+  const subjectRef = buildCardSubjectRef(id);
+  return responses.withSubjectWriteLock(fid, subjectRef, async () => {
+    const gate = suppressedBy(await responses.listActive(fid), {
+      subjectRef,
+      kind: (parsed.data as any).kind ?? null,
+      source: (parsed.data as any).provenance?.source ?? null,
+    });
+    if (gate.blocked) return problem(c, 409, "subject-muted");
+    // A personal mute does not block: it removes its owner from the audience so the routine
+    // still mints for everyone else. Stripping only bites on a restricted card — a
+    // family-visible card has no audience list to remove anyone from, and narrowing one to a
+    // restricted list here would be the server inventing an ACL the author never asked for.
+    let finalAudience = audience;
+    if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
+      finalAudience = finalAudience.filter((u: string) => !gate.excludeUserIds.includes(u));
+      // Nobody left to write for → writing anyway would create a card no member can see.
+      if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
+    }
+    return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience: finalAudience }), 200);
   });
-  if (gate.blocked) return problem(c, 409, "subject-muted");
-  // A personal mute does not block: it removes its owner from the audience so the routine
-  // still mints for everyone else. Stripping only bites on a restricted card — a
-  // family-visible card has no audience list to remove anyone from, and narrowing one to a
-  // restricted list here would be the server inventing an ACL the author never asked for.
-  let finalAudience = audience;
-  if (gate.excludeUserIds.length > 0 && Array.isArray(finalAudience)) {
-    finalAudience = finalAudience.filter((u: string) => !gate.excludeUserIds.includes(u));
-    // Nobody left to write for → writing anyway would create a card no member can see.
-    if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
-  }
-  return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience: finalAudience }), 200);
 });
 
 app.get("/families/:fid/cards", async (c) => {
@@ -804,14 +807,32 @@ app.put("/families/:fid/sections/:id", async (c) => {
   const { hubId: _h, ...rest } = raw;
   const parsed = SectionSchema.safeParse({ ...rest, id });
   { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
-  // If-Match optimistic concurrency: stale base version → 412 (ADR 0038 §6.2).
   const ifMatch = c.req.header("if-match");
-  if (ifMatch) {
-    const cur = await q(`SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
-    if (ifMatchFails(ifMatch, cur.rowCount ? Number(cur.rows[0].version) : null)) return c.body(null, 412);
+  const movePlan = await hubs.sectionMoveLockPlan(fid, id, hubId);
+  if (movePlan.oldHubId && movePlan.oldHubId !== hubId) {
+    // A move writes both topology sides. Permission on the destination does not grant the right to
+    // extract a section (and all its children) from a restricted source Hub.
+    const sourceGate = await hubWriteGate(fid, movePlan.oldHubId, callerFrom(a));
+    const sourceResponse = hubWriteGateResponse(c, sourceGate, "source hub missing or deleted");
+    if (sourceResponse) return sourceResponse;
   }
-  const row = await hubs.upsertSection(fid, id, hubId, parsed.data);
-  return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing or deleted" }, 409);
+  // The path subjects differ when two callers concurrently create the same stable section id in
+  // different Hubs. Lock the id itself as well, so only one can retain its old=null snapshot; the
+  // loser revalidates after the winner commits instead of turning ON CONFLICT into an unauthorized
+  // cross-Hub move.
+  return responses.withSubjectWriteLocks(fid, [`topology:section:${id}`, ...movePlan.lockSubjects], async () => {
+    // Re-read the precondition only after the stable topology lock. Two same-base updates can both
+    // pass an earlier read; here the second observes the first commit and correctly returns 412.
+    const current = await q(
+      `SELECT version FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`,
+      [fid, id],
+    );
+    if (ifMatchFails(ifMatch, current.rowCount ? Number(current.rows[0].version) : null)) {
+      return c.body(null, 412);
+    }
+    const row = await hubs.upsertSection(fid, id, hubId, parsed.data, movePlan);
+    return row ? c.json(row, 200) : c.json({ type: "conflict", detail: "parent hub missing, deleted, or moved" }, 409);
+  });
 });
 
 app.put("/families/:fid/blocks/:id", async (c) => {
@@ -849,43 +870,80 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const blockMediaIssues = validateBlockPayloadMedia((parsed.data as any).type, (parsed.data as any).payload);
   if (blockMediaIssues.length) return c.json({ type: "validation", issues: blockMediaIssues }, 422);
   { const p = (parsed.data as any).payload; if (p?.accentColor) p.accentColor = normalizedAccent(p.accentColor); }
-  // op_id idempotency (ADR 0039 §6.5): a retried/echoed op short-circuits to the recorded
-  // result before the 410/412 gates (else a member's own retry would 412 on its echo).
   const opId = c.req.header("idempotency-key");
-  if (opId) {
-    const prior = await findOp(fid, opId);
-    if (prior) {
-      const existing = prior.result_ref ? await hubs.getBlock(fid, prior.result_ref) : null;
-      return existing ? c.json(existing, 200) : c.body(null, 410); // applied then deleted → gone
-    }
+  const oldSubjectRef = await hubs.blockSubjectRef(fid, id);
+  const oldSubject = oldSubjectRef ? parseSubjectRef(oldSubjectRef) : null;
+  if (oldSubject?.form === "node" && oldSubject.hubId !== hubId) {
+    // Like a section move, a block move requires write authority on both the source and target.
+    // Hidden and absent source Hubs keep the normal no-oracle response shape.
+    const sourceGate = await hubWriteGate(fid, oldSubject.hubId, caller);
+    const sourceResponse = hubWriteGateResponse(c, sourceGate, "source hub missing or deleted");
+    if (sourceResponse) return sourceResponse;
   }
   const member = isMemberWrite(a);
-  const st = await blockState(fid, id);
-  // 410-on-tombstone: a member write never resurrects a soft-deleted block (ADR 0038 §6.3).
-  if (member && st.deleted) return c.body(null, 410);
-  // If-Match optimistic concurrency: stale base version → 412 re-merge-retry (ADR 0038 §6.2).
-  if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
   // ADR 0064 — suppression, mechanically by ID. `kind` is deliberately null here: a block's
   // `type` (text/checklist/…) is a DIFFERENT vocabulary from a card's `kind`
   // (action/info/weather/…), and feeding it in would let a "kind:text" rule mute every text
   // block — a scope no surface offers and no member asked for. `source` is the same
   // vocabulary on both, so a source rule applies to routine-authored blocks too.
-  const suppression = suppressedBy(await responses.listActive(fid), {
-    subjectRef: buildBlockSubjectRef(hubId, sectionId, id),
-    kind: null,
-    source: (parsed.data as any).provenance?.source ?? null,
+  const subjectRef = buildBlockSubjectRef(hubId, sectionId, id);
+  return responses.withSubjectWriteLocks(fid, [
+    `topology:block:${id}`,
+    ...(opId ? [`operation:${opId}`] : []),
+    subjectRef,
+    ...(oldSubjectRef ? [oldSubjectRef] : []),
+  ], async () => {
+    // The replay check is authoritative only after the operation-id lock is held. This makes two
+    // simultaneous presentations converge too, not just sequential retries. Bind the key to this
+    // exact block/target and re-authorize the block's CURRENT Hub: an old op key is not a read
+    // capability after the member loses access or the block moves into a restricted Hub.
+    if (opId) {
+      const prior = await findOp(fid, opId);
+      if (prior) {
+        if (prior.result_kind !== "block" || prior.result_ref !== id) {
+          return problem(c, 409, "idempotency-key-reused");
+        }
+        const existing = await hubs.getBlock(fid, id);
+        if (!existing) return c.body(null, 410); // applied then deleted → gone
+        if (existing.section_id !== sectionId) return problem(c, 409, "idempotency-key-reused");
+        const currentHubId = await hubs.liveHubOfSection(fid, existing.section_id);
+        if (!currentHubId) return c.body(null, 410);
+        const currentGate = await hubWriteGate(fid, currentHubId, caller);
+        const currentResponse = hubWriteGateResponse(c, currentGate, "parent section missing or deleted");
+        if (currentResponse) return currentResponse;
+        return c.json(existing, 200);
+      }
+    }
+    const st = await blockState(fid, id);
+    // 410-on-tombstone: a member write never resurrects a soft-deleted block (ADR 0038 §6.3).
+    if (member && st.deleted) return c.body(null, 410);
+    // If-Match optimistic concurrency: stale base version → 412 re-merge-retry (ADR 0038 §6.2).
+    if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+    const suppression = suppressedBy(await responses.listActive(fid), {
+      subjectRef,
+      kind: null,
+      source: (parsed.data as any).provenance?.source ?? null,
+    });
+    // Blocks carry no audience[] (ADR 0030 scopes them through their hub), so there is nothing
+    // to strip — a personal rule cannot partially apply here. Only a blocking rule bites.
+    if (suppression.blocked) return problem(c, 409, "subject-muted");
+    const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data, {
+      allowResurrect: !member,
+      createdBy: a.userId,
+      expectedHubId: hubId,
+      expectedOldSubjectRef: oldSubjectRef,
+    });
+    if (!row) {
+      // Distinguish a genuine tombstone race from topology revalidation (including the losing
+      // same-id creator). A live conflicting row is 409; only a now-deleted member target is 410.
+      const after = await blockState(fid, id);
+      return member && after.deleted
+        ? c.body(null, 410)
+        : c.json({ type: "conflict", detail: "parent section missing, deleted, or moved" }, 409);
+    }
+    if (opId) await recordOp(fid, opId, "block", id, Number(row.version));
+    return c.json(row, 200);
   });
-  // Blocks carry no audience[] (ADR 0030 scopes them through their hub), so there is nothing
-  // to strip — a personal rule cannot partially apply here. Only a blocking rule bites.
-  if (suppression.blocked) return problem(c, 409, "subject-muted");
-  const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data, { allowResurrect: !member, createdBy: a.userId });
-  if (!row) {
-    // member path + lost the resurrection race → the block was tombstoned → 410; else the
-    // parent section vanished between resolution and write → 409 give-up.
-    return member && st.exists ? c.body(null, 410) : c.json({ type: "conflict", detail: "parent section missing or deleted" }, 409);
-  }
-  if (opId) await recordOp(fid, opId, "block", id, Number(row.version));
-  return c.json(row, 200);
 });
 
 // W4 — soft-delete a block (ADR 0038). Authz layers (no existence oracle): block-absent
@@ -900,25 +958,45 @@ app.delete("/families/:fid/blocks/:id", async (c) => {
   if ("status" in a) return c.body(null, a.status);
   const caller = callerFrom(a);
   const opId = c.req.header("idempotency-key");
-  // Idempotent replay: the delete already applied under this op_id → 204 (before the
-  // 404-on-tombstone below, so a drained/retried delete converges instead of 404ing).
-  if (opId && (await findOp(fid, opId))) return c.body(null, 204);
-  const blk = await hubs.blockForDelete(fid, id);
-  if (!blk) return c.body(null, 404);                                  // never existed
-  // Visibility gate FIRST (no oracle): a block in a hub the caller can't see → 404,
-  // regardless of scope. Resolve the parent hub via the (possibly tombstoned) section.
-  const hubId = await hubs.liveHubOfSection(fid, blk.section_id);
-  if (!hubId) return c.body(null, 404);                                // parent gone → unreachable
-  if (!(await resolveVisibleHub(fid, hubId, caller))) return c.body(null, 404);
-  // content:delete is its OWN scope (not implied by content:write).
-  if (!(await requireScope(a.cred.id, "content", "delete"))) return c.json({ type: "forbidden" }, 403);
-  // Author-gate: a member may delete only what they authored. Loop/CLI authoring (legacy
-  // or non-app credential) is exempt — it's the operator/loop, not a family member.
-  if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
-  if (blk.deleted) { if (opId) await recordOp(fid, opId, "block", id, null); return c.body(null, 204); } // already gone = idempotent
-  const ok = await hubs.softDeleteBlock(fid, id);
-  if (opId) await recordOp(fid, opId, "block", id, null);
-  return c.body(null, ok ? 204 : 404);
+  const expectedSubjectRef = await hubs.blockSubjectRef(fid, id);
+  return responses.withSubjectWriteLocks(fid, [
+    `topology:block:${id}`,
+    ...(opId ? [`operation:${opId}`] : []),
+    ...(expectedSubjectRef ? [expectedSubjectRef] : []),
+  ], async () => {
+    // Replay and first application share the operation transaction. An unrelated recorded key is
+    // a conflict, never a successful deletion of the requested target.
+    if (opId) {
+      const prior = await findOp(fid, opId);
+      if (prior) {
+        return prior.result_kind === "block-delete" && prior.result_ref === id
+          ? c.body(null, 204)
+          : problem(c, 409, "idempotency-key-reused");
+      }
+    }
+    const blk = await hubs.blockForDelete(fid, id);
+    if (!blk) return c.body(null, 404);                                  // never existed
+    if (expectedSubjectRef == null || blk.subject_ref !== expectedSubjectRef) {
+      return c.json({ type: "conflict", detail: "block moved while delete was admitted" }, 409);
+    }
+    // Visibility gate FIRST (no oracle): a block in a hub the caller can't see → 404,
+    // regardless of scope. Resolve the parent hub via the (possibly tombstoned) section.
+    const hubId = await hubs.liveHubOfSection(fid, blk.section_id);
+    if (!hubId) return c.body(null, 404);                                // parent gone → unreachable
+    if (!(await resolveVisibleHub(fid, hubId, caller))) return c.body(null, 404);
+    // content:delete is its OWN scope (not implied by content:write).
+    if (!(await requireScope(a.cred.id, "content", "delete"))) return c.json({ type: "forbidden" }, 403);
+    // Author-gate: a member may delete only what they authored. Loop/CLI authoring (legacy
+    // or non-app credential) is exempt — it's the operator/loop, not a family member.
+    if (memberDeleteForbidden(a, blk.created_by)) return c.json({ type: "forbidden" }, 403);
+    if (blk.deleted) {
+      if (opId) await recordOp(fid, opId, "block-delete", id, null);
+      return c.body(null, 204);
+    }
+    const ok = await hubs.softDeleteBlock(fid, id);
+    if (opId) await recordOp(fid, opId, "block-delete", id, null);
+    return c.body(null, ok ? 204 : 404);
+  });
 });
 
 // ── ADR 0064 — smart-content responses (mute rules + done records) ─────────────────────
@@ -939,10 +1017,14 @@ app.get("/families/:fid/responses", async (c) => {
   // whole family, so it also needs to know a personal rule EXISTS without being told whose:
   // the response carries family rules in full, plus a count of the personal ones it must not
   // read, so an author can say "3 members have personal mutes" without naming them.
-  const visible = all.filter(
-    (r) => r.audience_scope === "family" || (!!caller.userId && r.user_id === caller.userId),
-  );
-  const hiddenPersonal = all.length - visible.length;
+  const visibility = await Promise.all(all.map(async (r) => ({
+    row: r,
+    visible: await responseReadable(fid, r, caller),
+  })));
+  const visible = visibility.filter((x) => x.visible).map((x) => x.row);
+  const hiddenPersonal = all.filter(
+    (r) => r.audience_scope === "personal" && r.user_id !== caller.userId,
+  ).length;
   return c.json({
     responses: visible,
     personal_rules_not_visible: hiddenPersonal,
@@ -966,20 +1048,13 @@ app.put("/families/:fid/responses/:id", async (c) => {
   if (!caller.userId) return problem(c, 403, "member-required");
 
   const opId = c.req.header("idempotency-key");
-  if (opId && (await findOp(fid, opId))) {
-    // Replay returns the SAME shape as a fresh write, not a {id, version} stub: the client
-    // applies this response to its local row, and a drained retry must not hand it a
-    // different shape (or a differently-typed version) than the first attempt did.
-    const prior = await responses.findResponse(fid, id);
-    if (prior) return c.json(prior, 200);
-    return c.body(null, 204);   // replay of an op whose row was since deleted
-  }
-
   const rb = await requireJsonObject(c);
   if ("error" in rb) return rb.error;
   const b = rb.value;
   if (typeof b.subject_ref !== "string" || !b.subject_ref) return problem(c, 422, "bad-subject-ref");
   if (typeof b.label !== "string" || !b.label) return problem(c, 422, "bad-label");
+  const parsedSubject = parseSubjectRef(b.subject_ref);
+  if (!parsedSubject) return problem(c, 422, "bad-subject-ref");
 
   const kind: responses.ResponseKind = b.kind === "done" ? "done" : "mute";
   if (!["subject", "kind", "source"].includes(b.match_scope)) return problem(c, 422, "bad-match-scope");
@@ -993,8 +1068,7 @@ app.put("/families/:fid/responses/:id", async (c) => {
   if (kind === "done" && (audienceScope !== "family" || matchScope !== "subject")) {
     return problem(c, 422, "bad-done-shape");
   }
-
-  const row = await responses.upsertResponse(fid, id, {
+  const input: responses.ResponseInput = {
     kind, subjectRef: b.subject_ref, matchScope, audienceScope,
     // Ownership comes from the TOKEN. A body-supplied user_id is ignored: otherwise one
     // member could author rules that suppress content for another.
@@ -1003,15 +1077,180 @@ app.put("/families/:fid/responses/:id", async (c) => {
     label: b.label,
     sublabel: typeof b.sublabel === "string" ? b.sublabel : null,
     note: typeof b.note === "string" ? b.note : null,
-  });
+  };
 
-  // A done row resolves the subject for EVERYONE: tombstone it so it leaves every member's
-  // Now on the next sync (ADR 0064 §5 — it shouldn't nag the people who didn't do it).
-  if (kind === "done") await tombstoneSubject(fid, b.subject_ref);
+  const persist = async () => {
+    if (opId) {
+      const recorded = await findOp(fid, opId);
+      if (recorded) {
+        // The operation key is checked only after its transaction lock is held and stays bound
+        // to this exact route target across every PUT/DELETE mutation path.
+        if (recorded.result_kind !== "response" || recorded.result_ref !== id) {
+          return problem(c, 409, "idempotency-key-reused");
+        }
+        // Replay returns the SAME shape as a fresh write, not a {id, version} stub.
+        const prior = await responses.findResponse(fid, id);
+        if (prior) {
+          if (!(await responseReadable(fid, prior, caller))) return c.body(null, 404);
+          return c.json(prior, 200);
+        }
+        return c.body(null, 204);   // replay of an op whose row was since deleted
+      }
+    }
+    // A response id has immutable identity even across soft deletion. Validate the row the
+    // conflict clause would actually update, not only the request's currently-visible subject:
+    // otherwise a visible class ref could be used to edit/resurrect a retained private id.
+    const existing = await responses.findResponseRecord(fid, id);
+    if (existing) {
+      if (!(await responseReadable(fid, existing, caller))) return c.body(null, 404);
+      const sameIdentity = existing.kind === input.kind &&
+        existing.subject_ref === input.subjectRef &&
+        existing.match_scope === input.matchScope &&
+        existing.audience_scope === input.audienceScope &&
+        existing.user_id === input.userId &&
+        existing.created_by === input.createdBy;
+      if (!sameIdentity) return problem(c, 409, "response-id-conflict");
+    }
 
-  if (opId) await recordOp(fid, opId, "response", id, Number(row.version));
-  return c.json(row, 200);
+    if (kind === "done") {
+      // A completed subject is tombstoned, so a retry cannot pass the live-subject gate below.
+      // Resolve the canonical historical completion first: an exact replay succeeds, a racing
+      // different id gets a typed conflict, and a caller outside its inherited ACL still gets 404.
+      const canonical = await responses.findDoneForSubject(fid, input.subjectRef);
+      if (canonical) {
+        if (!(await responseReadable(fid, canonical, caller))) return c.body(null, 404);
+        const exactReplay = canonical.id === id &&
+          canonical.created_by === input.createdBy &&
+          canonical.match_scope === input.matchScope &&
+          canonical.audience_scope === input.audienceScope &&
+          canonical.user_id === input.userId &&
+          canonical.label === input.label &&
+          canonical.sublabel === input.sublabel &&
+          canonical.note === input.note;
+        if (!exactReplay) {
+          return c.json({
+            type: "subject-already-done",
+            response: { ...canonical, version: Number(canonical.version) },
+          }, 409);
+        }
+        if (opId) await recordOp(fid, opId, "response", id, Number(canonical.version));
+        return c.json(canonical, 200);
+      }
+    }
+
+    // Concrete response subjects are also read capabilities. Resolve the exact live card or
+    // Hub node through the same visibility rules as GET; absent, mismatched, deleted, and
+    // invisible are deliberately indistinguishable so this endpoint is not an existence oracle.
+    if (!isRuleRef(input.subjectRef) &&
+      !(await responseSubjectVisible(fid, input.subjectRef, parsedSubject, caller))) {
+      return c.body(null, 404);
+    }
+
+    const completed = kind === "done" ? await responses.completeResponse(fid, id, input) : null;
+    if (completed && !completed.created && completed.row.id !== id) {
+      return c.json({
+        type: "subject-already-done",
+        response: { ...completed.row, version: Number(completed.row.version) },
+      }, 409);
+    }
+    const row = completed?.row ?? (kind === "done" ? null : await responses.upsertResponse(fid, id, input));
+    if (!row) return problem(c, 409, "response-id-conflict");
+    if (opId) await recordOp(fid, opId, "response", id, Number(row.version));
+    return c.json(row, 200);
+  };
+
+  // Stable response identity + operation id + subject are acquired together in deterministic
+  // order. This serializes concurrent same-id and same-op PUT/DELETE attempts, while Done shares
+  // its subject lock with card/block authoring through the visibility+tombstone transaction.
+  return responses.withSubjectWriteLocks(fid, [
+    `topology:response:${id}`,
+    ...(opId ? [`operation:${opId}`] : []),
+    input.subjectRef,
+  ], persist);
 });
+
+async function responseSubjectVisible(
+  fid: string,
+  subjectRef: string,
+  subject: SubjectRef,
+  caller: { userId: string | null; legacy: boolean },
+): Promise<boolean> {
+  if (subject.form === "kind" || subject.form === "source") return true;
+  if (subject.form === "card") {
+    const row = await q(
+      `SELECT visibility, audience FROM briefing_cards
+        WHERE family_id=$1 AND id=$2 AND subject_ref=$3 AND deleted_at IS NULL`,
+      [fid, subject.cardId, subjectRef],
+    );
+    return row.rowCount === 1 && cardVisible(row.rows[0], caller);
+  }
+
+  if (!(await resolveVisibleHub(fid, subject.hubId, caller))) return false;
+  if (subject.blockId) {
+    const row = await q(
+      `SELECT 1 FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2 AND b.subject_ref=$3
+          AND b.deleted_at IS NULL AND s.deleted_at IS NULL AND s.hub_id=$4
+          AND ($5::text IS NULL OR s.id=$5)`,
+      [fid, subject.blockId, subjectRef, subject.hubId, subject.sectionId ?? null],
+    );
+    return row.rowCount === 1;
+  }
+  if (subject.sectionId) {
+    const row = await q(
+      `SELECT 1 FROM sections
+        WHERE family_id=$1 AND id=$2 AND hub_id=$3 AND deleted_at IS NULL`,
+      [fid, subject.sectionId, subject.hubId],
+    );
+    return row.rowCount === 1;
+  }
+  return true;
+}
+
+/** Read gate for response payloads. A concrete family response inherits the subject's ACL. */
+async function responseReadable(
+  fid: string,
+  row: responses.ContentResponseRow,
+  caller: { userId: string | null; legacy: boolean },
+): Promise<boolean> {
+  // Ownership is necessary for a personal response, but a concrete response still inherits its
+  // subject's current ACL. Losing card/Hub access must tombstone even the caller's own private row.
+  if (row.audience_scope === "personal" && (!caller.userId || row.user_id !== caller.userId)) {
+    return false;
+  }
+  const subject = parseSubjectRef(row.subject_ref);
+  if (!subject) return false;
+  if (subject.form === "kind" || subject.form === "source") return true;
+  if (subject.form === "card") {
+    // Done tombstones the card, so read authorization deliberately includes historical rows.
+    const card = await q(
+      `SELECT visibility, audience FROM briefing_cards
+        WHERE family_id=$1 AND id=$2 AND subject_ref=$3`,
+      [fid, subject.cardId, row.subject_ref],
+    );
+    return card.rowCount === 1 && cardVisible(card.rows[0], caller);
+  }
+  if (!(await resolveVisibleHub(fid, subject.hubId, caller))) return false;
+  if (subject.blockId) {
+    const block = await q(
+      `SELECT 1 FROM blocks b
+         JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2 AND b.subject_ref=$3 AND s.hub_id=$4
+          AND ($5::text IS NULL OR s.id=$5)`,
+      [fid, subject.blockId, row.subject_ref, subject.hubId, subject.sectionId ?? null],
+    );
+    return block.rowCount === 1;
+  }
+  if (subject.sectionId) {
+    const section = await q(
+      `SELECT 1 FROM sections WHERE family_id=$1 AND id=$2 AND hub_id=$3`,
+      [fid, subject.sectionId, subject.hubId],
+    );
+    return section.rowCount === 1;
+  }
+  return true;
+}
 
 // Remove a rule. Any adult may remove a FAMILY rule (decided Q2); a personal rule is its
 // owner's alone. Soft delete so /sync emits the tombstone (ADR 0040).
@@ -1025,30 +1264,42 @@ app.delete("/families/:fid/responses/:id", async (c) => {
   if (!caller.userId) return problem(c, 403, "member-required");
 
   const opId = c.req.header("idempotency-key");
-  if (opId && (await findOp(fid, opId))) return c.body(null, 204);
+  return responses.withSubjectWriteLocks(fid, [
+    `topology:response:${id}`,
+    ...(opId ? [`operation:${opId}`] : []),
+  ], async () => {
+    if (opId) {
+      const prior = await findOp(fid, opId);
+      if (prior) {
+        return prior.result_kind === "response-delete" && prior.result_ref === id
+          ? c.body(null, 204)
+          : problem(c, 409, "idempotency-key-reused");
+      }
+    }
 
-  const cur = await q(
-    `SELECT audience_scope, user_id FROM content_responses
-      WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
-  const row = cur.rows[0];
-  if (row && row.audience_scope === "personal" && row.user_id !== caller.userId) {
-    return problem(c, 403, "not-your-rule");
-  }
-  await responses.softDeleteResponse(fid, id);   // absent / already gone → still 204
-  if (opId) await recordOp(fid, opId, "response", id, null);
-  return c.body(null, 204);
+    const row = await responses.findResponse(fid, id);
+    if (!row) {
+      // A no-op delete is still an applied operation and reserves its key for this target.
+      if (opId) await recordOp(fid, opId, "response-delete", id, null);
+      return c.body(null, 204);
+    }
+    if (row.audience_scope === "personal" && row.user_id !== caller.userId) {
+      return problem(c, 403, "not-your-rule");
+    }
+    // Concrete family responses inherit their content ACL even on mutation. A revoked member
+    // who retained an opaque response id must not be able to alter a restricted Hub's history.
+    if (!isRuleRef(row.subject_ref) && !(await responseReadable(fid, row, caller))) {
+      return c.body(null, 404);
+    }
+    // Done is a durable completion fact and has no reversal contract: deleting the record would
+    // erase attribution/suppression without restoring its tombstoned subject. Only mute rules are
+    // removable until an explicit undo-completion operation can restore both atomically.
+    if (row.kind === "done") return problem(c, 409, "done-is-durable");
+    await responses.softDeleteResponse(fid, id);   // absent / already gone → still 204
+    if (opId) await recordOp(fid, opId, "response-delete", id, null);
+    return c.body(null, 204);
+  });
 });
-
-/**
- * Resolve a subject_ref to its content row and soft-delete it. By ID only — the server does
- * not look at what the card says, just which row carries that key.
- */
-async function tombstoneSubject(fid: string, subjectRef: string): Promise<void> {
-  await q(`UPDATE briefing_cards SET deleted_at = now(), version = version + 1, updated_at = now()
-            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
-  await q(`UPDATE blocks SET deleted_at = now(), version = version + 1, updated_at = now()
-            WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`, [fid, subjectRef]);
-}
 
 app.post("/device/authorize", async (c) => {
   const ip = clientIp(c);
@@ -1409,8 +1660,7 @@ app.get("/families/:fid/sync", async (c) => {
       // ADR 0064 — a family rule is everyone's; a personal rule is its owner's alone.
       // Everyone else gets a TOMBSTONE rather than an omission, so the cursor still advances
       // and a rule that changed hands leaves the other member's cache.
-      visible = r.payload.audience_scope === "family" ||
-        (!!caller.userId && r.payload.user_id === caller.userId);
+      visible = await responseReadable(fid, r.payload as responses.ContentResponseRow, caller);
     } else {
       // section or block: visibility = parent hub's visibility
       const parentHub = { id: r.hub_id, visibility: r.hub_visibility, created_by: r.hub_created_by };

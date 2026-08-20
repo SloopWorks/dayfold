@@ -73,12 +73,17 @@ class IosNotificationPermissionController : NotificationPermissionController {
   override val state: Flow<NotificationPermission> = _state.asStateFlow()
   override fun currentState(): NotificationPermission = _state.value
 
-  /** Re-read OS truth into the cached flow (async; call on app resume + after request). */
-  fun refresh() {
+  /** Re-read OS truth into the cached flow and report that same fresh result to [onRead]. */
+  internal fun readFresh(onRead: (NotificationPermission) -> Unit) {
     UNUserNotificationCenter.currentNotificationCenter().getNotificationSettingsWithCompletionHandler { settings ->
-      _state.value = mapStatus(settings)
+      val permission = mapStatus(settings)
+      _state.value = permission
+      onRead(permission)
     }
   }
+
+  /** Re-read OS truth into the cached flow (async; call on app resume + after request). */
+  fun refresh() = readFresh { }
 
   private fun mapStatus(settings: UNNotificationSettings?): NotificationPermission =
     when (settings?.authorizationStatus) {
@@ -89,8 +94,9 @@ class IosNotificationPermissionController : NotificationPermissionController {
     }
 
   override fun request() {
-    requestNotificationAuthorization()
-    refresh()
+    // Read settings only after the authorization sheet completes. Refreshing immediately after asking
+    // races the sheet and can leave the UI on notDetermined until the next foreground transition.
+    requestNotificationAuthorization { refresh() }
   }
 
   override fun openOsSettings() = openAppSettings()

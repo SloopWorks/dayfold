@@ -67,20 +67,55 @@ data class HubDetailViewState(
   val timelineDetail: TimelineScale?,
   val members: List<FamilyMember>,
   val currentUserId: String?,
+  val completed: List<HubCompletion>,
 )
 
-fun hubDetailViewState(state: AppState): HubDetailViewState = HubDetailViewState(
-  tree = state.hubs.currentHubTree,
-  busy = state.hubs.busy,
-  hubError = state.hubs.error,
-  syncError = state.content.error,
-  focusBlockId = state.hubs.focusBlockId,
-  hiddenIds = state.hubs.hiddenIds,
-  showHidden = state.hubs.showHidden,
-  timelineDetail = state.hubs.timelineDetail,
-  members = state.familyAdmin.members,
-  currentUserId = state.session.session?.userId,
+@Immutable
+data class HubCompletion(
+  val id: String,
+  val title: String,
+  val doneBy: String,
+  val createdAt: String,
+  val note: String?,
+  val pending: Boolean,
 )
+
+fun hubDetailViewState(state: AppState): HubDetailViewState {
+  val sourceTree = state.hubs.currentHubTree
+  val hubId = sourceTree?.hub?.id
+  val done = if (hubId == null) emptyList() else state.responses.rules
+    .filter { it.kind == ResponseKind.DONE && SubjectRef.hubIdOf(it.subjectRef) == hubId }
+  val doneSubjects = done.mapTo(hashSetOf()) { it.subjectRef }
+  val visibleTree = sourceTree?.copy(
+    blocks = sourceTree.blocks.filterNot {
+      SubjectRef.node(sourceTree.hub.id, it.sectionId, it.id) in doneSubjects
+    },
+  )
+  val completed = done.sortedByDescending { it.createdAt }.map {
+    HubCompletion(
+      id = it.id,
+      title = it.label,
+      doneBy = displayNameFor(it.createdBy, state.familyAdmin.members, state.session.session?.userId)
+        ?: "a family member",
+      createdAt = it.createdAt,
+      note = it.note,
+      pending = it.pending,
+    )
+  }
+  return HubDetailViewState(
+    tree = visibleTree,
+    busy = state.hubs.busy,
+    hubError = state.hubs.error,
+    syncError = state.content.error,
+    focusBlockId = state.hubs.focusBlockId,
+    hiddenIds = state.hubs.hiddenIds,
+    showHidden = state.hubs.showHidden,
+    timelineDetail = state.hubs.timelineDetail,
+    members = state.familyAdmin.members,
+    currentUserId = state.session.session?.userId,
+    completed = completed,
+  )
+}
 
 @Immutable
 data class HubAudienceViewState(

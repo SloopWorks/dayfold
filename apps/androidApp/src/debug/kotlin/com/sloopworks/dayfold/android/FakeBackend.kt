@@ -9,6 +9,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.http.content.TextContent
 
 // Debug variant only: the fake-backend MockEngine adapter + the scenario list for the
 // debug-drawer Backend switcher. Mirrored by an inert src/release copy (returns
@@ -25,7 +26,12 @@ fun fakeBackendClient(scenarioId: String): HttpClient? =
     val backend = FakeBackend(scenario.data.copy(latencyMs = 1200))
     HttpClient(MockEngine { request ->
       if (backend.data.latencyMs > 0) kotlinx.coroutines.delay(backend.data.latencyMs)
-      val res = backend.handle(request.method.value, request.url.encodedPath, request.url.parameters["user_code"])
+      val res = backend.handle(
+        request.method.value,
+        request.url.encodedPath,
+        request.url.parameters["user_code"],
+        (request.body as? TextContent)?.text,
+      )
       respond(res.json, HttpStatusCode.fromValue(res.status), headersOf(HttpHeaders.ContentType, "application/json"))
     })
   }

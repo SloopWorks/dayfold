@@ -1,6 +1,6 @@
 // Briefing-card data access (M0 feed surface). Idempotent upsert (server bumps
 // version), keyset sync incl. tombstones, soft-delete.
-import { q } from "./db.ts";
+import { currentDbClient, pool, q } from "./db.ts";
 import { cardVisibilityClause } from "./content/visibility.ts";
 // ADR 0064 — the suppression key is stamped here, from the id the server already owns.
 // Never from the request body: an author-chosen key could step around a mute.
@@ -9,12 +9,28 @@ import { buildCardSubjectRef } from "./content/subject-ref.ts";
 const J = (v: unknown) => (v == null ? null : JSON.stringify(v));
 export const SYNC_LIMIT = 200; // single source for the sync page size (F2)
 
+async function touchResponsesForCard(
+  client: { query: (sql: string, params?: unknown[]) => Promise<any> },
+  familyId: string,
+  id: string,
+) {
+  await client.query(
+    `UPDATE content_responses SET updated_at=now()
+      WHERE family_id=$1 AND subject_ref=$2 AND deleted_at IS NULL`,
+    [familyId, buildCardSubjectRef(id)],
+  );
+}
+
 export async function upsertCard(familyId: string, id: string, b: any) {
   // ADR 0030: visibility + author-stamped audience (default family). Validated by
   // the route; stored here. No inheritance/materialization (round-2 R2-1).
   const visibility = b.visibility === "restricted" ? "restricted" : "family";
   const audience = visibility === "restricted" && Array.isArray(b.audience) ? b.audience : null;
-  const r = await q(
+  const inherited = currentDbClient();
+  const client = inherited ?? await pool.connect();
+  try {
+    if (!inherited) await client.query("BEGIN");
+    const r = await client.query(
     `INSERT INTO briefing_cards
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
@@ -38,8 +54,16 @@ export async function upsertCard(familyId: string, id: string, b: any) {
      J(b.provenance), J(b.triggers), J(b.actions), b.not_before ?? null, b.expires_at ?? null,
      b.type ?? null, J(b.payload), J(b.privacy), b.hubRef ?? null, J(b.related), b.relatedKicker ?? null,
      visibility, audience, J(b.media), buildCardSubjectRef(id)],
-  );
-  return r.rows[0];
+    );
+    await touchResponsesForCard(client, familyId, id);
+    if (!inherited) await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) {
+    if (!inherited) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inherited) client.release();
+  }
 }
 
 export async function listCards(familyId: string, caller: { userId: string | null; legacy: boolean }) {
@@ -51,10 +75,22 @@ export async function listCards(familyId: string, caller: { userId: string | nul
 }
 
 export async function softDeleteCard(familyId: string, id: string) {
-  const r = await q(
-    `UPDATE briefing_cards SET deleted_at=now()
-     WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id`, [familyId, id]);
-  return (r.rowCount ?? 0) > 0;
+  const inherited = currentDbClient();
+  const client = inherited ?? await pool.connect();
+  try {
+    if (!inherited) await client.query("BEGIN");
+    const r = await client.query(
+      `UPDATE briefing_cards SET deleted_at=now()
+       WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id`, [familyId, id]);
+    if ((r.rowCount ?? 0) > 0) await touchResponsesForCard(client, familyId, id);
+    if (!inherited) await client.query("COMMIT");
+    return (r.rowCount ?? 0) > 0;
+  } catch (e) {
+    if (!inherited) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inherited) client.release();
+  }
 }
 
 // Merged keyset over (updated_at, type, id) spanning cards + hubs + sections + blocks.

@@ -3,11 +3,69 @@
 // hub's visibility) — there is no independent section/block read path in this slice,
 // so they inherit the hub's visibility for free (the review's leak path was the
 // deferred hub /sync stream; with no hub sync there is nothing to over-share).
-import { q, pool } from "../db.ts";
+import { currentDbClient, q, pool } from "../db.ts";
 import { buildBlockSubjectRef } from "./subject-ref.ts";
 
 const J = (v: unknown) => (v == null ? null : JSON.stringify(v));
 type Caller = { userId: string | null; legacy: boolean };
+const buildSectionSubjectRef = (hubId: string, sectionId: string) =>
+  `hub:${hubId}/section:${sectionId}`;
+
+export async function blockSubjectRef(familyId: string, blockId: string): Promise<string | null> {
+  const row = await q(
+    // Include tombstones: the member route must authorize the block's historical source Hub before
+    // returning its 410, otherwise a guessed id in a restricted Hub becomes an existence oracle.
+    `SELECT subject_ref FROM blocks WHERE family_id=$1 AND id=$2`,
+    [familyId, blockId],
+  );
+  return row.rows[0]?.subject_ref ?? null;
+}
+
+export type SectionMoveLockPlan = {
+  oldHubId: string | null;
+  childSubjects: string[];
+  lockSubjects: string[];
+};
+
+/** Snapshot the identities a section move must lock; upsertSection revalidates it under row locks. */
+export async function sectionMoveLockPlan(
+  familyId: string,
+  sectionId: string,
+  newHubId: string,
+): Promise<SectionMoveLockPlan> {
+  const section = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2`, [familyId, sectionId]);
+  const oldHubId = (section.rows[0]?.hub_id as string | undefined) ?? null;
+  const children = oldHubId ? await q(
+    `SELECT id,subject_ref FROM blocks
+      WHERE family_id=$1 AND section_id=$2 AND deleted_at IS NULL ORDER BY id`,
+    [familyId, sectionId],
+  ) : { rows: [] as any[] };
+  const childSubjects = children.rows.map((row: any) => row.subject_ref as string);
+  const lockSubjects = [buildSectionSubjectRef(newHubId, sectionId)];
+  if (oldHubId) lockSubjects.push(buildSectionSubjectRef(oldHubId, sectionId));
+  for (const row of children.rows as any[]) {
+    lockSubjects.push(row.subject_ref, buildBlockSubjectRef(newHubId, sectionId, row.id));
+  }
+  return { oldHubId, childSubjects, lockSubjects };
+}
+
+// A response payload inherits its concrete Hub subject's visibility. Whenever that visibility
+// or allow-list changes, re-touch matching active responses so a member newly granted access
+// receives the row after the tombstone previously emitted to their sync cursor (and a member
+// removed from access receives a fresh tombstone).
+async function touchResponsesForHub(
+  client: { query: (sql: string, params?: unknown[]) => Promise<any> },
+  familyId: string,
+  hubId: string,
+) {
+  const root = `hub:${hubId}`;
+  await client.query(
+    `UPDATE content_responses SET updated_at=now()
+      WHERE family_id=$1 AND deleted_at IS NULL
+        AND (subject_ref=$2 OR left(subject_ref, length($2) + 1)=$2 || '/')`,
+    [familyId, root],
+  );
+}
 
 // A single hub row's visibility for the caller.
 export function hubVisible(
@@ -122,6 +180,7 @@ export async function upsertHub(
         [familyId, id, toRemove]);
     for (const uid of targetAudience)
       await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
+    await touchResponsesForHub(client, familyId, id);
     await client.query("COMMIT");
     return r.rows[0];
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
@@ -145,6 +204,10 @@ export async function softDeleteHub(familyId: string, id: string) {
       `UPDATE blocks SET deleted_at=now()
         WHERE family_id=$1 AND deleted_at IS NULL
           AND section_id IN (SELECT id FROM sections WHERE family_id=$1 AND hub_id=$2)`, [familyId, id]);
+    // responseReadable resolves through a live Hub. Re-touch its completion history in the
+    // same transaction so every incremental cursor emits tombstones instead of retaining
+    // labels/notes from a Hub that has just become unreachable.
+    await touchResponsesForHub(client, familyId, id);
     await client.query("COMMIT");
     return true;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
@@ -161,11 +224,16 @@ export async function softDeleteBlock(familyId: string, id: string): Promise<boo
 // A block row in ANY state (incl. tombstoned), with the author + parent section — the
 // W4 delete route needs created_by (author-gate) + section_id (hub-visibility gate)
 // before it can decide, so it can't use getBlock (which filters live rows only).
-export async function blockForDelete(familyId: string, id: string): Promise<{ section_id: string; created_by: string | null; deleted: boolean } | null> {
-  const r = await q(`SELECT section_id, created_by, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id]);
+export async function blockForDelete(familyId: string, id: string): Promise<{ section_id: string; subject_ref: string; created_by: string | null; deleted: boolean } | null> {
+  const r = await q(`SELECT section_id, subject_ref, created_by, deleted_at FROM blocks WHERE family_id=$1 AND id=$2`, [familyId, id]);
   if (r.rowCount === 0) return null;
   const row = r.rows[0];
-  return { section_id: row.section_id, created_by: row.created_by ?? null, deleted: row.deleted_at != null };
+  return {
+    section_id: row.section_id,
+    subject_ref: row.subject_ref,
+    created_by: row.created_by ?? null,
+    deleted: row.deleted_at != null,
+  };
 }
 
 // hub tree (hub + live sections + live blocks). Caller must already be checked
@@ -227,36 +295,54 @@ export type ParticipantRole = "viewer" | "contributor" | "co_owner";
 // re-surfaces via keyset sync. Caller (the route) must already have rejected
 // uid === hub.created_by (author is a permanent implicit co_owner, not a row here).
 export async function setParticipant(familyId: string, hubId: string, uid: string, role: ParticipantRole) {
-  const r = await q(
-    `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
-     VALUES ($1,$2,$3,$4)
-     ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
-     RETURNING *`,
-    [familyId, hubId, uid, role]);
-  return r.rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `INSERT INTO resource_visibility (family_id, hub_id, user_id, role)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (family_id, hub_id, user_id) DO UPDATE SET role=EXCLUDED.role
+       RETURNING *`,
+      [familyId, hubId, uid, role]);
+    await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }
 
 // Remove a participant's allow-list row. `uid<>created_by` is a belt-and-suspenders
 // guard (the route already rejects the author before calling this) — never let the
 // author's implicit co-ownership be revoked via this path.
 export async function removeParticipant(familyId: string, hubId: string, uid: string): Promise<boolean> {
-  const r = await q(
-    `DELETE FROM resource_visibility rv
-      WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
-        AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
-      RETURNING 1`,
-    [familyId, hubId, uid]);
-  return (r.rowCount ?? 0) > 0;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `DELETE FROM resource_visibility rv
+        WHERE rv.family_id=$1 AND rv.hub_id=$2 AND rv.user_id=$3
+          AND rv.user_id <> (SELECT created_by FROM hubs WHERE family_id=$1 AND id=$2)
+        RETURNING 1`,
+      [familyId, hubId, uid]);
+    if ((r.rowCount ?? 0) > 0) await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return (r.rowCount ?? 0) > 0;
+  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }
 
 // Flip a hub's visibility (family<->restricted) without touching the allow-list rows
 // (DC2: incremental participant management, distinct from upsertHub's full-replace).
 // The 0011 fan-out trigger re-touches the section/block subtree on this UPDATE.
 export async function setHubVisibility(familyId: string, hubId: string, visibility: "family" | "restricted") {
-  const r = await q(
-    `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
-    [familyId, hubId, visibility]);
-  return r.rows[0] ?? null;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `UPDATE hubs SET visibility=$3, updated_at=now() WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
+      [familyId, hubId, visibility]);
+    if (r.rows[0]) await touchResponsesForHub(client, familyId, hubId);
+    await client.query("COMMIT");
+    return r.rows[0] ?? null;
+  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }
 
 // Returns the parent hub id for a section if it exists and is live, else null.
@@ -268,18 +354,79 @@ export async function liveHubOfSection(familyId: string, sectionId: string): Pro
 }
 
 // Parent hub must exist + be live. Returns null (caller maps to 409) if not.
-export async function upsertSection(familyId: string, id: string, hubId: string, b: any) {
-  const live = await q(`SELECT 1 FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, hubId]);
-  if (live.rowCount === 0) return null;
-  const r = await q(
-    `INSERT INTO sections (id, family_id, hub_id, title, ord, version)
-     VALUES ($1,$2,$3,$4,$5,1)
-     ON CONFLICT (family_id, id) DO UPDATE SET
-       hub_id=EXCLUDED.hub_id, title=EXCLUDED.title, ord=EXCLUDED.ord,
-       version=sections.version + 1, deleted_at=NULL
-     RETURNING *`,
-    [id, familyId, hubId, b.title ?? null, b.ord ?? 0]);
-  return r.rows[0];
+export async function upsertSection(
+  familyId: string,
+  id: string,
+  hubId: string,
+  b: any,
+  expected: { oldHubId: string | null; childSubjects: string[] } | null = null,
+) {
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
+  try {
+    if (!inheritedClient) await client.query("BEGIN");
+    // Lock both topology sides before the section row. Hub deletion locks its Hub first and then
+    // sweeps children, so this common order prevents a create/move from committing beneath a Hub
+    // deleted between the route's authorization read and this transaction.
+    const requiredHubIds = [...new Set(
+      [hubId, expected?.oldHubId].filter((x): x is string => !!x),
+    )].sort();
+    const live = await client.query(
+      `SELECT id FROM hubs
+        WHERE family_id=$1 AND id = ANY($2::text[]) AND deleted_at IS NULL
+        ORDER BY id FOR UPDATE`,
+      [familyId, requiredHubIds],
+    );
+    if (live.rowCount !== requiredHubIds.length) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const previous = await client.query(
+      `SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 FOR UPDATE`, [familyId, id],
+    );
+    const oldHubId = (previous.rows[0]?.hub_id as string | undefined) ?? null;
+    const children = await client.query(
+      `SELECT id,subject_ref FROM blocks
+        WHERE family_id=$1 AND section_id=$2 AND deleted_at IS NULL ORDER BY id FOR UPDATE`,
+      [familyId, id],
+    );
+    const childSubjects = children.rows.map((row: any) => row.subject_ref as string);
+    if (expected && (oldHubId !== expected.oldHubId ||
+      JSON.stringify(childSubjects) !== JSON.stringify(expected.childSubjects))) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const r = await client.query(
+      `INSERT INTO sections (id, family_id, hub_id, title, ord, version)
+       VALUES ($1,$2,$3,$4,$5,1)
+       ON CONFLICT (family_id, id) DO UPDATE SET
+         hub_id=EXCLUDED.hub_id, title=EXCLUDED.title, ord=EXCLUDED.ord,
+         version=sections.version + 1, deleted_at=NULL
+       RETURNING *`,
+      [id, familyId, hubId, b.title ?? null, b.ord ?? 0],
+    );
+    if (oldHubId && oldHubId !== hubId) {
+      // A block's canonical suppression key contains its full Hub path. Moving the parent section
+      // therefore moves every child identity too; re-key and re-version them in this transaction
+      // so Mark done works immediately and /sync cannot pair the new topology with an old key.
+      await client.query(
+        `UPDATE blocks
+            SET subject_ref='hub:' || $3 || '/section:' || $2 || '/block:' || id,
+                version=version+1, updated_at=now()
+          WHERE family_id=$1 AND section_id=$2`,
+        [familyId, id, hubId],
+      );
+      await touchResponsesForHub(client, familyId, oldHubId);
+      await touchResponsesForHub(client, familyId, hubId);
+    }
+    if (!inheritedClient) await client.query("COMMIT");
+    return r.rows[0];
+  } catch (e) {
+    if (!inheritedClient) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inheritedClient) client.release();
+  }
 }
 
 // A live block row by id (null when absent or tombstoned). Used to return the recorded
@@ -296,30 +443,77 @@ export async function getBlock(familyId: string, id: string) {
 // instead of silently resurrecting a tombstoned block.
 export async function upsertBlock(
   familyId: string, id: string, sectionId: string, b: any,
-  opts: { allowResurrect?: boolean; createdBy?: string | null } = {},
+  opts: {
+    allowResurrect?: boolean;
+    createdBy?: string | null;
+    expectedHubId?: string;
+    expectedOldSubjectRef?: string | null;
+  } = {},
 ) {
   const allowResurrect = opts.allowResurrect !== false;
-  const live = await q(`SELECT hub_id FROM sections WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [familyId, sectionId]);
-  if (live.rowCount === 0) return null;
-  // ADR 0064 — the suppression key, stamped server-side from the node path. Re-derived on
-  // every write (not just the INSERT) so a block MOVED to another section re-keys: a mute
-  // on the old node must not follow it, and a mute on the new one must start applying.
-  const subjectRef = buildBlockSubjectRef(live.rows[0].hub_id as string, sectionId, id);
-  // created_by is set ONCE at creation (the INSERT) and never touched by the DO UPDATE —
-  // so a member toggling/editing a loop-authored block can never claim its authorship.
-  // It is the substrate the W4 delete author-gate keys on (ADR 0038 §W4 / the W2 stamp).
-  const r = await q(
-    `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
-     ON CONFLICT (family_id, id) DO UPDATE SET
-       section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
-       body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
-       triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
-       subject_ref=EXCLUDED.subject_ref,
-       version=blocks.version + 1, deleted_at=NULL
-       ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
-     RETURNING *`,
-    [id, familyId, sectionId, b.type, J(b.payload), b.body_md ?? null, b.body_ref ?? null,
-     J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null, subjectRef]);
-  return r.rows[0] ?? null;
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
+  try {
+    if (!inheritedClient) await client.query("BEGIN");
+    const live = await client.query(
+      `SELECT hub_id FROM sections
+        WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL
+        FOR UPDATE`,
+      [familyId, sectionId],
+    );
+    if (live.rowCount === 0) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const newHubId = live.rows[0].hub_id as string;
+    // The route authorized and locked the subject under this exact Hub. A concurrent section
+    // move must not redirect the write into another (possibly restricted) Hub or evade that
+    // subject lock. FOR UPDATE also keeps the section stable until the outer transaction ends.
+    if (opts.expectedHubId && newHubId !== opts.expectedHubId) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    const previous = await client.query(
+      `SELECT b.section_id, b.subject_ref, s.hub_id
+         FROM blocks b JOIN sections s ON s.family_id=b.family_id AND s.id=b.section_id
+        WHERE b.family_id=$1 AND b.id=$2`,
+      [familyId, id],
+    );
+    const oldSectionId = previous.rows[0]?.section_id as string | undefined;
+    const oldHubId = previous.rows[0]?.hub_id as string | undefined;
+    const oldSubjectRef = previous.rows[0]?.subject_ref as string | undefined;
+    if (opts.expectedOldSubjectRef !== undefined &&
+      (oldSubjectRef ?? null) !== opts.expectedOldSubjectRef) {
+      if (!inheritedClient) await client.query("ROLLBACK");
+      return null;
+    }
+    // ADR 0064 — the suppression key, stamped server-side from the node path. Re-derived on
+    // every write (not just the INSERT) so a block MOVED to another section re-keys.
+    const subjectRef = buildBlockSubjectRef(newHubId, sectionId, id);
+    const r = await client.query(
+      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
+       ON CONFLICT (family_id, id) DO UPDATE SET
+         section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
+         body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
+         triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+         subject_ref=EXCLUDED.subject_ref,
+         version=blocks.version + 1, deleted_at=NULL
+         ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
+       RETURNING *`,
+      [id, familyId, sectionId, b.type, J(b.payload), b.body_md ?? null, b.body_ref ?? null,
+       J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null, subjectRef],
+    );
+    if (r.rows[0] && oldSectionId && oldSectionId !== sectionId) {
+      if (oldHubId) await touchResponsesForHub(client, familyId, oldHubId);
+      if (newHubId !== oldHubId) await touchResponsesForHub(client, familyId, newHubId);
+    }
+    if (!inheritedClient) await client.query("COMMIT");
+    return r.rows[0] ?? null;
+  } catch (e) {
+    if (!inheritedClient) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inheritedClient) client.release();
+  }
 }

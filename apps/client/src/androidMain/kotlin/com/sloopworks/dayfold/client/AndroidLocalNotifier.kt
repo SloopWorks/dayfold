@@ -6,8 +6,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+
+fun notificationIdentityUri(subjectKey: String): Uri = Uri.Builder()
+  .scheme("dayfold")
+  .authority("notification")
+  .appendPath(subjectKey)
+  .build()
 
 // ADR 0044 Phase B — the Android LOCAL notifier (LocalNotifier impl). NotificationCompat only — NO
 // FCM/APNs (dumb-server invariant): the headless pass posts these on-device. Fidelity per
@@ -26,15 +33,26 @@ class AndroidLocalNotifier(private val context: Context) : LocalNotifier {
     (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
   }
 
-  override fun postGroup(specs: List<NotificationSpec>) {
-    if (specs.isEmpty()) return
+  override fun postGroup(specs: List<NotificationSpec>, onAccepted: (Set<String>) -> Unit) {
+    if (specs.isEmpty() || !manager.areNotificationsEnabled()) {
+      onAccepted(emptySet())
+      return
+    }
     ensureChannel()
-    specs.forEach { spec -> safeNotify(notifId(spec.subjectKey), build(spec)) }
+    val accepted = specs.filter { spec ->
+      safeNotify(spec.subjectKey, CHILD_NOTIFICATION_ID, build(spec))
+    }
     // a grouped digest summary when more than one fires (designs §2 grouping).
-    if (specs.size > 1) safeNotify(GROUP_SUMMARY_ID, buildSummary(specs))
+    if (accepted.size > 1) safeNotify(null, GROUP_SUMMARY_ID, buildSummary(accepted))
+    onAccepted(accepted.mapTo(linkedSetOf()) { it.subjectKey })
   }
 
-  override fun cancel(subjectKey: String) = manager.cancel(notifId(subjectKey))
+  override fun cancel(subjectKey: String) {
+    manager.cancel(subjectKey, CHILD_NOTIFICATION_ID)
+    // The summary text/inbox lines are a snapshot of the original group. Once any child is
+    // retracted (Done/mute/delete), removing the summary is safer than leaving stale family content.
+    manager.cancel(GROUP_SUMMARY_ID)
+  }
   override fun cancelAll() = manager.cancelAll()
 
   private fun build(spec: NotificationSpec): Notification =
@@ -78,23 +96,26 @@ class AndroidLocalNotifier(private val context: Context) : LocalNotifier {
         putExtra(EXTRA_BLOCK_ID, it.blockId)
       }
       putExtra(EXTRA_SUBJECT_KEY, spec.subjectKey)
+      // PendingIntent identity ignores extras. A fully encoded URI prevents Java-hash collisions
+      // from merging two notification taps while keeping all navigation data in immutable extras.
+      data = notificationIdentityUri(spec.subjectKey)
     }
     return PendingIntent.getActivity(
-      context, notifId(spec.subjectKey), intent,
+      context, 0, intent,
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
   }
 
-  private fun safeNotify(id: Int, notification: Notification) {
+  private fun safeNotify(tag: String?, id: Int, notification: Notification): Boolean {
     // POST_NOTIFICATIONS (API 33+) is a runtime grant; if it's not held, notify() is a silent no-op
     // rather than a crash (the permission ladder requests it; we never override a denial).
-    if (manager.areNotificationsEnabled()) runCatching { manager.notify(id, notification) }
+    if (!manager.areNotificationsEnabled()) return false
+    return runCatching { manager.notify(tag, id, notification) }.isSuccess
   }
-
-  private fun notifId(subjectKey: String): Int = subjectKey.hashCode()
 
   companion object {
     const val CHANNEL_ID = "dayfold.now.reminders"
+    const val CHILD_NOTIFICATION_ID = 1001
     const val GROUP_SUMMARY_ID = -1
     const val EXTRA_HUB_ID = "dayfold.hubId"
     const val EXTRA_BLOCK_ID = "dayfold.blockId"

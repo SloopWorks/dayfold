@@ -93,13 +93,32 @@ class ResponseEngineTest {
   }
 
   @Test
-  fun undoDropsTheQueuedWriteAndTheLocalRow() = runBlocking {
+  fun undoQueuesACompensatingDeleteAndRemovesTheLocalRow() = runBlocking {
     val h = Harness(online = false)
     h.engine.mute("kind:weather", MatchScope.KIND, AudienceScope.PERSONAL, "Weather cards")
     h.engine.undoLastResponse()
     assertTrue(h.contentStore.allResponses().isEmpty())
-    assertNull(h.contentStore.nextPendingOp())
+    val put = h.contentStore.claimNextPendingOp()!!
+    assertEquals("upsert", put.type)
+    assertNull(h.contentStore.claimNextPendingOp(), "undo must not overtake its unacknowledged write")
+    h.contentStore.ackResponseOp(put.opId, put.targetId, 1L)
+    val delete = h.contentStore.claimNextPendingOp()!!
+    assertEquals("delete", delete.type)
+    assertEquals(put.targetId, delete.targetId)
     assertNull(h.store.state.responses.lastReceipt)
+  }
+
+  @Test
+  fun undoAfterThePutWasAcknowledgedStillQueuesADelete() = runBlocking {
+    val h = Harness(online = false)
+    h.engine.mute("kind:weather", MatchScope.KIND, AudienceScope.PERSONAL, "Weather cards")
+    val put = h.contentStore.claimNextPendingOp()!!
+    h.contentStore.ackResponseOp(put.opId, put.targetId, 2L)
+
+    h.engine.undoLastResponse()
+
+    assertTrue(h.contentStore.allResponses().isEmpty())
+    assertEquals("delete", h.contentStore.claimNextPendingOp()?.type)
   }
 
   @Test
@@ -119,6 +138,8 @@ class ResponseEngineTest {
     assertEquals(MatchScope.SUBJECT, row.matchScope)
     assertEquals("Confirmed — used Grandma's new number.", row.note)
     assertEquals("u_dad", row.createdBy)       // the byline is the only signal (§5)
+    assertEquals("2026-08-08T09:00:00Z", row.createdAt)
+    assertFalse(h.store.state.responses.lastReceipt!!.undoable)
   }
 
   // Notes are free user text and will contain quotes and apostrophes.

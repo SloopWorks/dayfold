@@ -11,9 +11,52 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class IosContentStoreHolderTest {
+  @Test fun notification_post_fence_rejects_a_batch_invalidated_by_teardown() {
+    val outgoing = IosNotificationPostFence.begin()!!
+    var recorded = false
+
+    IosNotificationPostFence.invalidate()
+
+    assertFalse(IosNotificationPostFence.isCurrent(outgoing))
+    assertFalse(IosNotificationPostFence.completeIfCurrent(outgoing) { recorded = true })
+    assertFalse(recorded)
+
+    val current = IosNotificationPostFence.begin()!!
+    assertTrue(IosNotificationPostFence.completeIfCurrent(current) { recorded = true })
+    assertTrue(recorded)
+  }
+
+  @Test fun notification_post_fence_keeps_admission_closed_through_cache_cleanup() {
+    val outgoing = IosNotificationPostFence.begin()!!
+
+    IosNotificationPostFence.closeAdmission()
+    try {
+      assertEquals(null, IosNotificationPostFence.begin())
+      assertFalse(IosNotificationPostFence.completeIfCurrent(outgoing) { error("stale") })
+    } finally {
+      IosNotificationPostFence.openAdmission()
+    }
+
+    assertTrue(IosNotificationPostFence.begin() != null)
+  }
+
+  @Test fun notification_post_fence_prepares_expiration_before_invalidating() {
+    val outgoing = IosNotificationPostFence.begin()!!
+    var preparedGeneration: Long? = null
+
+    val invalidated = IosNotificationPostFence.invalidateIf { nextGeneration ->
+      preparedGeneration = nextGeneration
+      true
+    }
+
+    assertEquals(invalidated, preparedGeneration)
+    assertFalse(IosNotificationPostFence.completeIfCurrent(outgoing) { error("stale") })
+  }
+
   @Test fun concurrent_get_invokes_factory_once_and_returns_one_instance() = runBlocking<Unit> {
     val drivers = mutableListOf<SqlDriver>()
     var factoryCalls = 0
@@ -70,6 +113,23 @@ class IosContentStoreHolderTest {
     } finally {
       firstDriver.close()
       secondDriver.close()
+    }
+  }
+
+  @Test fun selected_holder_routes_callbacks_to_the_foreground_store() {
+    val fallbackDriver = inMemoryDriver(ContentDb.Schema)
+    val selectedDriver = inMemoryDriver(ContentDb.Schema)
+    val fallback = ContentStore(fallbackDriver)
+    val selected = ContentStore(selectedDriver)
+    val holder = SelectableContentStoreHolder { fallback }
+
+    try {
+      assertTrue(holder.get() === fallback)
+      holder.select(selected)
+      assertTrue(holder.get() === selected)
+    } finally {
+      fallbackDriver.close()
+      selectedDriver.close()
     }
   }
 

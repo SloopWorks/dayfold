@@ -3,13 +3,16 @@ package com.sloopworks.dayfold.client
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -18,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 
 /**
  * ADR 0064 — the ONE response sheet. Same verbs, same order, on every surface smart content
@@ -99,11 +106,94 @@ fun ResponseSheet(
   sheet: ResponseSheetState,
   onVerb: (Verb) -> Unit,
   onDismiss: () -> Unit,
+  onBack: () -> Unit = onDismiss,
   scopeContent: (@Composable () -> Unit)? = null,
 ) {
-  val sheetState = rememberModalBottomSheetState()
-  ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  ModalBottomSheet(
+    // System Back, scrim tap, and drag are modal dismiss gestures and all close the sheet.
+    // The explicit 48dp Back control is the one step-up action inside the flow.
+    onDismissRequest = onDismiss,
+    sheetState = sheetState,
+  ) {
     if (scopeContent != null) scopeContent() else ResponseSheetContent(sheet, onVerb)
+  }
+}
+
+/** One app-root overlay, shared by Now, Detail, and Hubs. */
+@Composable
+fun ResponseOverlay(
+  state: ResponseState,
+  onVerb: (Verb) -> Unit,
+  onDismiss: () -> Unit,
+  onBack: () -> Unit,
+  onScope: (MatchScope) -> Unit,
+  onAudience: (AudienceScope) -> Unit,
+  onOpenRoutines: () -> Unit,
+  onCommitMute: () -> Unit,
+  onDone: (String?) -> Unit,
+  onUndo: () -> Unit,
+  onDismissReceipt: () -> Unit,
+) {
+  state.sheet?.let { sheet ->
+    ResponseSheet(
+      sheet = sheet,
+      onVerb = onVerb,
+      onDismiss = onDismiss,
+      onBack = onBack,
+      scopeContent = when (sheet.step) {
+        ResponseStep.SCOPE -> {{
+          ResponseScopeStep(
+            sheet = sheet,
+            onScope = onScope,
+            onAudience = onAudience,
+            onOpenRoutines = onOpenRoutines,
+            onCommit = onCommitMute,
+            onBack = onBack,
+          )
+        }}
+        ResponseStep.DONE_NOTE -> {{
+          DoneNoteStep(
+            sheet = sheet,
+            onJustDone = { onDone(null) },
+            onSaveNote = { onDone(it) },
+            onBack = onBack,
+          )
+        }}
+        ResponseStep.VERBS -> null
+      },
+    )
+  }
+  state.lastReceipt?.let { ResponseReceiptBar(it, onUndo, onDismissReceipt) }
+}
+
+@Composable
+private fun ResponseReceiptBar(
+  receipt: ResponseReceipt,
+  onUndo: () -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val cs = MaterialTheme.colorScheme
+  Box(
+    Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 72.dp)
+      .semantics { liveRegion = LiveRegionMode.Polite },
+    contentAlignment = Alignment.BottomCenter,
+  ) {
+    androidx.compose.material3.Surface(
+      shape = RoundedCornerShape(14.dp),
+      color = cs.inverseSurface,
+      modifier = Modifier.padding(14.dp).fillMaxWidth(),
+    ) {
+      Row(
+        Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(receipt.message, style = MaterialTheme.typography.bodyMedium, color = cs.inverseOnSurface, modifier = Modifier.weight(1f))
+        TextButton(onClick = if (receipt.undoable) onUndo else onDismiss) {
+          Text(if (receipt.undoable) "Undo" else "Dismiss", color = cs.inversePrimary)
+        }
+      }
+    }
   }
 }
 

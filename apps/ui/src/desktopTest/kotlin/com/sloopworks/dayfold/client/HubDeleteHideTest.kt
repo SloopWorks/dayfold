@@ -27,7 +27,7 @@ class HubDeleteHideTest {
     var deleted: String? = null
     val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom"))))
     setContent { MaterialTheme { HubDetailScreen(state, onDeleteBlock = { deleted = it }) } }
-    onNodeWithContentDescription("More options").performClick()
+    onNodeWithContentDescription("More options for Grocery run list").performClick()
     onNodeWithText("Delete").performClick()                      // overflow → Delete opens the warn sheet
     onNodeWithText("Delete for everyone").performClick()         // confirm
     assertEquals("b1", deleted)
@@ -37,7 +37,7 @@ class HubDeleteHideTest {
     var deleted: String? = null
     val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_mom"))))
     setContent { MaterialTheme { HubDetailScreen(state, onDeleteBlock = { deleted = it }) } }
-    onNodeWithContentDescription("More options").performClick()
+    onNodeWithContentDescription("More options for Grocery run list").performClick()
     onNodeWithText("Delete").performClick()
     onNodeWithText("Keep it").performClick()
     assertNull(deleted)                                          // declined → nothing deleted
@@ -46,7 +46,7 @@ class HubDeleteHideTest {
   @Test fun nonAuthorSeesNoDeleteOption() = androidx.compose.ui.test.runComposeUiTest {
     val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam"))))
     setContent { MaterialTheme { HubDetailScreen(state) } }
-    onNodeWithContentDescription("More options").performClick()
+    onNodeWithContentDescription("More options for Grocery run list").performClick()
     onNodeWithText("Hide for me").assertIsDisplayed()            // hide is for everyone
     onNodeWithText("Delete").assertDoesNotExist()               // delete is absent (not disabled) for non-authors
   }
@@ -54,7 +54,7 @@ class HubDeleteHideTest {
   @Test fun aBlockWithNoAuthorIsNotDeletable() = androidx.compose.ui.test.runComposeUiTest {
     val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = null))))
     setContent { MaterialTheme { HubDetailScreen(state) } }
-    onNodeWithContentDescription("More options").performClick()
+    onNodeWithContentDescription("More options for Grocery run list").performClick()
     onNodeWithText("Delete").assertDoesNotExist()               // legacy / loop-authored → no member delete
   }
 
@@ -62,7 +62,7 @@ class HubDeleteHideTest {
     var hidden: String? = null
     val state = AppState(session = SessionState(session = me), hubs = HubState(currentHubId = "h1", currentHubTree = treeWith(textBlock("b1", author = "usr_sam"))))
     setContent { MaterialTheme { HubDetailScreen(state, onHideBlock = { hidden = it }) } }
-    onNodeWithContentDescription("More options").performClick()
+    onNodeWithContentDescription("More options for Grocery run list").performClick()
     onNodeWithText("Hide for me").performClick()
     assertEquals("b1", hidden)
   }

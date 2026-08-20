@@ -1,7 +1,11 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.cards.CardAction
 import org.reduxkotlin.concurrent.NotificationContext
+import org.reduxkotlin.compose.SelectorStore
+import org.reduxkotlin.compose.rememberSelectorStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -9,6 +13,7 @@ import kotlin.test.assertTrue
 // ADR 0064 — the wiring between a tapped affordance and the effect it names. This is the layer
 // that was missing when the feature first shipped: every piece existed and none of them were
 // connected, which no unit test noticed because each half passed on its own.
+@OptIn(ExperimentalTestApi::class)
 class ResponseWiringTest {
 
   // Delegates to the shipped navigation-only command set (side-effect-free) and records only
@@ -68,6 +73,28 @@ class ResponseWiringTest {
     assertEquals(null, com.sloopworks.dayfold.client.cards.cardActionUri(
       CardAction.Respond("card:c1", "t", "weather", null),
     ))
+  }
+
+  @Test
+  fun aHubCompletionPreservesItsSurfaceAndDirectEntryStep() = runComposeUiTest {
+    val store = createAppStore(NotificationContext.Inline, AppState(), debug = false)
+    val commands = RecordingCommands()
+    lateinit var selectorStore: SelectorStore<AppState>
+    setContent { selectorStore = rememberSelectorStore(store) }
+    waitForIdle()
+    val action = CardAction.Respond(
+      "hub:h1/section:s1/block:b1", "Call the caterer", "text", "Weekend planner",
+      surface = ResponseSurface.HUB,
+      initialStep = ResponseStep.DONE_NOTE,
+    )
+
+    routeCardAction(
+      selectorStore, commands, StablePlatformActions.noOp(), "fam1", fromFeedDetail = false, action,
+    )
+
+    assertEquals(ResponseSurface.HUB, store.state.responses.sheet?.surface)
+    assertEquals(ResponseStep.DONE_NOTE, store.state.responses.sheet?.step)
+    assertEquals(ResponseStep.DONE_NOTE, store.state.responses.sheet?.entryStep)
   }
 
   @Test

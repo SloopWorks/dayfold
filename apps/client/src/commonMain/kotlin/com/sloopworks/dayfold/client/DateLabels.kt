@@ -86,6 +86,18 @@ fun formatMetaWhen(iso: String?): String? {
   return iso   // unrecognized shape → the original authored string, unchanged
 }
 
+/** A server timestamp shown as the viewer's calendar date, not the authored/UTC wall date. */
+fun formatLocalDate(
+  iso: String?,
+  tz: TimeZone = TimeZone.currentSystemDefault(),
+): String? {
+  val raw = iso?.trim()?.ifBlank { null } ?: return null
+  if (Regex("""^\d{4}-\d{2}-\d{2}$""").matches(raw)) {
+    return runCatching { LocalDate.parse(raw) }.getOrNull()?.let { shortDate(it) }
+  }
+  return parseOrNull(raw)?.toLocalDateTime(tz)?.date?.let { shortDate(it) }
+}
+
 // "Today" | "Tomorrow" | "in N days" | "Yesterday" | "N days ago" | null.
 // targetIso = the hub's countdown_to ?: start_at; nowIso = an ISO/DB now. Compared
 // as LOCAL CALENDAR dates (tz, default system) so the label matches the wall date.
