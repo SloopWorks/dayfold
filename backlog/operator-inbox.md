@@ -16,6 +16,29 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-39 · 2026-08-20 · high · open — ratify the Claude Bridge operator-pilot
+  boundary?** The operator selected bring-your-own Claude as the proof path. The
+  repository's older Proposed ADR 0061 assumes a K1/K3 gateway and the existing
+  hi-fi includes multiple providers and scheduling; neither is the minimum manual
+  V0.1. Proposed ADR 0071 instead uses an isolated Dayfold Vercel OAuth/MCP bridge
+  for plaintext M0: Claude owns model usage and Google OAuth; one Owner approves
+  one Hub; Claude may read bounded context and submit at most one owner-private
+  card proposal; only a human Dayfold app token may insert it for an exact
+  restricted audience. No K3/E2EE claim, schedule, attachment, source write,
+  direct Gmail OAuth, ChatGPT, BYOK, or auto-publish. **Proposed default:** approve
+  this as a synthetic-first operator pilot, not the paid hosted release. Require a
+  real-Claude OAuth/MCP/Gmail-write compatibility spike. Private data requires an
+  eligible commercial no-training posture or explicit constitutional amendment;
+  a consumer model-improvement toggle is insufficient. Keep non-operator accounts
+  blocked until counsel/privacy, Terms, export, and deletion are solved. Also
+  ratify or change the proposed retention values:
+  60-minute enrollment, 10-minute code, 5-minute access, 45-day rotating refresh,
+  14-day pending proposal, rejected/expired body purge within 24 hours, and 90-day
+  content-free run history. Operator must separately sign off the resulting live
+  Claude-only hi-fi under ADR 0008. Context:
+  `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`, Proposed ADR 0071, and
+  `specs/smart-briefings-v0.1/system-design.md`.
+
 - **INB-38 · 2026-08-10 · med · open — authorize the component-picker design
   pass?** `SloopWorks/debugdrawer` PR #1
   (WI-256) is merged + CI-green and declares the standalone repo the source of

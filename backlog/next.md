@@ -12,6 +12,32 @@ actually still queued or genuinely blocked.
 > = `INB-N` in `operator-inbox.md`. High-level phases = `planning/workstreams.md`.
 > No issue tracker yet (workstream D2 deferred).
 
+## TASK-SMART-BRIEFINGS-V0.1 — Claude Bridge operator pilot
+
+**Added 2026-08-20 (operator-requested design/implementation handoff). Status:
+proposed and blocked on INB-39, Proposed ADR 0071/0062, the live-flow ADR 0008
+design sign-off, and a synthetic real-Claude OAuth/MCP compatibility spike.** This
+is the recommended first provider proof: the user's Claude account performs
+inference and owns Google OAuth; an isolated Dayfold Vercel service exposes a
+public, separately authenticated remote MCP that reads one approved Hub and stages
+at most one owner-private card proposal. Only a human Dayfold app token may insert
+it with an exact restricted audience.
+
+This operator pilot is Claude-only and manually started. It is not the commercial
+hosted V0.1 and explicitly excludes pricing/billing/signup, scheduling,
+attachments/link crawling, Dayfold Gmail OAuth, K3/K4/E2EE claims, ChatGPT/BYOK,
+updates/deletes, source writes, auto-publish, and release telemetry. Gmail outcomes
+are reported by Claude rather than independently verified. All work stays
+synthetic until an eligible commercial no-training posture or explicit
+constitutional amendment; a consumer model-improvement toggle is not sufficient.
+Non-operator use also remains blocked on counsel/Terms/export/delete gates.
+
+Claude-ready entry point:
+`specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md`; system design:
+`specs/smart-briefings-v0.1/system-design.md`; implementation plan:
+`docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`; live
+hi-fi prompt: `designs/PROMPT-smart-briefings-v0.1-claude-bridge.md`.
+
 ## TASK-ROUTINE-INTEGRATION — scheduled connected-source curation through a K1/K3 gateway
 
 **Added 2026-08-07 (operator-requested planning). Status: live provider/gateway

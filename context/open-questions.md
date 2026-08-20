@@ -6,6 +6,23 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
 
 ## Build / infra
 
+- **OQ-claude-v0.1-eligibility** *(NEW 2026-08-20; constitution + provider data
+  handling)*: can a user-owned consumer Claude account uphold Dayfold's absolute
+  guarantee that family data is never used to train shared models when Gmail-
+  derived details may appear in Claude responses/tool calls? Proposed default =
+  synthetic testing only; private operator data needs an eligible commercial no-
+  training contract/posture or separately approved constitutional amendment.
+  Disabling consumer model improvement is useful risk reduction but not sufficient
+  authority. → Proposed ADR 0071 / INB-39.
+
+- **OQ-claude-remote-mcp-compatibility** *(NEW 2026-08-20; provider capability)*:
+  does the exact Claude surface support the native Gmail connector and a custom
+  OAuth remote MCP together with RFC 9728 discovery, resource-bound Authorization
+  Code + S256 PKCE, refresh rotation, clean revocation, and provider-level Gmail
+  mutation confirmation? Documentation is not sufficient; a synthetic operator-
+  run spike is Work Package 0 and gates final hi-fi and implementation. →
+  `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`.
+
 - **OQ-routine-observability-boundary** *(NEW 2026-08-07; customer-data + vendor
   telemetry)*: may existing API/client SWIP postures be reused for scheduled
   routines, or does the plaintext-processing K3 gateway require a separate source
