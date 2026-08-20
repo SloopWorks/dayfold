@@ -754,205 +754,6 @@ describe('12. the surface is stateless', () => {
   });
 });
 
-describe('supplementary: transport shape, method surface and logging', () => {
-  test('GET and DELETE are authenticated first, then refused as methods', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    for (const method of ['GET', 'DELETE']) {
-      const anonymous = await mcpFetch(spike, { method, contentType: null, body: undefined });
-      assert.equal(anonymous.status, 401, `${method} must authenticate first`);
-      assert.equal(await errorCode(anonymous), CODES.UNAUTHORIZED);
-
-      const authenticated = await mcpFetch(spike, { method, token: accessToken, contentType: null, body: undefined });
-      assert.equal(authenticated.status, 405, `${method} must be refused`);
-      assert.equal(await errorCode(authenticated), CODES.METHOD_NOT_ALLOWED);
-    }
-  });
-
-  test('an Accept header without text/event-stream is refused with a closed code', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const response = await mcpFetch(spike, {
-      token: accessToken,
-      accept: 'application/json',
-      body: rpc('tools/list', {}),
-    });
-    assert.equal(response.status, 406);
-    assert.equal(await errorCode(response), CODES.NOT_ACCEPTABLE);
-  });
-
-  test('a non-JSON content type is refused with a closed code', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const response = await mcpFetch(spike, {
-      token: accessToken,
-      contentType: 'text/plain',
-      body: rpc('tools/list', {}),
-    });
-    assert.equal(response.status, 415);
-    assert.equal(await errorCode(response), CODES.UNSUPPORTED_MEDIA_TYPE);
-  });
-
-  test('a body that is not JSON is refused with a closed code', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const response = await mcpFetch(spike, { token: accessToken, body: '{ not json' });
-    assert.equal(response.status, 400);
-    assert.equal(await errorCode(response), CODES.SCHEMA_INVALID);
-  });
-
-  test('an unknown tool name is a closed code, not a library message', async () => {
-    const spike = await startSpike();
-    const client = await connectClient(spike, grant(spike).accessToken);
-
-    const result = await client.callTool({ name: 'dayfold_spike_not_a_tool', arguments: {} });
-    assert.equal(toolErrorCode(result), CODES.UNKNOWN_TOOL);
-  });
-
-  test('an /mcp response carries the security headers', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-    const response = await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) });
-
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
-    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
-    assert.equal(response.headers.get('content-security-policy'), EXPECTED_CSP);
-    // Recorded deviation: the SDK's event-stream response replaces the staged
-    // `no-store` with the streaming `no-cache, no-transform`. Both forbid a
-    // cached copy; the value is the transport's, not the spike's.
-    assert.match(response.headers.get('cache-control'), /no-store|no-cache/);
-    assert.equal((await mcpFetch(spike, { body: rpc('tools/list', {}) })).headers.get('cache-control'), 'no-store');
-  });
-
-  test('no envelope-layer refusal echoes the caller\'s own text', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-    const marker = 'spike-marker-Zq7xK3';
-
-    // Every path where caller-controlled text reaches the SDK's own JSON-RPC
-    // layer, each carrying a marker in the one field that path reads - including
-    // the initialize header, which the spike deliberately passes through.
-    const probes = [
-      ['an unsupported protocol version', () => mcpFetchWithVersion(spike, accessToken, marker, rpc('tools/list', {}))],
-      ['an unsupported protocol version on initialize', () => mcpFetchWithVersion(spike, accessToken, marker, initializeMessage())],
-      ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: marker, id: 1, method: 'tools/list' } })],
-      ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc(`prompts/${marker}`, {}) })],
-      ['non-object tool arguments', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, marker) })],
-    ];
-
-    for (const [label, send] of probes) {
-      const raw = await (await send()).text();
-      assert.ok(raw.length > 0, `${label} answered with nothing`);
-      assert.ok(!raw.includes(marker), `${label} echoed caller-controlled text: ${raw}`);
-    }
-  });
-
-  test('an unsupported protocol version is refused with a closed code', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const response = await mcpFetchWithVersion(spike, accessToken, '1999-01-01', rpc('tools/list', {}));
-    assert.equal(response.status, 400);
-    assert.equal(await errorCode(response), CODES.UNSUPPORTED_PROTOCOL_VERSION);
-
-    for (const supported of SUPPORTED_PROTOCOL_VERSIONS) {
-      const accepted = await mcpFetchWithVersion(spike, accessToken, supported, rpc('tools/list', {}));
-      assert.equal(accepted.status, 200, `${supported} must be accepted`);
-      await accepted.text();
-    }
-  });
-
-  test('the screen runs only where the SDK screens, so initialize still negotiates', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-    const outOfList = '2099-01-01';
-    assert.ok(!SUPPORTED_PROTOCOL_VERSIONS.includes(outOfList));
-
-    // An initialize carries its version in the body, so the SDK never screens
-    // the header for one - and refusing here would manufacture a failed
-    // connection for a surface the real bridge accepts.
-    const initialized = await mcpFetchWithVersion(spike, accessToken, outOfList, initializeMessage());
-    assert.equal(initialized.status, 200);
-    const negotiated = await rpcResponse(initialized);
-    assert.equal(negotiated.error, undefined);
-    assert.ok(
-      SUPPORTED_PROTOCOL_VERSIONS.includes(negotiated.result.protocolVersion),
-      'initialize must negotiate a supported version',
-    );
-
-    // Every other message is still screened, with no echo.
-    const refused = await mcpFetchWithVersion(spike, accessToken, outOfList, rpc('tools/list', {}));
-    assert.equal(refused.status, 400);
-    const raw = await refused.clone().text();
-    assert.ok(!raw.includes(outOfList), 'the refusal must not echo the version');
-    assert.equal(await errorCode(refused), CODES.UNSUPPORTED_PROTOCOL_VERSION);
-  });
-
-  test('an unimplemented method keeps the standard code with a closed message', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const message = await rpcResponse(await mcpFetch(spike, { token: accessToken, body: rpc('prompts/list', {}) }));
-    assert.equal(message.result, undefined);
-    assert.equal(message.error.code, ErrorCode.MethodNotFound);
-    assert.equal(message.error.message, CODES.UNKNOWN_METHOD);
-  });
-
-  test('transport-layer refusals and protocol probes each get their own outcome', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-
-    const cases = [
-      ['an unsupported protocol version', () => mcpFetchWithVersion(spike, accessToken, '1999-01-01', rpc('tools/list', {})), LOG_OUTCOME.INVALID_REQUEST],
-      ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: '1.0', id: 1, method: 'tools/list' } }), LOG_OUTCOME.PROTOCOL_REJECTED],
-      ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc('resources/list', {}) }), LOG_OUTCOME.METHOD_UNSUPPORTED],
-      ['no protocol version header', () => mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) }), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT],
-      ['a supported protocol version', () => mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {})), outcomeForProtocolVersion(LATEST_PROTOCOL_VERSION)],
-      // A 200 whose body carries the SDK's own JSON-RPC error envelope. The
-      // failure never reaches the spike's handlers, so nothing records a code
-      // and the status is a success: without the envelope check this reads as
-      // a healthy call.
-      ['an error envelope inside a 200', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, 'not-an-object') }), LOG_OUTCOME.PROTOCOL_REJECTED],
-    ];
-
-    for (const [label, send, expected] of cases) {
-      const before = spike.lines.length;
-      await (await send()).text();
-      assert.equal(spike.lines.length - before, 1, `${label} wrote more than one line`);
-      assert.equal(lastOutcome(spike), expected, label);
-    }
-  });
-
-  test('every /mcp request writes exactly one content-blind log line', async () => {
-    const spike = await startSpike();
-    const { accessToken } = grant(spike);
-    const before = spike.lines.length;
-
-    await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) });
-    assert.equal(spike.lines.length - before, 1);
-
-    const line = JSON.parse(spike.lines.at(-1));
-    assert.deepEqual(Object.keys(line), ['ts', 'testRunId', 'class', 'outcome']);
-    assert.equal(line.class, LOG_CLASS.MCP);
-    assert.ok(ALL_LOG_OUTCOMES.has(line.outcome));
-  });
-
-  test('a tool-level rejection is recorded as its own closed outcome', async () => {
-    const spike = await startSpike();
-    const client = await connectClient(spike, grant(spike).accessToken);
-    const before = spike.lines.length;
-
-    await client.callTool({ name: TOOL_IDENTITY, arguments: { schemaVersion: 99 } });
-    const outcomes = spike.lines.slice(before).map((line) => JSON.parse(line).outcome);
-    assert.ok(outcomes.includes('invalid_request'), 'a rejected tool call is not logged as a success');
-  });
-});
-
 describe('13. a JSON-RPC error inside a 200 is never logged as a success', () => {
   /**
    * The SDK validates a request against its own zod schema before any handler
@@ -1182,5 +983,204 @@ describe('15. each tool requires its own scope, not one blanket scope', () => {
     assert.notEqual(SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT);
     assert.deepEqual([...SCOPES].sort(), [SCOPE_CONTEXT_READ, SCOPE_DRAFT_SUBMIT].sort());
     assert.equal(MCP_REQUIRED_SCOPE, SCOPE_CONTEXT_READ);
+  });
+});
+
+describe('supplementary: transport shape, method surface and logging', () => {
+  test('GET and DELETE are authenticated first, then refused as methods', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    for (const method of ['GET', 'DELETE']) {
+      const anonymous = await mcpFetch(spike, { method, contentType: null, body: undefined });
+      assert.equal(anonymous.status, 401, `${method} must authenticate first`);
+      assert.equal(await errorCode(anonymous), CODES.UNAUTHORIZED);
+
+      const authenticated = await mcpFetch(spike, { method, token: accessToken, contentType: null, body: undefined });
+      assert.equal(authenticated.status, 405, `${method} must be refused`);
+      assert.equal(await errorCode(authenticated), CODES.METHOD_NOT_ALLOWED);
+    }
+  });
+
+  test('an Accept header without text/event-stream is refused with a closed code', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const response = await mcpFetch(spike, {
+      token: accessToken,
+      accept: 'application/json',
+      body: rpc('tools/list', {}),
+    });
+    assert.equal(response.status, 406);
+    assert.equal(await errorCode(response), CODES.NOT_ACCEPTABLE);
+  });
+
+  test('a non-JSON content type is refused with a closed code', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const response = await mcpFetch(spike, {
+      token: accessToken,
+      contentType: 'text/plain',
+      body: rpc('tools/list', {}),
+    });
+    assert.equal(response.status, 415);
+    assert.equal(await errorCode(response), CODES.UNSUPPORTED_MEDIA_TYPE);
+  });
+
+  test('a body that is not JSON is refused with a closed code', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const response = await mcpFetch(spike, { token: accessToken, body: '{ not json' });
+    assert.equal(response.status, 400);
+    assert.equal(await errorCode(response), CODES.SCHEMA_INVALID);
+  });
+
+  test('an unknown tool name is a closed code, not a library message', async () => {
+    const spike = await startSpike();
+    const client = await connectClient(spike, grant(spike).accessToken);
+
+    const result = await client.callTool({ name: 'dayfold_spike_not_a_tool', arguments: {} });
+    assert.equal(toolErrorCode(result), CODES.UNKNOWN_TOOL);
+  });
+
+  test('an /mcp response carries the security headers', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const response = await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(response.headers.get('content-security-policy'), EXPECTED_CSP);
+    // Recorded deviation: the SDK's event-stream response replaces the staged
+    // `no-store` with the streaming `no-cache, no-transform`. Both forbid a
+    // cached copy; the value is the transport's, not the spike's.
+    assert.match(response.headers.get('cache-control'), /no-store|no-cache/);
+    assert.equal((await mcpFetch(spike, { body: rpc('tools/list', {}) })).headers.get('cache-control'), 'no-store');
+  });
+
+  test('no envelope-layer refusal echoes the caller\'s own text', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const marker = 'spike-marker-Zq7xK3';
+
+    // Every path where caller-controlled text reaches the SDK's own JSON-RPC
+    // layer, each carrying a marker in the one field that path reads - including
+    // the initialize header, which the spike deliberately passes through.
+    const probes = [
+      ['an unsupported protocol version', () => mcpFetchWithVersion(spike, accessToken, marker, rpc('tools/list', {}))],
+      ['an unsupported protocol version on initialize', () => mcpFetchWithVersion(spike, accessToken, marker, initializeMessage())],
+      ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: marker, id: 1, method: 'tools/list' } })],
+      ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc(`prompts/${marker}`, {}) })],
+      ['non-object tool arguments', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, marker) })],
+    ];
+
+    for (const [label, send] of probes) {
+      const raw = await (await send()).text();
+      assert.ok(raw.length > 0, `${label} answered with nothing`);
+      assert.ok(!raw.includes(marker), `${label} echoed caller-controlled text: ${raw}`);
+    }
+  });
+
+  test('an unsupported protocol version is refused with a closed code', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const response = await mcpFetchWithVersion(spike, accessToken, '1999-01-01', rpc('tools/list', {}));
+    assert.equal(response.status, 400);
+    assert.equal(await errorCode(response), CODES.UNSUPPORTED_PROTOCOL_VERSION);
+
+    for (const supported of SUPPORTED_PROTOCOL_VERSIONS) {
+      const accepted = await mcpFetchWithVersion(spike, accessToken, supported, rpc('tools/list', {}));
+      assert.equal(accepted.status, 200, `${supported} must be accepted`);
+      await accepted.text();
+    }
+  });
+
+  test('the screen runs only where the SDK screens, so initialize still negotiates', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const outOfList = '2099-01-01';
+    assert.ok(!SUPPORTED_PROTOCOL_VERSIONS.includes(outOfList));
+
+    // An initialize carries its version in the body, so the SDK never screens
+    // the header for one - and refusing here would manufacture a failed
+    // connection for a surface the real bridge accepts.
+    const initialized = await mcpFetchWithVersion(spike, accessToken, outOfList, initializeMessage());
+    assert.equal(initialized.status, 200);
+    const negotiated = await rpcResponse(initialized);
+    assert.equal(negotiated.error, undefined);
+    assert.ok(
+      SUPPORTED_PROTOCOL_VERSIONS.includes(negotiated.result.protocolVersion),
+      'initialize must negotiate a supported version',
+    );
+
+    // Every other message is still screened, with no echo.
+    const refused = await mcpFetchWithVersion(spike, accessToken, outOfList, rpc('tools/list', {}));
+    assert.equal(refused.status, 400);
+    const raw = await refused.clone().text();
+    assert.ok(!raw.includes(outOfList), 'the refusal must not echo the version');
+    assert.equal(await errorCode(refused), CODES.UNSUPPORTED_PROTOCOL_VERSION);
+  });
+
+  test('an unimplemented method keeps the standard code with a closed message', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const message = await rpcResponse(await mcpFetch(spike, { token: accessToken, body: rpc('prompts/list', {}) }));
+    assert.equal(message.result, undefined);
+    assert.equal(message.error.code, ErrorCode.MethodNotFound);
+    assert.equal(message.error.message, CODES.UNKNOWN_METHOD);
+  });
+
+  test('transport-layer refusals and protocol probes each get their own outcome', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+
+    const cases = [
+      ['an unsupported protocol version', () => mcpFetchWithVersion(spike, accessToken, '1999-01-01', rpc('tools/list', {})), LOG_OUTCOME.INVALID_REQUEST],
+      ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: '1.0', id: 1, method: 'tools/list' } }), LOG_OUTCOME.PROTOCOL_REJECTED],
+      ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc('resources/list', {}) }), LOG_OUTCOME.METHOD_UNSUPPORTED],
+      ['no protocol version header', () => mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) }), LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT],
+      ['a supported protocol version', () => mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {})), outcomeForProtocolVersion(LATEST_PROTOCOL_VERSION)],
+      // A 200 whose body carries the SDK's own JSON-RPC error envelope. The
+      // failure never reaches the spike's handlers, so nothing records a code
+      // and the status is a success: without the envelope check this reads as
+      // a healthy call.
+      ['an error envelope inside a 200', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, 'not-an-object') }), LOG_OUTCOME.PROTOCOL_REJECTED],
+    ];
+
+    for (const [label, send, expected] of cases) {
+      const before = spike.lines.length;
+      await (await send()).text();
+      assert.equal(spike.lines.length - before, 1, `${label} wrote more than one line`);
+      assert.equal(lastOutcome(spike), expected, label);
+    }
+  });
+
+  test('every /mcp request writes exactly one content-blind log line', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const before = spike.lines.length;
+
+    await mcpFetch(spike, { token: accessToken, body: rpc('tools/list', {}) });
+    assert.equal(spike.lines.length - before, 1);
+
+    const line = JSON.parse(spike.lines.at(-1));
+    assert.deepEqual(Object.keys(line), ['ts', 'testRunId', 'class', 'outcome']);
+    assert.equal(line.class, LOG_CLASS.MCP);
+    assert.ok(ALL_LOG_OUTCOMES.has(line.outcome));
+  });
+
+  test('a tool-level rejection is recorded as its own closed outcome', async () => {
+    const spike = await startSpike();
+    const client = await connectClient(spike, grant(spike).accessToken);
+    const before = spike.lines.length;
+
+    await client.callTool({ name: TOOL_IDENTITY, arguments: { schemaVersion: 99 } });
+    const outcomes = spike.lines.slice(before).map((line) => JSON.parse(line).outcome);
+    assert.ok(outcomes.includes('invalid_request'), 'a rejected tool call is not logged as a success');
   });
 });
