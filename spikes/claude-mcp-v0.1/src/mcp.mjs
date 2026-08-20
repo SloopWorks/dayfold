@@ -7,12 +7,13 @@
 // The whole exchange runs under a handling deadline.
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
 
 import { verifyBearer } from './access-token.mjs';
 import { CODES } from './codes.mjs';
 import { MCP_BODY_LIMIT_BYTES, MCP_REQUIRED_SCOPE } from './constants.mjs';
 import { SECURITY_HEADERS, fail, hasContentType, readBody, sendJson } from './http.mjs';
-import { LOG_OUTCOME, outcomeForCode } from './log.mjs';
+import { LOG_OUTCOME, outcomeForCode, outcomeForProtocolVersion } from './log.mjs';
 import { createToolServer } from './mcp-tools.mjs';
 
 /** Streamable HTTP requires a client to accept both. */
@@ -77,6 +78,19 @@ function authorizeCall(ctx, req) {
   return verified.credential;
 }
 
+/**
+ * `MCP-Protocol-Version` is screened here rather than left to the transport.
+ * The SDK reflects an unsupported value back into its own error message
+ * verbatim, which would put caller-controlled text in a response body. Screened
+ * at the same seam as Accept and Content-Type, the header stays fully
+ * observable - as a closed outcome, never as an echo.
+ */
+function protocolVersionAccepted(req) {
+  const header = req.headers['mcp-protocol-version'];
+  if (header === undefined) return true;
+  return typeof header === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(header);
+}
+
 function acceptsStreamableHttp(req) {
   const header = req.headers.accept;
   if (typeof header !== 'string') return false;
@@ -111,6 +125,7 @@ async function exchange(ctx, req, res, credential) {
     if (!body.ok) return fail(res, 413, body.code);
     if (!acceptsStreamableHttp(req)) return fail(res, 406, CODES.NOT_ACCEPTABLE);
     if (!hasContentType(req, 'application/json')) return fail(res, 415, CODES.UNSUPPORTED_MEDIA_TYPE);
+    if (!protocolVersionAccepted(req)) return fail(res, 400, CODES.UNSUPPORTED_PROTOCOL_VERSION);
 
     let message;
     try {
@@ -127,8 +142,8 @@ async function exchange(ctx, req, res, credential) {
 }
 
 async function dispatch(ctx, req, res, credential, message) {
-  let toolCode;
-  const server = createToolServer({ ctx, credential, record: (code) => { toolCode = code; } });
+  let rejectionCode;
+  const server = createToolServer({ ctx, credential, record: (code) => { rejectionCode = code; } });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
   try {
@@ -143,7 +158,11 @@ async function dispatch(ctx, req, res, credential, message) {
     await server.close().catch(() => {});
   }
 
-  return toolCode === undefined ? LOG_OUTCOME.OK : outcomeForCode(toolCode);
+  if (rejectionCode !== undefined) return outcomeForCode(rejectionCode);
+  // The transport writes its own refusals straight to the response, so a status
+  // it chose is the only evidence they happened: a 4xx is never an `ok`.
+  if (res.statusCode >= 400) return LOG_OUTCOME.PROTOCOL_REJECTED;
+  return outcomeForProtocolVersion(req.headers['mcp-protocol-version']);
 }
 
 export async function mcpPost(ctx, req, res) {

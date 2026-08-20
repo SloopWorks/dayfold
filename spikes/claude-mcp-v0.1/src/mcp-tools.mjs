@@ -6,7 +6,7 @@
 // Exactly two tools are registered and only the `tools` capability is declared.
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { CODES } from './codes.mjs';
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION, SCOPES } from './constants.mjs';
@@ -104,6 +104,17 @@ export function createToolServer({ ctx, credential, record }) {
     }
     return { content: [{ type: 'text', text: JSON.stringify(outcome.payload) }] };
   });
+
+  // Anything with no registered handler - a client probing `prompts/list` or
+  // `resources/list` against a tools-only server - keeps the standard
+  // method-not-found code but carries a closed message instead of library
+  // prose, and is recorded so the probe shows in the log rather than as `ok`.
+  server.fallbackRequestHandler = async () => {
+    record(CODES.UNKNOWN_METHOD);
+    const error = new Error(CODES.UNKNOWN_METHOD);
+    error.code = ErrorCode.MethodNotFound;
+    throw error;
+  };
 
   return server;
 }

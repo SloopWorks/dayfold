@@ -122,8 +122,11 @@ export function validateFinishInput(input) {
   if (!RESULTS.includes(input.result)) return INVALID;
   if (!isBoundedString(input.clientRequestId, MAX_CLIENT_REQUEST_ID_LENGTH)) return INVALID;
   if (!CLIENT_REQUEST_ID.test(input.clientRequestId)) return INVALID;
-  if (!Array.isArray(input.sources) || input.sources.length !== REQUESTED_SOURCES.length) return INVALID;
+  if (!Array.isArray(input.sources)) return INVALID;
 
+  // Rows are checked before the count so the duplicate-row branch is reachable:
+  // with a single requested source a two-row array is a duplicate, and it
+  // short-circuits on the repeated row rather than on the length.
   const seen = new Set();
   const sources = [];
   for (const row of input.sources) {
@@ -131,6 +134,7 @@ export function validateFinishInput(input) {
     if (!source) return INVALID;
     sources.push(source);
   }
+  if (sources.length !== REQUESTED_SOURCES.length) return INVALID;
 
   return {
     ok: true,

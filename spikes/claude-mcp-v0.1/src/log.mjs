@@ -31,6 +31,11 @@ export const LOG_OUTCOME = Object.freeze({
   // so recording it stays content-blind - and it is one of the questions the
   // spike exists to answer.
   OK_RESOURCE_ABSENT: 'ok_resource_absent',
+  // A success where the caller sent no `MCP-Protocol-Version` header. Which
+  // version a client negotiates - and whether it sends one at all - is protocol
+  // shape, not content, and it is one of the questions the spike exists to
+  // answer. Recorded as an outcome so the value itself never has to be.
+  OK_PROTOCOL_VERSION_ABSENT: 'ok_protocol_version_absent',
   REJECTED: 'rejected',
   INVALID_REQUEST: 'invalid_request',
   INVALID_GRANT: 'invalid_grant',
@@ -39,6 +44,12 @@ export const LOG_OUTCOME = Object.freeze({
   METHOD_NOT_ALLOWED: 'method_not_allowed',
   TOO_LARGE: 'too_large',
   THROTTLED: 'throttled',
+  // The MCP protocol layer refused the request itself: the spike's own checks
+  // all passed and the SDK still answered 4xx/5xx.
+  PROTOCOL_REJECTED: 'protocol_rejected',
+  // A JSON-RPC method this server does not implement - a client probing for a
+  // capability the spike never declared.
+  METHOD_UNSUPPORTED: 'method_unsupported',
   DEADLINE_EXCEEDED: 'deadline_exceeded',
   CONFLICT: 'conflict',
   ERROR: 'error',
@@ -76,6 +87,8 @@ const OUTCOME_BY_CODE = Object.freeze({
   [CODES.TOO_MANY_REQUESTS]: LOG_OUTCOME.THROTTLED,
   [CODES.DEADLINE_EXCEEDED]: LOG_OUTCOME.DEADLINE_EXCEEDED,
   [CODES.UNKNOWN_TOOL]: LOG_OUTCOME.INVALID_REQUEST,
+  [CODES.UNKNOWN_METHOD]: LOG_OUTCOME.METHOD_UNSUPPORTED,
+  [CODES.UNSUPPORTED_PROTOCOL_VERSION]: LOG_OUTCOME.INVALID_REQUEST,
   [CODES.RUN_UNKNOWN]: LOG_OUTCOME.REJECTED,
   [CODES.RUN_CLOSED]: LOG_OUTCOME.CONFLICT,
   [CODES.REPLAY_MISMATCH]: LOG_OUTCOME.CONFLICT,
@@ -100,6 +113,14 @@ export function outcomeForCode(code) {
  */
 export function outcomeForResource(resourceParam) {
   return resourceParam === undefined ? LOG_OUTCOME.OK_RESOURCE_ABSENT : LOG_OUTCOME.OK;
+}
+
+/**
+ * Success outcome for a request that may carry an `MCP-Protocol-Version`
+ * header. Records presence only - never the value.
+ */
+export function outcomeForProtocolVersion(headerValue) {
+  return headerValue === undefined ? LOG_OUTCOME.OK_PROTOCOL_VERSION_ABSENT : LOG_OUTCOME.OK;
 }
 
 /**

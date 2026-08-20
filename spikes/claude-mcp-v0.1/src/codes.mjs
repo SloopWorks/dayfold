@@ -35,6 +35,8 @@ export const CODES = Object.freeze({
   TOO_MANY_REQUESTS: 'spike.too_many_requests',
   DEADLINE_EXCEEDED: 'spike.deadline_exceeded',
   UNKNOWN_TOOL: 'spike.unknown_tool',
+  UNKNOWN_METHOD: 'spike.unknown_method',
+  UNSUPPORTED_PROTOCOL_VERSION: 'spike.unsupported_protocol_version',
 
   // Spike runs
   RUN_UNKNOWN: 'spike.run_unknown',

@@ -9,7 +9,6 @@ import { CODES } from './codes.mjs';
 import { randomSecret, sha256Base64Url } from './crypto.mjs';
 
 export function createRunRegistry() {
-  let sequence = 0;
   const runsById = new Map();
   const runIdByCredential = new Map();
 
@@ -18,9 +17,10 @@ export function createRunRegistry() {
     const existing = runIdByCredential.get(credentialId);
     if (existing !== undefined) return runsById.get(existing);
 
-    sequence += 1;
+    // Random only: a counter would tell each caller how many runs other
+    // credentials minted before theirs.
     const run = {
-      runId: `run_spike_${sequence}_${randomSecret(8)}`,
+      runId: `run_spike_${randomSecret(8)}`,
       credentialId,
       closed: false,
       receipts: new Map(),
