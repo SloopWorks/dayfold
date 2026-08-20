@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  a.card { transition: transform .18s cubic-bezier(.2,0,0,1), box-shadow .18s; text-decoration: none; }
+  a.card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(39,24,20,0.16); }
+  .ix-chip { cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  @media (prefers-reduced-motion: reduce) { a.card, .ix-chip { transition: none !important; } }
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;background:#E9DDD7;font-family:'Figtree',sans-serif;color:#271814;padding:48px 44px 88px;">
+
+  <!-- ===== masthead ===== -->
+  <div style="max-width:940px;margin-bottom:40px;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap;">
+      <a href="../Family%20AI%20dashboard%20design%20brief/designs/Index.dc.html" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-family:'Figtree';font-size:13px;font-weight:600;color:#7A2615;background:#FCEBE6;border:1px solid #EBD3CB;border-radius:999px;padding:6px 13px;"><span class="msr" style="font-size:16px;">arrow_back</span>Dayfold designs</a>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8C726B;">Local search · ADR 0008 exploration</span>
+      <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#7A2615;background:#FFDAD2;border-radius:7px;padding:4px 10px;">EXPLORATORY — NOT BUILD AUTHORIZATION</span>
+    </div>
+    <h1 style="font-family:'Outfit';font-weight:600;font-size:44px;letter-spacing:-0.025em;margin:0 0 12px;line-height:1.05;max-width:20ch;">Search is the fastest way <i>out</i> of search</h1>
+    <p style="font-family:'Figtree';font-size:16px;line-height:1.6;color:#5A423C;margin:0;max-width:92ch;">A search action opens one temporary route over saved content on this phone. A compact ranked list leads straight to the canonical card, Hub, section, or block; back restores the query for the session.</p>
+  </div>
+
+  <!-- ===== the mark — the one idea to review first ===== -->
+  <div style="max-width:940px;background:#FFF8F6;border:1px solid #EBD3CB;border-left:5px solid #C0381E;border-radius:22px;padding:24px 28px;margin-bottom:44px;">
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span class="msr fill" style="font-size:20px;color:#C0381E;">ink_highlighter</span><span style="font-family:'Outfit';font-weight:600;font-size:18px;">The mark travels to wherever your words actually are</span></div>
+    <div style="font-family:'Figtree';font-size:14px;line-height:1.65;color:#5A423C;margin-bottom:16px;">One tonal mark with an underline appears wherever the words actually live. A close match marks the stored word; a semantic-only result carries no mark because there is nothing true to mark.</div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">IN THE TITLE</span>
+        <span style="font-family:'Outfit';font-weight:600;font-size:16px;">Orcas <span style="background:#FFDAD2;color:#4E1000;box-shadow:inset 0 -2px 0 #C0381E;border-radius:4px;padding:0 1px;">soccer</span> season</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">IN THE BREADCRUMB</span>
+        <span style="font-family:'Figtree';font-size:13px;color:#5A423C;">Orcas <span style="background:#FFDAD2;color:#4E1000;box-shadow:inset 0 -2px 0 #C0381E;border-radius:4px;padding:0 1px;">soccer</span> season › Packing</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">IN THE EXCERPT</span>
+        <span style="font-family:'Figtree';font-size:13px;color:#5A423C;">…before every <span style="background:#FFDAD2;color:#4E1000;box-shadow:inset 0 -2px 0 #C0381E;border-radius:4px;padding:0 1px;">soccer</span> practice.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.05em;color:#8C726B;">NOWHERE — AND THAT IS THE POINT</span>
+        <span style="font-family:'Figtree';font-size:13px;color:#5A423C;">Pack cleats, water, and rain jackets <span style="font-size:10.5px;font-weight:600;color:#5A423C;background:#F6E5E0;border-radius:7px;padding:3px 8px;">Related result</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== interactive state switcher ===== -->
+  <div style="margin-bottom:52px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">A</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">The route, state by state</span>
+    </div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 8px;">Pick a state — light and dark, side by side</h2>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.55;color:#5A423C;margin:0 0 20px;max-width:88ch;">One component, <code style="font-family:monospace;background:#FCEBE6;padding:1px 5px;border-radius:5px;font-size:12.5px;">Search-Phone.dc.html</code>, drives every state. Search adds exactly one icon to the Now and Hubs app bars.</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px;max-width:960px;margin-bottom:26px;">
+      <sc-for list="{{ switcher }}" as="s" hint-placeholder-count="12">
+        <span class="ix-chip" onClick="{{ s.onPick }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-size:13px;font-weight:600;background:{{ s.bg }};color:{{ s.fg }};border:1px solid {{ s.border }};border-radius:10px;padding:8px 14px;">{{ s.label }}</span>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;gap:36px;align-items:flex-start;">
+      <div style="flex:0 0 390px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="msr" style="font-size:17px;color:#8C726B;">light_mode</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">Light</span></div>
+        <dc-import name="Search-Phone" mode="light" view="{{ activeView }}" hint-size="390px,844px"></dc-import>
+      </div>
+      <div style="flex:0 0 390px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="msr" style="font-size:17px;color:#8C726B;">dark_mode</span><span style="font-family:'Outfit';font-weight:600;font-size:15px;">Dark</span></div>
+        <dc-import name="Search-Phone" mode="dark" view="{{ activeView }}" hint-size="390px,844px"></dc-import>
+      </div>
+      <div style="flex:0 0 400px;padding-top:34px;">
+        <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:24px 26px;">
+          <div style="font-family:'Figtree';font-size:11px;font-weight:600;letter-spacing:0.06em;color:#8C726B;margin-bottom:8px;">{{ activeKicker }}</div>
+          <h3 style="font-family:'Outfit';font-weight:600;font-size:21px;letter-spacing:-0.01em;margin:0 0 10px;line-height:1.2;">{{ activeTitle }}</h3>
+          <p style="font-family:'Figtree';font-size:14px;line-height:1.6;color:#5A423C;margin:0 0 16px;">{{ activeBody }}</p>
+          <div style="border-top:1px solid #F0DFDA;padding-top:14px;display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ activeNotes }}" as="n" hint-placeholder-count="3">
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span class="msr" style="font-size:17px;color:#C0381E;margin-top:1px;">{{ n.icon }}</span>
+                <span style="font-family:'Figtree';font-size:13px;line-height:1.5;color:#5A423C;">{{ n.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== deeper pages ===== -->
+  <div style="margin-bottom:52px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">B</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Interactive boards</span>
+    </div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 20px;">Three things a still frame cannot show</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,340px);gap:18px;">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="3">
+        <a class="card" href="{{ l.href }}" style="background:{{ l.bg }};border:1px solid {{ l.border }};border-radius:26px;padding:26px;display:flex;flex-direction:column;min-height:220px;color:inherit;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:auto;">
+            <div style="width:50px;height:50px;border-radius:16px;background:{{ l.iconBg }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:26px;color:#fff;">{{ l.icon }}</span></div>
+            <span class="msr" style="font-size:22px;color:{{ l.iconBg }};">arrow_outward</span>
+          </div>
+          <div style="margin-top:22px;">
+            <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ l.kickFg }};margin-bottom:6px;">{{ l.kick }}</div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:20px;letter-spacing:-0.01em;margin-bottom:6px;">{{ l.title }}</div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ l.bodyFg }};">{{ l.desc }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ===== density comparison ===== -->
+  <div style="margin-bottom:52px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">C</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Density decision</span>
+    </div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 8px;">Do filters earn their row?</h2>
+    <p style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:#5A423C;margin:0 0 22px;max-width:92ch;">The same result set is shown with and without type chips. The plain list is the recommendation; the filtered treatment remains reviewable.</p>
+    <div style="display:flex;gap:34px;align-items:flex-start;">
+      <sc-for list="{{ densityFrames }}" as="f" hint-placeholder-count="4">
+        <div style="flex:none;width:390px;">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+              <span style="font-family:'Outfit';font-weight:600;font-size:15px;color:#271814;">{{ f.title }}</span>
+              <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:{{ f.modeFg }};background:{{ f.modeBg }};border-radius:999px;padding:3px 9px;">{{ f.modeLabel }}</span>
+            </div>
+            <div style="font-family:'Figtree';font-size:12.5px;line-height:1.45;color:#8C726B;">{{ f.note }}</div>
+          </div>
+          <dc-import name="Search-Phone" mode="{{ f.mode }}" view="{{ f.view }}" hint-size="390px,844px"></dc-import>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ===== decision board ===== -->
+  <div style="margin-bottom:44px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#C0381E;">D</span>
+      <span style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#8C726B;">Decision board</span>
+    </div>
+    <h2 style="font-family:'Outfit';font-weight:600;font-size:28px;letter-spacing:-0.015em;margin:0 0 8px;">Seven questions this gallery exists to answer</h2>
+    <p style="font-family:'Figtree';font-size:14px;line-height:1.55;color:#5A423C;margin:0 0 22px;max-width:88ch;">Each answer is the position this exploration takes, not a decision. Where the design deliberately went against an obvious alternative, the alternative is named so it can be argued with.</p>
+
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:1180px;">
+      <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="7">
+        <div style="background:#FFF8F6;border:1px solid #EBD3CB;border-radius:20px;padding:20px 24px;display:flex;gap:20px;align-items:flex-start;">
+          <span style="flex:0 0 30px;height:30px;border-radius:10px;background:#FCEBE6;color:#7A2615;display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">{{ d.n }}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Outfit';font-weight:600;font-size:17px;margin-bottom:5px;">{{ d.q }}</div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.6;color:#5A423C;margin-bottom:8px;">{{ d.a }}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#00504B;background:#D8F5EE;border-radius:7px;padding:4px 10px;">LOOK AT · {{ d.where }}</span>
+              <sc-if value="{{ d.hasOpen }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Figtree';font-size:11px;font-weight:600;color:#7A2615;background:#FFDAD2;border-radius:7px;padding:4px 10px;">STILL OPEN · {{ d.open }}</span></sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ===== footer ===== -->
+  <div style="max-width:1180px;background:#FFF8F6;border:1px solid #EBD3CB;border-radius:22px;padding:22px 26px;display:flex;align-items:flex-start;gap:14px;">
+    <span class="msr" style="font-size:22px;color:#6438AE;margin-top:1px;">verified_user</span>
+    <div style="font-family:'Figtree';font-size:13.5px;line-height:1.6;color:#5A423C;">
+      Every family, name, Hub, file and message in these prototypes is invented; no real user data appears anywhere. These pages contain no product network call, database, embedding, stored query, telemetry event, or app code, and the “search” never runs; like the neighboring <code>.dc.html</code> galleries, the prototype shell loads its runtime and fonts from a CDN. Results are drawn from the member's own already-synced cache, so nothing here shows content the active member could not already open; the operative privacy claim is that the <i>search</i> is local, not that the content never left a phone. Per ADR 0008 this gallery gates deeper planning, and sign-off on the design does not authorize the build. <b>NOTES.md</b> carries the state map, the M3 → Compose mapping, motion and accessibility notes, what was deliberately left out, and the open questions.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'results' };
+  }
+  renderVals() {
+    const meta = {
+      'now-entry':       { label:'Now · entry',      kicker:'ENTRY', title:'One icon, no new tab', body:'Search arrives in the Now app bar as a single 48dp action next to the avatar. Tapping it opens a route above the tabs; back returns here. There is no Search tab and no persistent field taking space in the feed.', notes:[ { icon:'touch_app', text:'The icon is the only change to the Now surface.' }, { icon:'layers', text:'The bottom bar stays here and is hidden inside the route.' } ] },
+      'hubs-entry':      { label:'Hubs · entry',     kicker:'ENTRY', title:'The same action on Hubs', body:'Identical placement and behaviour on Hubs, so the gesture is learned once. The route it opens is the same route — it searches everything, not just the surface you came from.', notes:[ { icon:'sync_alt', text:'Same route from either surface; back returns to whichever you left.' }, { icon:'travel_explore', text:'Scope is always all saved content, never “this Hub only”.' } ] },
+      'field-empty':     { label:'No query',         kicker:'ROUTE', title:'Teach the scope, store nothing', body:'The empty state explains what can be found using the same destination glyphs the results use. No recent-query list creates a new retention and disclosure surface.', notes:[ { icon:'history_toggle_off', text:'No recent searches, by design (research §history).' }, { icon:'keyboard', text:'Results begin after two non-space characters.' } ] },
+      'typing':          { label:'One character',     kicker:'ROUTE', title:'Wait for a meaningful query', body:'With only “s” typed, the teaching state holds. Matching begins after two non-space characters, avoiding noisy one-letter results.', notes:[ { icon:'hourglass_top', text:'No spinner: the threshold is immediate.' }, { icon:'filter_2', text:'Two non-space characters begin live matching.' } ] },
+      'results':         { label:'Exact · soccer',   kicker:'RESULTS', title:'One list, four kinds', body:'A Hub, Now card, checklist, section, and contact share one visible relevance order. With the keyboard open, the first useful rows remain visible.', notes:[ { icon:'sort', text:'No type grouping: group headers fragment relevance.' }, { icon:'filter_alt', text:'Chips narrow this order; they never re-rank it.' } ] },
+      'results-plain':   { label:'Same, no chips',   kicker:'RESULTS', title:'The recommended baseline', body:'The filter row disappears and more results become visible. At household scale, the mixed order should usually be enough.', notes:[ { icon:'compare_arrows', text:'Compare directly with Exact · soccer.' }, { icon:'question_mark', text:'The plain list is the recommendation.' } ] },
+      'phrase':          { label:'Phrase',           kicker:'RESULTS', title:'Found by its body', body:'“Permission slip” lives inside a block whose Hub title contains neither word. The excerpt proves the match and the breadcrumb answers where it lives.', notes:[ { icon:'article', text:'One block, one row.' }, { icon:'text_fields', text:'A hyphen is a token boundary.' } ] },
+      'fuzzy':           { label:'Typo · socer',     kicker:'RESULTS', title:'Disclosed, not corrected', body:'The field keeps socer. The fallback heading and row label say Close match; the mark sits on soccer, the word actually stored.', notes:[ { icon:'edit_off', text:'The query is never silently rewritten.' }, { icon:'low_priority', text:'Fuzzy runs only when exact matching comes up short.' } ] },
+      'no-results':      { label:'No results',       kicker:'EDGE', title:'A dead end with one door', body:'One sentence and one suggestion. No illustration, AI offer, cloud search, or authoring action.', notes:[ { icon:'block', text:'Retrieval stays retrieval.' }, { icon:'short_text', text:'Try a different word.' } ] },
+      'offline':         { label:'Offline',          kicker:'EDGE', title:'Fully useful, honestly labelled', body:'The same results and ranking remain available. Only the trust slot changes to “Offline · searching saved content.”', notes:[ { icon:'cloud_off', text:'One status slot, never two claims.' }, { icon:'verified', text:'No freshness claim is made.' } ] },
+      'empty-cache':     { label:'Empty cache',      kicker:'EDGE', title:'Nothing to search yet', body:'Before first sync, the route names the condition and keeps back available. It does not pretend to search an empty corpus.', notes:[ { icon:'cloud_sync', text:'Names the condition, not an error.' }, { icon:'arrow_back', text:'Back is the honest action.' } ] },
+      'archived':        { label:'Archived',         kicker:'EDGE', title:'Old, still findable', body:'An archived Hub ranks on merit and carries one quiet label. Device-hidden content remains excluded.', notes:[ { icon:'inventory_2', text:'Archived is included.' }, { icon:'balance', text:'Live and archived results mix.' } ] },
+    };
+    const order = ['now-entry','hubs-entry','field-empty','typing','results','results-plain','phrase','fuzzy','no-results','offline','empty-cache','archived'];
+    const view = this.state.view;
+    const active = meta[view];
+
+    const switcher = order.map((v) => {
+      const on = v === view;
+      return { label: meta[v].label, on,
+        bg: on ? '#C0381E' : '#FFF8F6',
+        fg: on ? '#FFFFFF' : '#5A423C',
+        border: on ? '#C0381E' : '#D8C2BB',
+        onPick: () => this.setState({ view: v }) };
+    });
+
+    const L = { mode:'light', modeLabel:'Light', modeFg:'#5A423C', modeBg:'#F3E0DA' };
+    const D = { mode:'dark',  modeLabel:'Dark',  modeFg:'#D3BBFF', modeBg:'#2A1F3D' };
+    const pair = (defs) => defs.flatMap(([title, v, note]) => [ { title, view:v, note, ...L }, { title, view:v, note, ...D } ]);
+
+    return {
+      switcher,
+      activeView: view,
+      activeKicker: active.kicker,
+      activeTitle: active.title,
+      activeBody: active.body,
+      activeNotes: active.notes,
+
+      links: [
+        { href:'Result-Arrival.dc.html', kick:'INTERACTIVE', title:'Result arrival', desc:'Tap a row and watch it become the canonical Hub, land on the matched block, pulse once, and go back to the same query. Three result kinds, three arrivals.', icon:'open_in_full', iconBg:'#C0381E', bg:'#FFE7E0', border:'#F4CDC2', kickFg:'#7A2615', bodyFg:'#7A3322' },
+        { href:'Adaptive.dc.html', kick:'COMPACT · MEDIUM · EXPANDED', title:'Adaptive', desc:'The field moves into the toolbar, results take the list pane, the destination takes the detail pane. Live keyboard traversal, and the rule for what happens to an open destination when the query narrows.', icon:'devices', iconBg:'#00796F', bg:'#D8F5EE', border:'#A8E5DA', kickFg:'#005048', bodyFg:'#1A4540' },
+        { href:'Match-Modes.dc.html', kick:'EXPLORATION ONLY', title:'Match modes', desc:'Lexical, bounded fuzzy and semantic-only side by side — and what each row is allowed to claim. Includes the rejected treatments: “AI match”, confidence percentages, fabricated highlights.', icon:'compare', iconBg:'#6438AE', bg:'#EFE4FB', border:'#DECBF3', kickFg:'#4C2092', bodyFg:'#3F2A6E' },
+      ],
+
+      densityFrames: pair([
+        ['With filter chips','results','All four scopes remain reviewable.'],
+        ['Plain mixed list','results-plain','Recommended: the first useful result arrives sooner.'],
+      ]),
+
+      decisions: [
+        { n:'1', q:'Does search feel like a fast way out, not another feed or assistant?', where:'A · Exact · soccer',
+          a:'Rows are compact list items with one action: open the canonical content. Search is a temporary route above the tabs.',
+          hasOpen:false },
+        { n:'2', q:'Are exact, fuzzy and semantic-only matches visually honest?', where:'Match modes · boards 01–03',
+          a:'Marks mean the characters are present. Fuzzy marks the stored word and says Close match; semantic-only has no mark or score.',
+          hasOpen:true, open:'Should a Close match row look different from an exact row beyond its label?' },
+        { n:'3', q:'Can someone understand where every result lives before tapping it?', where:'A · all result states',
+          a:'Each row has one breadcrumb and destination glyph. When the path matches, the mark appears in that breadcrumb.',
+          hasOpen:false },
+        { n:'4', q:'Does the compact row carry enough context without becoming a full card?', where:'A · Exact and Phrase',
+          a:'Glyph, title, breadcrumb, and a two-line excerpt carry the context. A quiet state label appears only when truthful.',
+          hasOpen:true, open:'Is the missing chevron a loss on touch, or a relief?' },
+        { n:'5', q:'Does offline search feel fully useful without a false freshness claim?', where:'A · Offline',
+          a:'Results and ranking stay identical; only the trust line changes. Nothing claims freshness or sync.',
+          hasOpen:false },
+        { n:'6', q:'Is result arrival obvious and then gracefully temporary?', where:'Result arrival board',
+          a:'Open the canonical destination, pulse the actual match once, then return it to normal. Back restores the search session.',
+          hasOpen:false },
+        { n:'7', q:'Are filters useful, or does the simpler mixed list win?', where:'C · density pair',
+          a:'The plain list is the recommendation: it surfaces the first useful result sooner. The chips remain only as a reviewable alternative.',
+          hasOpen:true, open:'Operator call: approve the plain-list default?' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

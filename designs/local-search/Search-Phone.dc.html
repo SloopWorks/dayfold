@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  .msr { font-family: 'Material Symbols Rounded'; font-weight: normal; line-height: 1; white-space: nowrap; -webkit-font-smoothing: antialiased; }
+  .msr.fill { font-variation-settings: 'FILL' 1; }
+  .sp-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes sp-caret { 0%,45% { opacity: 1; } 55%,100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .sp-caret { animation: none !important; } }
+</style>
+</helmet>
+<div style="width:390px;height:844px;border-radius:44px;overflow:hidden;background:{{ c.surface }};box-shadow:0 18px 50px rgba(39,24,20,0.22);position:relative;display:flex;flex-direction:column;font-family:'Figtree',sans-serif;">
+
+  <!-- status bar -->
+  <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:{{ c.chromeBg }};z-index:5;">
+    <span style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};">9:41</span>
+    <div style="display:flex;align-items:center;gap:7px;color:{{ c.onSurface }};">
+      <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">airplanemode_active</span></sc-if>
+      <sc-if value="{{ isOnline }}" hint-placeholder-val="{{ true }}"><span class="msr fill" style="font-size:17px;">signal_cellular_alt</span><span class="msr fill" style="font-size:16px;">wifi</span></sc-if>
+      <span class="msr fill" style="font-size:19px;">battery_full</span>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ORIGIN SURFACE — Now, with the search action in the app bar  -->
+  <!-- ============================================================ -->
+  <sc-if value="{{ isNow }}" hint-placeholder-val="{{ false }}">
+    <div class="sp-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:10px 16px 6px;">
+        <!-- app-bar action row: the ONLY new chrome search adds -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-left:6px;">
+          <span style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};">SATURDAY · SEP 20</span>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <span aria-label="Search saved content" style="width:48px;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:{{ searchPillBg }};"><span class="msr" style="font-size:24px;color:{{ c.onSurface }};">search</span></span>
+            <span style="width:34px;height:34px;margin-left:4px;border-radius:999px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-weight:600;font-size:14px;">P</span>
+          </div>
+        </div>
+        <div style="padding:0 6px;">
+          <h1 style="font-family:'Outfit';font-weight:600;font-size:31px;line-height:1.08;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0 0 5px;">Good morning, Pat</h1>
+          <p style="font-family:'Figtree';font-size:14.5px;color:{{ c.onSurfaceVar }};margin:0;">Two things need you before noon</p>
+        </div>
+      </div>
+      <div style="padding:14px 16px 26px;display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Figtree';font-size:12px;font-weight:600;letter-spacing:0.06em;color:{{ c.primary }};margin:0 4px 2px;">NOW</div>
+        <sc-for list="{{ nowCards }}" as="n" hint-placeholder-count="3">
+          <div style="background:{{ n.bg }};border-radius:26px;padding:17px 19px 15px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Figtree';font-weight:600;font-size:12px;background:{{ n.chipBg }};color:{{ n.chipFg }};padding:5px 11px 5px 9px;border-radius:999px;margin-bottom:11px;"><span class="msr" style="font-size:15px;">{{ n.chipIcon }}</span>{{ n.chip }}</span>
+            <div style="font-family:'Outfit';font-weight:600;font-size:18px;line-height:1.18;color:{{ n.titleFg }};margin-bottom:5px;">{{ n.title }}</div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.45;color:{{ n.bodyFg }};">{{ n.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============================================================ -->
+  <!-- ORIGIN SURFACE — Hubs, same search action                    -->
+  <!-- ============================================================ -->
+  <sc-if value="{{ isHubs }}" hint-placeholder-val="{{ false }}">
+    <div class="sp-scroll" style="flex:1;overflow-y:auto;">
+      <div style="padding:8px 16px 10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="padding-left:6px;">
+            <div style="font-family:'Figtree';font-size:13px;font-weight:600;letter-spacing:0.04em;color:{{ c.onSurfaceVar }};margin-bottom:4px;">PROJECTS</div>
+            <h1 style="font-family:'Outfit';font-weight:600;font-size:34px;letter-spacing:-0.02em;color:{{ c.onSurface }};margin:0;">Hubs</h1>
+          </div>
+          <span aria-label="Search saved content" style="width:48px;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:{{ searchPillBg }};"><span class="msr" style="font-size:24px;color:{{ c.onSurface }};">search</span></span>
+        </div>
+      </div>
+      <div style="padding:6px 16px 24px;display:flex;flex-direction:column;gap:12px;">
+        <sc-for list="{{ hubRows }}" as="h" hint-placeholder-count="4">
+          <div style="background:{{ c.surfaceContainer }};border-radius:24px;padding:16px 18px;display:flex;align-items:center;gap:15px;">
+            <div style="width:46px;height:46px;flex:0 0 46px;border-radius:15px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr fill" style="font-size:24px;color:{{ c.secondary }};">{{ h.icon }}</span></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Outfit';font-weight:600;font-size:16.5px;color:{{ c.onSurface }};line-height:1.2;margin-bottom:4px;">{{ h.title }}</div>
+              <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};">{{ h.meta }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============================================================ -->
+  <!-- THE SEARCH ROUTE                                             -->
+  <!-- ============================================================ -->
+  <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:{{ c.surface }};">
+
+      <!-- search bar (M3 SearchBar, expanded) -->
+      <div style="flex:0 0 auto;padding:4px 12px 0;">
+        <div style="display:flex;align-items:center;gap:6px;height:56px;background:{{ c.surfaceContainerHigh }};border-radius:28px;padding:0 6px;box-shadow:{{ fieldRing }};">
+          <span aria-label="Back" style="width:48px;height:48px;flex:0 0 48px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:24px;color:{{ c.onSurfaceVar }};">arrow_back</span></span>
+          <div style="flex:1;min-width:0;display:flex;align-items:center;">
+            <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ true }}">
+              <span style="font-family:'Figtree';font-size:16px;color:{{ c.onSurface }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;unicode-bidi:plaintext;">{{ query }}</span>
+            </sc-if>
+            <sc-if value="{{ noQuery }}" hint-placeholder-val="{{ false }}">
+              <span style="font-family:'Figtree';font-size:16px;color:{{ c.onSurfaceVar }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Search cards, Hubs, lists, files, and notes</span>
+            </sc-if>
+            <sc-if value="{{ showKeyboard }}" hint-placeholder-val="{{ false }}"><span class="sp-caret" style="width:2px;height:22px;margin-left:1px;flex:0 0 2px;background:{{ c.primary }};animation:sp-caret 1.1s step-end infinite;"></span></sc-if>
+          </div>
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ true }}">
+            <span aria-label="Clear search" style="width:48px;height:48px;flex:0 0 48px;border-radius:999px;display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:22px;color:{{ c.onSurfaceVar }};">close</span></span>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- trust / status line — one slot, never two claims -->
+      <div style="flex:0 0 auto;padding:9px 22px 4px;display:flex;align-items:center;gap:6px;">
+        <span class="msr {{ trustFill }}" style="font-size:15px;color:{{ trustFg }};">{{ trustIcon }}</span>
+        <span style="font-family:'Figtree';font-size:12px;font-weight:500;color:{{ trustFg }};">{{ trustText }}</span>
+      </div>
+
+      <!-- scope filter chips — only once results exist -->
+      <sc-if value="{{ showChips }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:0 0 auto;display:flex;gap:8px;padding:4px 16px;overflow-x:auto;align-items:center;min-height:56px;" class="sp-scroll">
+          <sc-for list="{{ chips }}" as="ch" hint-placeholder-count="4">
+            <span style="display:inline-flex;align-items:center;flex:0 0 auto;height:48px;">
+              <span style="display:inline-flex;align-items:center;gap:5px;height:34px;font-family:'Figtree';font-size:13px;font-weight:500;background:{{ ch.bg }};color:{{ ch.fg }};border:{{ ch.border }};padding:0 13px;border-radius:9px;">
+                <sc-if value="{{ ch.on }}" hint-placeholder-val="{{ false }}"><span class="msr" style="font-size:17px;">check</span></sc-if>{{ ch.label }}
+              </span>
+            </span>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- body -->
+      <div class="sp-scroll" style="flex:1;overflow-y:auto;">
+
+        <!-- teaching state — what is searchable, no stored history -->
+        <sc-if value="{{ isTeach }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 22px 24px;">
+            <div style="font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.06em;color:{{ c.onSurfaceVar }};margin-bottom:12px;">WHAT YOU CAN FIND</div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <sc-for list="{{ scopes }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:6px 0;">
+                  <span style="width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;"><span class="msr" style="font-size:20px;color:{{ s.glyphFg }};">{{ s.icon }}</span></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-family:'Figtree';font-weight:600;font-size:14px;color:{{ c.onSurface }};line-height:1.3;">{{ s.label }}</div>
+                    <div style="font-family:'Figtree';font-size:12.5px;color:{{ c.onSurfaceVar }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.example }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- no results -->
+        <sc-if value="{{ isNoResults }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:38px 34px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+            <div style="width:56px;height:56px;border-radius:18px;background:{{ c.surfaceContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr" style="font-size:27px;color:{{ c.outline }};">search_off</span></div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:18px;line-height:1.25;color:{{ c.onSurface }};margin-bottom:7px;">No saved content matches “trombone”</div>
+            <div style="font-family:'Figtree';font-size:13.5px;line-height:1.5;color:{{ c.onSurfaceVar }};">Try another word, a person, or a Hub name.</div>
+          </div>
+        </sc-if>
+
+        <!-- empty cache -->
+        <sc-if value="{{ isEmptyCache }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:38px 34px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+            <div style="width:56px;height:56px;border-radius:18px;background:{{ c.surfaceContainer }};display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><span class="msr" style="font-size:27px;color:{{ c.outline }};">cloud_sync</span></div>
+            <div style="font-family:'Outfit';font-weight:600;font-size:18px;line-height:1.25;color:{{ c.onSurface }};margin-bottom:7px;">Search will be ready after your first sync</div>
+          </div>
+        </sc-if>
+
+        <!-- fuzzy heading — sits above only the fallback set -->
+        <sc-if value="{{ showFuzzyHeading }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 22px 2px;font-family:'Figtree';font-size:11.5px;font-weight:600;letter-spacing:0.05em;color:{{ c.onSurfaceVar }};">CLOSE MATCHES FOR “socer”</div>
+        </sc-if>
+
+        <!-- the one ranked list -->
+        <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:6px 0 28px;">
+            <sc-for list="{{ results }}" as="r" hint-placeholder-count="5">
+              <div style="display:flex;align-items:flex-start;gap:14px;min-height:48px;padding:13px 22px 13px 18px;background:{{ r.rowBg }};">
+                <span style="width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:{{ c.surfaceContainerHigh }};display:flex;align-items:center;justify-content:center;margin-top:1px;"><span class="msr" style="font-size:20px;color:{{ r.glyphFg }};">{{ r.icon }}</span></span>
+                <div style="flex:1;min-width:0;">
+                  <!-- title -->
+                  <div style="font-family:'Outfit';font-weight:600;font-size:16px;line-height:1.28;color:{{ c.onSurface }};margin-bottom:3px;">{{ r.title }}</div>
+                  <!-- breadcrumb + state label -->
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px;">
+                    <span style="font-family:'Figtree';font-size:12px;color:{{ c.onSurfaceVar }};">{{ r.bc }}</span>
+                    <sc-if value="{{ r.hasLabel }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-family:'Figtree';font-size:10.5px;font-weight:600;letter-spacing:0.02em;color:{{ c.onSurfaceVar }};background:{{ c.surfaceContainerHigh }};border-radius:7px;padding:3px 8px;">{{ r.label }}</span>
+                    </sc-if>
+                  </div>
+                  <!-- excerpt -->
+                  <sc-if value="{{ r.hasEx }}" hint-placeholder-val="{{ true }}">
+                    <div style="font-family:'Figtree';font-size:13px;line-height:1.45;color:{{ c.onSurfaceVar }};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ r.ex }}</div>
+                  </sc-if>
+                </div>
+              </div>
+              <sc-if value="{{ r.hasDivider }}" hint-placeholder-val="{{ true }}">
+                <div style="height:1px;background:{{ c.outlineVar }};margin:0 22px 0 68px;"></div>
+              </sc-if>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- soft keyboard — proves the first results sit above it -->
+      <sc-if value="{{ showKeyboard }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:0 0 292px;background:{{ c.keyboardBg }};padding:10px 4px 22px;display:flex;flex-direction:column;gap:9px;">
+          <sc-for list="{{ keyRows }}" as="kr" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:center;gap:5px;padding:0 {{ kr.pad }};">
+              <sc-for list="{{ kr.keys }}" as="k" hint-placeholder-count="10">
+                <span style="flex:{{ k.flex }};height:44px;border-radius:7px;background:{{ k.bg }};display:flex;align-items:center;justify-content:center;font-family:'Figtree';font-size:16px;font-weight:500;color:{{ k.fg }};">{{ k.t }}</span>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- bottom navigation — origin surfaces only; search is a route above the tabs -->
+  <sc-if value="{{ showNav }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:0 0 84px;background:{{ c.navBg }};display:flex;align-items:flex-start;justify-content:space-around;padding:12px 30px 0;z-index:6;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ nowPill }};"><span class="msr {{ nowFill }}" style="font-size:23px;color:{{ nowIcon }};">today</span></span><span style="font-family:'Figtree';font-weight:{{ nowWeight }};font-size:12px;color:{{ nowLabel }};">Now</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><span style="display:flex;align-items:center;justify-content:center;width:60px;height:32px;border-radius:999px;background:{{ hubsPill }};"><span class="msr {{ hubsFill }}" style="font-size:23px;color:{{ hubsIcon }};">dashboard</span></span><span style="font-family:'Figtree';font-weight:{{ hubsWeight }};font-size:12px;color:{{ hubsLabel }};">Hubs</span></div>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ c.onSurface }};opacity:0.24;z-index:9;"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;now-entry&quot;,&quot;hubs-entry&quot;,&quot;field-empty&quot;,&quot;typing&quot;,&quot;results&quot;,&quot;results-plain&quot;,&quot;phrase&quot;,&quot;fuzzy&quot;,&quot;no-results&quot;,&quot;offline&quot;,&quot;empty-cache&quot;,&quot;archived&quot;],&quot;default&quot;:&quot;results&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode === 'dark' ? 'dark' : 'light';
+    const view = this.props.view || 'results';
+
+    // ---- Dayfold M3 tokens (verbatim from the signed-off surfaces) ----
+    const light = {
+      surface:'#FFF8F6', surfaceContainerLow:'#FDF1ED', surfaceContainer:'#FCEBE6', surfaceContainerHigh:'#F6E5E0', surfaceContainerHighest:'#F0DFDA',
+      onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
+      primary:'#C0381E', onPrimary:'#FFFFFF', primaryContainer:'#FFDAD2', onPrimaryContainer:'#5A1100',
+      secondary:'#00796F', onSecondary:'#FFFFFF', secondaryContainer:'#9DF2E4', onSecondaryContainer:'#00201C',
+      tertiary:'#6438AE', tertiaryContainer:'#ECDCFF', onTertiaryContainer:'#23005C',
+      privacyFg:'#0B5048', privacyBg:'#E2F4EF',
+      navBg:'#F6E5E0', navActivePill:'#FFDAD2', navActiveIcon:'#5A1100', navActiveLabel:'#271814', navInactive:'#5A423C',
+      chromeBg:'#FFF8F6', keyboardBg:'#F0DFDA', keyBg:'#FFFBFA', keyFg:'#271814', keyAltBg:'#E4D2CC',
+      // the match mark: tonal wash + a rule underneath, so hue is never the only cue
+      markBg:'#FFDAD2', markFg:'#4E1000', markRule:'#C0381E',
+    };
+    const dark = {
+      surface:'#1A110E', surfaceContainerLow:'#211713', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824', surfaceContainerHighest:'#3D322E',
+      onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
+      primary:'#FFB4A3', onPrimary:'#5F1500', primaryContainer:'#9A2A12', onPrimaryContainer:'#FFDAD2',
+      secondary:'#50DBC9', onSecondary:'#00382F', secondaryContainer:'#005048', onSecondaryContainer:'#A8F4E7',
+      tertiary:'#D3BBFF', tertiaryContainer:'#4C2092', onTertiaryContainer:'#ECDCFF',
+      privacyFg:'#A8F4E7', privacyBg:'#14322D',
+      navBg:'#271D1A', navActivePill:'#9A2A12', navActiveIcon:'#FFDAD2', navActiveLabel:'#F0DFDA', navInactive:'#A08D87',
+      chromeBg:'#1A110E', keyboardBg:'#231916', keyBg:'#3A2E2A', keyFg:'#F0DFDA', keyAltBg:'#2C221E',
+      markBg:'#9A2A12', markFg:'#FFEDE8', markRule:'#FFB4A3',
+    };
+    const c = mode === 'dark' ? dark : light;
+
+    // ---- the match mark: [bracketed] text is what the query actually matched.
+    // Built as nodes here so no template whitespace can ever leak into a match. ----
+    const MARK = { background:c.markBg, color:c.markFg, boxShadow:'inset 0 -2px 0 ' + c.markRule, borderRadius:'4px', padding:'0 1px' };
+    const hl = (s) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
+      (p.charAt(0) === '[' && p.charAt(p.length - 1) === ']')
+        ? React.createElement('span', { key:i, style:MARK }, p.slice(1, -1))
+        : React.createElement(React.Fragment, { key:i }, p));
+
+    // ---- destination vocabulary: glyph = kind, glyph colour = home surface ----
+    const NOW = c.primary, HUB = c.secondary;
+    const kinds = {
+      card:      { icon:'today',          glyphFg:NOW },
+      hub:       { icon:'dashboard',      glyphFg:HUB },
+      section:   { icon:'segment',        glyphFg:HUB },
+      checklist: { icon:'checklist',      glyphFg:HUB },
+      note:      { icon:'sticky_note_2',  glyphFg:HUB },
+      file:      { icon:'description',    glyphFg:HUB },
+      link:      { icon:'link',           glyphFg:HUB },
+      contact:   { icon:'person',         glyphFg:HUB },
+    };
+    const row = (kind, title, bc, ex, label) => ({
+      ...kinds[kind], title: hl(title), bc: hl(bc), ex: ex ? hl(ex) : null,
+      hasEx: !!ex, hasLabel: !!label, label: label || '',
+      rowBg: 'transparent',
+    });
+
+    // ---- synthetic family corpus (no real user data anywhere) ----
+    const R = {
+      hubSoccer:   () => row('hub',       'Orcas [soccer] season', 'Hubs', 'Season through Nov 22 · Meadowbrook Field'),
+      cardRain:    () => row('card',      'Rain at [soccer] — pack jackets', 'Now › Weather', 'Showers start at 3:40, just before the 4:00 kickoff.'),
+      listPacking: () => row('checklist', 'Pack cleats, water, and rain jackets', 'Orcas [soccer] season › Packing', 'Bag by the door before every [soccer] practice.'),
+      secSchedule: () => row('section',   'Game schedule', 'Orcas [soccer] season', 'Sat 4:00 · Meadowbrook · vs Ferndale'),
+      contactCoach:() => row('contact',   'Coach Ramírez and the Orcas team-parent contact list', 'Hubs › Orcas [soccer] season › Contacts › Team parents', 'Texts before 8pm. Cancellations, field changes, and carpool questions go to the team-parent list.'),
+    };
+
+    // query-specific result sets
+    const soccerResults = [ R.hubSoccer(), R.cardRain(), R.listPacking(), R.secSchedule(), R.contactCoach() ];
+    const soccerOffline = [...soccerResults];
+    const phraseResults = [
+      row('checklist', 'Field trip — what’s due Thursday', 'Fall at Lincoln Elementary › Forms',
+          'Maya’s [permission slip] still needs a signature — back to Ms. Alvarez by Thursday.'),
+      row('file', '[permission-slip].pdf', 'Fall at Lincoln Elementary › Forms', 'PDF · 240 KB · from the school email'),
+      row('card', 'School forms due Thursday', 'Now › School', 'The [permission slip] is the only one still unsigned.'),
+    ];
+    const fuzzyResults = [
+      row('hub',       'Orcas [soccer] season', 'Hubs', 'Season through Nov 22 · Meadowbrook Field', 'Close match'),
+      row('card',      'Rain at [soccer] — pack jackets', 'Now › Weather', 'Showers start at 3:40, just before the 4:00 kickoff.', 'Close match'),
+      row('checklist', 'Pack cleats, water, and rain jackets', 'Orcas [soccer] season › Packing', 'Bag by the door before every [soccer] practice.', 'Close match'),
+    ];
+    const archivedResults = [
+      row('hub',       'Lake [Tahoe] trip', 'Hubs', 'Feb 14–18 · cabin on the north shore', 'Archived'),
+      row('checklist', 'Snow chains live in the garage bin', 'Home & car › Storage', 'Bought for the [Tahoe] trip — still in the blue bin.'),
+      row('file',      'cabin-directions.pdf', 'Lake [Tahoe] trip › Files', 'PDF · 1 page', 'Archived'),
+    ];
+
+    // ---- per-view configuration ----
+    const cfg = {
+      'now-entry':       { surface:'now',    nav:'now'  },
+      'hubs-entry':      { surface:'hubs',   nav:'hubs' },
+      'field-empty':     { surface:'search', body:'teach',   query:'',                 kb:true  },
+      'typing':          { surface:'search', body:'teach',   query:'s',                kb:true  },
+      'results':         { surface:'search', body:'results', query:'soccer',           kb:true,  chips:'All',  results:soccerResults },
+      'results-plain':   { surface:'search', body:'results', query:'soccer',                     results:soccerResults },
+      'phrase':          { surface:'search', body:'results', query:'permission slip',  results:phraseResults },
+      'fuzzy':           { surface:'search', body:'results', query:'socer',            fuzzy:true, results:fuzzyResults },
+      'no-results':      { surface:'search', body:'none',    query:'trombone' },
+      'offline':         { surface:'search', body:'results', query:'soccer',           offline:true, results:soccerOffline },
+      'empty-cache':     { surface:'search', body:'cache',   query:'' },
+      'archived':        { surface:'search', body:'results', query:'tahoe',            results:archivedResults },
+    }[view] || {};
+
+    const isSearch = cfg.surface === 'search';
+    const results = (cfg.results || []).map((r, i, all) => ({ ...r, hasDivider: i < all.length - 1 }));
+
+    // trust / status line — exactly one claim
+    const trust = cfg.offline
+      ? { trustIcon:'cloud_off', trustFill:'',     trustFg:c.onSurfaceVar, trustText:'Offline · searching saved content' }
+      : { trustIcon:'verified_user', trustFill:'fill', trustFg:c.privacyFg, trustText:'On this device' };
+
+    const chipDefs = ['All', 'Hubs', 'Cards', 'Lists & notes'];
+    const chips = chipDefs.map((label) => {
+      const on = label === cfg.chips;
+      return { label, on,
+        bg: on ? c.secondaryContainer : 'transparent',
+        fg: on ? c.onSecondaryContainer : c.onSurfaceVar,
+        border: on ? 'none' : ('1px solid ' + c.outline) };
+    });
+
+    // simplified soft keyboard
+    const key = (t, alt) => ({ t, flex:'1', bg: alt ? c.keyAltBg : c.keyBg, fg: alt ? c.onSurfaceVar : c.keyFg });
+    const keyRows = [
+      { pad:'4px', keys:'qwertyuiop'.split('').map((k) => key(k)) },
+      { pad:'20px', keys:'asdfghjkl'.split('').map((k) => key(k)) },
+      { pad:'4px', keys:[{ ...key('⇧', true), flex:'1.5' }, ...'zxcvbnm'.split('').map((k) => key(k)), { ...key('⌫', true), flex:'1.5' }] },
+      { pad:'4px', keys:[{ ...key('?123', true), flex:'1.6' }, { ...key(' '), flex:'5' }, { ...key('search', true), flex:'1.8' }] },
+    ];
+
+    const navFor = (which) => ({
+      showNav: !!which,
+      nowPill:   which === 'now'  ? c.navActivePill : 'transparent',
+      nowIcon:   which === 'now'  ? c.navActiveIcon : c.navInactive,
+      nowLabel:  which === 'now'  ? c.navActiveLabel : c.navInactive,
+      nowFill:   which === 'now'  ? 'fill' : '',
+      nowWeight: which === 'now'  ? 600 : 500,
+      hubsPill:  which === 'hubs' ? c.navActivePill : 'transparent',
+      hubsIcon:  which === 'hubs' ? c.navActiveIcon : c.navInactive,
+      hubsLabel: which === 'hubs' ? c.navActiveLabel : c.navInactive,
+      hubsFill:  which === 'hubs' ? 'fill' : '',
+      hubsWeight:which === 'hubs' ? 600 : 500,
+    });
+
+    return {
+      c, mode,
+      isNow: cfg.surface === 'now',
+      isHubs: cfg.surface === 'hubs',
+      isSearch,
+      isOffline: !!cfg.offline,
+      isOnline: !cfg.offline,
+      searchPillBg: 'transparent',
+
+      query: cfg.query || '',
+      hasQuery: isSearch && !!cfg.query,
+      noQuery: isSearch && !cfg.query,
+      fieldRing: 'none',
+      ...trust,
+
+      showChips: isSearch && !!cfg.chips,
+      chips,
+      showFuzzyHeading: !!cfg.fuzzy,
+      showKeyboard: isSearch && !!cfg.kb,
+      keyRows,
+
+      isTeach: cfg.body === 'teach',
+      isNoResults: cfg.body === 'none',
+      isEmptyCache: cfg.body === 'cache',
+      hasResults: cfg.body === 'results',
+      results,
+
+      scopes: [
+        { icon:'today',         glyphFg:NOW, label:'Cards',                    example:'“Rain at soccer — pack jackets”' },
+        { icon:'dashboard',     glyphFg:HUB, label:'Hubs and sections',        example:'“Orcas soccer season › Packing”' },
+        { icon:'checklist',     glyphFg:HUB, label:'Lists and notes',          example:'“Pack cleats, water, and rain jackets”' },
+        { icon:'description',   glyphFg:HUB, label:'Files, links and contacts',example:'“permission-slip.pdf”' },
+      ],
+
+      nowCards: [
+        { bg:c.primaryContainer, titleFg:c.onPrimaryContainer, bodyFg:c.onPrimaryContainer, chipBg:c.primary, chipFg:c.onPrimary, chipIcon:'rainy', chip:'Rain at 3:40',
+          title:'Rain at soccer — pack jackets', body:'Showers start just before the 4:00 kickoff at Meadowbrook.' },
+        { bg:c.surfaceContainer, titleFg:c.onSurface, bodyFg:c.onSurfaceVar, chipBg:c.surfaceContainerHigh, chipFg:c.onSurfaceVar, chipIcon:'draw', chip:'Due Thursday',
+          title:'School forms due Thursday', body:'The permission slip is the only one still unsigned.' },
+      ],
+      hubRows: [
+        { icon:'sports_soccer', title:'Orcas soccer season', meta:'Active · 18 games · through Nov 22' },
+        { icon:'school',        title:'Fall at Lincoln Elementary', meta:'Active · 3 forms · 2 dates' },
+        { icon:'home_work',     title:'Home & car', meta:'Steady · 6 notes' },
+        { icon:'downhill_skiing', title:'Lake Tahoe trip', meta:'Archived · Feb 14–18' },
+      ],
+      ...navFor(cfg.nav),
+    };
+  }
+}
+</script>
+</body>
+</html>
