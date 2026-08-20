@@ -12,7 +12,7 @@ import { after, describe, test } from 'node:test';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { ErrorCode, LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
 
 import { ALL_CODES, CODES } from '../src/codes.mjs';
 import {
@@ -155,6 +155,14 @@ function toolCall(name, args) {
   return rpc('tools/call', { name, arguments: args });
 }
 
+function initializeMessage() {
+  return rpc('initialize', {
+    protocolVersion: '2025-06-18',
+    capabilities: {},
+    clientInfo: { name: 'spike-test-client', version: '0.0.0' },
+  });
+}
+
 /** Minimal SSE reader: the transport answers a POST with one terminating stream. */
 function sseMessages(text) {
   return text
@@ -283,7 +291,7 @@ async function waitUntil(predicate, label) {
 
 describe('1. an unauthenticated /mcp request is refused', () => {
   for (const [label, message] of [
-    ['initialize', rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'c', version: '0' } })],
+    ['initialize', initializeMessage()],
     ['tools/list', rpc('tools/list', {})],
     ['tools/call', toolCall(TOOL_IDENTITY, { schemaVersion: 1 })],
   ]) {
@@ -810,11 +818,12 @@ describe('supplementary: transport shape, method surface and logging', () => {
     const { accessToken } = grant(spike);
     const marker = 'spike-marker-Zq7xK3';
 
-    // Every path that is answered by the SDK's own JSON-RPC layer rather than
-    // by a closed code of ours, each carrying a caller-controlled marker in the
-    // one field that path reads.
+    // Every path where caller-controlled text reaches the SDK's own JSON-RPC
+    // layer, each carrying a marker in the one field that path reads - including
+    // the initialize header, which the spike deliberately passes through.
     const probes = [
       ['an unsupported protocol version', () => mcpFetchWithVersion(spike, accessToken, marker, rpc('tools/list', {}))],
+      ['an unsupported protocol version on initialize', () => mcpFetchWithVersion(spike, accessToken, marker, initializeMessage())],
       ['a malformed envelope', () => mcpFetch(spike, { token: accessToken, body: { jsonrpc: marker, id: 1, method: 'tools/list' } })],
       ['an unimplemented method', () => mcpFetch(spike, { token: accessToken, body: rpc(`prompts/${marker}`, {}) })],
       ['non-object tool arguments', () => mcpFetch(spike, { token: accessToken, body: toolCall(TOOL_IDENTITY, marker) })],
@@ -835,8 +844,37 @@ describe('supplementary: transport shape, method surface and logging', () => {
     assert.equal(response.status, 400);
     assert.equal(await errorCode(response), CODES.UNSUPPORTED_PROTOCOL_VERSION);
 
-    const supported = await mcpFetchWithVersion(spike, accessToken, LATEST_PROTOCOL_VERSION, rpc('tools/list', {}));
-    assert.equal(supported.status, 200);
+    for (const supported of SUPPORTED_PROTOCOL_VERSIONS) {
+      const accepted = await mcpFetchWithVersion(spike, accessToken, supported, rpc('tools/list', {}));
+      assert.equal(accepted.status, 200, `${supported} must be accepted`);
+      await accepted.text();
+    }
+  });
+
+  test('the screen runs only where the SDK screens, so initialize still negotiates', async () => {
+    const spike = await startSpike();
+    const { accessToken } = grant(spike);
+    const outOfList = '2099-01-01';
+    assert.ok(!SUPPORTED_PROTOCOL_VERSIONS.includes(outOfList));
+
+    // An initialize carries its version in the body, so the SDK never screens
+    // the header for one - and refusing here would manufacture a failed
+    // connection for a surface the real bridge accepts.
+    const initialized = await mcpFetchWithVersion(spike, accessToken, outOfList, initializeMessage());
+    assert.equal(initialized.status, 200);
+    const negotiated = await rpcResponse(initialized);
+    assert.equal(negotiated.error, undefined);
+    assert.ok(
+      SUPPORTED_PROTOCOL_VERSIONS.includes(negotiated.result.protocolVersion),
+      'initialize must negotiate a supported version',
+    );
+
+    // Every other message is still screened, with no echo.
+    const refused = await mcpFetchWithVersion(spike, accessToken, outOfList, rpc('tools/list', {}));
+    assert.equal(refused.status, 400);
+    const raw = await refused.clone().text();
+    assert.ok(!raw.includes(outOfList), 'the refusal must not echo the version');
+    assert.equal(await errorCode(refused), CODES.UNSUPPORTED_PROTOCOL_VERSION);
   });
 
   test('an unimplemented method keeps the standard code with a closed message', async () => {

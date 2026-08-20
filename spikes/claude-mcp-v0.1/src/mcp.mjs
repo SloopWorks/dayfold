@@ -7,7 +7,7 @@
 // The whole exchange runs under a handling deadline.
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
+import { SUPPORTED_PROTOCOL_VERSIONS, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
 import { verifyBearer } from './access-token.mjs';
 import { CODES } from './codes.mjs';
@@ -81,13 +81,21 @@ function authorizeCall(ctx, req) {
 /**
  * `MCP-Protocol-Version` is screened here rather than left to the transport.
  * The SDK reflects an unsupported value back into its own error message
- * verbatim, which would put caller-controlled text in a response body. Screened
- * at the same seam as Accept and Content-Type, the header stays fully
- * observable - as a closed outcome, never as an echo.
+ * verbatim, which would put caller-controlled text in a response body. Screened,
+ * the header stays fully observable - as a closed outcome, never as an echo.
+ *
+ * The screen mirrors the SDK exactly: an `initialize` negotiates its version in
+ * the body, so the SDK never validates the header for one, and neither may the
+ * spike. Refusing there would manufacture a failed connection for a surface the
+ * real bridge accepts - the one divergence class this spike must not have.
+ * `messages.some(isInitializeRequest)` is the SDK's own test, batch included.
  */
-function protocolVersionAccepted(req) {
+function protocolVersionAccepted(req, message) {
   const header = req.headers['mcp-protocol-version'];
   if (header === undefined) return true;
+
+  const messages = Array.isArray(message) ? message : [message];
+  if (messages.some((entry) => isInitializeRequest(entry))) return true;
   return typeof header === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(header);
 }
 
@@ -125,13 +133,18 @@ async function exchange(ctx, req, res, credential) {
     if (!body.ok) return fail(res, 413, body.code);
     if (!acceptsStreamableHttp(req)) return fail(res, 406, CODES.NOT_ACCEPTABLE);
     if (!hasContentType(req, 'application/json')) return fail(res, 415, CODES.UNSUPPORTED_MEDIA_TYPE);
-    if (!protocolVersionAccepted(req)) return fail(res, 400, CODES.UNSUPPORTED_PROTOCOL_VERSION);
 
     let message;
     try {
       message = JSON.parse(body.raw.toString('utf8'));
     } catch {
       return fail(res, 400, CODES.SCHEMA_INVALID);
+    }
+
+    // After the parse, because whether the header may be screened at all
+    // depends on which message carries it.
+    if (!protocolVersionAccepted(req, message)) {
+      return fail(res, 400, CODES.UNSUPPORTED_PROTOCOL_VERSION);
     }
 
     return await dispatch(ctx, req, res, credential, message);
