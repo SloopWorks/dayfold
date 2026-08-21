@@ -202,7 +202,7 @@ is not "clear"**:
 | 1 coexistence | **not tripped, partially assessed** — both connectors enabled on one account; co-invocation in one conversation not exercised |
 | 2 Claude credential | **not tripped, assessed** — no Claude account credential was requested, entered, or captured |
 | 3 weak OAuth | **not tripped, assessed** — code flow, S256, one exact redirect, matching `resource` |
-| 4 unconfirmed Gmail mutation | **NOT ASSESSED** — question 9 not run; and question 8 makes this live rather than theoretical (22 mutating tools confirmed on the runtime surface, §5.1) |
+| 4 unconfirmed Gmail mutation | **NOT ASSESSED** — question 9 not run; and question 8 makes this live rather than theoretical: **22 mutating tools on the runtime surface**, the mutating families measured on every surface consulted, the exact count of 27 **strong evidence, not proof** (§5.1) |
 | 5 provider errors echo content | **NOT ASSESSED** — the deliberate error paths were never driven |
 | 6 reconnect after revoke | **NOT ASSESSED** — `/oauth/revoke` was never called |
 
@@ -233,8 +233,10 @@ design, and no gate became passed.
 **This triggers the security review this section requires.** The **Gmail-write
 gate changed**: `system-design.md` §9 condition 1 ("the Gmail tools exposed to
 the run are structurally read-only") is unsatisfiable on the measured surface —
-22 of 27 runtime tools mutate — so the gate now rests on condition 2 alone, and
-condition 2 is unproven because spike question 9 has not run. The reviewer should
+22 of 27 runtime tools mutate, the mutating families measured on every surface
+consulted and the exact count of 27 graded strong evidence rather than proof — so
+the gate now rests on condition 2 alone, and condition 2 is unproven because
+spike question 9 has not run. The reviewer should
 also weigh the OAuth-ceremony edits in `system-design.md` §10, which touch the
 authorization surface: the mandatory `form-action` carve-out (F-CSP), the
 recorded decision that no registration endpoint need exist, and confirmation that
@@ -415,6 +417,15 @@ Implement Authorization Code + S256 PKCE, exact redirect/resource matching,
 and per-call credential status. DCR permits only proven redirects/scopes and
 short-lived clients.
 
+**That last sentence is residue, recorded 2026-08-21.** DCR is **not required**
+(spike question 3) and the route need not exist, as the endpoint list above now
+says. The sentence is left as written — it costs nothing while the route is
+absent and binds again only if a later decision re-enables DCR. **Re-enabling DCR
+also re-opens the `form-action` carve-out** in `system-design.md` §10 for security
+review, because a registrant would then control the redirect origin that lands in
+a CSP header on the code-carrying page. The two are coupled; do not decide them
+separately.
+
 The browser ceremony stores only the hash of a separate 256-bit poll secret and
 sends the plaintext secret only in a Secure, HttpOnly, SameSite cookie (or the
 equally strong browser-only channel proven by the spike). The human/app/QR sees
@@ -432,11 +443,22 @@ From `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md` — measu
 against Claude Max on claude.ai web unless noted. These constrain WP4; they do not
 advance any gate.
 
+**This is a subset, not the whole list.** The report's "What WP4 inherits"
+carries **fourteen** items. Three of them are recorded in
+`system-design.md` §9 and ADR 0071 §7 instead, because they belong to the Gmail
+write gate rather than to the bridge: **label application is a destructive
+channel** (F-LABEL), **§9 needs a general home for standing-authority mutations**
+(F-FILTER), and **the Gmail tool surface needs a re-check mechanism** (F-CATALOG,
+F-INVENTORY). A fourth, the second injection direction into a session holding 22
+mutating Gmail tools, is recorded in §9 as well. Read those with this list.
+
 1. **The approval page's `form-action` must include the registered redirect
    origin**, not only `'self'` — otherwise Chrome and Safari refuse the
    code-carrying redirect and the ceremony dies **with no server-side error**
    (F-CSP, `system-design.md` §10). Keep it an exact allow-list, never a
-   wildcard. **Cover the redirect target in tests, not just the POST, and require
+   wildcard, and take the origin from the **stored client record after exact
+   redirect-URI validation, never from request input** — otherwise the carve-out
+   becomes attacker-steerable. Re-enabling DCR re-opens it for review. **Cover the redirect target in tests, not just the POST, and require
    at least one real-browser pass:** `curl` does not enforce CSP, so a green
    non-browser suite is not evidence for this defect class.
 2. **Ship no `/oauth/register`.** Omitting `registration_endpoint` from the

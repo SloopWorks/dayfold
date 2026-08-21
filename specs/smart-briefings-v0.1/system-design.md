@@ -82,8 +82,11 @@ schema change, not a free-text setting.
   model's self-description are three different artifacts with three different
   failure modes. This bullet rests on a provider **documentation** page — a
   fourth surface, and not one that was checked against the runtime — so treat it
-  as unverified until it is. Over-statement errs safe for a gate and is
-  unreliable as a capability contract.)*
+  as unverified until it is. **F-CATALOG's "over-statement errs safe" reassurance
+  does not transfer to this bullet:** it is a capability-**absence** claim, so the
+  hazardous direction here is **under**-statement — documentation under-stating
+  what the connector exposes would mean attachment bytes reaching a proposal.
+  Direction-aware reasoning, per F-CATALOG, is the point.)*
 - Gmail links, source locators, forwarding, add-ons, artifact storage, link
   crawling, attachment hosting, or “Open original in Gmail.”
 - Calendar, Drive, scheduling, background tasks, or automatic publication.
@@ -278,9 +281,11 @@ The UI must say:
 **Recorded 2026-08-21, two notes on this section.** (1) The bullet "Claude's
 Gmail connection **may** expose write tools" is now measured: on the surface
 tested it **does** — 22 mutating tools including immediate send and destructive
-labelling (§9). The bullet as written still holds; whether operator-facing copy
-should state it more strongly is a copy decision for the ADR 0008 hi-fi review,
-not something this reconciliation settles. (2) Spike question 7 recorded
+labelling (§9; the mutating families are measured on every surface consulted, and
+the exact runtime count of 27 is strong evidence, not proof). The bullet as
+written still holds; whether operator-facing copy should state it more strongly
+is a copy decision for the ADR 0008 hi-fi review, not something this
+reconciliation settles. (2) Spike question 7 recorded
 **nothing** about what Claude stores in chat or which retention, deletion, or
 training controls exist — those settings were never opened, so no wording exists
 to quote. The retention and training statements in this section are therefore
@@ -422,7 +427,9 @@ exact eligible Claude surface must prove either:
 
 The synthetic spike plants an injected email asking Claude to send, label, and
 delete. The operator records the provider-level block/confirmation. If neither
-condition holds, the pilot stops.
+condition holds, the pilot stops. **Recorded 2026-08-21: that test covers the
+Gmail → Claude direction only; the Dayfold-content → Gmail-mutation direction is
+not covered by it — see below.**
 
 ### Recorded 2026-08-21 — condition 1 cannot be satisfied on the measured surface
 
@@ -475,6 +482,18 @@ exercise the **labelling** tools as well as the direct ones, and spike question
 specifically — it is the mutation most likely to be treated as low-stakes by a
 confirmation design, and on this surface it is not low-stakes.
 
+**A second injection direction, recorded 2026-08-21 and not covered by the test
+above.** `dayfold_context_get` returns **family-authored `activeCards`** into the
+Claude session (§8), and that session provably holds **22 mutating Gmail tools**.
+The injected-email protocol tests **Gmail content → Claude**; it does not test
+**Dayfold content → Gmail mutation**. That direction was of bounded interest
+while condition 1 was live and is **load-bearing now that condition 1 is dead**:
+a hostile or compromised Dayfold card body is model input reaching a session that
+can send, forward, trash, and spam-file real mail, and a spike question 9 `PASS`
+as currently specified would not cover it. **Recorded as a direction the test
+does not reach; no countermeasure is designed here**, and the conditions above
+are unchanged.
+
 **Known gap in this section, recorded and deliberately not closed here**
 (F-FILTER). The two conditions above can express "the tools are read-only" and
 "each mutation is confirmed". Neither can express **"this confirmed mutation
@@ -509,7 +528,8 @@ scopes   = mcp:context.read mcp:draft.submit
 
 The bridge owns discovery, authorize, token, revoke, and MCP.
 
-**DCR is not required — recorded 2026-08-21** (spike question 3, F-RUNBOOK),
+**DCR is not required — recorded 2026-08-21** (spike question 3, F-RUNBOOK;
+measured on **Claude Max / claude.ai web / Chrome / desktop, personal account**),
 which closes this section's open question. Claude never called `/oauth/register`.
 It read the authorization-server metadata, concluded from the **absence of
 `registration_endpoint`** that registration was unavailable, asked the operator
@@ -523,6 +543,14 @@ strict RFC 7591 allowlist — so nothing here says DCR would work if re-enabled.
 §11, §12, and §14 still mention DCR rows, retention, and epoch gating; they are
 left as written, cost nothing while the route is absent, and would bind again if
 a later decision re-enables it.
+
+**These two facts are coupled, and the packet must not treat them as
+independent.** The `form-action` carve-out below is safe **today** only because
+DCR is gone: the redirect origin it emits is a **Dayfold-provisioned constant**
+tied to a client Dayfold issued. Under re-enabled DCR a registrant would supply a
+value that lands in a **response header on the code-carrying page** — a
+CSP-widening and header-injection surface. **Re-enabling DCR therefore re-opens
+the carve-out for security review**; the two may not be decided separately.
 
 OAuth requirements:
 
@@ -542,7 +570,9 @@ OAuth requirements:
 - `Cache-Control: no-store`, strict CSP, `frame-ancestors 'none'`, no-referrer,
   escaped bounded client name, host/origin/body/time/rate limits — **with one
   mandatory carve-out: the approval page's `form-action` must include the origin
-  of the registered redirect URI, not only `'self'`** (see below);
+  of the registered redirect URI, not only `'self'`**, and that origin comes from
+  the **stored client record after exact redirect-URI validation, never from
+  request input** (see below);
 - approval binds client, source owner, family, installation, one Hub, scopes,
   redirect, and resource;
 - revocation checked on every bridge call;
@@ -565,10 +595,23 @@ reads `oauth.approve / ok` and then stops, `/oauth/token` is never called,
 DevTools shows the POST returning a correct `302`, and Claude reports only that
 the connection was not finished. `curl` does not enforce CSP, so a fully green
 non-browser suite passes against a build whose ceremony cannot complete. The
-carve-out must stay an **exact allow-list derived from the registered client —
-never a wildcard** — and every other response keeps the strict header unchanged.
-Any implementation of this section must be verified by at least one **real-browser
-pass**; a green `curl` suite is not sufficient evidence for this class of defect.
+carve-out must stay an **exact allow-list — never a wildcard** — and every other
+response keeps the strict header unchanged. Any implementation of this section
+must be verified by at least one **real-browser pass**; a green `curl` suite is
+not sufficient evidence for this class of defect.
+
+**Where the origin comes from is part of the requirement.** It must be read from
+the **stored client record, after exact redirect-URI validation** — **never from
+request input**. "Derived from the registered client" is one careless step from
+`new URL(req.query.redirect_uri).origin`, and if the approval page renders before
+exact-match validation the carve-out becomes attacker-steerable: a
+request-supplied origin would land in a CSP header on the page that carries the
+authorization code. Validate first, then render.
+
+**Conditions that re-open this carve-out for review:** re-enabling DCR (a
+registrant would then control the value — see the DCR note above); any change
+that lets more than one redirect URI be registered per client; and any change
+that renders the approval page before redirect-URI validation.
 
 **Exact `resource` binding stays required, and is now confirmed workable.** The
 spike deliberately ran one notch permissive — accepting an absent indicator — so
