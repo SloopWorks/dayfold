@@ -328,16 +328,26 @@ lighter touch had missed:
      own distribution download 403s through the proxy) — same
      verify-by-PR-CI posture as the 14th/17th passes' Kotlin work, applied
      here after careful line-by-line inspection of every call site.
-   - `apps/cli`'s `main()`-as-one-150-line-`when`-block, the untested
-     network/auth-orchestration layer (401-retry, legacy/device branch
-     selection — zero test coverage since it's inlined into `main()`), and
-     `apps/api`'s dead `places` table (created by 0001, referenced by the
-     generated sync schema, never read/written by any route or test) are
-     real but larger findings **left for a future pass** — noted here so
-     they aren't rediscovered from scratch: extracting `main()`'s branches
-     into named `cmd*()` functions is the prerequisite for testing the auth
-     layer; `places` needs an explicit build-it-or-drop-it call, not a
-     silent removal.
+   - **The untested auth-orchestration layer is now covered (19th pass).** The
+     401-retry / legacy-vs-device branch selection is no longer inlined in
+     `main()` — it lives in `authedGet`/`authedDelete`/`authedPut`, and the only
+     thing keeping it untestable was that those were `private` and called the
+     transport directly. They now take an injected transport + refresh
+     (defaulting to the real ones), and `AuthRetryTest` covers the rule: refresh
+     once and retry with the NEW token on 401; never refresh on the legacy
+     `HOUSEHOLD_SECRET` path (no refresh token exists there); never refresh on
+     403/404/409/500; retry at most once so a persistently-401ing server can't
+     loop on `/auth/refresh`; and replay the identical body on a PUT retry. Both
+     the guard removal and a dropped-body retry were confirmed to fail the suite
+     (mutation-checked). 153 → 164 CLI tests. This did NOT need the `main()`
+     extraction the 17th/18th passes assumed was a prerequisite.
+   - `apps/cli`'s `main()`-as-one-220-line-`when`-block (still worth extracting
+     into named `cmd*()` functions for readability, but no longer blocking any
+     test), and `apps/api`'s dead `places` table (created by 0001, referenced by
+     the generated sync schema, never read/written by any route or test) are
+     real but larger findings **left for a future pass** — noted here so they
+     aren't rediscovered from scratch. `places` needs an explicit
+     build-it-or-drop-it call, not a silent removal.
 2. **Agentic-docs accuracy** — two small findings, fixed: `docs/architecture.md`'s
    hardcoded "as of (2026-07-18)" header had gone stale again (the Deploy
    section was edited 2026-07-23 by the 16th pass without bumping the date —

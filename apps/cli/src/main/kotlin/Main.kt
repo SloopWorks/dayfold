@@ -41,9 +41,13 @@ private fun httpStatus(method: String, url: String, token: String?, body: String
 }
 
 private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("POST", url, token, body)
-private fun putStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("PUT", url, token, body)
-private fun getStatus(url: String, token: String?): Pair<Int, String> = httpStatus("GET", url, token)
-private fun deleteStatus(url: String, token: String?): Pair<Int, String> = httpStatus("DELETE", url, token)
+// getStatus/putStatus/deleteStatus and refreshAccessToken are `internal` (not `private`)
+// only because they are DEFAULT ARGUMENT values of the internal authed* helpers below —
+// Kotlin requires a default expression to be at least as visible as its function. They are
+// not otherwise part of any wider surface.
+internal fun putStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("PUT", url, token, body)
+internal fun getStatus(url: String, token: String?): Pair<Int, String> = httpStatus("GET", url, token)
+internal fun deleteStatus(url: String, token: String?): Pair<Int, String> = httpStatus("DELETE", url, token)
 
 private fun signout(c: Creds) {
   postStatus("${c.api}/auth/signout", "{}", c.accessToken)
@@ -55,7 +59,7 @@ private fun signout(c: Creds) {
  * guidance on any failure. Shared by authedGet/authedDelete/push's 401-retry path
  * (was inlined three times, byte-for-byte, before this extraction).
  */
-private fun refreshAccessToken(store: Credentials, keychain: SecretStore?): String =
+internal fun refreshAccessToken(store: Credentials, keychain: SecretStore?): String =
   store.withRefreshLock {
     val cur = loadCreds(store, keychain) ?: run { System.err.println("credentials removed — run: dayfold login"); exitProcess(1) }
     val (rc, rt) = postStatus("${cur.api}/auth/refresh", """{"refresh":"${cur.refreshToken}"}""", null)
@@ -71,44 +75,45 @@ private fun refreshAccessToken(store: Credentials, keychain: SecretStore?): Stri
 /**
  * Authed GET with one transparent refresh on 401 (device creds only; the legacy
  * env path has no refresh). Returns Pair<statusCode, body>.
+ *
+ * `transport` and `refresh` are injected (defaulting to the real ones) so the
+ * retry rule is testable without a network or a keychain. This is the CLI's only
+ * auth-orchestration logic and it had no direct coverage — see `AuthRetryTest`.
  */
-private fun authedGet(
+internal fun authedGet(
   store: Credentials?, keychain: SecretStore?,
   api: String, token: String, refreshable: Creds?, path: String,
+  transport: (url: String, token: String?) -> Pair<Int, String> = ::getStatus,
+  refresh: (Credentials, SecretStore?) -> String = ::refreshAccessToken,
 ): Pair<Int, String> {
-  var (code, body) = getStatus("$api$path", token)
-  if (code == 401 && store != null && refreshable != null) {
-    val newAccess = refreshAccessToken(store, keychain)
-    val retry = getStatus("$api$path", newAccess); code = retry.first; body = retry.second
-  }
-  return Pair(code, body)
+  val first = transport("$api$path", token)
+  if (first.first != 401 || store == null || refreshable == null) return first
+  return transport("$api$path", refresh(store, keychain))
 }
 
 /** Authed DELETE with one transparent refresh on 401 (mirrors authedGet). */
-private fun authedDelete(
+internal fun authedDelete(
   store: Credentials?, keychain: SecretStore?,
   api: String, token: String, refreshable: Creds?, path: String,
+  transport: (url: String, token: String?) -> Pair<Int, String> = ::deleteStatus,
+  refresh: (Credentials, SecretStore?) -> String = ::refreshAccessToken,
 ): Pair<Int, String> {
-  var (code, body) = deleteStatus("$api$path", token)
-  if (code == 401 && store != null && refreshable != null) {
-    val newAccess = refreshAccessToken(store, keychain)
-    val retry = deleteStatus("$api$path", newAccess); code = retry.first; body = retry.second
-  }
-  return Pair(code, body)
+  val first = transport("$api$path", token)
+  if (first.first != 401 || store == null || refreshable == null) return first
+  return transport("$api$path", refresh(store, keychain))
 }
 
 /** Authed PUT with one transparent refresh on 401 (mirrors authedGet/authedDelete;
  *  was inlined in `push` before this extraction). */
-private fun authedPut(
+internal fun authedPut(
   store: Credentials?, keychain: SecretStore?,
   api: String, token: String, refreshable: Creds?, path: String, requestBody: String,
+  transport: (url: String, requestBody: String, token: String?) -> Pair<Int, String> = ::putStatus,
+  refresh: (Credentials, SecretStore?) -> String = ::refreshAccessToken,
 ): Pair<Int, String> {
-  var (code, body) = putStatus("$api$path", requestBody, token)
-  if (code == 401 && store != null && refreshable != null) {
-    val newAccess = refreshAccessToken(store, keychain)
-    val retry = putStatus("$api$path", requestBody, newAccess); code = retry.first; body = retry.second
-  }
-  return Pair(code, body)
+  val first = transport("$api$path", requestBody, token)
+  if (first.first != 401 || store == null || refreshable == null) return first
+  return transport("$api$path", requestBody, refresh(store, keychain))
 }
 
 /** The build version embedded by Gradle (generateVersionResource) — what a
