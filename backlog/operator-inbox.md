@@ -16,66 +16,124 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
-- **INB-41 · 2026-08-21 · high · open — does `system-design.md` §9 condition 2's
-  "no remembered approval" forbid the *affordance*, or only the operator's *use*
-  of it?** The Smart Briefings V0.1 Gmail gate is a disjunction and **condition 1
-  is dead**: the Gmail connector's runtime surface on claude.ai (Max, web,
-  personal) exposes **22 mutating tools of 27**, measured 2026-08-21 (spike
-  question 8). Everything now rests on **condition 2** — an unavoidable
-  per-mutation human confirmation "with no remembered approval, silent retry, or
-  unattended execution". The test that would establish it (spike question 9, the
-  injected email) **still cannot run**: it needs a synthetic mailbox that does not
-  exist. A narrower probe that needed no mailbox was run instead — a **directly
-  requested** send to an undeliverable RFC 2606 `.invalid` address, with **every
-  confirmation denied**. **Nothing was sent.** A direct request is not an
-  injection, so **the probe cannot satisfy condition 2 and does not**; it could
-  only refute condition 2 or establish that its mechanism exists. It found the
-  mechanism — a **client-enforced dialog sitting in front of the tool call**
-  (structurally stronger than a prompt-level protection), naming the specific
-  tool and connector, honoured when denied — **and it found that the dialog
-  offers "Always allow"**, a remembered approval with a keyboard shortcut
-  directly above "Allow once". Its scope, lifetime, revocability, and post-grant
-  behaviour were **not measured**. Two readings, **opposite verdicts**:
+- **INB-41 · 2026-08-21 (amended 2026-08-21) · high · open — two questions, in
+  order. (1) Should the pilot require the Gmail connector's **write/delete tool
+  group to be blocked** as its Gmail posture? (2) Preserved beneath it, and
+  load-bearing only if (1) fails: does `system-design.md` §9 condition 2's "no
+  remembered approval" forbid the *affordance*, or only the operator's *use* of
+  it?**
+
+  **Why this item was amended rather than answered — a correction you should see
+  before the question.** As first written, this item rested on **condition 1 being
+  dead**: the Gmail connector exposes **22 mutating tools of 27** on claude.ai
+  (Max, web, personal), so §9's disjunction had collapsed to condition 2 alone.
+  **The inventory stands. The conclusion does not.** Later on 2026-08-21 the
+  controller opened `claude.ai › Settings › Connectors` on the same account and
+  found the Gmail connector carries **per-tool permission controls** — *allow /
+  ask / **block*** on every tool row, with two groups and group-level defaults
+  (`Read-only tools 5 — Always allow`, `Write/delete tools 22 — Needs approval`).
+  Google Calendar shows the identical structure, so it is a general connector
+  capability on this account tier. **Condition 1 was measured against the default
+  configuration and recorded as a property of the surface: it is false by default,
+  not unsatisfiable.** This was a **read-only inspection — no setting was changed
+  on your account.** It is the **third** time this packet has revised a conclusion
+  about the Gmail tool surface, and the same error class the spike already
+  documents as **F-INVENTORY** (a conclusion drawn from one provider surface
+  without checking whether another changes the answer). Related: Anthropic's own
+  documentation describes per-tool granularity as a **Team/Enterprise** feature —
+  it **under-states** what this personal account has, which errs *unsafe*
+  (**F-DOCS**).
+
+  **Decision (1) — the posture, and why it is probably the better question.** If
+  the write/delete group can be blocked, the pilot's Gmail safety becomes a
+  **structural control applied once**, not a human judgment repeated at every
+  mutation — **strictly stronger than condition 2**, and unaffected by whether
+  "Always allow" is offered. **It is not established, and must not be ratified as
+  if it were:**
+  - **Unresolved: does `block` remove a tool from the surface, or expose it and
+    refuse at call time?** §9 condition 1 says *"Gmail tools **exposed to the run**
+    are structurally read-only"*, and that wording is sensitive to exactly this
+    difference. **Blocking is not recorded anywhere as satisfying condition 1.**
+    **The cheap test, which needs no mailbox:** block the group, then ask Claude to
+    enumerate its Gmail tools — if the 22 disappear it is surface removal; if they
+    remain and refuse, it is call-time enforcement. **It changes a setting on your
+    account, so it is yours to run; it has not been run.**
+  - **Unresolved: persistence.** Whether a blocked state survives sessions,
+    upgrades, and reconnects, or can be silently reset, is unmeasured — and there
+    is poor prior art on the "Always allow" side of the same mechanism.
+  - **Unchanged: Dayfold cannot verify it.** The setting lives in a third-party
+    product Dayfold cannot read, audit, or enforce. Any posture here is an
+    **operator pre-run checklist item**, never a Dayfold control.
+  - **If the test returns "remain and refuse"**, adopting the posture anyway would
+    require **amending §9's wording** to accept call-time refusal — an ADR-class
+    change reserved to you, and not something an agent may assume.
+
+  **Decision (2) — preserved verbatim in substance, because it governs again if
+  (1) fails.** The 2026-08-21 mechanism probe (a **directly requested** send to an
+  undeliverable RFC 2606 `.invalid` address, **every confirmation denied**,
+  **nothing sent**) found a **client-enforced dialog sitting in front of the tool
+  call** — structurally stronger than a prompt-level protection, naming the
+  specific tool and connector, honoured when denied — **and found that the dialog
+  offers "Always allow"**, a remembered approval with a keyboard shortcut directly
+  above "Allow once". Its scope, lifetime, revocability, and post-grant behaviour
+  were **not measured**. A direct request is not an injection, so **the probe
+  cannot satisfy condition 2 and does not**. Two readings, **opposite verdicts**:
   **(A)** the phrase states a property required of the *mechanism* → condition 2
-  is unsatisfiable on this surface, §9 has **no surviving branch**, handoff stop
-  3 trips, and **the pilot stops**; **(B)** the phrase states a usage policy
-  binding the *operator* → condition 2 stays satisfiable, but the pilot's Gmail
-  safety then rests on operator discipline at every dialog, forever, and its
-  failure mode is one mis-click of the shortcut above "Allow once" — silent,
-  unbounded, and with **no Dayfold-visible signal**. This is an ADR-class
-  judgment about whether the project's own gate is met, which `CLAUDE.md`
-  reserves to you (scope / kill-pivot class); an agent may propose, not decide.
-  **Proposed default:** adopt **reading A** — treat "no remembered approval" as a
-  property of the mechanism, so condition 2 is **not satisfiable on the measured
-  surface** and **the pilot stops** on handoff stop 3 — the whole pilot, not only
-  its write path — pending either a surface that does not offer remembered
-  approval, a provider-authored control that disables it or makes a standing
-  grant verifiable and revocable, or an explicit amendment of §9's wording by
-  you. Reasoning: the packet already rejects
-  discipline-based prevention in its own words (§9's opening, "Instructions are
-  not an authorization boundary"; ADR 0071's *Rejected for this pilot*,
-  "prompt-only Gmail write prevention"), and reading B asks the gate to rest on
-  exactly that. The cost of adopting A now is low — the pilot's private-data
-  path is already blocked on a synthetic mailbox that does not exist and on an
-  eligible no-training authority that does not exist, so no runnable work is
-  lost, and A is reversible on any of the three conditions above. **If
-  you prefer reading B**, the minimum that makes it more than a promise: (1) a
-  pre-run check that no standing "Always allow" grant exists — which needs a
-  provider surface that renders remembered approvals, and whether one exists is
-  **unmeasured**; (2) §9 amended to say so explicitly, naming operator discipline
-  as the control and recording that Dayfold cannot observe a breach of it; (3)
-  any granted "Always allow" treated as tripping handoff stop 3 on the spot.
-  **Under either reading condition 2 stays unproven** — B does not make it
-  proven, only provable — so spike question 9 must still run, with an amended
-  protocol (the post-"Always allow" case, and every mutating tool class rather
-  than send alone), and it still needs the synthetic mailbox. Nothing here
-  changes ADR 0071's status (**Proposed**) or the design's no-ship posture.
+  is unsatisfiable on this surface; **(B)** it states a usage policy binding the
+  *operator* → condition 2 stays satisfiable, but the pilot's Gmail safety rests
+  on operator discipline at every dialog, forever, with a failure mode of one
+  mis-click of the shortcut above "Allow once" — silent, unbounded, and with **no
+  Dayfold-visible signal**. **What the correction changes here:** under reading A,
+  "§9 has no surviving branch and the pilot stops" **no longer follows
+  automatically** — that now depends on decision (1). Under reading B, the minimum
+  that would make it more than a promise was (1) a pre-run check that no standing
+  "Always allow" grant exists — which needed *a provider surface that renders
+  remembered approvals, and whether one exists is unmeasured*. **A surface that
+  renders and sets persistent per-tool permission state now demonstrably exists**;
+  **whether a grant made in the dialog is written there is still unmeasured**. The
+  other two conditions stand: (2) §9 amended to name operator discipline as the
+  control and to record that Dayfold cannot observe a breach of it; (3) any
+  granted "Always allow" treated as tripping handoff stop 3 on the spot.
+
+  **Proposed default (revised):** **run the exposed-versus-refused test first, and
+  ratify nothing yet.** Specifically: (a) do **not** adopt reading A as a decision
+  now — the correction removed the premise that made stopping look obviously
+  right, and a kill-class ratification on a premise that has just been corrected
+  is the wrong order of operations; (b) run the block-then-enumerate test on your
+  account, which is cheap, needs no mailbox, and is the only thing standing
+  between here and a real answer; (c) **if the 22 disappear**, the proposal
+  becomes: adopt **"the write/delete tool group is blocked"** as the pilot's
+  required Gmail configuration, with a pre-run operator checklist recording that
+  Dayfold cannot verify it, and a re-check whenever the connector is reconnected
+  or upgraded; (d) **if they remain and refuse**, decision (2) governs and the
+  original proposed default — **reading A, treat condition 2 as unsatisfiable on
+  this surface, and stop the pilot on handoff stop 3** — is the proposal, for its
+  original reason: the packet already rejects discipline-based prevention in its
+  own words (§9's opening, "Instructions are not an authorization boundary"; ADR
+  0071's *Rejected for this pilot*, "prompt-only Gmail write prevention"), and
+  reading B asks the gate to rest on exactly that. **Deferring costs nothing
+  runnable:** the private-data path is already blocked on a synthetic mailbox that
+  does not exist and an eligible no-training authority that does not exist.
+
+  **What none of this changes.** Nothing here passes, satisfies, or advances any
+  gate. Condition 1 is **not** restored — only shown to be possibly restorable.
+  Condition 2 remains **unproven** under either reading; B would make it provable,
+  not proven, so **spike question 9 must still run** with an amended protocol (the
+  post-"Always allow" case, and every mutating tool class rather than send alone),
+  and it still needs the synthetic mailbox. **ADR 0071 stays Proposed** and the
+  design stays **no-ship**. This is an ADR-class judgment about whether the
+  project's own gate is met, which `CLAUDE.md` reserves to you (scope / kill-pivot
+  class); an agent may propose, not decide.
+
   Context: `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`
-  finding **F-CONFIRM** (and **F-ROUTING**: connector selection is not
-  deterministic — a plain "send an email" routed to a different installed mail
-  connector first, which bears on ADR 0071 §6's run instruction);
-  `specs/smart-briefings-v0.1/system-design.md` §9, "Recorded 2026-08-21 —
-  condition 2's mechanism exists, and it offers remembered approval";
+  findings **F-PERMS** (the correction and the block control), **F-DOCS** (the
+  documentation contradiction), **F-CONFIRM** (the confirmation mechanism), and
+  **F-ROUTING** (connector selection is not deterministic — a plain "send an
+  email" routed to a different installed mail connector first, which bears on ADR
+  0071 §6's run instruction); `specs/smart-briefings-v0.1/system-design.md` §9,
+  "Correction recorded 2026-08-21 — condition 1's status above was measured
+  against the **default configuration**" and "Recorded 2026-08-21 — condition 2's
+  mechanism exists, and it offers remembered approval";
   `adr/0071-self-managed-claude-bridge-v0.1.md` §7. Distinct from INB-39, which
   ratifies the pilot boundary, and INB-40, which sequences the work packages.
 
