@@ -186,6 +186,30 @@ Stop on any of:
 - provider errors necessarily echo tool input/source content;
 - the surface cannot reconnect after revoke.
 
+### Recorded status, 2026-08-21
+
+The local artifact exists (`spikes/claude-mcp-v0.1/`, suite 171 pass / 0 fail) and
+the operator ran one external session against a live Claude **Max** account on
+claude.ai web. The report records **3 of 10 questions answered, 7 `UNKNOWN`**;
+`UNKNOWN` there means the question's own rubric was only partly exercised, not
+that the observations inside the row are doubtful.
+
+Against the six stop conditions above, per the report's ledger — **"not assessed"
+is not "clear"**:
+
+| # | Status |
+|---|---|
+| 1 coexistence | **not tripped, partially assessed** — both connectors enabled on one account; co-invocation in one conversation not exercised |
+| 2 Claude credential | **not tripped, assessed** — no Claude account credential was requested, entered, or captured |
+| 3 weak OAuth | **not tripped, assessed** — code flow, S256, one exact redirect, matching `resource` |
+| 4 unconfirmed Gmail mutation | **NOT ASSESSED** — question 9 not run; and question 8 makes this live rather than theoretical (22 mutating tools confirmed on the runtime surface, §5.1) |
+| 5 provider errors echo content | **NOT ASSESSED** — the deliberate error paths were never driven |
+| 6 reconnect after revoke | **NOT ASSESSED** — `/oauth/revoke` was never called |
+
+**One operational fact from the local phase.** `spikes/claude-mcp-v0.1/` sits
+**outside the repository's npm workspaces and has no CI lane**, so its 171 tests
+only ever ran locally. `apps/mcp-bridge` must not inherit that — see WP4.
+
 **Commit boundary:** `spike: record synthetic Claude connector compatibility`
 
 ## 5. Work Package 1 — reconcile and sign off design/contracts
@@ -355,7 +379,9 @@ pure policy packages, not main API middleware or generic repositories.
 ```text
 /.well-known/oauth-protected-resource
 /.well-known/oauth-authorization-server
-/oauth/register              # disabled unless spike requires DCR
+/oauth/register              # not required: spike Q3 recorded DCR is not used;
+                             # omitting registration_endpoint is sufficient and
+                             # the route need not exist
 /oauth/authorize
 /oauth/token
 /oauth/revoke
@@ -378,6 +404,52 @@ bounded client names, host/origin checks, and rate/body/time/concurrency limits.
 The bridge uses a separate generated diagnostic/SWIP source with
 `stripMessage=true` plus request stripping. Do not wrap it in `apps/api` Sentry or
 message-preserving middleware.
+
+### Recorded provider constraints, 2026-08-21
+
+From `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md` — measured
+against Claude Max on claude.ai web unless noted. These constrain WP4; they do not
+advance any gate.
+
+1. **The approval page's `form-action` must include the registered redirect
+   origin**, not only `'self'` — otherwise Chrome and Safari refuse the
+   code-carrying redirect and the ceremony dies **with no server-side error**
+   (F-CSP, `system-design.md` §10). Keep it an exact allow-list, never a
+   wildcard. **Cover the redirect target in tests, not just the POST, and require
+   at least one real-browser pass:** `curl` does not enforce CSP, so a green
+   non-browser suite is not evidence for this defect class.
+2. **Ship no `/oauth/register`.** Omitting `registration_endpoint` from the
+   authorization-server metadata is sufficient; the client is metadata-driven
+   (question 3, F-RUNBOOK). Behavior when the endpoint *is* advertised is
+   unmeasured.
+3. **Enforce exact `resource` binding** at authorize and token. Claude sends the
+   RFC 8707 indicator and it matched the origin exactly at authorize; the spike's
+   deliberate leniency was spike-only and must not be carried forward (question 4).
+4. **One fixed redirect URI per connector** — `https://claude.ai/api/mcp/auth_callback`
+   for this client. No wildcard, prefix match, or per-install registration.
+5. **Support a public client with no secret** plus a **manually pasted client
+   ID**, and draw that step in the enrollment UX (question 3).
+6. **MCP protocol `2025-11-25` is the floor.** Stateless Streamable HTTP, no
+   session id, no standalone `GET` stream, no `DELETE` teardown (question 5).
+7. **Assume no human is present on any Dayfold tool call** — refresh is silent
+   and unattended, and the rotating lineage did not false-positive (questions 4
+   and 10).
+8. **Read connector capability from the runtime, never from the connector
+   directory** (F-CATALOG), and **name which surface an inventory came from;
+   probe when surfaces disagree** (F-INVENTORY). A directory catalog, a runtime
+   manifest, and a model's self-description are three artifacts with three
+   failure modes, and here they disagreed.
+9. **Diagnostics, recorded not settled:** the spike's single `invalid_request`
+   log outcome collapses five distinct closed refusal codes, and the first thing
+   the real client did was produce a line the log could not explain (F-BUCKET).
+   The report's recorded consequence is to give each refusal family its own
+   closed outcome or add a `class` dimension — both content-blind, since the
+   codes are Dayfold-owned constants. **Whether to do that is a WP4 design
+   decision, not settled by reconciliation.**
+10. **`apps/mcp-bridge` needs a CI lane from its first commit.** The WP0 spike sat
+    outside the npm workspaces with no CI lane and its tests only ever ran
+    locally; the bridge's OAuth and MCP surfaces are exactly where "passed
+    locally" is worth least.
 
 ### Mandatory cross-protocol matrix
 
@@ -628,6 +700,11 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest
 Also run repository formatting/schema drift, the exact provider spike runbook, and
 a fresh-context security review of any load-bearing change. Do not deploy as part
 of an automated test.
+
+`apps/mcp-bridge` runs in CI from its first commit (WP4, recorded constraint 10) —
+the WP0 spike had no CI lane and its tests only ever ran locally. Its OAuth
+ceremony additionally needs at least one **real-browser** pass: `curl` does not
+enforce CSP, so the local suite cannot see the F-CSP defect class at all.
 
 ## 15. Sequencing and stop points
 

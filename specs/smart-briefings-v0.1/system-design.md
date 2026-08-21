@@ -111,6 +111,12 @@ Host a stateless **MCP Bridge** as a separate Vercel service and entrypoint at a
 dedicated resource origin such as `https://mcp.dayfold.example`. Keep it in the
 same region as Dayfold Postgres. Do not mount it under the current API middleware.
 
+**Recorded 2026-08-21** (`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`,
+question 8): Gmail's own Claude connector is itself a **remote MCP server
+authored by Google** at `https://gmailmcp.googleapis.com/mcp/v1`, per Anthropic's
+provider-authored connector-directory page. A separately hosted remote MCP server
+is therefore the ordinary shape on this surface, not an exotic one.
+
 ```text
 Google account               Claude account
 Google OAuth token <-------> Gmail connector + inference
@@ -206,6 +212,21 @@ The compatibility spike decides whether the MCP URL is installed, deep-linked, o
 copied and which Claude surface can continue setup. Product copy says **Continue
 in Claude** until that is proven.
 
+**Recorded 2026-08-21 — the desktop half is now specified; the mobile half is
+not** (spike questions 3 and 6, F-CSP). Install is by **manually typed
+`<origin>/mcp`**: the client wants the full MCP endpoint, not a base origin it
+appends a path to. Because DCR is not used (§10), setup must also include a step
+where the owner **pastes an OAuth client ID that Dayfold issues** — that step is
+not drawn anywhere yet and the ADR 0008 hi-fi has to add it. Desktop return was
+observed: a full-page browser hand-off to the bridge's `/oauth/authorize`, the
+approval page, then a return to Claude's fixed callback — and it completes **only**
+with the `form-action` carve-out in §10; without it the ceremony dies silently.
+**The mobile surface was not tested at all**, so whether a mobile browser blocks
+or strips the redirect, whether an in-app browser is used, whether it shares the
+session, and whether the return re-enters the Claude app are unmeasured. Half the
+ceremony the hi-fi must draw is therefore still unspecified, and product copy
+stays **Continue in Claude**.
+
 ### Run and draft discovery
 
 Claude calls context, searches Gmail, submits at most one proposal, finishes the
@@ -276,6 +297,18 @@ resource subscription.
 
 All input schemas use `additionalProperties=false`. All free text is stripped from
 errors. The bridge returns bounded Dayfold-owned codes only.
+
+**Recorded 2026-08-21** (spike question 5): Claude negotiated MCP protocol version
+**`2025-11-25`**, logged as a closed outcome carrying the value, so that is the
+**floor the pinned SDK must support**. The stateless choice holds against the real
+client: `initialize`, `tools/list`, and `tools/call` all completed against a
+server issuing no session id, no standalone `GET` stream was opened, and no
+`DELETE` teardown was issued — the transport itself needs no session storage. A
+successful tool result was surfaced by Claude **verbatim and unmodified**. What is
+**not** settled is whether the bridge's closed error codes survive intact to
+Claude's user-visible surface: none of the three deliberate error paths was
+driven, so the "all free text is stripped" requirement above is unverified at the
+provider surface.
 
 ### `dayfold_context_get`
 
@@ -380,8 +413,24 @@ audience = dayfold-mcp
 scopes   = mcp:context.read mcp:draft.submit
 ```
 
-The bridge owns discovery, authorize, token, revoke, optional DCR, and MCP. DCR is
-disabled unless the spike proves Claude requires it. OAuth requirements:
+The bridge owns discovery, authorize, token, revoke, and MCP.
+
+**DCR is not required — recorded 2026-08-21** (spike question 3, F-RUNBOOK),
+which closes this section's open question. Claude never called `/oauth/register`.
+It read the authorization-server metadata, concluded from the **absence of
+`registration_endpoint`** that registration was unavailable, asked the operator
+to enter an OAuth client ID by hand, and completed the whole ceremony against a
+**public client with no secret** (`token_endpoint_auth_methods_supported:
+["none"]`). The client is **metadata-driven, not probe-driven**: **omitting
+`registration_endpoint` from the authorization-server metadata is sufficient, and
+the route need not exist.** *Not measured:* behavior when the endpoint **is**
+advertised — in particular whether the client's registration body survives a
+strict RFC 7591 allowlist — so nothing here says DCR would work if re-enabled.
+§11, §12, and §14 still mention DCR rows, retention, and epoch gating; they are
+left as written, cost nothing while the route is absent, and would bind again if
+a later decision re-enables it.
+
+OAuth requirements:
 
 - Authorization Code + S256 PKCE; exact redirect URI; exact resource/audience;
 - separate connector signing key, access verifier, refresh table, and issuer;
@@ -397,11 +446,65 @@ disabled unless the spike proves Claude requires it. OAuth requirements:
 - polling never returns the authorization code; the OAuth redirect does;
 - one-time compare-and-set transitions for allow/deny/exchange;
 - `Cache-Control: no-store`, strict CSP, `frame-ancestors 'none'`, no-referrer,
-  escaped bounded client name, host/origin/body/time/rate limits;
+  escaped bounded client name, host/origin/body/time/rate limits — **with one
+  mandatory carve-out: the approval page's `form-action` must include the origin
+  of the registered redirect URI, not only `'self'`** (see below);
 - approval binds client, source owner, family, installation, one Hub, scopes,
   redirect, and resource;
 - revocation checked on every bridge call;
 - no inbound bearer is forwarded to another resource.
+
+### Recorded 2026-08-21 — measured against the real client
+
+Spike question 4 and F-CSP
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). Claude Max,
+claude.ai web, Chrome, desktop.
+
+**The `form-action` carve-out is a correctness requirement, not hardening.**
+Implemented the obvious way, the approval page carried `default-src 'none';
+frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. The consent form's
+same-origin POST is allowed, but **the 302 carrying the authorization code is a
+form-initiated navigation, and Chrome and Safari enforce `form-action` against
+redirect targets**, so the browser refuses to follow it and the code never
+reaches the client. **There is no server-side error to diagnose it by:** the log
+reads `oauth.approve / ok` and then stops, `/oauth/token` is never called,
+DevTools shows the POST returning a correct `302`, and Claude reports only that
+the connection was not finished. `curl` does not enforce CSP, so a fully green
+non-browser suite passes against a build whose ceremony cannot complete. The
+carve-out must stay an **exact allow-list derived from the registered client —
+never a wildcard** — and every other response keeps the strict header unchanged.
+Any implementation of this section must be verified by at least one **real-browser
+pass**; a green `curl` suite is not sufficient evidence for this class of defect.
+
+**Exact `resource` binding stays required, and is now confirmed workable.** The
+spike deliberately ran one notch permissive — accepting an absent indicator — so
+that this could be measured. Claude **sends** the RFC 8707 `resource` indicator:
+at `/oauth/authorize` the value matched the advertised origin exactly (measured).
+Presence at `/oauth/token` is also recorded, but its **attribution is timestamp
+correlation, not proof**. The relaxation was spike-only and **must not be carried
+forward**; the exact-resource requirement above is confirmed rather than weakened.
+
+Also observed, each a recorded fact:
+
+- **S256 PKCE with no `plain` fallback**, `response_type=code`, and both
+  advertised scopes requested unprompted — at authorize and at refresh.
+- **One fixed exact redirect URI per connector.** Claude uses a **fixed provider
+  callback** (`https://claude.ai/api/mcp/auth_callback`), so exact-match binding
+  needs no wildcard, no prefix match, and no per-install registration — one
+  constant per connector. Binding it exactly is what made the connect succeed.
+- **Single-use approval holds against a real browser.** A second Approve produced
+  `invalid_grant`, not a second code.
+- **Unattended silent refresh is real.** ~19 minutes after the previous activity,
+  against a 5-minute access-token TTL, Claude refreshed on the rotating refresh
+  lineage with **no preceding authorize or approve** and resumed calling tools —
+  and the reuse-revoke lineage did **not** false-positive against a real client.
+  That is a capability *and* a constraint: an installed connector holds usable
+  credentials with no human present, so **no safety property may rest on the
+  assumption that a human is watching the session**.
+- **Not measured:** `/oauth/revoke` was never called and reconnect-after-revoke
+  was never exercised. The plan's "the surface cannot reconnect after revoke"
+  stop condition is **unassessed, not cleared**. A reconnect across spike
+  restarts is key rotation, not a revocation event, and is not evidence here.
 
 ## 11. Data model
 
@@ -545,11 +648,31 @@ Before final hi-fi or production code, use synthetic data to record:
 Any weaker token posture, silent Gmail mutation, unavailable coexistence, or need
 to capture a Claude subscription credential is a no-go.
 
+**Recorded status, 2026-08-21 — this gate is not satisfied.** The spike ran once
+against a live Claude Max account on claude.ai web
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). **3 of 10
+matrix questions are answered; 7 are `UNKNOWN`** — and an `UNKNOWN` there is a
+verdict about **coverage**, not a doubt about the observations recorded inside
+it. Answered: plan/client/admin prerequisites (bullet 1, in part), install URL and
+the DCR question (bullet 1/3), and the Gmail tool inventory (bullet 6, first
+half). Still open, and load-bearing:
+
+- **the injected-mutation test in §9** (bullet 6, second half) — not run, and
+  blocked on a synthetic mailbox that does not exist;
+- Gmail + Dayfold co-invocation **inside one conversation** (bullet 2) —
+  coexistence holds at the account level only;
+- revoke and reconnect (bullet 3), and the deliberate error paths (bullet 4);
+- the **mobile** surface (bullet 5);
+- **what Claude stores in chat and which deletion/training controls exist**
+  (bullet 7) — **not recorded at all**; those settings were never opened.
+
 ## 17. Definition of done
 
 The operator pilot is implementation-ready only after:
 
-1. the synthetic compatibility spike is recorded and reconciled;
+1. the synthetic compatibility spike is recorded and reconciled — **not met**:
+   as of 2026-08-21 it is recorded for 3 of 10 questions and reconciled only to
+   that extent (§16); the remaining rows must be recorded and reconciled too;
 2. the final live-flow hi-fi is signed off under ADR 0008;
 3. ADR 0071, exact retention/policy/value constants, hosting, and diagnostic source
    are accepted;

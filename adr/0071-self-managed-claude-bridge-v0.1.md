@@ -11,6 +11,11 @@ customer access, or spend.
 - Hi-fi gate: `designs/PROMPT-smart-briefings-v0.1-claude-bridge.md`
 - Plan: `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`
 - Reviews: `research/2026-08-20-smart-briefings-v0.1-adversarial-review.md`
+- Provider evidence:
+  `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md` — one
+  operator-run session, 2026-08-21, Claude **Max** / claude.ai web / personal
+  account. **3 of 10 matrix questions answered, 7 `UNKNOWN`.** Every "recorded
+  2026-08-21" note below cites that file; nothing else in this ADR is measured.
 
 If accepted, this narrows/replaces the V0.1 portions of Proposed ADR 0061.
 Proposed ADR 0062 applies only where this ADR and the dedicated connector
@@ -88,6 +93,29 @@ The bridge tools are only:
 
 There is no generic Hub/content, apply, edit, delete, send, share, role, URL-fetch,
 filesystem, shell, or OAuth tool.
+
+**Recorded 2026-08-21 — the shape above is the shape the real client drives.**
+Measured against Claude Max on claude.ai web, personal account. These facts
+change no decision in this section; they close questions it was written around.
+
+- **Dynamic client registration is not required** (spike question 3, F-RUNBOOK).
+  Claude never called `/oauth/register`. It read the authorization-server
+  metadata, found no `registration_endpoint`, and asked the operator to enter an
+  OAuth client ID by hand; the entire ceremony then completed against a **public
+  client with no secret** (`token_endpoint_auth_methods_supported: ["none"]`).
+  The client is **metadata-driven, not probe-driven** — what the metadata
+  advertises controls the behavior, and the registration route need not exist.
+  *Not measured:* how the client behaves when `registration_endpoint` **is**
+  advertised; that pass was not run.
+- **Streamable HTTP is the right transport** (question 5). `initialize`,
+  `tools/list`, and `tools/call` all completed against a stateless server that
+  issues no session id; Claude negotiated MCP protocol version **`2025-11-25`**,
+  opened no standalone `GET` stream, and issued no `DELETE` on `/mcp`.
+- **The bridge is an architectural peer of a first-party connector** (question
+  8). Gmail's own Claude connector is itself a remote MCP server **authored by
+  Google** at `https://gmailmcp.googleapis.com/mcp/v1`, per Anthropic's
+  provider-authored connector-directory page. The isolated-remote-MCP shape this
+  section chose is the same shape Google ships on that surface.
 
 ### 4. Separate ephemeral enrollment from durable installation/run identity
 
