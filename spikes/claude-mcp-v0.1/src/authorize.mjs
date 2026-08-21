@@ -69,6 +69,7 @@ export function authorize(ctx, req, res, url) {
     res,
     200,
     renderApprovalPage({ clientName: client.clientName, scopes: scopes.scopes, ticket }),
+    new URL(client.redirectUri).origin,
   );
   return outcomeForResource(params.resource);
 }
