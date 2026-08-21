@@ -11,38 +11,93 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **`main` is RED right now (as of 2026-08-21) and has been since ~2026-08-20.**
-  Last green CI run on `main` was `37d12ace` (2026-08-10). The failing lane is
-  **Client core + feed UI (Compose, headless)**: four golden snapshots fail with
-  `AssertionError at GoldenSnapshotTest.kt:20` — `hubCanonical()`,
-  `hubEnriched()`, `hubCanonicalDark()`, `hubEnrichedDark()` (649 tests
-  completed, 4 failed). **Root cause is already documented in this file**: the
-  2026-08-19 mobile-review entry records that macOS Hub goldens were recorded
-  and reviewed, but "the prescribed 7 GB Linux container twice lost its Gradle
-  daemon during compilation", so the **Linux** Hub goldens were never recorded.
-  CI runs Linux, so the gate has failed on every push since. **Fix: record the
-  four Linux Hub goldens** (the `Golden dashboard (on failure)` /
-  `Upload snapshot dashboard` CI steps produce the mismatched PNGs as an
-  artifact — grab them from a fresh run, since older run artifacts have already
-  expired). Not caused by, and not fixable within, the Smart Briefings V0.1
-  work: PRs #381 and #382 were merged with this lane failing identically before
-  either branch existed.
-- **Unexplained, watch it:** on the two CI runs since `46a652db`, the same
-  Compose job **hung for ~18 minutes after** `:ui:desktopTest FAILED` and was
-  killed by the 25-minute cap, where the three runs before it failed fast in
-  ~6m35s. Same four test failures either way — only the post-failure behaviour
-  differs. Two data points, no mechanism identified. If it recurs, look at the
-  `--no-daemon` Gradle invocation not exiting after a failed task rather than at
-  the tests themselves.
-- `main` was RED 2026-07-21 (head `d589193`, the 14th pass's own merge
-  commit — root cause: unpinned `quicktype` version drift, see 15th-pass
-  entry below); fixed by PR #353, merged, and **re-confirmed green** at head
-  `4aa645b` (CI run 29846190029, success) by the 16th pass. Was also red
-  2026-07-05→07-07; PR #291 added `.github/workflows/rebuild-api-bundle.yml`
-  (`workflow_dispatch`, `contents: write`) as a standing self-heal tool for
-  the next time the committed API bundle drifts from source — see
-  `backlog/now-history.md` (2026-07-07/07-09 entries) for that incident + fix
-  if you need it.
+- **`main` was RED 2026-08-20 → 2026-08-21; fixed by PR #385 (19th pass).** Last
+  green CI run on `main` before the fix was `37d12ace` (2026-08-10). The failing
+  lane was **Client core + feed UI (Compose, headless)**: four golden snapshots —
+  `hubCanonical()`, `hubEnriched()`, `hubCanonicalDark()`, `hubEnrichedDark()`.
+  Cause was as this file predicted: the 2026-08-19 mobile review re-recorded the
+  **macOS** Hub goldens after the ADR 0064 respond-⋮ affordance reflowed those
+  screens, but the Linux counterparts were never recorded, and CI runs Linux.
+  Measured drift: **21.9%** (canonical, both themes) and **12.4%** (enriched,
+  both themes) against a 4% tolerance. The stale Linux PNGs showed the
+  pre-ADR-0064 layout — contact actions inline on the title row rather than
+  wrapped below, and an untruncated `…/immunization.pdf` URL.
+  **Now recorded on Linux and committed.** Three separate defects had to be
+  cleared first, all found this pass:
+  1. **The golden dashboard artifact never uploaded — ever.**
+     `apps/ui/.rk-snapshots` is a dot-directory and `actions/upload-artifact@v4`
+     excludes hidden paths by default, so every red run logged `No files were
+     found with the provided path` and produced a zero-artifact run. This is why
+     this file's own prescribed fix ("grab the PNGs from a fresh run's
+     artifact") had never been executable. Fixed with `include-hidden-files:
+     true`.
+  2. **The ~18-minute post-failure hang below destroyed the evidence**, because
+     a job that hits its 25-minute cap *cancels* its remaining steps — including
+     the two `if: failure()` dashboard/upload steps. Fixed by capping the Gradle
+     step at 18 minutes, under the job's 25, so a hang fails the step and still
+     leaves ~7 minutes to render (~70s) and upload the artifact.
+  3. **Release Android had been failing since 2026-08-20 too** — a second red
+     lane this file never recorded. Not the goldens: `gem install --no-document
+     fastlane` in the Play publish step dies with `Gem::FilePermissionError:
+     You don't have write permissions for the /var/lib/gems/3.2.0 directory`
+     (root-owned system Ruby on the hosted image). The AAB builds fine; only the
+     upload dies. Fixed by installing into a runner-writable `GEM_HOME` under
+     `$RUNNER_TEMP`. **Operator note:** that step only runs because both
+     `ANDROID_KEYSTORE_BASE64` and `PLAY_SERVICE_ACCOUNT_JSON` are set, so
+     repairing it means merges to `main` resume uploading to the Play
+     **internal** track (≤100 testers, no review) exactly as ADR 0034 intends —
+     nothing about the trigger, track, or gating changed.
+- **A Linux golden re-record IS possible from a cloud sandbox — the "7 GB
+  container" wall was environmental, not fundamental.** Prior sessions recorded
+  this as blocked ("docker OOMs at 7.65GB compiling `:ui`", "twice lost its
+  Gradle daemon"). On a 15 GB / 4-CPU Linux sandbox the full `:ui:desktopTest`
+  compiles and runs in **~7 minutes**. The setup that works, for the next
+  session that needs it:
+  - `apt-get update && apt-get install -y openjdk-17-jdk-headless` — the image
+    ships JDK 21 only, and every module pins `jvmToolchain(17)`. Run
+    `apt-get update` first; a stale index 404s on the current point release.
+  - Android SDK is required even for a desktop-only task, because `:client` and
+    `:ui` both apply `com.android.library`. Install `commandlinetools-linux`,
+    then `sdkmanager "platforms;android-37.0" "build-tools;37.0.0"` — note
+    **`android-37.0`, not `android-37`**, which does not exist as a package —
+    and write `sdk.dir` to `apps/local.properties` (gitignored).
+  - `third_party/debugdrawer` is a private submodule; attach `SloopWorks/debugdrawer`
+    to the session, clone it, and check out the pinned commit.
+  - The private SWIP GitHub Packages token is **not** needed for
+    `:ui:desktopTest` — only `:swip-wiring` and `:androidApp` debug consume
+    those artifacts.
+  - **Font risk is real but was measured and is nil.** This sandbox has 59 fonts
+    vs. the CI runner's much larger set, so a locally-recorded golden could in
+    principle drift from CI's. Two checks settled it. Weak check: the **other
+    133 Linux goldens passed unchanged** in the same run. Strong check: once the
+    artifact fix landed, CI's own renders of these four scenes were downloaded
+    and diffed against the locally-recorded PNGs — **0.0000% differing pixels,
+    identical 822×1782 dimensions, all four**. Bit-for-bit agreement between
+    this sandbox's FreeType and the runner's. Redo the strong check before
+    trusting any future local record; it costs one artifact download.
+- **Unexplained, watch it:** on the CI runs since `46a652db`, the Compose job
+  **hung for ~18 minutes after** `:ui:desktopTest FAILED` and was killed by the
+  25-minute cap, where earlier runs failed fast in ~6m35s. Same test failures
+  either way — only the post-failure behaviour differs. Still no mechanism
+  identified, and **it did not reproduce locally** (`BUILD FAILED in 6m 59s`,
+  clean exit, same 4 failures, same `--no-daemon` invocation) — which argues for
+  something runner-specific rather than the Gradle invocation itself. The
+  step-level timeout above bounds the damage but does **not** diagnose it. If
+  you pick this up, that local-vs-CI asymmetry is the lead.
+- **Latent test-order hazard found while verifying (not a `main` break, not
+  fixed).** Running the full `:ui:desktopTest` in this sandbox, one test outside
+  the golden set fails: `AuthFlowUiTest.owner_opensInviteAndMintsQr` with
+  `IllegalStateException: The singleton image loader has already been created …
+  'setSafe' is being called after the first 'get' call`. It passes on CI (CI's
+  own run is 649 tests / 4 failed, and the 4 are exactly the goldens), so it is
+  **environment/order-specific, not a regression** — expected-output PNGs cannot
+  influence it. Mechanism: `setupImageLoader()` (`apps/ui/.../CoilSetup.kt`) is
+  invoked from a `remember { }` inside `FeedApp`, but `SingletonImageLoader.setSafe`
+  throws if any Coil `get()` already happened in that JVM. So whichever test first
+  triggers an image load *without* going through `FeedApp` poisons every later
+  `FeedApp`-composing test in the same worker. Today that ordering happens to be
+  benign on the runner. It is one test-class rename away from going red on CI for
+  reasons that will look unrelated to whatever change triggers it.
 - **Quarterly:** re-check whether Google ships a *free, family-shared*
   Gemini Daily Brief variant (KS-6 / OQ-gemini-family). First check ~2026-09.
 - **Quarterly:** re-check whether **Gemini Nano 4 has shipped structured output
