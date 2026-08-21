@@ -11,6 +11,29 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
+- **`main` is RED right now (as of 2026-08-21) and has been since ~2026-08-20.**
+  Last green CI run on `main` was `37d12ace` (2026-08-10). The failing lane is
+  **Client core + feed UI (Compose, headless)**: four golden snapshots fail with
+  `AssertionError at GoldenSnapshotTest.kt:20` — `hubCanonical()`,
+  `hubEnriched()`, `hubCanonicalDark()`, `hubEnrichedDark()` (649 tests
+  completed, 4 failed). **Root cause is already documented in this file**: the
+  2026-08-19 mobile-review entry records that macOS Hub goldens were recorded
+  and reviewed, but "the prescribed 7 GB Linux container twice lost its Gradle
+  daemon during compilation", so the **Linux** Hub goldens were never recorded.
+  CI runs Linux, so the gate has failed on every push since. **Fix: record the
+  four Linux Hub goldens** (the `Golden dashboard (on failure)` /
+  `Upload snapshot dashboard` CI steps produce the mismatched PNGs as an
+  artifact — grab them from a fresh run, since older run artifacts have already
+  expired). Not caused by, and not fixable within, the Smart Briefings V0.1
+  work: PRs #381 and #382 were merged with this lane failing identically before
+  either branch existed.
+- **Unexplained, watch it:** on the two CI runs since `46a652db`, the same
+  Compose job **hung for ~18 minutes after** `:ui:desktopTest FAILED` and was
+  killed by the 25-minute cap, where the three runs before it failed fast in
+  ~6m35s. Same four test failures either way — only the post-failure behaviour
+  differs. Two data points, no mechanism identified. If it recurs, look at the
+  `--no-daemon` Gradle invocation not exiting after a failed task rather than at
+  the tests themselves.
 - `main` was RED 2026-07-21 (head `d589193`, the 14th pass's own merge
   commit — root cause: unpinned `quicktype` version drift, see 15th-pass
   entry below); fixed by PR #353, merged, and **re-confirmed green** at head
