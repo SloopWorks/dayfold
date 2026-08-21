@@ -431,7 +431,7 @@ condition holds, the pilot stops. **Recorded 2026-08-21: that test covers the
 Gmail → Claude direction only; the Dayfold-content → Gmail-mutation direction is
 not covered by it — see below.**
 
-### Recorded 2026-08-21 — condition 1 cannot be satisfied on the measured surface
+### Recorded 2026-08-21 — condition 1 cannot be satisfied on the measured surface *(corrected the same day — read the correction subsection below before relying on this one)*
 
 Spike question 8, F-CATALOG, F-LABEL, F-FILTER
 (`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). This is the
@@ -448,6 +448,14 @@ trash, spam, and destructive labelling. Grade the two claims separately:
   page. That conclusion is measured against provider-authored metadata, not
   inferred and not a model self-report, and the runtime-versus-catalog question
   below does not touch it.
+  **Corrected 2026-08-21 — this bullet is wrong as written, and is kept rather
+  than rewritten.** The *inventory* it rests on stands and is now corroborated by
+  a third provider surface. The *conclusion* does not: it was measured against the
+  connector's **default configuration** and recorded as a property of the
+  **surface**. Condition 1 is **false by default, not unsatisfiable** — a per-tool
+  and per-group permission control exists, including a **block** state. Whether
+  blocking satisfies condition 1 **as literally worded** is an open question, not
+  a resolved one. See the correction subsection below.
 - **The exact runtime figure of 27 is strong evidence, not proof.** The directory
   **catalog** lists **29**; the two extra are filter tools that probed as
   unreachable at runtime. Two independent lines agree on 27 — a targeted
@@ -458,7 +466,12 @@ trash, spam, and destructive labelling. Grade the two claims separately:
   those queries invoked no tool is itself a model self-report, and the
   corroborating mailbox-state check was not performed.
 
-**The disjunction has collapsed to one unproven branch.** With condition 1
+**The disjunction has collapsed to one unproven branch.** *(**Corrected
+2026-08-21**: it collapsed to one branch **under the default configuration**. A
+control that may re-open the condition-1 branch exists and was not consulted when
+this paragraph was written. Nothing below is retracted — condition 2 is still
+unproven and question 9 still has not run — but "the pilot's **entire** Gmail
+safety argument" over-states it. See the correction subsection.)* With condition 1
 unsatisfiable here, **the pilot's entire Gmail safety argument is condition 2**
 — an unavoidable per-mutation human confirmation with no remembered approval,
 silent retry, or unattended execution. Condition 2 is **unmeasured**: the
@@ -517,6 +530,98 @@ re-check mechanism** for the Gmail tool surface; **what that mechanism is, and
 where the gate binds it, is an open design question this reconciliation does not
 settle.** Either way this gate cannot be satisfied once and for all by an
 inventory taken on one date from one surface.
+
+### Correction recorded 2026-08-21 — condition 1's status above was measured against the **default configuration**, and a per-tool permission control exists
+
+Spike **F-PERMS**, **F-DOCS**, question 8
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). **The two
+normative conditions at the top of this section are unchanged, and nothing in this
+subsection satisfies, passes, or advances either of them.** This is a correction
+to a recorded status, not a new capability and not a gate movement.
+
+**What was previously recorded, and why it was wrong.** The subsection above
+records condition 1 as *"dead on this surface — measured"* and the disjunction as
+collapsed, on the strength of **22 mutating tools of 27**. The inventory stands.
+The **conclusion drawn from it does not**: it was measured against the Gmail
+connector's **default configuration** and written down as a property of the
+**surface**. It is a property of the default. **This is the same error class
+`F-INVENTORY` already documents** — a conclusion drawn from one provider surface
+without checking whether another surface changes the answer — and it is the
+**third** time this packet has revised a conclusion about the Gmail tool surface.
+
+**What was observed.** On 2026-08-21 the controller opened
+`claude.ai › Settings › Connectors` on the same personal **Max** account, web
+client, and found the Gmail connector carries a **Tool permissions** section —
+*"Choose when Claude is allowed to use these tools"* — with two collapsible
+groups, each with a group-level dropdown:
+
+```
+Read-only tools      5      Always allow
+Write/delete tools  22      Needs approval
+```
+
+Every individual tool row carries **three** states — allow / ask / **block** —
+and every visible write/delete row was set to **ask**, matching the group default.
+The **Google Calendar** connector shows the identical structure, so this is a
+general connector capability on this account tier rather than a Gmail special
+case. **This was a read-only inspection: no setting was changed on the operator's
+account.**
+
+**The precise restatement.** Condition 1 is **false under the default
+configuration**, and the surface ships a first-class per-tool and per-group
+control that **may** make it true. That is materially different from
+unsatisfiable. If it holds, it is **strictly stronger than condition 2**: a
+structural control applied once, rather than a human judgment repeated at every
+mutation, and unaffected by whether "Always allow" is offered.
+
+**Why this does not restore condition 1 — the unresolved question.** Condition 1's
+wording is *"Gmail tools **exposed to the run** are structurally read-only"*, and
+it is sensitive to an implementation detail that is **unmeasured**: whether
+`block` **removes a tool from the surface offered to the run**, or **exposes it
+and refuses at call time**. The two differ against that exact phrasing even where
+the security property is comparable. The section header — "Choose when Claude is
+allowed to **use** these tools" — hints at call-time enforcement, but that is
+reading a UI label, not a measurement. **Blocking is therefore not recorded here
+as satisfying condition 1.** The cheap test that would settle it needs no mailbox
+— set the group to blocked, then ask Claude to enumerate its Gmail tools: if the
+22 disappear, blocking removes them from the surface; if they remain and refuse
+when called, it is call-time enforcement. **It changes an operator account setting
+and is operator-only; it has not been run.**
+
+**Also not established.**
+
+- **Persistence.** Whether the setting survives sessions, app upgrades, and
+  connector reconnects, and whether it can be silently reset. Three Anthropic
+  issue reports describe "Always allow" state failing to persist across chats,
+  sessions, and upgrades; the inverse failure would matter here, and none of those
+  reports covers a **blocked** state.
+- **Dayfold cannot verify it.** The setting lives in a third-party product Dayfold
+  cannot read, audit, or enforce. Whatever posture is chosen, Dayfold can never
+  confirm from its own side that the gate is intact. This is unchanged by the
+  finding, and it is why any such posture belongs in an **operator pre-run
+  checklist**, not in a Dayfold control.
+
+**One thing this does strengthen, independently of the gate.** The settings UI is
+a **provider-authored runtime** surface — not a catalog, not a model self-report —
+and it independently renders **5 read / 22 write-delete**, agreeing with the
+runtime figure of 27 rather than the catalog's 29. That closes the residual gap
+recorded above ("no provider-authored *runtime* manifest surface exists"). The row
+list scrolls and was only partially enumerated, so it corroborates the **split**,
+not every tool name.
+
+**Consequence for the subsection below, and for INB-41.** The condition-2
+observations that follow stand exactly as recorded. What changes is how much
+weight they carry: the interpretive question routed as **INB-41** — whether "no
+remembered approval" forbids the affordance or only its use — is load-bearing
+**only if the pilot must rest on condition 2**. If the condition-1 branch can be
+re-opened by configuration, it need not. **INB-41 has been reframed accordingly**
+and now leads with the posture question ("block the write/delete tool group as the
+pilot's required Gmail configuration") while preserving the interpretation
+question, which still governs if the blocking route fails the exposed-versus-
+refused test. **No status changes:** `adr/0071-self-managed-claude-bridge-v0.1.md`
+remains **Proposed**, this design remains **no-ship**, condition 2 remains
+unproven, spike question 9 remains unrun, and the synthetic mailbox remains
+absent.
 
 ### Recorded 2026-08-21 — condition 2's mechanism exists, and it offers remembered approval
 
@@ -579,6 +684,12 @@ they give **opposite verdicts**:
   measured surface**; with condition 1 already dead, **this section would have no
   surviving branch**, tripping the handoff stop condition *"Gmail mutation can
   occur without unavoidable human confirmation"* — and **the pilot stops**.
+  *(**Corrected 2026-08-21:** the clause "condition 1 already dead" was true of
+  the default configuration only. Reading A's verdict on **condition 2** is
+  unchanged, but "no surviving branch" no longer follows from it automatically —
+  that now depends on whether the condition-1 branch can be re-opened by blocking
+  the write/delete tool group, which is **unresolved**. See the correction
+  subsection above.)*
 - **Reading B — a usage policy binding the operator.** The mechanism may offer
   remembered approval provided the operator never grants it and always chooses
   "Allow once". Condition 2 stays satisfiable, but the pilot's Gmail safety then
