@@ -128,20 +128,60 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
-### Active — Smart Briefings V0.1 Claude Bridge, Phase A (2026-08-20)
+### Active — Smart Briefings V0.1 Claude Bridge, Phases A–C (2026-08-21)
 
-Work Package 0 of the Claude Bridge compatibility spike is built under
-`spikes/claude-mcp-v0.1/`: a synthetic OAuth authorization server, a
-stateless Streamable HTTP MCP surface with two spike tools, content-blind
-diagnostics, and a leak-canary suite (no caller-supplied value found reaching
-any log line, error body, SDK-originated error string, or response header).
-**149 tests pass** (`npm test` in that directory); zero production Dayfold
-code changed — nothing under `apps/`, `packages/`, or `specs/` was touched.
-The spike is **synthetic-only, local, and un-deployed**: it has never been run
-against Claude, never contacted an external service, and has processed **no
-private data**. Operator runbook: `spikes/claude-mcp-v0.1/RUNBOOK.md`. Report
-template (every answer `UNKNOWN`, no evidence yet):
+Work Package 0's spike is built under `spikes/claude-mcp-v0.1/` — a synthetic
+OAuth authorization server, a stateless Streamable HTTP MCP surface with two
+spike tools, content-blind diagnostics, and a leak-canary suite. **171 tests
+pass** (`npm test` there). Zero production Dayfold code changed. Merged as PRs
+#381–#384 and #386.
+
+**Phase B ran on 2026-08-21** — the earlier "never been run against Claude"
+note is superseded. An operator-driven session against a live Claude **Max**
+account (claude.ai web / Chrome / personal), reached through an ephemeral
+Cloudflare tunnel the operator created, ran, and terminated. **3 of 10 matrix
+questions are answered** (1, 3, 8); the rest are `UNKNOWN` on coverage. Evidence:
 `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`.
+
+**Still synthetic.** No mailbox was ever connected to a Dayfold surface, **no
+Gmail tool ever executed**, and no private data was processed. Three narrow
+read-only uses of the operator's own Gmail connector are recorded there (a
+tool-name listing, a filter-tool existence probe, and a confirmation-mechanism
+probe whose every dialog was **denied** — nothing sent).
+
+What the run produced, beyond coverage:
+
+- **A production-blocking CSP defect, found and fixed.** `form-action 'self'`
+  on the approval page silently stops the authorization code reaching the
+  client in Chrome/Safari — server logs read `oauth.approve / ok` then nothing,
+  and `curl` cannot detect it because it does not enforce CSP. WP4 inherits the
+  carve-out requirement (`system-design.md` §10).
+- **Two facts that simplify WP4:** Claude sends the RFC 8707 `resource`
+  indicator (exact binding is enforceable; the spike's deliberate leniency
+  closes), and **DCR is not required** — the client is metadata-driven, so the
+  registration route need not exist.
+- **§9 condition 1 is false by default, not unsatisfiable** — corrected
+  2026-08-21 (PR #386, `F-PERMS`). It was first recorded as dead; that measured
+  the connector's *default* configuration, not its capabilities. `Settings ›
+  Connectors` exposes per-tool **allow/ask/block** with the 22 write/delete
+  tools grouped and defaulted to "Needs approval". Whether **block** removes a
+  tool from the run's surface or refuses at call time is **unmeasured**, and
+  §9's wording ("tools *exposed to the run*") is sensitive to the difference.
+
+Phase C step 1 (reconcile recorded provider facts into ADR 0071 / system design
+/ plan) is complete, along with the security review plan §5.1 makes mandatory
+when the Gmail-write gate changes. **No gate is passed**: ADR 0071 stays
+**Proposed**, the design stays no-ship, and §9's normative conditions are
+unchanged.
+
+**Repeated lesson, now three revisions deep:** four provider surfaces have been
+consulted about the Gmail tool inventory — directory catalog, runtime tool
+manifest, settings UI, and documentation — and **three of the four disagreed
+with at least one other**. Anthropic's own Workspace-connector doc under-states
+the runtime (it describes per-tool control as Team/Enterprise-only), and that
+error runs in the **unsafe** direction: a reader trusting it designs around a
+constraint that does not exist. The durable rule recorded in `F-INVENTORY`:
+**when surfaces disagree, probe — do not adjudicate.**
 
 ### Active — mobile app review / Hub completion parity (2026-08-19)
 
@@ -473,16 +513,38 @@ Gradle daemon during compilation, so those counterparts remain pending.
 
 ## Operator actions pending
 
-- [ ] **Claude Bridge Phase B is blocked on operator gates, none agent-decidable
-  (2026-08-20).** **INB-39** (open) needs ratifying the operator-pilot boundary
-  and retention constants and accepting or replacing Proposed ADR 0071. Beyond
-  that: authorize the external spike (a Claude account/plan, a connector
-  install, and a publicly reachable endpoint — tunnel or preview deployment —
-  plus any Terms acceptance or spend those require); approve the Gmail-mutation
-  no-go protocol before matrix question 9 is run; after the spike, ADR 0008
-  sign-off on the spike-informed hi-fi; and, before any private data, an
-  eligible commercial no-training posture or an explicit constitutional
-  amendment (a consumer model-improvement toggle alone is insufficient).
+- [ ] **Claude Bridge: Phase B partly run, everything remaining is operator-gated
+  (updated 2026-08-21).** The external-spike authorization, the connector
+  install, the tunnel, and the Gmail-mutation no-go approval were all given and
+  used on 2026-08-21; 3 of 10 matrix questions are answered. What is left, none
+  of it agent-decidable:
+  1. **Run the block-then-enumerate test** — set Gmail's write/delete group to
+     blocked in `Settings › Connectors`, then ask Claude to enumerate its Gmail
+     tools. If the 22 disappear, blocking removes them from the run's surface
+     and §9 condition 1 is restorable; if they remain and refuse, it is
+     call-time enforcement and condition 1's literal wording may not be met.
+     **No mailbox needed**, but it changes an account setting, so it is the
+     operator's to run. This should come *before* the decisions below.
+  2. **INB-41** — now two questions in order: ratify "block the write/delete
+     group" as the pilot's required Gmail posture, and (only if that fails the
+     test above) the original "no remembered approval" interpretation. Its own
+     revised default is *run the test first and ratify nothing yet*.
+  3. **INB-39** — ratify the operator-pilot boundary and retention constants;
+     accept or replace Proposed ADR 0071. Its acceptance gate 1 needs the Gmail
+     write behaviour settled, so it waits on (1)/(2).
+  4. **INB-40** — resolve whether the V2 schema freeze is ADR-0071-gated; the
+     packet contradicts itself (`CLAUDE-HANDOFF.md:66` vs plan `:639-640`).
+  5. **ADR 0008 sign-off** on the spike-informed hi-fi (Phase C step 2, not yet
+     generated — it now has real provider facts to draw on, including a
+     client-ID paste step and an entirely untested mobile ceremony).
+  6. **A throwaway Google account** for matrix questions 2 and 9. Possibly no
+     longer the critical path if (1) restores condition 1 — worth deciding after
+     the test, not before. Question 9 against a personal mailbox was **declined**
+     and stays declined: it plants an email instructing Claude to send, reply,
+     label, archive and delete, and the whole point is that compliance is unknown.
+  7. **Before any private data**, unchanged: an eligible commercial no-training
+     posture or an explicit constitutional amendment. A consumer
+     model-improvement toggle alone remains insufficient.
 - [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
   found 10 already-orphaned actions + 3 additional dark Calendar Check
   composables on `main` on its first run (2026-08-10)** — allow-listed with
