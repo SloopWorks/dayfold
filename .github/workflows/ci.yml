@@ -101,7 +101,16 @@ jobs:
       # apps/client no longer has its own wrapper. Run the module task from apps/.
       # ADR 0047 split the Compose UI + render/snapshot tests into :ui — run both
       # (:client = logic tests; :ui = render/UI + CL-SNAP golden/snapshot tests).
+      # Step-level cap, deliberately BELOW the job's 25-minute cap. Gradle here has
+      # twice been observed to keep running for ~18 minutes AFTER `:ui:desktopTest
+      # FAILED` instead of exiting (root cause unknown — suspect the `--no-daemon`
+      # invocation not tearing down after a failed task). When that happens the JOB
+      # times out, which CANCELS the remaining steps — so the golden dashboard is
+      # never rendered and never uploaded, and a red run yields no diagnostics at all.
+      # Failing the STEP instead leaves ~7 minutes for the two `if: failure()` steps
+      # below (the dashboard run takes ~70s), so a hang still produces the artifact.
       - working-directory: apps
+        timeout-minutes: 18
         run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest :swip-wiring:desktopTest
       # On golden failure: render the batch dashboard (per-shot image + magenta diff +
       # verdict, self-contained index.html) and upload it, so a failed PR run gives
@@ -118,6 +127,11 @@ jobs:
           name: snapshot-dashboard
           path: apps/ui/.rk-snapshots
           if-no-files-found: ignore
+          # `.rk-snapshots` is a DOT-directory, and upload-artifact@v4 excludes hidden
+          # paths by default — so this step silently uploaded nothing on every golden
+          # failure since it was added ("No files were found with the provided path"),
+          # leaving red golden runs with no visual diff and no re-recordable PNGs.
+          include-hidden-files: true
 
   android:
     name: Android app (debug + release boundary)
