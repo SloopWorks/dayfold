@@ -11,6 +11,11 @@ customer access, or spend.
 - Hi-fi gate: `designs/PROMPT-smart-briefings-v0.1-claude-bridge.md`
 - Plan: `docs/superpowers/plans/2026-08-20-smart-briefings-v0.1-claude-bridge.md`
 - Reviews: `research/2026-08-20-smart-briefings-v0.1-adversarial-review.md`
+- Provider evidence:
+  `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md` — one
+  operator-run session, 2026-08-21, Claude **Max** / claude.ai web / personal
+  account. **3 of 10 matrix questions answered, 7 `UNKNOWN`.** Every "recorded
+  2026-08-21" note below cites that file; nothing else in this ADR is measured.
 
 If accepted, this narrows/replaces the V0.1 portions of Proposed ADR 0061.
 Proposed ADR 0062 applies only where this ADR and the dedicated connector
@@ -89,6 +94,29 @@ The bridge tools are only:
 There is no generic Hub/content, apply, edit, delete, send, share, role, URL-fetch,
 filesystem, shell, or OAuth tool.
 
+**Recorded 2026-08-21 — the shape above is the shape the real client drives.**
+Measured against Claude Max on claude.ai web, personal account. These facts
+change no decision in this section; they close questions it was written around.
+
+- **Dynamic client registration is not required** (spike question 3, F-RUNBOOK).
+  Claude never called `/oauth/register`. It read the authorization-server
+  metadata, found no `registration_endpoint`, and asked the operator to enter an
+  OAuth client ID by hand; the entire ceremony then completed against a **public
+  client with no secret** (`token_endpoint_auth_methods_supported: ["none"]`).
+  The client is **metadata-driven, not probe-driven** — what the metadata
+  advertises controls the behavior, and the registration route need not exist.
+  *Not measured:* how the client behaves when `registration_endpoint` **is**
+  advertised; that pass was not run.
+- **Streamable HTTP is the right transport** (question 5). `initialize`,
+  `tools/list`, and `tools/call` all completed against a stateless server that
+  issues no session id; Claude negotiated MCP protocol version **`2025-11-25`**,
+  opened no standalone `GET` stream, and issued no `DELETE` on `/mcp`.
+- **The bridge is an architectural peer of a first-party connector** (question
+  8). Gmail's own Claude connector is itself a remote MCP server **authored by
+  Google** at `https://gmailmcp.googleapis.com/mcp/v1`, per Anthropic's
+  provider-authored connector-directory page. The isolated-remote-MCP shape this
+  section chose is the same shape Google ships on that surface.
+
 ### 4. Separate ephemeral enrollment from durable installation/run identity
 
 A 60-minute enrollment attempt owns the browser/poll/approval ceremony. Approval
@@ -135,6 +163,58 @@ tools or unavoidable per-mutation human confirmation with no remembered approval
 silent retry, or unattended execution. A synthetic prompt-injection test attempts
 send/reply/label/delete/archive. Failure to prove one of those provider-level
 boundaries stops the pilot. Dayfold instructions alone never qualify.
+
+**Recorded 2026-08-21 — the read-only branch is gone** (spike question 8,
+F-CATALOG, F-LABEL, F-FILTER). The Gmail connector's **runtime** surface on
+claude.ai (Max, web, personal) carries **27 tools — 5 read and 22 mutating** —
+including immediate send, reply, forward, trash, spam, and labelling that moves
+mail to Trash or Spam. Two claims, graded as the report grades them:
+
+- **The read-only branch is dead on this surface — measured.** Immediate send,
+  reply, forward, trash, spam, and destructive labelling appear on **every**
+  surface consulted, including Anthropic's **provider-authored**
+  connector-directory page: measured against provider-authored metadata, not
+  inferred and not a model self-report.
+- **The exact figure of 27 is strong evidence, not proof.** The connector
+  *catalog* lists 29, the two extra being filter tools that probed as unreachable
+  at runtime. Two independent lines agree on 27, one of them a provider-delivered
+  manifest, but no provider-authored **runtime** manifest surface exists, so the
+  runtime is establishable only through the model today. This does not touch the
+  bullet above.
+
+Consequences, recorded rather than decided:
+
+- **The pilot's whole Gmail safety case now rests on one unproven condition** —
+  the unavoidable per-mutation human confirmation. The read-only alternative
+  cannot be satisfied on the measured surface, and the injected-mutation test
+  that would establish the confirmation branch **has not been run**: no synthetic
+  mailbox exists, and running it against the operator's personal mailbox was
+  declined. **This gate is further from satisfied after the spike, not closer**,
+  and a synthetic mailbox is now a prerequisite rather than a convenience.
+- **Keep the enumeration "send/reply/label/delete/archive" intact.** Two runtime
+  tools apply Trash and Spam labels, so mail can be destroyed through label
+  *application* with no delete-shaped tool name; any classification reasoning
+  only about obviously-named destructive tools mis-classifies labelling as benign
+  (F-LABEL).
+- **The inventory is a snapshot, not a durable guarantee.** Anthropic states
+  verbatim that it "does not control which tools developers make available and
+  cannot verify that they will work as intended or that they won't change", and
+  the server is Google's. **Whether and how the pilot re-checks that surface is
+  an open design question**; this gate cannot be satisfied once and for all by an
+  inventory taken on one date.
+- **Known gap, deliberately not closed here** (F-FILTER). Neither branch of this
+  gate can express "**this confirmed mutation delegates standing authority that
+  outlives the run**". The one known instance, `create_filter`, probed as **not
+  reachable at runtime** — strong evidence, not proof — so the hazard does not
+  bite on the measured surface and **nothing is amended now**. Recorded, not
+  answered: the carve-out belongs in `system-design.md` §9 as a **general rule,
+  not a named exclusion**, because a named exclusion fails silently against the
+  next such tool.
+- **This section's insistence on testing "the exact Claude surface" is
+  vindicated.** A directory catalog, a model self-report, and another harness's
+  manifest gave two different answers about the same connector; only a probe of
+  the runtime distinguished them, and the difference included the one tool that
+  would have forced a redesign of `system-design.md` §9.
 
 ### 8. Preserve the no-training constitution
 
@@ -236,6 +316,18 @@ Before Accepted:
 6. The operator performs every external account, connector, preview deployment,
    Terms, and spend action.
 7. Counsel/privacy and versioned legal acceptance precede any non-operator data.
+
+**Status of gate 1 as of 2026-08-21: not satisfied.** The spike ran once and
+records **3 of 10** matrix questions. Of the seven `UNKNOWN` rows, questions 2
+and 9 are blocked on a **synthetic mailbox that does not exist**, and questions
+4, 5, 6, 7, and 10 carry real observations but had part of their own rubric
+unexercised. **Gmail-write *behavior* is unrecorded** — the tool inventory is
+recorded (§7), the injected-mutation test is not — so gate 1 cannot be reached
+until spike question 9 runs, which requires the synthetic mailbox. **No other
+gate is advanced by that run either**, per the report: there is no ADR 0008 hi-fi
+sign-off (gate 2), this ADR is not accepted, and an eligible no-training
+authority for private data is absent and untouched — **a consumer Max plan
+hosting a working connector is not one** (§8).
 
 ## Revisit triggers
 

@@ -186,6 +186,30 @@ Stop on any of:
 - provider errors necessarily echo tool input/source content;
 - the surface cannot reconnect after revoke.
 
+### Recorded status, 2026-08-21
+
+The local artifact exists (`spikes/claude-mcp-v0.1/`, suite 171 pass / 0 fail) and
+the operator ran one external session against a live Claude **Max** account on
+claude.ai web. The report records **3 of 10 questions answered, 7 `UNKNOWN`**;
+`UNKNOWN` there means the question's own rubric was only partly exercised, not
+that the observations inside the row are doubtful.
+
+Against the six stop conditions above, per the report's ledger — **"not assessed"
+is not "clear"**:
+
+| # | Status |
+|---|---|
+| 1 coexistence | **not tripped, partially assessed** — both connectors enabled on one account; co-invocation in one conversation not exercised |
+| 2 Claude credential | **not tripped, assessed** — no Claude account credential was requested, entered, or captured |
+| 3 weak OAuth | **not tripped, assessed** — code flow, S256, one exact redirect, matching `resource` |
+| 4 unconfirmed Gmail mutation | **NOT ASSESSED** — question 9 not run; and question 8 makes this live rather than theoretical: **22 mutating tools on the runtime surface**, the mutating families measured on every surface consulted, the exact count of 27 **strong evidence, not proof** (§5.1) |
+| 5 provider errors echo content | **NOT ASSESSED** — the deliberate error paths were never driven |
+| 6 reconnect after revoke | **NOT ASSESSED** — `/oauth/revoke` was never called |
+
+**One operational fact from the local phase.** `spikes/claude-mcp-v0.1/` sits
+**outside the repository's npm workspaces and has no CI lane**, so its 171 tests
+only ever ran locally. `apps/mcp-bridge` must not inherit that — see WP4.
+
 **Commit boundary:** `spike: record synthetic Claude connector compatibility`
 
 ## 5. Work Package 1 — reconcile and sign off design/contracts
@@ -195,6 +219,29 @@ Stop on any of:
 Update ADR 0071 and the system design only with recorded spike evidence. If the
 result changes hosting, token boundary, Gmail-write gate, lifecycle, or scope,
 request one new security review before continuing.
+
+**Performed 2026-08-21, for the recorded rows only.** Reconciled into ADR 0071
+§3, §7, and its acceptance-gate status; `system-design.md` §2, §4, §6, §7, §8,
+§9, §10, §16, §17; and this plan's §4, §8, and §14. Every edit cites the spike
+question or finding it comes from. The seven `UNKNOWN` rows are **not**
+reconciled and must be when they are answered — the report's own rule is that a
+false `PASS` propagates into the architecture, and an `UNKNOWN` there is a
+verdict about coverage, not a doubt about the observations inside the row. No
+status changed: ADR 0071 stays **Proposed**, the system design stays a no-ship
+design, and no gate became passed.
+
+**This triggers the security review this section requires.** The **Gmail-write
+gate changed**: `system-design.md` §9 condition 1 ("the Gmail tools exposed to
+the run are structurally read-only") is unsatisfiable on the measured surface —
+22 of 27 runtime tools mutate, the mutating families measured on every surface
+consulted and the exact count of 27 graded strong evidence rather than proof — so
+the gate now rests on condition 2 alone, and condition 2 is unproven because
+spike question 9 has not run. The reviewer should
+also weigh the OAuth-ceremony edits in `system-design.md` §10, which touch the
+authorization surface: the mandatory `form-action` carve-out (F-CSP), the
+recorded decision that no registration endpoint need exist, and confirmation that
+exact `resource` binding is enforceable. Hosting, the token boundary, lifecycle,
+and scope are unchanged.
 
 ### 5.2 Generate final hi-fi
 
@@ -355,7 +402,9 @@ pure policy packages, not main API middleware or generic repositories.
 ```text
 /.well-known/oauth-protected-resource
 /.well-known/oauth-authorization-server
-/oauth/register              # disabled unless spike requires DCR
+/oauth/register              # not required: spike Q3 recorded DCR is not used;
+                             # omitting registration_endpoint is sufficient and
+                             # the route need not exist
 /oauth/authorize
 /oauth/token
 /oauth/revoke
@@ -368,6 +417,15 @@ Implement Authorization Code + S256 PKCE, exact redirect/resource matching,
 and per-call credential status. DCR permits only proven redirects/scopes and
 short-lived clients.
 
+**That last sentence is residue, recorded 2026-08-21.** DCR is **not required**
+(spike question 3) and the route need not exist, as the endpoint list above now
+says. The sentence is left as written — it costs nothing while the route is
+absent and binds again only if a later decision re-enables DCR. **Re-enabling DCR
+also re-opens the `form-action` carve-out** in `system-design.md` §10 for security
+review, because a registrant would then control the redirect origin that lands in
+a CSP header on the code-carrying page. The two are coupled; do not decide them
+separately.
+
 The browser ceremony stores only the hash of a separate 256-bit poll secret and
 sends the plaintext secret only in a Secure, HttpOnly, SameSite cookie (or the
 equally strong browser-only channel proven by the spike). The human/app/QR sees
@@ -378,6 +436,63 @@ bounded client names, host/origin checks, and rate/body/time/concurrency limits.
 The bridge uses a separate generated diagnostic/SWIP source with
 `stripMessage=true` plus request stripping. Do not wrap it in `apps/api` Sentry or
 message-preserving middleware.
+
+### Recorded provider constraints, 2026-08-21
+
+From `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md` — measured
+against Claude Max on claude.ai web unless noted. These constrain WP4; they do not
+advance any gate.
+
+**This is a subset, not the whole list.** The report's "What WP4 inherits"
+carries **fourteen** items. Three of them are recorded in
+`system-design.md` §9 and ADR 0071 §7 instead, because they belong to the Gmail
+write gate rather than to the bridge: **label application is a destructive
+channel** (F-LABEL), **§9 needs a general home for standing-authority mutations**
+(F-FILTER), and **the Gmail tool surface needs a re-check mechanism** (F-CATALOG,
+F-INVENTORY). A fourth, the second injection direction into a session holding 22
+mutating Gmail tools, is recorded in §9 as well. Read those with this list.
+
+1. **The approval page's `form-action` must include the registered redirect
+   origin**, not only `'self'` — otherwise Chrome and Safari refuse the
+   code-carrying redirect and the ceremony dies **with no server-side error**
+   (F-CSP, `system-design.md` §10). Keep it an exact allow-list, never a
+   wildcard, and take the origin from the **stored client record after exact
+   redirect-URI validation, never from request input** — otherwise the carve-out
+   becomes attacker-steerable. Re-enabling DCR re-opens it for review. **Cover the redirect target in tests, not just the POST, and require
+   at least one real-browser pass:** `curl` does not enforce CSP, so a green
+   non-browser suite is not evidence for this defect class.
+2. **Ship no `/oauth/register`.** Omitting `registration_endpoint` from the
+   authorization-server metadata is sufficient; the client is metadata-driven
+   (question 3, F-RUNBOOK). Behavior when the endpoint *is* advertised is
+   unmeasured.
+3. **Enforce exact `resource` binding** at authorize and token. Claude sends the
+   RFC 8707 indicator and it matched the origin exactly at authorize; the spike's
+   deliberate leniency was spike-only and must not be carried forward (question 4).
+4. **One fixed redirect URI per connector** — `https://claude.ai/api/mcp/auth_callback`
+   for this client. No wildcard, prefix match, or per-install registration.
+5. **Support a public client with no secret** plus a **manually pasted client
+   ID**, and draw that step in the enrollment UX (question 3).
+6. **MCP protocol `2025-11-25` is the floor.** Stateless Streamable HTTP, no
+   session id, no standalone `GET` stream, no `DELETE` teardown (question 5).
+7. **Assume no human is present on any Dayfold tool call** — refresh is silent
+   and unattended, and the rotating lineage did not false-positive (questions 4
+   and 10).
+8. **Read connector capability from the runtime, never from the connector
+   directory** (F-CATALOG), and **name which surface an inventory came from;
+   probe when surfaces disagree** (F-INVENTORY). A directory catalog, a runtime
+   manifest, and a model's self-description are three artifacts with three
+   failure modes, and here they disagreed.
+9. **Diagnostics, recorded not settled:** the spike's single `invalid_request`
+   log outcome collapses five distinct closed refusal codes, and the first thing
+   the real client did was produce a line the log could not explain (F-BUCKET).
+   The report's recorded consequence is to give each refusal family its own
+   closed outcome or add a `class` dimension — both content-blind, since the
+   codes are Dayfold-owned constants. **Whether to do that is a WP4 design
+   decision, not settled by reconciliation.**
+10. **`apps/mcp-bridge` needs a CI lane from its first commit.** The WP0 spike sat
+    outside the npm workspaces with no CI lane and its tests only ever ran
+    locally; the bridge's OAuth and MCP surfaces are exactly where "passed
+    locally" is worth least.
 
 ### Mandatory cross-protocol matrix
 
@@ -628,6 +743,11 @@ cd apps && JAVA_HOME=<jdk17> ./gradlew :swip-wiring:desktopTest
 Also run repository formatting/schema drift, the exact provider spike runbook, and
 a fresh-context security review of any load-bearing change. Do not deploy as part
 of an automated test.
+
+`apps/mcp-bridge` runs in CI from its first commit (WP4, recorded constraint 10) —
+the WP0 spike had no CI lane and its tests only ever ran locally. Its OAuth
+ceremony additionally needs at least one **real-browser** pass: `curl` does not
+enforce CSP, so the local suite cannot see the F-CSP defect class at all.
 
 ## 15. Sequencing and stop points
 
