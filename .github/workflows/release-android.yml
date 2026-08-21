@@ -166,6 +166,14 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
+          # Install into a runner-writable GEM_HOME. The hosted image's system Ruby owns
+          # /var/lib/gems/3.2.0 as root, so a plain `gem install` fails with
+          # `Gem::FilePermissionError` (this broke every main-push release from
+          # 2026-08-20). An explicit GEM_HOME beats `--user-install` here: it does not
+          # depend on the image's Gem.user_dir layout, and it keeps the gems inside the
+          # per-job temp dir.
+          export GEM_HOME="$RUNNER_TEMP/gems"
+          export PATH="$GEM_HOME/bin:$PATH"
           gem install --no-document fastlane >/dev/null
           fastlane supply \
             --package_name com.sloopworks.dayfold \

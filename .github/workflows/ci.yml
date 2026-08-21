@@ -118,6 +118,11 @@ jobs:
           name: snapshot-dashboard
           path: apps/ui/.rk-snapshots
           if-no-files-found: ignore
+          # `.rk-snapshots` is a DOT-directory, and upload-artifact@v4 excludes hidden
+          # paths by default — so this step silently uploaded nothing on every golden
+          # failure since it was added ("No files were found with the provided path"),
+          # leaving red golden runs with no visual diff and no re-recordable PNGs.
+          include-hidden-files: true
 
   android:
     name: Android app (debug + release boundary)
