@@ -220,6 +220,27 @@ Update ADR 0071 and the system design only with recorded spike evidence. If the
 result changes hosting, token boundary, Gmail-write gate, lifecycle, or scope,
 request one new security review before continuing.
 
+**Performed 2026-08-21, for the recorded rows only.** Reconciled into ADR 0071
+§3, §7, and its acceptance-gate status; `system-design.md` §2, §4, §6, §7, §8,
+§9, §10, §16, §17; and this plan's §4, §8, and §14. Every edit cites the spike
+question or finding it comes from. The seven `UNKNOWN` rows are **not**
+reconciled and must be when they are answered — the report's own rule is that a
+false `PASS` propagates into the architecture, and an `UNKNOWN` there is a
+verdict about coverage, not a doubt about the observations inside the row. No
+status changed: ADR 0071 stays **Proposed**, the system design stays a no-ship
+design, and no gate became passed.
+
+**This triggers the security review this section requires.** The **Gmail-write
+gate changed**: `system-design.md` §9 condition 1 ("the Gmail tools exposed to
+the run are structurally read-only") is unsatisfiable on the measured surface —
+22 of 27 runtime tools mutate — so the gate now rests on condition 2 alone, and
+condition 2 is unproven because spike question 9 has not run. The reviewer should
+also weigh the OAuth-ceremony edits in `system-design.md` §10, which touch the
+authorization surface: the mandatory `form-action` carve-out (F-CSP), the
+recorded decision that no registration endpoint need exist, and confirmation that
+exact `resource` binding is enforceable. Hosting, the token boundary, lifecycle,
+and scope are unchanged.
+
 ### 5.2 Generate final hi-fi
 
 Run `designs/PROMPT-smart-briefings-v0.1-claude-bridge.md`. Produce phone, browser

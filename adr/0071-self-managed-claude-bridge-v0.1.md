@@ -164,6 +164,49 @@ silent retry, or unattended execution. A synthetic prompt-injection test attempt
 send/reply/label/delete/archive. Failure to prove one of those provider-level
 boundaries stops the pilot. Dayfold instructions alone never qualify.
 
+**Recorded 2026-08-21 — the read-only branch is gone** (spike question 8,
+F-CATALOG, F-LABEL, F-FILTER). The Gmail connector's **runtime** surface on
+claude.ai (Max, web, personal) exposes **27 tools — 5 read and 22 mutating** —
+including immediate send, reply, forward, trash, spam, and labelling that moves
+mail to Trash or Spam. It was enumerated by a listing-only query that invoked no
+tool and corroborated against Anthropic's provider-authored connector-directory
+page: **measured, not inferred and not a model self-report.** The connector
+*catalog* lists 29; that difference is strong evidence rather than proof and is
+irrelevant here, because the mutating families appear on **every** surface
+consulted. Consequences, recorded rather than decided:
+
+- **The pilot's whole Gmail safety case now rests on one unproven condition** —
+  the unavoidable per-mutation human confirmation. The read-only alternative
+  cannot be satisfied on the measured surface, and the injected-mutation test
+  that would establish the confirmation branch **has not been run**: no synthetic
+  mailbox exists, and running it against the operator's personal mailbox was
+  declined. **This gate is further from satisfied after the spike, not closer**,
+  and a synthetic mailbox is now a prerequisite rather than a convenience.
+- **Keep the enumeration "send/reply/label/delete/archive" intact.** Two runtime
+  tools apply Trash and Spam labels, so mail can be destroyed through label
+  *application* with no delete-shaped tool name; any classification reasoning
+  only about obviously-named destructive tools mis-classifies labelling as benign
+  (F-LABEL).
+- **The inventory is a snapshot, not a durable guarantee.** Anthropic states
+  verbatim that it "does not control which tools developers make available and
+  cannot verify that they will work as intended or that they won't change", and
+  the server is Google's. **Whether and how the pilot re-checks that surface is
+  an open design question**; this gate cannot be satisfied once and for all by an
+  inventory taken on one date.
+- **Known gap, deliberately not closed here** (F-FILTER). Neither branch of this
+  gate can express "**this confirmed mutation delegates standing authority that
+  outlives the run**". The one known instance, `create_filter`, probed as **not
+  reachable at runtime** — strong evidence, not proof — so the hazard does not
+  bite on the measured surface and **nothing is amended now**. Recorded, not
+  answered: the carve-out belongs in `system-design.md` §9 as a **general rule,
+  not a named exclusion**, because a named exclusion fails silently against the
+  next such tool.
+- **§7's insistence on testing "the exact Claude surface" is vindicated.** A
+  directory catalog, a model self-report, and another harness's manifest gave two
+  different answers about the same connector; only a probe of the runtime
+  distinguished them, and the difference included the one tool that would have
+  forced a §9 redesign.
+
 ### 8. Preserve the no-training constitution
 
 All compatibility work uses synthetic data. Private operator Gmail/Dayfold data
@@ -264,6 +307,18 @@ Before Accepted:
 6. The operator performs every external account, connector, preview deployment,
    Terms, and spend action.
 7. Counsel/privacy and versioned legal acceptance precede any non-operator data.
+
+**Status of gate 1 as of 2026-08-21: not satisfied.** The spike ran once and
+records **3 of 10** matrix questions. Of the seven `UNKNOWN` rows, questions 2
+and 9 are blocked on a **synthetic mailbox that does not exist**, and questions
+4, 5, 6, 7, and 10 carry real observations but had part of their own rubric
+unexercised. **Gmail-write *behavior* is unrecorded** — the tool inventory is
+recorded (§7), the injected-mutation test is not — so gate 1 cannot be reached
+until spike question 9 runs, which requires the synthetic mailbox. No other gate
+is advanced by that run: no ADR 0008 hi-fi sign-off exists (gate 2), no constant
+is ratified (gate 3), the security test matrix is unwritten (gate 4), and
+private-data authority remains absent (§8, and it is untouched by the run — a
+consumer Max plan hosting a working connector is not a no-training authority).
 
 ## Revisit triggers
 

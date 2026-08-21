@@ -76,6 +76,12 @@ schema change, not a free-text setting.
 - Attachment contents. Claude currently exposes Gmail attachment metadata, not
   attachment bytes, through its native connector.
   [fact:https://support.claude.com/en/articles/10166901-use-google-workspace-connectors]
+  *(Provisional: this is a provider **documentation** claim, not a probe of the
+  runtime. F-CATALOG recorded 2026-08-21 that Anthropic's connector-directory
+  surface **over-stated** the Gmail runtime by two tools, so any capability claim
+  not established against the surface that will actually execute is provisional.
+  Over-statement errs safe for a gate and is unreliable as a capability
+  contract.)*
 - Gmail links, source locators, forwarding, add-ons, artifact storage, link
   crawling, attachment hosting, or “Open original in Gmail.”
 - Calendar, Drive, scheduling, background tasks, or automatic publication.
@@ -267,6 +273,17 @@ The UI must say:
   encrypted from the Dayfold service in M0.
 - Sharing a Dayfold card never grants Gmail access.
 
+**Recorded 2026-08-21, two notes on this section.** (1) The bullet "Claude's
+Gmail connection **may** expose write tools" is now measured: on the surface
+tested it **does** — 22 mutating tools including immediate send and destructive
+labelling (§9). The bullet as written still holds; whether operator-facing copy
+should state it more strongly is a copy decision for the ADR 0008 hi-fi review,
+not something this reconciliation settles. (2) Spike question 7 recorded
+**nothing** about what Claude stores in chat or which retention, deletion, or
+training controls exist — those settings were never opened, so no wording exists
+to quote. The retention and training statements in this section are therefore
+**unverified against the provider surface**, and remain so.
+
 Suggested concise copy:
 
 > Claude reads the Gmail and Dayfold information you ask it to use. Anthropic
@@ -404,6 +421,69 @@ exact eligible Claude surface must prove either:
 The synthetic spike plants an injected email asking Claude to send, label, and
 delete. The operator records the provider-level block/confirmation. If neither
 condition holds, the pilot stops.
+
+### Recorded 2026-08-21 — condition 1 cannot be satisfied on the measured surface
+
+Spike question 8, F-CATALOG, F-LABEL, F-FILTER
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). This is the
+one packet statement the run positively forces a revision of.
+
+**Measured inventory.** The Gmail connector's **runtime** surface on claude.ai
+(Max, web, personal) exposes **27 tools — 5 read and 22 mutating**, including
+immediate send, reply, forward, trash, spam, and destructive labelling. It was
+enumerated by a listing-only query that invoked nothing and corroborated against
+Anthropic's provider-authored connector-directory page. **Condition 1 is
+therefore dead on this surface — measured against provider-authored metadata,
+not inferred and not a model self-report.** (The directory **catalog** lists 29;
+the two extra are filter tools that probed as unreachable at runtime. That
+27-vs-29 difference is **strong evidence, not proof** — the resolving probe is a
+model self-report agreeing with a provider-delivered manifest, and no
+provider-authored *runtime* manifest exists. It does not matter to condition 1:
+the mutating families appear on **every** surface consulted, catalog and runtime
+alike.)
+
+**The disjunction has collapsed to one unproven branch.** With condition 1
+unsatisfiable here, **the pilot's entire Gmail safety argument is condition 2**
+— an unavoidable per-mutation human confirmation with no remembered approval,
+silent retry, or unattended execution. Condition 2 is **unmeasured**: the
+injected-mutation test (spike question 9) was **not run**, deliberately — no
+synthetic mailbox exists and running it against the operator's personal mailbox
+was declined. **This gate is further from satisfied after the spike than before
+it**, and the synthetic mailbox is now on the pilot's critical path rather than a
+convenience. Related: spike question 10 grades condition 2's "cannot be
+remembered / retried / unattended" clause and is also unmeasured for Gmail;
+everything it observed was for the Dayfold connector.
+
+**Keep "send/reply/label/delete/archive" enumerated; do not simplify it to a
+send-and-delete list** (F-LABEL). Two runtime tools,
+`apply_sensitive_message_label` and `apply_sensitive_thread_label`, apply Trash
+and Spam labels — **mail can be moved to Trash or Spam through label application,
+with no tool whose name contains "trash", "delete", or "spam"**. Any read/write
+classification that reasons only about obviously-named destructive tools
+mis-classifies labelling as benign. The injected-mutation test must therefore
+exercise the **labelling** tools as well as the direct ones.
+
+**Known gap in this section, recorded and deliberately not closed here**
+(F-FILTER). The two conditions above can express "the tools are read-only" and
+"each mutation is confirmed". Neither can express **"this confirmed mutation
+delegates standing authority that outlives the run"** — a mutation whose single
+confirmation authorizes an unbounded stream of later mutations that no subsequent
+confirmation gates. The one known instance, `create_filter`, **probed as not
+reachable at runtime** (strong evidence, not proof), so the hazard does not bite
+on the surface the pilot would use and **nothing is amended now**. Two things are
+recorded rather than answered: the carve-out should be written as a **general
+rule, not a named exclusion** for one tool, because a named exclusion fails
+silently against the next such tool; and question 9's protocol should state the
+class it does not test. Both are open design questions for WP1, not blockers.
+
+**This inventory is a snapshot, not a durable guarantee.** Anthropic's own
+wording on the directory page, verbatim: *"Only use connectors from developers
+you trust. Anthropic does not control which tools developers make available and
+cannot verify that they will work as intended or that they won't change."* The
+server is Google's. A future runtime could expose the filter tools without
+notice. **Whether and how the pilot re-checks the Gmail tool surface is an open
+design question this reconciliation does not settle** — but this gate cannot be
+satisfied once and for all by an inventory taken on one date from one surface.
 
 ## 10. OAuth design
 
