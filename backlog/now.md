@@ -84,14 +84,15 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   something runner-specific rather than the Gradle invocation itself. The
   step-level timeout above bounds the damage but does **not** diagnose it. If
   you pick this up, that local-vs-CI asymmetry is the lead.
-- **Latent test-order hazard found while verifying (not a `main` break, not
-  fixed).** Running the full `:ui:desktopTest` in this sandbox, one test outside
-  the golden set fails: `AuthFlowUiTest.owner_opensInviteAndMintsQr` with
-  `IllegalStateException: The singleton image loader has already been created …
-  'setSafe' is being called after the first 'get' call`. It passes on CI (CI's
-  own run is 649 tests / 4 failed, and the 4 are exactly the goldens), so it is
-  **environment/order-specific, not a regression** — expected-output PNGs cannot
-  influence it. Mechanism: `setupImageLoader()` (`apps/ui/.../CoilSetup.kt`) is
+- **Latent test-order hazard observed while verifying (intermittent; not a
+  `main` break, not fixed).** On ONE full `:ui:desktopTest` run in this sandbox,
+  a test outside the golden set failed: `AuthFlowUiTest.owner_opensInviteAndMintsQr`
+  with `IllegalStateException: The singleton image loader has already been
+  created … 'setSafe' is being called after the first 'get' call`. A clean
+  `--rerun-tasks` run of the same suite immediately after was **649 tests, 0
+  failures** — so it is **intermittent, not deterministic**, and it passes on CI
+  (CI's own run is 649 tests / 4 failed, the 4 being exactly the goldens).
+  Expected-output PNGs cannot influence it. Mechanism: `setupImageLoader()` (`apps/ui/.../CoilSetup.kt`) is
   invoked from a `remember { }` inside `FeedApp`, but `SingletonImageLoader.setSafe`
   throws if any Coil `get()` already happened in that JVM. So whichever test first
   triggers an image load *without* going through `FeedApp` poisons every later
