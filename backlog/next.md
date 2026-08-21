@@ -335,26 +335,105 @@ pixel↔composable inspector.
   TestFlight) — needs the operator's Mac + an Apple Developer account, $99/yr
   spend. `processes/mobile-release.md` §iOS.).
 
-## Believed-shipped, pending one verification pass (not build-verified this sandbox — no Gradle registry egress)
+## Verified 2026-08-21 (was: "believed-shipped, pending one verification pass")
 
-Archived to `next-history.md` on strong evidence (git log, CHANGELOG.md, file
-existence) but not confirmed by an actual build/test run. Don't treat as done
-until someone with toolchain access re-checks; if confirmed, these bullets
-should just be deleted (no further narrative needed, full history already
-in `next-history.md`).
+The three bullets here were archived on strong evidence but never build-verified,
+because no sandbox had Gradle registry egress. One now does (setup recipe in
+`backlog/now.md`), so they were re-checked against a live build and by reading the
+code. **None of the three could simply be deleted — every one had a real gap.**
 
-- **TASK-AUTH-S6-D Phase 2** — in-app QR scanner + App/Universal Links for
-  device approval. Phase 1 (approval screens, CLI QR, keychain) has shipped
-  code; Phase 2's scanner/deep-link status wasn't independently re-confirmed.
-- **TASK-AUTH-CONTENT CLI verb parity** — the API's per-hub scoping (ADR
-  0029/0030) is confirmed shipped; the CLI's exact originally-scoped verb set
-  (`status`, `push --dry-run/--diff`, `hub get|archive|rm`) wasn't
-  byte-for-byte diffed against `Main.kt`'s current commands
-  (`login`/`logout`/`whoami`/`pull`/`push`/`delete`/`template`/`update`) —
-  confirm none of the original scope silently never landed.
-- **TASK-KMP** — `apps/client` already has all 4 KMP source sets + ktor +
-  its own `apps/iosApp` module, meeting the task's stated DoD; not
-  re-verified against a live `./gradlew build` in this pass.
+- **TASK-AUTH-S6-D Phase 2 — scanner ✅, Android App Links ✅, iOS Universal Links ❌.**
+  `QrScanner` has all four source sets (commonMain `expect` + android/ios/desktop
+  `actual`). Android is complete and correctly wired end to end: an `autoVerify`
+  intent-filter for `/device` + `/invite/` on `family-ai-dashboard.vercel.app`, and
+  the API serves `/.well-known/assetlinks.json` (`apps/api/src/app.ts:408`) with the
+  release/debug fingerprints. **iOS does not work:** `apps/iosApp/project.yml`
+  declares no `associated-domains` entitlement, so iOS never fetches the
+  association file at all, and the served `apple-app-site-association`
+  (`app.ts:420`) still returns the placeholder `TEAMID.com.sloopworks.dayfold`
+  (its own comment says "placeholder until the iOS host ships"). Same shape as the
+  other known iOS gaps (`IOS_API_BASE` is a compile-time `""`). Needs the Apple
+  Developer team ID, so it is operator-gated like the rest of the iOS lane.
+
+- **TASK-AUTH-CONTENT CLI verb parity — part of the original scope never landed.**
+  The CLI's command registry (`Help.kt` `COMMANDS`, the single source of truth) is
+  exactly: `login logout whoami pull responses changeset push delete template
+  update version help`. Against the originally-scoped set:
+  - `status` — **never landed**.
+  - `push --dry-run` / `push --diff` — **never landed**. Partly superseded in
+    spirit by `changeset validate` / `changeset diff`, but those operate on a
+    routine manifest, not on a pending `push`.
+  - `hub get` / `hub rm` — no `hub` command, but functional equivalents exist
+    (`pull --hub <id>`, and `delete <id>` whose default resource is hubs).
+  - `hub archive` — **never landed, and its API route is orphaned.** The server
+    has `POST /families/:fid/hubs/:id/archive` (`apps/api/src/app.ts:772` →
+    `hubs.archiveHub()`, `hubs.ts:190`, sets `status='archived'`) and **nothing in
+    the CLI can reach it.** `delete` is not a substitute — it soft-deletes rather
+    than archiving, and `archived` is a distinct Hub status in the schema.
+    Smallest real gap of the three; the route already exists, so this is a CLI
+    verb + help entry, not new server work.
+
+- **TASK-KMP — DoD is NOT met by a live build. `./gradlew :client:build` fails,
+  for three independent reasons.** CI never catches any of them because CI runs
+  `:client:desktopTest`, never `:client:build`.
+  1. **`kotlin("test")` is missing from `commonTest` and `androidUnitTest`.** It is
+     declared only on `desktopTest` / `iosArm64Test` / `iosSimulatorArm64Test`
+     (`apps/client/build.gradle.kts`), so `commonTest` sources compile for desktop
+     and iOS but fail `compileDebugUnitTestKotlinAndroid` with `Unresolved
+     reference 'test'`. Fix is one line — `commonTest.dependencies {
+     implementation(kotlin("test")) }`, which also makes the three per-platform
+     declarations redundant. **Deliberately not applied**: on its own it only moves
+     the failure from compile-time to (2), trading one clear error for five
+     confusing ones. Fix 1+2 together or neither.
+  2. **`redux-kotlin` ships Java 21 bytecode against a JDK 17 toolchain.**
+     Once (1) is fixed the Android unit tests run and 5 of 37 fail:
+     `UnsupportedClassVersionError: org/reduxkotlin/TypedStore has been compiled by
+     a more recent version of the Java Runtime (class file version 65.0), this
+     version of the Java Runtime only recognizes class file versions up to 61.0`
+     (65 = Java 21, 61 = Java 17; every module pins `jvmToolchain(17)`). The other
+     four failures are `NoClassDefFoundError: Could not initialize class ReducerKt`
+     cascading from the same load failure. Reproducible, not sandbox-specific — CI
+     also uses Temurin 17. **Operator-relevant: redux-kotlin is the operator's own
+     library** (see INB-15), so this is upstream feedback, not a Dayfold fix.
+  3. **`verifyCommonMainContentDbMigration` fails — see the next entry. This is
+     the serious one.**
+
+## ⚠ SQLDelight migration chain does not reproduce the fresh schema (found 2026-08-21)
+
+`./gradlew :client:build` runs SQLDelight's `verifyMigrations` (enabled in
+`apps/client/build.gradle.kts`). It fails:
+
+```
+Error migrating from 1.db, fresh database looks different from migration database:
+  /tables[calendar_import] - ADDED
+  /tables[membership] - ADDED
+  /tables[card]/columns[card.target_hub_id] - ADDED
+  /tables[card]/columns[card.target_section_id] - ADDED
+  /tables[card]/columns[card.target_block_id] - ADDED
+  /tables[card]/columns[card.related]/ordinalPosition - CHANGED
+```
+
+Confirmed by direct search: `membership`, `calendar_import`, `target_hub_id`,
+`target_section_id` and `target_block_id` are all present in `Content.sq` (the
+fresh schema) and appear in **none of `migrations/1.sqm … 15.sqm`**. They entered
+`Content.sq` in `a50876e` (WI-450 calendar import) and `0e47b04`, in both cases
+without a companion `.sqm`.
+
+Why it matters: `DriverFactory`'s `cacheNeedsWipe` only wipes the local DB on a
+**downgrade** — an upgrade keeps the file and runs `Schema.migrate()`. So a device
+upgrading in place gets a database with no `membership` / `calendar_import` tables
+and no `card.target_*` columns, while a **fresh install** (`Schema.create()` from
+`Content.sq`) is correct. Classic works-on-fresh-install / breaks-on-upgrade.
+
+Mitigating, and why this may not have been noticed: the local DB is a **cache** that
+re-syncs from the server, so the recovery is cheap *if* the wipe triggers — but
+today it only triggers on downgrade, not on a missing table.
+
+Not fixed here: writing the missing migrations touches on-device data and needs a
+decision on whether to backfill via `.sqm` or widen `cacheNeedsWipe` to wipe-and-
+re-sync on any schema mismatch. That is an operator/eng call, not agent-decidable.
+**The cheap durable guard is to run this check in CI** — `verifyMigrations` already
+exists and already catches it; it simply never runs.
 
 ## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16,
 re-verified 2026-07-17, applied 2026-07-20)
