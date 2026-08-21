@@ -11,7 +11,8 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **`main` was RED 2026-08-20 → 2026-08-21; fixed by PR #385 (19th pass).** Last
+- **`main` was RED 2026-08-20 → 2026-08-21; fixed by PR #385 (19th pass), merged
+  as `6283a7d`, CI green on all six jobs on the PR head before merge.** Last
   green CI run on `main` before the fix was `37d12ace` (2026-08-10). The failing
   lane was **Client core + feed UI (Compose, headless)**: four golden snapshots —
   `hubCanonical()`, `hubEnriched()`, `hubCanonicalDark()`, `hubEnrichedDark()`.
@@ -65,7 +66,20 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
     to the session, clone it, and check out the pinned commit.
   - The private SWIP GitHub Packages token is **not** needed for
     `:ui:desktopTest` — only `:swip-wiring` and `:androidApp` debug consume
-    those artifacts.
+    those artifacts. `:swip-wiring:desktopTest` therefore **cannot** run in a
+    sandbox without that token (it 401s at dependency resolution); leave that
+    module to CI.
+  - **Set `LANG=C.UTF-8 LC_ALL=C.UTF-8`.** The image defaults to `LC_CTYPE=POSIX`,
+    which makes `sun.jnu.encoding` ASCII — and `:client:compileTestKotlinDesktop`
+    then dies with `InvalidPathException: Malformed input or input contains
+    unmappable characters` because `AuthClientTest` has a backticked test name
+    containing `→` (U+2192) that becomes a `.class` filename. Nothing to do with
+    the code; it will look like an internal compiler error if you don't know.
+  - **`apps/cli` also builds here** — its own wrapper, Gradle 9.5.1, and
+    `./gradlew test` is **153 tests green in ~70 s**. Prior passes recorded "no
+    working path to a Kotlin compile check" for the CLI and fell back to
+    verify-by-PR-CI; that constraint is lifted on a sandbox set up as above,
+    which unblocks the queued `apps/cli` `main()` extraction + auth-layer tests.
   - **Font risk is real but was measured and is nil.** This sandbox has 59 fonts
     vs. the CI runner's much larger set, so a locally-recorded golden could in
     principle drift from CI's. Two checks settled it. Weak check: the **other
