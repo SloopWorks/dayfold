@@ -16,6 +16,69 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-41 · 2026-08-21 · high · open — does `system-design.md` §9 condition 2's
+  "no remembered approval" forbid the *affordance*, or only the operator's *use*
+  of it?** The Smart Briefings V0.1 Gmail gate is a disjunction and **condition 1
+  is dead**: the Gmail connector's runtime surface on claude.ai (Max, web,
+  personal) exposes **22 mutating tools of 27**, measured 2026-08-21 (spike
+  question 8). Everything now rests on **condition 2** — an unavoidable
+  per-mutation human confirmation "with no remembered approval, silent retry, or
+  unattended execution". The test that would establish it (spike question 9, the
+  injected email) **still cannot run**: it needs a synthetic mailbox that does not
+  exist. A narrower probe that needed no mailbox was run instead — a **directly
+  requested** send to an undeliverable RFC 2606 `.invalid` address, with **every
+  confirmation denied**. **Nothing was sent.** A direct request is not an
+  injection, so **the probe cannot satisfy condition 2 and does not**; it could
+  only refute condition 2 or establish that its mechanism exists. It found the
+  mechanism — a **client-enforced dialog sitting in front of the tool call**
+  (structurally stronger than a prompt-level protection), naming the specific
+  tool and connector, honoured when denied — **and it found that the dialog
+  offers "Always allow"**, a remembered approval with a keyboard shortcut
+  directly above "Allow once". Its scope, lifetime, revocability, and post-grant
+  behaviour were **not measured**. Two readings, **opposite verdicts**:
+  **(A)** the phrase states a property required of the *mechanism* → condition 2
+  is unsatisfiable on this surface, §9 has **no surviving branch**, handoff stop
+  3 trips, and **the pilot stops**; **(B)** the phrase states a usage policy
+  binding the *operator* → condition 2 stays satisfiable, but the pilot's Gmail
+  safety then rests on operator discipline at every dialog, forever, and its
+  failure mode is one mis-click of the shortcut above "Allow once" — silent,
+  unbounded, and with **no Dayfold-visible signal**. This is an ADR-class
+  judgment about whether the project's own gate is met, which `CLAUDE.md`
+  reserves to you (scope / kill-pivot class); an agent may propose, not decide.
+  **Proposed default:** adopt **reading A** — treat "no remembered approval" as a
+  property of the mechanism, so condition 2 is **not satisfiable on the measured
+  surface** and **the pilot stops** on handoff stop 3 — the whole pilot, not only
+  its write path — pending either a surface that does not offer remembered
+  approval, a provider-authored control that disables it or makes a standing
+  grant verifiable and revocable, or an explicit amendment of §9's wording by
+  you. Reasoning: the packet already rejects
+  discipline-based prevention in its own words (§9's opening, "Instructions are
+  not an authorization boundary"; ADR 0071's *Rejected for this pilot*,
+  "prompt-only Gmail write prevention"), and reading B asks the gate to rest on
+  exactly that. The cost of adopting A now is low — the pilot's private-data
+  path is already blocked on a synthetic mailbox that does not exist and on an
+  eligible no-training authority that does not exist, so no runnable work is
+  lost, and A is reversible on any of the three conditions above. **If
+  you prefer reading B**, the minimum that makes it more than a promise: (1) a
+  pre-run check that no standing "Always allow" grant exists — which needs a
+  provider surface that renders remembered approvals, and whether one exists is
+  **unmeasured**; (2) §9 amended to say so explicitly, naming operator discipline
+  as the control and recording that Dayfold cannot observe a breach of it; (3)
+  any granted "Always allow" treated as tripping handoff stop 3 on the spot.
+  **Under either reading condition 2 stays unproven** — B does not make it
+  proven, only provable — so spike question 9 must still run, with an amended
+  protocol (the post-"Always allow" case, and every mutating tool class rather
+  than send alone), and it still needs the synthetic mailbox. Nothing here
+  changes ADR 0071's status (**Proposed**) or the design's no-ship posture.
+  Context: `research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`
+  finding **F-CONFIRM** (and **F-ROUTING**: connector selection is not
+  deterministic — a plain "send an email" routed to a different installed mail
+  connector first, which bears on ADR 0071 §6's run instruction);
+  `specs/smart-briefings-v0.1/system-design.md` §9, "Recorded 2026-08-21 —
+  condition 2's mechanism exists, and it offers remembered approval";
+  `adr/0071-self-managed-claude-bridge-v0.1.md` §7. Distinct from INB-39, which
+  ratifies the pilot boundary, and INB-40, which sequences the work packages.
+
 - **INB-40 · 2026-08-20 · med · open — does the V0.1 schema freeze happen before
   or after ADR 0071 is accepted?** The packet contradicts itself. The gate table
   in `specs/smart-briefings-v0.1/CLAUDE-HANDOFF.md:66` bundles schema-writing

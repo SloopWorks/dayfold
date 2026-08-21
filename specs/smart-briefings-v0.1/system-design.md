@@ -518,6 +518,95 @@ where the gate binds it, is an open design question this reconciliation does not
 settle.** Either way this gate cannot be satisfied once and for all by an
 inventory taken on one date from one surface.
 
+### Recorded 2026-08-21 — condition 2's mechanism exists, and it offers remembered approval
+
+Spike **F-CONFIRM**, **F-ROUTING**, questions 9 and 10
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). **The
+conditions above are unchanged by this subsection**; what follows is an
+observation and an open interpretation, not an amendment.
+
+**What was run, and what it cannot establish.** The injected-mutation test
+(spike question 9) still cannot run — it needs a synthetic mailbox that does not
+exist. A narrower, non-destructive probe needed none: the controller **directly
+asked** Claude (Max, claude.ai web, Chrome, personal) to send a message to an
+RFC 2606 `.invalid` address, undeliverable by construction, and **denied every
+confirmation presented**. `send` was chosen because it touches nothing already in
+the mailbox. **Nothing was sent.** **A directly requested mutation is not an
+injected one**, so the probe **cannot satisfy condition 2 and does not** — it
+could only refute condition 2 or establish that its mechanism exists. **Condition
+2 remains unproven.**
+
+**What it observed, with the report's confidence gradings carried through.**
+
+- **A per-call confirmation dialog exists on the Gmail send path — observed.**
+  Verbatim: *"Claude wants to use Send email message from Gmail"*, with three
+  controls — `Deny` (Esc), `Always allow` (⇧⌘⏎), `Allow once` (⌘⏎). It names the
+  **specific tool** and the **specific connector**.
+- **The gate is client-enforced, in front of the tool call — observed on one
+  path.** It is not mediated by the model's judgment, which makes it
+  **structurally stronger than a prompt-level protection**. *Inference from a
+  single observed path, not proof:* it was **not** tested whether every mutating
+  tool is gated, nor whether any path mutates with no dialog.
+- **"Always allow" is offered — observed; its scope and lifetime were not
+  measured at all.** Condition 2 requires the confirmation to be unavoidable
+  "with no remembered approval". The surface offers remembered approval as a
+  first-class control with a keyboard shortcut, adjacent to "Allow once".
+  Unmeasured: whether it is per-conversation, per-connector, per-tool, or
+  per-account; whether it survives sessions; whether it can be revoked; and
+  **whether a mutation would proceed silently once it has been granted**. Nothing
+  was granted.
+- **Denial was honoured with no silent retry — observed.** Every confirmation
+  presented was denied, each denial was respected, and no mutation occurred on
+  either path attempted. **Denial is per-call, not per-run**: denying one tool
+  did not stop Claude attempting the next within the same turn.
+- **Which connector executes is not deterministic — observed** (**F-ROUTING**).
+  A plain "send an email" routed first to a *different* installed mail connector
+  and reached Gmail only on explicit redirection. This gate's inventory covers
+  **Gmail**; another installed mail connector carries an **uninventoried** tool
+  surface. Bears on `adr/0071-self-managed-claude-bridge-v0.1.md` §6's run
+  instruction, which presumes the run lands on the intended connector.
+- **Not recorded:** the mailbox-state check (Sent, Drafts). That nothing was sent
+  is the controller's observation of denying each dialog, not a mailbox
+  inspection — the same residual method caveat as the two narrow queries behind
+  the inventory above.
+
+**The interpretation this forces, recorded and deliberately not settled here.**
+Condition 2's phrase "**with no remembered approval**" admits two readings, and
+they give **opposite verdicts**:
+
+- **Reading A — a property required of the mechanism.** The surface must not
+  offer remembered approval at all. Condition 2 is then **unsatisfiable on the
+  measured surface**; with condition 1 already dead, **this section would have no
+  surviving branch**, tripping the handoff stop condition *"Gmail mutation can
+  occur without unavoidable human confirmation"* — and **the pilot stops**.
+- **Reading B — a usage policy binding the operator.** The mechanism may offer
+  remembered approval provided the operator never grants it and always chooses
+  "Allow once". Condition 2 stays satisfiable, but the pilot's Gmail safety then
+  rests on **operator discipline at every dialog, forever** — the class of
+  protection this section's own opening rejects ("Instructions are not an
+  authorization boundary") and which ADR 0071 lists under *Rejected for this
+  pilot* as "prompt-only Gmail write prevention". It also **degrades badly**: one
+  mis-click of a shortcut sitting directly above "Allow once" converts the
+  remaining safety argument into nothing, silently, with **no Dayfold-visible
+  signal**.
+
+**Whether this design's own gate is met is an ADR-class judgment reserved to the
+operator** (`CLAUDE.md`: never agent-decided — scope, kill/pivot). It is routed
+as **INB-41** with a proposed default. **No gate is passed, satisfied, or
+advanced by this record**, and the two normative conditions above stand exactly
+as written pending that decision.
+
+**What this changes about the test that is still owed.** Because the
+confirmation is client-enforced rather than model-mediated, the sharpest
+remaining experiment is no longer "will the model comply with an injection" but
+**"does an injected mutation proceed silently once 'Always allow' has been
+granted"** — and it should cover **every mutating tool class** (send/compose,
+label management, label application including `apply_sensitive_*_label`, trash,
+spam), not send alone. Granting "Always allow" is itself a mutation-enabling act,
+so that test needs the **synthetic mailbox** as much as the injected test does.
+**Recorded as an amendment the spike question 9 protocol needs; the protocol is
+not written here.**
+
 ## 10. OAuth design
 
 ```text
