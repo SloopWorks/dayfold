@@ -25,8 +25,21 @@ export function sendJson(res, status, payload, headers = {}) {
   send(res, status, { 'content-type': 'application/json', ...headers }, JSON.stringify(payload));
 }
 
-export function sendHtml(res, status, html) {
-  send(res, status, { 'content-type': 'text/html; charset=utf-8' }, html);
+// The consent page is the one document that submits a form whose *redirect*
+// leaves this origin: POST /oauth/approve answers 302 to the client's callback.
+// Chrome and Safari enforce `form-action` against the redirect target, not just
+// the initial POST, so a bare `form-action 'self'` silently blocks the browser
+// from delivering the authorization code and the ceremony dies with no request
+// reaching the server at all. curl does not enforce CSP, so only a real browser
+// shows this. Widen `form-action` to the one registered redirect origin — still
+// an exact allow-list, not a relaxation to '*'.
+export function sendHtml(res, status, html, formActionOrigin) {
+  const headers = { 'content-type': 'text/html; charset=utf-8' };
+  if (formActionOrigin) {
+    headers['content-security-policy'] =
+      `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' ${formActionOrigin}`;
+  }
+  send(res, status, headers, html);
 }
 
 export function sendRedirect(res, location) {

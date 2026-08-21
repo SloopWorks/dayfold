@@ -655,8 +655,40 @@ describe('11. security headers', () => {
     }
     // Pinned whole: a regression that dropped `default-src` or `base-uri`
     // while keeping `frame-ancestors` would pass a substring check.
-    assert.equal(response.headers.get('content-security-policy'), EXPECTED_CSP, `${label} CSP changed`);
+    const csp = response.headers.get('content-security-policy');
+    // The consent page is the documented exception — see the next test.
+    if (label === 'authorize') return;
+    assert.equal(csp, EXPECTED_CSP, `${label} CSP changed`);
   }
+
+  // Regression test for a defect a real browser found and curl could not:
+  // `form-action 'self'` on the consent page blocks the POST /oauth/approve
+  // 302 from reaching the client's callback in Chrome and Safari, because both
+  // enforce form-action against the redirect target. The code never arrives and
+  // the token endpoint is never called at all.
+  test('the consent page allows its form to redirect to the registered callback, and only there', async () => {
+    const redirectUri = 'https://client.example.invalid/cb';
+    const spike = await startSpike({ redirectUri });
+    const { params } = authorizeParams(spike, { redirect_uri: redirectUri });
+
+    const page = await fetch(authorizeUrl(spike.url, params), { redirect: 'manual' });
+    const csp = page.headers.get('content-security-policy');
+
+    assert.match(csp, /form-action 'self' https:\/\/client\.example\.invalid(\s|;|$)/,
+      'consent page must allow a form redirect to the registered callback origin');
+    assert.ok(!csp.includes('*'), 'form-action must stay an exact allow-list, never a wildcard');
+    // Every other directive is unchanged.
+    for (const directive of ["default-src 'none'", "frame-ancestors 'none'", "base-uri 'none'"]) {
+      assert.ok(csp.includes(directive), `consent page lost ${directive}`);
+    }
+    // Only the path carrying the callback in its origin is widened.
+    assert.equal(
+      (await fetch(`${spike.url}/.well-known/oauth-authorization-server`)).headers
+        .get('content-security-policy'),
+      EXPECTED_CSP,
+      'non-consent responses must keep the strict CSP',
+    );
+  });
 
   test('authorize, approve and token responses all carry the security headers', async () => {
     const spike = await startSpike();

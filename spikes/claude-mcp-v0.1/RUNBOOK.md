@@ -630,10 +630,37 @@ record which. An untested combination is not a pass.
 in Part B. Record: the exact URL the client asks for (the `/mcp` endpoint, or a
 base URL it appends a path to); whether it accepts a manually typed URL at all
 or only entries from a provider directory; and whether it attempted dynamic
-client registration. Run the install **first** with `SPIKE_DCR` unset — the
-route answers `spike.dcr_disabled` and the log shows
-`{"class":"oauth.register","outcome":"not_found"}`. If the client cannot
-proceed, that is the DCR answer. Then restart with `SPIKE_DCR=on` and repeat.
+client registration. Run the install **first** with `SPIKE_DCR` unset. If the
+client cannot proceed, that is the DCR answer. Then restart with `SPIKE_DCR=on`
+and repeat.
+
+**Do not expect a `{"class":"oauth.register","outcome":"not_found"}` line — an
+earlier version of this runbook predicted one and was wrong.** Observed against
+Claude's web client on 2026-08-21
+(`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`, question 3):
+Claude **never calls `POST /oauth/register` at all**. It reads the
+authorization-server metadata, sees no `registration_endpoint`, and concludes
+from that absence that dynamic registration is unavailable — then asks the
+operator to paste an OAuth Client ID by hand. The whole sequence with `SPIKE_DCR`
+unset was:
+
+```text
+mcp                            unauthorized   <- the client POSTed /mcp cold
+discovery.protected_resource   ok             <- followed WWW-Authenticate resource_metadata
+discovery.authorization_server ok             <- read AS metadata, then stopped
+```
+
+So **the absence of any `oauth.register` line is the expected result, and it is
+evidence** — it is the first of the three PASS branches below. The client is
+metadata-driven, not probe-driven: what the metadata advertises decides its
+behavior, and `spike.dcr_disabled` (404) on the route itself may never be
+exercised. A different client may still probe the route, which is why the
+`not_found` branch remains a legitimate PASS outcome rather than being deleted.
+
+**`SPIKE_DCR=on` still needs its own separate pass.** It has not been run
+against Claude. How the client behaves when `registration_endpoint` *is*
+advertised — in particular whether its registration body survives the strict
+six-field RFC 7591 allowlist (disclosed behavior 2) — is unmeasured.
 
 **Capture.** Screenshot of the "add connector" dialog (hostname redacted per
 the checklist); the spike log lines for `discovery.protected_resource`,
