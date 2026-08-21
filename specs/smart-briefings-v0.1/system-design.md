@@ -76,12 +76,14 @@ schema change, not a free-text setting.
 - Attachment contents. Claude currently exposes Gmail attachment metadata, not
   attachment bytes, through its native connector.
   [fact:https://support.claude.com/en/articles/10166901-use-google-workspace-connectors]
-  *(Provisional: this is a provider **documentation** claim, not a probe of the
-  runtime. F-CATALOG recorded 2026-08-21 that Anthropic's connector-directory
-  surface **over-stated** the Gmail runtime by two tools, so any capability claim
-  not established against the surface that will actually execute is provisional.
-  Over-statement errs safe for a gate and is unreliable as a capability
-  contract.)*
+  *(Provisional, recorded 2026-08-21: F-CATALOG found that Anthropic's
+  connector-directory surface **over-stated** the Gmail runtime by two tools, and
+  F-INVENTORY records that a directory catalog, a runtime tool manifest, and a
+  model's self-description are three different artifacts with three different
+  failure modes. This bullet rests on a provider **documentation** page — a
+  fourth surface, and not one that was checked against the runtime — so treat it
+  as unverified until it is. Over-statement errs safe for a gate and is
+  unreliable as a capability contract.)*
 - Gmail links, source locators, forwarding, add-ons, artifact storage, link
   crawling, attachment hosting, or “Open original in Gmail.”
 - Calendar, Drive, scheduling, background tasks, or automatic publication.
@@ -428,19 +430,26 @@ Spike question 8, F-CATALOG, F-LABEL, F-FILTER
 (`research/2026-08-20-smart-briefings-v0.1-compatibility-spike.md`). This is the
 one packet statement the run positively forces a revision of.
 
-**Measured inventory.** The Gmail connector's **runtime** surface on claude.ai
-(Max, web, personal) exposes **27 tools — 5 read and 22 mutating**, including
-immediate send, reply, forward, trash, spam, and destructive labelling. It was
-enumerated by a listing-only query that invoked nothing and corroborated against
-Anthropic's provider-authored connector-directory page. **Condition 1 is
-therefore dead on this surface — measured against provider-authored metadata,
-not inferred and not a model self-report.** (The directory **catalog** lists 29;
-the two extra are filter tools that probed as unreachable at runtime. That
-27-vs-29 difference is **strong evidence, not proof** — the resolving probe is a
-model self-report agreeing with a provider-delivered manifest, and no
-provider-authored *runtime* manifest exists. It does not matter to condition 1:
-the mutating families appear on **every** surface consulted, catalog and runtime
-alike.)
+**The inventory, with the report's own confidence gradings carried through.** The
+Gmail connector's **runtime** surface on claude.ai (Max, web, personal) carries
+**27 tools — 5 read and 22 mutating**, including immediate send, reply, forward,
+trash, spam, and destructive labelling. Grade the two claims separately:
+
+- **Condition 1 is dead on this surface — measured.** Immediate send, reply,
+  forward, trash, spam, and destructive labelling appear on **every** surface
+  consulted, including Anthropic's **provider-authored** connector-directory
+  page. That conclusion is measured against provider-authored metadata, not
+  inferred and not a model self-report, and the runtime-versus-catalog question
+  below does not touch it.
+- **The exact runtime figure of 27 is strong evidence, not proof.** The directory
+  **catalog** lists **29**; the two extra are filter tools that probed as
+  unreachable at runtime. Two independent lines agree on 27 — a targeted
+  model-reported probe and the Gmail manifest delivered to a Claude Code session
+  — one of them provider-delivered, but **no provider-authored *runtime* manifest
+  surface exists**, so the runtime is currently establishable only through the
+  model. The report also records a residual method caveat: the assurance that
+  those queries invoked no tool is itself a model self-report, and the
+  corroborating mailbox-state check was not performed.
 
 **The disjunction has collapsed to one unproven branch.** With condition 1
 unsatisfiable here, **the pilot's entire Gmail safety argument is condition 2**
@@ -461,7 +470,10 @@ and Spam labels — **mail can be moved to Trash or Spam through label applicati
 with no tool whose name contains "trash", "delete", or "spam"**. Any read/write
 classification that reasons only about obviously-named destructive tools
 mis-classifies labelling as benign. The injected-mutation test must therefore
-exercise the **labelling** tools as well as the direct ones.
+exercise the **labelling** tools as well as the direct ones, and spike question
+10's "can an approval be remembered" probe must cover label application
+specifically — it is the mutation most likely to be treated as low-stakes by a
+confirmation design, and on this surface it is not low-stakes.
 
 **Known gap in this section, recorded and deliberately not closed here**
 (F-FILTER). The two conditions above can express "the tools are read-only" and
@@ -481,9 +493,11 @@ wording on the directory page, verbatim: *"Only use connectors from developers
 you trust. Anthropic does not control which tools developers make available and
 cannot verify that they will work as intended or that they won't change."* The
 server is Google's. A future runtime could expose the filter tools without
-notice. **Whether and how the pilot re-checks the Gmail tool surface is an open
-design question this reconciliation does not settle** — but this gate cannot be
-satisfied once and for all by an inventory taken on one date from one surface.
+notice. The report's recorded consequence is that **the implementation needs a
+re-check mechanism** for the Gmail tool surface; **what that mechanism is, and
+where the gate binds it, is an open design question this reconciliation does not
+settle.** Either way this gate cannot be satisfied once and for all by an
+inventory taken on one date from one surface.
 
 ## 10. OAuth design
 

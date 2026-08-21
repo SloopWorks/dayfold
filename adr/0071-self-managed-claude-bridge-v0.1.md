@@ -166,14 +166,23 @@ boundaries stops the pilot. Dayfold instructions alone never qualify.
 
 **Recorded 2026-08-21 — the read-only branch is gone** (spike question 8,
 F-CATALOG, F-LABEL, F-FILTER). The Gmail connector's **runtime** surface on
-claude.ai (Max, web, personal) exposes **27 tools — 5 read and 22 mutating** —
+claude.ai (Max, web, personal) carries **27 tools — 5 read and 22 mutating** —
 including immediate send, reply, forward, trash, spam, and labelling that moves
-mail to Trash or Spam. It was enumerated by a listing-only query that invoked no
-tool and corroborated against Anthropic's provider-authored connector-directory
-page: **measured, not inferred and not a model self-report.** The connector
-*catalog* lists 29; that difference is strong evidence rather than proof and is
-irrelevant here, because the mutating families appear on **every** surface
-consulted. Consequences, recorded rather than decided:
+mail to Trash or Spam. Two claims, graded as the report grades them:
+
+- **The read-only branch is dead on this surface — measured.** Immediate send,
+  reply, forward, trash, spam, and destructive labelling appear on **every**
+  surface consulted, including Anthropic's **provider-authored**
+  connector-directory page: measured against provider-authored metadata, not
+  inferred and not a model self-report.
+- **The exact figure of 27 is strong evidence, not proof.** The connector
+  *catalog* lists 29, the two extra being filter tools that probed as unreachable
+  at runtime. Two independent lines agree on 27, one of them a provider-delivered
+  manifest, but no provider-authored **runtime** manifest surface exists, so the
+  runtime is establishable only through the model today. This does not touch the
+  bullet above.
+
+Consequences, recorded rather than decided:
 
 - **The pilot's whole Gmail safety case now rests on one unproven condition** —
   the unavoidable per-mutation human confirmation. The read-only alternative
@@ -201,11 +210,11 @@ consulted. Consequences, recorded rather than decided:
   answered: the carve-out belongs in `system-design.md` §9 as a **general rule,
   not a named exclusion**, because a named exclusion fails silently against the
   next such tool.
-- **§7's insistence on testing "the exact Claude surface" is vindicated.** A
-  directory catalog, a model self-report, and another harness's manifest gave two
-  different answers about the same connector; only a probe of the runtime
-  distinguished them, and the difference included the one tool that would have
-  forced a §9 redesign.
+- **This section's insistence on testing "the exact Claude surface" is
+  vindicated.** A directory catalog, a model self-report, and another harness's
+  manifest gave two different answers about the same connector; only a probe of
+  the runtime distinguished them, and the difference included the one tool that
+  would have forced a redesign of `system-design.md` §9.
 
 ### 8. Preserve the no-training constitution
 
@@ -314,11 +323,11 @@ and 9 are blocked on a **synthetic mailbox that does not exist**, and questions
 4, 5, 6, 7, and 10 carry real observations but had part of their own rubric
 unexercised. **Gmail-write *behavior* is unrecorded** — the tool inventory is
 recorded (§7), the injected-mutation test is not — so gate 1 cannot be reached
-until spike question 9 runs, which requires the synthetic mailbox. No other gate
-is advanced by that run: no ADR 0008 hi-fi sign-off exists (gate 2), no constant
-is ratified (gate 3), the security test matrix is unwritten (gate 4), and
-private-data authority remains absent (§8, and it is untouched by the run — a
-consumer Max plan hosting a working connector is not a no-training authority).
+until spike question 9 runs, which requires the synthetic mailbox. **No other
+gate is advanced by that run either**, per the report: there is no ADR 0008 hi-fi
+sign-off (gate 2), this ADR is not accepted, and an eligible no-training
+authority for private data is absent and untouched — **a consumer Max plan
+hosting a working connector is not one** (§8).
 
 ## Revisit triggers
 
