@@ -11,6 +11,17 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
+- **⚠ The SQLDelight migration chain does not reproduce the fresh schema (found
+  2026-08-21, unfixed, needs an eng/operator call).** `membership`,
+  `calendar_import` and `card.target_{hub,section,block}_id` are in `Content.sq`
+  but in **none** of `migrations/1.sqm … 15.sqm` — they landed with WI-450 and
+  `0e47b04` without a companion `.sqm`. A **fresh install** is correct; a device
+  **upgrading in place** keeps its DB (`cacheNeedsWipe` only wipes on a
+  *downgrade*) and runs a migration chain that never creates them. SQLDelight's
+  `verifyMigrations` already catches this and is already enabled — it just never
+  runs, because CI runs `:client:desktopTest`, never `:client:build`. Full detail,
+  including the two candidate fixes, in `backlog/next.md`. Not agent-decidable: it
+  touches on-device data.
 - **`main` was RED 2026-08-20 → 2026-08-21; fixed by PR #385 (19th pass), merged
   as `6283a7d`, CI green on all six jobs on the PR head before merge.** Last
   green CI run on `main` before the fix was `37d12ace` (2026-08-10). The failing
