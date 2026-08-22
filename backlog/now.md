@@ -94,6 +94,23 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Verified end to end by breaking a CLI test on purpose: Gradle printed only
   "There were failing tests", the script named
   `AuthRetryTest > get refreshes once on 401 and retries with the new token`.
+- **The ~18-minute Gradle hang is NOT "fails to tear down after a failed task" —
+  that hypothesis is disproved.** `ci.yml`'s own comment (and the entry below) read
+  the hang as Gradle continuing to run *after* `:ui:desktopTest FAILED`, blaming
+  `--no-daemon` teardown. Run **32552296539** (PR #391) refutes it: the step hit the
+  18-minute cap with **nothing failed** — `:client:desktopTest` and `:ui:desktopTest`
+  were both still executing, 668 tests reported, zero failures. So it hangs during a
+  perfectly clean run and a failed task is not the trigger. The comment in `ci.yml`
+  is corrected. Still undiagnosed, and still non-reproducing locally (the same suites
+  finish in ~7 minutes on the sandbox), which keeps pointing at something
+  runner-specific rather than something in the build.
+  Two things this run did confirm working: the 18-minute **step** cap did its job —
+  the job survived with ~7 minutes to spare and both `if: failure()` artifacts were
+  produced — and the snapshot dashboard uploaded properly (356 files, 27 MB).
+  Note the dashboard's "13 mismatched" on such a run is NOT golden drift: the
+  dashboard re-renders all 204 scenes, a wider set than the gate, so mismatches there
+  are expected output and are not what failed the job.
+
 - **The API lane is one token away from being locally verifiable — the recorded
   "no npm registry access at all" no longer holds.** The entry below (2026-08-21)
   records that org policy 403s *both* `registry.npmjs.org` and `npm.pkg.github.com`,

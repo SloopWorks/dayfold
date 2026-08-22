@@ -27,6 +27,10 @@ for root in sys.argv[1:]:
 
 tests = failed = skipped = unreadable = 0
 bad = []
+# Per-Gradle-task tallies. A step killed by its timeout leaves COMPLETE xml for the
+# tasks that finished and NOTHING for the ones still running — indistinguishable from
+# a clean run by totals alone, but obvious the moment you see which tasks reported.
+by_task = {}
 for path in sorted(files):
     try:
         suite = ET.parse(path).getroot()
@@ -35,8 +39,14 @@ for path in sorted(files):
         # otherwise the summary reports "0 failed" and reads like a clean run.
         unreadable += 1
         continue
-    tests += int(suite.get("tests") or 0)
+    n = int(suite.get("tests") or 0)
+    tests += n
     skipped += int(suite.get("skipped") or 0)
+    # .../<module>/build/test-results/<task>/TEST-*.xml
+    parts = path.split(os.path.sep)
+    task = parts[-2] if len(parts) >= 2 else "?"
+    module = parts[-5] if len(parts) >= 5 else "?"
+    by_task[f"{module}:{task}"] = by_task.get(f"{module}:{task}", 0) + n
     for case in suite.iter("testcase"):
         for kind in ("failure", "error"):
             node = case.find(kind)
@@ -61,12 +71,22 @@ if unreadable:
     lines += [f"{unreadable} result file(s) were truncated — that suite was killed "
               "mid-write (step timeout or OOM), so its failures are not listed here.", ""]
 if not bad and not unreadable:
-    lines.append("No failing test cases in the XML — the build failed outside a test "
-                 "(compile, task wiring, or a crash after the suite finished).")
+    # Deliberately does NOT assert a cause. On its first live firing this said "the build
+    # failed outside a test" when the step had actually timed out with two suites still
+    # running — the tally below is what makes that visible, so state the fact and stop.
+    lines.append("No failing test case in the XML. The build failed without a test "
+                 "failing — it was cut short (step timeout, OOM, runner loss) or broke "
+                 "outside the tests (compile, task wiring). The step's own error line "
+                 "above says which; the tally below shows how far it got.")
 for classname, name, kind, detail in bad:
     lines += [f"**{classname.rsplit('.', 1)[-1]} > {name}**  (`{kind}`)", ""]
     if detail:
         lines += ["```", detail, "```", ""]
+
+if by_task:
+    lines += ["", "Results reported per task — a task that ran but is missing here never "
+                  "finished:", ""]
+    lines += [f"- `{k}` — {v} tests" for k, v in sorted(by_task.items())]
 
 out = "\n".join(lines)
 print(out)

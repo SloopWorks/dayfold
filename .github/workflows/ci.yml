@@ -114,13 +114,19 @@ jobs:
       # ADR 0047 split the Compose UI + render/snapshot tests into :ui — run both
       # (:client = logic tests; :ui = render/UI + CL-SNAP golden/snapshot tests).
       # Step-level cap, deliberately BELOW the job's 25-minute cap. Gradle here has
-      # twice been observed to keep running for ~18 minutes AFTER `:ui:desktopTest
-      # FAILED` instead of exiting (root cause unknown — suspect the `--no-daemon`
-      # invocation not tearing down after a failed task). When that happens the JOB
-      # times out, which CANCELS the remaining steps — so the golden dashboard is
-      # never rendered and never uploaded, and a red run yields no diagnostics at all.
-      # Failing the STEP instead leaves ~7 minutes for the two `if: failure()` steps
-      # below (the dashboard run takes ~70s), so a hang still produces the artifact.
+      # repeatedly been observed to run ~18 minutes without finishing. When that
+      # happens the JOB times out, which CANCELS the remaining steps — so the golden
+      # dashboard is never rendered and never uploaded, and a red run yields no
+      # diagnostics at all. Failing the STEP instead leaves ~7 minutes for the
+      # `if: failure()` steps below (the dashboard run takes ~70s), so a hang still
+      # produces the artifacts.
+      # The earlier reading of this hang — "keeps running AFTER `:ui:desktopTest
+      # FAILED`, suspect --no-daemon not tearing down after a failed task" — is WRONG,
+      # disproved by run 32552296539: nothing had failed. `:client:desktopTest` and
+      # `:ui:desktopTest` were both still running at the cap, 668 tests reported, zero
+      # failures. So it hangs during a CLEAN run too, and a failed task is not the
+      # trigger. Still undiagnosed; it does not reproduce locally (~7 min there),
+      # which points at something runner-specific.
       # `verifyCommonMainContentDbMigration` is SQLDelight's check that applying the
       # .sqm chain to an old DB reproduces the schema `Content.sq` creates fresh. It has
       # been enabled in `apps/client/build.gradle.kts` all along but never ran, because it
