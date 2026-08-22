@@ -213,6 +213,22 @@ val COMMANDS: List<HelpCommand> = listOf(
     examples = listOf("dayfold delete 01J…HUB", "dayfold delete 01J…CARD --card"),
   ),
   HelpCommand(
+    name = "archive",
+    synopsis = "archive <id>",
+    summary = "Archive a hub: set its status to `archived` without deleting it.",
+    args = listOf(
+      HelpArg("id", "ULID of the hub to archive."),
+    ),
+    details = listOf(
+      "Archiving is NOT deleting. `delete` soft-deletes a hub; `archived` is a distinct Hub " +
+        "status in the schema, so the two are not substitutes — archive to retire a hub from " +
+        "the active set while keeping it intact and retrievable.",
+      "Hubs only — there is no archive route for cards or blocks.",
+      "Requires hub:<id>:write (the same scope as `delete` on a hub); a per-hub login is enough.",
+    ),
+    examples = listOf("dayfold archive 01J…HUB"),
+  ),
+  HelpCommand(
     name = "template",
     synopsis = "template <type>",
     summary = "Print a starter JSON body to fill in and push.",

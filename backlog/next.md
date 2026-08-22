@@ -371,7 +371,49 @@ code. **None of the three could simply be deleted — every one had a real gap.*
     the CLI can reach it.** `delete` is not a substitute — it soft-deletes rather
     than archiving, and `archived` is a distinct Hub status in the schema.
     Smallest real gap of the three; the route already exists, so this is a CLI
-    verb + help entry, not new server work.
+    verb + help entry, not new server work. **Landed 2026-08-22** as
+    `dayfold archive <id>` — a bare verb mirroring `delete <id>`, not a `hub <verb>`
+    namespace, because the latter is a shape the CLI never adopted (`pull --hub <id>`,
+    `delete <id>` defaulting to hubs). Rename it cheaply if you disagree; nothing
+    depends on the token.
+
+- **The archive route is the one hub-id route with no `idErrorResponse` guard —
+  ready to apply, blocked only on registry access.** Found while wiring the CLI verb
+  above. `app.post("/families/:fid/hubs/:id/archive")` (`apps/api/src/app.ts:772`)
+  builds the `hub:${id}` scope key and calls `archiveHub` with an unvalidated id; the
+  `app.delete` route immediately below guards first, and its comment says why
+  ("validate BEFORE building the `hub:${id}` scope string"). Nine other call sites do
+  the same.
+  **Not an auth bypass** — `scopeAllows` (`apps/api/src/auth/scope.ts:22`) matches by
+  exact string equality and explicitly never `split(':')`, so a ':' in an id cannot
+  forge a grant match in either direction (both checked by hand). The real effect is
+  narrower: an unbounded, unvalidated id reaches the scope key and the DB, and a
+  malformed id answers 403/404 where every sibling answers 422. It went unnoticed
+  because nothing could call the route until the CLI verb landed.
+  Fix is one line, identical to the sibling's, after the `fid`/`id` destructure:
+  `{ const e = idErrorResponse(c, id); if (e) return e; }`
+  **Why it is not in the CLI PR:** `apps/api/api/index.js` is a committed esbuild
+  bundle that CI regenerates and diffs byte-for-byte, and the bundle inlines the
+  private `@sloopworks/*` TypeScript sources. Regenerating it needs a `read:packages`
+  token (`npm ci` here 401s on `@sloopworks/swip-sentry`), so an `app.ts` edit made
+  without one lands the PR red on the "api bundle is up to date" step. It was written,
+  tested for shape, then deliberately reverted rather than pushed knowingly-red.
+  With `NODE_AUTH_TOKEN` set this is minutes: apply the line, add the test below, run
+  `npm run build:fn` in `apps/api`, commit the regenerated bundle.
+  The test written alongside it, for `apps/api/test/hub-api.test.ts`:
+  ```ts
+  it("archive rejects a malformed id with 422, like every other hub-id route", async () => {
+    const o = await ownerOf("hub-o4b");
+    for (const id of ["a:write", "x".repeat(129), "a b"]) {
+      const r = await app.request(`/families/${o.familyId}/hubs/${encodeURIComponent(id)}/archive`,
+        { method: "POST", headers: authH(o.token) });
+      expect(r.status, `archive should 422 on id ${JSON.stringify(id)}`).toBe(422);
+    }
+    const missing = await app.request(`/families/${o.familyId}/hubs/does-not-exist/archive`,
+      { method: "POST", headers: authH(o.token) });
+    expect(missing.status).toBe(404);   // a valid-but-absent hub is unchanged
+  });
+  ```
 
 - **TASK-KMP — DoD is NOT met by a live build. `./gradlew :client:build` fails,
   for three independent reasons.** CI never catches any of them because CI runs

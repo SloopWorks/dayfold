@@ -94,6 +94,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Verified end to end by breaking a CLI test on purpose: Gradle printed only
   "There were failing tests", the script named
   `AuthRetryTest > get refreshes once on 401 and retries with the new token`.
+- **The API lane is one token away from being locally verifiable — the recorded
+  "no npm registry access at all" no longer holds.** The entry below (2026-08-21)
+  records that org policy 403s *both* `registry.npmjs.org` and `npm.pkg.github.com`,
+  so `vitest`/`tsc` could not run and CI was the only oracle. Re-tested 2026-08-22:
+  `npm ci` resolves the public registry fine and fails at exactly one point —
+  `401 Unauthorized … @sloopworks/swip-sentry` from `npm.pkg.github.com`. That is a
+  **missing credential, not a policy block**: `.npmrc` expands `NODE_AUTH_TOKEN`,
+  which is unset here. Postgres is not a blocker either — Postgres 16 is installed,
+  and a cluster for `fad_test` starts fine (`initdb`/`pg_ctl` as the `postgres` user,
+  data dir directly under `/tmp` so the daemon can traverse it).
+  So a session with a `read:packages` token can run the API tests, `tsc`, AND
+  `npm run build:fn` locally — which is precisely what the parked archive-route
+  guard in `backlog/next.md` is waiting on. Worth confirming before the next pass
+  assumes the API lane is verify-by-CI only.
+
 - **A Linux golden re-record IS possible from a cloud sandbox — the "7 GB
   container" wall was environmental, not fundamental.** Prior sessions recorded
   this as blocked ("docker OOMs at 7.65GB compiling `:ui`", "twice lost its
