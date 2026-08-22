@@ -119,6 +119,33 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Note the dashboard's "13 mismatched" on such a run is NOT golden drift: the
   dashboard re-renders all 204 scenes, a wider set than the gate, so mismatches there
   are expected output and are not what failed the job.
+  **It also hangs on a DOCS-ONLY commit, which rules out any code cause.** `712c252`
+  changed exactly one thing — a bullet in this file — and its Compose job on `main`
+  (run 32554377580, attempt 1) ran the gradle step 05:27:19→05:45:31 = **18m12s**,
+  hit the cap, with no test failure. A markdown-only diff cannot hang a Kotlin test
+  run for a reason in the code, so whatever this is lives in the runner or the
+  toolchain, not in the build. The re-run (attempt 2) of the identical commit passed
+  in ~6 minutes.
+  Observed rate on 2026-08-22 — **2 of 6** Compose runs, both pure timeouts with zero
+  test failures:
+
+  | run | commit | outcome |
+  |---|---|---|
+  | CI #908 (main) | `563e294` | passed ~10 min |
+  | PR #391 | `9d494a5` | **timed out at 18 min** |
+  | PR #391 | `3e2a17a` | passed ~6 min |
+  | CI #912 (main) | `4b62503` | passed |
+  | PR #392 | `12a8719` | passed ~6.4 min |
+  | CI #914 (main) | `712c252` (docs-only) | **timed out at 18 min**, re-run passed ~6 min |
+
+  A passing run is ~6–10 minutes, so a hung one is not "slow" — it is stuck, at
+  roughly triple the normal time, and the 18-minute cap is what converts it from a
+  cancelled job with no diagnostics into a failed step that still uploads them.
+  Leads for whoever picks this up: it is always the `:client:desktopTest`/
+  `:ui:desktopTest` gradle step; the runner reports orphaned `java` processes at
+  cleanup on both hung and healthy runs; and it has never reproduced on the sandbox
+  (~7 min there). Note a re-run CLEARS the previous attempt's logs, so capture
+  anything needed from a hung attempt BEFORE re-running it.
 
 - **The API lane is one token away from being locally verifiable — the recorded
   "no npm registry access at all" no longer holds.** The entry below (2026-08-21)
