@@ -40,8 +40,8 @@ private fun httpStatus(method: String, url: String, token: String?, body: String
   return Pair(res.statusCode(), res.body())
 }
 
-private fun postStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("POST", url, token, body)
-// getStatus/putStatus/deleteStatus and refreshAccessToken are `internal` (not `private`)
+internal fun postStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("POST", url, token, body)
+// postStatus/getStatus/putStatus/deleteStatus and refreshAccessToken are `internal` (not `private`)
 // only because they are DEFAULT ARGUMENT values of the internal authed* helpers below —
 // Kotlin requires a default expression to be at least as visible as its function. They are
 // not otherwise part of any wider surface.
@@ -114,6 +114,21 @@ internal fun authedPut(
   val first = transport("$api$path", requestBody, token)
   if (first.first != 401 || store == null || refreshable == null) return first
   return transport("$api$path", requestBody, refresh(store, keychain))
+}
+
+/** Authed POST with one transparent refresh on 401 (mirrors authedGet/authedDelete).
+ *  `archive` is the only caller: the route takes no body, so the empty object is a
+ *  constant rather than a parameter — a body-carrying POST should not reuse this
+ *  without adding the replay coverage `authedPut` has. */
+internal fun authedPost(
+  store: Credentials?, keychain: SecretStore?,
+  api: String, token: String, refreshable: Creds?, path: String,
+  transport: (url: String, requestBody: String, token: String?) -> Pair<Int, String> = ::postStatus,
+  refresh: (Credentials, SecretStore?) -> String = ::refreshAccessToken,
+): Pair<Int, String> {
+  val first = transport("$api$path", "{}", token)
+  if (first.first != 401 || store == null || refreshable == null) return first
+  return transport("$api$path", "{}", refresh(store, keychain))
 }
 
 /** The build version embedded by Gradle (generateVersionResource) — what a
@@ -294,7 +309,7 @@ fun main(args: Array<String>) {
     // sections+blocks), a card, or a single block. There is no section delete route
     // (MVP); to drop a stray section, delete its hub and re-push the tree.
     "delete", "rm" -> {
-      val id = deleteId(args) ?: usage()
+      val id = targetId(args) ?: usage()
       val resource = deleteResource(args)
       val session = loadSession()
       requireAuthSetup(session.creds != null)
@@ -302,6 +317,22 @@ fun main(args: Array<String>) {
       val (code, body) = authedDelete(session.store.takeIf { session.creds != null }, session.keychain, api, tok, session.creds, "/families/$fam/$resource/$id")
       if (code !in 200..299) { System.err.println("delete failed ($code): $body"); exitProcess(1) }
       println("deleted $resource/$id")
+    }
+
+    // dayfold archive <id>  — set a hub's status to `archived` (POST .../hubs/:id/archive).
+    // NOT a delete: `delete` soft-deletes, while `archived` is a distinct Hub status in
+    // the schema, so the two are not substitutes. Hubs only — cards and blocks have no
+    // archive route. Named as a bare verb, mirroring `delete <id>`, because that is the
+    // shape the CLI actually settled on (`pull --hub <id>`, `delete <id>` defaulting to
+    // hubs); there is no `hub <verb>` namespace to join.
+    "archive" -> {
+      val id = targetId(args) ?: usage()
+      val session = loadSession()
+      requireAuthSetup(session.creds != null)
+      val (api, fam, tok) = resolveAuth(session.creds)
+      val (code, body) = authedPost(session.store.takeIf { session.creds != null }, session.keychain, api, tok, session.creds, "/families/$fam/hubs/$id/archive")
+      if (code !in 200..299) { System.err.println("archive failed ($code): $body"); exitProcess(1) }
+      println("archived hubs/$id")
     }
 
     // dayfold push <id> <file.json> [--hub|--section|--block]  — card (default) or hub tree.
@@ -451,10 +482,11 @@ internal fun deleteResource(args: Array<String>): String = when {
   else -> "hubs"
 }
 
-/** The delete target id = the first NON-FLAG positional after the subcommand, so `--card`
- *  can come before OR after the id (a flag is never mistaken for the id — `delete --card x`
- *  deletes x, not "--card"). null when no id was given → usage. */
-internal fun deleteId(args: Array<String>): String? = args.drop(1).firstOrNull { !it.startsWith("--") }
+/** The target id of a single-id verb (`delete`, `archive`) = the first NON-FLAG positional
+ *  after the subcommand, so `--card` can come before OR after the id (a flag is never
+ *  mistaken for the id — `delete --card x` deletes x, not "--card"). null when no id was
+ *  given → usage. Named for the shape, not one verb, since `archive` reuses it. */
+internal fun targetId(args: Array<String>): String? = args.drop(1).firstOrNull { !it.startsWith("--") }
 
 /** push positionals [id, file] = the args after the subcommand minus flags, so the flags
  *  can come before/after/between the id+file (mirrors pushResource — a `--hub` is never

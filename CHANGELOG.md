@@ -7,6 +7,15 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-22 — CLI: archive a hub
+
+### Added
+- **`dayfold archive <id>` retires a Hub without deleting it.** Archiving sets the
+  Hub's status to `archived`, leaving it and its contents intact; `delete` remains a
+  soft-delete and is not a substitute. The server has supported this all along — the
+  CLI simply had no way to ask for it. Hubs only; needs the same `hub:<id>:write`
+  scope as deleting one, so a per-hub login is enough.
+
 ## 2026-08-22 — Upgrade fix: local cache schema
 
 ### Fixed

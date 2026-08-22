@@ -206,6 +206,52 @@ class AuthRetryTest {
     assertEquals(0, refreshes)
   }
 
+  // ── POST ──────────────────────────────────────────────────────────────────
+
+  @Test
+  fun `post refreshes once on 401 and retries with the new token`() {
+    var refreshes = 0
+    val tokens = mutableListOf<String?>()
+    val (code, _) = authedPost(
+      tempStore(), null, "https://api.example", "access-1", creds(), "/families/fam-1/hubs/h1/archive",
+      transport = { _, _, token -> tokens += token; if (token == "access-1") 401 to "expired" else 204 to "" },
+      refresh = { _, _ -> refreshes++; "access-2" },
+    )
+    assertEquals(204, code)
+    assertEquals(1, refreshes)
+    assertEquals(listOf<String?>("access-1", "access-2"), tokens)
+  }
+
+  @Test
+  fun `post on the legacy env path surfaces a 401 instead of refreshing`() {
+    var refreshes = 0
+    var attempts = 0
+    val (code, _) = authedPost(
+      null, null, "https://api.example", "household-secret", null, "/families/fam-1/hubs/h1/archive",
+      transport = { _, _, _ -> attempts++; 401 to "unauthorized" },
+      refresh = { _, _ -> refreshes++; "unreachable" },
+    )
+    assertEquals(401, code)
+    assertEquals(1, attempts)
+    assertEquals(0, refreshes)
+  }
+
+  @Test
+  fun `post sends an empty json body and does not retry a 403`() {
+    // The archive route takes no body; a 403 is the per-hub scope answer (hub:<id>:write),
+    // a legitimate result that must not rotate the credential.
+    var refreshes = 0
+    val bodies = mutableListOf<String>()
+    val (code, _) = authedPost(
+      tempStore(), null, "https://api.example", "access-1", creds(), "/families/fam-1/hubs/h1/archive",
+      transport = { _, requestBody, _ -> bodies += requestBody; 403 to "forbidden" },
+      refresh = { _, _ -> refreshes++; "access-2" },
+    )
+    assertEquals(403, code)
+    assertEquals(0, refreshes)
+    assertEquals(listOf("{}"), bodies)
+  }
+
   @Test
   fun `put does not refresh on a non-401 failure`() {
     var refreshes = 0

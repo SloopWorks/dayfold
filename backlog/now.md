@@ -79,6 +79,53 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
      repairing it means merges to `main` resume uploading to the Play
      **internal** track (≤100 testers, no review) exactly as ADR 0034 intends —
      nothing about the trigger, track, or gating changed.
+- **CI now names the failing test on the run page.** The `if: failure()`
+  diagnostics above covered golden-image mismatches only; for any other test
+  failure a red run showed just `Execution failed for task ':client:desktopTest'`,
+  and finding *which* of ~1000 cases failed meant downloading the raw log (~160 KB
+  for #390). `scripts/ci-test-failures.sh` reads the JUnit XML Gradle already
+  writes and posts the failing class, test name, kind and message to
+  `$GITHUB_STEP_SUMMARY`; the XML + HTML reports upload alongside for full stack
+  traces. Wired into both the Compose job and the CLI job. It is diagnostic only
+  — it always exits 0, so it can never mask or become the failure — and it
+  distinguishes three cases that otherwise look alike: real failures, a build
+  that died before any test ran (no XML), and a suite killed mid-write by the
+  step timeout or OOM (truncated XML, which would otherwise read as "0 failed").
+  Verified end to end by breaking a CLI test on purpose: Gradle printed only
+  "There were failing tests", the script named
+  `AuthRetryTest > get refreshes once on 401 and retries with the new token`.
+- **The ~18-minute Gradle hang is NOT "fails to tear down after a failed task" —
+  that hypothesis is disproved.** `ci.yml`'s own comment (and the entry below) read
+  the hang as Gradle continuing to run *after* `:ui:desktopTest FAILED`, blaming
+  `--no-daemon` teardown. Run **32552296539** (PR #391) refutes it: the step hit the
+  18-minute cap with **nothing failed** — `:client:desktopTest` and `:ui:desktopTest`
+  were both still executing, 668 tests reported, zero failures. So it hangs during a
+  perfectly clean run and a failed task is not the trigger. The comment in `ci.yml`
+  is corrected. Still undiagnosed, and still non-reproducing locally (the same suites
+  finish in ~7 minutes on the sandbox), which keeps pointing at something
+  runner-specific rather than something in the build.
+  Two things this run did confirm working: the 18-minute **step** cap did its job —
+  the job survived with ~7 minutes to spare and both `if: failure()` artifacts were
+  produced — and the snapshot dashboard uploaded properly (356 files, 27 MB).
+  Note the dashboard's "13 mismatched" on such a run is NOT golden drift: the
+  dashboard re-renders all 204 scenes, a wider set than the gate, so mismatches there
+  are expected output and are not what failed the job.
+
+- **The API lane is one token away from being locally verifiable — the recorded
+  "no npm registry access at all" no longer holds.** The entry below (2026-08-21)
+  records that org policy 403s *both* `registry.npmjs.org` and `npm.pkg.github.com`,
+  so `vitest`/`tsc` could not run and CI was the only oracle. Re-tested 2026-08-22:
+  `npm ci` resolves the public registry fine and fails at exactly one point —
+  `401 Unauthorized … @sloopworks/swip-sentry` from `npm.pkg.github.com`. That is a
+  **missing credential, not a policy block**: `.npmrc` expands `NODE_AUTH_TOKEN`,
+  which is unset here. Postgres is not a blocker either — Postgres 16 is installed,
+  and a cluster for `fad_test` starts fine (`initdb`/`pg_ctl` as the `postgres` user,
+  data dir directly under `/tmp` so the daemon can traverse it).
+  So a session with a `read:packages` token can run the API tests, `tsc`, AND
+  `npm run build:fn` locally — which is precisely what the parked archive-route
+  guard in `backlog/next.md` is waiting on. Worth confirming before the next pass
+  assumes the API lane is verify-by-CI only.
+
 - **A Linux golden re-record IS possible from a cloud sandbox — the "7 GB
   container" wall was environmental, not fundamental.** Prior sessions recorded
   this as blocked ("docker OOMs at 7.65GB compiling `:ui`", "twice lost its

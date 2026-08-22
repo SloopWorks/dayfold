@@ -17,13 +17,13 @@ class DeleteTargetTest {
   }
 
   @Test fun `id is the first non-flag positional (flag may come before or after it)`() {
-    assertEquals("h1", deleteId(arrayOf("delete", "h1")))
-    assertEquals("c1", deleteId(arrayOf("rm", "c1", "--card")))
-    assertEquals("c1", deleteId(arrayOf("delete", "--card", "c1")))   // was "--card" (footgun), now "c1"
+    assertEquals("h1", targetId(arrayOf("delete", "h1")))
+    assertEquals("c1", targetId(arrayOf("rm", "c1", "--card")))
+    assertEquals("c1", targetId(arrayOf("delete", "--card", "c1")))   // was "--card" (footgun), now "c1"
   }
 
   @Test fun `no id yields null (caller falls to usage)`() {
-    assertNull(deleteId(arrayOf("delete")))
-    assertNull(deleteId(arrayOf("delete", "--card")))   // only a flag, no id
+    assertNull(targetId(arrayOf("delete")))
+    assertNull(targetId(arrayOf("delete", "--card")))   // only a flag, no id
   }
 }

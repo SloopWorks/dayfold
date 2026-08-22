@@ -7,9 +7,10 @@ import kotlin.test.assertTrue
 // error); misuse prints it to stderr + exits 2. The index must list every command.
 class UsageTest {
   @Test fun `USAGE lists every command incl the destructive + update ones`() {
-    // delete (#180) + update (ADR 0037) were added after help shipped — assert them
-    // explicitly so a future command can't land undiscoverable (delete is destructive).
-    listOf("login", "logout", "whoami", "push", "pull", "changeset", "template", "delete", "update", "version", "help")
+    // delete (#180) + update (ADR 0037) + archive were added after help shipped — assert
+    // them explicitly so a future command can't land undiscoverable (delete is destructive,
+    // and archive changes a hub's status).
+    listOf("login", "logout", "whoami", "push", "pull", "changeset", "template", "delete", "archive", "update", "version", "help")
       .forEach { assertTrue(USAGE.contains(it), "USAGE missing \"$it\"") }
     assertTrue(USAGE.startsWith("usage: dayfold"))
   }

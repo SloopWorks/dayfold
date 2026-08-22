@@ -168,6 +168,20 @@ dayfold rm <id>                # alias for delete
 - `--block` needs the `content:delete` scope (see Scope above) — a per-hub-scoped
   credential's 403 here can't be fixed by re-logging in scoped to that hub again.
 
+## Archive — retire a hub without deleting it
+
+```
+dayfold archive <id>           # hub only: sets status to `archived`
+```
+- **Not a delete.** `delete` soft-deletes; `archived` is a distinct Hub status, so
+  the hub and its whole tree stay intact and retrievable. Reach for this when a hub
+  is finished rather than wrong (a trip that happened, a season that ended).
+- Hubs only — there is no archive route for cards or blocks.
+- Needs `hub:<id>:write`, the same scope as deleting that hub, so a per-hub
+  credential is enough (unlike `delete --block`).
+- Still a state change the family will see, so guardrail 9's propose-confirm
+  applies: name the hub before archiving it.
+
 ## Notes
 
 - Generate stable ulids for new ids client-side (26-char Crockford base32). Reuse
