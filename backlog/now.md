@@ -79,6 +79,21 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
      repairing it means merges to `main` resume uploading to the Play
      **internal** track (≤100 testers, no review) exactly as ADR 0034 intends —
      nothing about the trigger, track, or gating changed.
+- **CI now names the failing test on the run page.** The `if: failure()`
+  diagnostics above covered golden-image mismatches only; for any other test
+  failure a red run showed just `Execution failed for task ':client:desktopTest'`,
+  and finding *which* of ~1000 cases failed meant downloading the raw log (~160 KB
+  for #390). `scripts/ci-test-failures.sh` reads the JUnit XML Gradle already
+  writes and posts the failing class, test name, kind and message to
+  `$GITHUB_STEP_SUMMARY`; the XML + HTML reports upload alongside for full stack
+  traces. Wired into both the Compose job and the CLI job. It is diagnostic only
+  — it always exits 0, so it can never mask or become the failure — and it
+  distinguishes three cases that otherwise look alike: real failures, a build
+  that died before any test ran (no XML), and a suite killed mid-write by the
+  step timeout or OOM (truncated XML, which would otherwise read as "0 failed").
+  Verified end to end by breaking a CLI test on purpose: Gradle printed only
+  "There were failing tests", the script named
+  `AuthRetryTest > get refreshes once on 401 and retries with the new token`.
 - **A Linux golden re-record IS possible from a cloud sandbox — the "7 GB
   container" wall was environmental, not fundamental.** Prior sessions recorded
   this as blocked ("docker OOMs at 7.65GB compiling `:ui`", "twice lost its
