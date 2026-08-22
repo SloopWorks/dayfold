@@ -94,6 +94,15 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Verified end to end by breaking a CLI test on purpose: Gradle printed only
   "There were failing tests", the script named
   `AuthRetryTest > get refreshes once on 401 and retries with the new token`.
+- **A `check_suite.completed / success` webhook on this repo is USUALLY not CI —
+  don't merge on it.** The repo runs gitleaks as its own workflow, so every push
+  produces two check suites. The gitleaks one finishes in **5–9 seconds** and fires a
+  `conclusion: success` event while the real CI suite still has five jobs running;
+  three times in the 2026-08-22 pass that event arrived seconds after a push and, taken
+  at face value, would have merged an unverified PR. The suite id differs each time, so
+  it can't be filtered by id either. Always resolve the PR's state per job (check runs),
+  never from the suite conclusion — the event's own note says as much, and it is right.
+
 - **The ~18-minute Gradle hang is NOT "fails to tear down after a failed task" —
   that hypothesis is disproved.** `ci.yml`'s own comment (and the entry below) read
   the hang as Gradle continuing to run *after* `:ui:desktopTest FAILED`, blaming
