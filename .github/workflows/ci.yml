@@ -109,9 +109,18 @@ jobs:
       # never rendered and never uploaded, and a red run yields no diagnostics at all.
       # Failing the STEP instead leaves ~7 minutes for the two `if: failure()` steps
       # below (the dashboard run takes ~70s), so a hang still produces the artifact.
+      # `verifyCommonMainContentDbMigration` is SQLDelight's check that applying the
+      # .sqm chain to an old DB reproduces the schema `Content.sq` creates fresh. It has
+      # been enabled in `apps/client/build.gradle.kts` all along but never ran, because it
+      # is wired to `:client:build` and CI only ever runs `:client:desktopTest`. It was
+      # failing: three tables had columns that reached the fresh schema with no migration,
+      # so fresh installs were correct while upgrading devices silently were not. ~9s.
       - working-directory: apps
         timeout-minutes: 18
-        run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest :swip-wiring:desktopTest
+        run: >-
+          ./gradlew --no-daemon
+          :client:verifyCommonMainContentDbMigration
+          :client:desktopTest :ui:desktopTest :swip-wiring:desktopTest
       # On golden failure: render the batch dashboard (per-shot image + magenta diff +
       # verdict, self-contained index.html) and upload it, so a failed PR run gives
       # clickable visual diffs without a local repro. `|| true`: the dashboard run
