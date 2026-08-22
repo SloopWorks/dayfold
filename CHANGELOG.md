@@ -7,6 +7,20 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-22 — Upgrade fix: local cache schema
+
+### Fixed
+- **Devices that upgraded in place could be left with an out-of-date local cache.**
+  Three additions to the on-device database — the family roster, calendar-import
+  state, and cards' deep-link targets — shipped without a migration, so they were
+  created only on a **fresh install**. An existing install had no way to acquire
+  them, which could surface as missing roster or calendar-import behaviour after an
+  update. Upgrading now brings the cache fully up to date; no re-install, no sign-in,
+  and no data loss. A fresh install was never affected.
+- Also corrected the stored column order for a few older fields so an upgraded cache
+  is byte-for-byte identical to a freshly created one, and added the check that
+  catches this to CI so the two can't drift again.
+
 ## 2026-08-19 — Private on-device search
 
 ### Added

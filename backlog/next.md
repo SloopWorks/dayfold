@@ -395,45 +395,48 @@ code. **None of the three could simply be deleted — every one had a real gap.*
      cascading from the same load failure. Reproducible, not sandbox-specific — CI
      also uses Temurin 17. **Operator-relevant: redux-kotlin is the operator's own
      library** (see INB-15), so this is upstream feedback, not a Dayfold fix.
-  3. **`verifyCommonMainContentDbMigration` fails — see the next entry. This is
-     the serious one.**
+  3. `verifyCommonMainContentDbMigration` failed — **fixed 2026-08-22**, see the
+     next entry. That one is resolved; (1) and (2) above remain.
 
-## ⚠ SQLDelight migration chain does not reproduce the fresh schema (found 2026-08-21)
+## ✅ SQLDelight migration chain — FIXED 2026-08-22 (was: does not reproduce the fresh schema)
 
-`./gradlew :client:build` runs SQLDelight's `verifyMigrations` (enabled in
-`apps/client/build.gradle.kts`). It fails:
+Found by running `verifyMigrations` (enabled in `apps/client/build.gradle.kts` but
+wired to `:client:build`, which CI never invokes — so it had never once run).
 
-```
-Error migrating from 1.db, fresh database looks different from migration database:
-  /tables[calendar_import] - ADDED
-  /tables[membership] - ADDED
-  /tables[card]/columns[card.target_hub_id] - ADDED
-  /tables[card]/columns[card.target_section_id] - ADDED
-  /tables[card]/columns[card.target_block_id] - ADDED
-  /tables[card]/columns[card.related]/ordinalPosition - CHANGED
-```
+**Two instances of one root cause: schema objects reaching `Content.sq` without a
+companion `.sqm`.**
 
-Confirmed by direct search: `membership`, `calendar_import`, `target_hub_id`,
-`target_section_id` and `target_block_id` are all present in `Content.sq` (the
-fresh schema) and appear in **none of `migrations/1.sqm … 15.sqm`**. They entered
-`Content.sq` in `a50876e` (WI-450 calendar import) and `0e47b04`, in both cases
-without a companion `.sqm`.
+1. **Missing objects.** `membership`, `calendar_import` and
+   `card.target_{hub,section,block}_id` were in the fresh schema and in no migration.
+   Because no `.sqm` was added, `Schema.version` never moved off 16 — so on an
+   existing device `migrate()` **never ran at all**, and the device had no path to
+   ever acquiring them. Fresh installs were correct. Fixed by **`16.sqm`** (three
+   `ALTER`s + both `CREATE TABLE`s), bumping the version to 17.
+2. **Ordinal drift.** `card.media` (3.sqm), `hub.media` (3.sqm), `hub.timeline`
+   (9.sqm) and `content_response.created_at` (15.sqm) were `ALTER`-appended but
+   written mid-table in `Content.sq`. SQLite can only append, so fresh and migrated
+   schemas disagreed on column ORDER. All four moved to the end, matching the
+   convention `importance`/`triggers` already document.
+   **Severity, stated precisely: this one was latent, not live.** Column order would
+   only corrupt reads if a query mapped results positionally, and it never did —
+   `Content.sq` contains **zero `SELECT *`** and zero column-list-free `INSERT`
+   (checked); every query names its columns, so SQLite resolves by name and physical
+   order is irrelevant to correctness. It mattered because it kept the guard red, and
+   because it is one `SELECT *` away from becoming a live data-mixing bug. Instance
+   1 is the one that actually broke upgraded devices.
 
-Why it matters: `DriverFactory`'s `cacheNeedsWipe` only wipes the local DB on a
-**downgrade** — an upgrade keeps the file and runs `Schema.migrate()`. So a device
-upgrading in place gets a database with no `membership` / `calendar_import` tables
-and no `card.target_*` columns, while a **fresh install** (`Schema.create()` from
-`Content.sq`) is correct. Classic works-on-fresh-install / breaks-on-upgrade.
+No `CLIENT_SCHEMA_VERSION` bump: unlike `11.sqm`'s `triggers` (which needed a resync
+so the server could backfill a since-added field into cached cards), both tables
+refill unaided — AuthEngine re-saves memberships after every auth resolve, and
+`calendar_import` is transient local proposal state.
 
-Mitigating, and why this may not have been noticed: the local DB is a **cache** that
-re-syncs from the server, so the recovery is cheap *if* the wipe triggers — but
-today it only triggers on downgrade, not on a missing table.
+Verified: `verifyCommonMainContentDbMigration` passes; `:client:desktopTest` 1047
+tests and `:ui:desktopTest` 649 tests, 0 failures — the regression that mattered,
+since reordering columns regenerates every SQLDelight mapper.
 
-Not fixed here: writing the missing migrations touches on-device data and needs a
-decision on whether to backfill via `.sqm` or widen `cacheNeedsWipe` to wipe-and-
-re-sync on any schema mismatch. That is an operator/eng call, not agent-decidable.
-**The cheap durable guard is to run this check in CI** — `verifyMigrations` already
-exists and already catches it; it simply never runs.
+**The guard now runs in CI** (added to the Compose job's gradle line, ~9s), which is
+what stops this class of bug recurring. The rule it enforces: **a column or table
+added to `Content.sq` needs a `.sqm`, and appended columns go at the END.**
 
 ## CODE DEDUP FINDINGS (2026-07-01 audit; re-swept 2026-07-05, counts refreshed 2026-07-16,
 re-verified 2026-07-17, applied 2026-07-20)

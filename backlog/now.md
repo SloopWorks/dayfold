@@ -11,17 +11,37 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
-- **⚠ The SQLDelight migration chain does not reproduce the fresh schema (found
-  2026-08-21, unfixed, needs an eng/operator call).** `membership`,
-  `calendar_import` and `card.target_{hub,section,block}_id` are in `Content.sq`
-  but in **none** of `migrations/1.sqm … 15.sqm` — they landed with WI-450 and
-  `0e47b04` without a companion `.sqm`. A **fresh install** is correct; a device
-  **upgrading in place** keeps its DB (`cacheNeedsWipe` only wipes on a
-  *downgrade*) and runs a migration chain that never creates them. SQLDelight's
-  `verifyMigrations` already catches this and is already enabled — it just never
-  runs, because CI runs `:client:desktopTest`, never `:client:build`. Full detail,
-  including the two candidate fixes, in `backlog/next.md`. Not agent-decidable: it
-  touches on-device data.
+- **✅ SQLDelight migration gap — FOUND AND FIXED 2026-08-21/22 (20th pass).**
+  `membership`, `calendar_import` and `card.target_{hub,section,block}_id` reached
+  `Content.sq` (WI-450 `a50876e`, `0e47b04`) with no companion `.sqm`.
+  **Correction to the first report of this:** the mechanism was worse than
+  "migrate() runs a chain that misses them" — because no `.sqm` was added,
+  `Schema.version` never moved off **16**, so on an existing device `migrate()`
+  **never ran at all**. A device installed before those commits sat on a DB with no
+  `membership` table, no `calendar_import` table and no `card.target_*` columns, with
+  **no path to ever acquiring them**. Fresh installs were correct, which is why it
+  went unseen. Fixed by `16.sqm` (three `ALTER`s + both `CREATE TABLE`s), which bumps
+  the version to 17 and gives stranded devices the upgrade they never got.
+  Deliberately **no `CLIENT_SCHEMA_VERSION` bump**: unlike `11.sqm`'s `triggers`,
+  which needed a forced resync so the server could backfill a since-added field,
+  both tables refill on their own (AuthEngine re-saves memberships after every auth
+  resolve; `calendar_import` is transient local proposal state).
+- **The same root cause had a second, wider instance — also fixed.** Turning the
+  guard on revealed **ordinal-position drift** in `card`, `hub` and
+  `content_response`: `card.media` (3.sqm), `hub.media` (3.sqm), `hub.timeline`
+  (9.sqm) and `content_response.created_at` (15.sqm) were all `ALTER`-appended but
+  written **mid-table** in `Content.sq`. SQLite's `ALTER TABLE` can only append, so
+  the fresh and migrated schemas disagreed on column ORDER. All four moved to the end,
+  matching the convention `importance` and `triggers` already documented in that file.
+  **This instance was latent, not live** — order would only corrupt reads under
+  positional mapping, and `Content.sq` has **zero `SELECT *`** and no column-list-free
+  `INSERT`, so every query resolves by name. It mattered because it held the guard red,
+  and is one `SELECT *` away from becoming real. The missing objects above are what
+  actually broke upgraded devices.
+- **The guard now runs.** `verifyCommonMainContentDbMigration` was enabled in
+  `apps/client/build.gradle.kts` all along but wired to `:client:build`, which CI
+  never invokes — so it had never once executed. It is now in the Compose job's
+  gradle line (~9s). This is what makes the class of bug non-recurring.
 - **`main` was RED 2026-08-20 → 2026-08-21; fixed by PR #385 (19th pass), merged
   as `6283a7d`, CI green on all six jobs on the PR head before merge.** Last
   green CI run on `main` before the fix was `37d12ace` (2026-08-10). The failing

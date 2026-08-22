@@ -11,16 +11,19 @@ CREATE TABLE card (
   payload     TEXT,                       -- CL-4: JSON {"file":{…}}; decoded once at projection
   privacy     TEXT,                       -- CL-4: JSON {"storage":…}
   hub_ref     TEXT,                       -- CL-4: parent Hub id (adaptive pane)
-  target_hub_id     TEXT,                 -- deep-link target (ADR 0006): hub/section/block
-  target_section_id TEXT,
-  target_block_id   TEXT,
   related     TEXT,                       -- CL-8: JSON [{relation,targetId,targetType,title?,sub?}]
   related_kicker TEXT,                    -- CL-8: RELATED section header
-  media       TEXT,                       -- ADR 0036: JSON {icon,accentColor,thumbnailUrl,imageAlt,imageFit}
   updated_at  TEXT NOT NULL,
   deleted     INTEGER NOT NULL DEFAULT 0,  -- tombstone flag
+  media       TEXT,                       -- ADR 0036: JSON {icon,accentColor,thumbnailUrl,imageAlt,imageFit} (ALTER in 3.sqm)
   importance  REAL,                        -- ADR 0043 §2b: bounded author weight (appended last; ALTER in 7.sqm)
-  triggers    TEXT                         -- ADR 0043/0049 (#299): JSON [{when,geo}] list; decoded at projection. Synced-only. (ALTER in 11.sqm)
+  triggers    TEXT,                        -- ADR 0043/0049 (#299): JSON [{when,geo}] list; decoded at projection. Synced-only. (ALTER in 11.sqm)
+  -- deep-link target (ADR 0006): hub/section/block. Appended last, like importance/triggers
+  -- above: SQLite's ALTER TABLE can only append, so the fresh schema must list these in the
+  -- same order 16.sqm adds them or verifyMigrations sees an ordinal-position drift.
+  target_hub_id     TEXT,                  -- (ALTER in 16.sqm)
+  target_section_id TEXT,                  -- (ALTER in 16.sqm)
+  target_block_id   TEXT                   -- (ALTER in 16.sqm)
 );
 -- NOTE (ADR 0020): disposable M0 cache, no .sqm migration infra. Schema.create
 -- is idempotent-skip on an existing device DB, so the old `card` table survives
@@ -123,10 +126,10 @@ CREATE TABLE hub (
   countdown_to TEXT,
   visibility   TEXT,
   created_by   TEXT,
-  media        TEXT,                       -- ADR 0036: JSON {heroUrl,thumbnailUrl,heroFit,imageAlt,icon,accentColor}
-  timeline     TEXT,                       -- ADR 0045: JSON Timeline {title,tz,stops:[…]}
   updated_at   TEXT NOT NULL,
-  deleted      INTEGER NOT NULL DEFAULT 0
+  deleted      INTEGER NOT NULL DEFAULT 0,
+  media        TEXT,                       -- ADR 0036: JSON {heroUrl,thumbnailUrl,heroFit,imageAlt,icon,accentColor} (ALTER in 3.sqm)
+  timeline     TEXT                        -- ADR 0045: JSON Timeline {title,tz,stops:[…]} (ALTER in 9.sqm)
 );
 
 upsertHub:
@@ -542,11 +545,11 @@ CREATE TABLE content_response (
   label          TEXT NOT NULL,
   sublabel       TEXT,
   note           TEXT,
-  created_at     TEXT NOT NULL DEFAULT '',
   version        INTEGER NOT NULL DEFAULT 1,
   -- Optimistic-write UI state: 1 while the outbox op is unacked (States P1), cleared by the
   -- /sync echo. NOT a wire field.
-  pending        INTEGER NOT NULL DEFAULT 0
+  pending        INTEGER NOT NULL DEFAULT 0,
+  created_at     TEXT NOT NULL DEFAULT ''   -- (ALTER in 15.sqm)
 );
 CREATE INDEX content_response_subject_idx ON content_response(subject_ref);
 

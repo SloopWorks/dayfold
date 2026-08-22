@@ -1,0 +1,40 @@
+-- Migration v16→v17: land three schema objects that reached Content.sq WITHOUT a
+-- migration, so they existed on fresh installs only.
+--
+-- `card.target_*` (deep-link targets, ADR 0006), `membership` (ADR 0052 cold-start
+-- route-gate cache) and `calendar_import` (WI-450 reviewed-import state) were added
+-- to the fresh schema in a50876e / 0e47b04 with no companion .sqm. Because no .sqm
+-- was added, Schema.version never moved off 16 — so migrate() was never invoked on
+-- an existing device either. A device that installed before those commits has been
+-- sitting on a DB with no membership table, no calendar_import table and no
+-- card.target_* columns, with no path to acquiring them. Fresh installs were fine,
+-- which is why it went unnoticed. SQLDelight's verifyMigrations caught it once
+-- `:client:build` was actually run (it is enabled, but CI runs :client:desktopTest).
+--
+-- No CLIENT_SCHEMA_VERSION bump accompanies this. Unlike 11.sqm's `triggers` — which
+-- needed a forced resync so the server could backfill a since-added field into cached
+-- cards — both tables here refill on their own: AuthEngine re-saves memberships from
+-- the network after every auth resolve, and calendar_import holds transient local
+-- proposal state. The columns are nullable and populate on the next card sync.
+ALTER TABLE card ADD COLUMN target_hub_id TEXT;
+ALTER TABLE card ADD COLUMN target_section_id TEXT;
+ALTER TABLE card ADD COLUMN target_block_id TEXT;
+
+CREATE TABLE membership (
+  family_id TEXT NOT NULL PRIMARY KEY,
+  name      TEXT NOT NULL DEFAULT '',
+  role      TEXT NOT NULL DEFAULT 'adult',   -- owner | adult
+  status    TEXT NOT NULL DEFAULT 'active'   -- active | pending
+);
+
+CREATE TABLE calendar_import (
+  proposal_id      TEXT NOT NULL PRIMARY KEY,
+  proposal_json    TEXT NOT NULL,
+  destination_json TEXT NOT NULL,
+  hub_id           TEXT,
+  section_id       TEXT NOT NULL,
+  block_ids_json   TEXT NOT NULL,
+  status           TEXT NOT NULL,   -- applying | offline_queued | saved
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL
+);
