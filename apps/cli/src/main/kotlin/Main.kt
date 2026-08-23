@@ -410,6 +410,21 @@ fun main(args: Array<String>) {
         // A failed lookup is NOT fatal: the write boundary still enforces the rule, so a
         // transient read error must not block authoring.
       }
+      // --dry-run stops HERE: everything above has already run — linkify, checklist-id
+      // stamping, validation, and the ADR 0064 mute pre-flight — so what it prints is the
+      // exact bytes the write would carry, not a re-derivation that could drift from it.
+      // The pre-flight deliberately runs: "this would be SKIPPED, the family muted it" is
+      // the single most useful thing a dry run can report, and it is a read, not a write
+      // (a muted subject returns above, printing `skipped …`, before reaching this point).
+      // Requires auth like any push, because the family id is part of what it reports.
+      if ("--dry-run" in args) {
+        val target = if (creds != null) "${creds.api}/families/${creds.familyId}/$resource/$id"
+                     else "${env("DAYFOLD_API")}/families/${env("FAMILY_ID")}/$resource/$id"
+        println("dry-run: no write performed")
+        println("PUT $target")
+        println(stamped)
+        return
+      }
       val (code, body) = if (creds != null) {
         authedPut(session.store, session.keychain, creds.api, creds.accessToken, creds, "/families/${creds.familyId}/$resource/$id", stamped)
       } else {

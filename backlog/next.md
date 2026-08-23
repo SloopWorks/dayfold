@@ -360,9 +360,26 @@ code. **None of the three could simply be deleted — every one had a real gap.*
   exactly: `login logout whoami pull responses changeset push delete template
   update version help`. Against the originally-scoped set:
   - `status` — **never landed**.
-  - `push --dry-run` / `push --diff` — **never landed**. Partly superseded in
-    spirit by `changeset validate` / `changeset diff`, but those operate on a
-    routine manifest, not on a pending `push`.
+  - `push --dry-run` — **landed 2026-08-22.** Runs the whole pipeline (linkify,
+    checklist-id stamping, validation, ADR 0064 pre-flight) and prints the target
+    URL + the final payload instead of writing. It prints `stamped`, the same value
+    the PUT carries, so preview and write cannot drift.
+  - `push --diff` — **still open, and it is NOT a verb-sized gap.** It needs the
+    server's current state for the id being pushed, and the per-id GET routes do not
+    exist uniformly: `GET /families/:fid/hubs/:id` does (`app.ts:612`), cards have
+    only the collection (`app.ts:525`, so a client-side find), and **sections and
+    blocks have no GET at all** — they are reachable only inside
+    `/hubs/:id/tree`, which the caller cannot address without already knowing the
+    hub. So `--diff` is either uneven across the four resource types or it needs new
+    server routes; either way it is a design decision, not a CLI verb. Left for the
+    operator.
+  - `status` — **still open, and bigger than it looks.** `specs/prototype/07-cli.md`
+    defines it as "local manifest vs server (drift)", where the manifest is
+    `~/.config/dayfold/<family>.manifest` mapping `path ↔ id ↔ server version`. That
+    manifest does not exist, and neither does the markdown-frontmatter push flow it
+    belongs to — today's `push` takes `<id> <file.json>`, not a path. Inventing the
+    manifest format and write points is a design decision, so `status` is NOT the
+    same class of gap as `archive`/`--dry-run` were.
   - `hub get` / `hub rm` — no `hub` command, but functional equivalents exist
     (`pull --hub <id>`, and `delete <id>` whose default resource is hubs).
   - `hub archive` — **never landed, and its API route is orphaned.** The server
@@ -414,6 +431,16 @@ code. **None of the three could simply be deleted — every one had a real gap.*
     expect(missing.status).toBe(404);   // a valid-but-absent hub is unchanged
   });
   ```
+
+- **A network failure on `push` crashes with a raw Java stack trace.** Observed while
+  proving `--dry-run` writes nothing: pointing `DAYFOLD_API` at a dead port makes a real
+  `push` die with an unhandled `java.net.ConnectException` and a JDK stack trace, exit 1
+  — no message about which host was unreachable, and nothing actionable. `httpStatus`
+  (`Main.kt:28`) lets the exception escape rather than mapping it to the CLI's usual
+  `System.err.println(...) + exitProcess` shape, so this affects every networked verb,
+  not just push. Cheap fix, but it is user-visible error-message design (what to say,
+  which exit code, whether to hint at `DAYFOLD_API`), so it is worth deciding rather
+  than picking silently. Not urgent — offline authoring is not an MVP flow.
 
 - **TASK-KMP — DoD is NOT met by a live build. `./gradlew :client:build` fails,
   for three independent reasons.** CI never catches any of them because CI runs

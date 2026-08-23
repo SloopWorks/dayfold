@@ -7,6 +7,16 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-22 — CLI: preview a push before it writes
+
+### Added
+- **`dayfold push --dry-run` shows exactly what would be written, and writes nothing.**
+  It runs the full push pipeline first — including the two steps that change what you
+  wrote (bare phone/email in `body_md` become links; checklist items get stable ids) —
+  so the payload it prints is the exact content that would be stored. A muted subject
+  still reports as skipped and an invalid body still fails, so a clean dry run is real
+  evidence the push will land.
+
 ## 2026-08-22 — CLI: archive a hub
 
 ### Added

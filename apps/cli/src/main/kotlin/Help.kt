@@ -161,6 +161,11 @@ val COMMANDS: List<HelpCommand> = listOf(
       HelpOption("--type", "<t>",
         "Run local typed-card validation against the generated schema before the server. " +
           "t ∈ file|link|invite|contact|geo|email. Cards only."),
+      HelpOption("--dry-run", description =
+        "Show exactly what would be written, then stop without writing. Runs the whole " +
+        "push pipeline first — linkify, checklist-id stamping, validation and the rule " +
+        "pre-flight — so a muted subject reports `skipped` and a malformed body still " +
+        "fails, just as a real push would. Prints the target URL and the final payload."),
       HelpOption("--no-preflight", null, "Skip the ADR 0064 rule lookup before pushing. The server still rejects a muted subject with 409; this only skips the friendly local skip."),
       HelpOption("--no-linkify", description =
         "Don't auto-wrap bare phone/email in body_md as tappable links (the default rewrites them)."),
