@@ -168,6 +168,22 @@ dayfold rm <id>                # alias for delete
 - `--block` needs the `content:delete` scope (see Scope above) — a per-hub-scoped
   credential's 403 here can't be fixed by re-logging in scoped to that hub again.
 
+## Dry run — see exactly what a push would write
+
+```
+dayfold push <id> <file.json> --dry-run        # prints the target + final payload, writes nothing
+```
+- **Use this for guardrail 9's propose-confirm.** It runs the whole pipeline first —
+  linkify, checklist-id stamping, validation, and the ADR 0064 rule pre-flight — so the
+  payload it prints is the exact bytes a real push would carry, not a re-derivation.
+  Propose from that output rather than from the raw file.
+- It surfaces the two transforms that change what you wrote: **linkify** rewrites bare
+  phone/email in `body_md` into explicit links, and **checklist items get minted `id` +
+  `ord`**. Both show in the preview.
+- A muted subject still reports `skipped …` and a malformed body still fails validation,
+  exactly as a real push would — a clean dry run is real evidence the push will land.
+- Composes with every push flag (`--hub/--section/--block`, `--type`, `--no-linkify`).
+
 ## Archive — retire a hub without deleting it
 
 ```
