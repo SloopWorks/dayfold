@@ -675,15 +675,23 @@ Gradle daemon during compilation, so those counterparts remain pending.
   `CalendarMatchedSummaryScreen`, `CalendarReturnScreen` are the additional
   Calendar Check (ADR 0063, still Proposed) surfaces beyond the three WI-461
   is already wiring — same staged-epic posture, revisit alongside it.
-- [ ] **Restart Claude Code once and confirm `dayfold-curator` still lists as a
-  skill** (2026-07-30, harness-neutral skill move). The skill's real files moved
-  to `.agents/skills/dayfold-curator/` — Codex's repo skills root, so one copy
-  now serves both harnesses — and `.claude/skills/dayfold-curator` is a committed
-  symlink to it. Codex discovery is verified (`codex exec` lists it); the one
-  thing a test can't prove without a restart is that Claude Code's skill loader
-  follows a symlinked skill directory. If it doesn't, the fallback is a generated
-  `.claude/` copy plus a CI drift check — see
-  `docs/superpowers/specs/2026-07-30-harness-neutral-skill-source-design.md`.
+- [x] **CONFIRMED 2026-08-23: Claude Code's skill loader DOES follow a symlinked
+  skill directory** (2026-07-30, harness-neutral skill move). The skill's real
+  files live in `.agents/skills/dayfold-curator/` — Codex's repo skills root, so
+  one copy serves both harnesses — and `.claude/skills/dayfold-curator` is a
+  committed symlink to it (git mode `120000`, object `8469f68`). Codex discovery
+  was already verified (`codex exec` lists it); the part needing a fresh session
+  is now verified too — a Claude Code session started on 2026-08-23 listed
+  `dayfold-curator` among its available skills.
+  The evidence is not just "it appeared": `readlink -f` resolves the symlink to
+  the `.agents/` path, and `find` confirms there is exactly **one** `SKILL.md` in
+  the tree, under `.agents/` — so no stray `.claude/` copy could account for the
+  discovery. It was loaded through the symlink.
+  **The fallback is therefore NOT needed** (a generated `.claude/` copy plus a CI
+  drift check — `docs/superpowers/specs/2026-07-30-harness-neutral-skill-source-design.md`).
+  One honest caveat: this was the **remote/web** Claude Code harness. The loader is
+  the same codebase, so the local CLI is very unlikely to differ, but that
+  specific surface was not separately observed.
   **Edit only the `.agents/` copy from now on.**
 - [ ] **API error reporting (ADR 0059) — PR #336 merged (`c65c0d4`, 2026-07-15);
   set Vercel env before the next prod deploy.**
