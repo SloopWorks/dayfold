@@ -2,7 +2,9 @@ package com.sloopworks.dayfold.client
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class TimelineNowLineIndexTest {
     // The helper reads only group/stop counts (not instants), so dummy stops suffice.
@@ -35,5 +37,15 @@ class TimelineNowLineIndexTest {
     @Test fun nullAndOutOfRangeYieldNull() {
         assertNull(nowLineItemIndex(groups, null))
         assertNull(nowLineItemIndex(groups, 4)) // beyond total → null (no scroll)
+    }
+
+    @Test fun `viewport overlap includes partial pixels and excludes touching edges`() {
+        assertTrue(timelineItemOverlapsViewport(0, 20, 0, 100))
+        assertTrue(timelineItemOverlapsViewport(-10, 15, 0, 100))
+        assertTrue(timelineItemOverlapsViewport(95, 10, 0, 100))
+
+        assertFalse(timelineItemOverlapsViewport(-20, 20, 0, 100))
+        assertFalse(timelineItemOverlapsViewport(100, 20, 0, 100))
+        assertFalse(timelineItemOverlapsViewport(50, 0, 0, 100))
     }
 }

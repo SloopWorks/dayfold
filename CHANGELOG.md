@@ -7,6 +7,15 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-24 — Timeline: jump back to now
+
+### Added
+- **A compact Now button returns a scrolled timeline to the present.** It appears
+  only after the current time or date marker has moved completely off-screen, then
+  animates back to that marker without changing the selected Hub. The control works
+  for both day and roadmap timelines, stays clear of the final timeline content, and
+  uses an immediate jump when reduced motion is enabled.
+
 ## 2026-08-22 — CLI: preview a push before it writes
 
 ### Added

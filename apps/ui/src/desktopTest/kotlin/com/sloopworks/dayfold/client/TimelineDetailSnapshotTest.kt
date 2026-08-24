@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -103,6 +104,22 @@ class TimelineDetailSnapshotTest {
         ),
     )
 
+    private fun jumpTimeline() = Timeline(
+        title = "Season",
+        tz = "America/New_York",
+        stops = listOf(
+            Stop("2026-01-10", "kickoff", done = true),
+            Stop("2026-02-10", "phase one", done = true),
+            Stop("2026-03-10", "phase two", done = true),
+            Stop("2026-04-10", "phase three", done = true),
+            Stop("2026-05-10", "phase four", done = true),
+            Stop("2026-06-10", "phase five", done = true),
+            Stop("2026-07-10", "phase six", done = true),
+            Stop("2026-08-25", "launch"),
+            Stop("2026-09-20", "follow-up"),
+        ),
+    )
+
     private fun shot(name: String, tl: Timeline, scale: TimelineScale) = runComposeUiTest {
         setContent {
             DayfoldTheme(darkTheme = false) {
@@ -150,6 +167,24 @@ class TimelineDetailSnapshotTest {
                 .let { dir -> ImageIO.write(img.toAwtImage(), "png", File(dir, "$name.png")) }
         }
 
+    private fun jumpAffordanceShot(name: String, darkTheme: Boolean) = runComposeUiTest {
+        setContent {
+            DayfoldTheme(darkTheme = darkTheme) {
+                Box(Modifier.width(390.dp).height(760.dp)) {
+                    TimelineDetail(jumpTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
+                }
+            }
+        }
+        waitForIdle()
+        onNode(hasScrollAction()).performScrollToIndex(0)
+        waitForIdle()
+        onNodeWithContentDescription("Jump to now").assertIsDisplayed()
+        val img = onRoot().captureToImage()
+        assertTrue(img.width > 0 && img.height > 0, "snapshot $name has no pixels")
+        File("build/snapshots").apply { mkdirs() }
+            .let { dir -> ImageIO.write(img.toAwtImage(), "png", File(dir, "$name.png")) }
+    }
+
     // ── Snapshot outputs ──────────────────────────────────────────────────────
 
     @Test fun dayLight()  = shot("timeline-detail-day-light", dayTimeline(), TimelineScale.Day)
@@ -158,6 +193,8 @@ class TimelineDetailSnapshotTest {
     // Scrolled hub snapshot: shows the October future-major stop (star glyph + T4 card).
     @Test fun hubMajorFutureLight() =
         shotScrolled("timeline-detail-hub-major-future-light", hubTimeline(), TimelineScale.Hub, 12)
+    @Test fun jumpAffordanceLight() = jumpAffordanceShot("timeline-detail-jump-now-light", darkTheme = false)
+    @Test fun jumpAffordanceDark() = jumpAffordanceShot("timeline-detail-jump-now-dark", darkTheme = true)
 
     // ── Behavioral assertions — Day ───────────────────────────────────────────
 
@@ -334,25 +371,27 @@ class TimelineDetailSnapshotTest {
     // ── Behavioral assertions — open-at-NOW scroll ────────────────────────────
 
     @Test fun `hub roadmap opens scrolled to NOW with earliest past scrolled off`() = runComposeUiTest {
-        // Five past monthly milestones + one future stop. now = nowIso (Aug 24). Opening at NOW must
-        // scroll the earliest month (JAN "kickoff") off the top, and the NOW line must be visible.
-        val tl = Timeline(title = "Season", tz = "America/New_York", stops = listOf(
-            Stop("2026-01-10", "kickoff", done = true),
-            Stop("2026-02-10", "phase one", done = true),
-            Stop("2026-03-10", "phase two", done = true),
-            Stop("2026-04-10", "phase three", done = true),
-            Stop("2026-05-10", "phase four", done = true),
-            Stop("2026-08-25", "launch"),
-        ))
+        // Opening at NOW must scroll the earliest month (JAN "kickoff") off the top. Moving back
+        // through history reveals the return affordance; tapping it animates to NOW and hides it.
         setContent {
             DayfoldTheme(darkTheme = false) {
                 Box(Modifier.width(390.dp).height(760.dp)) {
-                    TimelineDetail(tl, TimelineScale.Hub, nowIso, ny, {}, {})
+                    TimelineDetail(jumpTimeline(), TimelineScale.Hub, nowIso, ny, {}, {})
                 }
             }
         }
         waitForIdle()
         onNodeWithText("NOW · Today").assertIsDisplayed()
         onNodeWithText("kickoff").assertDoesNotExist()   // earliest past scrolled above the fold
+        onNodeWithContentDescription("Jump to now").assertDoesNotExist()
+
+        onNode(hasScrollAction()).performScrollToIndex(0)
+        waitForIdle()
+        onNodeWithText("kickoff").assertIsDisplayed()
+        onNodeWithContentDescription("Jump to now").assertIsDisplayed().performClick()
+
+        waitForIdle()
+        onNodeWithText("NOW · Today").assertIsDisplayed()
+        onNodeWithContentDescription("Jump to now").assertDoesNotExist()
     }
 }

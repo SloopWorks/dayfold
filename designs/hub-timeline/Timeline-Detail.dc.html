@@ -17,10 +17,11 @@
   .msr.fill { font-variation-settings: 'FILL' 1; }
   .tld-scroll::-webkit-scrollbar { width: 0; height: 0; }
   @keyframes tld-now { 0%,100% { box-shadow: 0 0 0 0 rgba(192,56,30,0.0); } 50% { box-shadow: 0 0 0 4px rgba(192,56,30,0.26); } }
-  @media (prefers-reduced-motion: reduce) { .tld-pulse { animation: none !important; } }
+  @keyframes tld-jump-in { from { opacity:0; transform:translateY(10px) scale(.94); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .tld-pulse, .tld-jump { animation: none !important; } }
 </style>
 </helmet>
-<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:{{ c.surface }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};">
+<div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:{{ c.surface }};font-family:'Figtree',sans-serif;color:{{ c.onSurface }};position:relative;">
 
   <!-- header -->
   <div style="background:{{ c.headerBg }};padding:14px 18px 16px;flex:0 0 auto;">
@@ -38,7 +39,7 @@
   </div>
 
   <!-- body -->
-  <div class="tld-scroll" style="flex:1;overflow-y:auto;padding:18px 18px 24px;">
+  <div ref="{{ scrollRef }}" onScroll="{{ onScroll }}" class="tld-scroll" style="flex:1;overflow-y:auto;padding:18px 18px 88px;">
     <sc-for list="{{ feed }}" as="it" hint-placeholder-count="9">
 
       <!-- GROUP HEADER -->
@@ -52,7 +53,7 @@
 
       <!-- NOW LINE -->
       <sc-if value="{{ it.isNow }}" hint-placeholder-val="{{ false }}">
-        <div style="display:flex;align-items:center;gap:10px;margin:2px 0 14px;padding-left:1px;">
+        <div ref="{{ nowRef }}" style="display:flex;align-items:center;gap:10px;margin:2px 0 14px;padding-left:1px;">
           <span style="width:11px;height:11px;flex:0 0 11px;border-radius:999px;background:{{ c.primary }};box-shadow:0 0 0 4px {{ c.primaryHalo }};"></span>
           <span style="font-family:'Figtree';font-size:11px;font-weight:700;letter-spacing:0.06em;color:{{ c.onPrimary }};background:{{ c.primary }};border-radius:6px;padding:3px 8px;">NOW · {{ it.nowTime }}</span>
           <span style="flex:1;height:2px;border-radius:2px;background:linear-gradient(90deg,{{ c.primary }},transparent);"></span>
@@ -101,6 +102,15 @@
       <div style="font-family:'Figtree';font-size:12px;line-height:1.45;color:{{ c.provFg }};">{{ provNote }}</div>
     </div>
   </div>
+
+  <!-- Appears only while the NOW marker has no visible pixels. Lower-trailing placement keeps
+       it thumb-reachable and out of the timeline/header hierarchy. -->
+  <sc-if value="{{ showJump }}" hint-placeholder-val="{{ false }}">
+    <button class="tld-jump" onClick="{{ jumpToNow }}" aria-label="Jump to now" style="position:absolute;right:18px;bottom:18px;z-index:20;min-width:104px;height:52px;border:0;border-radius:999px;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:8px;background:{{ c.primaryContainer }};color:{{ c.onPrimaryContainer }};box-shadow:0 4px 14px rgba(39,24,20,0.22);font-family:'Figtree';font-size:14px;font-weight:700;cursor:pointer;animation:tld-jump-in 220ms cubic-bezier(.05,.7,.1,1) both;">
+      <span class="msr" aria-hidden="true" style="font-size:20px;">my_location</span>
+      <span>Now</span>
+    </button>
+  </sc-if>
 </div>
 
 </x-dc>
@@ -108,7 +118,36 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { scope: props.scale === 'hub' ? 'hub' : 'day' };
+    this.scrollRef = React.createRef();
+    this.nowRef = React.createRef();
+    this.state = { scope: props.scale === 'hub' ? 'hub' : 'day', showJump: false };
+  }
+  reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e) { return false; } }
+  componentDidMount() {
+    requestAnimationFrame(() => this.jumpToNow(true));
+  }
+  updateNowVisibility() {
+    const scroll = this.scrollRef.current;
+    const marker = this.nowRef.current;
+    if (!scroll || !marker) return;
+    const sr = scroll.getBoundingClientRect();
+    const mr = marker.getBoundingClientRect();
+    const showJump = mr.bottom <= sr.top || mr.top >= sr.bottom;
+    if (showJump !== this.state.showJump) this.setState({ showJump });
+  }
+  onScroll() { this.updateNowVisibility(); }
+  jumpToNow(instant) {
+    const scroll = this.scrollRef.current;
+    const marker = this.nowRef.current;
+    if (!scroll || !marker) return;
+    scroll.scrollTo({
+      top: Math.max(0, marker.offsetTop - 46),
+      behavior: (instant === true || this.reduced()) ? 'auto' : 'smooth',
+    });
+    requestAnimationFrame(() => this.updateNowVisibility());
+  }
+  selectScope(scope) {
+    this.setState({ scope, showJump:false }, () => requestAnimationFrame(() => this.jumpToNow(true)));
   }
   renderVals() {
     const mode = this.props.mode === 'dark' ? 'dark' : 'light';
@@ -215,8 +254,13 @@ class Component extends DCLogic {
     return {
       c,
       onBack: this.props.onBack || (() => {}),
-      setDay: () => this.setState({ scope:'day' }),
-      setHub: () => this.setState({ scope:'hub' }),
+      scrollRef: this.scrollRef,
+      nowRef: this.nowRef,
+      onScroll: () => this.onScroll(),
+      jumpToNow: () => this.jumpToNow(false),
+      showJump: this.state.showJump,
+      setDay: () => this.selectScope('day'),
+      setHub: () => this.selectScope('hub'),
       dayPillBg: scope==='day' ? c.primaryContainer : 'transparent',
       dayPillFg: scope==='day' ? c.onPrimaryContainer : c.onSurfaceVar,
       hubPillBg: scope==='hub' ? c.primaryContainer : 'transparent',

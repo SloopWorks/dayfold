@@ -27,6 +27,12 @@ Open **`Index.dc.html`** for the full brief; **`specs/hub-timeline-design.md`** 
   "today" **is** move-in day, so both scales share one coherent present.
 - **Card = window, detail = whole.** The card shows a "N done" cap → NOW line →
   next ~3 rows (T2), attachments as a count. The detail is grouped + complete.
+- **Jump back to NOW.** The detail opens at NOW. If scrolling moves the marker
+  completely out of view, a lower-trailing `my_location` + **Now** floating pill
+  appears. It animates back to the marker, seats below the sticky group header,
+  and uses an instant scroll under reduced motion. The pill stays hidden while
+  any part of the marker is visible and never appears when the timeline has no
+  NOW marker.
 
 ## Density ladder (level of detail)
 - **T1 Marker** — rail dot + label. Minor dates.

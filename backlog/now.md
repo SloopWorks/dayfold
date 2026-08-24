@@ -240,7 +240,18 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Iteration 0) — full narrative + proposed default in
   `backlog/operator-inbox.md` **INB-33**, open, awaiting the operator.
 
-## Current state (as of 2026-07-10)
+## Current state (as of 2026-08-24)
+
+### Shipped — Timeline jump to now (2026-08-24)
+
+Hub timelines now expose a compact trailing **Now** affordance once the live
+time/date marker is fully outside the visible list. Tapping it returns to the
+marker with an animated scroll (or an immediate jump under reduced motion), and
+the control disappears as soon as the marker is visible again. The implementation
+is shared across day and roadmap timelines, includes bottom-content clearance and
+accessibility semantics, and is covered by visibility-boundary tests plus light and
+dark interaction snapshots. Design rationale and review record:
+`docs/superpowers/specs/2026-08-24-timeline-jump-to-now-design.md`.
 
 ### Active — Smart Briefings V0.1 Claude Bridge, Phases A–C (2026-08-21)
 

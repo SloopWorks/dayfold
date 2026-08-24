@@ -1,5 +1,13 @@
 package com.sloopworks.dayfold.client
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,9 +50,11 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +72,8 @@ import androidx.compose.ui.unit.sp
 import com.sloopworks.dayfold.client.cards.CardAction
 import com.sloopworks.dayfold.client.theme.DayfoldExtendedColors
 import com.sloopworks.dayfold.client.theme.LocalDayfoldColors
+import com.sloopworks.dayfold.client.ui.loading.rememberReduceMotion
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
 // ADR 0045 — full timeline detail view: grouped sticky-header feed, NOW line,
@@ -103,71 +116,154 @@ fun TimelineDetail(
         // behind the header (verified on-device).
         if (autoScrollToNow && nowItemIndex != null) listState.scrollToItem(nowItemIndex, -headerPx)
     }
+    // A layout-driven rule makes "off screen" literal for touch, wheel, keyboard, a11y scroll,
+    // and viewport changes. Gate on totalItemsCount so the button cannot flash before frame 1.
+    val showJumpToNow by remember(listState, nowItemIndex, autoScrollToNow) {
+        derivedStateOf {
+            if (!autoScrollToNow || nowItemIndex == null) return@derivedStateOf false
+            val layout = listState.layoutInfo
+            layout.totalItemsCount > 0 && layout.visibleItemsInfo.none { item ->
+                item.index == nowItemIndex && timelineItemOverlapsViewport(
+                    itemOffset = item.offset,
+                    itemSize = item.size,
+                    viewportStartOffset = layout.viewportStartOffset,
+                    viewportEndOffset = layout.viewportEndOffset,
+                )
+            }
+        }
+    }
+    val reduceMotion = rememberReduceMotion()
+    val scrollScope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
     // Edge-to-edge (MainActivity.enableEdgeToEdge): this is a full-screen substate hosted BARE
     // in the Feed/Hubs tab branch (no shared SafeArea, and the tab bar is hidden here), so it must
     // own its own insets — mirrors DetailScreen (statusBarsPadding on the header, navBars on the list).
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(cs.surface),
     ) {
-        // ── Header ───────────────────────────────────────────────────────────
-        TlDetailHeader(
-            title = if (active == TimelineScale.Hub) (tl.title ?: "Roadmap") else (tl.title ?: "Today"),
-            subtitle = if (active == TimelineScale.Hub) "All milestones" else "Today’s schedule",
-            onBack = onBack,
-            showToggle = both,
-            selected = active,
-            onSelect = { selectedScale = it },
-        )
+        Column(Modifier.fillMaxSize()) {
+            // ── Header ───────────────────────────────────────────────────────
+            TlDetailHeader(
+                title = if (active == TimelineScale.Hub) (tl.title ?: "Roadmap") else (tl.title ?: "Today"),
+                subtitle = if (active == TimelineScale.Hub) "All milestones" else "Today’s schedule",
+                onBack = onBack,
+                showToggle = both,
+                selected = active,
+                onSelect = { selectedScale = it },
+            )
 
-        // ── Feed ─────────────────────────────────────────────────────────────
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            state = listState,
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 18.dp + navBottom),
-        ) {
-            var flatIdx = 0
-            presented.groups.forEachIndexed { groupIdx, group ->
-                stickyHeader(key = "grp_$groupIdx") {
-                    TlGroupHeader(group.label, isFirst = groupIdx == 0)
+            // ── Feed ─────────────────────────────────────────────────────────
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                state = listState,
+                contentPadding = PaddingValues(
+                    start = 18.dp,
+                    end = 18.dp,
+                    top = 18.dp,
+                    // The floating pill must never cover the last stop/provenance when NOW is a
+                    // valid target. Static snapshot scenes disable autoScrollToNow and retain the
+                    // prior framing.
+                    bottom = 18.dp + navBottom + if (autoScrollToNow && nowItemIndex != null) 72.dp else 0.dp,
+                ),
+            ) {
+                var flatIdx = 0
+                presented.groups.forEachIndexed { groupIdx, group ->
+                    stickyHeader(key = "grp_$groupIdx") {
+                        TlGroupHeader(group.label, isFirst = groupIdx == 0)
+                    }
+
+                    group.stops.forEachIndexed { stopIdx, ps ->
+                        val fi = flatIdx
+                        // NOW line before the stop at this flat (chronological) index — both scales.
+                        if (presented.nowIndex == fi) {
+                            item(key = "now_line_$fi") {
+                                TlNowLine(presented.nowTimeLabel ?: "Today")
+                            }
+                        }
+                        val isLast = groupIdx == presented.groups.lastIndex &&
+                            stopIdx == group.stops.lastIndex
+                        item(key = "stop_${groupIdx}_$stopIdx") {
+                            TlEntryRow(ps, isLast, active, presented.derived, onAction)
+                        }
+                        flatIdx++
+                    }
                 }
 
-                group.stops.forEachIndexed { stopIdx, ps ->
-                    val fi = flatIdx
-                    // NOW line before the stop at this flat (chronological) index — both scales.
-                    if (presented.nowIndex == fi) {
-                        item(key = "now_line_$fi") {
-                            TlNowLine(presented.nowTimeLabel ?: "Today")
+                // NOW after all stops (an all-past timeline) — both scales.
+                val totalFlat = flatIdx
+                if (presented.nowIndex == totalFlat) {
+                    item(key = "now_line_end") {
+                        TlNowLine(presented.nowTimeLabel ?: "Today")
+                    }
+                }
+
+                // Provenance footnote
+                item(key = "provenance") {
+                    TlProvenanceCard(active, presented.derived)
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = showJumpToNow,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 18.dp, bottom = 18.dp + navBottom),
+            enter = if (reduceMotion) EnterTransition.None else {
+                fadeIn(tween(NavMotion.FastMs, easing = NavMotion.EmphasizedDecelerate)) +
+                    slideInVertically(
+                        animationSpec = tween(NavMotion.FastMs, easing = NavMotion.EmphasizedDecelerate),
+                        initialOffsetY = { it / 2 },
+                    )
+            },
+            exit = if (reduceMotion) ExitTransition.None else {
+                fadeOut(tween(NavMotion.FastMs, easing = NavMotion.EmphasizedAccelerate)) +
+                    slideOutVertically(
+                        animationSpec = tween(NavMotion.FastMs, easing = NavMotion.EmphasizedAccelerate),
+                        targetOffsetY = { it / 3 },
+                    )
+            },
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    val target = nowItemIndex ?: return@ExtendedFloatingActionButton
+                    scrollScope.launch {
+                        if (reduceMotion) {
+                            listState.scrollToItem(target, -headerPx)
+                        } else {
+                            listState.animateScrollToItem(target, -headerPx)
                         }
                     }
-                    val isLast = groupIdx == presented.groups.lastIndex &&
-                        stopIdx == group.stops.lastIndex
-                    item(key = "stop_${groupIdx}_$stopIdx") {
-                        TlEntryRow(ps, isLast, active, presented.derived, onAction)
-                    }
-                    flatIdx++
-                }
-            }
-
-            // NOW after all stops (an all-past timeline) — both scales.
-            val totalFlat = flatIdx
-            if (presented.nowIndex == totalFlat) {
-                item(key = "now_line_end") {
-                    TlNowLine(presented.nowTimeLabel ?: "Today")
-                }
-            }
-
-            // Provenance footnote
-            item(key = "provenance") {
-                TlProvenanceCard(active, presented.derived)
-            }
+                },
+                icon = {
+                    Icon(
+                        imageVector = DayfoldIcons.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                text = { Text("Now", fontWeight = FontWeight.SemiBold) },
+                containerColor = cs.primaryContainer,
+                contentColor = cs.onPrimaryContainer,
+                modifier = Modifier.semantics { contentDescription = "Jump to now" },
+            )
         }
     }
 }
+
+/** True when any pixel of an item overlaps the lazy list's visible viewport. */
+internal fun timelineItemOverlapsViewport(
+    itemOffset: Int,
+    itemSize: Int,
+    viewportStartOffset: Int,
+    viewportEndOffset: Int,
+): Boolean = itemSize > 0 &&
+    itemOffset < viewportEndOffset &&
+    itemOffset + itemSize > viewportStartOffset
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
