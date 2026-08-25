@@ -794,14 +794,34 @@ Gradle daemon during compilation, so those counterparts remain pending.
   merge.** The 2026-07-05 CI outage (PR #289/`cf2898a`) landed without
   waiting on its own CI result; branch protection would prevent a repeat.
   Repo-settings change, operator-only (agents can't self-grant this).
-- [ ] **ADR 0031 (CLI Homebrew distribution) — review + accept/reject + setup.**
-  Spike (`research/2026-06-25-spike-cli-homebrew-distribution.md`) + Proposed ADR
-  recommend a one-line `brew install` via a first-party tap. Operator-gated steps:
-  (1) **license / public-vs-private distribution decision** (repo is unlicensed; a
-  public tap distributes the CLI publicly); (2) create `SloopWorks/homebrew-tap`;
-  (3) add a `HOMEBREW_TAP_TOKEN` secret; (4) accept the ADR → then the inert
-  `release-cli.yml` + formula land and `cli-v0.1.0` is cut. The packaging-ready
-  build change already merged (#76).
+- [ ] **ADR 0031 (CLI Homebrew distribution) — 3 of 4 gates closed; the secret is the
+  last one (updated 2026-08-25).** The ADR is **Accepted**, `release-cli.yml` + the
+  formula have landed, and the packaging-ready build change merged long ago (#76).
+  Where each gate stands:
+  1. ~~Licence / public-vs-private~~ — **done.** `apps/cli` is Apache-2.0 (root
+     `LICENSE`, map in `LICENSING.md`); the tap is public; the formula declares it.
+  2. ~~Create `SloopWorks/homebrew-tap`~~ — **done 2026-08-25.** Public, with
+     `Formula/dayfold.rb` mirrored from `apps/cli/homebrew/dayfold.rb` and a `tests`
+     workflow (green on first run) that runs `brew style` + `brew readall` always and
+     `audit --online` + `install` + `test` once the sha256 stops being the 64-zero
+     placeholder.
+  3. **`HOMEBREW_TAP_TOKEN` secret — OPEN, operator-only.** A fine-grained PAT with
+     `Contents: Read and write` scoped to **only** `SloopWorks/homebrew-tap`, added
+     under *Settings › Secrets and variables › Actions*. Agents can neither mint nor
+     hold this: it is org-write, and passing it through a chat transcript would
+     persist it. Recipe in `processes/cli-release.md` §"One-time operator setup".
+  4. Hardening — CODEOWNERS for the release workflows + licence files has landed
+     (`.github/CODEOWNERS`), but it only *requests* review until branch protection on
+     `main` enables "Require review from Code Owners" (repo settings, operator-only —
+     same item as the branch-protection entry above). Tag protection for `cli-v*` is
+     also still open.
+
+  **Then:** set the secret → `git tag cli-v0.1.0 && git push origin cli-v0.1.0` →
+  the release publishes, the bump rewrites `url`/`sha256` in the tap, the tap's CI
+  runs the real `brew install`/`brew test`, and
+  `brew install sloopworks/tap/dayfold` works. Cutting the tag *before* the secret
+  exists publishes a Release but leaves the formula on the placeholder, so `brew
+  install` would fail — set the secret first, or re-run the release job after.
 - [ ] **INB-3** kill-checks (~2 hrs): Gemini Daily Brief + Maple+ hands-on;
   note the niche gap → feeds A1. *(Only matters if pursuing the business path.)*
 - [ ] Counsel confirm for ADR 0005 (14+) — only if/when pursuing teen accounts.
