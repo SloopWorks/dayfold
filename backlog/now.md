@@ -803,13 +803,16 @@ Gradle daemon during compilation, so those counterparts remain pending.
   smoke test ran the launcher. Gates 1–3 all closed: Apache-2.0 licence, public tap
   with CI, `HOMEBREW_TAP_TOKEN`.
 
-  **What is still open is gate 4 hardening — both repo settings, operator-only:**
-  - **Tag protection for `cli-v*`.** A tag push alone now builds, publishes a public
-    Release, and pushes to the tap with an org-write token. Right now anyone with
-    write access can do that. This is the one worth doing.
-  - **Branch protection on `main` with "Require review from Code Owners"**, which is
-    what makes the landed `.github/CODEOWNERS` actually bite (same item as the
-    branch-protection entry above — one settings change closes both).
+  **Gate 4 hardening — tag rulesets DONE 2026-08-25, one item left:**
+  - [x] **Tag protection for `cli-v*`** — ruleset applied (restrict creations,
+    updates, deletions; admin bypass). Configuration + the `cli-edge` carve-out it
+    has to avoid are written up in `processes/cli-release.md` §"Tag rulesets".
+    First real proof of the carve-out is the next CLI-touching push to `main`: if
+    the edge job fails at `git push -f origin cli-edge`, the ruleset is too broad.
+  - [ ] **Branch protection on `main` with "Require review from Code Owners"** —
+    still open, operator-only. This is what makes the landed `.github/CODEOWNERS`
+    actually bite (same item as the branch-protection entry above — one settings
+    change closes both).
 
   Also worth a calendar reminder: **`HOMEBREW_TAP_TOKEN` expires** (~1 yr). When it
   does, the bump step 403s rather than skipping, so a release will publish while
@@ -820,8 +823,9 @@ Gradle daemon during compilation, so those counterparts remain pending.
 
 - [ ] **Stray branch `tmp-push-probe` on the dayfold remote** — points at `main`,
   no PR, harmless. Left by an agent probe that established the session credential
-  can push branch refs but not tag refs (`git push origin :tmp-push-probe`, or the
-  branches UI). Deletes are 403 from the agent session too.
+  can push branch refs but *not* tag refs, and cannot delete refs either (both 403,
+  re-confirmed 2026-08-25; no MCP delete-branch tool exists). Operator-only:
+  `git push origin :tmp-push-probe`, or one click in the branches UI.
 
 - [ ] **INB-3** kill-checks (~2 hrs): Gemini Daily Brief + Maple+ hands-on;
   note the niche gap → feeds A1. *(Only matters if pursuing the business path.)*
