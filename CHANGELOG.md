@@ -5,28 +5,29 @@ Product/API/feature changes worth calling out in release notes. Grounded in
 reader deciding whether an update matters to them, not a commit-by-commit
 diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
-device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
+device. The app is pre-1.0 (`0.0.0-M0`) and untagged, so entries are dated; the
+CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
 
-## 2026-08-25 — CLI: the Homebrew tap is live
+## 2026-08-25 — CLI 0.1.0: `brew install sloopworks/tap/dayfold`
 
 ### Added
-- **`SloopWorks/homebrew-tap` exists, so `brew install sloopworks/tap/dayfold` has
-  somewhere to point.** The tap is public (`apps/cli` is Apache-2.0), carries the
-  `dayfold` formula, and runs its own CI: `brew style` and `brew readall` on every
-  push, plus a real `brew install` and the formula's `test do` block once a release
-  exists — so a formula that would fail on a user's Mac fails there first. Java is
-  handled for the user: the formula depends on `openjdk@17` and pins `JAVA_HOME`
-  inside the launcher, so there is nothing to install or export.
-- **`.github/CODEOWNERS`** covers the release workflows, the formula, and the licence
-  files, so the pipeline that decides what `brew install` hands to users can't be
-  changed unreviewed.
-
-### Not yet
-- **Nothing installs yet.** The formula still carries a placeholder checksum; it is
-  filled in by the first `cli-v0.1.0` release, which needs the `HOMEBREW_TAP_TOKEN`
-  secret set on this repo first. Until then `brew install sloopworks/tap/dayfold`
-  will fail. Dogfooding path in the meantime is the `cli-edge` pre-release
-  (`processes/cli-release.md`).
+- **The CLI installs with one command, and Java is not your problem.**
+  `brew install sloopworks/tap/dayfold` fetches the tool and, if you don't have a
+  JDK, installs one and wires it in — the formula depends on `openjdk@17` and pins
+  `JAVA_HOME` inside the launcher, so there is nothing to export and no version to
+  match. `brew upgrade dayfold` updates it. Verified end to end on a clean macOS
+  machine: checksum matched, `openjdk@17` pulled automatically, `dayfold` linked
+  onto `PATH`, and the formula's own smoke test ran the launcher.
+- **`cli-v0.1.0` is the first tagged release**, published with the runnable
+  tarball attached. Tagging is now the whole release: the tag builds the dist,
+  publishes the GitHub Release, and rewrites the tap formula's `url` and `sha256`
+  in one pass.
+- **`SloopWorks/homebrew-tap` is public**, with CI that runs `brew style` and
+  `brew readall` on every push and a real `brew install` + smoke test on every
+  release — so a formula that would fail on your machine fails there first.
+- **`.github/CODEOWNERS`** covers the release workflows, the formula, and the
+  licence files, so the pipeline that decides what `brew install` hands you can't
+  be changed unreviewed.
 
 ## 2026-08-24 — Timeline: jump back to now
 

@@ -9,8 +9,11 @@ brew upgrade dayfold                       # update
 
 ## One-time operator setup (the ADR 0031 gates)
 
-**Status 2026-08-25: gates 1 and 2 are closed. Gate 3 is the only thing standing
-between here and a working `brew install`; gate 4 is hardening.**
+**Status 2026-08-25: gates 1–3 are closed and `brew install
+sloopworks/tap/dayfold` works — verified end to end by the tap's CI on a real
+macOS runner (checksum matched, `openjdk@17` auto-installed, `dayfold` linked onto
+`PATH`, smoke test passed). Only gate 4 hardening remains, and it is repo
+settings.**
 
 1. ~~**License / distribution decision.**~~ **Done.** `apps/cli` is **Apache-2.0**
    (root `LICENSE`, per-path map in `LICENSING.md`), so the tap is public and the
@@ -23,14 +26,15 @@ between here and a working `brew install`; gate 4 is hardening.**
    sha256 is no longer the 64-zero placeholder. (It is gated that way because before
    the first release the download *must* fail, and a permanently red check is a check
    nobody reads.) The install gate is what catches the `rk` empty-`bin/` bug.
-3. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repo — **still open, operator-only.**
-   A fine-grained PAT with **`Contents: Read and write` on only
-   `SloopWorks/homebrew-tap`** (least privilege — it must not grant write to the main
-   repo), added at *Settings › Secrets and variables › Actions › New repository secret*
-   with the name `HOMEBREW_TAP_TOKEN`. Until it exists, a `cli-v*` tag still publishes
-   the GitHub Release and **skips** the formula bump — which means `brew install`
-   keeps serving the placeholder and fails. Set the secret **before** cutting
-   `cli-v0.1.0`, or re-run the release job after setting it.
+3. ~~**Add the `HOMEBREW_TAP_TOKEN` secret.**~~ **Done 2026-08-25.** A fine-grained
+   PAT with `Contents: Read and write` on **only** `SloopWorks/homebrew-tap` (least
+   privilege — it must not grant write to the main repo), stored as
+   `HOMEBREW_TAP_TOKEN` under *Settings › Secrets and variables › Actions*. It is
+   used once per release, by the bump step. **It expires** — fine-grained PATs cap
+   at ~1 year — and when it does the failure is quiet-ish: the `Is the tap
+   configured?` step still sees a non-empty secret, so the bump runs and 403s
+   instead of skipping. If a release ever publishes but `brew install` still serves
+   the previous version, check the token first.
 4. **Harden the release trigger** (from the security review — a `cli-v*` tag push runs
    with `contents: write` + the tap token):
    - Restrict who can push `cli-v*` tags (a tag-protection rule, or limit write
