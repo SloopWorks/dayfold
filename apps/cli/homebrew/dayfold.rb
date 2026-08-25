@@ -1,9 +1,13 @@
 # Canonical Homebrew formula for the dayfold CLI (ADR 0031).
 #
-# This is the source of truth; the operator copies it to
-# SloopWorks/homebrew-tap:Formula/dayfold.rb during one-time setup, after which the
+# This is the source of truth. It is mirrored to
+# SloopWorks/homebrew-tap:Formula/dayfold.rb (public; created 2026-08-25), where the
 # release workflow (.github/workflows/release-cli.yml) bumps `url` + `sha256` on each
 # `cli-v<semver>` tag. Install: `brew install sloopworks/tap/dayfold`.
+#
+# Change this file and copy it across — never the other way round. The bump rewrites
+# exactly two lines of the mirror, so any other edit made only over there is silently
+# lost the next time someone re-mirrors from here.
 #
 # Zero user config (ADR 0031): `depends_on "openjdk"` lets brew install Java
 # automatically; brew's openjdk is keg-only, so `write_env_script` pins JAVA_HOME into
@@ -14,9 +18,8 @@ class Dayfold < Formula
   homepage "https://github.com/SloopWorks/dayfold"
   url "https://github.com/SloopWorks/dayfold/releases/download/cli-v0.1.0/dayfold-0.1.0.tar"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000" # set by the first release bump
-  # apps/cli is Apache-2.0 — see /LICENSING.md. This closes ADR 0031's licence gate
-  # for the CLI specifically; the server's licence is a separate, still-open decision
-  # and does not affect what this formula distributes.
+  # apps/cli is Apache-2.0 — see LICENSING.md in SloopWorks/dayfold. The server
+  # (apps/api) is separately unlicensed; nothing in this tarball comes from it.
   license "Apache-2.0"
 
   # Pin the JDK major to what the CLI is built+tested against (jvmToolchain 17). The

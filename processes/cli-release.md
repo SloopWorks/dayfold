@@ -9,26 +9,37 @@ brew upgrade dayfold                       # update
 
 ## One-time operator setup (the ADR 0031 gates)
 
-These need a human (license decision + an external repo + a secret) — they are not
-agent-buildable:
+**Status 2026-08-25: gates 1 and 2 are closed. Gate 3 is the only thing standing
+between here and a working `brew install`; gate 4 is hardening.**
 
-1. **License / distribution decision.** The repo is unlicensed; a *public* tap
-   distributes the CLI publicly. Pick a license (or use a **private** tap) and set it
-   in the formula (`apps/cli/homebrew/dayfold.rb`, currently `license :cannot_represent`).
-2. **Create the tap repo** `SloopWorks/homebrew-tap` (a normal GitHub repo named
-   `homebrew-tap`). Copy `apps/cli/homebrew/dayfold.rb` to `Formula/dayfold.rb`.
-   (Recommended: add a `brew test-bot` / `brew audit --strict dayfold` CI on the tap
-   so a bad bump can't reach users.)
-3. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repo — a fine-scoped PAT (or a
-   GitHub App token) with **write to only `SloopWorks/homebrew-tap`** (least
-   privilege — it should not grant write to the main repo). Until it exists, the
-   release workflow publishes the GitHub Release but **skips** the formula bump.
+1. ~~**License / distribution decision.**~~ **Done.** `apps/cli` is **Apache-2.0**
+   (root `LICENSE`, per-path map in `LICENSING.md`), so the tap is public and the
+   formula says `license "Apache-2.0"`. The server (`apps/api`) is separately
+   unlicensed and nothing in the tarball comes from it.
+2. ~~**Create the tap repo.**~~ **Done.** [`SloopWorks/homebrew-tap`](https://github.com/SloopWorks/homebrew-tap)
+   is public, with `Formula/dayfold.rb` mirrored from `apps/cli/homebrew/dayfold.rb`
+   and a `tests` workflow that runs `brew style` + `brew readall` on every push, then
+   `brew audit --strict --online` + `brew install` + `brew test` once the formula's
+   sha256 is no longer the 64-zero placeholder. (It is gated that way because before
+   the first release the download *must* fail, and a permanently red check is a check
+   nobody reads.) The install gate is what catches the `rk` empty-`bin/` bug.
+3. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repo — **still open, operator-only.**
+   A fine-grained PAT with **`Contents: Read and write` on only
+   `SloopWorks/homebrew-tap`** (least privilege — it must not grant write to the main
+   repo), added at *Settings › Secrets and variables › Actions › New repository secret*
+   with the name `HOMEBREW_TAP_TOKEN`. Until it exists, a `cli-v*` tag still publishes
+   the GitHub Release and **skips** the formula bump — which means `brew install`
+   keeps serving the placeholder and fails. Set the secret **before** cutting
+   `cli-v0.1.0`, or re-run the release job after setting it.
 4. **Harden the release trigger** (from the security review — a `cli-v*` tag push runs
    with `contents: write` + the tap token):
    - Restrict who can push `cli-v*` tags (a tag-protection rule, or limit write
      access); a tag alone publishes a release.
-   - CODEOWNERS-protect `.github/workflows/release-cli.yml` so the pipeline can't be
-     weakened without review.
+   - ~~CODEOWNERS-protect `.github/workflows/release-cli.yml`~~ — `.github/CODEOWNERS`
+     now covers the release workflows, `apps/cli/homebrew/`, and the licence files.
+     **Half-done on purpose:** CODEOWNERS only *requests* a review until branch
+     protection on `main` enables "Require review from Code Owners", which is a
+     repo-settings change and operator-only.
    - Optionally gate the release job behind a GitHub Environment with a required
      reviewer (a tag alone otherwise publishes).
    - (Already done in the workflow: `actions/checkout` + `actions/setup-java` are
@@ -51,6 +62,20 @@ agent-buildable:
    - **bumps the tap formula** (`url` + `sha256`) and pushes to `homebrew-tap`
      (skipped if `HOMEBREW_TAP_TOKEN` is unset).
 3. Users get it via `brew install sloopworks/tap/dayfold` / `brew upgrade dayfold`.
+
+## Maintaining the tap mirror
+
+`apps/cli/homebrew/dayfold.rb` is the source of truth;
+`SloopWorks/homebrew-tap:Formula/dayfold.rb` is a mirror. The release bump rewrites
+**exactly two lines** of the mirror (`url`, `sha256`), so:
+
+- Change the formula **here**, then copy the file across in a separate commit to the
+  tap. An edit made only in the tap is lost the next time anyone re-mirrors.
+- Never hand-edit `url`/`sha256` in either copy — the bump owns them.
+- The tap's `tests` workflow is the safety net: `brew style` + `brew readall` on every
+  push, and after the first release also `brew audit --strict --online`, `brew install`
+  and the formula's own `test do` block (which asserts `bin/dayfold` is on PATH and
+  runs — the `rk` empty-`bin/` bug).
 
 ## Continuous "edge" channel (ADR 0037)
 

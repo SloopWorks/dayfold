@@ -1,0 +1,27 @@
+# Owners of the release + supply-chain surface (processes/cli-release.md gate 4).
+#
+# A `cli-v*` tag runs release-cli.yml with `contents: write` and the
+# HOMEBREW_TAP_TOKEN, and whatever it builds is what `brew install` hands to
+# users. Weakening that pipeline should not be a one-person edit.
+#
+# NOTE ON WHAT THIS ACTUALLY DOES: on its own, CODEOWNERS only auto-requests a
+# review — it does not block a merge. It becomes a gate only once branch
+# protection on `main` turns on "Require review from Code Owners", which is a
+# repo-settings change and therefore operator-only (tracked in backlog/now.md
+# alongside the branch-protection item). This file is the half that can live in
+# the repo; it is deliberately landed first so the setting has something to
+# point at.
+
+# The release pipeline and the formula it publishes.
+/.github/workflows/release-cli.yml       @patjackson52
+/.github/workflows/release-cli-edge.yml  @patjackson52
+/apps/cli/homebrew/                      @patjackson52
+
+# Everything else that decides what CI trusts or what leaves the repo.
+/.github/workflows/                      @patjackson52
+/.github/actions/                        @patjackson52
+
+# Licensing — a permissive grant cannot be withdrawn (LICENSING.md).
+/LICENSE                                 @patjackson52
+/LICENSING.md                            @patjackson52
+/apps/api/LICENSE                        @patjackson52

@@ -7,6 +7,27 @@ diff. Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. Pre-1.0 (`0.0.0-M0`) — no version tags yet, so entries are dated.
 
+## 2026-08-25 — CLI: the Homebrew tap is live
+
+### Added
+- **`SloopWorks/homebrew-tap` exists, so `brew install sloopworks/tap/dayfold` has
+  somewhere to point.** The tap is public (`apps/cli` is Apache-2.0), carries the
+  `dayfold` formula, and runs its own CI: `brew style` and `brew readall` on every
+  push, plus a real `brew install` and the formula's `test do` block once a release
+  exists — so a formula that would fail on a user's Mac fails there first. Java is
+  handled for the user: the formula depends on `openjdk@17` and pins `JAVA_HOME`
+  inside the launcher, so there is nothing to install or export.
+- **`.github/CODEOWNERS`** covers the release workflows, the formula, and the licence
+  files, so the pipeline that decides what `brew install` hands to users can't be
+  changed unreviewed.
+
+### Not yet
+- **Nothing installs yet.** The formula still carries a placeholder checksum; it is
+  filled in by the first `cli-v0.1.0` release, which needs the `HOMEBREW_TAP_TOKEN`
+  secret set on this repo first. Until then `brew install sloopworks/tap/dayfold`
+  will fail. Dogfooding path in the meantime is the `cli-edge` pre-release
+  (`processes/cli-release.md`).
+
 ## 2026-08-24 — Timeline: jump back to now
 
 ### Added
