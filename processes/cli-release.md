@@ -37,8 +37,9 @@ settings.**
    the previous version, check the token first.
 4. **Harden the release trigger** (from the security review — a `cli-v*` tag push runs
    with `contents: write` + the tap token):
-   - Restrict who can push `cli-v*` tags (a tag-protection rule, or limit write
-     access); a tag alone publishes a release.
+   - ~~Restrict who can push `cli-v*` tags.~~ **Done 2026-08-25** — see
+     [Tag rulesets](#tag-rulesets) below for the exact configuration and the
+     `cli-edge` trap it has to avoid.
    - ~~CODEOWNERS-protect `.github/workflows/release-cli.yml`~~ — `.github/CODEOWNERS`
      now covers the release workflows, `apps/cli/homebrew/`, and the licence files.
      **Half-done on purpose:** CODEOWNERS only *requests* a review until branch
@@ -50,6 +51,77 @@ settings.**
      SHA-pinned; the release upload uses the pre-installed `gh` CLI — no third-party
      action; the tap token flows via scoped `GIT_CONFIG_*` env, never a URL/argv/
      `.git/config`; the untrusted tag is strict-semver-validated before any use.)
+
+## Tag rulesets
+
+**Applied 2026-08-25.** Recorded here because the obvious version of this rule
+breaks the edge channel, and the failure is not obvious when it happens.
+
+### The trap
+
+`release-cli-edge.yml` force-pushes a tag on every `main` push that touches the CLI:
+
+```sh
+git tag -f cli-edge
+git push -f origin cli-edge
+```
+
+`cli-edge` is a *deliberately mutable pointer*, moved by the Actions bot. A ruleset
+that targets **all tags** with "Restrict updates"/"Restrict deletions" and no bypass
+will break that push — and it fails inside a release job, several commits after
+someone ticked the box, which is the worst place to discover it. So the two tag
+patterns get opposite treatment.
+
+### Ruleset A — lock `cli-v*`
+
+*Settings › Rules › Rulesets › New ruleset › New tag ruleset.* (Rulesets superseded
+the older *Settings › Tags* protection page.)
+
+| Field | Value |
+|---|---|
+| Name | `Release tags (cli-v*)` |
+| Enforcement status | Active |
+| Bypass list | Repository admin |
+| Target tags | Include by pattern → `cli-v*` |
+| Rules | Restrict **creations**, **updates**, **deletions** |
+
+*Creations* is the one that carries the weight: a `cli-v*` tag publishes a public
+GitHub Release and pushes to the tap with an org-write token, so cutting a release
+is now an admin action rather than anyone-with-write. *Updates* and *deletions* keep
+shipped release history immutable.
+
+Leave "Require signed commits" off unless tags are actually signed — it blocks the
+operator's own release tags otherwise.
+
+### Ruleset B — `cli-edge`, optional
+
+Stops a human hand-moving the edge pointer while leaving CI free. Same path, then:
+bypass list **Repository admin + GitHub Actions** (*Add bypass › Apps*), target
+`cli-edge`, rules **Restrict updates + deletions only** — creations stay open.
+
+Skipping B entirely is reasonable; `cli-edge` is disposable by design. If the Actions
+bypass is misconfigured the symptom is the edge job failing at
+`git push -f origin cli-edge`.
+
+### What this does and does not buy
+
+With a single writer this is mostly protection against *accident* and against future
+collaborators or a leaked token, not against a present-day attacker. Worth knowing
+what already holds without it: the formula pins the tarball's `sha256`, not the tag,
+so a re-pointed tag cannot silently change what `brew install` fetches — the download
+fails the checksum instead. The ruleset closes the *publishing* hole; the *install*
+hole was already shut.
+
+Also already true, and not something rulesets provide: agent sessions cannot push tag
+refs at all (they can push branch refs — verified 2026-08-25 by probe). Release tags
+are cut by a human for that reason.
+
+### Adjacent trap: don't branch-protect the tap naively
+
+The release bump pushes **directly** to `homebrew-tap`'s `main` using
+`HOMEBREW_TAP_TOKEN`. Adding branch protection there without putting that token's
+identity on the bypass list makes every future release bump 403 — the release still
+publishes, and `brew install` silently keeps serving the previous version.
 
 ## Cutting a release
 
@@ -87,6 +159,9 @@ Stable releases stay tag-driven (above). For everyday dogfooding, **every push t
 `main`** that touches `apps/cli/**` or `packages/schema/**` auto-publishes an edge
 build — no manual tag:
 
+- **`cli-edge` is a force-pushed, CI-owned tag** — any tag ruleset must carve it out
+  or bypass GitHub Actions, or the edge job dies at `git push -f origin cli-edge`.
+  See [Tag rulesets](#tag-rulesets).
 - `.github/workflows/release-cli-edge.yml` builds the dist as `0.0.0-edge.<shortsha>`
   and refreshes a single **`cli-edge` GitHub pre-release** with a **stable asset
   name** `dayfold-edge.tar` (stable download URL across commits).
