@@ -1,0 +1,15 @@
+All rights reserved.
+
+This directory (`apps/api`, the Dayfold server) is NOT covered by the Apache
+License 2.0 in the repository root. No licence is granted for it: it is
+published for inspection only, and no right to use, copy, modify, or distribute
+it is given.
+
+This is deliberate, not an oversight. The licence for the server is a separate
+decision from the client and CLI — see `/LICENSING.md` and ADR 0032, which
+proposes AGPL-3.0-or-later here. That proposal is not accepted, and choosing it
+later is materially easier than un-choosing a permissive licence granted now:
+a permissive grant, once published, cannot be withdrawn for the versions it
+covered.
+
+The root Apache-2.0 licence covers everything except this directory.
