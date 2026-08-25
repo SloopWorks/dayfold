@@ -1,0 +1,16 @@
+# Adjudicated gitleaks false positives (ADR 0032 §5 pre-flight).
+#
+# Format: one finding fingerprint per line — commit:file:rule:line. Gitleaks
+# suppresses only that exact finding, so a real secret appearing later in the
+# same file, or the same prose moving to a new commit, is still reported.
+#
+# Each entry must state WHY it is not a secret. An unexplained fingerprint here
+# is indistinguishable from a suppressed real leak.
+
+# `generic-api-key` matching English prose in a markdown table that documents the
+# `oauth_clients` schema (ADR 0071 Claude Bridge design). The rule keys off a
+# comma-separated token run following the words "auth method"; the match is the
+# next word in the sentence, not a credential. Entropy 3.62 — text, not a key.
+# Adjudicated 2026-08-25 during the full-history scan; verified by reading the
+# line in its commit.
+c4ef5ee342c735aad7c5155fe21da91d273f864e:specs/smart-briefings-v0.1/system-design.md:generic-api-key:428
