@@ -638,6 +638,65 @@ Gradle daemon during compilation, so those counterparts remain pending.
 
 ## Operator actions pending
 
+- [x] **ADR 0032 §5 full-history secret scan — RUN 2026-08-25, CLEAN. No secrets, nothing to rotate.**
+  Both scanners the gate names, over the complete history (the clone was
+  `--unshallow`ed first; 1353 commits reachable, 280 remote branches, 1 tag):
+  - **gitleaks 8.30.1** (the version CI pins), `--log-opts="--all"`, all refs:
+    **1 finding, false positive.** `specs/smart-briefings-v0.1/system-design.md:428`
+    — the `generic-api-key` rule fires on a comma-separated token run inside a
+    markdown table documenting the `oauth_clients` schema (ADR 0071). The "secret"
+    is the next English word in the sentence. Entropy 3.62, consistent with text.
+    Now suppressed by fingerprint in `.gitleaksignore`, with the reasoning recorded
+    there. *(This bullet deliberately does not quote the matching phrase: the first
+    draft did, and the PR-range `secret-scan.yml` check then flagged **this file** —
+    documenting the false positive reproduced it. If you re-add the literal, add a
+    second ignore entry or expect a red check.)*
+  - **trufflehog 3.90.8**, full git history, **`--no-verification`** (deliberately: live
+    verification makes outbound calls to third-party services to test candidate
+    credentials, which is an external action and was not authorised for this run):
+    **0 verified, 4 unverified — all one value**, `AIzaSyStub…Stub00`, the deliberate
+    self-describing stub committed into `ci.yml` + `release-android.yml` so the Google
+    Services Gradle plugin is satisfied on a compile-only smoke build. It spells "Stub"
+    eight times. Both files document it as a stub inline.
+  **Coverage:** gitleaks scanned 1212 commits. That reconciles as 1353 reachable − 131
+  merges (skipped by design; their content appears in the parents) − 4 empty = 1218
+  with content, so 1212/1218 ≈ 99.5%. The ~6-commit remainder is most plausibly
+  binary-only (PNG snapshot) commits, which carry no scannable text — unconfirmed.
+  **Gate status.** The "scan full history → rotate anything exposed" half is done:
+  nothing is exposed, so there is nothing to rotate. **Secret scanning enabled —
+  operator-confirmed 2026-08-25.** One sub-item is worth a 10-second check rather
+  than an assumption: §5 names secret scanning **and push protection** as two
+  toggles, and only the first was confirmed by name. If push protection is also on,
+  §5 is fully closed. (`Settings → Code security`.)
+  Note `secret-scan.yml` only scans a PR's `base..head` range by design, so it never
+  covers history — this run was the one-time backstop, and re-running it is cheap if
+  history is ever rewritten.
+  **Context that makes this urgent rather than routine:** `SloopWorks/dayfold` is
+  **already public** (verified 2026-08-25: `"visibility": "public"`,
+  `allow_forking: true`) and has **no `LICENSE` file** — so it is published under
+  all-rights-reserved. ADR 0032 §5 calls this scan BLOCKING *"before any repo goes
+  public"*, and the repo went public without it, so this run is a backstop after the
+  fact, not a gate cleared in advance. It came back clean, so no harm resulted.
+  Relatedly, `secret-scan.yml`'s own header still describes the repo as private
+  ("useful now (private repo hygiene) and a prerequisite for going public") — stale.
+
+- **Outsider-buildability is DEFERRED (operator call, 2026-08-25) — and it does not
+  block the CLI.** The already-public repo cannot be built by someone outside the org:
+  `apps/api` needs the private `@sloopworks/swip-*` npm packages (GitHub Packages),
+  `:client`/`:ui`/`:androidApp` need the private Maven repos `SloopWorks/swip` +
+  `sloopworks-ui` plus the `SloopWorks/debugdrawer` submodule. That caps the
+  showcase value ADR 0032 is built on — a visitor who clones gets a build failure.
+  Deprioritised for now; revisit if/when the showcase goal is actually being cashed in.
+  **Important carve-out, verified 2026-08-25: `apps/cli` is already buildable by
+  anyone.** It references no SloopWorks artifact at all, the CI `cli` job passes it no
+  token and does not check out submodules (plain `actions/checkout@v4`), and it builds
+  clean from a bare sandbox with no credentials — done repeatedly this session. It is a
+  standalone Gradle build by design.
+  So deferring this costs **nothing** for the CLI lane: an initial publication scoped
+  to the CLI (the 4c shape) needs no buildability work, and ADR 0031's tap is
+  unaffected because the release builds in CI regardless. What is deferred is only the
+  broader "clone the monorepo and build it" claim.
+
 - [ ] **Claude Bridge: Phase B partly run, everything remaining is operator-gated
   (updated 2026-08-21).** The external-spike authorization, the connector
   install, the tunnel, and the Gmail-mutation no-go approval were all given and
