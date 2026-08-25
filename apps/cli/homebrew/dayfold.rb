@@ -14,9 +14,9 @@ class Dayfold < Formula
   homepage "https://github.com/SloopWorks/dayfold"
   url "https://github.com/SloopWorks/dayfold/releases/download/cli-v0.1.0/dayfold-0.1.0.tar"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000" # set by the first release bump
-  # ADR 0031 operator gate: set the real license (and confirm public distribution)
-  # before the first publish. `:cannot_represent` is a placeholder for "unlicensed".
-  license :cannot_represent
+  # CLI is Apache-2.0 (ADR 0032; see /LICENSING.md). Effective only once the operator
+  # accepts ADR 0032 (counsel) + the repo goes public per the §5 pre-flight.
+  license "Apache-2.0"
 
   # Pin the JDK major to what the CLI is built+tested against (jvmToolchain 17). The
   # dependency and the java_home() arg are a matched pair — change both or neither, or
