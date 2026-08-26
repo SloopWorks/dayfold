@@ -253,10 +253,6 @@ private const val CALENDAR_CHECK_STAGED_EPIC_NOTE =
 internal val ROUTE_ALLOW_LIST: Map<String, String> = emptyMap()
 
 internal val COMPOSABLE_ALLOW_LIST: Map<String, String> = mapOf(
-  "CalendarSettingsHost" to
-    "WI-461 (in review as of 2026-08-10) wires this from Account > On this device. Remove once merged.",
-  "CalendarReviewHost" to
-    "WI-461 (in review as of 2026-08-10) wires this from the Now card's Review tap. Remove once merged.",
   "CalendarImportHost" to
     "WI-461 audited this as still-unreached and explicitly deferred (needs " +
       "CalendarImportEngine.eligibleDestinationHubs() plumbing, out of that WI's scope) — a recorded " +
