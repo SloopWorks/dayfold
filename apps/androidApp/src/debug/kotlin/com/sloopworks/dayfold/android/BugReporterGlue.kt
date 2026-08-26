@@ -87,6 +87,20 @@ internal object BugReporterHolder {
 
   /** Upload wiring is installed once per process, not once per Activity. */
   var uploadWired = false
+
+  /**
+   * Upload tallies since process start, for the debug drawer's queue panel.
+   * SWIP's health-counter seam exists for exactly this; dayfold has no telemetry
+   * stack, so the counts stop here and are read by the panel and nothing else.
+   * Guarded by itself — ReportUploader increments from a background drain.
+   */
+  val uploadCounts = mutableMapOf<String, Int>()
+
+  fun countUpload(name: String) {
+    synchronized(uploadCounts) { uploadCounts[name] = (uploadCounts[name] ?: 0) + 1 }
+  }
+
+  fun uploadCountsSnapshot(): Map<String, Int> = synchronized(uploadCounts) { uploadCounts.toMap() }
 }
 
 /** Store-construction enhancer (innermost slot) — the redux timeline recorder. */
@@ -129,6 +143,11 @@ fun bugReporterInstall(activity: ComponentActivity) {
     dir = works.sloop.swip.bugreport.platform.androidReportDir(activity.applicationContext),
     clock = Clock { System.currentTimeMillis() },
     health = SdkHealthCounter { }, // no-op — no swip telemetry stack in dayfold yet
+    // DEBUG BUILDS KEEP SENT REPORTS AS HISTORY. The payload is dropped on send
+    // either way — it is durable server-side and it is what costs storage — but
+    // the metadata survives a week so the drawer can answer "I filed that, did
+    // it go?". A production lane passes nothing here and keeps no history.
+    keepSentMs = 7L * 24 * 60 * 60 * 1000,
   ).also { holder.lane = it }
 
   val controller = holder.controller ?: BugReporterController(
@@ -172,6 +191,7 @@ fun bugReporterInstall(activity: ComponentActivity) {
         ingestKey = BuildConfig.BUGREPORT_INGEST_KEY,
         product = "dayfold",
         environment = "debug",
+        healthCounter = SdkHealthCounter { holder.countUpload(it) },
       ),
       lane,
     )

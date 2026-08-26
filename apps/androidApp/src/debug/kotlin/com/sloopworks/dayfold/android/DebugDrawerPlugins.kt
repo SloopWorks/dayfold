@@ -17,5 +17,11 @@ fun debugDrawerPlugins(activity: ComponentActivity): List<DebugPlugin> = buildLi
   // The bug-report lane, read-only. Uses the SAME lane the reporter captures
   // into and the uploader drains, so what the panel shows is what is really
   // queued — not a second view of a different store.
-  add(BugReportQueuePlugin({ BugReporterHolder.lane }) { System.currentTimeMillis() })
+  add(
+    BugReportQueuePlugin(
+      lane = { BugReporterHolder.lane },
+      now = { System.currentTimeMillis() },
+      counters = { BugReporterHolder.uploadCountsSnapshot() },
+    ),
+  )
 }
