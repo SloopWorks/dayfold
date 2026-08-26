@@ -29,7 +29,9 @@ Hub Timeline (authored + on-device-derived, ADR 0045/0046) and Now-derived
 priority surfacing + Android background notifications (ADR 0043/0044). Debug-
 only dogfood observability (SWIP bug reporter/analytics/logging/inspector,
 ADR 0054–0057) and always-on API + debug-only client error reporting (Sentry
-+ PostHog, ADR 0059/0060) are also shipped; client runtime/effect-ownership
++ PostHog, ADR 0059/0060) are also shipped; **bug reports now UPLOAD** to the
+SWIP gateway (debug only, verified on a Pixel 10 Pro 2026-08-26 — see the
+"SWIP bug-report upload" note below); client runtime/effect-ownership
 hardening (ADR 0058) fixed two production deadlocks. Validation round 1 verdict
 still stands: **CONDITIONAL — learning-lab GO, standalone-business NO-GO**
 (the AI-briefing concept is commoditized by Gemini Daily Brief / Alexa+ /
@@ -55,6 +57,40 @@ work (a plain standalone Gradle/JVM module, no special gotchas: `cd apps/cli
 `apps/api`-only work (that file's own `## API` section is ~60 lines — jump
 straight there). The M0 prototype is **built + live** (Vercel+Neon; Android
 renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
+
+
+## SWIP bug-report upload (debug builds only)
+
+Reports used to capture and queue on-device with no uploader. They now upload to
+`bugs-staging.sloopworks.com` through `works.sloop.swip:swip-bugreport-uploader`.
+Four things about the wiring are load-bearing and easy to break:
+
+- **One lane, shared.** `BugReporterHolder.lane` is hoisted and handed to BOTH
+  `SloopBugReports` (capture) and `AndroidBugReports.install()` (upload). Building
+  a second lane leaves the uploader draining an empty directory forever while
+  reports pile up somewhere else, with nothing failing loudly.
+- **The endpoint is the compiled registry constant**,
+  `DayfoldServices.Bugreport.Staging.ENDPOINT` from `schema-dayfold` — never a
+  `BuildConfig` field and never a literal. That is what ADR-0027 exists to permit
+  for a debug-only service, and a release-boundary check greps the artifact for
+  the endpoint string.
+- **Only the key is injected**, via `BUGREPORT_INGEST_KEY`. Empty is a SUPPORTED
+  state: capture and queueing still work, upload is off, and `install()` logs
+  `upload enabled=false` once. Never add a literal or a fallback key.
+- **`requestDrain()` must follow a save.** `SloopBugReports.submit()` runs inside
+  `BugReporterController`, so the uploader never sees it, and the foreground
+  trigger does not re-fire when shake → review → Send happen in one Activity.
+  The glue collects `controller.pending` and calls `AndroidBugReports.requestDrain()`.
+  Remove that and an offline capture waits for the next app launch.
+
+The debug drawer's **Bug reports** panel lists the lane read-only — queued rows,
+an upload tally, and sent history (the debug lane sets `keepSentMs` to 7 days, so
+a sent report keeps its metadata after its payload is dropped).
+
+**Not yet published.** `swip-bugreport-uploader`, `schema-dayfold 0.1.8` and
+`debugdrawer-bugreport` are resolved from `mavenLocal` until SWIP's BR-P5 Task 9
+publishes. `apps/settings.gradle.kts` carries a `mavenLocal()` entry marked LOCAL
+VERIFICATION ONLY — it must not be merged.
 
 ## Directory map
 
