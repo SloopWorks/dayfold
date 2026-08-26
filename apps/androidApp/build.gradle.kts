@@ -59,6 +59,13 @@ android {
       // The KMP Sentry project's DSN (ADR 0060). Injected from Infisical at build; empty ⇒
       // crash reporting stays OFF so a no-Infisical debug build still runs. NEVER a literal.
       buildConfigField("String", "SENTRY_KOTLIN_EU_DSN", "\"${System.getenv("SENTRY_KOTLIN_EU_DSN") ?: ""}\"")
+      // SWIP bug-report ingest key (debug-only). Empty by default and empty is a
+      // SUPPORTED state: the reporter still captures and queues, it just does not
+      // upload, and AndroidBugReports.install() says so once at startup. Never add
+      // a literal or a fallback here — an unprovisioned build must not fail open.
+      // The gateway URL is NOT here: it is the compiled registry constant from
+      // schema-dayfold, per ADR-0027.
+      buildConfigField("String", "BUGREPORT_INGEST_KEY", "\"${System.getenv("BUGREPORT_INGEST_KEY") ?: ""}\"")
     }
     getByName("release") {
       // Sign only when the keystore env is present (CI); unsigned otherwise so local
@@ -137,6 +144,9 @@ dependencies {
   debugImplementation("works.sloop.swip:swip-bugreport:0.1.1")
   debugImplementation("works.sloop.swip:swip-rk-recorder:0.1.1")
   debugImplementation("works.sloop.swip:swip-bugreport-ui:0.1.1")
+  // The upload half of the reporter (SWIP spec 2026-08-25). Debug-only like the
+  // rest: the release variant carries no uploader, no key and no endpoint string.
+  debugImplementation("works.sloop.swip:swip-bugreport-uploader:0.1.0")
   debugImplementation("works.sloop.swip:swip-logging:0.1.2")
   // ProcessLifecycleOwner for the SWIP background-flush hook. swip-lifecycle depends on it
   // but as `implementation`, so it isn't on our compile classpath — declare it explicitly.

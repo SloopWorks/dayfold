@@ -53,6 +53,10 @@ import works.sloop.swip.bugreport.ui.EntryStyle
 import works.sloop.swip.bugreport.ui.scrub.ScrubberOverlay
 import works.sloop.swip.rk.recorder.ReduxTimelineRecorder
 import works.sloop.swip.rk.recorder.ScrubberEngine
+import works.sloop.swip.bugreport.uploader.AndroidBugReports
+import works.sloop.swip.bugreport.uploader.SwipBugReportsConfig
+import works.sloop.swip.schema.dayfold.DayfoldServices
+import kotlinx.coroutines.launch
 
 // Debug variant: the real swip bug reporter (shake/edge-tab → capture → annotate →
 // review → on-device report lane; no upload — gateway is SWIP Phase 1). Mirrors the
@@ -73,6 +77,16 @@ private object BugReporterHolder {
   /** 32-deep breadcrumb ring fed by wrapping Log.sink. Guarded by itself. */
   val crumbs = ArrayDeque<String>()
   var crumbsWired = false
+
+  /**
+   * The ONE report lane. Capture writes to it and the uploader drains it, so both
+   * must hold the same instance — a second lane at a different path would leave
+   * the uploader draining an empty directory forever.
+   */
+  var lane: ReportLane? = null
+
+  /** Upload wiring is installed once per process, not once per Activity. */
+  var uploadWired = false
 }
 
 /** Store-construction enhancer (innermost slot) — the redux timeline recorder. */
@@ -110,6 +124,13 @@ fun bugReporterInstall(activity: ComponentActivity) {
     }
   }
 
+  val lane = holder.lane ?: ReportLane(
+    fs = FileSystem.SYSTEM,
+    dir = works.sloop.swip.bugreport.platform.androidReportDir(activity.applicationContext),
+    clock = Clock { System.currentTimeMillis() },
+    health = SdkHealthCounter { }, // no-op — no swip telemetry stack in dayfold yet
+  ).also { holder.lane = it }
+
   val controller = holder.controller ?: BugReporterController(
     SloopBugReports(
       BugReportsConfig(
@@ -133,17 +154,39 @@ fun bugReporterInstall(activity: ComponentActivity) {
           breadcrumbs = BreadcrumbsProvider { max -> synchronized(holder.crumbs) { holder.crumbs.toList() }.takeLast(max) },
           timeline = holder.recorder,
         ),
-        lane = ReportLane(
-          fs = FileSystem.SYSTEM,
-          dir = works.sloop.swip.bugreport.platform.androidReportDir(activity.applicationContext),
-          clock = Clock { System.currentTimeMillis() },
-          health = SdkHealthCounter { }, // no-op — no swip telemetry stack in dayfold yet
-        ),
+        lane = lane,
       ),
     ),
     holder.scope,
     internalChannel = { true }, // dayfold debug builds are internal by definition (ADR-0021 layer 2)
   ).also { holder.controller = it }
+
+  if (!holder.uploadWired) {
+    holder.uploadWired = true
+    val install = AndroidBugReports.install(
+      activity.application,
+      SwipBugReportsConfig(
+        // The COMPILED registry constant, never a literal and never a build field
+        // (ADR-0027). Staging while BR-P5 is in flight.
+        gatewayUrl = DayfoldServices.Bugreport.Staging.ENDPOINT,
+        ingestKey = BuildConfig.BUGREPORT_INGEST_KEY,
+        product = "dayfold",
+        environment = "debug",
+      ),
+      lane,
+    )
+    android.util.Log.i("swip-bugreport", "upload enabled=${install.uploadEnabled} reason=${install.reason ?: "-"}")
+
+    // THE POST-SAVE TRIGGER, and it has to live here. SloopBugReports.submit() is
+    // called inside BugReporterController, so the uploader never sees a save; and
+    // the foreground trigger does not re-fire when shake -> review -> Send all
+    // happen inside an already-started Activity. `pending` is refreshed right
+    // after a report is saved, so an emission means something may now be
+    // uploadable. requestDrain() is cheap and no-ops when nothing is.
+    holder.scope.launch {
+      controller.pending.collect { AndroidBugReports.requestDrain(activity.applicationContext) }
+    }
+  }
 
   holder.recorder.activate()
 
