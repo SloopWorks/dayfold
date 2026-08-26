@@ -62,7 +62,7 @@ import kotlinx.coroutines.launch
 // review → on-device report lane; no upload — gateway is SWIP Phase 1). Mirrors the
 // debugDrawerPlugins() idiom: src/main calls these three functions; src/release
 // holds inert same-signature mirrors, so the release APK carries zero swip bytes.
-private object BugReporterHolder {
+internal object BugReporterHolder {
   /** WeakReference: capturing the Activity directly would leak it and go stale after rotation. */
   var currentActivity: WeakReference<ComponentActivity>? = null
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
