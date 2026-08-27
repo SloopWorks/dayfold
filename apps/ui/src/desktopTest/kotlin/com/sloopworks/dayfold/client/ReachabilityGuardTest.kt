@@ -277,29 +277,36 @@ private const val ROUTINE_PREVIEW_FIXTURE_REASON =
   "RoutinePreviewAction is a closed, local-only fixture demonstrating the deferred (G1 content-" +
     "authoring loop) Smart Briefings preview — see RoutineActions.kt's own doc comment. " +
     "smartBriefingsPreviewActions() doesn't map every declared preview transition yet; no real " +
-    "provider/effect is ever invoked by this family. Found 2026-08-10; low-risk completeness gap."
+    "provider/effect is ever invoked by this family. Found 2026-08-10; low-risk completeness gap. " +
+    "Re-verified 2026-08-27 (WI-462 triage): smartBriefingsPreviewActions() still emits a different " +
+    "subset (RoutineContinue/NavigateBack/ProviderSelected/SourcesSelected/HubSelected/" +
+    "ScheduleSelected/PrivacyAcknowledged/OperationStarted/DraftPresented/DraftDecisionPreviewed/" +
+    "RunFinished/RevokeFinished), so these six stay unreachable. Keep allow-listed until the G1 " +
+    "content-authoring loop makes this a real feature rather than a fixture."
 
 internal val ACTION_ALLOW_LIST: Map<String, String> = mapOf(
-  // --- found by this guard's first real run (2026-08-10) — genuinely orphaned, not yet triaged.
-  // Each is either dead code from a superseded path or a real gap; deciding which is a product call
-  // outside WI-462's scope (ADR governance: scope/product decisions aren't agent-autonomous). Tracked
-  // in backlog/now.md's operator-actions-pending list for follow-up triage — remove each entry once
-  // that follow-up either wires it or deletes it. ---
+  // --- found by this guard's first real run (2026-08-10); TRIAGED 2026-08-27 (WI-462 follow-up).
+  // Each is either dead code from a superseded path or a real gap. Wire-vs-delete is a product call
+  // outside WI-462's scope (ADR governance: scope/product decisions aren't agent-autonomous), so the
+  // three below are escalated as INB-42 rather than decided here. Remove each entry once that answer
+  // lands and the symbol is either dispatched or deleted.
+  // The triage also retired one entry: ResponseStepBack, allow-listed 2026-08-10 as "no back
+  // affordance wired", has been dispatched from FeedApp.kt since 01ec785b (2026-08-19) — the guard
+  // now enforces it. Re-verify entries on each pass; a stale allow-list is a silent guard. ---
   "HubsFailed" to
     "Found 2026-08-10: HubsLoaded (its success sibling) is dispatched from HubEngine/SyncEngine/" +
       "ContentBridge, but nothing dispatches HubsFailed — HubEngine.kt:258's comment suggests the " +
       "hub-list-load path it belonged to was superseded by DB-driven sync. May be dead code. Needs " +
-      "product triage, not an autonomous fix.",
+      "product triage, not an autonomous fix. " +
+      "Re-verified 2026-08-27: still dispatched from nowhere. → INB-42.",
   "HubNotFound" to
     "Found 2026-08-10: the 404/restricted-hub reducer arm exists but nothing dispatches it. Needs " +
-      "triage: wire a real 404 handler, or remove as dead code. Needs product triage.",
+      "triage: wire a real 404 handler, or remove as dead code. Needs product triage. " +
+      "Re-verified 2026-08-27: still dispatched from nowhere. → INB-42.",
   "CalendarSettingsLoaded" to
     "Found 2026-08-10: the reducer arm exists but nothing in CalendarCheckEngine/ContentStore " +
-      "dispatches it — calendar settings may already be read a different way. Needs product triage.",
-  "ResponseStepBack" to
-    "Found 2026-08-10: ResponseSheet has no back affordance wired to it (verified: no onBack/" +
-      "ArrowBack anywhere in ResponseSheet.kt) — ADR 0064 may have deliberately shipped forward-only " +
-      "steps. Needs product triage, not an autonomous UX addition.",
+      "dispatches it — calendar settings may already be read a different way. Needs product triage. " +
+      "Re-verified 2026-08-27: still dispatched from nowhere. → INB-42.",
   "RestoreSmartBriefings" to ROUTINE_PREVIEW_FIXTURE_REASON,
   "RoutineHubFixtureSelected" to ROUTINE_PREVIEW_FIXTURE_REASON,
   "RoutinePreparationCompleted" to ROUTINE_PREVIEW_FIXTURE_REASON,

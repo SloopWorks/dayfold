@@ -729,22 +729,55 @@ Gradle daemon during compilation, so those counterparts remain pending.
   7. **Before any private data**, unchanged: an eligible commercial no-training
      posture or an explicit constitutional amendment. A consumer
      model-improvement toggle alone remains insufficient.
-- [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
-  found 10 already-orphaned actions + 3 additional dark Calendar Check
-  composables on `main` on its first run (2026-08-10)** — allow-listed with
-  reasons (see `ReachabilityGuardTest.kt`'s `WIRING_ALLOW_LIST`) rather than
-  fixed, since deciding dead-code-vs-real-gap per item is a product/eng call
-  outside that WI's scope. Needs a follow-up triage pass (mirrors how WI-461
-  was spawned from the Calendar Check wiring gap): `HubsFailed`/`HubNotFound`
-  (hub-list error/404 paths — may be superseded by DB-driven sync, or a real
-  gap), `CalendarSettingsLoaded` (reducer arm with no dispatcher),
-  `ResponseStepBack` (no back affordance wired in `ResponseSheet`), and 6
-  `RoutinePreviewAction` members the Smart Briefings preview's
-  `smartBriefingsPreviewActions()` doesn't yet map (low risk — closed local
-  fixture, no real provider ever invoked). `CalendarAlertOverrideHost`,
-  `CalendarMatchedSummaryScreen`, `CalendarReturnScreen` are the additional
-  Calendar Check (ADR 0063, still Proposed) surfaces beyond the three WI-461
-  is already wiring — same staged-epic posture, revisit alongside it.
+- [x] **WI-462 follow-up triage — DONE 2026-08-27.** The guard's first run
+  (2026-08-10) allow-listed 10 actions + 3 extra Calendar Check composables
+  "pending product triage". That pass ran; every entry was re-verified against
+  `main` @ `6eda80f2` rather than trusted from the 2026-08-10 note, which turned
+  out to matter — one entry was already stale. Outcome:
+  - **Retired 1 (the guard now enforces it): `ResponseStepBack`.** Allow-listed as
+    "no back affordance wired to ResponseSheet"; in fact `FeedApp.kt` has
+    dispatched it since `01ec785b` (2026-08-19). The entry had been silently
+    protecting working code for a week. **This is the lesson from the pass: a
+    stale allow-list is a silent guard.** Re-verify entries every time, and prefer
+    a dated re-verification line over trusting the original reason.
+  - **Escalated 3 as INB-42** — `HubsFailed`, `HubNotFound`,
+    `CalendarSettingsLoaded`. Still dispatched from nowhere. Each is "wire it" or
+    "delete it" with opposite answers, so it is a product call, not agent-
+    autonomous. Note the first two are *user-visible error states that can never
+    appear* (hub-load failure, 404/lost-access hub) — proposed default is to treat
+    them as real gaps and file a WI, and to leave `CalendarSettingsLoaded` until
+    ADR 0063 / INB-36 resolves.
+  - **Kept 6 (verified, not assumed): the `RoutinePreviewAction` members.**
+    Confirmed `smartBriefingsPreviewActions()` still emits a different subset, so
+    they remain unreachable. Closed local fixture, no real provider ever invoked;
+    revisit with the G1 content-authoring loop.
+  - **Kept 4: the Calendar Check composables** (`CalendarImportHost`,
+    `CalendarAlertOverrideHost`, `CalendarMatchedSummaryScreen`,
+    `CalendarReturnScreen`) — staged epic behind ADR 0063 (Proposed).
+
+- [ ] **`wi/WI-461` is finished, rebased, and has no PR — 42 hours idle as of
+  2026-08-27.** Found during the WI-462 triage: the two allow-list entries for
+  `CalendarSettingsHost`/`CalendarReviewHost` say "WI-461 (in review as of
+  2026-08-10) … remove once merged", but no PR was ever opened
+  (`list_pull_requests head=wi/WI-461` → empty). The branch is **not stale**:
+  someone rebased it onto `main` @ `6eda80f2` at 2026-08-26T04:38Z and it already
+  drops those two entries itself. It carries the Account settings row, the Now
+  card's Review wiring, and a second fix found while wiring it (`FeedViewState`/
+  `rankingState()` never carried calendar state, so the aggregate Calendar Check
+  Now card could never render at all).
+  **Unresolved, and the reason this is a checkbox not a note:** it is unclear
+  whether it is parked deliberately behind ADR 0063 acceptance (INB-36, open since
+  2026-08-08, and ADR 0008 design-first would gate the surface anyway) or simply
+  un-PR'd. The "remove once merged" wording implies it was expected to land.
+  Operator call: open the PR, or record that it is intentionally held so the next
+  reader stops re-discovering it.
+  One hygiene note if it does land: it adds a new snapshot scene
+  (`account-calendar-check`) with a **macOS golden only**. That does **not** break
+  CI — 67 of `main`'s 204 shots already have no Linux golden and CI is green, so a
+  *missing* golden is recorded rather than failed (unlike a *stale* one, which is
+  what turned `main` red for 11 days in August). It just means the scene is not
+  pixel-guarded on CI until a Linux golden is recorded.
+
 - [x] **CONFIRMED 2026-08-23: Claude Code's skill loader DOES follow a symlinked
   skill directory** (2026-07-30, harness-neutral skill move). The skill's real
   files live in `.agents/skills/dayfold-curator/` — Codex's repo skills root, so
