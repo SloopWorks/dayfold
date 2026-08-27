@@ -16,6 +16,41 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-42 · 2026-08-27 · med · open — three orphaned actions from the WI-462
+  triage: wire each, or delete it?** The reachability guard's first run
+  (2026-08-10) allow-listed 10 actions "pending product triage". That triage ran
+  2026-08-27. Six were confirmed as the closed Smart Briefings preview fixture
+  (low risk, staying allow-listed) and one — `ResponseStepBack` — turned out to
+  have been wired since `01ec785b` (2026-08-19) and is now guard-enforced. Three
+  need a call that isn't agent-autonomous, because each is "wire it" *or* "delete
+  it" and the two answers are opposite:
+  1. **`HubsFailed`** — its success sibling `HubsLoaded` is dispatched from
+     HubEngine/SyncEngine/ContentBridge; nothing dispatches `HubsFailed`.
+     `HubEngine.kt:258` suggests the hub-list-load path it belonged to was
+     superseded by DB-driven sync.
+  2. **`HubNotFound`** — the 404/restricted-hub reducer arm exists; nothing
+     dispatches it.
+  3. **`CalendarSettingsLoaded`** — reducer arm with no dispatcher; calendar
+     settings may already be read another way.
+
+  **Why it matters beyond tidiness:** (1) and (2) are *user-visible error
+  states that can never appear*. If a hub load fails or a member opens a hub
+  they've lost access to, the reducer arm that would render that is unreachable —
+  so the app shows whatever the previous state was. Deleting them is only correct
+  if some other path already handles those cases; nobody has verified that.
+
+  **Proposed default:** treat (1) and (2) as **real gaps, not dead code** — file
+  a WI to dispatch them from the hub-load/404 paths and add a test that the state
+  renders. Treat (3) as **dead code** pending the Calendar Check epic (ADR 0063,
+  still Proposed, INB-36) — revisit it when that lands rather than wiring it now.
+
+  All three are verified-current as of 2026-08-27 (re-checked against `main`
+  @ `6eda80f2`, not taken from the 2026-08-10 note). Context:
+  `apps/ui/src/desktopTest/kotlin/com/sloopworks/dayfold/client/ReachabilityGuardTest.kt`
+  (`ACTION_ALLOW_LIST`), `backlog/now.md` WI-462 entry. Urgency med: nothing is
+  broken today that wasn't broken on 2026-08-10, but the allow-list is where this
+  gets silently forgotten.
+
 - **INB-41 · 2026-08-21 (amended 2026-08-21) · high · open — two questions, in
   order. (1) Should the pilot require the Gmail connector's **write/delete tool
   group to be blocked** as its Gmail posture? (2) Preserved beneath it, and
