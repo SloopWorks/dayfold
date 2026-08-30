@@ -4,6 +4,13 @@
 // (api = TS, cli = its own Kotlin build — both are sibling dirs, intentionally NOT
 // included here.)
 pluginManagement {
+  // Shipyard Deploy Gradle plugin (dev-build distribution). Composite build so the
+  // plugin needs no Maven publication; override with -PshipyardDeployPluginDir.
+  val shipyardPluginDir = file(
+    (extra.properties["shipyardDeployPluginDir"] as String?)
+      ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+  )
+  if (shipyardPluginDir.resolve("settings.gradle.kts").isFile) includeBuild(shipyardPluginDir)
   repositories {
     google()
     mavenCentral()
