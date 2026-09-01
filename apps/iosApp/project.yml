@@ -31,6 +31,8 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         NSLocationWhenInUseUsageDescription: "Dayfold uses your location on this device to notice when you arrive at a saved place, so it can surface the right reminder. Your live location never leaves the device."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Dayfold matches your saved places in the background so a place reminder can reach you even when the app is closed. The matching happens on this device; your live location is never uploaded."
+        NSCalendarsUsageDescription: "Dayfold compares the calendars you select with dated Dayfold items on this device, so you can review gaps. Calendar details never leave this device."
+        NSCalendarsFullAccessUsageDescription: "Dayfold compares the calendars you select with dated Dayfold items on this device, so you can review gaps. Calendar details never leave this device."
         UIBackgroundModes:
           - location
           - fetch

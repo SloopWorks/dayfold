@@ -62,8 +62,6 @@ fun AccountScreen(
   // ADR 0064 — appended, not inserted: this parameter list has positional call sites, and
   // slotting a new lambda mid-list silently shifts every argument after it.
   onOpenSmartContent: () -> Unit = {},
-  // WI-461 (ADR 0063) — appended for the same reason as onOpenSmartContent above.
-  calendarCheckAvailable: Boolean = false,
   onOpenCalendarSettings: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
@@ -300,29 +298,27 @@ fun AccountScreen(
         androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
-      // WI-461 (ADR 0063) — Calendar Check is device-local, never-synced state, same posture as
+      // ADR 0063 — Calendar Check is device-local, never-synced state, same posture as
       // Background proximity above it, which is what "ON THIS DEVICE" means here (CONNECTIONS is
-      // for cloud/provider links like Smart Briefings). Gated by the build-level entry-point flag,
-      // not by CalendarSettings.featureEnabled — that's the member's own on/off reached THROUGH it.
-      if (calendarCheckAvailable) {
-        Spacer(Modifier.height(11.dp))
-        Row(
-          Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(16.dp))
-            .background(cs.surfaceContainer).clickable(onClick = onOpenCalendarSettings)
-            .testTag("account-calendar-check")
-            .semantics { contentDescription = "Calendar Check" }
-            .padding(14.dp),
-          verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-          Column(Modifier.weight(1f)) {
-            Text("Calendar Check", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
-            Text(
-              if (state.calendarCheckEnabled) "On · compared on this device" else "Off · optional, reversible",
-              style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
-            )
-          }
-          androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
+      // for cloud/provider links like Smart Briefings). It is always reachable and remains
+      // member opt-in/default-off within the setup flow.
+      Spacer(Modifier.height(11.dp))
+      Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(16.dp))
+          .background(cs.surfaceContainer).clickable(onClick = onOpenCalendarSettings)
+          .testTag("account-calendar-check")
+          .semantics { contentDescription = "Calendar Check" }
+          .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text("Calendar Check", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(
+            if (state.calendarCheckEnabled) "On · compared on this device" else "Off · optional, reversible",
+            style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+          )
         }
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
       }
 
       Spacer(Modifier.height(22.dp))
@@ -365,14 +361,12 @@ fun AccountScreen(
 internal data class AccountRoutineRouteViewState(
   val account: AccountViewState,
   val smartBriefingsPreviewAvailable: Boolean,
-  val calendarCheckAvailable: Boolean,
 )
 
 internal fun accountRoutineRouteViewState(state: AppState): AccountRoutineRouteViewState =
   AccountRoutineRouteViewState(
     account = accountViewState(state),
     smartBriefingsPreviewAvailable = routinePreviewAvailable(state),
-    calendarCheckAvailable = calendarCheckAvailable(state),
   )
 
 @Composable

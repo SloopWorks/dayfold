@@ -108,7 +108,7 @@ class BackNavTest {
   }
 
   @Test fun `calendar settings resolves to OpenAccount`() {
-    assertEquals(OpenAccount, backAction(st(Route.Calendar)))
+    assertEquals(OpenAccount, backAction(st(Route.CalendarSettings)))
   }
 
   @Test fun `every device-flow screen resolves to CloseDeviceFlow`() {

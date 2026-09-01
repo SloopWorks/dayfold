@@ -79,8 +79,8 @@ data class AccountViewState(
   val nameError: String?,
   val proximityEnabled: Boolean,
   val signOutBusy: Boolean,
-  // WI-461 — CalendarSettings.featureEnabled (ADR 0063 §1), the member's own on/off, for the
-  // settings row subtitle. Distinct from calendarCheckAvailable (the entry point's visibility).
+  // CalendarSettings.featureEnabled (ADR 0063 §1), the member's own on/off, for the
+  // always-reachable settings row subtitle.
   val calendarCheckEnabled: Boolean,
 )
 

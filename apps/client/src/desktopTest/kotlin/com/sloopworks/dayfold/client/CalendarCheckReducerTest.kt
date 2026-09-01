@@ -216,24 +216,26 @@ class CalendarCheckReducerTest {
     assertEquals(CalendarEditorOutcome.CANCELED, next.calendar.check.editorReturn)
   }
 
-  // ── WI-461 — the Now card's "Review" tap, and the two never-reachable pieces it exposed ──
+  // ── Accepted ADR 0063 production routes ──
 
-  @Test fun `OpenCalendarReview and CloseCalendarReview toggle the Feed substate flag`() {
+  @Test fun `OpenCalendarReview and CloseCalendarReview route between review and Feed`() {
     val opened = rootReducer(AppState(), OpenCalendarReview)
-    assertTrue(opened.calendar.check.reviewOpen)
+    assertEquals(Route.CalendarReview, opened.navigation.route)
     val closed = rootReducer(opened, CloseCalendarReview)
-    assertFalse(closed.calendar.check.reviewOpen)
+    assertEquals(Route.Feed, closed.navigation.route)
   }
 
-  @Test fun `OpenCalendarSettings routes to Calendar, CloseCalendarSettings routes back to Account`() {
+  @Test fun `OpenCalendarSettings routes to settings, CloseCalendarSettings routes back to Account`() {
     val opened = rootReducer(AppState(), OpenCalendarSettings)
-    assertEquals(Route.Calendar, opened.navigation.route)
+    assertEquals(Route.CalendarSettings, opened.navigation.route)
     val closed = rootReducer(opened, CloseCalendarSettings)
     assertEquals(Route.Account, closed.navigation.route)
   }
 
-  @Test fun `calendarCheckAvailable defaults true, the single build-level flag that can flip it off`() {
-    assertTrue(calendarCheckAvailable(AppState()))
-    assertFalse(calendarCheckAvailable(AppState(calendar = CalendarState(checkAvailable = false))))
+  @Test fun `Calendar import opens from review and closes back to review`() {
+    val opened = rootReducer(AppState(), OpenCalendarImport)
+    assertEquals(Route.CalendarImport, opened.navigation.route)
+    val closed = rootReducer(opened, CloseCalendarImport)
+    assertEquals(Route.CalendarReview, closed.navigation.route)
   }
 }

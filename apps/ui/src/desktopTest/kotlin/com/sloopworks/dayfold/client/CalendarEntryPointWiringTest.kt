@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 // WI-461 (ADR 0063) — the wiring between the Calendar Check entry point and the effect it names.
@@ -23,11 +24,11 @@ class CalendarEntryPointWiringTest {
     proximityEnabled = false, signOutBusy = false, calendarCheckEnabled = false,
   )
 
-  @Test fun theSettingsRowIsAbsentWhenTheEntryPointFlagIsOff() = runComposeUiTest {
+  @Test fun theSettingsRowIsAlwaysAvailable() = runComposeUiTest {
     setContent {
-      MaterialTheme { AccountScreen(state = accountState(), calendarCheckAvailable = false) }
+      MaterialTheme { AccountScreen(state = accountState()) }
     }
-    onNodeWithTag("account-calendar-check").assertDoesNotExist()
+    onNodeWithTag("account-calendar-check").assertIsDisplayed()
   }
 
   @Test fun tappingTheSettingsRowDispatchesTheOpenAction() = runComposeUiTest {
@@ -36,7 +37,6 @@ class CalendarEntryPointWiringTest {
       MaterialTheme {
         AccountScreen(
           state = accountState(),
-          calendarCheckAvailable = true,
           onOpenCalendarSettings = { opened = true },
         )
       }
@@ -65,7 +65,7 @@ class CalendarEntryPointWiringTest {
 
     onNodeWithContentDescription("Review calendar check items").performClick()
 
-    assertTrue(store.state.calendar.check.reviewOpen)
+    assertEquals(Route.CalendarReview, store.state.navigation.route)
     onNodeWithText("Compared on this phone").assertIsDisplayed()
   }
 }

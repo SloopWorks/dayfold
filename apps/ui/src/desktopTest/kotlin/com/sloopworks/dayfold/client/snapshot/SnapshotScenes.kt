@@ -296,12 +296,13 @@ val clientSnapshots: SnapshotApp = snapshotApp {
         val preset = presetName(args.input)
         val app = SnapshotStates.ACCOUNT_STATE.copy(
           session = SnapshotStates.ACCOUNT_STATE.session.copy(signOutBusy = preset == "signout-busy"),
+          calendar = SnapshotStates.ACCOUNT_STATE.calendar.copy(
+            settings = SnapshotStates.ACCOUNT_STATE.calendar.settings.copy(featureEnabled = preset == "calendar-check"),
+          ),
         )
         AccountScreen(
           accountViewState(app),
           smartBriefingsPreviewAvailable = preset == "smart-briefings",
-          // WI-461 (ADR 0063) — the Calendar Check entry point row, ON THIS DEVICE.
-          calendarCheckAvailable = preset == "calendar-check",
         )
       }
     }

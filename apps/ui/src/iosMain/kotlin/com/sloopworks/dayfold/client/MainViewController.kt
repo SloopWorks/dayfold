@@ -43,6 +43,7 @@ fun MainViewController(): UIViewController {
     tokenStore = IosTokenStore(key = if (usingFake) "dayfold_debug_fake_session" else "dayfold_session"),
     notificationContext = mainNotificationContext(),
     foregroundNotifier = IosNotifGlue.localNotifier,
+    calendarPort = IosCalendarPort(),
     httpClientFactory = { fakeHttp ?: io.ktor.client.HttpClient() },
     devSecret = "fake".takeIf { fakeHttp != null },
     initialState = initialStateForFakeScenario(scenarioId),
@@ -190,6 +191,7 @@ private fun IosControllerContent(
       // Re-read OS permission truth on every foreground (iOS has no notif permission-change broadcast;
       // the user may have toggled it in Settings while backgrounded). ADR 0044 §S3.
       locPerm.refresh(); notifPerm.refresh()
+      graph.commands.startCalendarCheck()
     }
     val pauseToken = nc.addObserverForName(
       name = UIApplicationWillResignActiveNotification,
