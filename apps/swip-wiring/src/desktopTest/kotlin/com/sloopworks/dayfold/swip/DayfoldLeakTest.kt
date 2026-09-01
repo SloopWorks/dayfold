@@ -185,37 +185,41 @@ class DayfoldLeakTest {
     assertTrue("Account" in text, "routine route should use the non-routine Account value")
   }
 
-  // WI-461 — Route.Calendar (the new Calendar Check settings entry point) joins the same
-  // non-exhaustiveness-guarded map as SmartBriefings/SmartContent; this proves the deliberate
-  // decision actually landed, not just that the route compiles. Drives the route to Route.Calendar
-  // via an UNRELATED action (OpenAccount, whose name carries no "Calendar" substring) so the
-  // assertion isolates the "route" STATE SLICE redaction from the separately-fine, unfenced action-
-  // class-name log line (only RoutinePreviewAction gets the PrivateUiAction wrapper — see
-  // dayfoldRecorderEnhancer — because a plain nav action's own name isn't calendar content).
-  @Test fun calendar_route_slice_is_redacted_to_its_account_entry_point() = runTest {
-    val rec = ReduxTimelineRecorder(
-      specs = dayfoldSlices(), sanitizer = dayfoldSanitizer,
-      config = RecorderConfig(appVersion = "test"), clock = Clock { 0L }, scope = this,
+  // WI-461 — every Calendar Check route joins the same non-exhaustiveness-guarded map as
+  // SmartBriefings/SmartContent. Drive each route via an unrelated action so this assertion
+  // isolates the route state-slice redaction from the action-class-name log line.
+  @Test fun calendar_route_slices_are_redacted_to_their_account_entry_point() = runTest {
+    val calendarRoutes = listOf(
+      com.sloopworks.dayfold.client.Route.CalendarSettings,
+      com.sloopworks.dayfold.client.Route.CalendarReview,
+      com.sloopworks.dayfold.client.Route.CalendarImport,
     )
-    val store = createStore(
-      { state: AppState, action: Any ->
-        if (action is com.sloopworks.dayfold.client.OpenAccount) {
-          state.copy(navigation = state.navigation.copy(route = com.sloopworks.dayfold.client.Route.Calendar))
-        } else state
-      },
-      AppState(),
-      dayfoldRecorderEnhancer(rec),
-    )
-    rec.activate()
-    store.dispatch(com.sloopworks.dayfold.client.OpenAccount)
-    advanceUntilIdle()
 
-    assertEquals(com.sloopworks.dayfold.client.Route.Calendar, store.state.navigation.route)
-    val frozen = rec.freeze()!!
-    val text = frozen.journalJson.decodeToString() + frozen.finalStateJson.decodeToString()
-    rec.deactivate()
-    assertFalse("Calendar" in text, "the route slice must journal as Account, never Calendar")
-    assertTrue("Account" in text)
+    calendarRoutes.forEach { calendarRoute ->
+      val rec = ReduxTimelineRecorder(
+        specs = dayfoldSlices(), sanitizer = dayfoldSanitizer,
+        config = RecorderConfig(appVersion = "test"), clock = Clock { 0L }, scope = this,
+      )
+      val store = createStore(
+        { state: AppState, action: Any ->
+          if (action is com.sloopworks.dayfold.client.OpenAccount) {
+            state.copy(navigation = state.navigation.copy(route = calendarRoute))
+          } else state
+        },
+        AppState(),
+        dayfoldRecorderEnhancer(rec),
+      )
+      rec.activate()
+      store.dispatch(com.sloopworks.dayfold.client.OpenAccount)
+      advanceUntilIdle()
+
+      assertEquals(calendarRoute, store.state.navigation.route)
+      val frozen = rec.freeze()!!
+      val text = frozen.journalJson.decodeToString() + frozen.finalStateJson.decodeToString()
+      rec.deactivate()
+      assertFalse("Calendar" in text, "the route slice must journal as Account, never Calendar")
+      assertTrue("Account" in text)
+    }
   }
 
   @Test fun hub_filter_without_pii_is_truncated_not_dropped() = runTest {
