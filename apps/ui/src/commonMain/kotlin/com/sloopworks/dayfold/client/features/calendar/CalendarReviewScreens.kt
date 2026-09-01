@@ -2,12 +2,15 @@ package com.sloopworks.dayfold.client.features.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -120,9 +123,13 @@ fun CalendarReviewListScreen(
   modifier: Modifier = Modifier,
 ) {
   val cs = MaterialTheme.colorScheme
-  Column(modifier.fillMaxWidth()) {
+  Column(modifier.fillMaxSize()) {
     ReviewTopBar(compareLabel, onBack)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+      Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+        .padding(horizontal = 16.dp, vertical = 4.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
       if (onResumeImport != null) {
         FilledTonalButton(onClick = onResumeImport, modifier = Modifier.fillMaxWidth()) {
           Icon(DayfoldIcons.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))

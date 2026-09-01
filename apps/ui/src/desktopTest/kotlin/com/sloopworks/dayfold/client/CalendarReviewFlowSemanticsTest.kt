@@ -4,15 +4,18 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
 import com.sloopworks.dayfold.client.features.calendar.CalendarAmbiguousMatchScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarCheckNowCard
 import com.sloopworks.dayfold.client.features.calendar.CalendarDetailsDifferScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarMatchedSummaryScreen
+import com.sloopworks.dayfold.client.features.calendar.CalendarOnlyRow
 import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarReviewListUiState
 import com.sloopworks.dayfold.client.features.calendar.CalendarSuggestedMatchScreen
@@ -52,6 +55,32 @@ class CalendarReviewFlowSemanticsTest {
     onNodeWithContentDescription("Possible match — review, Soccer — Leo").assertIsDisplayed()
     onNodeWithText("Grandma's 80th lunch").assertIsDisplayed()
     onNodeWithContentDescription("3 ignored on this phone").assertIsDisplayed()
+  }
+
+  @Test fun `review list scrolls long results while keeping its header visible`() = runComposeUiTest {
+    val calendarRows = (1..30).map { index ->
+      CalendarOnlyRow(
+        itemKey = "calendar:event-$index", platformEventId = "event-$index",
+        title = "Calendar result $index", meta = "Sep $index · Family calendar", dotColor = "#7B9E6B",
+      )
+    }
+    setContent {
+      DayfoldTheme {
+        CalendarReviewListScreen(
+          ui = CalendarReviewListUiState(
+            dayfoldRows = emptyList(), needsReviewRows = emptyList(),
+            calendarOnlyRows = calendarRows, ignoredCount = 0,
+          ),
+          compareLabel = "Compared on this phone · just now",
+          onBack = {}, onAddToCalendar = {}, onIgnoreDayfoldOnly = {}, onOpenHub = {},
+          onOpenNeedsReview = {}, onKeepCalendarOnly = {}, onAddToHub = {}, onOpenIgnored = {},
+        )
+      }
+    }
+
+    onNode(hasScrollAction()).assertExists()
+    onNodeWithText("Calendar result 30").performScrollTo().assertIsDisplayed()
+    onNodeWithText("Calendar check").assertIsDisplayed()
   }
 
   @Test fun `dayfold-only row omits Open Hub when the candidate has no hub to link to`() = runComposeUiTest {
