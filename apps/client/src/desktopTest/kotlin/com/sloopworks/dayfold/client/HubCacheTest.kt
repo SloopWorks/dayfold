@@ -106,14 +106,14 @@ class HubCacheTest {
     }
 
     @Test
-    fun `v15 canonical DB activates calendar import and repairs historical cache drift`() {
+    fun `v17 canonical DB adds Hub version without disturbing local Calendar state`() {
         val f = File.createTempFile("content_calendar_activation_migration_test", ".db").apply { deleteOnExit() }
         val path = "jdbc:sqlite:${f.absolutePath}"
-        val d15 = JdbcSqliteDriver(path)
+        val d17 = JdbcSqliteDriver(path)
 
-        // A fresh v15 database already had membership, card deep-link targets, and
-        // calendar_import. Unlike the old migration path, its hub did not yet carry version.
-        d15.execute(null, """
+        // Schema v17 already has the migration-16 repair objects. Calendar activation only adds
+        // Hub.version, so existing synced projections and device-local import state must survive.
+        d17.execute(null, """
             CREATE TABLE card (
               id TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'info',
               title TEXT NOT NULL, body_md TEXT, source TEXT, not_before TEXT,
@@ -123,7 +123,7 @@ class HubCacheTest {
               deleted INTEGER NOT NULL DEFAULT 0, importance REAL, triggers TEXT
             )
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             CREATE TABLE hub (
               id TEXT NOT NULL PRIMARY KEY, type TEXT, title TEXT NOT NULL, status TEXT,
               start_at TEXT, end_at TEXT, countdown_to TEXT, visibility TEXT,
@@ -131,19 +131,19 @@ class HubCacheTest {
               deleted INTEGER NOT NULL DEFAULT 0
             )
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             CREATE TABLE sync_meta (
               id INTEGER NOT NULL PRIMARY KEY DEFAULT 0, cursor TEXT,
               last_synced_at TEXT, client_schema_version INTEGER
             )
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             CREATE TABLE membership (
               family_id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL DEFAULT '',
               role TEXT NOT NULL DEFAULT 'adult', status TEXT NOT NULL DEFAULT 'active'
             )
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             CREATE TABLE calendar_import (
               proposal_id TEXT NOT NULL PRIMARY KEY, proposal_json TEXT NOT NULL,
               destination_json TEXT NOT NULL, hub_id TEXT, section_id TEXT NOT NULL,
@@ -151,39 +151,42 @@ class HubCacheTest {
               created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             INSERT INTO card(
               id, title, target_hub_id, target_section_id, target_block_id, updated_at
             ) VALUES ('card-1', 'Cached card', 'hub-target', 'section-target', 'block-target', '2026-08-28T00:00:00Z')
         """.trimIndent(), 0)
-        d15.execute(null, """
+        d17.execute(null, """
             INSERT INTO hub(id, title, media, timeline, updated_at)
             VALUES ('hub-1', 'Cached hub', '{}', '{}', '2026-08-28T00:00:00Z')
         """.trimIndent(), 0)
-        d15.execute(null, "INSERT INTO sync_meta(id, cursor, last_synced_at, client_schema_version) VALUES (0, 'cursor-1', '2026-08-28T00:00:00Z', 3)", 0)
-        d15.execute(null, "INSERT INTO membership(family_id, name, role, status) VALUES ('family-1', 'Family', 'owner', 'active')", 0)
-        d15.execute(null, """
+        d17.execute(null, "INSERT INTO sync_meta(id, cursor, last_synced_at, client_schema_version) VALUES (0, 'cursor-1', '2026-08-28T00:00:00Z', 3)", 0)
+        d17.execute(null, "INSERT INTO membership(family_id, name, role, status) VALUES ('family-1', 'Family', 'owner', 'active')", 0)
+        d17.execute(null, """
             INSERT INTO calendar_import(
               proposal_id, proposal_json, destination_json, hub_id, section_id,
               block_ids_json, status, created_at, updated_at
             ) VALUES ('proposal-1', '{}', '{}', 'hub-1', 'section-1', '[]', 'queued',
                       '2026-08-28T00:00:00Z', '2026-08-28T00:00:00Z')
         """.trimIndent(), 0)
-        d15.execute(null, "PRAGMA user_version=15", 0)
-        d15.close()
+        d17.execute(null, "PRAGMA user_version=17", 0)
+        d17.close()
 
         val migrated = JdbcSqliteDriver(path, schema = ContentDb.Schema)
         val q = ContentDb(migrated).contentQueries
 
-        // The cache rows and local import/membership state survive. Card deep-link targets are
-        // deliberately rehydrated by the forced full sync because the old v15 path lacked them.
+        // The cache rows and local import/membership state survive unchanged.
         val card = q.activeCards().executeAsOne()
         assertEquals("card-1", card.id)
-        assertNull(card.target_hub_id)
-        assertEquals("hub-1", q.activeHubs().executeAsOne().id)
+        assertEquals("hub-target", card.target_hub_id)
+        assertEquals("section-target", card.target_section_id)
+        assertEquals("block-target", card.target_block_id)
+        val hub = q.activeHubs().executeAsOne()
+        assertEquals("hub-1", hub.id)
+        assertNull(hub.version)
         assertEquals("family-1", q.allMemberships().executeAsOne().family_id)
         assertEquals("proposal-1", q.unresolvedCalendarImports().executeAsOne().proposal_id)
-        assertNull(q.getCursor().executeAsOne().cursor)
+        assertEquals("cursor-1", q.getCursor().executeAsOne().cursor)
 
         migrated.close()
     }

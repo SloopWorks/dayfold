@@ -211,7 +211,14 @@ internal fun RouteHost(
       onBack = { store.dispatch(CloseCalendarReview) },
       onOpenHub = { target ->
         store.state.session.activeFamilyId?.let { familyId ->
-          commands.openHub(familyId, target.hubId, target.blockId)
+          val blockId = target.blockId
+          val sectionId = target.sectionId
+          val arrival = when {
+            blockId != null -> HubArrival(HubArrivalLevel.BLOCK, blockId, HubArrivalSource.BRIEFING)
+            sectionId != null -> HubArrival(HubArrivalLevel.SECTION, sectionId, HubArrivalSource.BRIEFING)
+            else -> null
+          }
+          commands.openHub(familyId, target.hubId, arrival)
         }
       },
       onAddToHub = { row ->

@@ -126,11 +126,11 @@ CREATE TABLE hub (
   countdown_to TEXT,
   visibility   TEXT,
   created_by   TEXT,
-  version      INTEGER,
   updated_at   TEXT NOT NULL,
   deleted      INTEGER NOT NULL DEFAULT 0,
   media        TEXT,                       -- ADR 0036: JSON {heroUrl,thumbnailUrl,heroFit,imageAlt,icon,accentColor} (ALTER in 3.sqm)
-  timeline     TEXT                        -- ADR 0045: JSON Timeline {title,tz,stops:[…]} (ALTER in 9.sqm)
+  timeline     TEXT,                       -- ADR 0045: JSON Timeline {title,tz,stops:[…]} (ALTER in 9.sqm)
+  version      INTEGER                     -- ADR 0063: Calendar import destination precondition (ALTER in 17.sqm)
 );
 
 upsertHub:
