@@ -1,5 +1,6 @@
 package com.sloopworks.dayfold.client
 
+import java.lang.reflect.Modifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -21,25 +22,30 @@ class CalendarImportModelTest {
     "account", "calendarId", "eventId", "platformEventId", "conferenc",
   )
 
+  /** Serialization generates static companion/cache fields; only instance fields can carry data. */
+  private fun instanceFields(type: Class<*>) = type.declaredFields
+    .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
+    .map { it.name }
+
   @Test fun `CalendarImportProposal's field set is exactly the normalization boundary`() {
-    val fields = CalendarImportProposal::class.java.declaredFields.map { it.name }.toSet()
+    val fields = instanceFields(CalendarImportProposal::class.java).toSet()
     assertEquals(EXPECTED_PROPOSAL_FIELDS, fields)
   }
 
   @Test fun `no proposal field name resembles a banned calendar-identifying concept`() {
-    val fields = CalendarImportProposal::class.java.declaredFields.map { it.name.lowercase() }
+    val fields = instanceFields(CalendarImportProposal::class.java).map { it.lowercase() }
     for (banned in BANNED_SUBSTRINGS) {
       assertEquals(emptyList<String>(), fields.filter { it.contains(banned.lowercase()) }, "leaked via '$banned'")
     }
   }
 
   @Test fun `ImportOpIds carries only client-minted target ids, never a calendar-derived value`() {
-    val fields = ImportOpIds::class.java.declaredFields.map { it.name }.toSet()
+    val fields = instanceFields(ImportOpIds::class.java).toSet()
     assertEquals(setOf("hubId", "sectionId", "blockIds"), fields)
   }
 
   @Test fun `StructuredLocation is label+address only — no lat, lng, or map link`() {
-    val fields = StructuredLocation::class.java.declaredFields.map { it.name }.toSet()
+    val fields = instanceFields(StructuredLocation::class.java).toSet()
     assertEquals(setOf("label", "address"), fields)
   }
 }

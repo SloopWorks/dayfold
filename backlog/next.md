@@ -75,28 +75,6 @@ fake-backend Smart Briefings preview with no provider task, OAuth grant, routine
 principal, remote run, content write, or new telemetry. The operator's instruction
 to import/review/implement is ADR 0008 sign-off for that simulated preview only.
 
-## TASK-CALENDAR-RECONCILIATION — client-owned Calendar Check + native handoff
-
-**Added 2026-08-08 (operator-requested feature direction). Status: blocked on
-Proposed ADR 0063 acceptance + ADR 0008 hi-fi mockups/operator sign-off; no build
-authorized.** Compare structured Dayfold event candidates with calendars selected
-on the member's Android/iOS device. Raw calendar observations, identifiers,
-bindings, permission state, and ignore decisions remain device-local. Dayfold-only
-gaps open the OS-native prefilled editor so the user chooses the destination
-calendar and confirms. Calendar-only gaps produce a reviewed, normalized proposal
-for an existing/new Hub; new imports default restricted to the importing member.
-
-The Now surface gets at most one aggregate in-app Calendar Check unit and no gap
-notifications. For a confirmed or unique strict-fingerprint match, Calendar owns
-the generic start-time alert by default; Dayfold may still surface a distinct
-preparation/action nudge through the existing ADR 0043/0044 engine. First slice:
-mobile native stores,
-non-recurring/single-occurrence matching, conservative deterministic fingerprints,
-no prose parsing, no attendees/invitations, no automatic writes, and no
-Dayfold-owned Google Calendar OAuth. ADR:
-`adr/0063-client-owned-calendar-reconciliation.md`; design prompts:
-`designs/DESIGN-BRIEF-calendar-reconciliation.md`.
-
 ## TASK-SWIP-BUGREPORT-FOLLOWUPS — dayfold ↔ swip integration improvements
 
 **Added 2026-07-11 (operator, after the first on-device smoke).** The swip bug

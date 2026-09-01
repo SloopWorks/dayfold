@@ -330,11 +330,24 @@ reviewed. API, client, UI, SWIP, Android build/connected platform tests, iOS dev
 frameworks, and the iOS host build are green. Linux Hub goldens remain pending because the
 prescribed 7 GB container twice lost its Gradle daemon during compilation.
 
-### Calendar Check epic (CAL, ADR 0063 — Proposed, not yet Accepted) — 2026-08-09
+### Now timestamp correctness — 2026-08-28
 
-Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built
-and merged to `main`: device-local reconcile + gap review, Android/iOS native
-add-event handoff, a reviewed Calendar→Dayfold import wizard, and
+Time-triggered derived items now stay on the Now tab for a two-hour grace period
+after their actual event time instead of disappearing immediately.
+Alert offsets drive surfacing and exact local scheduling without corrupting the
+displayed event time; labels are device-timezone-correct and include AM/PM;
+authored cards retain their most relevant trigger anchor after it fires (with
+explicit `expires_at` still governing removal). The visible Now route samples
+the live clock every minute, so its date, bands, and time windows no longer wait
+for an unrelated store update. Focused `:client` and `:ui` desktop tests are
+green, including before/after boundaries, multiple triggers, offsets, timezone
+copy, exact schedules, live clock advancement, and pinned snapshot clocks.
+
+### Calendar Check epic (CAL, ADR 0063 — Accepted and enabled 2026-08-28)
+
+Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built:
+device-local reconcile + gap review, Android/iOS native add-event handoff, a
+reviewed Calendar→Dayfold import wizard, and
 Calendar-owned start-alert suppression. WI-451 (CAL-11) closed the epic's
 privacy proof — permanent guard tests across `:client`/`:swip-wiring`
 desktopTest asserting raw calendar identifiers/fingerprints/observations
@@ -345,15 +358,10 @@ permission-copy device review, store data-safety disclosures, ADR
 acceptance reviews), and the on-device smoke checklist live in the shipyard
 epic — this is a pointer, not the record.**
 
-WI-461 (2026-08-10) closed the epic's last unreachability gap: a build-level
-feature flag + Account settings row + real Now-card Review wiring, so the
-feature (still gated behind ADR 0063 acceptance) is now reachable end-to-end
-in the running app rather than dead code behind an unwired route. Also fixed
-a second, undocumented break found while wiring the Now card: `FeedViewState`
-/`rankingState()` never carried calendar state through the ranking
-projection, so the aggregate Calendar Check Now card could never render at
-all, independent of the Review no-op. `CalendarImportHost` ("Add to a Hub"
-from the review flow) remains unreached — deferred, not this WI's scope.
+The operator accepted ADR 0063 and signed off the design/defaults on
+2026-08-28. Production reachability, Android/iOS adapters, settings hydration,
+durable local decisions, reviewed-import recovery, and typed field resolution
+are enabled. Calendar Check remains a default-off member opt-in under Account.
 
 ### Active — TASK-CLIENT-RUNTIME-HARDENING (started 2026-07-14)
 
@@ -757,43 +765,21 @@ Gradle daemon during compilation, so those counterparts remain pending.
     protecting working code for a week. **This is the lesson from the pass: a
     stale allow-list is a silent guard.** Re-verify entries every time, and prefer
     a dated re-verification line over trusting the original reason.
-  - **Escalated 3 as INB-42** — `HubsFailed`, `HubNotFound`,
-    `CalendarSettingsLoaded`. Still dispatched from nowhere. Each is "wire it" or
+  - **Escalated 2 as INB-42** — `HubsFailed` and `HubNotFound`. Still dispatched
+    from nowhere. Each is "wire it" or
     "delete it" with opposite answers, so it is a product call, not agent-
     autonomous. Note the first two are *user-visible error states that can never
     appear* (hub-load failure, 404/lost-access hub) — proposed default is to treat
-    them as real gaps and file a WI, and to leave `CalendarSettingsLoaded` until
-    ADR 0063 / INB-36 resolves.
+    them as real gaps and file a WI. `CalendarSettingsLoaded` is now produced by
+    the accepted Calendar Check settings hydration path.
   - **Kept 6 (verified, not assumed): the `RoutinePreviewAction` members.**
     Confirmed `smartBriefingsPreviewActions()` still emits a different subset, so
     they remain unreachable. Closed local fixture, no real provider ever invoked;
     revisit with the G1 content-authoring loop.
-  - **Kept 4: the Calendar Check composables** (`CalendarImportHost`,
-    `CalendarAlertOverrideHost`, `CalendarMatchedSummaryScreen`,
-    `CalendarReturnScreen`) — staged epic behind ADR 0063 (Proposed).
-
-- [ ] **`wi/WI-461` is finished, rebased, and has no PR — 42 hours idle as of
-  2026-08-27.** Found during the WI-462 triage: the two allow-list entries for
-  `CalendarSettingsHost`/`CalendarReviewHost` say "WI-461 (in review as of
-  2026-08-10) … remove once merged", but no PR was ever opened
-  (`list_pull_requests head=wi/WI-461` → empty). The branch is **not stale**:
-  someone rebased it onto `main` @ `6eda80f2` at 2026-08-26T04:38Z and it already
-  drops those two entries itself. It carries the Account settings row, the Now
-  card's Review wiring, and a second fix found while wiring it (`FeedViewState`/
-  `rankingState()` never carried calendar state, so the aggregate Calendar Check
-  Now card could never render at all).
-  **Unresolved, and the reason this is a checkbox not a note:** it is unclear
-  whether it is parked deliberately behind ADR 0063 acceptance (INB-36, open since
-  2026-08-08, and ADR 0008 design-first would gate the surface anyway) or simply
-  un-PR'd. The "remove once merged" wording implies it was expected to land.
-  Operator call: open the PR, or record that it is intentionally held so the next
-  reader stops re-discovering it.
-  One hygiene note if it does land: it adds a new snapshot scene
-  (`account-calendar-check`) with a **macOS golden only**. That does **not** break
-  CI — 67 of `main`'s 204 shots already have no Linux golden and CI is green, so a
-  *missing* golden is recorded rather than failed (unlike a *stale* one, which is
-  what turned `main` red for 11 days in August). It just means the scene is not
-  pixel-guarded on CI until a Linux golden is recorded.
+  - **Retired 4 Calendar Check exceptions:** `CalendarImportHost`,
+    `CalendarAlertOverrideHost`, `CalendarMatchedSummaryScreen`, and
+    `CalendarReturnScreen` are production-reachable through the accepted review
+    and import flow; the reachability guard now enforces them.
 
 - [x] **CONFIRMED 2026-08-23: Claude Code's skill loader DOES follow a symlinked
   skill directory** (2026-07-30, harness-neutral skill move). The skill's real

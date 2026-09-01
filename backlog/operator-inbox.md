@@ -246,31 +246,6 @@ Each item: question, context link, **proposed default**, urgency.
   debug/internal-only; do not preserve Compose source strings through R8. Context:
   `docs/superpowers/specs/2026-08-10-debugdrawer-component-reporting-review.md`.
 
-- **INB-36 · 2026-08-08 · high · open — accept the client-owned Calendar Check
-  boundary after design/review?** The operator approved the feature direction and
-  requested an ADR + design prompts. Proposed ADR 0063 keeps raw calendar access,
-  identifiers, match state, and ignore decisions on the member's device; uses the
-  native event editor for user-confirmed Dayfold→Calendar creation; makes
-  Calendar→Dayfold a normalized, audience-reviewed proposal; and defaults matched
-  generic start-time alerts to Calendar while retaining distinct Dayfold action
-  nudges. **Proposed default: run the three design prompts, complete two
-  fresh-context ADR reviews, then accept this boundary if the mockups preserve the
-  privacy/audience/notification rules.** Acceptance must also ratify the initial
-  bounded comparison horizon, eligible candidate types, and Calendar-owned
-  start-alert default. This does not authorize a server-side Google Calendar OAuth
-  connector, automatic bidirectional sync, attendees/invitations, recurring-series
-  sync, or build before ADR 0008 sign-off. Context:
-  `adr/0063-client-owned-calendar-reconciliation.md` and
-  `designs/DESIGN-BRIEF-calendar-reconciliation.md`. **Gate 4 artifact landed
-  2026-08-09** — `specs/calendar-import-contract-design.md` specifies the
-  Calendar→Dayfold proposal/mutation contract and reconciles it with ADRs
-  0030/0039/0053; it carries **seven open decisions with working defaults**
-  (OD-1 description opt-in default-off · OD-2 provenance = constant
-  `"calendar"`, display name stays device-local · OD-3 a new `event` template
-  key · OD-4 additive `MilestonePayload.end`/`.tz` · OD-5 client-side vs
-  server-side destination-Hub precondition · OD-6 section reuse · OD-7 =
-  gate 3, still yours) that ratifying this item should sweep.
-
 - **INB-35 · 2026-08-07 · high · open — approve the routine recovery and
   observability boundary?** The end-to-end UX review found that current SWIP
   postures do not cover a plaintext-processing routine gateway: client collection is

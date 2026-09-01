@@ -134,14 +134,10 @@ fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone
     else -> ReasonKind.EXTERNAL
   }
 
-  // Relevance anchor (#299): soonest FUTURE when-trigger with alert_offset folded in, else
-  // not_before (unchanged for trigger-less cards). A past-only trigger set → no future → not_before.
-  val now = parseInstantFlexible(nowIso, zone)
-  val whenAnchor: String? = card.triggers
-    ?.mapNotNull { t -> t.whenTrigger?.let { applyOffset(it.at, it.alertOffset, zone) } }
-    ?.filter { now == null || it > now }
-    ?.minOrNull()
-    ?.toString()
+  // Relevance anchor (#299 + timestamp hardening): use the soonest future effective trigger, then
+  // retain the latest past trigger instead of silently falling back to not_before at the instant it
+  // fires. The card itself remains governed by explicit expires_at; a trigger is not an expiry.
+  val whenAnchor = selectWhenTrigger(card.triggers, nowIso, zone)?.effectiveAt?.toString()
 
   return NowItem(
     id = "authored:${card.id}",

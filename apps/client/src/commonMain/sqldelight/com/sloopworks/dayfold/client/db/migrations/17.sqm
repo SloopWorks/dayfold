@@ -1,0 +1,3 @@
+-- Migration v17→v18 (Accepted ADR 0063): retain the server Hub version used to
+-- validate a reviewed Calendar→Dayfold import immediately before enqueue.
+ALTER TABLE hub ADD COLUMN version INTEGER;

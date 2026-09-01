@@ -71,7 +71,17 @@ class MainActivity : ComponentActivity() {
   // fresh reconciliation pass so the real observed truth drives the next state (ADR 0063 §5 honesty).
   private val calendarPermissionLauncher = registerForActivityResult(
     androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
-  ) { if (::runtimeViewModel.isInitialized) runtimeViewModel.commands.startCalendarCheck() }
+  ) { granted ->
+    val result = if (granted) {
+      com.sloopworks.dayfold.client.CalendarPermission.Granted
+    } else {
+      com.sloopworks.dayfold.client.CalendarPermission.Denied
+    }
+    val callback = com.sloopworks.dayfold.client.CalendarActivityBridge.onPermissionResult
+    com.sloopworks.dayfold.client.CalendarActivityBridge.onPermissionResult = null
+    if (callback != null) callback(result)
+    else if (::runtimeViewModel.isInitialized) runtimeViewModel.commands.startCalendarCheck()
+  }
 
   private val calendarEditorLauncher = registerForActivityResult(
     androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
@@ -287,6 +297,10 @@ class MainActivity : ComponentActivity() {
         // the user may have toggled it in Settings while we were backgrounded). ADR 0044 §S3.
         locationPermission.refresh()
         notificationPermission.refresh()
+        // Calendar permission and event rows are OS-owned too. A user can grant/revoke access or
+        // edit an event while Dayfold is backgrounded, so foregrounding always re-reads truth;
+        // a disabled Calendar Check exits before observing any event data.
+        runtimeViewModel.commands.startCalendarCheck()
         try {
           awaitCancellation()
         } finally {

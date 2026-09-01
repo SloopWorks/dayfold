@@ -40,7 +40,8 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NavToDetail, is NavBack, is RestoreDetailStack, is OpenSearch, is CloseSearch,
   is OpenDetailFromSearch, is AuthRestoring, is SessionRestored, is SignInSucceeded,
   is RestoreFailed, is OpenAccount, is CloseAccount, is OpenProximity, is CloseProximity,
-  is OpenCalendarSettings, is CloseCalendarSettings, is OpenJoinInvite, is RedeemRequested,
+  is OpenCalendarSettings, is CloseCalendarSettings, is OpenCalendarReview, is CloseCalendarReview,
+  is OpenCalendarImport, is CloseCalendarImport, is OpenJoinInvite, is RedeemRequested,
   is InviteRedeemed, is InviteRejected, is JoinDismissed -> reduceRoutedFeature(state, action)
   is OpenSmartBriefings, is RestoreSmartBriefings, is CloseSmartBriefings -> reduceNavigation(reduceRoutines(state, action), action)
   is RoutineContinue, is RoutineNavigateBack,
@@ -61,7 +62,7 @@ fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is NowContentLoaded, is SurfacingLoaded -> reduceNow(state, action)
   is ResponseAction -> reduceNavigation(reduceResponses(state, action), action)
   is NotifConfigLoaded, is LocationPermissionLoaded, is NotificationPermissionLoaded -> reduceNotifications(state, action)
-  is CalendarSettingsLoaded, is SetCalendarEnabled, is SetSelectedCalendars, is DeviceCalendarsLoaded -> reduceCalendar(state, action)
+  is CalendarSettingsLoaded, is DeviceCalendarsLoaded -> reduceCalendar(state, action)
   is CalendarCheckAction -> reduceCalendarCheck(state, action)
   is CalendarImportAction -> reduceCalendarImportTop(state, action)
   is SignInRequested, is SignInFailed, is SessionRotated, is CreateFamilyRequested, is AuthOpFailed, is SignOutRequested, is InviteLinkStashed, is InviteLinkConsumed -> reduceSession(state, action)
@@ -97,7 +98,11 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     // calendar_binding rows themselves are per-device, not per-family, and are left alone (a
     // stale binding just fails to resolve on the next pass). settings (feature opt-in/selected
     // calendars) is a device preference, not tenant data, and stays untouched here.
-    calendar = updated.calendar.copy(check = CalendarCheckState(), importState = ImportProposalState.None),
+    calendar = updated.calendar.copy(
+      check = CalendarCheckState(),
+      importState = ImportProposalState.None,
+      availableImportDestinations = emptyList(),
+    ),
   ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))
   return if (action is MembershipsLoaded) {
     familyScoped.copy(navigation = navigationAfterMembershipsLoaded(state, familyScoped))

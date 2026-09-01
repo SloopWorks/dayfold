@@ -716,7 +716,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
       val p = presetName(args.input)
       themedSurface(args.theme) {
         Box(Modifier.padding(16.dp)) {
-          SnapshotStates.calendarNowItem(p)?.let { CalendarCheckNowCard(it) }
+          SnapshotStates.calendarNowItem(p)?.let { CalendarCheckNowCard(it, onReview = {}) }
           SnapshotStates.calendarNowFooter(p)?.let { CalendarCheckFooterLine(it) }
         }
       }
@@ -804,18 +804,19 @@ val clientSnapshots: SnapshotApp = snapshotApp {
             )
             "confirm" -> CalendarImportConfirmScreen(
               proposal = proposal, audienceLine = ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("u1")).audienceLine(),
+              confirmLabel = "Create the Hub",
               onBack = {}, onConfirm = {},
             )
             "apply-saved" -> CalendarImportApplyScreen(
               kind = ImportApplyKind.SAVED, title = "Hub created — only you can see it", meta = "Grandma's 80th lunch · Sun, Jun 28",
-              body = "The event and your new Hub are linked on this phone.", diff = null,
+              body = "The event and your new Hub are linked on this phone.", diffs = emptyList(),
               footer = "Sharing later names exactly who will see it.",
               actions = listOf(ImportApplyAction("Open Hub", true, {}), ImportApplyAction("Share with family", false, {})),
             )
             "apply-conflict" -> CalendarImportApplyScreen(
               kind = ImportApplyKind.VERSION_CONFLICT, title = "Beach Week changed while you reviewed", meta = null,
               body = "Someone edited that Hub since you started. Refresh, then confirm against the current version.",
-              diff = null, footer = "Dayfold never merges silently.",
+              diffs = emptyList(), footer = "Dayfold never merges silently.",
               actions = listOf(ImportApplyAction("Refresh and re-confirm", true, {}), ImportApplyAction("Discard import", false, {})),
             )
             else -> error("unknown calendar-import preset")

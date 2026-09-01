@@ -84,7 +84,10 @@ data class DeriveConfig(
   val countdownWindowDays: Int = 14,    // surface a hub countdown within N days
   val milestoneWindowDays: Int = 7,     // surface a dated milestone block within N days
   val checklistWindowDays: Int = 7,     // surface "N left" only when the hub event is within N days
-  val whenWindowMinutes: Long = 120,    // surface a time-window trigger within N minutes
+  // A `when.at` item enters this many minutes before its effective alert/surfacing trigger and
+  // remains for the same grace period after the actual event. Two hours gives a just-missed
+  // pickup/reminder time to stay useful without leaving yesterday's timed items in the calm feed.
+  val whenWindowMinutes: Long = 120,
   val geoRadiusDefaultM: Long = 200,    // fallback radius when neither trigger nor place sets one
   val countdownWeight: Double = 0.60,
   val milestoneWeight: Double = 0.55,
@@ -190,21 +193,20 @@ fun deriveNow(
       }
     }
 
-    // ── 5. TIME-WINDOW (when) — a block trigger's `when.at` within the minute window ──
-    val whenAt = block.triggers?.firstNotNullOfOrNull { it.whenTrigger?.at }
-    if (whenAt != null) {
-      val at = parseInstantFlexible(whenAt, zone)
-      val nowInstant = parseInstantFlexible(nowIso, zone)
-      if (at != null && nowInstant != null && at >= nowInstant && at <= nowInstant + config.whenWindowMinutes.minutes) {
-        val label = firstLine(block.bodyMd) ?: "Reminder"
-        out += NowItem(
-          id = "derived:when:${block.id}",
-          origin = Origin.DERIVED, reasonKind = ReasonKind.WHEN,
-          title = label, why = "$label at ${clockTime(at, zone)}",
-          subjectKey = subjectKey, target = target,
-          triggerAtIso = whenAt, weight = config.whenWeight,
-        )
-      }
+    // ── 5. TIME-WINDOW (when) — surface before AND briefly after the effective instant ──
+    // Keep the actual event instant for honest display copy, while alert_offset controls the
+    // relevance/notification anchor. Multiple triggers prefer the soonest eligible future one;
+    // once its effective anchor passes, the latest one remains until two hours after its event.
+    val whenAnchor = selectWhenTrigger(block.triggers, nowIso, zone, config.whenWindowMinutes)
+    if (whenAnchor != null) {
+      val label = firstLine(block.bodyMd) ?: "Reminder"
+      out += NowItem(
+        id = "derived:when:${block.id}",
+        origin = Origin.DERIVED, reasonKind = ReasonKind.WHEN,
+        title = label, why = "$label at ${clockTime(whenAnchor.eventAt, zone)}",
+        subjectKey = subjectKey, target = target,
+        triggerAtIso = whenAnchor.effectiveAt.toString(), weight = config.whenWeight,
+      )
     }
   }
 
@@ -250,11 +252,54 @@ internal fun applyOffset(atIso: String?, offsetIso: String?, zone: TimeZone): In
   return at + offset
 }
 
-// 12-hour clock time with no am/pm, e.g. 13:30 → "1:30", 15:00 → "3:00" (matches the mockup).
+internal data class ResolvedWhenTrigger(
+  val eventAt: Instant,
+  val effectiveAt: Instant,
+)
+
+// Resolve every absolute `when.at` once, keeping the event time separate from the alert-offset
+// anchor. `eventAt` drives honest copy; `effectiveAt` drives ranking and exact local scheduling.
+private fun resolveWhenTriggers(triggers: List<BlockTrigger>?, zone: TimeZone): List<ResolvedWhenTrigger> =
+  triggers.orEmpty().mapNotNull { trigger ->
+    val whenTrigger = trigger.whenTrigger ?: return@mapNotNull null
+    val eventAt = parseInstantFlexible(whenTrigger.at, zone) ?: return@mapNotNull null
+    val effectiveAt = applyOffset(whenTrigger.at, whenTrigger.alertOffset, zone) ?: return@mapNotNull null
+    ResolvedWhenTrigger(eventAt, effectiveAt)
+  }
+
+// Pick one stable time anchor for a Now subject. With [windowMinutes], candidates enter within the
+// bounded interval before their effective alert/surfacing instant, then remain until that interval
+// after the actual event. Keeping those boundaries separate prevents an early alert_offset from
+// shortening the member's requested post-event grace. Without a window (authored cards), preserve
+// the most relevant trigger anchor even after it passes; explicit expires_at remains authoritative.
+internal fun selectWhenTrigger(
+  triggers: List<BlockTrigger>?,
+  nowIso: String,
+  zone: TimeZone,
+  windowMinutes: Long? = null,
+): ResolvedWhenTrigger? {
+  val resolved = resolveWhenTriggers(triggers, zone)
+  if (resolved.isEmpty()) return null
+  val now = parseInstantFlexible(nowIso, zone) ?: return resolved.minBy { it.effectiveAt }
+  val window = windowMinutes?.minutes
+
+  val next = resolved
+    .filter { it.effectiveAt > now && (window == null || it.effectiveAt - now <= window) }
+    .minByOrNull { it.effectiveAt }
+  if (next != null) return next
+
+  return resolved
+    .filter { it.effectiveAt <= now && (window == null || now - it.eventAt <= window) }
+    .maxByOrNull { it.effectiveAt }
+}
+
+// Explicit 12-hour clock time in the device zone. The old "3:00" copy was ambiguous at a glance;
+// "3:00 PM" is still compact and makes the timestamp's interpretation testable.
 internal fun clockTime(instant: Instant, zone: TimeZone): String {
   val t = instant.toLocalDateTime(zone).time
   val h12 = (t.hour % 12).let { if (it == 0) 12 else it }
-  return "$h12:${t.minute.toString().padStart(2, '0')}"
+  val meridiem = if (t.hour < 12) "AM" else "PM"
+  return "$h12:${t.minute.toString().padStart(2, '0')} $meridiem"
 }
 
 private fun firstLine(s: String?): String? =

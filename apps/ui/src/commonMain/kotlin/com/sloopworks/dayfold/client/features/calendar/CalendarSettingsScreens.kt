@@ -353,7 +353,7 @@ fun CalendarSettingsOnScreen(
   onBack: () -> Unit,
   onToggleOff: () -> Unit,
   onChangeCalendars: () -> Unit,
-  onEventTimeAlerts: () -> Unit,
+  onEventTimeAlerts: (() -> Unit)?,
   onResetLocalMatches: () -> Unit,
   onTurnOff: () -> Unit,
   modifier: Modifier = Modifier,

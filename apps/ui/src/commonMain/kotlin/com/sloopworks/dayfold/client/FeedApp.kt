@@ -279,6 +279,7 @@ fun FeedApp(
         }
         BackTarget.DeviceFlow -> store.dispatch(CloseDeviceFlow)
         BackTarget.JoinInvite -> store.dispatch(JoinDismissed)
+        BackTarget.Calendar -> store.dispatch(Back)
         BackTarget.FeedDetail, null -> Unit
       }
     }
@@ -329,8 +330,7 @@ fun FeedApp(
             detailBackContentDescription = if (
               shell.detailReturnDestination == DetailReturnDestination.SEARCH
             ) "Back to search" else "Back to feed",
-            // WI-461 (ADR 0063 §5) — the Now card's "Review" pill mounts CalendarReviewHost
-            // (ContentHost reads calendar.check.reviewOpen directly off the store).
+            // ADR 0063 §5 — the Now card's Review pill opens the production review route.
             onOpenCalendarReview = { store.dispatch(OpenCalendarReview) },
             feedListState = feedListState,
           )

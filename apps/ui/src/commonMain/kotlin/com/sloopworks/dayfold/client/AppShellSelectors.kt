@@ -18,6 +18,7 @@ enum class BackTarget {
   Members,
   DeviceFlow,
   JoinInvite,
+  Calendar,
 }
 
 /** Minimal state needed by [FeedApp] to choose route, overlay, and back ownership. */
@@ -58,6 +59,8 @@ fun appShellState(state: AppState): AppShellState {
     state.navigation.route == Route.AuthorizeDevice || state.navigation.route == Route.EnterCode ||
       state.navigation.route == Route.ScanPrimer || state.navigation.route == Route.ScanDevice || state.navigation.route == Route.ScanDenied -> BackTarget.DeviceFlow
     state.navigation.route == Route.JoinInvite -> BackTarget.JoinInvite
+    state.navigation.route == Route.CalendarSettings || state.navigation.route == Route.CalendarReview ||
+      state.navigation.route == Route.CalendarImport -> BackTarget.Calendar
     else -> null
   }
   return AppShellState(

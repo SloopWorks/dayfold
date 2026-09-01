@@ -204,6 +204,7 @@ data class Hub(
   @SerialName("countdown_to") val countdownTo: String? = null,
   val visibility: String = "family",                        // family | restricted (ADR 0030)
   @SerialName("created_by") val createdBy: String? = null,  // resolved author user id (null = legacy token)
+  val version: Long? = null,                                // server row version; import audience precondition
   val media: HubMedia? = null,                              // ADR 0036 visual enrichment (null = unenriched)
   val timeline: Timeline? = null,                           // ADR 0045 — authored stop list (camelCase wire, no @SerialName needed)
 )
@@ -453,7 +454,7 @@ data class FamilyMembership(
 // The app's first navigation surface (ADR 0013: f(state)→UI, no nav library).
 // Family-null is a Feed SUBSTATE (the active family has no members yet), not a
 // route — keeps the gate minimal.
-enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Search, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity, Calendar }
+enum class Route { Loading, SignIn, AuthError, CreateFamily, Feed, Hubs, Search, Account, SmartBriefings, SmartContent, JoinInvite, Members, Invite, Devices, EnterCode, AuthorizeDevice, ScanPrimer, ScanDevice, ScanDenied, Proximity, CalendarSettings, CalendarReview, CalendarImport }
 
 // AUTH-S6-D: a pending device/CLI grant the owner is being asked to approve
 // (GET /device/pending). No device_code / user_id / credential — only what the
@@ -668,11 +669,6 @@ data class LocationPermissionLoaded(val state: LocationPermission) : Action
 data class NotificationPermissionLoaded(val state: NotificationPermission) : Action
 // ADR 0063 §1/§3 — device-local, never-synced Calendar Check settings (DB→store bridge).
 data class CalendarSettingsLoaded(val settings: CalendarSettings) : Action
-// WI-447 (ADR 0063 §1) — user-initiated settings changes (Settings toggle, chooser continue,
-// change-calendars sheet). CalendarCheckEngine persists then dispatches; the reducer only ever
-// replaces state.calendar.settings, same shape as the DB→store bridge above.
-data class SetCalendarEnabled(val enabled: Boolean) : Action
-data class SetSelectedCalendars(val calendarIds: Set<String>) : Action
 // OS-owned truth, re-read on demand (ADR 0024 posture) — the chooser's candidate list.
 data class DeviceCalendarsLoaded(val calendars: List<DeviceCalendar>) : Action
 data object OpenAudienceSheet : Action                        // visibility chip tap → sheet (busy, loads)
@@ -720,8 +716,12 @@ data object OpenAccount : Action                           // Feed → Account (
 data object CloseAccount : Action                          // Account → back to the route gate (Feed)
 data object OpenProximity : Action                         // Account → Background-proximity settings (ADR 0044)
 data object CloseProximity : Action                        // Proximity → back to Account
-data object OpenCalendarSettings : Action                  // Account → Calendar Check settings (ADR 0063, WI-461)
-data object CloseCalendarSettings : Action                 // Calendar settings → back to Account
+data object OpenCalendarSettings : Action                  // Account → device-local Calendar Check settings
+data object CloseCalendarSettings : Action                 // Calendar settings → Account
+data object OpenCalendarReview : Action                    // aggregate Now unit → Calendar Check review
+data object CloseCalendarReview : Action                   // Calendar review → Feed
+data object OpenCalendarImport : Action                    // Calendar-only review row → reviewed import
+data object CloseCalendarImport : Action                   // import → Calendar review
 data object SignOutRequested : Action
 data object SignedOut : Action                             // clears session + feed → SignIn
 // invitee-join (S5 slice-2). RedeemRequested is an effect trigger (AuthEngine);

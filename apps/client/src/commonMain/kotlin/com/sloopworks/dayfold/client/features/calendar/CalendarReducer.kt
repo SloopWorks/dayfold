@@ -1,11 +1,8 @@
 package com.sloopworks.dayfold.client
 
-/** Device-local Calendar Check settings — DB→store bridge plus user-initiated changes (WI-447),
- *  all landing in the same state.calendar.settings/availableCalendars slices. */
+/** Device-local Calendar Check settings and OS calendar choices hydrated into the store. */
 fun reduceCalendar(state: AppState, action: Any): AppState = when (action) {
   is CalendarSettingsLoaded -> state.copy(calendar = state.calendar.copy(settings = action.settings))
-  is SetCalendarEnabled -> state.copy(calendar = state.calendar.copy(settings = state.calendar.settings.copy(featureEnabled = action.enabled)))
-  is SetSelectedCalendars -> state.copy(calendar = state.calendar.copy(settings = state.calendar.settings.copy(selectedCalendarIds = action.calendarIds)))
   is DeviceCalendarsLoaded -> state.copy(calendar = state.calendar.copy(availableCalendars = action.calendars))
   else -> state
 }
@@ -26,6 +23,8 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
       lastCheckAt = action.checkedAt,
       stale = action.stale,
       results = action.results,
+      ignored = action.ignoredKeys?.toSet() ?: check.ignored,
+      ignoreHistory = action.ignoredKeys ?: check.ignoreHistory,
     )
 
     is ConfirmMatch -> check.copy(results = check.results.withoutSubject(action.subjectKey))
@@ -52,18 +51,7 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
       ignoreHistory = check.ignoreHistory.filterNot { it == action.itemKey },
     )
 
-    is FieldChoice -> {
-      val pendingWrites = if (action.resolution == FieldResolution.USE_CALENDAR) {
-        val calendarValue = check.results.differs
-          .firstOrNull { it.subjectKey == action.subjectKey }
-          ?.diffs?.firstOrNull { it.field == action.field }
-          ?.calendarValue
-        check.pendingWrites + PendingFieldWrite(action.subjectKey, action.field, calendarValue)
-      } else {
-        check.pendingWrites
-      }
-      check.copy(results = check.results.resolveField(action.subjectKey, action.field), pendingWrites = pendingWrites)
-    }
+    is FieldChoice -> check.copy(results = check.results.resolveField(action.subjectKey, action.field))
 
     is KeepSeriesCalendarOnly -> check.copy(
       ignored = check.ignored + action.subjectKey,
@@ -75,10 +63,10 @@ fun reduceCalendarCheck(state: AppState, action: CalendarCheckAction): AppState 
 
     is SetNotificationOwner -> check.copy(notificationOwnerOverrides = check.notificationOwnerOverrides + (action.subjectKey to action.owner))
 
+    CalendarEditorOpened -> check.copy(editorReturn = null)
+
     is CalendarEditorReturned -> check.copy(editorReturn = action.outcome)
 
-    OpenCalendarReview -> check.copy(reviewOpen = true)
-    CloseCalendarReview -> check.copy(reviewOpen = false)
   }
   return state.copy(calendar = state.calendar.copy(check = next))
 }

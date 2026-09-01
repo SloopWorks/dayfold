@@ -1,8 +1,9 @@
 # Calendar Check — design notes (ADR 0063 · ADR 0008 gate)
 
-**Status: Prompt-1 gallery, awaiting operator review.** Visuals + interaction language only —
-no app code, no backend contract, no real permission or provider calls. All people, events,
-calendars and addresses are invented; **no real user data appears anywhere**.
+**Status: operator-approved 2026-08-28; implementation reference.** The full
+34-state gallery is the ADR 0008 sign-off for Accepted ADR 0063. All people,
+events, calendars and addresses are invented; **no real user data appears
+anywhere**.
 
 Open `Index.dc.html` for the full gallery (light + dark for every Dayfold screen; OS-owned
 surfaces dash-labelled). User-facing name: **Calendar Check**. Banned vocabulary avoided
@@ -123,23 +124,19 @@ Never used: "Sync complete", "Two-way sync", "Mirror", "Fixed automatically",
 "Dayfold monitors all calendars", any post-import "never leaves your phone" claim,
 any absolute cross-app dedup promise, any unnamed "shared with everyone".
 
-## Open design questions (for the operator)
+## Ratified design decisions (2026-08-28)
 
-1. **Bounded horizon** — frames imply "a couple of weeks"; the exact dogfood constant
-   (ADR 0063 acceptance gate 3) is unresolved and deliberately not printed as a number.
-2. **Chooser continue** — "Include 2 calendars" requires a deliberate pick; should an
-   explicit "Include none / just browse" exit also exist, or is Back sufficient?
-3. **Description "Add anyway"** — field preview offers opt-in description import; is that
-   in the first slice, or should description be entirely omitted from v1?
-4. **Per-match override placement** — shown as a sheet from the matched summary; a global
-   default lives in Settings. Is a per-match control wanted at all in slice 1?
-5. **Ambiguous-match "Match selected"** — enabled-on-selection pattern shown disabled;
-   confirm the disabled-until-choice treatment vs hiding the button entirely.
-6. **iOS write-only posture** — iOS 17+ can present the editor without full access;
-   copy currently says "where supported". Needs per-OS-version copy review
-   (acceptance gate 5).
+1. The initial bounded comparison horizon is **14 days**.
+2. Chooser Back is the explicit exit; enabling requires at least one deliberate
+   calendar selection.
+3. Description remains representable, opt-in, and off by default.
+4. Per-match alert override remains in the matched-summary flow.
+5. Ambiguous-match confirmation stays disabled until the member chooses an event.
+6. The native editor remains available without reconciliation where the platform
+   supports it; read-access copy and behavior follow each supported OS version.
 
 ## Verdict
 
-Prompt-1 scope only. Coverage, adversarial review and the SHIP / DO-NOT-SHIP verdict
-belong to Prompts 2–3 and are not claimed here.
+The operator approved the gallery and its product decisions on 2026-08-28. The
+gallery is an implementation reference; runtime verification and public-store
+privacy declarations remain separate release checks.

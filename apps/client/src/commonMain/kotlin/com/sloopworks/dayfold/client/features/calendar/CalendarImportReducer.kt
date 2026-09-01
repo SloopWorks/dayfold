@@ -24,11 +24,17 @@ fun ImportProposalState.proposalOrNull(): CalendarImportProposal? = when (this) 
  * a stale UI callback firing after the machine has already moved on must never corrupt it.
  */
 fun reduceCalendarImport(state: ImportProposalState, action: CalendarImportAction): ImportProposalState = when (action) {
+  is CalendarImportDestinationsLoaded -> state
+
   is StartCalendarImport -> ImportProposalState.ChoosingDestination(action.proposal)
 
-  is ChooseImportDestination -> (state as? ImportProposalState.ChoosingDestination)?.let {
-    ImportProposalState.PreviewingFields(it.proposal.copy(destination = action.destination))
-  } ?: state
+  is ChooseImportDestination -> when (state) {
+    is ImportProposalState.ChoosingDestination ->
+      ImportProposalState.PreviewingFields(state.proposal.copy(destination = action.destination))
+    is ImportProposalState.RoleDenied ->
+      ImportProposalState.PreviewingFields(state.proposal.copy(destination = action.destination))
+    else -> state
+  }
 
   is SetImportDescriptionOptIn -> (state as? ImportProposalState.PreviewingFields)?.let {
     ImportProposalState.PreviewingFields(it.proposal.copy(description = action.description))
@@ -62,9 +68,13 @@ fun reduceCalendarImport(state: ImportProposalState, action: CalendarImportActio
     ImportProposalState.Applying(it.proposal, action.ids)
   } ?: state
 
-  is ImportSaved -> (state as? ImportProposalState.Applying)?.let {
-    ImportProposalState.Saved(it.proposal, action.audienceSummary)
-  } ?: state
+  is ImportSaved -> when (state) {
+    is ImportProposalState.Applying -> ImportProposalState.Saved(state.proposal, state.ids, action.audienceSummary)
+    is ImportProposalState.OfflineQueued -> state.ids?.let {
+      ImportProposalState.Saved(state.proposal, it, action.audienceSummary)
+    } ?: state
+    else -> state
+  }
 
   is ImportOfflineQueued -> state.proposalOrNull()?.let { ImportProposalState.OfflineQueued(it, action.ids) } ?: state
 
@@ -87,4 +97,13 @@ fun reduceCalendarImport(state: ImportProposalState, action: CalendarImportActio
 
 /** rootReducer's entry point — mirrors reduceCalendarCheck's AppState-level wrapper. */
 fun reduceCalendarImportTop(state: AppState, action: CalendarImportAction): AppState =
-  state.copy(calendar = state.calendar.copy(importState = reduceCalendarImport(state.calendar.importState, action)))
+  state.copy(
+    calendar = state.calendar.copy(
+      importState = reduceCalendarImport(state.calendar.importState, action),
+      availableImportDestinations = if (action is CalendarImportDestinationsLoaded) {
+        action.destinations
+      } else {
+        state.calendar.availableImportDestinations
+      },
+    ),
+  )

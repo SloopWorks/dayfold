@@ -70,6 +70,12 @@ synced**: `hubs.start_at / countdown_to / end_at`, block `payload`
   Recomputed on cache change, clock tick, and significant-location-change.
 - **Built-in rules:** countdown-window, milestone-approaching,
   checklist-item-due, geo-proximity (nearest-N), time-window (`when`).
+- **Timed-item grace:** an absolute `when.at` candidate enters the feed up to
+  two hours before its effective alert/surfacing trigger and remains for two
+  hours after the actual event. `alert_offset` moves the effective surfacing and
+  notification instant but never the displayed event time or post-event grace
+  boundary. The active Now route re-evaluates against the device clock once per
+  minute.
 - **Output is ephemeral** — lives in the render projection, never in a table,
   never synced. Always fresh; works fully offline.
 - **Deep-link is free** — the item *starts* from the hub/section/block node.
@@ -157,7 +163,7 @@ dedup/collapse → calm budget → stable ordering → render.
 
 - **Derived:** computed on-device from the matched condition + hub title, so
   it is always consistent with the live clock/position — "Party in 2 days",
-  "You're near Safeway", "Pickup at 3:00". A frozen card body ("in 2 days")
+  "You're near Safeway", "Pickup at 3:00 PM". A frozen card body ("in 2 days")
   goes stale; a computed reason never does.
 - **Authored:** the `why`/`title` the skill wrote, because no structure could
   compute it — "Rain expected at soccer, 4pm", "RSVP closes today".

@@ -67,14 +67,20 @@ class CalendarImportMaterializeTest {
     assertEquals("sec-reused", field(ops[0].payload, "sectionId"))
   }
 
-  @Test fun `location present adds a second block depending on the same parent as the milestone`() {
+  @Test fun `optional blocks form a causal chain ending at the terminal commit marker`() {
     val dest = ImportDestination.NewHub()
-    val ops = materialize(proposal(location = StructuredLocation("Harvest Table", "88 Vine St")), dest, ids(), "2026-08-09T10:00:00Z", opIdSeq())
+    val ops = materialize(
+      proposal(location = StructuredLocation("Harvest Table", "88 Vine St"), description = "Bring dessert"),
+      dest, ids(), "2026-08-09T10:00:00Z", opIdSeq(),
+    )
     val blocks = ops.filter { it.targetKind == "block" }
-    assertEquals(2, blocks.size)
-    assertEquals(blocks[0].dependsOn, blocks[1].dependsOn)
+    assertEquals(3, blocks.size)
+    assertEquals(blocks[0].opId, blocks[1].dependsOn)
+    assertEquals(blocks[1].opId, blocks[2].dependsOn)
     assertEquals("location", field(blocks[1].payload, "type"))
     assertEquals("blk-2", blocks[1].targetId)
+    assertEquals("markdown", field(blocks[2].payload, "type"))
+    assertEquals("blk-3", blocks[2].targetId)
   }
 
   @Test fun `description opt-in adds a markdown block using body_md, never a payload field`() {

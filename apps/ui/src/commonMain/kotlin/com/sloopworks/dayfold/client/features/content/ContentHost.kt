@@ -44,7 +44,6 @@ import com.sloopworks.dayfold.client.cards.PlatformUriHandler
 import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
 import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
-import com.sloopworks.dayfold.client.features.calendar.CalendarReviewHost
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
@@ -65,24 +64,10 @@ internal fun ContentHost(
   onNowShown: (Set<String>) -> Unit = {},
   onSearch: () -> Unit = {},
   detailBackContentDescription: String = "Back to feed",
-  // WI-446/WI-461 (ADR 0063 §5) — the aggregate Calendar Check card's "Review" tap, forwarded to
-  // FeedScreen. Previously silently dropped (ContentHost had no such param) — see the CalendarReviewHost
-  // branch below for where it's actually mounted.
+  // ADR 0063 §5 — the aggregate Calendar Check card's Review tap, forwarded to FeedScreen.
   onOpenCalendarReview: () -> Unit = {},
   feedListState: LazyListState = rememberLazyListState(),
 ) {
-  // WI-461 — a Feed substate (like detailStack), not a Route: opened only from the Now card's
-  // Review tap. Read directly from the store, mirroring feedDetailViewState below.
-  val calendarReviewOpen by store.selectorState { it.calendar.check.reviewOpen }
-  if (calendarReviewOpen) {
-    CalendarReviewHost(
-      store = store,
-      commands = commands,
-      onBack = { store.dispatch(CloseCalendarReview) },
-    )
-    return
-  }
-
   val targetKey: String? = detailCardId            // top of the detail stack (null = feed)
   val reduceMotion = rememberReduceMotion()
   // feedListState is hoisted to FeedApp (survives the tab swap too) and threaded in; the default
@@ -142,6 +127,9 @@ internal fun ContentHost(
           }
         } else {
           val feed by store.selectorState(::feedViewState)
+          // The Now projection is clock-dependent even when Redux is idle. Keep the ticker scoped
+          // to this active route; leaving Feed disposes it automatically.
+          val feedNow = rememberNowClock(enabled = true)
           FeedScreen(
             feed,
             onAction = handle,
@@ -152,6 +140,7 @@ internal fun ContentHost(
             onShown = onNowShown,
             onSearch = onSearch,
             onOpenCalendarReview = onOpenCalendarReview,
+            now = feedNow,
             listState = feedListState,
           )
         }

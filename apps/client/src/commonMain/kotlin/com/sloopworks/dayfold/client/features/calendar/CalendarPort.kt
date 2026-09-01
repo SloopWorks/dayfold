@@ -3,7 +3,8 @@ package com.sloopworks.dayfold.client
 // ADR 0063 §1/§3 — the calendar device-glue SEAM. Mirrors NotifSeams.kt's established pattern:
 // a commonMain interface injected at the platform entry (NOT expect/actual), so every target
 // stays green without half-built actuals and the reconciler that will consume this stays unit-
-// testable with a fake. Real impls (EventKit iOS / CalendarContract Android) are a later WI.
+// testable with a fake. Real EventKit and CalendarContract implementations are injected by the
+// iOS and Android production hosts.
 
 // OS calendar-access authorization. Distinct from location/notification permission axes
 // (ADR 0044) — a separate state machine, checked before [CalendarPort.observeEvents] is called.
@@ -32,12 +33,11 @@ data class EventPrefill(
   // CAL-8 — the candidate's own deep-link target, folded into the editor's description (short
   // note + link back to the Hub) so a saved event can point back to Dayfold. Null candidates
   // (e.g. a bare card with no hub target) simply get no link line. Android's ACTION_INSERT
-  // adapter reads this to build the description extra; iOS's EventKitUI adapter has no
-  // description field to set directly (see [notes]).
+  // adapter reads this to build the description extra; iOS puts the same reviewed prefill in
+  // EventKit's notes field.
   val deepLink: DeepLinkTarget? = null,
   // Optional short note the caller may prefill (e.g. a plain-text pointer back to the source
-  // Hub). No caller populates this yet — CalendarSelectors.toEventPrefill() leaves it null; the
-  // adapter's job is only to plumb whatever is here into the editor's notes field.
+  // Hub). No caller populates this yet — CalendarSelectors.toEventPrefill() leaves it null.
   val notes: String? = null,
 )
 
@@ -78,16 +78,31 @@ interface CalendarPort {
 
   /** Fire the native event editor prefilled from [prefill]. [onResult] carries the platform's
    *  completion outcome when the platform can reliably report one (iOS EventKitUI's delegate
-   *  always calls back; a future Android ACTION_INSERT adapter may never invoke it). */
+   *  always calls back; Android's ACTION_INSERT adapter may never invoke it). */
   fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit = {})
 
-  /** Fire the OS calendar-access permission prompt (WI-447 primer "Continue"). Real Android/iOS
-   *  prompts are a later platform WI; this seam exists now so the primer has something to call. */
+  /** Opens an already-observed event in the native calendar UI. The identifier never leaves the
+   * device calendar boundary. */
+  suspend fun openEvent(platformEventId: String) {}
+
+  /** Reads the event description only after the member explicitly opts it into a reviewed
+   * Calendar→Dayfold proposal. Descriptions deliberately remain absent from
+   * [CalendarEventObservation], so routine reconciliation can never collect them. */
+  suspend fun readEventDescription(platformEventId: String): String? = null
+
+  /** Fire the OS calendar-access permission prompt (primer "Continue"). */
   fun requestPermission()
+
+  /** Completion-aware variant used by platforms that can report the permission result directly
+   * (iOS). Android keeps its Activity-owned callback and therefore uses this safe fallback. */
+  fun requestPermission(onResult: (CalendarPermission) -> Unit) {
+    requestPermission()
+    onResult(permissionState())
+  }
 }
 
 // The default for desktop + tests: no device calendars, no-op editor launch. Real platform
-// adapters (EventKit / CalendarContract) are injected at the platform entry in a later WI.
+// adapters (EventKit / CalendarContract) are injected at each production platform entry.
 object NoOpCalendarPort : CalendarPort {
   override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int): List<CalendarEventObservation> = emptyList()
   override suspend fun listCalendars(): List<DeviceCalendar> = emptyList()

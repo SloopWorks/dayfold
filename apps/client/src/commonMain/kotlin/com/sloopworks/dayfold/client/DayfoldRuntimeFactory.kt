@@ -200,6 +200,7 @@ class DayfoldRuntimeFactory(
     lateinit var nowEngine: NowEngine
     lateinit var responseEngine: ResponseEngine
     lateinit var calendarCheckEngine: CalendarCheckEngine
+    lateinit var calendarImportEngine: CalendarImportEngine
     lateinit var commands: DayfoldCommands
     lateinit var coordinator: SessionCoordinator
     lateinit var externalHubTargets: PendingExternalHubTargetCoordinator
@@ -268,8 +269,24 @@ class DayfoldRuntimeFactory(
               }
             },
           )
+          calendarCheckEngine = CalendarCheckEngine(
+            store = store,
+            contentStore = contentStore,
+            calendarPort = calendarPort,
+            scope = rootScope.supervisedChild(),
+            nowProvider = nowProvider,
+            databaseDispatcher = databaseDispatcher,
+            requestSync = { syncEngine.requestSync(SyncReason.OUTBOX_MUTATION) },
+          )
           syncCoordinator = SyncCoordinator(
-            syncEngine = syncEngine,
+            syncPass = { reason, isConflatedRerun ->
+              syncEngine.syncNow(reason, isConflatedRerun).also { synced ->
+                if (synced) {
+                  calendarCheckEngine.runIfEnabled()
+                  calendarImportEngine.resumePending()
+                }
+              }
+            },
             pollIntervalMs = pollIntervalMs,
           )
           syncEngine.attachCoordinator(syncCoordinator)
@@ -314,12 +331,28 @@ class DayfoldRuntimeFactory(
             idProvider = idProvider,
             databaseDispatcher = databaseDispatcher,
           )
-          calendarCheckEngine = CalendarCheckEngine(
+          calendarImportEngine = CalendarImportEngine(
             store = store,
             contentStore = contentStore,
+            syncEngine = syncEngine,
             calendarPort = calendarPort,
             scope = rootScope.supervisedChild(),
+            loadHubAudience = load@{ hubId ->
+              val familyId = store.state.session.activeFamilyId ?: return@load null
+              val context = coordinator.familySnapshot(familyId) ?: return@load null
+              try {
+                coordinator.authorizedCall(context) { current ->
+                  current.withFamilyAndAccessToken { currentFamilyId, access ->
+                    hubClient.audience(access, currentFamilyId, hubId)
+                  }
+                }
+              } catch (_: Exception) {
+                null
+              }
+            },
+            isOnline = { store.state.content.error == null },
             nowProvider = nowProvider,
+            idProvider = idProvider,
             databaseDispatcher = databaseDispatcher,
           )
           externalHubTargets = PendingExternalHubTargetCoordinator(
@@ -351,6 +384,7 @@ class DayfoldRuntimeFactory(
             calendarCheckEngine = calendarCheckEngine,
             foregroundNotifier = foregroundNotifier,
             familyWorkLauncher = hubEngine::launchFamilyOwned,
+            calendarImportEngine = calendarImportEngine,
             bindSelectedFamily = {
               val auth = coordinator.authSnapshot()
               val familyId = store.state.session.activeFamilyId
@@ -409,6 +443,7 @@ class DayfoldRuntimeFactory(
           searchEngine.closeFamilyAdmission()
           nowEngine.stop()
           calendarCheckEngine.stop()
+          calendarImportEngine.stop()
           http.close()
           onResourcesClosed()
         },

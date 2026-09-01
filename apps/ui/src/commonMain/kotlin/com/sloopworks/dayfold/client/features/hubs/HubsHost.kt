@@ -108,6 +108,7 @@ internal fun HubsHost(
           } },
           onSetShowHidden = { store.dispatch(SetShowHidden(it)) },
           onOpenTimeline = onOpenTimeline, onCloseTimeline = onCloseTimeline, onCardAction = onCardAction,
+          onAddToCalendar = commands::openCalendarEventEditor,
         )
       } else {
         val state = rememberHubListViewState(store)

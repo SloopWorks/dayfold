@@ -250,6 +250,7 @@ fun CalendarImportAudienceExistingHubScreen(
 fun CalendarImportConfirmScreen(
   proposal: CalendarImportProposal,
   audienceLine: String,
+  confirmLabel: String,
   onBack: () -> Unit,
   onConfirm: () -> Unit,
   modifier: Modifier = Modifier,
@@ -273,7 +274,9 @@ fun CalendarImportConfirmScreen(
       Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Icon(Icons.Filled.Info, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Text(
-          "${proposal.approvedFieldCount()} fields go to Dayfold. Description, guests and reminders stay in your calendar.",
+          "${proposal.approvedFieldCount()} fields go to Dayfold. " +
+            if (proposal.description == null) "Description, guests and reminders stay in your calendar."
+            else "Guests and reminders stay in your calendar.",
           style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
         )
       }
@@ -287,7 +290,7 @@ fun CalendarImportConfirmScreen(
       Button(onClick = onConfirm, modifier = Modifier.weight(1.4f)) {
         Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(19.dp))
         Spacer(Modifier.size(6.dp))
-        Text("Create the Hub")
+        Text(confirmLabel)
       }
     }
     Text("Nothing is added until you tap this.", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
@@ -315,7 +318,7 @@ fun CalendarImportApplyScreen(
   title: String,
   meta: String?,
   body: String,
-  diff: ImportFieldDiff?,
+  diffs: List<ImportFieldDiff>,
   footer: String,
   actions: List<ImportApplyAction>,
   modifier: Modifier = Modifier,
@@ -349,11 +352,14 @@ fun CalendarImportApplyScreen(
         }
       }
     }
-    if (diff != null) {
+    if (diffs.isNotEmpty()) {
       Surface(shape = RoundedCornerShape(16.dp), color = cs.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
           SectionLabel("WHAT CHANGED")
-          Text("${diff.before} → ${diff.after}", style = MaterialTheme.typography.bodyMedium)
+          diffs.forEach { diff ->
+            Text(diff.field.uppercase(), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+            Text("${diff.before} → ${diff.after}", style = MaterialTheme.typography.bodyMedium)
+          }
         }
       }
     }

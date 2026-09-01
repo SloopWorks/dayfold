@@ -66,7 +66,7 @@ Show both chip families side by side so the distinction is legible but quiet.
 2. **milestone** — a dated hub milestone approaching.
 3. **checklist-due** — "3 left before the party" deep-linking into the hub block.
 4. **geo-proximity** — "You're near *Place*" with the privacy affordance.
-5. **time-window (`when`)** — "Pickup at 3:00".
+5. **time-window (`when`)** — "Pickup at 3:00 PM".
 Each derived item **deep-links into its hub** (reuse the container-transform /
 "part of this hub" pattern). The "why" is the hero line; the body is light.
 

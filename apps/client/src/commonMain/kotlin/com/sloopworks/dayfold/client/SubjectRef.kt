@@ -50,13 +50,22 @@ object SubjectRef {
   fun cardIdOf(subjectRef: String): String? =
     if (subjectRef.startsWith("card:")) subjectRef.removePrefix("card:").ifEmpty { null } else null
 
-  /** The hub id inside a node ref, or null for cards and class rules. */
+  /** The hub id inside a node ref, or null for a non-node ref. */
   fun hubIdOf(subjectRef: String): String? {
     if (!subjectRef.startsWith("hub:")) return null
-    val rest = subjectRef.removePrefix("hub:")
-    val sectionAt = rest.indexOf("/section:").takeIf { it >= 0 }
-    val blockAt = rest.indexOf("/block:").takeIf { it >= 0 }
-    val end = listOfNotNull(sectionAt, blockAt).minOrNull() ?: rest.length
-    return rest.substring(0, end).ifEmpty { null }
+    val value = subjectRef.removePrefix("hub:")
+    val sectionAt = value.lastIndexOf("/section:").takeIf { it >= 0 }
+    val blockAt = value.lastIndexOf("/block:").takeIf { it >= 0 }
+    val end = listOfNotNull(sectionAt, blockAt).minOrNull() ?: value.length
+    return value.substring(0, end).ifEmpty { null }
+  }
+
+  /** The section id inside a node ref, or null when the subject is not section/block scoped. */
+  fun sectionIdOf(subjectRef: String): String? {
+    val sectionMarker = "/section:"
+    val sectionAt = subjectRef.lastIndexOf(sectionMarker)
+    if (sectionAt < 0) return null
+    val blockAt = subjectRef.lastIndexOf("/block:").takeIf { it > sectionAt } ?: subjectRef.length
+    return subjectRef.substring(sectionAt + sectionMarker.length, blockAt).ifEmpty { null }
   }
 }

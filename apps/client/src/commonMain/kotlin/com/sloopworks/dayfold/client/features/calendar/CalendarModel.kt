@@ -60,15 +60,8 @@ data class CalendarSettings(
 // .observeEvents) uses this, no other literal.
 const val CALENDAR_CHECK_HORIZON_DAYS = 14
 
-// CAL-4 (ADR 0063 §4/§5) — a FieldChoice resolution for one diverging field on a matched-but-
-// different subject. KEEP_DAYFOLD/LEAVE_BOTH only touch local relation/review state; USE_CALENDAR
-// mutates Dayfold content (WI CAL-4: no suitable typed content-edit action exists yet for hub/
-// block dates+title+location, so the choice is recorded with a pendingWrite marker — see
-// CalendarCheckState.pendingWrites — and the actual write is left to the import WI, ADR 0063 §6).
+// CAL-4 (ADR 0063 §4/§5) — a reviewed resolution for one diverging structured field.
 enum class FieldResolution { KEEP_DAYFOLD, USE_CALENDAR, LEAVE_BOTH }
-
-// A USE_CALENDAR field resolution not yet applied to Dayfold content (see FieldResolution docs).
-data class PendingFieldWrite(val subjectKey: String, val field: String, val calendarValue: String?)
 
 // CAL-4 (ADR 0063 §4/§5) — the reconciler engine's run state + review-action results. Distinct
 // from CalendarSettings (the opt-in/selected-calendars preference, DB-fed): this slice is the
@@ -92,15 +85,9 @@ data class CalendarCheckState(
   // Ignored screen gives every row its own Undo.
   val ignoreHistory: List<String> = emptyList(),
   val notificationOwnerOverrides: Map<String, CalendarNotificationOwner> = emptyMap(),
-  val pendingWrites: List<PendingFieldWrite> = emptyList(),
   // CAL-9 — the most recent platform editor handoff's completion outcome (Native-Handoff.dc.html
   // §11 return states). Set by CalendarEditorReturned; replaced by the next editor session.
   val editorReturn: CalendarEditorOutcome? = null,
-  // WI-461 — is the review flow (CalendarReviewHost) mounted right now? A Feed substate, like
-  // detailStack, not a Route: the review flow owns its own local step navigation (see
-  // CalendarReviewHost's doc comment) and is reached only from the Now card's "Review" tap, never
-  // from the route graph.
-  val reviewOpen: Boolean = false,
 )
 
 // WI-447 (ADR 0063 §1) — the chooser's candidate list: calendars this device exposes, re-read
@@ -112,14 +99,7 @@ data class CalendarState(
   // CAL-10 (ADR 0063 §6) — the reviewed Calendar→Dayfold import wizard's in-progress state.
   // Ephemeral like `check`: resets on family switch/sign-out (Reducer.kt), never synced.
   val importState: ImportProposalState = ImportProposalState.None,
-  // WI-461 — the build-level flag gating the Calendar Check ENTRY POINT (the Settings row)
-  // visibility. Distinct from CalendarSettings.featureEnabled, which is the member's own on/off
-  // choice reached THROUGH that entry point (ADR 0063 §1) — this one is never surfaced to a
-  // family; flipping it off just hides the door. Default true (mirrors routinePreviewAvailable's
-  // shape, opposite polarity); the single source of truth is this default parameter.
-  val checkAvailable: Boolean = true,
+  // Safe, normalized destination previews loaded on demand for the reviewed import. These contain
+  // Dayfold Hub/member display data only — never a native calendar identifier or observation.
+  val availableImportDestinations: List<CalendarImportDestinationOption> = emptyList(),
 )
-
-/** WI-461 — mirrors routinePreviewAvailable's shape: whether the Calendar Check entry point
- *  (the Account settings row) should be shown at all. See [CalendarState.checkAvailable]. */
-fun calendarCheckAvailable(state: AppState): Boolean = state.calendar.checkAvailable

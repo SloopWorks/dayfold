@@ -29,7 +29,7 @@ class CalendarImportEngineTest {
     timezone = "America/Los_Angeles", isRecurring = false,
   )
 
-  private fun grantedPort(events: List<CalendarEventObservation> = emptyList()) = object : CalendarPort {
+  private fun grantedPort(events: List<CalendarEventObservation> = listOf(observation())) = object : CalendarPort {
     override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int) = events
     override suspend fun listCalendars() = emptyList<DeviceCalendar>()
     override fun permissionState() = CalendarPermission.Granted
@@ -52,6 +52,8 @@ class CalendarImportEngineTest {
     calendarPort: CalendarPort = grantedPort(),
     isOnline: () -> Boolean = { true },
     loadHubAudience: suspend (String) -> HubAudience? = { null },
+    pollIntervalMs: Long = 20L,
+    pollMaxAttempts: Int = 100,
   ): CalendarImportEngine {
     // A real running app has already `.resume()`d its SyncEngine's coordinator by the time any
     // member-write engine calls requestSync (ADR 0058) — mirror that here so requestSync actually
@@ -64,7 +66,7 @@ class CalendarImportEngineTest {
       scope = engineScope,
       nowProvider = { "2026-08-09T10:00:00Z" },
       idProvider = idSeq(),
-      pollIntervalMs = 20L, pollMaxAttempts = 100,
+      pollIntervalMs = pollIntervalMs, pollMaxAttempts = pollMaxAttempts,
     )
   }
 
@@ -99,6 +101,43 @@ class CalendarImportEngineTest {
     awaitState(store) { it is ImportProposalState.Saved }
     val saved = store.state.calendar.importState as ImportProposalState.Saved
     assertEquals("Hub created — only you can see it", saved.audienceSummary)
+    assertEquals("saved", cs.calendarImportStatus(saved.proposal.proposalId))
+    val hubId = assertNotNull(saved.ids.hubId)
+    assertEquals(saved.proposal.title, cs.activeHubs().single { it.id == hubId }.title)
+    val finalBinding = cs.allCalendarBindings().single { it.subjectKey.startsWith("hub:$hubId/") }
+    assertEquals(CalendarRelation.MATCHED, finalBinding.relation)
+    assertEquals("evt-1", finalBinding.platformEventId)
+  }
+
+  @Test fun `description is read only after explicit opt-in and joins the reviewed proposal`() = runBlocking<Unit> {
+    val cs = freshStore()
+    val store = appStore(AppState(session = sessionState()))
+    var descriptionReads = 0
+    val source = observation()
+    val port = object : CalendarPort {
+      override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int) = listOf(source)
+      override suspend fun listCalendars() = emptyList<DeviceCalendar>()
+      override fun permissionState() = CalendarPermission.Granted
+      override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {}
+      override suspend fun readEventDescription(platformEventId: String): String? {
+        descriptionReads++
+        assertEquals(source.platformEventId, platformEventId)
+        return "Bring the birthday cake"
+      }
+      override fun requestPermission() {}
+    }
+    val e = engine(store, cs, calendarPort = port)
+
+    e.startImport(source)
+    e.chooseDestination(ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("me")))
+    assertEquals(0, descriptionReads)
+    e.setDescriptionIncluded(true)
+    awaitState(store) { it.proposalOrNull()?.description == "Bring the birthday cake" }
+
+    assertEquals(1, descriptionReads)
+    assertEquals("Bring the birthday cake", store.state.calendar.importState.proposalOrNull()?.description)
+    e.setDescriptionIncluded(false)
+    assertNull(store.state.calendar.importState.proposalOrNull()?.description)
   }
 
   @Test fun `no connectivity at confirm queues offline without enqueueing any op`() = runBlocking<Unit> {
@@ -115,6 +154,39 @@ class CalendarImportEngineTest {
     assertEquals(0L, cs.outboxSize())
     val offline = store.state.calendar.importState as ImportProposalState.OfflineQueued
     assertNotNull(offline.ids)   // ids ARE minted at confirm regardless of connectivity (spec §3.3)
+  }
+
+  @Test fun `sender backoff leaves Applying and a later terminal ack publishes Saved`() = runBlocking<Unit> {
+    val cs = freshStore()
+    val store = appStore(AppState(session = sessionState()))
+    val unavailable = SyncClient("https://api.test", HttpClient(MockEngine {
+      respond("", HttpStatusCode.ServiceUnavailable)
+    }))
+    val e = engine(
+      store = store,
+      cs = cs,
+      syncClient = unavailable,
+      pollIntervalMs = 5L,
+      pollMaxAttempts = 2,
+    )
+
+    e.startImport(observation())
+    e.chooseDestination(ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("me")))
+    e.proceedToAudience(); e.proceedToConfirm(); e.confirm()
+
+    awaitState(store) { it is ImportProposalState.OfflineQueued }
+    val queued = store.state.calendar.importState as ImportProposalState.OfflineQueued
+    val ids = assertNotNull(queued.ids)
+    assertNotNull(ids.hubId)
+    assertEquals("offline_queued", cs.calendarImportStatus(queued.proposal.proposalId))
+    assertNotNull(cs.outboxSize().takeIf { it > 0L })
+
+    // Mirrors a background drain completing after the bounded screen poll stopped.
+    cs.setCalendarImportStatus(queued.proposal.proposalId, "saved", "2026-08-09T10:01:00Z")
+    e.resumePending()
+
+    val saved = assertIs<ImportProposalState.Saved>(store.state.calendar.importState)
+    assertEquals(ids, saved.ids)
   }
 
   @Test fun `calendar access revoked before the chain enqueues holds — nothing applied`() = runBlocking<Unit> {

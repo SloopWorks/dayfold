@@ -1,10 +1,8 @@
 # Calendar → Dayfold Import — Proposal & Mutation Contract (Design)
 
 **Date:** 2026-08-09
-**Status:** **ADR 0063 gate 4 — satisfied pending operator ratification.** Spec
-only; no code, no schema change, no ADR edit is made by this document. It
-specifies the contract in enough detail that the implementation WI is
-mechanical.
+**Status:** **Ratified 2026-08-28 under Accepted ADR 0063.** This is the
+normative Calendar → Dayfold proposal and mutation contract.
 **Authority:** `adr/0063-client-owned-calendar-reconciliation.md` §6 (reviewed
 import) + acceptance gate 4. **Rides:** ADR 0039 (typed-op mutation spine) +
 `specs/two-way-engine-and-content-management-design.md`. **Bounded by:** ADR
@@ -15,8 +13,9 @@ ADR 0015/0017 (content-blind server), ADR 0043 (shared subject keys), ADR 0044
 §23–27 + `designs/calendar-reconciliation/Import.dc.html`
 (`destination` · `fields` · `audience-new` · `audience-existing` · `confirm` ·
 the 7 `apply-*` states).
-**Ratification:** ADR 0063 is **Proposed** (INB-36 open). Nothing here takes
-effect before the operator accepts ADR 0063 and the §7 decisions below.
+**Ratification:** The operator accepted ADR 0063 and all §7 working defaults on
+2026-08-28. OD-7 is fixed at a 14-day horizon, the ADR's structured candidate
+types, and Calendar-owned generic start alerts.
 
 ---
 
@@ -208,8 +207,7 @@ from an import.
 
 ### 3.1 Op composition — existing ops only
 
-Enqueued in this order (the outbox drains FIFO by `created_at`, so the order
-of enqueue *is* the causal order):
+Enqueued in this order, with `depends_on` making that causal order explicit:
 
 | Step | `target_kind` | `type` | Route | When |
 |---|---|---|---|---|
@@ -222,12 +220,17 @@ The outbox envelope already reserves `type` + `target_kind` + `depends_on`
 "response"` then falls through to the block path; wiring `hub` and `section`
 arms is a **two-branch addition to the existing `when`**, not a new spine.
 
-**`depends_on`** links 2→1 and 3..n→2 (or →1 when step 2 is skipped). The only
-behavior the sender must implement for this chain is **cascade-drop**: when an
-op reaches `Drop` or `Failed`, its dependents are dropped too. Without it a
-403 on the hub op would leave the section op to 409 and a member could be left
-with a half-written import. FIFO already supplies the *ordering*; no scheduler
-and no DAG solver is needed.
+**`depends_on`** forms one linear chain: section→hub, first block→section (or
+→hub when step 2 is skipped), and each later block→the prior block. A pending
+op is sendable only after its parent is `Acked` (or that acked parent was
+removed by its inbound echo). This cannot rely on `created_at` + `op_id` FIFO:
+all rows in one import share a timestamp, while same-millisecond ULID tails are
+random. The terminal block is therefore a real commit marker: its ack proves
+every reviewed field was acked.
+
+When an op reaches `Drop` or `Failed`, its dependents are **cascade-dropped**.
+Without that, a rejected parent could leave a member with a half-written
+import. This is a single predecessor check, not a general DAG scheduler.
 
 ### 3.2 Authorization is server-enforced, and already implemented
 
@@ -325,7 +328,7 @@ Hub, then compare against the snapshot taken at review.
 |---|---|---|---|
 | 1 | **saving** | ops enqueued, drain in flight | Optimistic local rows written with `local_state='pending'` (ADR 0039 §9); the UI reads the content tables, never the outbox. Copy: "Your calendar event is untouched." |
 | 2 | **saved** | every op in the chain `Acked` | Write the `calendar_binding` row **atomically with the ack** (§3.6). Success copy states the *actual* resulting audience ("Hub created — only you can see it"). |
-| 3 | **offline-queued** | no connectivity at confirm, or the sender is in `Backoff` before the chain starts | The proposal record persists; **no ops are enqueued yet**. On regaining connectivity: revalidate → enqueue (→ state 1) or re-review (→ state 6 / 7). Ids already minted, so no duplicate is possible. |
+| 3 | **offline-queued** | no connectivity at confirm, or an enqueued chain does not finish within the bounded screen poll | The proposal record persists. If connectivity was known absent at confirm, no ops exist yet; if connectivity failed after apply began, the reviewed ops remain durably queued on-device. On regaining connectivity: revalidate before first enqueue/re-enqueue, then apply (→ state 1/2) or re-review (→ state 6/7). Stable target ids prevent duplicates. |
 | 4 | **permission-lost** | calendar access revoked/restricted before the chain is enqueued | **Hold. Never guess.** The source cannot be revalidated, so nothing may be applied from an unverifiable copy. The proposal record is retained; zero ops exist; nothing was written anywhere. Actions: open OS settings, or discard. |
 | 5 | **role-denied** | revalidation finds the member's role on the destination ∉ {contributor, co_owner, author}; **or** a drained op returns 403/404/409 | Cascade-drop the remaining chain (§3.1). **Keep the review** — fields, opt-ins and ids survive; only `destination` is cleared. Re-open destination choice ("Choose a different Hub" / "New private Hub"). Never silently retarget. |
 | 6 | **source-changed** | revalidation finds the source event's fingerprint differs from the review-start snapshot | Re-read the event, show the field diff, require **explicit re-confirm**. **Never apply from a stale copy.** Ids are retained, so the re-confirmed content overwrites rather than duplicating. |
@@ -409,7 +412,7 @@ WI (ADR 0063 gate 6):
 | R8 | Composes `upsertHub`/`upsertSection`/`upsertBlock`; no new op type or endpoint | — | §1 typed-op envelope, §2 one write surface, §8 reserve-shape/build-slice | item 4 (Contributor writes through the two-way engine) |
 | R9 | Idempotency via client-minted ids rooted at `proposalId` (+ `Idempotency-Key` where honored) | — | §3 `op_log` for every op type; §2.3 `op_id` is the idempotency spine | — |
 | R10 | `base_version = null`; Hub-grain precondition is client-side and recorded locally | — | §2.1 `base_version: null = create`; §6 410-on-tombstone / §2.3 per-op results | item 5 (a role *decrease* is a revocation event → state 5) |
-| R11 | `depends_on` used for hub→section→block, with cascade-drop on parent failure | — | §2.1 `depends_on`, §2.3 "a failed create fails its dependents" | — |
+| R11 | `depends_on` gates the linear hub→section→block chain, with cascade-drop on parent failure | — | §2.1 `depends_on`, §2.3 "a failed create fails its dependents" | — |
 | R12 | Optimistic rows carry `local_state`; the UI never reads the outbox | — | §9 (egress-only lane; `local_state` on content tables) | — |
 | R13 | Server sees only cleartext envelope columns + an opaque member-authored payload | item 4 (server-side read filter is the only server logic) | §7 dumb-server invariant (per op) | — |
 | R14 | `end` + `tz` added to `MilestonePayload` as optional, classified as content | — | §5 Rule 1 (additive-only), Rule 6 (`x-e2e` mandatory per field) | — |
@@ -434,7 +437,7 @@ Purely mechanical, in dependency order:
 3. Local proposal record + revalidation snapshot in the device-local
    calendar-binding store (§3.5) — never in `outbox`.
 4. Sender dispatch arms for `target_kind ∈ {hub, section}` (§3.1).
-5. `depends_on` cascade-drop in the sender (§3.1) + its test matrix.
+5. `depends_on` send-readiness + cascade-drop in the sender (§3.1) + its test matrix.
 6. `MilestonePayload.end` / `.tz` (additive, `x-e2e: ciphertext-at-M1`);
    regenerate TS + Kotlin (§7 OD-4).
 7. The bounded-catalog hub `type` key (§7 OD-3).
@@ -446,10 +449,9 @@ Purely mechanical, in dependency order:
 
 ---
 
-## 7. Open / deferred decisions (defaults stated; operator-ratifiable)
+## 7. Ratified decisions
 
-Each has a working default so the build WI is unblocked; each flips with a
-one-line change.
+The operator ratified each working default below on 2026-08-28.
 
 - **OD-1 — Event description (mockup open question 3).** **Default: the field
   is representable, opt-in, and off.** The `fields` screen shows the "Add
@@ -485,9 +487,9 @@ one-line change.
   create-always rule stacks a new identically-titled section per import.
   *Alternative:* always create (simpler, noisier).
 - **OD-7 — Bounded comparison horizon, eligible candidate types, and the
-  Calendar-owned start-alert default.** Not decided here — these are ADR 0063
-  **gate 3** and belong to the operator (NOTES.md open question 1). This
-  contract is horizon-agnostic.
+  Calendar-owned start-alert default.** **Ratified:** 14 days; Hub start/end,
+  block/card `when.at`, and dated milestone candidates; Calendar owns the
+  generic start alert for matched events by default.
 
 ---
 
@@ -558,9 +560,9 @@ Simplifications applied:
 6. **Dropped an `allDay: Boolean` flag beside a nullable timestamp** in favor
    of the `EventInstant` closed union, matching the existing `TimelineStop.at`
    convention (§1.1).
-7. **Dropped a general `depends_on` DAG scheduler.** The outbox already drains
-   FIFO by `created_at`, so enqueue order supplies causality; only
-   cascade-drop is genuinely required (§3.1).
+7. **Dropped a general `depends_on` DAG scheduler.** A single predecessor-ready
+   predicate plus cascade-drop supplies the bounded chain semantics; no graph
+   traversal is needed for scheduling (§3.1).
 8. **Dropped a "calendar import" marker column on sections.** Reusing the last
    live section (OD-6) achieves the same grouping with no schema surface.
 

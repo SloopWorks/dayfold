@@ -18,7 +18,8 @@ const val CALENDAR_IMPORT_HUB_TYPE = "event"
 const val CALENDAR_IMPORT_SECTION_TITLE = "From your calendar"
 
 /** spec §3.1 — one row per enqueued op, exactly what ContentStore.enqueueImportOps writes to the
- *  outbox. `dependsOn` links section→hub and block→(section|hub), per §3.1's cascade-drop chain. */
+ *  outbox. `dependsOn` forms one causal chain through the terminal block: it both gates send
+ *  readiness and lets a parent failure cascade-drop every write that has not happened yet. */
 data class MaterializedOp(
   val opId: String,
   val targetKind: String,   // "hub" | "section" | "block"
@@ -70,29 +71,26 @@ fun materialize(
     )
   }
 
-  // spec §3.1 table: block ops depend on step 2, or step 1 when step 2 was skipped (an existing,
-  // already-live section — nothing pending ahead of the blocks in that case).
-  val parentForBlocks = sectionOpId ?: hubOpId
-
+  // The blocks are a LINEAR chain, not siblings. Besides making cascade-drop complete, this makes
+  // the final block a trustworthy commit marker: acking it proves every reviewed field was acked.
+  // This must not rely on op-id ordering because ULIDs minted within one millisecond have random
+  // tails and every row in one import intentionally shares the same created_at.
+  var predecessorOpId = sectionOpId ?: hubOpId
   var idx = 0
-  ops += MaterializedOp(
-    opId = opIdProvider(), targetKind = "block", targetId = ids.blockIds[idx++],
-    type = "upsertBlock", payload = milestoneBlockBody(sectionTargetId, proposal, nowIso),
-    dependsOn = parentForBlocks,
-  )
-  if (proposal.location != null) {
+  fun appendBlock(payload: String) {
+    val opId = opIdProvider()
     ops += MaterializedOp(
-      opId = opIdProvider(), targetKind = "block", targetId = ids.blockIds[idx++],
-      type = "upsertBlock", payload = locationBlockBody(sectionTargetId, proposal.location, nowIso),
-      dependsOn = parentForBlocks,
+      opId = opId, targetKind = "block", targetId = ids.blockIds[idx++],
+      type = "upsertBlock", payload = payload, dependsOn = predecessorOpId,
     )
+    predecessorOpId = opId
+  }
+  appendBlock(milestoneBlockBody(sectionTargetId, proposal, nowIso))
+  if (proposal.location != null) {
+    appendBlock(locationBlockBody(sectionTargetId, proposal.location, nowIso))
   }
   if (proposal.description != null) {
-    ops += MaterializedOp(
-      opId = opIdProvider(), targetKind = "block", targetId = ids.blockIds[idx++],
-      type = "upsertBlock", payload = markdownBlockBody(sectionTargetId, proposal.description, nowIso),
-      dependsOn = parentForBlocks,
-    )
+    appendBlock(markdownBlockBody(sectionTargetId, proposal.description, nowIso))
   }
   return ops
 }

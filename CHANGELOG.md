@@ -232,6 +232,23 @@ CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
   for Hub **Mark done**; combined delete-and-mute remains deliberately absent
   until it has truthful, atomic server semantics.
 
+## 2026-08-28 — Now timestamps stay useful just after an event
+
+### Fixed
+- **A time-triggered Now item no longer disappears at the instant it is for.**
+  Derived `when.at` items now remain visible for a two-hour grace period after
+  the actual event, then retire. They enter the feed within two hours of their
+  effective alert/surfacing time, and explicit authored-card `expires_at` values
+  remain authoritative.
+- **The time shown and the time used to surface an item no longer get mixed up.**
+  An `alert_offset` controls ranking and local-notification scheduling, while the
+  card copy shows the actual event time. Times are converted to the device
+  timezone and include AM/PM; multiple triggers consistently select the soonest
+  eligible future instant or the latest still-relevant past instant.
+- **An open Now tab advances with the clock even if no app data changes.** Its
+  date label, ranking bands, trigger windows, and two-hour grace period refresh
+  once per minute instead of waiting for an unrelated Redux update or reopen.
+
 ## 2026-08-10 — Authoring routines read the family's rules before writing
 
 ### Added
@@ -269,28 +286,10 @@ CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
   same prefix still returns 404 — so the 401 is route-specific, not a blanket
   auth response. No migration needed; `0020` was already applied.
 
-## 2026-08-10 — Calendar Check is now reachable from the app
+## 2026-08-28 — Calendar Check (device-local calendar reconciliation)
 
 ### Added
-- **Calendar Check has a front door.** The engine and Android adapter shipped
-  in the epic below, but nothing in the app could reach them: no route, no
-  Account settings row, and the Now card's "Review" pill was silently a
-  no-op. Account → **ON THIS DEVICE** now has a **Calendar Check** row (a
-  build-level flag, default on) that opens the existing setup wizard /
-  on-state settings screen; the Now card's Review pill now opens the real
-  review flow. Also fixed the aggregate Now card itself: the ranking
-  projection threaded to `FeedScreen` never carried calendar state, so the
-  card could never render even before today's fix.
-
-### Not yet
-- "Add to a Hub" from a calendar-only review row does not yet open the
-  Calendar → Dayfold import wizard — `CalendarImportHost` stays unreached
-  dead code, deferred to a follow-on work item.
-
-## 2026-08-09 — Calendar Check (device-local calendar reconciliation)
-
-### Added
-- **Calendar Check** (ADR 0063, Proposed — pending the operator gates below):
+- **Calendar Check** (ADR 0063, Accepted 2026-08-28):
   Dayfold can now compare its own dated content (Hub dates, milestones, time
   triggers) against the calendars a member selects on their own device, and
   surface the gaps as one calm review, never a per-event notification. A
@@ -311,12 +310,14 @@ CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
   SWIP debug inspector without one of these tests failing first (ADR 0063
   acceptance gate 6).
 
-### Not yet
-- The feature is built and merged but **ADR 0063 itself is still Proposed**,
-  not Accepted — full acceptance (design sign-off record, the 14-day dogfood
-  horizon's ratification, permission-copy review on real devices, app-store
-  data-safety disclosures) is an operator gate, tracked in the shipyard
-  Calendar Check epic rather than repeated here.
+### Enabled
+- Calendar Check is reachable in production clients at **Account → Calendar
+  Check**. It remains user opt-in and default-off: **Set up → Continue →
+  select one or more device calendars → Include**. Native add-to-calendar
+  handoff remains available for eligible dated Hubs without enabling read access.
+- ADR 0063, its complete design gallery, the 14-day comparison horizon, and the
+  import-contract defaults were operator-approved on 2026-08-28. App-store
+  data-safety disclosures remain a release operation, not a feature flag.
 
 ## 2026-08-08 — Responses to smart content (mute rules + family Done)
 

@@ -116,12 +116,21 @@ fun CalendarReviewListScreen(
   onKeepCalendarOnly: (CalendarOnlyRow) -> Unit,
   onAddToHub: (CalendarOnlyRow) -> Unit,
   onOpenIgnored: () -> Unit,
+  onResumeImport: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
 ) {
   val cs = MaterialTheme.colorScheme
   Column(modifier.fillMaxWidth()) {
     ReviewTopBar(compareLabel, onBack)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      if (onResumeImport != null) {
+        FilledTonalButton(onClick = onResumeImport, modifier = Modifier.fillMaxWidth()) {
+          Icon(DayfoldIcons.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.width(8.dp))
+          Text("Resume calendar import", fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.size(8.dp))
+      }
       if (ui.dayfoldRows.isNotEmpty() || ui.needsReviewRows.isNotEmpty()) {
         SectionHeader("IN DAYFOLD · NOT ON THIS CALENDAR", cs.primary)
         ui.dayfoldRows.forEach { row ->
@@ -224,10 +233,18 @@ private fun CalendarOnlyCard(row: CalendarOnlyRow, onKeepCalendarOnly: () -> Uni
       }
       FlowRow(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = onKeepCalendarOnly) { Text("Keep calendar-only", fontWeight = FontWeight.SemiBold) }
-        FilledTonalButton(onClick = onAddToHub) {
-          Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(17.dp))
-          Spacer(Modifier.width(6.dp))
-          Text("Add to a Hub", fontWeight = FontWeight.SemiBold)
+        if (row.isRecurring) {
+          Text(
+            "Recurring series stay in Calendar",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+          )
+        } else {
+          FilledTonalButton(onClick = onAddToHub) {
+            Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(17.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Add to a Hub", fontWeight = FontWeight.SemiBold)
+          }
         }
       }
     }
@@ -426,7 +443,9 @@ fun CalendarDetailsDifferScreen(
             }
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
               OutlinedButton(onClick = { onFieldChoice(d.field, FieldResolution.KEEP_DAYFOLD) }) { Text("Keep Dayfold's", fontWeight = FontWeight.SemiBold) }
-              OutlinedButton(onClick = { onFieldChoice(d.field, FieldResolution.USE_CALENDAR) }) { Text("Use Calendar's", fontWeight = FontWeight.SemiBold) }
+              if (d.calendarWriteSupported) {
+                OutlinedButton(onClick = { onFieldChoice(d.field, FieldResolution.USE_CALENDAR) }) { Text("Use Calendar's", fontWeight = FontWeight.SemiBold) }
+              }
               TextButton(onClick = { onFieldChoice(d.field, FieldResolution.LEAVE_BOTH) }) { Text("Leave both as-is", fontWeight = FontWeight.SemiBold, maxLines = 1) }
             }
           }

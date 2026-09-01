@@ -7,6 +7,11 @@ package com.sloopworks.dayfold.client
 // normalized, non-calendar-identifying boundary — see CalendarImportModel.kt's header).
 sealed interface CalendarImportAction : Action
 
+/** Engine → store: normalized writable-Hub choices and the names of their current readers. */
+data class CalendarImportDestinationsLoaded(
+  val destinations: List<CalendarImportDestinationOption>,
+) : CalendarImportAction
+
 /** Host → engine: begin a review from a calendar-only observation (or a "differs" USE_CALENDAR
  *  choice) — the engine derives [CalendarImportProposal] and dispatches this with the result. */
 data class StartCalendarImport(val proposal: CalendarImportProposal) : CalendarImportAction
@@ -38,7 +43,7 @@ data class ImportApplyStarted(val ids: ImportOpIds) : CalendarImportAction
 /** Engine → store: every op in the chain Acked (spec state 2). */
 data class ImportSaved(val audienceSummary: String) : CalendarImportAction
 
-/** Engine → store: no connectivity, or the sender backed off before the chain started (state 3). */
+/** Engine → store: no connectivity, or the sender did not finish within the bounded poll (state 3). */
 data class ImportOfflineQueued(val ids: ImportOpIds?) : CalendarImportAction
 
 /** Engine → store: calendar access was revoked/restricted before the chain enqueued (state 4). */

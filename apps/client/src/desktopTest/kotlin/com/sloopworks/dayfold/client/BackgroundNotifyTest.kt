@@ -169,6 +169,29 @@ class BackgroundNotifyTest {
     assertEquals(Instant.parse("2026-07-08T09:00:00-07:00"), Instant.parse(out.single().atIso))
   }
 
+  @Test fun `planExactSchedules applies alert offsets to derived block triggers too`() {
+    val snapshot = NotifSnapshot(
+      hubs = listOf(Hub("h1", title = "School")),
+      sections = listOf(HubSection("s1", hubId = "h1")),
+      blocks = listOf(HubBlock(
+        id = "b1",
+        sectionId = "s1",
+        type = "milestone",
+        bodyMd = "Pickup",
+        triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(
+          at = "2026-06-30T15:00:00Z",
+          alertOffset = "-PT2H",
+        ))),
+      )),
+      config = NotifConfig(enabled = true),
+    )
+
+    val out = planExactSchedules(snapshot, noon, zone)
+
+    assertEquals(listOf("2026-06-30T13:00:00Z"), out.map { it.atIso })
+    assertEquals("Pickup at 3:00 PM", out.single().spec.body)
+  }
+
   // an authored card that surfaces as a current (NOW-band) item; subjectKey = "card:c1" (no target).
   private val card = Card(id = "c1", title = "Soccer at 4pm — pack jackets", bodyMd = "Rain at kickoff", notBefore = noon, provenance = Provenance("claude"))
   private fun snap(

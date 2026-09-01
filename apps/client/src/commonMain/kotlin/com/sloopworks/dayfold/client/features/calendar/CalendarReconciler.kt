@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 // ADR 0063 §4 — the deterministic, conservative matching ladder. Pure: candidates, observations,
 // bindings, and the clock are all injected (mirrors deriveNow/deriveEventCandidates) — no wall-
@@ -45,29 +46,44 @@ object CalendarReconciler {
     // be claimed by rung b/c/d for a different subject. ──
     for (c in candidates) {
       val binding = bindingBySubject[c.subjectKey] ?: continue
+      if (binding.relation != CalendarRelation.MATCHED) continue
       val platformEventId = binding.platformEventId ?: continue
       val obs = obsById[platformEventId] ?: continue // event no longer observed — not "still valid"
       resolved += c.subjectKey
       consumed += obs.platformEventId
+      val observationFingerprint = fingerprintOfObservation(obs)
       when {
         obs.isRecurring -> recurringNotices += RecurringNotice(c, obs)
-        fingerprintOfObservation(obs) == fingerprintOfCandidate(c) -> autoBindings += binding.copy(
+        observationFingerprint == fingerprintOfCandidate(c) -> autoBindings += binding.copy(
           sourceVersion = c.sourceVersion,
-          fingerprint = fingerprintOfObservation(obs),
+          fingerprint = observationFingerprint,
           lastSeenAt = nowIso,
           relation = CalendarRelation.MATCHED,
           updatedAt = nowIso,
         )
-        else -> differs += DetailsDiffer(c.subjectKey, c, obs, diffFields(c, obs))
+        else -> {
+          val alreadyResolved = if (
+            binding.sourceVersion == c.sourceVersion && binding.fingerprint == observationFingerprint
+          ) resolvedCalendarFields(binding.reviewState) else emptySet()
+          val pendingDiffs = diffFields(c, obs).filterNot { it.field in alreadyResolved }
+          if (pendingDiffs.isEmpty()) {
+            autoBindings += binding.copy(lastSeenAt = nowIso, updatedAt = nowIso)
+          } else {
+            differs += DetailsDiffer(c.subjectKey, c, obs, pendingDiffs)
+          }
+        }
       }
     }
 
     // ── Rungs b–e: everything not already resolved by an explicit binding. ──
     for (c in candidates) {
       if (c.subjectKey in resolved) continue
+      val rejectedEventId = bindingBySubject[c.subjectKey]
+        ?.takeIf { it.reviewState == "keep_separate" }
+        ?.platformEventId
       val available = observations.filter { it.platformEventId !in consumed }
       val cfp = fingerprintOfCandidate(c)
-      val strictHits = available.filter { fingerprintOfObservation(it) == cfp }
+      val strictHits = available.filter { it.platformEventId != rejectedEventId && fingerprintOfObservation(it) == cfp }
 
       when {
         strictHits.size == 1 -> {
@@ -107,7 +123,8 @@ object CalendarReconciler {
             recurringNotices += RecurringNotice(c, recurringMatch)
           } else {
             val suggestions = available.filter {
-              it.startAt == c.startAt && significantTitleOverlap(it.title, c.title)
+              it.platformEventId != rejectedEventId &&
+                it.startAt == c.startAt && significantTitleOverlap(it.title, c.title)
             }
             if (suggestions.isNotEmpty()) {
               // A suggestion is surfaced as ITS OWN review item, not also a duplicate calendar-only
@@ -206,7 +223,18 @@ data class FieldDiff(
   val field: String, // "title" | "start" | "end" | "location"
   val dayfoldValue: String?,
   val calendarValue: String?,
+  val calendarWriteSupported: Boolean = true,
 )
+
+private const val RESOLVED_CALENDAR_FIELDS_PREFIX = "fields:"
+
+internal fun resolvedCalendarFields(reviewState: String?): Set<String> =
+  reviewState?.takeIf { it.startsWith(RESOLVED_CALENDAR_FIELDS_PREFIX) }
+    ?.removePrefix(RESOLVED_CALENDAR_FIELDS_PREFIX)
+    ?.split(',')?.filter(String::isNotBlank)?.toSet().orEmpty()
+
+internal fun calendarFieldsReviewState(fields: Set<String>): String =
+  RESOLVED_CALENDAR_FIELDS_PREFIX + fields.sorted().joinToString(",")
 
 data class DetailsDiffer(
   val subjectKey: String,
@@ -232,9 +260,16 @@ fun candidatesInHorizon(
   zone: TimeZone = TimeZone.currentSystemDefault(),
 ): List<DayfoldEventCandidate> {
   val cutoff = nowInstant + horizonDays.days
+  val today = nowInstant.toLocalDateTime(zone).date
   return candidates.filter { c ->
     val start = parseInstantFlexible(c.startAt, zone) ?: return@filter true
-    start <= cutoff
+    if (start > cutoff) return@filter false
+    val end = c.endAt?.let { parseInstantFlexible(it, zone) }
+    when {
+      end != null -> end >= nowInstant
+      c.allDay -> start.toLocalDateTime(zone).date >= today
+      else -> start >= nowInstant
+    }
   }
 }
 
@@ -259,7 +294,10 @@ private fun strictFingerprint(
   recurrenceIdentity: String?,
   location: CandidateLocation?,
 ): String = stableFingerprint(
-  normalizeTitle(title), startAt, endAt, allDay.toString(), timezone, recurrenceIdentity,
+  // Android CalendarContract represents all-day rows in UTC while EventKit commonly reports the
+  // device/event zone. A bare calendar date has no wall-clock instant, so those provider labels
+  // are representation metadata, not a meaningful scheduling difference.
+  normalizeTitle(title), startAt, endAt, allDay.toString(), if (allDay) "all-day" else timezone, recurrenceIdentity,
   location?.label, location?.address, location?.lat?.toString(), location?.lng?.toString(),
 )
 
@@ -269,12 +307,31 @@ internal fun normalizeTitle(t: String): String = t.trim().lowercase().replace(Re
 // fields; attendees/description/etc. never enter this comparison (ADR 0063 §2/§3). ──
 internal fun diffFields(candidate: DayfoldEventCandidate, obs: CalendarEventObservation): List<FieldDiff> {
   val diffs = mutableListOf<FieldDiff>()
-  if (normalizeTitle(candidate.title) != normalizeTitle(obs.title)) diffs += FieldDiff("title", candidate.title, obs.title)
-  if (candidate.startAt != obs.startAt) diffs += FieldDiff("start", candidate.startAt, obs.startAt)
-  if (candidate.endAt != obs.endAt) diffs += FieldDiff("end", candidate.endAt, obs.endAt)
+  val isCard = candidate.source is CalendarCandidateSource.Card ||
+    (candidate.source == null && SubjectRef.cardIdOf(candidate.subjectKey) != null)
+  val isBlock = candidate.source is CalendarCandidateSource.Block ||
+    (candidate.source == null && SubjectRef.blockIdOf(candidate.subjectKey) != null)
+  val isLegacyHub = candidate.source.let { it is CalendarCandidateSource.Hub && it.type == null }
+  if (normalizeTitle(candidate.title) != normalizeTitle(obs.title)) {
+    diffs += FieldDiff(
+      "title", candidate.title, obs.title,
+      calendarWriteSupported = !isLegacyHub && (!isBlock || candidate.title != "Reminder"),
+    )
+  }
+  if (candidate.startAt != obs.startAt) {
+    diffs += FieldDiff("start", candidate.startAt, obs.startAt, calendarWriteSupported = !isLegacyHub)
+  }
+  if (candidate.endAt != obs.endAt) {
+    diffs += FieldDiff(
+      "end", candidate.endAt, obs.endAt,
+      calendarWriteSupported = !isLegacyHub && !isCard && (!isBlock || candidate.endAt != null),
+    )
+  }
   val dayfoldLoc = locationText(candidate.location)
   val calendarLoc = locationText(obs.location)
-  if (dayfoldLoc != calendarLoc) diffs += FieldDiff("location", dayfoldLoc, calendarLoc)
+  if (dayfoldLoc != calendarLoc) {
+    diffs += FieldDiff("location", dayfoldLoc, calendarLoc, calendarWriteSupported = isCard || (isBlock && candidate.location != null))
+  }
   return diffs
 }
 

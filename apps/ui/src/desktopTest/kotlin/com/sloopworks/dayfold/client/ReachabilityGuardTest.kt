@@ -246,28 +246,9 @@ internal fun findUnreferenced(
 // violation silently also excuse an unrelated one sharing its name, with zero visibility.
 // ---------------------------------------------------------------------------
 
-private const val CALENDAR_CHECK_STAGED_EPIC_NOTE =
-  "ADR 0063 (Calendar Check, still Proposed) — staged incrementally; same posture as the other " +
-    "unwired Calendar Check surfaces in this list, revisit together. "
-
 internal val ROUTE_ALLOW_LIST: Map<String, String> = emptyMap()
 
-internal val COMPOSABLE_ALLOW_LIST: Map<String, String> = mapOf(
-  "CalendarImportHost" to
-    "WI-461 audited this as still-unreached and explicitly deferred (needs " +
-      "CalendarImportEngine.eligibleDestinationHubs() plumbing, out of that WI's scope) — a recorded " +
-      "decision, not an accident. Revisit when that plumbing lands.",
-  "CalendarAlertOverrideHost" to
-    CALENDAR_CHECK_STAGED_EPIC_NOTE + "Its own doc comment says it's opened from a matched review " +
-      "item, and that caller isn't wired yet either.",
-  "CalendarMatchedSummaryScreen" to
-    CALENDAR_CHECK_STAGED_EPIC_NOTE + "Its own doc comment: 'A future WI supplies real values from " +
-      "wherever this screen is entered ... same deferred-nav posture as the rest of this epic " +
-      "pending ADR 0063 acceptance.'",
-  "CalendarReturnScreen" to
-    CALENDAR_CHECK_STAGED_EPIC_NOTE + "The native-calendar-handoff return screen (WI-447), not yet " +
-      "mounted anywhere production reaches.",
-)
+internal val COMPOSABLE_ALLOW_LIST: Map<String, String> = emptyMap()
 
 private const val ROUTINE_PREVIEW_FIXTURE_REASON =
   "RoutinePreviewAction is a closed, local-only fixture demonstrating the deferred (G1 content-" +
@@ -298,10 +279,6 @@ internal val ACTION_ALLOW_LIST: Map<String, String> = mapOf(
   "HubNotFound" to
     "Found 2026-08-10: the 404/restricted-hub reducer arm exists but nothing dispatches it. Needs " +
       "triage: wire a real 404 handler, or remove as dead code. Needs product triage. " +
-      "Re-verified 2026-08-27: still dispatched from nowhere. → INB-42.",
-  "CalendarSettingsLoaded" to
-    "Found 2026-08-10: the reducer arm exists but nothing in CalendarCheckEngine/ContentStore " +
-      "dispatches it — calendar settings may already be read a different way. Needs product triage. " +
       "Re-verified 2026-08-27: still dispatched from nowhere. → INB-42.",
   "RestoreSmartBriefings" to ROUTINE_PREVIEW_FIXTURE_REASON,
   "RoutineHubFixtureSelected" to ROUTINE_PREVIEW_FIXTURE_REASON,

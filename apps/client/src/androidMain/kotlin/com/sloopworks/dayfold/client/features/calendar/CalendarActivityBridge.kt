@@ -14,5 +14,6 @@ import android.content.Intent
  */
 object CalendarActivityBridge {
   @Volatile var launchPermissionRequest: (() -> Unit)? = null
+  @Volatile var onPermissionResult: ((CalendarPermission) -> Unit)? = null
   @Volatile var launchEditorIntent: ((Intent) -> Unit)? = null
 }

@@ -286,6 +286,7 @@ class DayfoldCommands internal constructor(
     launchCurrentFamily { responseEngine?.recordResponseOffer(it, subjectRef) }
 
   override fun setCalendarEnabled(enabled: Boolean) { calendarCheckEngine?.setEnabled(enabled) }
+  override fun enableCalendarCheck(calendarIds: Set<String>) { calendarCheckEngine?.enable(calendarIds) }
   override fun setSelectedCalendars(calendarIds: Set<String>) { calendarCheckEngine?.setSelectedCalendars(calendarIds) }
   override fun loadAvailableCalendars() { calendarCheckEngine?.loadAvailableCalendars() }
   override fun requestCalendarPermission() { calendarCheckEngine?.requestPermission() }
@@ -294,19 +295,24 @@ class DayfoldCommands internal constructor(
   override fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner) =
     launchEffect { calendarCheckEngine?.setNotificationOwner(subjectKey, owner) }
   override fun openCalendarEventEditor(prefill: EventPrefill) { calendarCheckEngine?.openEventEditor(prefill) }
+  override fun openObservedCalendarEvent(platformEventId: String) { calendarCheckEngine?.openObservedEvent(platformEventId) }
+  override fun openMatchedCalendarEvent(subjectKey: String) { calendarCheckEngine?.openMatchedEvent(subjectKey) }
+  override fun unlinkCalendarMatch(subjectKey: String) = launchEffect { calendarCheckEngine?.unlinkMatch(subjectKey) }
   override fun confirmCalendarMatch(subjectKey: String, eventId: String) = launchEffect { calendarCheckEngine?.confirmMatch(subjectKey, eventId) }
-  override fun keepCalendarSeparate(subjectKey: String) { store.dispatch(KeepSeparate(subjectKey)) }
+  override fun keepCalendarSeparate(subjectKey: String) = launchEffect { calendarCheckEngine?.keepSeparate(subjectKey) }
   override fun resolveAmbiguousCalendarMatch(subjectKey: String, chosenEventId: String) = launchEffect { calendarCheckEngine?.resolveAmbiguous(subjectKey, chosenEventId) }
-  override fun ignoreCalendarItem(itemKey: String) { store.dispatch(IgnoreItem(itemKey)) }
-  override fun undoCalendarIgnore(itemKey: String) { store.dispatch(UndoIgnore(itemKey)) }
-  override fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution) { store.dispatch(FieldChoice(subjectKey, field, resolution)) }
-  override fun keepCalendarSeriesOnly(subjectKey: String) { store.dispatch(KeepSeriesCalendarOnly(subjectKey)) }
+  override fun ignoreCalendarItem(itemKey: String) = launchEffect { calendarCheckEngine?.ignoreItem(itemKey) }
+  override fun undoCalendarIgnore(itemKey: String) = launchEffect { calendarCheckEngine?.undoIgnore(itemKey) }
+  override fun chooseCalendarField(subjectKey: String, field: String, resolution: FieldResolution) =
+    launchEffect { calendarCheckEngine?.resolveField(subjectKey, field, resolution) }
+  override fun keepCalendarSeriesOnly(subjectKey: String) = launchEffect { calendarCheckEngine?.keepSeriesCalendarOnly(subjectKey) }
   // CAL-10 (ADR 0063 §6) — startCalendarImport/confirmCalendarImport/reconfirmCalendarImport are
   // engine-owned effects (id minting, revalidation, DB/outbox writes); the rest are pure wizard-
   // navigation dispatched directly by the engine (a thin passthrough here, same as DiscardCalendarImport).
   override fun startCalendarImport(observation: CalendarEventObservation) { calendarImportEngine?.startImport(observation) }
+  override fun loadCalendarImportDestinations() { calendarImportEngine?.loadEligibleDestinations() }
   override fun chooseImportDestination(destination: ImportDestination) { calendarImportEngine?.chooseDestination(destination) }
-  override fun setImportDescriptionOptIn(description: String?) { calendarImportEngine?.setDescriptionOptIn(description) }
+  override fun setImportDescriptionIncluded(include: Boolean) { calendarImportEngine?.setDescriptionIncluded(include) }
   override fun proceedImportToAudience() { calendarImportEngine?.proceedToAudience() }
   override fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>) { calendarImportEngine?.setAudience(visibility, audience) }
   override fun proceedImportToConfirm() { calendarImportEngine?.proceedToConfirm() }

@@ -36,11 +36,9 @@ import com.sloopworks.dayfold.client.NowItem
 // ONE aggregate Now unit for Calendar Check: a provenance row, the "N things to review" title, up
 // to 3 preview rows (+ a quiet "+ N more" line), and a "Review"/"Review N" pill. Stateless: [item]
 // is already the fully-computed calendarCheckDisplay().item (:client, ADR 0058) — this file only
-// renders it. Real navigation into the review flow is deferred (ADR 0063 is still Proposed, mirrors
-// the WI-447 settings/native-handoff surfaces) — [onReview] defaults to a no-op until a later WI
-// wires the route graph.
+// renders it. Production Feed wiring supplies the Calendar Review route callback.
 @Composable
-fun CalendarCheckNowCard(item: NowItem, onReview: () -> Unit = {}, modifier: Modifier = Modifier) {
+fun CalendarCheckNowCard(item: NowItem, onReview: () -> Unit, modifier: Modifier = Modifier) {
   val cs = MaterialTheme.colorScheme
   val count = item.calendarCheckCount ?: item.calendarCheckPreviews.size
   val previews = item.calendarCheckPreviews
