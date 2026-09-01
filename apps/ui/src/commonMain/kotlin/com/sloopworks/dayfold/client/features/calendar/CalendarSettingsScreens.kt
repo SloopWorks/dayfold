@@ -2,11 +2,14 @@ package com.sloopworks.dayfold.client.features.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -213,9 +216,13 @@ fun CalendarChooserScreen(
 ) {
   val cs = MaterialTheme.colorScheme
   val includedCount = groups.sumOf { g -> g.calendars.count { it.id in selectedIds } }
-  Column(modifier.fillMaxWidth()) {
+  Column(modifier.fillMaxSize()) {
     CalendarTopBar("Choose calendars", onBack = onBack)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    Column(
+      Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+        .padding(horizontal = 20.dp, vertical = 4.dp),
+      verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
       Text("Dayfold compares only the calendars you include.", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
       groups.forEach { group ->
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {

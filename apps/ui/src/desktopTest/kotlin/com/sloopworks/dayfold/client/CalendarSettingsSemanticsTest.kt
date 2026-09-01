@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
+import com.sloopworks.dayfold.client.features.calendar.CalendarAccountGroup
+import com.sloopworks.dayfold.client.features.calendar.CalendarChooserScreen
 import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsOnScreen
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
 import kotlin.test.Test
@@ -36,5 +40,25 @@ class CalendarSettingsSemanticsTest {
     onNodeWithText("Family").assertIsDisplayed()
     onNodeWithText("Personal").assertIsDisplayed()
     onAllNodesWithText("Google · p•••@gmail.com").assertCountEquals(2)
+  }
+
+  @Test fun `chooser scrolls a long calendar list while keeping the include action visible`() = runComposeUiTest {
+    val longList = (1..30).map { index ->
+      DeviceCalendar("calendar-$index", "Calendar $index", "#7B9E6B", "Google · masked account")
+    }
+    setContent {
+      DayfoldTheme {
+        CalendarChooserScreen(
+          groups = listOf(CalendarAccountGroup("Google · masked account", longList)),
+          selectedIds = setOf("calendar-1"),
+          onBack = {}, onToggle = {}, onIncludeSelected = {},
+        )
+      }
+    }
+
+    onNode(hasScrollAction()).assertExists()
+    onNodeWithText("Include 1 calendar").assertIsDisplayed()
+    onNodeWithText("Calendar 30").performScrollTo().assertIsDisplayed()
+    onNodeWithText("Include 1 calendar").assertIsDisplayed()
   }
 }
