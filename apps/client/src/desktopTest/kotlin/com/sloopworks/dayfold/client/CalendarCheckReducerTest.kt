@@ -108,27 +108,22 @@ class CalendarCheckReducerTest {
     assertTrue(undone.calendar.check.ignoreHistory.isEmpty())
   }
 
-  @Test fun `FieldChoice KEEP_DAYFOLD resolves the field without recording a pendingWrite`() {
+  @Test fun `FieldChoice KEEP_DAYFOLD resolves the field`() {
     val c = candidate()
     val obs = observation()
     val diff = DetailsDiffer("hub:h1", c, obs, listOf(FieldDiff("title", "a", "b")))
     val state = AppState(calendar = CalendarState(check = CalendarCheckState(results = ReconcileResult(differs = listOf(diff)))))
     val next = rootReducer(state, FieldChoice("hub:h1", "title", FieldResolution.KEEP_DAYFOLD))
     assertTrue(next.calendar.check.results.differs.isEmpty())
-    assertTrue(next.calendar.check.pendingWrites.isEmpty())
   }
 
-  @Test fun `FieldChoice USE_CALENDAR resolves the field and records a pendingWrite with the calendar value`() {
+  @Test fun `FieldChoice USE_CALENDAR resolves the field after the engine-owned write`() {
     val c = candidate()
     val obs = observation()
     val diff = DetailsDiffer("hub:h1", c, obs, listOf(FieldDiff("title", "Dayfold title", "Calendar title")))
     val state = AppState(calendar = CalendarState(check = CalendarCheckState(results = ReconcileResult(differs = listOf(diff)))))
     val next = rootReducer(state, FieldChoice("hub:h1", "title", FieldResolution.USE_CALENDAR))
     assertTrue(next.calendar.check.results.differs.isEmpty())
-    val pending = next.calendar.check.pendingWrites.single()
-    assertEquals("hub:h1", pending.subjectKey)
-    assertEquals("title", pending.field)
-    assertEquals("Calendar title", pending.calendarValue)
   }
 
   @Test fun `FieldChoice LEAVE_BOTH resolves only the chosen field, leaving the rest of the diff`() {

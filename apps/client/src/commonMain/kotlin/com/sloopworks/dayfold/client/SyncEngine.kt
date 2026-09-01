@@ -249,6 +249,8 @@ class SyncEngine(
                 syncClient.putHub(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
               op.targetKind == "section" ->
                 syncClient.putSection(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
+              op.targetKind == "card" ->
+                syncClient.putCard(familyId, accessToken, op.targetId, op.payload, op.opId)
               op.type == "delete" ->
                 syncClient.deleteBlock(familyId, accessToken, op.targetId, op.opId)
               else ->
@@ -277,10 +279,14 @@ class SyncEngine(
         val isImportOp = op.type == "upsertHub" || op.type == "upsertSection" || op.type == "upsertBlock"
         val committed = sessionCoordinator.commitIfCurrent(context) {
           when (OutboxSender.classify(result.status, op.attempts.toInt())) {
-            SendOutcome.Acked -> stop = if (isImportOp) {
-              contentStore.ackOp(op.opId, result.version); false
-            } else {
-              contentStore.ackOpAndAdvanceSuccessor(
+            SendOutcome.Acked -> stop = when {
+              isImportOp -> {
+                contentStore.ackCalendarImportOp(op, result.version, nowProvider()); false
+              }
+              op.targetKind == "hub" || op.targetKind == "card" || op.targetKind == "section" -> {
+                contentStore.ackOp(op.opId, result.version); false
+              }
+              else -> contentStore.ackOpAndAdvanceSuccessor(
                 opId = op.opId,
                 targetId = op.targetId,
                 resultVersion = result.version,

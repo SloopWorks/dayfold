@@ -74,7 +74,14 @@ private fun observationMeta(state: AppState, obs: CalendarEventObservation): Str
 
 // ── §16-17 List ──────────────────────────────────────────────────────────────────────────────
 data class DayfoldOnlyRow(val subjectKey: String, val title: String, val meta: String, val prefill: EventPrefill, val target: DeepLinkTarget?)
-data class CalendarOnlyRow(val itemKey: String, val platformEventId: String, val title: String, val meta: String, val dotColor: String?)
+data class CalendarOnlyRow(
+  val itemKey: String,
+  val platformEventId: String,
+  val title: String,
+  val meta: String,
+  val dotColor: String?,
+  val isRecurring: Boolean = false,
+)
 
 /** Suggested/ambiguous/differs/recurring — every kind that needs its own dedicated screen (§18-21),
  *  surfaced here as a compact tap-through row rather than inventing a third section header beyond
@@ -108,7 +115,10 @@ fun calendarReviewListUiState(state: AppState): CalendarReviewListUiState {
     results.recurringNotices.forEach { add(NeedsReviewRow(it.candidate.subjectKey, it.candidate.title, needsReviewLabel(CalendarGapKind.RECURRING), CalendarGapKind.RECURRING)) }
   }
   val calendarOnlyRows = results.calendarOnly.map { o ->
-    CalendarOnlyRow(calendarOnlyItemKey(o.platformEventId), o.platformEventId, o.title, observationMeta(state, o), calendarDot(state, o.calendarId))
+    CalendarOnlyRow(
+      calendarOnlyItemKey(o.platformEventId), o.platformEventId, o.title,
+      observationMeta(state, o), calendarDot(state, o.calendarId), o.isRecurring,
+    )
   }
   return CalendarReviewListUiState(dayfoldRows, needsReview, calendarOnlyRows, state.calendar.check.ignored.size)
 }
@@ -181,12 +191,21 @@ fun calendarDifferUiState(state: AppState, subjectKey: String): CalendarDifferUi
 }
 
 // ── §21 Recurring event ──────────────────────────────────────────────────────────────────────
-data class CalendarRecurringUiState(val subjectKey: String, val title: String, val recurrenceMeta: String, val calendarDotColor: String?)
+data class CalendarRecurringUiState(
+  val subjectKey: String,
+  val title: String,
+  val recurrenceMeta: String,
+  val calendarDotColor: String?,
+  val platformEventId: String,
+)
 
 fun calendarRecurringUiState(state: AppState, subjectKey: String): CalendarRecurringUiState? {
   val n: RecurringNotice = state.calendar.check.results.recurringNotices.firstOrNull { it.candidate.subjectKey == subjectKey } ?: return null
   val meta = "${formatMetaWhen(n.observation.startAt) ?: n.observation.startAt} · ${calendarName(state, n.observation.calendarId)}"
-  return CalendarRecurringUiState(subjectKey, n.candidate.title, meta, calendarDot(state, n.observation.calendarId))
+  return CalendarRecurringUiState(
+    subjectKey, n.candidate.title, meta, calendarDot(state, n.observation.calendarId),
+    n.observation.platformEventId,
+  )
 }
 
 // ── §22 Ignored locally ──────────────────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+import kotlinx.serialization.Serializable
+
 // CAL-10 (ADR 0063 §6, specs/calendar-import-contract-design.md) — the reviewed Calendar→Dayfold
 // import: a member-reviewed proposal, never a background sync. Every type here mirrors the
 // contract spec's §1 "the proposal type" section exactly — the field set IS the normalization
@@ -11,9 +13,10 @@ package com.sloopworks.dayfold.client
 
 /** spec §1.1 — a closed union, not a nullable `allDay: Boolean` beside a timestamp, so "all-day
  *  date" and "instant" are non-confusable at the type level (mirrors Stop.at's convention). */
+@Serializable
 sealed interface EventInstant {
-  data class Timed(val instant: String) : EventInstant   // RFC-3339 with offset
-  data class AllDay(val date: String) : EventInstant      // YYYY-MM-DD
+  @Serializable data class Timed(val instant: String) : EventInstant   // RFC-3339 with offset
+  @Serializable data class AllDay(val date: String) : EventInstant      // YYYY-MM-DD
 }
 
 /** The wire value carried in a hub/block field for this instant — a bare string either way. */
@@ -23,11 +26,11 @@ val EventInstant.wire: String get() = when (this) {
 }
 
 /** spec §1.1 — structured only; never a free-text venue blob. */
-data class StructuredLocation(val label: String, val address: String? = null)
+@Serializable data class StructuredLocation(val label: String, val address: String? = null)
 
 /** spec §2 — visibility choice on a NEW Hub the import creates. Existing-Hub imports never touch
  *  visibility (§2.2) — the destination's own visibility is inherited unmodified. */
-enum class HubVisibilityChoice {
+@Serializable enum class HubVisibilityChoice {
   FAMILY, RESTRICTED;
 
   val wire: String get() = name.lowercase()
@@ -37,10 +40,11 @@ enum class HubVisibilityChoice {
  *  denormalized display fields the destination picker already has (title, the caller's own ADR
  *  0053 role) purely for UI/label purposes — they are never sent on the wire (§3.1 only ever PUTs
  *  `hubId` as a reference); the write never re-derives or re-asserts them. */
+@Serializable
 sealed interface ImportDestination {
   /** spec §2.1 — restricted-to-importer is the default; family/named-audience is the explicit
    *  audience-step choice, never inferred from the source calendar's own sharing. */
-  data class NewHub(
+  @Serializable data class NewHub(
     val visibility: HubVisibilityChoice = HubVisibilityChoice.RESTRICTED,
     val audience: List<String> = emptyList(),
   ) : ImportDestination
@@ -48,7 +52,7 @@ sealed interface ImportDestination {
   /** spec §2.2 — only offered when [participationRole] ∈ {contributor, co_owner} or the caller
    *  authored the hub; the server independently re-enforces this (hubWriteGate) so a stale client
    *  list can never become a write. */
-  data class ExistingHub(
+  @Serializable data class ExistingHub(
     val hubId: String,
     val hubTitle: String,
     val participationRole: String,
@@ -62,7 +66,7 @@ sealed interface ImportDestination {
  * member may opt into on the fields step (spec OD-1, default off), and the fields the member edits
  * before applying (title/location).
  */
-data class CalendarImportProposal(
+@Serializable data class CalendarImportProposal(
   val proposalId: String,
   val title: String,
   val start: EventInstant,
@@ -80,10 +84,34 @@ data class CalendarImportProposal(
  * derived from calendar data (a hash of a platform event id would be a stable, server-visible
  * correlator — banned by spec §4.1).
  */
-data class ImportOpIds(
+@Serializable data class ImportOpIds(
   val hubId: String?,           // present only for a NewHub destination
   val sectionId: String,
   val blockIds: List<String>,   // milestone [, location] [, markdown] — matches materialize() order
+)
+
+/** Device-local recovery record decoded from calendar_import. */
+data class PersistedCalendarImport(
+  val proposal: CalendarImportProposal,
+  val destination: ImportDestination,
+  val ids: ImportOpIds,
+  val status: String,
+  val audienceIds: Set<String>,
+  val hubVersion: Long?,
+)
+
+@Serializable
+data class PersistedImportDestination(
+  val destination: ImportDestination,
+  val audienceIds: Set<String> = emptySet(),
+  val hubVersion: Long? = null,
+)
+
+/** A destination the current member may write plus the audience names they must review before
+ * applying. Member ids stay engine-local as the version precondition; the UI receives names. */
+data class CalendarImportDestinationOption(
+  val destination: ImportDestination.ExistingHub,
+  val audienceNames: List<String>,
 )
 
 /** spec §3.5 — the 7 apply states, plus the pre-apply wizard steps. A sealed hierarchy so the
@@ -101,11 +129,16 @@ sealed interface ImportProposalState {
 
   /** state 2 — every op in the chain Acked; [audienceSummary] is the ACTUAL resulting audience
    *  ("only you can see it" / a named/family line), never a generic success message. */
-  data class Saved(val proposal: CalendarImportProposal, val audienceSummary: String) : ImportProposalState
+  data class Saved(
+    val proposal: CalendarImportProposal,
+    val ids: ImportOpIds,
+    val audienceSummary: String,
+  ) : ImportProposalState
 
-  /** state 3 — no connectivity at confirm (or the sender is backed off before the chain starts).
-   *  [ids] is minted regardless of connectivity (spec §3.3 — ids are a confirm-time fact); what's
-   *  withheld offline is enqueueing the ops themselves (spec: "no ops are enqueued yet"). */
+  /** state 3 — no connectivity at confirm, or an enqueued chain did not finish within the bounded
+   *  screen poll. [ids] is minted regardless of connectivity (spec §3.3 — ids are a confirm-time
+   *  fact). A confirm known-offline has no ops yet; a sender-backoff hold may already have the
+   *  reviewed chain durably queued. */
   data class OfflineQueued(val proposal: CalendarImportProposal, val ids: ImportOpIds?) : ImportProposalState
 
   /** state 4 — calendar access was revoked/restricted before the chain enqueued. Hold, never

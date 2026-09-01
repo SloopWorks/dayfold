@@ -57,6 +57,7 @@ internal fun ContentHost(
   onNavHubs: () -> Unit = {},
   onRefresh: () -> Unit = {},
   onNowShown: (Set<String>) -> Unit = {},
+  onOpenCalendarReview: () -> Unit = {},
   feedListState: LazyListState = rememberLazyListState(),
 ) {
   val targetKey: String? = detailCardId            // top of the detail stack (null = feed)
@@ -111,6 +112,9 @@ internal fun ContentHost(
           }
         } else {
           val feed by store.selectorState(::feedViewState)
+          // The Now projection is clock-dependent even when Redux is idle. Keep the ticker scoped
+          // to this active route; leaving Feed disposes it automatically.
+          val feedNow = rememberNowClock(enabled = true)
           FeedScreen(
             feed,
             onAction = handle,
@@ -119,6 +123,7 @@ internal fun ContentHost(
             onNavHubs = onNavHubs,
             onRefresh = onRefresh,
             onShown = onNowShown,
+            onOpenCalendarReview = onOpenCalendarReview,
             onVerb = onVerb,
             onCloseSheet = onCloseSheet,
             onScope = onScope,
@@ -128,6 +133,7 @@ internal fun ContentHost(
             onUndoResponse = onUndoResponse,
             onDismissReceipt = onDismissReceipt,
             onDone = onDone,
+            now = feedNow,
             listState = feedListState,
           )
         }

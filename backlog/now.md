@@ -35,11 +35,24 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## Current state (as of 2026-07-10)
 
-### Calendar Check epic (CAL, ADR 0063 — Proposed, not yet Accepted) — 2026-08-09
+### Now timestamp correctness — 2026-08-28
 
-Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built
-and merged to `main`: device-local reconcile + gap review, Android/iOS native
-add-event handoff, a reviewed Calendar→Dayfold import wizard, and
+Time-triggered derived items now stay on the Now tab for a two-hour grace period
+after their actual event time instead of disappearing immediately.
+Alert offsets drive surfacing and exact local scheduling without corrupting the
+displayed event time; labels are device-timezone-correct and include AM/PM;
+authored cards retain their most relevant trigger anchor after it fires (with
+explicit `expires_at` still governing removal). The visible Now route samples
+the live clock every minute, so its date, bands, and time windows no longer wait
+for an unrelated store update. Focused `:client` and `:ui` desktop tests are
+green, including before/after boundaries, multiple triggers, offsets, timezone
+copy, exact schedules, live clock advancement, and pinned snapshot clocks.
+
+### Calendar Check epic (CAL, ADR 0063 — Accepted and enabled 2026-08-28)
+
+Client-owned Calendar↔Dayfold reconciliation (WI-446 through WI-451) is built:
+device-local reconcile + gap review, Android/iOS native add-event handoff, a
+reviewed Calendar→Dayfold import wizard, and
 Calendar-owned start-alert suppression. WI-451 (CAL-11) closed the epic's
 privacy proof — permanent guard tests across `:client`/`:swip-wiring`
 desktopTest asserting raw calendar identifiers/fingerprints/observations
@@ -49,6 +62,11 @@ operator gates (mockup sign-off record, horizon-constant ratification,
 permission-copy device review, store data-safety disclosures, ADR
 acceptance reviews), and the on-device smoke checklist live in the shipyard
 epic — this is a pointer, not the record.**
+
+The operator accepted ADR 0063 and signed off the design/defaults on
+2026-08-28. Production reachability, Android/iOS adapters, settings hydration,
+durable local decisions, reviewed-import recovery, and typed field resolution
+are enabled. Calendar Check remains a default-off member opt-in under Account.
 
 ### Active — TASK-CLIENT-RUNTIME-HARDENING (started 2026-07-14)
 
@@ -300,22 +318,13 @@ a linux golden is recorded in CI. Open follow-ups are in `context/open-questions
 
 ## Operator actions pending
 
-- [ ] **WI-462 reachability guard (`:ui:desktopTest` → `ReachabilityGuardTest`)
-  found 10 already-orphaned actions + 3 additional dark Calendar Check
-  composables on `main` on its first run (2026-08-10)** — allow-listed with
-  reasons (see `ReachabilityGuardTest.kt`'s `WIRING_ALLOW_LIST`) rather than
-  fixed, since deciding dead-code-vs-real-gap per item is a product/eng call
-  outside that WI's scope. Needs a follow-up triage pass (mirrors how WI-461
-  was spawned from the Calendar Check wiring gap): `HubsFailed`/`HubNotFound`
-  (hub-list error/404 paths — may be superseded by DB-driven sync, or a real
-  gap), `CalendarSettingsLoaded` (reducer arm with no dispatcher),
-  `ResponseStepBack` (no back affordance wired in `ResponseSheet`), and 6
-  `RoutinePreviewAction` members the Smart Briefings preview's
-  `smartBriefingsPreviewActions()` doesn't yet map (low risk — closed local
-  fixture, no real provider ever invoked). `CalendarAlertOverrideHost`,
-  `CalendarMatchedSummaryScreen`, `CalendarReturnScreen` are the additional
-  Calendar Check (ADR 0063, still Proposed) surfaces beyond the three WI-461
-  is already wiring — same staged-epic posture, revisit alongside it.
+- [ ] **WI-462 reachability-guard follow-up triage.** The Calendar Check findings
+  and `CalendarSettingsLoaded` producer gap were resolved during ADR 0063
+  enablement on 2026-08-28. The unrelated pre-existing findings still need their
+  own decision: `HubsFailed`/`HubNotFound` (possibly superseded by DB-driven
+  sync), `ResponseStepBack`, and six `RoutinePreviewAction` members that the
+  closed Smart Briefings fixture does not map. See `ReachabilityGuardTest.kt`.
+
 - [ ] **Restart Claude Code once and confirm `dayfold-curator` still lists as a
   skill** (2026-07-30, harness-neutral skill move). The skill's real files moved
   to `.agents/skills/dayfold-curator/` — Codex's repo skills root, so one copy

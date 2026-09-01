@@ -14,6 +14,20 @@ verification pass; don't treat their presence here as a substitute for that.
 
 ---
 
+## TASK-CALENDAR-RECONCILIATION — client-owned Calendar Check + native handoff
+
+**Completed 2026-08-28.** ADR 0063 and the ADR 0008 gallery were accepted, and
+Calendar Check was enabled as a default-off member opt-in under Account. The
+Android/iOS clients now reconcile structured Dayfold event candidates against
+selected device calendars; persist settings, bindings, keep-separate/ignore, and
+field decisions locally; expose one aggregate Now review; hand Dayfold-only
+items to the native event editor; suppress duplicate generic start alerts for
+matches; and apply explicitly reviewed Calendar→Dayfold imports through the
+ordinary authorized/offline mutation path. Raw observations and platform
+identifiers remain device-local. Contract:
+`specs/calendar-import-contract-design.md`; decision:
+`adr/0063-client-owned-calendar-reconciliation.md`.
+
 ## CONTENT LIBRARY + DETAIL + FOLD GESTURE (ADR 0022 — Accepted 2026-06-19)
 
 > **STATUS 2026-06-21 — M0 build order EXHAUSTED + MERGED TO MAIN** (PR #7

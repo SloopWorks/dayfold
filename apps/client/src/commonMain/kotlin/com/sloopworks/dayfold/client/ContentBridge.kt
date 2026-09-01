@@ -145,7 +145,7 @@ internal class ContentBridge(
     return checkNotNull(started)
   }
 
-  /** Starts the process/device-local notification-config projection idempotently. */
+  /** Starts the process/device-local settings projections idempotently. */
   fun startDevice(): ContentBridgeHandle = synchronized(gate) {
     deviceHandle?.let {
       check(it.isOpen) { "Close and join the device content bridge before starting it again" }
@@ -154,6 +154,9 @@ internal class ContentBridge(
     val handle = createHandle { collectorScope, created ->
       collectorScope.collectDistinct(contentStore.notifConfigFlow(databaseDispatcher)) { config ->
         created.publish { store.dispatch(NotifConfigLoaded(config)) }
+      }
+      collectorScope.collectDistinct(contentStore.calendarSettingsFlow(databaseDispatcher)) { settings ->
+        created.publish { store.dispatch(CalendarSettingsLoaded(settings)) }
       }
     }
     deviceHandle = handle

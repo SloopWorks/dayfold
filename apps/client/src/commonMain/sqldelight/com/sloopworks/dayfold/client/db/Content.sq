@@ -123,6 +123,7 @@ CREATE TABLE hub (
   countdown_to TEXT,
   visibility   TEXT,
   created_by   TEXT,
+  version      INTEGER,
   media        TEXT,                       -- ADR 0036: JSON {heroUrl,thumbnailUrl,heroFit,imageAlt,icon,accentColor}
   timeline     TEXT,                       -- ADR 0045: JSON Timeline {title,tz,stops:[…]}
   updated_at   TEXT NOT NULL,
@@ -130,12 +131,12 @@ CREATE TABLE hub (
 );
 
 upsertHub:
-INSERT INTO hub(id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline, updated_at, deleted)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+INSERT INTO hub(id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, version, media, timeline, updated_at, deleted)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 ON CONFLICT(id) DO UPDATE SET
   type=excluded.type, title=excluded.title, status=excluded.status,
   start_at=excluded.start_at, end_at=excluded.end_at, countdown_to=excluded.countdown_to,
-  visibility=excluded.visibility, created_by=excluded.created_by, media=excluded.media,
+  visibility=excluded.visibility, created_by=excluded.created_by, version=excluded.version, media=excluded.media,
   timeline=excluded.timeline,
   updated_at=excluded.updated_at, deleted=0;
 
@@ -143,7 +144,7 @@ markHubDeleted:
 UPDATE hub SET deleted=1, updated_at=? WHERE id=?;
 
 activeHubs:
-SELECT id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline
+SELECT id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, version, media, timeline
 FROM hub WHERE deleted=0 ORDER BY COALESCE(start_at, countdown_to), id;
 
 wipeHubs:
@@ -300,10 +301,21 @@ DELETE FROM outbox WHERE target_id=?;
 dropAckedForTarget:
 DELETE FROM outbox WHERE target_id=? AND state='acked';
 
--- FIFO drain: the next sendable ops (pending only; inflight is in-flight, acked awaits echo).
+-- FIFO drain of SENDABLE ops. A dependent is eligible only after its parent ACKed (or the ACKed
+-- parent was removed by its inbound echo). Drop/failure removes descendants transactionally;
+-- treating an absent parent as satisfied also makes crash/restart after ACK safe.
 pendingOps:
 SELECT op_id, target_kind, target_id, type, payload, base_version, depends_on, state, attempts, result_version, created_at
-FROM outbox WHERE state='pending' ORDER BY created_at, op_id;
+FROM outbox AS candidate
+WHERE candidate.state='pending'
+  AND NOT EXISTS (
+    SELECT 1 FROM outbox AS dependency
+    WHERE dependency.op_id = candidate.depends_on AND dependency.state != 'acked'
+  )
+ORDER BY candidate.created_at, candidate.op_id;
+
+pendingOpCount:
+SELECT count(*) FROM outbox WHERE state='pending';
 
 markInflight:
 UPDATE outbox SET state='inflight' WHERE op_id=? AND state='pending';
@@ -634,10 +646,19 @@ FROM calendar_binding WHERE notification_owner = ?;
 -- A deselected calendar's matches return to review (ADR 0063 §1/§5): drop every binding that
 -- pointed at it rather than leaving a dangling calendar_id a later scan can't re-resolve.
 deleteCalendarBindingsForCalendar:
-DELETE FROM calendar_binding WHERE calendar_id = ?;
+DELETE FROM calendar_binding
+WHERE calendar_id = ? AND subject_key NOT LIKE 'calendarImport:%';
+
+deleteCalendarBindingForSubject:
+DELETE FROM calendar_binding WHERE subject_key = ?;
 
 wipeCalendarBindings:
 DELETE FROM calendar_binding;
+
+-- Feature reset/disable clears reconciliation decisions but must not destroy the mechanical
+-- source pointer for a separately confirmed, crash-resumable import.
+resetCalendarCheckBindings:
+DELETE FROM calendar_binding WHERE subject_key NOT LIKE 'calendarImport:%';
 
 -- CAL-10 (ADR 0063 §6, calendar-import-contract-design.md §3.5/§6 build-step-3) — the local
 -- proposal + revalidation record for an in-flight Calendar→Dayfold import. Written ONLY at
@@ -678,6 +699,17 @@ FROM calendar_import WHERE status != 'saved';
 
 deleteCalendarImport:
 DELETE FROM calendar_import WHERE proposal_id = ?;
+
+-- Roll back only optimistic rows minted by a failed import. These ids are device-random and
+-- proposal-owned, so they cannot name pre-existing member content.
+deleteImportedHubLocal:
+DELETE FROM hub WHERE id = ?;
+
+deleteImportedSectionLocal:
+DELETE FROM hub_section WHERE id = ?;
+
+deleteImportedBlockLocal:
+DELETE FROM hub_block WHERE id = ?;
 
 wipeCalendarImports:
 DELETE FROM calendar_import;

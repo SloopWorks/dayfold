@@ -33,6 +33,9 @@ import com.sloopworks.dayfold.client.cards.DetailScreen
 import com.sloopworks.dayfold.client.cards.LocalAnimatedVisibilityScope
 import com.sloopworks.dayfold.client.cards.LocalSharedTransitionScope
 import com.sloopworks.dayfold.client.theme.DayfoldTheme
+import com.sloopworks.dayfold.client.features.calendar.CalendarImportHost
+import com.sloopworks.dayfold.client.features.calendar.CalendarReviewHost
+import com.sloopworks.dayfold.client.features.calendar.CalendarSettingsHost
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
 
@@ -137,6 +140,7 @@ internal fun RouteHost(
     }
     Route.Account -> {
       val state by store.selectorState(::accountRoutineRouteViewState)
+      val calendarEnabled by store.selectorState { it.calendar.settings.featureEnabled }
       AccountScreen(
         state.account,
         onSignOut = commands::signOut,
@@ -149,6 +153,8 @@ internal fun RouteHost(
         onOpenSmartBriefings = { store.dispatch(OpenSmartBriefings) },
         onUpdateAvatar = commands::updateAvatar,
         onUpdateName = commands::updateDisplayName,
+        calendarCheckEnabled = calendarEnabled,
+        onOpenCalendarCheck = { store.dispatch(OpenCalendarSettings) },
       )
     }
     Route.SmartContent -> {
@@ -184,6 +190,47 @@ internal fun RouteHost(
         onBack = { store.dispatch(CloseProximity) },
       )
     }
+    Route.CalendarSettings -> CalendarSettingsHost(
+      store = store,
+      commands = commands,
+      onOpenAppSettings = platformActions::openAppSettings,
+      onBack = { store.dispatch(CloseCalendarSettings) },
+    )
+    Route.CalendarReview -> CalendarReviewHost(
+      store = store,
+      commands = commands,
+      onBack = { store.dispatch(CloseCalendarReview) },
+      onOpenHub = { target ->
+        store.state.session.activeFamilyId?.let { familyId ->
+          commands.openHub(familyId, target.hubId, target.blockId)
+        }
+      },
+      onAddToHub = { row ->
+        if (!row.isRecurring) {
+          store.state.calendar.check.results.calendarOnly
+            .firstOrNull { it.platformEventId == row.platformEventId }
+            ?.let { observation ->
+              commands.startCalendarImport(observation)
+              commands.loadCalendarImportDestinations()
+              store.dispatch(OpenCalendarImport)
+            }
+        }
+      },
+      onOpenAppSettings = platformActions::openAppSettings,
+      onResumeImport = {
+        commands.loadCalendarImportDestinations()
+        store.dispatch(OpenCalendarImport)
+      },
+    )
+    Route.CalendarImport -> CalendarImportHost(
+      store = store,
+      commands = commands,
+      onClose = { store.dispatch(CloseCalendarImport) },
+      onOpenHub = { hubId ->
+        store.state.session.activeFamilyId?.let { familyId -> commands.openHub(familyId, hubId) }
+      },
+      onOpenAppSettings = platformActions::openAppSettings,
+    )
     Route.Devices -> {
       val state by store.selectorState(::devicesViewState)
       DevicesScreen(

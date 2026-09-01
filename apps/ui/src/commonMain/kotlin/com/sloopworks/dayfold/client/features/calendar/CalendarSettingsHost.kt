@@ -14,13 +14,10 @@ import com.sloopworks.dayfold.client.AppState
 import com.sloopworks.dayfold.client.CalendarNotificationOwner
 import com.sloopworks.dayfold.client.CalendarPermission
 import com.sloopworks.dayfold.client.DayfoldCommandPort
-import com.sloopworks.dayfold.client.cards.PlatformActions
 import org.reduxkotlin.compose.SelectorStore
 import org.reduxkotlin.compose.selectorState
 
-// WI-447 (ADR 0063) — wires the stateless screens/sheets in this package to the store + command
-// port. Not yet reachable from the app's route graph (ADR 0063 is still Proposed) — a later WI
-// adds the nav entry once the ADR is accepted; this Host is what that entry will call.
+// WI-447 (ADR 0063) — production Calendar Check settings/setup host.
 
 private enum class CalendarSetupStep { OFF, PRIMER, CHOOSER, DENIED, NO_CALENDARS }
 
@@ -28,20 +25,28 @@ private enum class CalendarSetupStep { OFF, PRIMER, CHOOSER, DENIED, NO_CALENDAR
 fun CalendarSettingsHost(
   store: SelectorStore<AppState>,
   commands: DayfoldCommandPort,
-  platformActions: PlatformActions,
+  onOpenAppSettings: () -> Unit,
   onBack: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val ui by store.selectorState(::calendarSettingsUiState)
 
-  if (ui.featureEnabled) {
+  // Re-read OS truth and the ephemeral device calendar list every time this route is entered.
+  // Persisted settings arrive independently through ContentBridge's device projection.
+  LaunchedEffect(Unit) { commands.startCalendarCheck() }
+  LaunchedEffect(ui.permission) {
+    if (ui.permission == CalendarPermission.Granted) commands.loadAvailableCalendars()
+  }
+
+  if (ui.featureEnabled && ui.permission == CalendarPermission.Granted && ui.selectedCalendarIds.isNotEmpty()) {
     CalendarSettingsOnHost(ui, store, commands, onBack, modifier)
     return
   }
 
-  var step by remember(ui.permission, ui.availableCalendars) {
+  var step by remember(ui.featureEnabled, ui.permission, ui.availableCalendars) {
     mutableStateOf(
       when {
+        ui.featureEnabled && ui.permission != CalendarPermission.Granted -> CalendarSetupStep.DENIED
         ui.permission == CalendarPermission.Denied || ui.permission == CalendarPermission.Restricted -> CalendarSetupStep.DENIED
         ui.permission == CalendarPermission.Granted && ui.availableCalendars.isEmpty() -> CalendarSetupStep.NO_CALENDARS
         else -> CalendarSetupStep.OFF
@@ -85,9 +90,7 @@ fun CalendarSettingsHost(
           onBack = { step = CalendarSetupStep.OFF },
           onToggle = { id -> selected = if (id in selected) selected - id else selected + id },
           onIncludeSelected = {
-            commands.setSelectedCalendars(selected)
-            commands.setCalendarEnabled(true)
-            commands.startCalendarCheck()
+            commands.enableCalendarCheck(selected)
           },
           modifier = modifier,
         )
@@ -95,8 +98,8 @@ fun CalendarSettingsHost(
     }
     CalendarSetupStep.DENIED -> CalendarDeniedScreen(
       onBack = onBack,
-      onOpenSettings = platformActions::openAppSettings,
-      onKeepOff = onBack,
+      onOpenSettings = onOpenAppSettings,
+      onKeepOff = { commands.setCalendarEnabled(false); onBack() },
       modifier = modifier,
     )
     CalendarSetupStep.NO_CALENDARS -> CalendarNoCalendarsScreen(
@@ -120,33 +123,36 @@ private fun CalendarSettingsOnHost(
   var turnOffOpen by remember { mutableStateOf(false) }
   var resetOpen by remember { mutableStateOf(false) }
 
+  if (changeCalendarsOpen) {
+    var selected by remember(changeCalendarsOpen) { mutableStateOf(ui.selectedCalendarIds) }
+    CalendarChooserScreen(
+      groups = groupCalendarsByAccount(ui.availableCalendars),
+      selectedIds = selected,
+      onBack = { changeCalendarsOpen = false },
+      onToggle = { id -> selected = if (id in selected) selected - id else selected + id },
+      onIncludeSelected = {
+        if (selected.isNotEmpty()) {
+          commands.setSelectedCalendars(selected)
+          changeCalendarsOpen = false
+        }
+      },
+      modifier = modifier,
+    )
+    return
+  }
+
   CalendarSettingsOnScreen(
     includedCalendars = ui.includedCalendars(),
     lastCheckLabel = ui.lastCheckAt ?: "Not yet",
     onBack = onBack,
     onToggleOff = { turnOffOpen = true },
     onChangeCalendars = { changeCalendarsOpen = true },
-    onEventTimeAlerts = {},
+    onEventTimeAlerts = null,
     onResetLocalMatches = { resetOpen = true },
     onTurnOff = { turnOffOpen = true },
     modifier = modifier,
   )
 
-  if (changeCalendarsOpen) {
-    val toRemove = ui.includedCalendars().firstOrNull()
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(onDismissRequest = { changeCalendarsOpen = false }, sheetState = sheetState) {
-      ChangeCalendarsSheetContent(
-        calendarName = toRemove?.displayName ?: "",
-        calendarColor = colorFromHex(toRemove?.color),
-        onKeepIt = { changeCalendarsOpen = false },
-        onStopIncluding = {
-          changeCalendarsOpen = false
-          toRemove?.let { commands.setSelectedCalendars(ui.selectedCalendarIds - it.id) }
-        },
-      )
-    }
-  }
   if (turnOffOpen) {
     val sheetState = rememberModalBottomSheetState()
     ModalBottomSheet(onDismissRequest = { turnOffOpen = false }, sheetState = sheetState) {

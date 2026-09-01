@@ -23,6 +23,8 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 private val RELATED_SER = ListSerializer(RelatedRef.serializer())
 private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 0043 — block triggers JSON list
@@ -102,6 +104,7 @@ class ContentStore(driver: SqlDriver) {
       changedHubs.forEach { h ->
         q.upsertHub(
           h.id, h.type, h.title, h.status, h.startAt, h.endAt, h.countdownTo, h.visibility, h.createdBy,
+          h.version,
           h.media?.let { json.encodeToString(HubMedia.serializer(), it) },     // ADR 0036
           h.timeline?.let { json.encodeToString(Timeline.serializer(), it) },  // ADR 0045
           nowIso,
@@ -185,7 +188,7 @@ class ContentStore(driver: SqlDriver) {
   private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(
     id = r.id, type = r.type, title = r.title, status = r.status ?: "active",
     startAt = r.start_at, endAt = r.end_at, countdownTo = r.countdown_to,
-    visibility = r.visibility ?: "family", createdBy = r.created_by,
+    visibility = r.visibility ?: "family", createdBy = r.created_by, version = r.version,
     media = decode(r.media, HubMedia.serializer()),       // ADR 0036
     timeline = decode(r.timeline, Timeline.serializer()), // ADR 0045
   )
@@ -404,13 +407,13 @@ class ContentStore(driver: SqlDriver) {
     }.toString()
   }
 
-  /** The next FIFO pending op, or null if the outbox is drained. */
+  /** The next FIFO pending op whose dependency is satisfied, or null if none is sendable. */
   fun nextPendingOp(): OutboxOp? = q.pendingOps().executeAsList().firstOrNull()?.let {
     it.toOutboxOp()
   }
 
   /**
-   * Atomically selects and marks the next FIFO operation inflight.
+   * Atomically selects and marks the next FIFO, dependency-ready operation inflight.
    *
    * Enqueue/coalescing uses the same process-safe writer gate, while the SQL transaction prevents
    * a selected row from being observed as pending between selection and claim.
@@ -485,7 +488,7 @@ class ContentStore(driver: SqlDriver) {
   }
 
   /** Diagnostic: count of still-pending ops (egress backlog). */
-  fun pendingOpCount(): Int = q.pendingOps().executeAsList().size
+  fun pendingOpCount(): Int = q.pendingOpCount().executeAsOne().toInt()
   /** Diagnostic: total outbox rows (pending + inflight + acked + failed). */
   fun outboxSize(): Long = q.outboxSize().executeAsOne()
   /** The optimistic-write flag on a block ('pending' | 'failed' | null = synced). */
@@ -702,9 +705,11 @@ class ContentStore(driver: SqlDriver) {
   /** A deselected calendar's matches return to review (ADR 0063 §1/§5). */
   fun deleteCalendarBindingsForCalendar(calendarId: String) = withWriteGate { q.deleteCalendarBindingsForCalendar(calendarId) }
 
+  fun deleteCalendarBindingForSubject(subjectKey: String) = withWriteGate { q.deleteCalendarBindingForSubject(subjectKey) }
+
   /** ADR 0063 §5 ResetLocalMatches review action — clears local match/ignore history. Feature-
    *  scoped (unlike wipe()'s sign-out/family-removal boundary): the family stays signed in. */
-  fun resetCalendarBindings() = withWriteGate { q.wipeCalendarBindings() }
+  fun resetCalendarBindings() = withWriteGate { q.resetCalendarCheckBindings() }
 
   // SQLDelight reuses the table's own generated row type here (both queries select exactly the
   // table's columns), so one mapper covers bySubjectKey + byRelation.
@@ -731,10 +736,124 @@ class ContentStore(driver: SqlDriver) {
     }
   }
 
+  /** spec §3.5 state 1 — atomically project the reviewed import into the ordinary content tables
+   * and enqueue its existing typed-op chain. The UI continues to read content tables only; the
+   * outbox remains an egress lane. */
+  fun applyCalendarImportOptimistically(
+    proposal: CalendarImportProposal,
+    destination: ImportDestination,
+    ids: ImportOpIds,
+    ops: List<MaterializedOp>,
+    existingSectionId: String?,
+    importerId: String?,
+    nowIso: String,
+  ) = withWriteGate {
+    q.transaction {
+      val hubId = when (destination) {
+        is ImportDestination.NewHub -> requireNotNull(ids.hubId)
+        is ImportDestination.ExistingHub -> destination.hubId
+      }
+      if (destination is ImportDestination.NewHub) {
+        q.upsertHub(
+          hubId, CALENDAR_IMPORT_HUB_TYPE, proposal.title, "active", proposal.start.wire,
+          proposal.end?.wire, null, destination.visibility.wire, importerId, null, null, null, nowIso,
+        )
+      }
+      val sectionId = existingSectionId ?: ids.sectionId
+      if (existingSectionId == null) {
+        q.upsertSection(sectionId, hubId, CALENDAR_IMPORT_SECTION_TITLE, 0L, nowIso)
+      }
+      val provenance = """{"source":"calendar","at":"$nowIso"}"""
+      var index = 0
+      fun putBlock(type: String, body: String?, payload: BlockPayload?, triggers: List<BlockTrigger>?) {
+        val blockId = ids.blockIds[index]
+        q.upsertBlock(
+          blockId, sectionId, type, body,
+          payload?.let { json.encodeToString(BlockPayload.serializer(), it) },
+          provenance, index.toLong(), nowIso, 1L, importerId,
+          triggers?.let { json.encodeToString(TRIGGERS_SER, it) },
+        )
+        q.setBlockLocalState("pending", blockId)
+        index++
+      }
+      putBlock(
+        type = "milestone",
+        body = null,
+        payload = BlockPayload(
+          label = proposal.title, date = proposal.start.wire,
+          end = proposal.end?.wire, tz = proposal.timezone,
+        ),
+        triggers = if (proposal.start is EventInstant.Timed) {
+          listOf(BlockTrigger(whenTrigger = TriggerWhen(at = proposal.start.wire)))
+        } else null,
+      )
+      proposal.location?.let { location ->
+        putBlock("location", null, BlockPayload(label = location.label, address = location.address), null)
+      }
+      proposal.description?.let { description -> putBlock("markdown", description, null, null) }
+
+      ops.forEach { op ->
+        q.deletePendingForTarget(op.targetId, op.type)
+        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso)
+      }
+    }
+  }
+
   /** The current outbox state for each of [opIds] — null when the row is absent (only Drop removes
    *  a row outright; Acked/Failed leave it in place for exactly this read, see Content.sq). */
   fun outboxOpStates(opIds: List<String>): Map<String, String?> =
     opIds.associateWith { q.outboxOpState(it).executeAsOneOrNull() }
+
+  fun calendarImportStatus(proposalId: String): String? =
+    q.calendarImportByProposalId(proposalId).executeAsOneOrNull()?.status
+
+  /** Acks one import op. When it is the terminal block, the final matched binding and durable
+   * saved status land in the SAME SQLite transaction as the ack (spec §3.6). */
+  fun ackCalendarImportOp(op: OutboxOp, resultVersion: Long?, nowIso: String) = withWriteGate {
+    val pending = q.unresolvedCalendarImports().executeAsList().firstOrNull { row ->
+      decode(row.block_ids_json, CALENDAR_IDS_SER)?.lastOrNull() == op.targetId
+    }
+    q.transaction {
+      q.markAcked(resultVersion, op.opId)
+      if (pending == null) return@transaction
+
+      val persisted = decode(pending.destination_json, PersistedImportDestination.serializer())
+      val destination = persisted?.destination
+      val hubId = pending.hub_id ?: (destination as? ImportDestination.ExistingHub)?.hubId
+      val blockIds = decode(pending.block_ids_json, CALENDAR_IDS_SER).orEmpty()
+      val milestoneId = blockIds.firstOrNull()
+      val provisionalKey = "calendarImport:${pending.proposal_id}"
+      val source = q.calendarBindingBySubjectKey(provisionalKey).executeAsOneOrNull()
+      val sectionId = runCatching {
+        json.parseToJsonElement(op.payload).jsonObject["sectionId"]?.jsonPrimitive?.content
+      }.getOrNull() ?: pending.section_id
+
+      if (source != null && hubId != null && milestoneId != null) {
+        q.deleteCalendarBindingForSubject(provisionalKey)
+        q.upsertCalendarBinding(
+          SubjectRef.node(hubId, sectionId, milestoneId), pending.proposal_id,
+          source.platform_event_id, source.calendar_id, source.fingerprint, nowIso,
+          CalendarRelation.MATCHED.wire, CalendarNotificationOwner.CALENDAR.wire, null,
+          source.created_at, nowIso,
+        )
+      }
+      q.upsertCalendarImport(
+        pending.proposal_id, pending.proposal_json, pending.destination_json, pending.hub_id,
+        pending.section_id, pending.block_ids_json, "saved", pending.created_at, nowIso,
+      )
+    }
+  }
+
+  /** Removes proposal-owned optimistic rows after a terminal role/destination rejection. */
+  fun rollbackCalendarImport(pending: PersistedCalendarImport) = withWriteGate {
+    q.transaction {
+      pending.ids.blockIds.forEach(q::deleteImportedBlockLocal)
+      q.deleteImportedSectionLocal(pending.ids.sectionId)
+      pending.ids.hubId?.let(q::deleteImportedHubLocal)
+      q.deleteCalendarBindingForSubject("calendarImport:${pending.proposal.proposalId}")
+      q.deleteCalendarImport(pending.proposal.proposalId)
+    }
+  }
 
   /** spec §3.1 cascade-drop: an op that reached Drop/Failed takes every op depending on it (directly
    *  or transitively) with it — nothing has left the device for a not-yet-sent dependent, so this is
@@ -772,6 +891,28 @@ class ContentStore(driver: SqlDriver) {
     )
   }
 
+  fun upsertCalendarImport(
+    proposal: CalendarImportProposal,
+    destination: ImportDestination,
+    ids: ImportOpIds,
+    audienceIds: Set<String>,
+    hubVersion: Long? = null,
+    status: String,
+    nowIso: String,
+  ) = upsertCalendarImport(
+    proposalId = proposal.proposalId,
+    proposalJson = json.encodeToString(CalendarImportProposal.serializer(), proposal),
+    destinationJson = json.encodeToString(
+      PersistedImportDestination.serializer(),
+      PersistedImportDestination(destination, audienceIds, hubVersion),
+    ),
+    hubId = ids.hubId,
+    sectionId = ids.sectionId,
+    blockIds = ids.blockIds,
+    status = status,
+    nowIso = nowIso,
+  )
+
   fun setCalendarImportStatus(proposalId: String, status: String, nowIso: String) = withWriteGate {
     val row = q.calendarImportByProposalId(proposalId).executeAsOneOrNull() ?: return@withWriteGate
     q.upsertCalendarImport(
@@ -786,6 +927,21 @@ class ContentStore(driver: SqlDriver) {
   fun calendarImportIds(proposalId: String): ImportOpIds? =
     q.calendarImportByProposalId(proposalId).executeAsOneOrNull()?.let { row ->
       ImportOpIds(row.hub_id, row.section_id, decode(row.block_ids_json, CALENDAR_IDS_SER) ?: emptyList())
+    }
+
+  fun unresolvedCalendarImports(): List<PersistedCalendarImport> =
+    q.unresolvedCalendarImports().executeAsList().mapNotNull { row ->
+      val proposal = decode(row.proposal_json, CalendarImportProposal.serializer()) ?: return@mapNotNull null
+      val persistedDestination = decode(row.destination_json, PersistedImportDestination.serializer()) ?: return@mapNotNull null
+      val ids = ImportOpIds(
+        row.hub_id,
+        row.section_id,
+        decode(row.block_ids_json, CALENDAR_IDS_SER) ?: return@mapNotNull null,
+      )
+      PersistedCalendarImport(
+        proposal, persistedDestination.destination, ids, row.status,
+        persistedDestination.audienceIds, persistedDestination.hubVersion,
+      )
     }
 
   /** spec §3.1 OD-6 — the existing-Hub import path's section-reuse lookup. */
@@ -803,6 +959,201 @@ class ContentStore(driver: SqlDriver) {
 
   fun setCalendarSettings(s: CalendarSettings) = withWriteGate {
     q.setCalendarSettings(if (s.featureEnabled) 1L else 0L, json.encodeToString(CALENDAR_IDS_SER, s.selectedCalendarIds.toList()), s.lastCheckAt)
+  }
+
+  /** Applies one member-reviewed Calendar value to its typed Dayfold source and enqueues the
+   * ordinary authenticated PUT atomically. Unsupported representations return false and leave
+   * both content and outbox untouched. */
+  fun applyCalendarFieldValue(
+    candidate: DayfoldEventCandidate,
+    observation: CalendarEventObservation,
+    field: String,
+    nowIso: String,
+    opId: String,
+  ): Boolean = withWriteGate {
+    val cardId = (candidate.source as? CalendarCandidateSource.Card)?.id
+      ?: if (candidate.source == null) SubjectRef.cardIdOf(candidate.subjectKey) else null
+    val blockId = (candidate.source as? CalendarCandidateSource.Block)?.id
+      ?: if (candidate.source == null) SubjectRef.blockIdOf(candidate.subjectKey) else null
+    val hubId = (candidate.source as? CalendarCandidateSource.Hub)?.id
+      ?: if (candidate.source == null) SubjectRef.hubIdOf(candidate.subjectKey) else null
+
+    when {
+      cardId != null -> {
+        val card = activeCards().firstOrNull { it.id == cardId } ?: return@withWriteGate false
+        val updated = when (field) {
+          "title" -> card.copy(title = observation.title)
+          "start" -> card.copy(triggers = card.triggers.withCalendarStart(observation.startAt))
+          "location" -> {
+            val location = observation.location ?: return@withWriteGate false
+            val geo = card.payload?.geo ?: return@withWriteGate false
+            card.copy(payload = card.payload.copy(geo = geo.copy(
+              label = location.label, address = location.address, lat = null, lng = null,
+            )))
+          }
+          else -> return@withWriteGate false
+        }
+        val body = calendarCardPutBody(updated, nowIso)
+        q.transaction {
+          q.upsertCard(
+            updated.id, updated.kind, updated.title, updated.bodyMd, updated.provenance?.source,
+            updated.notBefore, updated.expiresAt, updated.importance, updated.type,
+            updated.payload?.let { json.encodeToString(Payload.serializer(), it) },
+            updated.privacy?.let { json.encodeToString(CardPrivacy.serializer(), it) },
+            updated.hubRef, updated.targetHubId, updated.targetSectionId, updated.targetBlockId,
+            updated.related?.let { json.encodeToString(RELATED_SER, it) }, updated.relatedKicker,
+            updated.media?.let { json.encodeToString(CardMedia.serializer(), it) },
+            updated.triggers?.let { json.encodeToString(TRIGGERS_SER, it) }, nowIso,
+          )
+          q.deletePendingForTarget(cardId, "calendarField")
+          q.enqueueOp(opId, "card", cardId, "calendarField", body, null, null, nowIso)
+        }
+        true
+      }
+
+      blockId != null -> {
+        val block = allBlocks().firstOrNull { it.id == blockId } ?: return@withWriteGate false
+        val sectionId = block.sectionId ?: return@withWriteGate false
+        val updated = when (field) {
+          "title" -> {
+            if (block.type !in setOf("milestone", "location", "link", "document")) return@withWriteGate false
+            block.copy(payload = (block.payload ?: BlockPayload()).copy(label = observation.title))
+          }
+          "start" -> if (block.type == "milestone") {
+            block.copy(
+              payload = (block.payload ?: BlockPayload()).copy(
+                date = observation.startAt,
+                tz = observation.timezone,
+              ),
+              triggers = if (observation.allDay) block.triggers else block.triggers.withCalendarStart(observation.startAt),
+            )
+          } else {
+            block.copy(triggers = block.triggers.withCalendarStart(observation.startAt))
+          }
+          "end" -> {
+            if (block.type != "milestone") return@withWriteGate false
+            block.copy(payload = (block.payload ?: BlockPayload()).copy(end = observation.endAt))
+          }
+          "location" -> {
+            if (block.type != "location") return@withWriteGate false
+            val location = observation.location ?: return@withWriteGate false
+            block.copy(payload = (block.payload ?: BlockPayload()).copy(
+              label = location.label ?: block.payload?.label,
+              address = location.address,
+              lat = null,
+              lng = null,
+            ))
+          }
+          else -> return@withWriteGate false
+        }
+        val payloadJson = updated.payload?.let { json.encodeToString(BlockPayload.serializer(), it) }
+        val triggerJson = updated.triggers?.let { json.encodeToString(TRIGGERS_SER, it) }
+        val body = calendarBlockPutBody(updated, nowIso)
+        q.transaction {
+          q.upsertBlock(
+            updated.id, sectionId, updated.type, updated.bodyMd,
+            payloadJson, updated.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
+            updated.ord, nowIso, updated.version, updated.createdBy, triggerJson,
+          )
+          q.setBlockLocalState("pending", blockId)
+          q.deletePendingForTarget(blockId, "calendarField")
+          q.enqueueOp(opId, "block", blockId, "calendarField", body, updated.version, null, nowIso)
+        }
+        true
+      }
+
+      hubId != null -> {
+        // A section-only subject is not emitted by the calendar candidate projection.
+        if (SubjectRef.sectionIdOf(candidate.subjectKey) != null) return@withWriteGate false
+        val hub = activeHubs().firstOrNull { it.id == hubId } ?: return@withWriteGate false
+        if (hub.type == null) return@withWriteGate false
+        val updated = when (field) {
+          "title" -> hub.copy(title = observation.title)
+          "start" -> hub.copy(startAt = observation.startAt)
+          "end" -> hub.copy(endAt = observation.endAt)
+          else -> return@withWriteGate false
+        }
+        val body = calendarHubPutBody(updated)
+        q.transaction {
+          q.upsertHub(
+            updated.id, updated.type, updated.title, updated.status, updated.startAt, updated.endAt,
+            updated.countdownTo, updated.visibility, updated.createdBy, updated.version,
+            updated.media?.let { json.encodeToString(HubMedia.serializer(), it) },
+            updated.timeline?.let { json.encodeToString(Timeline.serializer(), it) }, nowIso,
+          )
+          q.deletePendingForTarget(hubId, "calendarField")
+          q.enqueueOp(opId, "hub", hubId, "calendarField", body, null, null, nowIso)
+        }
+        true
+      }
+
+      else -> false
+    }
+  }
+
+  private fun List<BlockTrigger>?.withCalendarStart(startAt: String): List<BlockTrigger> {
+    val current = orEmpty()
+    var replaced = false
+    val next = current.map { trigger ->
+      if (!replaced && trigger.whenTrigger?.at != null) {
+        replaced = true
+        trigger.copy(whenTrigger = trigger.whenTrigger.copy(at = startAt))
+      } else trigger
+    }
+    return if (replaced) next else next + BlockTrigger(whenTrigger = TriggerWhen(at = startAt))
+  }
+
+  private fun calendarHubPutBody(hub: Hub): String = kotlinx.serialization.json.buildJsonObject {
+    put("type", kotlinx.serialization.json.JsonPrimitive(requireNotNull(hub.type)))
+    put("title", kotlinx.serialization.json.JsonPrimitive(hub.title))
+    put("status", kotlinx.serialization.json.JsonPrimitive(hub.status))
+    hub.startAt?.let { put("start_at", kotlinx.serialization.json.JsonPrimitive(it)) }
+    hub.endAt?.let { put("end_at", kotlinx.serialization.json.JsonPrimitive(it)) }
+    hub.countdownTo?.let { put("countdown_to", kotlinx.serialization.json.JsonPrimitive(it)) }
+    hub.media?.let { put("media", json.encodeToJsonElement(HubMedia.serializer(), it)) }
+    hub.timeline?.let { put("timeline", json.encodeToJsonElement(Timeline.serializer(), it)) }
+  }.toString()
+
+  private fun calendarBlockPutBody(block: HubBlock, nowIso: String): String =
+    kotlinx.serialization.json.buildJsonObject {
+      put("sectionId", kotlinx.serialization.json.JsonPrimitive(requireNotNull(block.sectionId)))
+      put("type", kotlinx.serialization.json.JsonPrimitive(block.type))
+      put("ord", kotlinx.serialization.json.JsonPrimitive(block.ord))
+      block.bodyMd?.let { put("body_md", kotlinx.serialization.json.JsonPrimitive(it)) }
+      block.payload?.let { put("payload", json.encodeToJsonElement(BlockPayload.serializer(), it)) }
+      block.triggers?.let { put("triggers", json.encodeToJsonElement(TRIGGERS_SER, it)) }
+      put("provenance", calendarMemberProvenance(nowIso))
+    }.toString()
+
+  private fun calendarCardPutBody(card: Card, nowIso: String): String =
+    kotlinx.serialization.json.buildJsonObject {
+      put("kind", kotlinx.serialization.json.JsonPrimitive(card.kind))
+      put("title", kotlinx.serialization.json.JsonPrimitive(card.title))
+      card.bodyMd?.let { put("body_md", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.notBefore?.let { put("not_before", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.expiresAt?.let { put("expires_at", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.importance?.let { put("importance", kotlinx.serialization.json.JsonPrimitive(it)) }
+      if (card.targetHubId != null || card.targetSectionId != null || card.targetBlockId != null) {
+        put("target", kotlinx.serialization.json.buildJsonObject {
+          card.targetHubId?.let { put("hubId", kotlinx.serialization.json.JsonPrimitive(it)) }
+          card.targetSectionId?.let { put("sectionId", kotlinx.serialization.json.JsonPrimitive(it)) }
+          card.targetBlockId?.let { put("blockId", kotlinx.serialization.json.JsonPrimitive(it)) }
+        })
+      }
+      card.triggers?.let { put("triggers", json.encodeToJsonElement(TRIGGERS_SER, it)) }
+      card.type?.let { put("type", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.payload?.let { put("payload", json.encodeToJsonElement(Payload.serializer(), it)) }
+      card.media?.let { put("media", json.encodeToJsonElement(CardMedia.serializer(), it)) }
+      card.hubRef?.let { put("hubRef", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.relatedKicker?.let { put("relatedKicker", kotlinx.serialization.json.JsonPrimitive(it)) }
+      card.related?.let { put("related", json.encodeToJsonElement(RELATED_SER, it)) }
+      card.privacy?.let { put("privacy", json.encodeToJsonElement(CardPrivacy.serializer(), it)) }
+      put("provenance", calendarMemberProvenance(nowIso))
+    }.toString()
+
+  private fun calendarMemberProvenance(nowIso: String) = kotlinx.serialization.json.buildJsonObject {
+    put("source", kotlinx.serialization.json.JsonPrimitive("member"))
+    put("at", kotlinx.serialization.json.JsonPrimitive(nowIso))
   }
 
   private fun com.sloopworks.dayfold.client.db.CalendarSettingsRow.toCalendarSettings() = CalendarSettings(

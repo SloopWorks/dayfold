@@ -92,7 +92,7 @@ data class EventEditorIntentSpec(
 // reading the calendar entry, not a functioning in-app deep link until a later WI adds that route.
 private const val DAYFOLD_WEB_HOST = "https://family-ai-dashboard.vercel.app"
 
-private fun eventEditorDescription(deepLink: DeepLinkTarget?): String {
+internal fun eventEditorDescription(deepLink: DeepLinkTarget?): String {
   val note = "Added from Dayfold."
   return if (deepLink == null) note else "$note\nDetails: $DAYFOLD_WEB_HOST/h/${deepLink.hubId}"
 }
@@ -109,8 +109,12 @@ private fun locationExtraText(location: CandidateLocation?): String? = when {
  *  extra (ADR 0063 §1/§2 — saving with attendees can send invitations, an external action this
  *  seam has no authority for; the destination calendar's own reminder defaults stay authoritative). */
 fun eventEditorIntentSpec(prefill: EventPrefill): EventEditorIntentSpec {
-  val startMillis = parseInstantFlexible(prefill.startAt, TimeZone.of(prefill.timezone))?.toEpochMilliseconds()
-  val endMillis = prefill.endAt?.let { parseInstantFlexible(it, TimeZone.of(prefill.timezone))?.toEpochMilliseconds() }
+  // CalendarContract represents all-day boundaries as UTC midnight regardless of the device
+  // zone. Parsing a bare date in America/Los_Angeles, for example, would shift the provider row
+  // by eight hours and can display the previous/next day in another calendar client.
+  val parseZone = if (prefill.allDay) TimeZone.UTC else TimeZone.of(prefill.timezone)
+  val startMillis = parseInstantFlexible(prefill.startAt, parseZone)?.toEpochMilliseconds()
+  val endMillis = prefill.endAt?.let { parseInstantFlexible(it, parseZone)?.toEpochMilliseconds() }
   val extras = buildMap<String, Any> {
     put("title", prefill.title)
     startMillis?.let { put("beginTime", it) }

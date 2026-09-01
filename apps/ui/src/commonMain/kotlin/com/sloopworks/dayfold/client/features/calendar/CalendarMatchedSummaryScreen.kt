@@ -58,6 +58,7 @@ fun CalendarMatchedSummaryScreen(
   onBack: () -> Unit,
   onOpenInCalendar: () -> Unit,
   onUnlink: () -> Unit,
+  onAlertSettings: () -> Unit = {},
   checklistTitle: String? = null,
   checklistItems: List<MatchedChecklistItem> = emptyList(),
   modifier: Modifier = Modifier,
@@ -119,7 +120,10 @@ fun CalendarMatchedSummaryScreen(
       }
       Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
         Icon(Icons.Filled.NotificationsNone, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(16.dp))
-        Text("Calendar handles the \"starts soon\" alert.", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        Column {
+          Text("Calendar handles the \"starts soon\" alert.", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          TextButton(onClick = onAlertSettings) { Text("Change for this match") }
+        }
       }
       if (checklistTitle != null && checklistItems.isNotEmpty()) {
         Spacer(Modifier.size(4.dp))

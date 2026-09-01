@@ -192,6 +192,16 @@ class CalendarReconcilerTest {
     assertTrue(result.autoBindings.none { it.subjectKey == "hub:h1" })
   }
 
+  @Test fun `an all-day event strict-matches across provider timezone representations`() {
+    val c = candidate(startAt = "2026-08-12", endAt = "2026-08-13", allDay = true, timezone = "America/Los_Angeles")
+    val obs = observation(startAt = "2026-08-12", endAt = "2026-08-13", allDay = true, timezone = "UTC")
+    val result = CalendarReconciler.reconcile(listOf(c), listOf(obs), emptyList(), now)
+
+    assertEquals("evt-1", result.autoBindings.single().platformEventId)
+    assertTrue(result.dayfoldOnly.isEmpty())
+    assertTrue(result.calendarOnly.isEmpty())
+  }
+
   // ── horizon ──────────────────────────────────────────────────────────────────
 
   @Test fun `horizon excludes a candidate at day 15 and includes one at day 13`() {
@@ -205,6 +215,24 @@ class CalendarReconcilerTest {
     val onCutoff = candidate(subjectKey = "hub:h14", startAt = "2026-08-23T12:00:00Z") // now + 14d exactly
     val kept = candidatesInHorizon(listOf(onCutoff), now, CALENDAR_CHECK_HORIZON_DAYS, TimeZone.UTC)
     assertEquals(listOf("hub:h14"), kept.map { it.subjectKey })
+  }
+
+  @Test fun `horizon excludes finished historical candidates but keeps an event in progress`() {
+    val stale = candidate(subjectKey = "hub:old", startAt = "2026-08-08T09:00:00Z")
+    val ongoing = candidate(
+      subjectKey = "hub:ongoing",
+      startAt = "2026-08-09T11:00:00Z",
+      endAt = "2026-08-09T13:00:00Z",
+    )
+    val kept = candidatesInHorizon(listOf(stale, ongoing), now, CALENDAR_CHECK_HORIZON_DAYS, TimeZone.UTC)
+    assertEquals(listOf("hub:ongoing"), kept.map { it.subjectKey })
+  }
+
+  @Test fun `horizon keeps todays all-day candidate and excludes a prior day`() {
+    val today = candidate(subjectKey = "hub:today", startAt = "2026-08-09", allDay = true)
+    val yesterday = candidate(subjectKey = "hub:yesterday", startAt = "2026-08-08", allDay = true)
+    val kept = candidatesInHorizon(listOf(today, yesterday), now, CALENDAR_CHECK_HORIZON_DAYS, TimeZone.UTC)
+    assertEquals(listOf("hub:today"), kept.map { it.subjectKey })
   }
 
   // ── determinism / purity ────────────────────────────────────────────────────────

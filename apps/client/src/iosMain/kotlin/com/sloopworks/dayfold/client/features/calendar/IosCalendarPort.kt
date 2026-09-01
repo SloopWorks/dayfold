@@ -8,10 +8,12 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.toKotlinInstant
 import kotlinx.datetime.toNSDate
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import platform.EventKit.*
 import platform.EventKitUI.*
 import platform.Foundation.*
@@ -37,8 +39,10 @@ class IosCalendarPort : CalendarPort {
 
   // iOS 17+ only (ADR 0063 §1) — the primer copy already says "where supported"; pre-17 devices
   // never reach this because the primer's Continue is the only caller (WI-447).
-  override fun requestPermission() {
-    store.requestFullAccessToEventsWithCompletion { _, _ -> }
+  override fun requestPermission() { requestPermission {} }
+
+  override fun requestPermission(onResult: (CalendarPermission) -> Unit) {
+    store.requestFullAccessToEventsWithCompletion { _, _ -> onResult(permissionState()) }
   }
 
   override suspend fun listCalendars(): List<DeviceCalendar> = withContext(Dispatchers.Default) {
@@ -68,17 +72,22 @@ class IosCalendarPort : CalendarPort {
         val event = any as EKEvent
         val eventId = event.eventIdentifier ?: return@mapNotNull null
         val calendarId = event.calendar?.calendarIdentifier ?: return@mapNotNull null
-        val startAt = event.startDate?.toKotlinInstant()?.toString() ?: return@mapNotNull null
+        val eventZone = event.timeZone?.name
+          ?.let { runCatching { TimeZone.of(it) }.getOrNull() }
+          ?: TimeZone.currentSystemDefault()
+        val startInstant = event.startDate?.toKotlinInstant() ?: return@mapNotNull null
+        val endInstant = event.endDate?.toKotlinInstant()
         CalendarEventObservation(
           platformEventId = eventId,
           calendarId = calendarId,
           title = event.title ?: "",
-          startAt = startAt,
-          endAt = event.endDate?.toKotlinInstant()?.toString(),
+          startAt = if (event.allDay) startInstant.toLocalDateTime(eventZone).date.toString() else startInstant.toString(),
+          endAt = endInstant?.let { if (event.allDay) it.toLocalDateTime(eventZone).date.toString() else it.toString() },
           allDay = event.allDay,
-          timezone = event.timeZone?.name ?: TimeZone.currentSystemDefault().id,
+          timezone = if (event.allDay) eventZone.id else (event.timeZone?.name ?: eventZone.id),
           location = calendarLocationFromTitle(event.structuredLocation?.title),
           isRecurring = event.hasRecurrenceRules,
+          recurrenceId = if (event.hasRecurrenceRules) event.calendarItemIdentifier else null,
         )
       }
     }
@@ -91,16 +100,27 @@ class IosCalendarPort : CalendarPort {
       return
     }
 
+    val zone = runCatching { TimeZone.of(prefill.timezone) }.getOrElse { TimeZone.currentSystemDefault() }
+    val start = parseInstantFlexible(prefill.startAt, zone)
+    if (start == null) {
+      onResult(CalendarEditorOutcome.CANCELED)
+      return
+    }
+    // EventKit requires an end. Match calendar-app defaults when Dayfold has only a start:
+    // one whole date for all-day events, one hour for timed events; the native editor remains
+    // authoritative and lets the member change either before saving.
+    val end = prefill.endAt?.let { parseInstantFlexible(it, zone) }
+      ?: start + if (prefill.allDay) 1.days else 1.hours
     val event = EKEvent.eventWithEventStore(store)
     event.title = prefill.title
-    event.startDate = Instant.parse(prefill.startAt).toNSDate()
-    event.endDate = (prefill.endAt?.let { Instant.parse(it) } ?: Instant.parse(prefill.startAt)).toNSDate()
+    event.startDate = start.toNSDate()
+    event.endDate = end.toNSDate()
     event.allDay = prefill.allDay
     event.timeZone = NSTimeZone.timeZoneWithName(prefill.timezone)
     (prefill.location?.label ?: prefill.location?.address)?.let { label ->
       event.structuredLocation = EKStructuredLocation.locationWithTitle(label)
     }
-    prefill.notes?.let { event.notes = it }
+    event.notes = prefill.notes ?: eventEditorDescription(prefill.deepLink)
     // Deliberately never set: attendees, alarms (ADR 0063 §2 — saving with attendees can send
     // invitations, an external action outside this seam's authority; the destination calendar's
     // reminder defaults stay authoritative). event.calendar is also left unset so the editor's own
@@ -114,6 +134,25 @@ class IosCalendarPort : CalendarPort {
     editController.editViewDelegate = delegate
     presenter.presentViewController(editController, animated = true, completion = null)
   }
+
+  override suspend fun openEvent(platformEventId: String) {
+    val event = withContext(Dispatchers.Default) { store.eventWithIdentifier(platformEventId) } ?: return
+    withContext(Dispatchers.Main) {
+      val presenter = topViewController() ?: return@withContext
+      val editController = EKEventEditViewController()
+      editController.event = event
+      editController.eventStore = store
+      val delegate = EditDelegate {}
+      activeDelegates += delegate
+      editController.editViewDelegate = delegate
+      presenter.presentViewController(editController, animated = true, completion = null)
+    }
+  }
+
+  override suspend fun readEventDescription(platformEventId: String): String? =
+    withContext(Dispatchers.Default) {
+      store.eventWithIdentifier(platformEventId)?.notes?.trim()?.takeIf(String::isNotEmpty)
+    }
 
   private inner class EditDelegate(
     private val onResult: (CalendarEditorOutcome) -> Unit,

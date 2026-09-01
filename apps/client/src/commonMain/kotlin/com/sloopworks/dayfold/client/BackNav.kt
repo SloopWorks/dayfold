@@ -26,7 +26,15 @@ fun backAction(state: AppState): Action? {
     }
     Route.Account -> CloseAccount
     Route.SmartBriefings -> error("handled before route dispatch")
-    Route.Members, Route.Devices, Route.Proximity, Route.SmartContent -> OpenAccount
+    Route.Members, Route.Devices, Route.Proximity, Route.SmartContent, Route.CalendarSettings -> OpenAccount
+    Route.CalendarReview -> CloseCalendarReview
+    Route.CalendarImport -> when (state.calendar.importState) {
+      is ImportProposalState.PreviewingFields,
+      is ImportProposalState.ChoosingAudience,
+      is ImportProposalState.Confirming,
+      is ImportProposalState.RoleDenied -> BackImportStep
+      else -> CloseCalendarImport
+    }
     Route.Invite -> InviteDismissed                             // back → Members, clears the shown token
     Route.AuthorizeDevice, Route.EnterCode, Route.ScanPrimer, Route.ScanDevice, Route.ScanDenied -> CloseDeviceFlow
     Route.JoinInvite -> JoinDismissed

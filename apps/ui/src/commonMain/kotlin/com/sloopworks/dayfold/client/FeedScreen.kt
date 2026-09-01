@@ -35,7 +35,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +66,9 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
   // ADR 0043 Phase A — the merged Now feed: derive(...) ∪ authored, ranked by the one on-device
   // engine. Clock + location injected at render time (mirrors feedCards). Phase A is foreground +
   // no new permission → location defaults null (geo inactive) until a future opt-in supplies it.
-  // now/timeZone default to the live clock; snapshot renders pin them so goldens are date-stable.
+  // Production's ContentHost supplies a minute-sampled clock; direct tests/snapshots pin [now].
+  // That keeps this renderer pure while allowing the visible route's header, trigger windows,
+  // grace period, and ranking to advance without an unrelated Redux update.
   // Ranking is intentionally memoized here rather than run in selectorState: selectors execute
   // on every store notification, including unrelated features. The ranker remains a pure function.
   val rankingState = remember(state.cards, state.hubs, state.nowContent, state.surfacing) {
@@ -188,6 +193,26 @@ fun FeedScreen(state: FeedViewState, onAction: (CardAction) -> Unit = {}, onOpen
   state.responseReceipt?.let { receipt ->
     ResponseReceiptBar(receipt, onUndo = onUndoResponse, onDismiss = onDismissReceipt)
   }
+}
+
+// The Now projection is clock-dependent but the Redux store does not emit clock actions. Keep the
+// time source local to the active composition: the coroutine stops automatically when the user
+// leaves the route, and a pinned test/snapshot clock disables sampling entirely.
+@Composable
+internal fun rememberNowClock(
+  enabled: Boolean,
+  nowProvider: () -> kotlin.time.Instant = { kotlin.time.Clock.System.now() },
+  tickMillis: Long = 60_000L,
+): kotlin.time.Instant {
+  var current by remember { mutableStateOf(nowProvider()) }
+  LaunchedEffect(enabled, tickMillis) {
+    if (!enabled) return@LaunchedEffect
+    while (true) {
+      kotlinx.coroutines.delay(tickMillis.coerceAtLeast(1L))
+      current = nowProvider()
+    }
+  }
+  return current
 }
 
 /**

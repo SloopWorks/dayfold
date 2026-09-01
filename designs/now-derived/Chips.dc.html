@@ -98,7 +98,7 @@ class Component extends DCLogic {
             { ...chip('emph', 'hourglass_top', '12 days'), kind: 'countdown', note: 'Emphasized relative time, recomputed from the clock each render — never stale.' },
             { ...chip('derived', 'flag', 'Move-in · Aug 24'), kind: 'milestone', note: 'A dated hub milestone approaching. The date is the hub’s; the "in N days" is computed.' },
             { ...chip('geo', '', "You're near Safeway", { dot: true }), kind: 'geo-proximity', note: 'Fires only while you are physically near a saved place. Carries the privacy promise.' },
-            { ...chip('derived', 'schedule', 'Pickup at 3:00'), kind: 'time-window (when)', note: 'A time window from hub metadata; surfaces as it opens, retires once it passes.' },
+            { ...chip('derived', 'schedule', 'Pickup at 3:00 PM'), kind: 'time-window (when)', note: 'A time window from hub metadata; surfaces up to 2 hours before and remains for a 2-hour grace period after the event time.' },
           ]},
           { label: 'Authored · provenance (where it came from)', labelColor: c.tertiary, rows: [
             { ...chip('prov', 'auto_awesome', 'Added by Claude'), kind: 'claude', note: 'Claude wrote this because no on-device rule could compute it.' },

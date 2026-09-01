@@ -44,6 +44,15 @@ class CalendarImportSenderTest {
     })
     engine(cs, sc).syncNow()
 
+    assertEquals(
+      listOf(
+        "/families/fam1/hubs/hub-1",
+        "/families/fam1/sections/sec-1",
+        "/families/fam1/blocks/blk-1",
+      ),
+      seenPaths.filterNot { it.endsWith("/sync") },
+      "depends_on must win over the deliberately adversarial op-id sort order",
+    )
     assertTrue(seenPaths.contains("/families/fam1/hubs/hub-1"), "hub op did not PUT the hub route: $seenPaths")
     assertTrue(seenPaths.contains("/families/fam1/sections/sec-1"), "section op did not PUT the section route: $seenPaths")
     assertTrue(seenPaths.contains("/families/fam1/blocks/blk-1"), "block op did not PUT the block route: $seenPaths")
@@ -54,10 +63,10 @@ class CalendarImportSenderTest {
   @Test fun `a 403 on the hub op cascade-drops the section and block ops — no half-written import`() = runBlocking<Unit> {
     val cs = freshStore()
     cs.enqueueImportOps(ops(), "2026-08-09T10:00:00Z")
-    var hubAttempted = false
+    val attemptedPaths = mutableListOf<String>()
     val sc = syncClient(MockEngine { req ->
+      attemptedPaths += req.url.encodedPath
       if (req.url.encodedPath == "/families/fam1/hubs/hub-1") {
-        hubAttempted = true
         respond("""{"type":"forbidden"}""", HttpStatusCode.Forbidden)
       } else {
         // The cascade-drop must remove the section/block ops BEFORE the sender ever reaches them —
@@ -67,21 +76,21 @@ class CalendarImportSenderTest {
     })
     engine(cs, sc).syncNow()
 
-    assertTrue(hubAttempted)
+    assertEquals(listOf("/families/fam1/hubs/hub-1"), attemptedPaths.filterNot { it.endsWith("/sync") })
     assertEquals(0, cs.pendingOpCount())
     assertEquals(0L, cs.outboxSize())   // hub Dropped + section/block cascade-dropped — nothing left at all
     val states = cs.outboxOpStates(listOf("op-hub", "op-sec", "op-blk"))
     assertNull(states["op-hub"]); assertNull(states["op-sec"]); assertNull(states["op-blk"])
   }
 
-  @Test fun `cascadeDropDependents walks a multi-level chain (hub to section to two blocks)`() {
+  @Test fun `cascadeDropDependents walks the full linear chain from hub through two blocks`() {
     val cs = freshStore()
     cs.enqueueImportOps(
       listOf(
         MaterializedOp("op-hub", "hub", "hub-1", "upsertHub", "{}", null),
         MaterializedOp("op-sec", "section", "sec-1", "upsertSection", "{}", "op-hub"),
         MaterializedOp("op-blk1", "block", "blk-1", "upsertBlock", "{}", "op-sec"),
-        MaterializedOp("op-blk2", "block", "blk-2", "upsertBlock", "{}", "op-sec"),
+        MaterializedOp("op-blk2", "block", "blk-2", "upsertBlock", "{}", "op-blk1"),
       ),
       "2026-08-09T10:00:00Z",
     )

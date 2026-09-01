@@ -54,6 +54,7 @@ class CalendarCheckEngineTest {
     // that goes through the fire-and-forget `startCheck()` path join the pass it launches instead
     // of racing it — see the SAVED-outcome test below.
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    requestSync: () -> Unit = {},
   ) {
     val contentStore = ContentStore.create(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY))
     val store = createTestAppStore(initial, debug = false)
@@ -64,20 +65,21 @@ class CalendarCheckEngineTest {
       scope = scope,
       nowProvider = { nowIso },
       zoneProvider = { TimeZone.UTC },
+      requestSync = requestSync,
     )
   }
 
   private fun seedHub(store: ContentStore, id: String, title: String, startAt: String) {
-    store.applyDelta(emptyList(), listOf(Hub(id, title = title, startAt = startAt)), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-08-01T00:00:00Z")
+    store.applyDelta(emptyList(), listOf(Hub(id, type = "event", title = title, startAt = startAt)), tombstones = emptyList(), nextCursor = "c1", nowIso = "2026-08-01T00:00:00Z")
   }
 
   // ── happy path: derive → observe → reconcile → persist auto-bindings → dispatch ──
 
   @Test fun `a granted pass derives candidates, reconciles, persists auto-bindings, and publishes results`() = runBlocking {
-    val obs = CalendarEventObservation("evt-1", "cal-a", "Ski trip", "2026-07-10T09:00:00Z", null, false, "UTC", null, false, null)
+    val obs = CalendarEventObservation("evt-1", "cal-a", "Ski trip", "2026-08-10T09:00:00Z", null, false, "UTC", null, false, null)
     val port = FakeCalendarPort(observations = listOf(obs))
     val h = Harness(port)
-    seedHub(h.contentStore, "h1", "Ski trip", "2026-07-10T09:00:00Z")
+    seedHub(h.contentStore, "h1", "Ski trip", "2026-08-10T09:00:00Z")
     h.contentStore.setCalendarSettings(CalendarSettings(featureEnabled = true, selectedCalendarIds = setOf("cal-a")))
 
     h.engine.runCheck()
@@ -175,6 +177,73 @@ class CalendarCheckEngineTest {
     assertEquals("evt-1", bound?.platformEventId)
     assertEquals(CalendarRelation.MATCHED, bound?.relation)
     assertTrue(h.store.state.calendar.check.results.suggested.isEmpty())
+  }
+
+  @Test fun `keep Dayfold field choice is durable for the exact compared versions`() = runBlocking {
+    val candidate = DayfoldEventCandidate(
+      "hub:h1", "Dentist", "2026-08-20T09:00:00Z", null, false, "UTC", null, "source-v1", null,
+    )
+    val observation = CalendarEventObservation(
+      "evt-1", "cal-a", "Dentist appointment", "2026-08-20T09:00:00Z", null,
+      false, "UTC", null, false, null,
+    )
+    val differ = DetailsDiffer("hub:h1", candidate, observation, diffFields(candidate, observation))
+    val h = Harness(
+      FakeCalendarPort(),
+      AppState(calendar = CalendarState(check = CalendarCheckState(results = ReconcileResult(differs = listOf(differ))))),
+    )
+    h.contentStore.upsertCalendarBinding(
+      CalendarBinding(
+        subjectKey = "hub:h1", sourceVersion = candidate.sourceVersion,
+        platformEventId = observation.platformEventId, calendarId = observation.calendarId,
+        fingerprint = fingerprintOfObservation(observation), relation = CalendarRelation.MATCHED,
+        createdAt = "2026-08-09T10:00:00Z", updatedAt = "2026-08-09T10:00:00Z",
+      ),
+    )
+
+    h.engine.resolveField("hub:h1", "title", FieldResolution.KEEP_DAYFOLD)
+
+    val persisted = h.contentStore.calendarBindingBySubjectKey("hub:h1")!!
+    assertEquals(setOf("title"), resolvedCalendarFields(persisted.reviewState))
+    val next = CalendarReconciler.reconcile(
+      listOf(candidate), listOf(observation), listOf(persisted), kotlin.time.Instant.parse("2026-08-09T12:00:00Z"),
+    )
+    assertTrue(next.differs.isEmpty())
+  }
+
+  @Test fun `use Calendar field choice optimistically updates the Hub and queues a typed write`() = runBlocking {
+    val candidate = DayfoldEventCandidate(
+      "hub:h1", "Dentist", "2026-08-20T09:00:00Z", null, false, "UTC", null, "source-v1", null,
+    )
+    val observation = CalendarEventObservation(
+      "evt-1", "cal-a", "Dentist appointment", "2026-08-20T09:00:00Z", null,
+      false, "UTC", null, false, null,
+    )
+    val differ = DetailsDiffer("hub:h1", candidate, observation, diffFields(candidate, observation))
+    var syncRequests = 0
+    val h = Harness(
+      FakeCalendarPort(),
+      AppState(calendar = CalendarState(check = CalendarCheckState(results = ReconcileResult(differs = listOf(differ))))),
+      requestSync = { syncRequests++ },
+    )
+    seedHub(h.contentStore, "h1", candidate.title, candidate.startAt)
+    h.contentStore.upsertCalendarBinding(
+      CalendarBinding(
+        subjectKey = "hub:h1", sourceVersion = candidate.sourceVersion,
+        platformEventId = observation.platformEventId, calendarId = observation.calendarId,
+        fingerprint = fingerprintOfObservation(observation), relation = CalendarRelation.MATCHED,
+        createdAt = "2026-08-09T10:00:00Z", updatedAt = "2026-08-09T10:00:00Z",
+      ),
+    )
+
+    h.engine.resolveField("hub:h1", "title", FieldResolution.USE_CALENDAR)
+
+    assertEquals("Dentist appointment", h.contentStore.activeHubs().single().title)
+    assertEquals(1, syncRequests)
+    val op = h.contentStore.nextPendingOp()!!
+    assertEquals("hub", op.targetKind)
+    assertTrue(op.payload.contains("Dentist appointment"))
+    assertTrue(h.store.state.calendar.check.results.differs.isEmpty())
   }
 
   @Test fun `confirmMatch on a stale pair (already superseded by a fresh check) writes nothing and does not dispatch`() = runBlocking {

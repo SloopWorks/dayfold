@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -28,28 +30,40 @@ class CalendarCheckEngine(
   private val nowProvider: () -> String = { Clock.System.now().toString() },
   private val zoneProvider: () -> TimeZone = { TimeZone.currentSystemDefault() },
   private val databaseDispatcher: CoroutineDispatcher = Dispatchers.Default,
+  private val requestSync: () -> Unit = {},
 ) {
+  private val checkMutex = Mutex()
+  private val settingsMutex = Mutex()
+
   /** UI/host entry point: fire-and-forget a reconciliation pass on the engine's own scope. */
   fun startCheck() {
     scope.launch { runCheck() }
   }
 
   /** Direct invocation is retained for deterministic tests; production callers use [startCheck]. */
-  internal suspend fun runCheck() {
+  internal suspend fun runCheck(): Unit = checkMutex.withLock {
     store.dispatch(StartCalendarCheck)
 
     val permission = calendarPort.permissionState()
     val settings = withContext(databaseDispatcher) { contentStore.calendarSettings() }
+    val bindings = withContext(databaseDispatcher) { contentStore.allCalendarBindings() }
+    val persistedIgnored = bindings
+      .filter { it.relation == CalendarRelation.IGNORED }
+      .sortedBy { it.updatedAt }
+      .map { it.subjectKey }
+    val ignoredHistory = (
+      persistedIgnored + store.state.calendar.check.ignoreHistory + store.state.calendar.check.ignored
+    ).distinct()
     val nowIso = nowProvider()
 
     if (permission != CalendarPermission.Granted || !settings.featureEnabled || settings.selectedCalendarIds.isEmpty()) {
-      store.dispatch(CalendarCheckCompleted(ReconcileResult(), permission, nowIso, stale = true))
-      return
+      store.dispatch(CalendarCheckCompleted(ReconcileResult(), permission, nowIso, stale = true, ignoredKeys = ignoredHistory))
+      return@withLock
     }
 
     val zone = zoneProvider()
     val nowInstant = Instant.parse(nowIso)
-    val ignored = store.state.calendar.check.ignored
+    val ignored = ignoredHistory.toSet()
 
     val candidates = withContext(databaseDispatcher) {
       candidatesInHorizon(
@@ -63,8 +77,6 @@ class CalendarCheckEngine(
     val observations = calendarPort.observeEvents(settings.selectedCalendarIds, CALENDAR_CHECK_HORIZON_DAYS)
       .filterNot { calendarOnlyItemKey(it.platformEventId) in ignored }
 
-    val bindings = withContext(databaseDispatcher) { contentStore.allCalendarBindings() }
-
     val result = CalendarReconciler.reconcile(candidates, observations, bindings, nowInstant)
 
     withContext(databaseDispatcher) {
@@ -72,7 +84,13 @@ class CalendarCheckEngine(
       contentStore.setCalendarSettings(settings.copy(lastCheckAt = nowIso))
     }
 
-    store.dispatch(CalendarCheckCompleted(result, permission, nowIso, stale = false))
+    store.dispatch(CalendarCheckCompleted(result, permission, nowIso, stale = false, ignoredKeys = ignoredHistory))
+  }
+
+  /** Successful content refresh hook. Disabled Calendar Check stays completely idle. */
+  internal suspend fun runIfEnabled() {
+    val settings = withContext(databaseDispatcher) { contentStore.calendarSettings() }
+    if (settings.featureEnabled && settings.selectedCalendarIds.isNotEmpty()) runCheck()
   }
 
   /** User confirms a suggested match (rung c) is correct — persist the binding, then resolve it.
@@ -87,6 +105,97 @@ class CalendarCheckEngine(
    *  stale-pair no-op guard as [confirmMatch]. */
   suspend fun resolveAmbiguous(subjectKey: String, chosenEventId: String) {
     if (persistConfirmedMatch(subjectKey, chosenEventId)) store.dispatch(ResolveAmbiguous(subjectKey, chosenEventId))
+  }
+
+  /** Persists a local dismissal before removing it from the current result set. */
+  suspend fun ignoreItem(itemKey: String) {
+    val results = store.state.calendar.check.results
+    val eventId = itemKey.takeIf { it.startsWith(CALENDAR_EVENT_ITEM_KEY_PREFIX) }
+      ?.removePrefix(CALENDAR_EVENT_ITEM_KEY_PREFIX)
+    val observation = eventId?.let { id -> results.calendarOnly.firstOrNull { it.platformEventId == id } }
+    val candidate = results.dayfoldOnly.firstOrNull { it.subjectKey == itemKey }
+      ?: results.candidateFor(itemKey)
+    val nowIso = nowProvider()
+    if (observation != null || candidate != null) {
+      withContext(databaseDispatcher) {
+        contentStore.upsertCalendarBinding(
+          CalendarBinding(
+            subjectKey = itemKey,
+            sourceVersion = candidate?.sourceVersion ?: fingerprintOfObservation(requireNotNull(observation)),
+            platformEventId = observation?.platformEventId,
+            calendarId = observation?.calendarId,
+            fingerprint = observation?.let(::fingerprintOfObservation),
+            lastSeenAt = nowIso,
+            relation = CalendarRelation.IGNORED,
+            reviewState = "ignored",
+            createdAt = nowIso,
+            updatedAt = nowIso,
+          ),
+        )
+      }
+    }
+    store.dispatch(IgnoreItem(itemKey))
+  }
+
+  suspend fun undoIgnore(itemKey: String) {
+    withContext(databaseDispatcher) {
+      contentStore.calendarBindingBySubjectKey(itemKey)
+        ?.takeIf { it.relation == CalendarRelation.IGNORED }
+        ?.let { contentStore.deleteCalendarBindingForSubject(itemKey) }
+    }
+    store.dispatch(UndoIgnore(itemKey))
+    runIfEnabled()
+  }
+
+  /** Rejecting a fuzzy suggestion is durable for that exact subject/event pair. */
+  suspend fun keepSeparate(subjectKey: String) {
+    val pair = store.state.calendar.check.results.suggested
+      .firstOrNull { it.candidate.subjectKey == subjectKey }
+    if (pair != null) {
+      val nowIso = nowProvider()
+      withContext(databaseDispatcher) {
+        contentStore.upsertCalendarBinding(
+          CalendarBinding(
+            subjectKey = subjectKey,
+            sourceVersion = pair.candidate.sourceVersion,
+            platformEventId = pair.observation.platformEventId,
+            calendarId = pair.observation.calendarId,
+            fingerprint = fingerprintOfObservation(pair.observation),
+            lastSeenAt = nowIso,
+            relation = CalendarRelation.NEEDS_REVIEW,
+            reviewState = "keep_separate",
+            createdAt = nowIso,
+            updatedAt = nowIso,
+          ),
+        )
+      }
+    }
+    store.dispatch(KeepSeparate(subjectKey))
+  }
+
+  suspend fun keepSeriesCalendarOnly(subjectKey: String) {
+    val notice = store.state.calendar.check.results.recurringNotices
+      .firstOrNull { it.candidate.subjectKey == subjectKey }
+    if (notice != null) {
+      val nowIso = nowProvider()
+      withContext(databaseDispatcher) {
+        contentStore.upsertCalendarBinding(
+          CalendarBinding(
+            subjectKey = subjectKey,
+            sourceVersion = notice.candidate.sourceVersion,
+            platformEventId = notice.observation.platformEventId,
+            calendarId = notice.observation.calendarId,
+            fingerprint = fingerprintOfObservation(notice.observation),
+            lastSeenAt = nowIso,
+            relation = CalendarRelation.IGNORED,
+            reviewState = "series_calendar_only",
+            createdAt = nowIso,
+            updatedAt = nowIso,
+          ),
+        )
+      }
+    }
+    store.dispatch(KeepSeriesCalendarOnly(subjectKey))
   }
 
   private suspend fun persistConfirmedMatch(subjectKey: String, eventId: String): Boolean {
@@ -129,14 +238,70 @@ class CalendarCheckEngine(
     store.dispatch(SetNotificationOwner(subjectKey, owner))
   }
 
+  /** Resolves one rendered difference. Keep/leave choices are device-local and durable for the
+   * exact compared versions; Use Calendar performs a typed optimistic Dayfold write first. */
+  suspend fun resolveField(subjectKey: String, field: String, resolution: FieldResolution) {
+    val differ = store.state.calendar.check.results.differs.firstOrNull { it.subjectKey == subjectKey } ?: return
+    val rendered = differ.diffs.firstOrNull { it.field == field } ?: return
+    if (resolution == FieldResolution.USE_CALENDAR) {
+      if (!rendered.calendarWriteSupported) return
+      val applied = withContext(databaseDispatcher) {
+        contentStore.applyCalendarFieldValue(
+          differ.candidate, differ.observation, field, nowProvider(), Ulid.next(),
+        )
+      }
+      if (!applied) return
+      requestSync()
+    }
+
+    val nowIso = nowProvider()
+    withContext(databaseDispatcher) {
+      val existing = contentStore.calendarBindingBySubjectKey(subjectKey) ?: return@withContext
+      val fields = resolvedCalendarFields(existing.reviewState) + field
+      contentStore.upsertCalendarBinding(
+        existing.copy(
+          sourceVersion = differ.candidate.sourceVersion,
+          fingerprint = fingerprintOfObservation(differ.observation),
+          reviewState = calendarFieldsReviewState(fields),
+          lastSeenAt = nowIso,
+          updatedAt = nowIso,
+        ),
+      )
+    }
+    store.dispatch(FieldChoice(subjectKey, field, resolution))
+  }
+
   /** Clears every local binding on this device (ADR 0063 §5 review action) — feature-scoped, not a sign-out. */
   suspend fun resetLocalMatches() {
     withContext(databaseDispatcher) { contentStore.resetCalendarBindings() }
     store.dispatch(ResetLocalMatches)
   }
 
+  suspend fun unlinkMatch(subjectKey: String) {
+    withContext(databaseDispatcher) { contentStore.deleteCalendarBindingForSubject(subjectKey) }
+    runIfEnabled()
+  }
+
+  fun openMatchedEvent(subjectKey: String) {
+    scope.launch {
+      val eventId = withContext(databaseDispatcher) {
+        contentStore.calendarBindingBySubjectKey(subjectKey)?.platformEventId
+      }
+      if (eventId != null) calendarPort.openEvent(eventId)
+    }
+  }
+
+  fun openObservedEvent(platformEventId: String) { scope.launch { calendarPort.openEvent(platformEventId) } }
+
   /** WI-447 primer "Continue" — fires the OS permission prompt seam (no result promise). */
-  fun requestPermission() { calendarPort.requestPermission() }
+  fun requestPermission() {
+    calendarPort.requestPermission {
+      scope.launch {
+        runCheck()
+        if (calendarPort.permissionState() == CalendarPermission.Granted) loadAvailableCalendars()
+      }
+    }
+  }
 
   /** WI-447 native handoff — fires the native event editor. UI/host owns the prefill data.
    *  CAL-9 — routes the platform's completion outcome (when it can reliably report one) into the
@@ -145,6 +310,7 @@ class CalendarCheckEngine(
    *  claim "added" immediately, but a real binding (with the platform event id) still needs a pass
    *  over observeEvents. */
   fun openEventEditor(prefill: EventPrefill) {
+    store.dispatch(CalendarEditorOpened)
     calendarPort.openEventEditor(prefill) { outcome ->
       store.dispatch(CalendarEditorReturned(outcome))
       if (outcome == CalendarEditorOutcome.SAVED && calendarPort.permissionState() == CalendarPermission.Granted) {
@@ -156,18 +322,57 @@ class CalendarCheckEngine(
   /** WI-447 Settings on/off toggle. Fire-and-forget, mirrors [startCheck]. */
   fun setEnabled(enabled: Boolean) {
     scope.launch {
-      val next = withContext(databaseDispatcher) { contentStore.calendarSettings() }.copy(featureEnabled = enabled)
-      withContext(databaseDispatcher) { contentStore.setCalendarSettings(next) }
-      store.dispatch(SetCalendarEnabled(enabled))
+      settingsMutex.withLock {
+        val current = withContext(databaseDispatcher) { contentStore.calendarSettings() }
+        val next = if (enabled) {
+          current.copy(featureEnabled = current.selectedCalendarIds.isNotEmpty())
+        } else {
+          current.copy(featureEnabled = false, selectedCalendarIds = emptySet())
+        }
+        withContext(databaseDispatcher) {
+          contentStore.setCalendarSettings(next)
+          if (!enabled) contentStore.resetCalendarBindings()
+        }
+        store.dispatch(CalendarSettingsLoaded(next))
+        if (!enabled) store.dispatch(ResetLocalMatches)
+      }
+      if (enabled) runIfEnabled()
+    }
+  }
+
+  /** Setup completion is one ordered transaction from the UI's point of view: selected calendars
+   * and opt-in are persisted together before the first pass can observe them. */
+  fun enable(calendarIds: Set<String>) {
+    if (calendarIds.isEmpty()) return
+    scope.launch {
+      settingsMutex.withLock {
+        val current = withContext(databaseDispatcher) { contentStore.calendarSettings() }
+        val next = current.copy(featureEnabled = true, selectedCalendarIds = calendarIds)
+        withContext(databaseDispatcher) { contentStore.setCalendarSettings(next) }
+        store.dispatch(CalendarSettingsLoaded(next))
+      }
+      runCheck()
     }
   }
 
   /** WI-447 chooser "Include N calendars" / change-calendars sheet. Fire-and-forget. */
   fun setSelectedCalendars(calendarIds: Set<String>) {
     scope.launch {
-      val next = withContext(databaseDispatcher) { contentStore.calendarSettings() }.copy(selectedCalendarIds = calendarIds)
-      withContext(databaseDispatcher) { contentStore.setCalendarSettings(next) }
-      store.dispatch(SetSelectedCalendars(calendarIds))
+      settingsMutex.withLock {
+        val current = withContext(databaseDispatcher) { contentStore.calendarSettings() }
+        val removed = current.selectedCalendarIds - calendarIds
+        val next = current.copy(
+          featureEnabled = current.featureEnabled && calendarIds.isNotEmpty(),
+          selectedCalendarIds = calendarIds,
+        )
+        withContext(databaseDispatcher) {
+          removed.forEach(contentStore::deleteCalendarBindingsForCalendar)
+          contentStore.setCalendarSettings(next)
+        }
+        store.dispatch(CalendarSettingsLoaded(next))
+        if (calendarIds.isEmpty()) store.dispatch(ResetLocalMatches)
+      }
+      runIfEnabled()
     }
   }
 

@@ -232,6 +232,7 @@ fun FeedApp(
         }
         BackTarget.DeviceFlow -> store.dispatch(CloseDeviceFlow)
         BackTarget.JoinInvite -> store.dispatch(JoinDismissed)
+        BackTarget.Calendar -> store.dispatch(Back)
         BackTarget.FeedDetail, null -> Unit
       }
     }
@@ -277,6 +278,7 @@ fun FeedApp(
             onNavHubs = { commands.openHubs() },
             onRefresh = commands::refresh,
             onNowShown = commands::nowShown,
+            onOpenCalendarReview = { store.dispatch(OpenCalendarReview) },
             // ADR 0064 — the shell owns the response effects, so ContentHost/FeedScreen stay
             // render-only. The sheet state is read back from the store, not held locally.
             onVerb = { verb ->

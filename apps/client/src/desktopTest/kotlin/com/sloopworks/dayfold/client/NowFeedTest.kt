@@ -37,11 +37,45 @@ class NowFeedTest {
     assertEquals(Instant.parse("2026-07-08T09:00:00-07:00"), Instant.parse(item.triggerAtIso!!))
   }
 
-  @Test fun `cardToNowItem falls back to not_before when there is no future when-trigger`() {
+  @Test fun `cardToNowItem falls back to not_before when there is no when-trigger`() {
     val z = TimeZone.currentSystemDefault()
     val card = Card(id = "c1", kind = "info", title = "X", provenance = Provenance("user"),
       notBefore = "2026-07-08T09:00:00-07:00")
     assertEquals("2026-07-08T09:00:00-07:00", cardToNowItem(card, RankConfig(), "2026-07-08T08:00:00-07:00", z).triggerAtIso)
+  }
+
+  @Test fun `cardToNowItem keeps the latest when-trigger after it passes`() {
+    val card = Card(
+      id = "c1",
+      kind = "action",
+      title = "Pickup",
+      notBefore = "2026-06-30T08:00:00Z",
+      provenance = Provenance("claude"),
+      triggers = listOf(
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T09:00:00Z")),
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T11:30:00Z")),
+      ),
+    )
+
+    val item = cardToNowItem(card, RankConfig(), now, zone)
+
+    assertEquals("2026-06-30T11:30:00Z", item.triggerAtIso)
+  }
+
+  @Test fun `an authored card remains in Now after its when-trigger passes`() {
+    val card = Card(
+      id = "c1",
+      kind = "action",
+      title = "Pickup",
+      provenance = Provenance("claude"),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T11:30:00Z"))),
+    )
+
+    val feed = nowFeed(state(cards = listOf(card)), now, null, zone)
+    val item = (feed.now + feed.soon + feed.later + feed.overflow).single().item
+
+    assertEquals("authored:c1", item.id)
+    assertEquals("2026-06-30T11:30:00Z", item.triggerAtIso)
   }
 
   @Test fun `authoredGeoItems emits a distinct-id NOW item inside an inline-coord radius`() {

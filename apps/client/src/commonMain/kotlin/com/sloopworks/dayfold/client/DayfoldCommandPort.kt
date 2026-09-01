@@ -55,9 +55,9 @@ interface DayfoldCommandPort {
   fun removeResponse(id: String)
   fun undoLastResponse()
   fun recordResponseOffer(subjectRef: String)
-  // WI-447 (ADR 0063) — Calendar Check settings/permission/prefill/return surfaces. Real Android/
-  // iOS permission + observation wiring is a later platform WI; these are inert without an engine.
+  // WI-447 (ADR 0063) — Calendar Check settings/permission/prefill/return surfaces.
   fun setCalendarEnabled(enabled: Boolean)
+  fun enableCalendarCheck(calendarIds: Set<String>)
   fun setSelectedCalendars(calendarIds: Set<String>)
   fun loadAvailableCalendars()
   fun requestCalendarPermission()
@@ -65,6 +65,9 @@ interface DayfoldCommandPort {
   fun resetLocalCalendarMatches()
   fun setCalendarNotificationOwner(subjectKey: String, owner: CalendarNotificationOwner)
   fun openCalendarEventEditor(prefill: EventPrefill)
+  fun openObservedCalendarEvent(platformEventId: String)
+  fun openMatchedCalendarEvent(subjectKey: String)
+  fun unlinkCalendarMatch(subjectKey: String)
   // WI-446 (ADR 0063 §4/§5) — the review-flow verbs over an in-progress CalendarCheckState.check
   // pass. confirmCalendarMatch/resolveAmbiguousCalendarMatch persist a binding (engine-owned);
   // the rest are pure local review decisions (reducer-owned, dispatched directly).
@@ -80,8 +83,9 @@ interface DayfoldCommandPort {
   // confirmCalendarImport mints ids + revalidates + enqueues (engine-owned); the rest are pure
   // wizard-navigation/field edits (reducer-owned, dispatched directly).
   fun startCalendarImport(observation: CalendarEventObservation)
+  fun loadCalendarImportDestinations()
   fun chooseImportDestination(destination: ImportDestination)
-  fun setImportDescriptionOptIn(description: String?)
+  fun setImportDescriptionIncluded(include: Boolean)
   fun proceedImportToAudience()
   fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>)
   fun proceedImportToConfirm()

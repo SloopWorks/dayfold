@@ -114,6 +114,27 @@ class SyncClient(
     return PutResult(status, version)
   }
 
+  /** Member-reviewed Calendar field resolution on an existing briefing card. */
+  suspend fun putCard(
+    familyId: String,
+    accessToken: String,
+    cardId: String,
+    body: String,
+    opId: String,
+  ): PutResult {
+    val resp = http.put("$api/families/$familyId/cards/$cardId") {
+      header("authorization", "Bearer $accessToken")
+      header("content-type", "application/json")
+      header("idempotency-key", opId)
+      setBody(body)
+    }
+    val status = resp.status.value
+    val version = if (status == 200) runCatching {
+      json.parseToJsonElement(resp.bodyAsText()).jsonObject["version"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() else null
+    return PutResult(status, version)
+  }
+
   /**
    * Egress (ADR 0038 §W4): DELETE one block with an Idempotency-Key and no body
    * or If-Match. The caller supplies one captured family/session snapshot.

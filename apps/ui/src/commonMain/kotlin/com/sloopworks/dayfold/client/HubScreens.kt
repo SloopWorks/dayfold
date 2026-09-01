@@ -54,6 +54,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -102,6 +103,8 @@ import com.sloopworks.dayfold.client.ui.FunAvatars
 import com.sloopworks.dayfold.client.ui.loading.ErrorRetry
 import com.sloopworks.dayfold.client.ui.loading.ListSkeleton
 import com.sloopworks.dayfold.client.ui.loading.rememberReduceMotion
+import com.sloopworks.dayfold.client.features.calendar.PrefillRow
+import com.sloopworks.dayfold.client.features.calendar.PrefillSheetContent
 
 // ── Hubs surface (ADR 0006 render · ADR 0030 visibility) ─────────────────────
 // f(state)→UI. Rich per-type block rendering (checklist boxes, budget bars, maps)
@@ -292,6 +295,8 @@ fun HubDetailScreen(
   // and timeline done/next markers are date-stable
   now: kotlin.time.Instant = kotlin.time.Clock.System.now(),
   timeZone: TimeZone = TimeZone.currentSystemDefault(),
+  // ADR 0063 progressive add-only handoff. Appended to preserve positional call sites.
+  onAddToCalendar: (EventPrefill) -> Unit = {},
 ) {
   val tree = state.tree
   // ADR 0045: compute once — used by both the hoisted TimelineCard item and the detail overlay.
@@ -299,6 +304,27 @@ fun HubDetailScreen(
   // tz: an authored timeline carries its own; a derived one falls back family→device (device for now).
   val tz = authoredTimeline?.let { runCatching { TimeZone.of(it.tz) }.getOrElse { timeZone } }
     ?: timeZone
+  val calendarPrefill = tree?.hub?.calendarEventPrefill(tz)
+  var prefillSheetOpen by remember { mutableStateOf(false) }
+  if (prefillSheetOpen && calendarPrefill != null) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = { prefillSheetOpen = false }, sheetState = sheetState) {
+      PrefillSheetContent(
+        eventTitle = calendarPrefill.title,
+        rows = buildList {
+          add(PrefillRow(DayfoldIcons.CalendarMonth, "Date and time", formatMetaWhen(calendarPrefill.startAt) ?: calendarPrefill.startAt))
+          calendarPrefill.location?.let { location ->
+            add(PrefillRow(DayfoldIcons.Location, "Location", location.label ?: location.address.orEmpty()))
+          }
+        },
+        onCancel = { prefillSheetOpen = false },
+        onOpenCalendarApp = {
+          prefillSheetOpen = false
+          onAddToCalendar(calendarPrefill)
+        },
+      )
+    }
+  }
   // ADR 0046: when no authored timeline, derive one from the hub's already-dated blocks (≥2 stops).
   val tl = authoredTimeline ?: tree?.let { deriveTimeline(it, tz) }
   // "No timeline yet" nudge: no authored + not enough to derive, but exactly one dated block.
@@ -421,9 +447,18 @@ fun HubDetailScreen(
         }
         hubWhenLabel(tree.hub.countdownTo, tree.hub.startAt, tree.hub.endAt, nowIso)?.let { c ->
           if (tree.hub.status != "archived") item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-              androidx.compose.material3.Icon(DayfoldIcons.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-              Text(c, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.material3.Icon(DayfoldIcons.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Text(c, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+              }
+              if (calendarPrefill != null) {
+                OutlinedButton(onClick = { prefillSheetOpen = true }) {
+                  androidx.compose.material3.Icon(DayfoldIcons.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(Modifier.width(8.dp))
+                  Text("Add to calendar")
+                }
+              }
             }
           }
         }

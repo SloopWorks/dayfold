@@ -1,0 +1,106 @@
+-- Migration v15→v16 (Accepted ADR 0063): finish Calendar Check activation.
+--
+-- calendar_import is device-local crash/offline recovery for a reviewed Calendar→Dayfold write.
+-- It was added to the canonical schema while Calendar Check was dark, so the activation migration
+-- must create it for devices that already upgraded through v15. Hub.version is the client-side
+-- destination/audience precondition used immediately before enqueue; it is synced server data.
+-- A database first created from the v15 canonical schema already has this table; an older
+-- database that reached v15 through migrations does not. Keep the activation migration safe
+-- for both histories.
+CREATE TABLE IF NOT EXISTS calendar_import (
+  proposal_id      TEXT NOT NULL PRIMARY KEY,
+  proposal_json    TEXT NOT NULL,
+  destination_json TEXT NOT NULL,
+  hub_id           TEXT,
+  section_id       TEXT NOT NULL,
+  block_ids_json   TEXT NOT NULL,
+  status           TEXT NOT NULL,
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL
+);
+
+ALTER TABLE hub ADD COLUMN version INTEGER;
+
+-- M0's checked-in upgrade snapshots predate three card deep-link columns and the membership
+-- cache, while a database first created from the later canonical v15 schema already has them.
+-- Repair both histories without conditional ALTER COLUMN support: card/hub are disposable sync
+-- projections, so rebuild them into the canonical shape, retain every column common to both
+-- histories, and reset the content cursor so the server restores the three omitted card targets.
+-- There were no card mutation ops before v16; no user-authored value is discarded here.
+CREATE TABLE IF NOT EXISTS membership (
+  family_id TEXT NOT NULL PRIMARY KEY,
+  name      TEXT NOT NULL DEFAULT '',
+  role      TEXT NOT NULL DEFAULT 'adult',
+  status    TEXT NOT NULL DEFAULT 'active'
+);
+
+ALTER TABLE hub RENAME TO hub_v15;
+
+CREATE TABLE hub (
+  id           TEXT NOT NULL PRIMARY KEY,
+  type         TEXT,
+  title        TEXT NOT NULL,
+  status       TEXT,
+  start_at     TEXT,
+  end_at       TEXT,
+  countdown_to TEXT,
+  visibility   TEXT,
+  created_by   TEXT,
+  version      INTEGER,
+  media        TEXT,
+  timeline     TEXT,
+  updated_at   TEXT NOT NULL,
+  deleted      INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO hub(
+  id, type, title, status, start_at, end_at, countdown_to, visibility,
+  created_by, version, media, timeline, updated_at, deleted
+)
+SELECT
+  id, type, title, status, start_at, end_at, countdown_to, visibility,
+  created_by, version, media, timeline, updated_at, deleted
+FROM hub_v15;
+
+DROP TABLE hub_v15;
+
+ALTER TABLE card RENAME TO card_v15;
+
+CREATE TABLE card (
+  id                TEXT NOT NULL PRIMARY KEY,
+  kind              TEXT NOT NULL DEFAULT 'info',
+  title             TEXT NOT NULL,
+  body_md           TEXT,
+  source            TEXT,
+  not_before        TEXT,
+  expires_at        TEXT,
+  type              TEXT,
+  payload           TEXT,
+  privacy           TEXT,
+  hub_ref           TEXT,
+  target_hub_id     TEXT,
+  target_section_id TEXT,
+  target_block_id   TEXT,
+  related           TEXT,
+  related_kicker    TEXT,
+  media             TEXT,
+  updated_at        TEXT NOT NULL,
+  deleted           INTEGER NOT NULL DEFAULT 0,
+  importance        REAL,
+  triggers          TEXT
+);
+
+INSERT INTO card(
+  id, kind, title, body_md, source, not_before, expires_at, type, payload,
+  privacy, hub_ref, related, related_kicker, media, updated_at, deleted,
+  importance, triggers
+)
+SELECT
+  id, kind, title, body_md, source, not_before, expires_at, type, payload,
+  privacy, hub_ref, related, related_kicker, media, updated_at, deleted,
+  importance, triggers
+FROM card_v15;
+
+DROP TABLE card_v15;
+
+UPDATE sync_meta SET cursor = NULL, last_synced_at = NULL;

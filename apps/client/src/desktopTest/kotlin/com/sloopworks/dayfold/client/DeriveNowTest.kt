@@ -122,7 +122,7 @@ class DeriveNowTest {
       triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T13:30:00Z")))))   // +90 min
     val items = deriveNow(listOf(Hub("h1", title = "School")), sections, blocks, emptyList(), now, null, zone)
     val w = items.single { it.reasonKind == ReasonKind.WHEN }
-    assertEquals("Pickup at 1:30", w.why)
+    assertEquals("Pickup at 1:30 PM", w.why)
     assertEquals("b1", w.target?.blockId)
     // 5 hours out → beyond the 120-min window → no item.
     val late = deriveNow(listOf(Hub("h1", title = "School")), sections,
@@ -130,6 +130,81 @@ class DeriveNowTest {
         triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T17:00:00Z"))))),
       emptyList(), now, null, zone)
     assertTrue(late.none { it.reasonKind == ReasonKind.WHEN })
+  }
+
+  @Test fun `when remains visible for two hours after its timestamp then retires`() {
+    val sections = listOf(HubSection("s1", hubId = "h1"))
+    val blocks = listOf(HubBlock("b1", sectionId = "s1", type = "milestone", bodyMd = "Pickup",
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T10:01:00Z")))))
+
+    val visible = deriveNow(listOf(Hub("h1", title = "School")), sections, blocks, emptyList(), now, null, zone)
+      .single { it.reasonKind == ReasonKind.WHEN }
+    val retired = deriveNow(
+      listOf(Hub("h1", title = "School")), sections, blocks, emptyList(),
+      "2026-06-30T12:02:00Z", null, zone,
+    )
+
+    assertEquals("2026-06-30T10:01:00Z", visible.triggerAtIso)
+    assertEquals("Pickup at 10:01 AM", visible.why)
+    assertTrue(retired.none { it.reasonKind == ReasonKind.WHEN })
+  }
+
+  @Test fun `when uses the latest past trigger until the next trigger enters the surfacing window`() {
+    val sections = listOf(HubSection("s1", hubId = "h1"))
+    val blocks = listOf(HubBlock("b1", sectionId = "s1", type = "milestone", bodyMd = "Pickup",
+      triggers = listOf(
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T11:30:00Z")),
+        BlockTrigger(whenTrigger = TriggerWhen(at = "2026-06-30T17:00:00Z")),
+      )))
+
+    val item = deriveNow(listOf(Hub("h1", title = "School")), sections, blocks, emptyList(), now, null, zone)
+      .single { it.reasonKind == ReasonKind.WHEN }
+
+    assertEquals("2026-06-30T11:30:00Z", item.triggerAtIso)
+    assertEquals("Pickup at 11:30 AM", item.why)
+  }
+
+  @Test fun `when offset controls surfacing while copy keeps the actual event time`() {
+    val sections = listOf(HubSection("s1", hubId = "h1"))
+    val blocks = listOf(HubBlock("b1", sectionId = "s1", type = "milestone", bodyMd = "Pickup",
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(
+        at = "2026-06-30T15:00:00Z",
+        alertOffset = "-PT2H",
+      )))))
+
+    val item = deriveNow(listOf(Hub("h1", title = "School")), sections, blocks, emptyList(), now, null, zone)
+      .single { it.reasonKind == ReasonKind.WHEN }
+
+    assertEquals("2026-06-30T13:00:00Z", item.triggerAtIso)
+    assertEquals("Pickup at 3:00 PM", item.why)
+  }
+
+  @Test fun `when offset does not shorten the grace period after the actual event`() {
+    val sections = listOf(HubSection("s1", hubId = "h1"))
+    val blocks = listOf(HubBlock("b1", sectionId = "s1", type = "milestone", bodyMd = "Pickup",
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(
+        at = "2026-06-30T15:00:00Z",
+        alertOffset = "-PT2H",
+      )))))
+
+    val visible = deriveNow(
+      listOf(Hub("h1", title = "School")), sections, blocks, emptyList(),
+      "2026-06-30T16:59:00Z", null, zone,
+    )
+    val retired = deriveNow(
+      listOf(Hub("h1", title = "School")), sections, blocks, emptyList(),
+      "2026-06-30T17:01:00Z", null, zone,
+    )
+
+    assertEquals("Pickup at 3:00 PM", visible.single { it.reasonKind == ReasonKind.WHEN }.why)
+    assertTrue(retired.none { it.reasonKind == ReasonKind.WHEN })
+  }
+
+  @Test fun `clock time is explicit and converted to the device timezone`() {
+    assertEquals(
+      "6:30 AM",
+      clockTime(Instant.parse("2026-06-30T13:30:00Z"), TimeZone.of("America/Los_Angeles")),
+    )
   }
 
   // ── purity + invariants ────────────────────────────────────────────────────────

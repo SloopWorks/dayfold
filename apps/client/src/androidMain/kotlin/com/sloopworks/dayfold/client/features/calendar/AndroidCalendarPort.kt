@@ -45,6 +45,17 @@ class AndroidCalendarPort(context: Context) : CalendarPort {
     CalendarActivityBridge.launchPermissionRequest?.invoke()
   }
 
+  override fun requestPermission(onResult: (CalendarPermission) -> Unit) {
+    everRequested = true
+    val launcher = CalendarActivityBridge.launchPermissionRequest
+    if (launcher == null) {
+      onResult(permissionState())
+      return
+    }
+    CalendarActivityBridge.onPermissionResult = onResult
+    launcher()
+  }
+
   override suspend fun listCalendars(): List<DeviceCalendar> = withContext(Dispatchers.IO) {
     if (permissionState() != CalendarPermission.Granted) return@withContext emptyList()
     val projection = arrayOf(
@@ -115,6 +126,61 @@ class AndroidCalendarPort(context: Context) : CalendarPort {
       }
     }
     CalendarActivityBridge.launchEditorIntent?.invoke(intent)
+  }
+
+  override suspend fun openEvent(platformEventId: String) {
+    val eventId = withContext(Dispatchers.IO) {
+      if (permissionState() != CalendarPermission.Granted) return@withContext null
+      val now = System.currentTimeMillis()
+      val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
+        ContentUris.appendId(it, now - DAY_MILLIS)
+        ContentUris.appendId(it, now + CALENDAR_CHECK_HORIZON_DAYS * DAY_MILLIS)
+      }.build()
+      resolver.query(
+        uri,
+        arrayOf(CalendarContract.Instances.EVENT_ID),
+        "${CalendarContract.Instances._ID} = ?",
+        arrayOf(platformEventId),
+        null,
+      )?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)) else null
+      }
+    } ?: return
+    val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+    CalendarActivityBridge.launchEditorIntent?.invoke(Intent(Intent.ACTION_VIEW, uri))
+  }
+
+  override suspend fun readEventDescription(platformEventId: String): String? = withContext(Dispatchers.IO) {
+    if (permissionState() != CalendarPermission.Granted) return@withContext null
+    val eventId = eventIdForInstance(platformEventId) ?: return@withContext null
+    resolver.query(
+      ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+      arrayOf(CalendarContract.Events.DESCRIPTION),
+      null,
+      null,
+      null,
+    )?.use { cursor ->
+      if (cursor.moveToFirst()) cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION))
+        ?.trim()?.takeIf(String::isNotEmpty)
+      else null
+    }
+  }
+
+  private fun eventIdForInstance(platformEventId: String): Long? {
+    val now = System.currentTimeMillis()
+    val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
+      ContentUris.appendId(it, now - DAY_MILLIS)
+      ContentUris.appendId(it, now + CALENDAR_CHECK_HORIZON_DAYS * DAY_MILLIS)
+    }.build()
+    return resolver.query(
+      uri,
+      arrayOf(CalendarContract.Instances.EVENT_ID),
+      "${CalendarContract.Instances._ID} = ?",
+      arrayOf(platformEventId),
+      null,
+    )?.use { cursor ->
+      if (cursor.moveToFirst()) cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)) else null
+    }
   }
 }
 

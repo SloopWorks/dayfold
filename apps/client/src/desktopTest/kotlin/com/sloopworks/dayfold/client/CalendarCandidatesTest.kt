@@ -67,6 +67,23 @@ class CalendarCandidatesTest {
     assertTrue(deriveEventCandidates(emptyList(), sections, blocks, emptyList(), zone).isEmpty())
   }
 
+  @Test fun `imported timed milestone emits one candidate and preserves end plus timezone`() {
+    val sections = listOf(HubSection("s1", hubId = "h1"))
+    val block = HubBlock(
+      "b1", sectionId = "s1", type = "milestone",
+      payload = BlockPayload(
+        date = "2026-07-04T15:00:00Z", end = "2026-07-04T17:00:00Z",
+        tz = "America/Los_Angeles", label = "Birthday lunch",
+      ),
+      triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-04T15:00:00Z"))),
+    )
+
+    val candidate = deriveEventCandidates(emptyList(), sections, listOf(block), emptyList(), zone).single()
+
+    assertEquals("2026-07-04T17:00:00Z", candidate.endAt)
+    assertEquals("America/Los_Angeles", candidate.timezone)
+  }
+
   // ── prose is never a source ──────────────────────────────────────────────────
   @Test fun `a prose date in body_md is never extracted as a candidate`() {
     val sections = listOf(HubSection("s1", hubId = "h1"))
@@ -117,6 +134,7 @@ class CalendarCandidatesTest {
     assertEquals("hub:h1/section:s1/block:b1", c.subjectKey)
     assertEquals("RSVP reminder", c.title)
     assertEquals("2026-07-05T18:00:00Z", c.startAt)
+    assertEquals(CalendarCandidateSource.Card("c1"), c.source)
   }
 
   @Test fun `a card with no when-at trigger produces no candidate`() {

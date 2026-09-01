@@ -70,6 +70,16 @@ class CalendarImportReducerTest {
     assertEquals("Grandma's 80th lunch", next.proposal.title)
   }
 
+  @Test fun `RoleDenied can choose the offered new private Hub directly`() {
+    val denied = ImportProposalState.RoleDenied(proposal(destination = null))
+    val destination = ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("me"))
+
+    val next = reduceCalendarImport(denied, ChooseImportDestination(destination))
+
+    val fields = assertIs<ImportProposalState.PreviewingFields>(next)
+    assertEquals(destination, fields.proposal.destination)
+  }
+
   @Test fun `Back is a no-op while Applying (in-flight, no going back)`() {
     val s = ImportProposalState.Applying(proposal(ImportDestination.NewHub()), ids())
     assertSame(s, reduceCalendarImport(s, BackImportStep))
@@ -79,7 +89,7 @@ class CalendarImportReducerTest {
     for (s in listOf(
       ImportProposalState.ChoosingDestination(proposal()),
       ImportProposalState.Applying(proposal(ImportDestination.NewHub()), ids()),
-      ImportProposalState.Saved(proposal(), "Hub created — only you can see it"),
+      ImportProposalState.Saved(proposal(), ids(), "Hub created — only you can see it"),
     )) {
       assertEquals(ImportProposalState.None, reduceCalendarImport(s, DiscardCalendarImport))
     }
@@ -97,7 +107,7 @@ class CalendarImportReducerTest {
   @Test fun `ImportSaved moves Applying to Saved carrying the actual resulting audience`() {
     val applying = ImportProposalState.Applying(proposal(ImportDestination.NewHub()), ids())
     val saved = reduceCalendarImport(applying, ImportSaved("Hub created — only you can see it"))
-    assertEquals(ImportProposalState.Saved(applying.proposal, "Hub created — only you can see it"), saved)
+    assertEquals(ImportProposalState.Saved(applying.proposal, applying.ids, "Hub created — only you can see it"), saved)
   }
 
   @Test fun `ImportRoleDenied clears the destination but keeps every other reviewed field`() {

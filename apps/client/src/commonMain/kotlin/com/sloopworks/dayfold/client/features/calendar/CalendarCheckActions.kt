@@ -18,6 +18,9 @@ data class CalendarCheckCompleted(
   // True when the pass could not do a real comparison (permission not granted, feature off, or
   // no calendars selected) — results is empty because nothing was compared, not because it's clear.
   val stale: Boolean = false,
+  // Persisted device-local ignore keys, oldest first. Null keeps reducer-only test fixtures intact;
+  // production engine completions always supply the DB-backed list.
+  val ignoredKeys: List<String>? = null,
 ) : CalendarCheckAction
 
 /** User confirms a suggested match (rung c) or a chosen ambiguous candidate (rung b) is correct. */
@@ -47,6 +50,9 @@ data object ResetLocalMatches : CalendarCheckAction
 
 /** Flips which side owns the generic start-time alert for a matched subject (ADR 0063 §7). Reversible. */
 data class SetNotificationOwner(val subjectKey: String, val owner: CalendarNotificationOwner) : CalendarCheckAction
+
+/** Clears a prior editor outcome before a new native handoff starts. */
+data object CalendarEditorOpened : CalendarCheckAction
 
 /** CAL-9 — the platform editor handoff's completion outcome, routed here by CalendarCheckEngine
  *  from CalendarPort.openEventEditor's onResult callback. The shared action every platform's

@@ -2,11 +2,15 @@
 
 ## Status
 
-**Proposed** 2026-08-08 (operator-directed draft after approving the feature
-direction). Operator-gated: this adds calendar-data access, a new permission
-posture, a member-visible authoring path, and notification-suppression behavior.
-The operator's direction authorizes this draft and its design prompt; it does not
-accept the ADR or authorize build.
+**Accepted** 2026-08-28 (operator-approved in session). The approval includes
+ADR 0008 sign-off on the complete Calendar Check gallery and ratifies the
+working defaults in `specs/calendar-import-contract-design.md`: a 14-day
+comparison horizon; Hub start/end, block/card `when.at`, and dated milestone
+candidates; Calendar-owned generic start alerts; opt-in/default-off description;
+constant `"calendar"` provenance with display names kept local; the `event` Hub
+type; optional milestone end/timezone fields; a client-side destination re-read;
+and reuse of the last live section. Public-store privacy/data-safety declarations
+remain a release operation, not authority to broaden this device-local boundary.
 
 Extends ADRs 0006 (Hubs remain curated dossiers, not the calendar system of
 record), 0008 (design first), 0014 (private on-device matching), 0024
@@ -65,7 +69,7 @@ Relevant current platform capabilities:
   `[fact:https://developers.google.com/workspace/calendar/api/v3/reference/events/insert]`
   `[fact:https://support.google.com/cloud/answer/13464321]`
 
-## Proposed decision
+## Decision
 
 ### 1. Reconciliation is an opt-in, client-owned feature
 
@@ -147,7 +151,8 @@ The reconciliation order is:
 
 1. a still-valid explicit local binding;
 2. a strict deterministic fingerprint over normalized title, start/end,
-   all-day state, timezone, recurrence identity, and structured location;
+   all-day state, timed-event timezone (all-day provider zones normalize to one
+   marker), recurrence identity, and structured location;
 3. a high-confidence suggested match shown for user confirmation;
 4. unresolved when multiple or low-confidence candidates remain.
 
@@ -157,18 +162,18 @@ write, link, notification suppression, or dismissal without user confirmation.
 Calendar and Dayfold edits never overwrite one another automatically; a
 mismatch becomes a compact compare-and-choose review.
 
-The first slice handles non-recurring events and single occurrences. Recurring
-series creation, series-level binding, exceptions, attendee responses,
-cancellations, and organizer semantics are deferred. The UI must say so rather
-than flattening a series into a misleading one-off match.
+The first slice handles non-recurring events and explicitly reviewed single
+occurrences. Recurring series creation, series-level binding, exceptions,
+attendee responses, cancellations, and organizer semantics are deferred. The UI
+must say so rather than flattening a series into a misleading one-off match.
 
 ### 5. Gaps surface as one calm in-app review, never an interruption
 
 Reconciliation emits at most one aggregate in-app "Calendar check" unit into
 the existing Now surface, plus a dedicated review screen. It does not create an
 OS notification, red badge, card per event, or recurring nag. The comparison
-uses a bounded future horizon; the exact dogfood default is a spec/config
-constant to ratify after design, not an unbounded scan.
+uses the accepted 14-day future horizon, held as a shared config constant rather
+than an unbounded scan.
 
 Outcomes:
 
@@ -207,9 +212,10 @@ Privacy defaults:
 - the resulting block/Hub shows Calendar provenance while Calendar remains the
   canonical schedule.
 
-The exact typed mutation/proposal contract is deferred until after the ADR 0008
-mockup gate. No build may route this through an unrestricted prompt or let a
-cloud routine silently apply it.
+The typed mutation/proposal contract is defined in
+`specs/calendar-import-contract-design.md` and implemented through the ordinary
+member-authored Hub/block/card mutation spine. No build may route this through
+an unrestricted prompt or let a cloud routine silently apply it.
 
 ### 7. Calendar owns generic event-time alerts by default
 
@@ -308,9 +314,9 @@ author gates.
   product boundary is ownership of generic start alerts, not a false global
   guarantee.
 
-## Acceptance gates
+## Acceptance record
 
-Before this ADR can be Accepted:
+The 2026-08-28 acceptance records completion of these gates:
 
 1. Two fresh-context adversarial reviews: correctness/privacy/platform
    behavior, then simplification/maintenance.

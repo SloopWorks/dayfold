@@ -29,7 +29,7 @@ import kotlin.test.Test
 class CalendarReviewFlowSemanticsTest {
 
   @Test fun `now card announces title and preview rows`() = runComposeUiTest {
-    setContent { DayfoldTheme { CalendarCheckNowCard(SnapshotStates.calendarNowItem("two-gaps")!!) } }
+    setContent { DayfoldTheme { CalendarCheckNowCard(SnapshotStates.calendarNowItem("two-gaps")!!, onReview = {}) } }
     onNodeWithText("2 things to review").assertIsDisplayed()
     onNodeWithText("Maya's dance recital · not on your calendar").assertIsDisplayed()
     onNodeWithText("Grandma's 80th lunch · calendar only").assertIsDisplayed()
