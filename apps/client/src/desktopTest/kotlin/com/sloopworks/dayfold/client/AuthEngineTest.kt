@@ -360,6 +360,35 @@ class AuthEngineTest {
     assertEquals(Session("ax", "rx"), store.state.session.session)      // session kept
   }
 
+  @Test fun `background membership reconciliation does not navigate an active user back to Feed`() = runBlocking {
+    val whoamiGate = CompletableDeferred<Unit>()
+    val (eng, store) = engine(
+      ts = MemTokenStore(Session("ax", "rx")),
+      cached = listOf(activeFam),
+      handler = MockEngine { req ->
+        when (req.url.encodedPath) {
+          "/auth/whoami" -> {
+            whoamiGate.await()
+            respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+          }
+          "/families/fam1/members" -> respond("""{"members":[]}""", HttpStatusCode.OK, jsonCt)
+          "/auth/me" -> respond("""{"uid":"u1"}""", HttpStatusCode.OK, jsonCt)
+          else -> respond("", HttpStatusCode.NotFound)
+        }
+      },
+    )
+
+    eng.restore()
+    assertEquals(Route.Feed, store.state.navigation.route)
+    store.dispatch(OpenAccount) // user interaction while the background whoami is still pending
+    assertEquals(Route.Account, store.state.navigation.route)
+
+    whoamiGate.complete(Unit)
+    eng.reconcileJob?.join()
+
+    assertEquals(Route.Account, store.state.navigation.route)
+  }
+
   @Test fun `a second cached restore cancels and joins the previous reconciliation`() = runBlocking<Unit> {
     val calls = AtomicInteger()
     val firstStarted = CompletableDeferred<Unit>()

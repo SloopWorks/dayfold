@@ -8,6 +8,15 @@ dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. The app is pre-1.0 (`0.0.0-M0`) and untagged, so entries are dated; the
 CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
 
+## 2026-09-01 — Sync no longer changes the current screen
+
+### Fixed
+- **Background updates no longer send you back to Now.** Content sync and the
+  cold-start membership confirmation preserve the screen you selected. If an
+  open card is removed during sync, Dayfold keeps the detail open with a calm
+  unavailable message until you choose Back. Session expiry and loss of access
+  to the active family still leave the old screen immediately as safety gates.
+
 ## 2026-08-25 — CLI 0.1.0: `brew install sloopworks/tap/dayfold`
 
 ### Added

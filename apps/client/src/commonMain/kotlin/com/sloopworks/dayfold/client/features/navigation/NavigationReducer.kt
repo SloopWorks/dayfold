@@ -42,7 +42,6 @@ fun reduceNavigation(state: AppState, action: Any): AppState = when (action) {
   is AuthRestoring -> state.copy(navigation = state.navigation.copy(route = Route.Loading))
   is SessionRestored -> state.copy(navigation = state.navigation.copy(route = if (action.session == null) Route.SignIn else Route.Loading))
   is SignInSucceeded -> state.copy(navigation = state.navigation.copy(route = Route.Loading))
-  is MembershipsLoaded -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is FamilyCreated -> state.copy(navigation = state.navigation.copy(route = routeFor(state.session.session, state.session.families)))
   is RestoreFailed -> state.copy(navigation = state.navigation.copy(route = Route.AuthError))
   is OpenAccount -> state.copy(navigation = state.navigation.copy(route = Route.Account))

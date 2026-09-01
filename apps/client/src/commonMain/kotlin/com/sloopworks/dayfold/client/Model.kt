@@ -610,8 +610,9 @@ data object CloseSearch : Action
 data class OpenDetailFromSearch(val cardId: String) : Action
 // Restore the detail stack after an Activity recreation (3P-app return, rotation,
 // process death, "Don't keep activities"). The store is rebuilt fresh in onCreate,
-// so the shell re-dispatches the saved ids here. Dangling ids self-clean: CardsLoaded
-// filters detailStack to cards actually present once the DB→store bridge repopulates.
+// so the shell re-dispatches the saved ids here. A selected card that is no longer in
+// the DB remains selected as an unavailable detail until the user explicitly goes back;
+// passive CardsLoaded projections never navigate.
 data class RestoreDetailStack(val ids: List<String>) : Action
 
 // Hubs (ADR 0006). All I/O lives in HubEngine (suspend, mutex-guarded); the reducer

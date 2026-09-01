@@ -3,6 +3,7 @@ package com.sloopworks.dayfold.client
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -42,6 +43,27 @@ class FeedAppHostTest {
   @Test fun hostRendersDetailWhenOpen() = shot("host-detail") { store ->
     store.dispatch(NavToDetail("f"))
     assertTrue(store.state.navigation.detailStack == listOf("f"))
+  }
+
+  @Test fun passiveSyncRemovalKeepsTheDetailUntilTheUserGoesBack() = runComposeUiTest {
+    val store = createTestAppStore(
+      AppState(
+        navigation = NavigationState(route = Route.Feed, detailStack = listOf("f")),
+        content = ContentState(cards = listOf(typed())),
+      ),
+      debug = false,
+    )
+    setContent { TestFeedApp(store) }
+
+    store.dispatch(CardsLoaded(emptyList()))
+    onNodeWithText("This card is no longer available").assertExists()
+    assertEquals(Route.Feed, store.state.navigation.route)
+    assertEquals(listOf("f"), store.state.navigation.detailStack)
+
+    onNodeWithContentDescription("Back to feed").performClick()
+    waitForIdle()
+    onNodeWithText("This card is no longer available").assertDoesNotExist()
+    assertEquals(emptyList(), store.state.navigation.detailStack)
   }
 
   @Test fun hubRowTapCarriesTheProjectedFamilyAndHubToCommands() = runComposeUiTest {

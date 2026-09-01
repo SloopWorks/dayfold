@@ -86,14 +86,14 @@ class ReducerTest {
     s = rootReducer(s, NavBack); assertEquals(emptyList(), s.navigation.detailStack)             // empty-safe
   }
 
-  @Test fun `RestoreDetailStack sets the stack verbatim, before cards load, then self-cleans on CardsLoaded`() {
+  @Test fun `RestoreDetailStack stays selected when the restored card is absent from a passive refresh`() {
     // fresh store after an Activity recreation: no cards yet, restore the saved ids
     var s = AppState()
     s = rootReducer(s, RestoreDetailStack(listOf("firestone", "gone")))
     assertEquals(listOf("firestone", "gone"), s.navigation.detailStack)   // set verbatim — NOT gated on card presence
-    // once the DB→store bridge repopulates, an id whose card didn't come back is pruned
+    // DB projection updates content only. A missing selection stays explicit until the user backs.
     s = rootReducer(s, CardsLoaded(listOf(Card("firestone", title = "Firestone"))))
-    assertEquals(listOf("firestone"), s.navigation.detailStack)           // "gone" dropped; the real detail survives
+    assertEquals(listOf("firestone", "gone"), s.navigation.detailStack)
   }
 
   @Test fun `NavToDetail to a card not in cache is a no-op (dangling related ref)`() {
@@ -102,10 +102,18 @@ class ReducerTest {
     assertEquals(listOf("a"), after.navigation.detailStack)      // unchanged — stays on current detail
   }
 
-  @Test fun `CardsLoaded prunes nav-stack ids that synced away`() {
-    var s = AppState(content = ContentState(cards = listOf(Card("a", title = "A"))), navigation = NavigationState(detailStack = listOf("a")))
-    s = rootReducer(s, CardsLoaded(listOf(Card("b", title = "B")))) // 'a' gone
-    assertEquals(emptyList(), s.navigation.detailStack)
+  @Test fun `CardsLoaded never navigates when the selected card syncs away`() {
+    val navigation = NavigationState(
+      route = Route.Hubs,
+      detailStack = listOf("a"),
+      detailReturnDestination = DetailReturnDestination.SEARCH,
+    )
+    val before = AppState(
+      content = ContentState(cards = listOf(Card("a", title = "A"))),
+      navigation = navigation,
+    )
+    val after = rootReducer(before, CardsLoaded(listOf(Card("b", title = "B"))))
+    assertEquals(navigation, after.navigation)
   }
 
   @Test fun `currentDetailCard resolves the top id, null when absent`() {

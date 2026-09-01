@@ -18,7 +18,8 @@ fun feedCards(state: AppState, nowIso: String): List<Card> {
     .sortedWith(compareBy({ it.notBefore == null }, { it.notBefore }, { it.id }))
 }
 
-// CL-6: the card at the top of the detail stack, or null (→ feed). Null also when
-// the open card synced away — the host gracefully falls back to the feed.
+// CL-6: resolve the card at the top of the detail stack. A null result does not itself
+// change navigation; the host keeps the selected detail mounted as an unavailable state
+// until the user explicitly goes back.
 fun currentDetailCard(state: AppState): Card? =
   state.navigation.detailStack.lastOrNull()?.let { id -> state.content.cards.find { it.id == id } }

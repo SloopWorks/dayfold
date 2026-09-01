@@ -55,6 +55,18 @@ class AuthReducerTest {
     assertNull(s.session.activeFamilyId)
   }
 
+  @Test fun `losing the active family leaves the current screen through the tenant safety gate`() {
+    val activeSession = AppState(
+      session = SessionState(session = sess, families = listOf(active), activeFamilyId = "fam1"),
+      navigation = NavigationState(route = Route.Account),
+    )
+
+    val updated = rootReducer(activeSession, MembershipsLoaded(emptyList()))
+
+    assertEquals(Route.CreateFamily, updated.navigation.route)
+    assertNull(updated.session.activeFamilyId)
+  }
+
   @Test fun `sign-in failure surfaces the error and clears busy`() {
     var s = rootReducer(AppState(navigation = NavigationState(route = Route.SignIn)), SignInRequested("apple"))
     s = rootReducer(s, SignInFailed("network down"))

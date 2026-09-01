@@ -240,7 +240,14 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
   Iteration 0) — full narrative + proposed default in
   `backlog/operator-inbox.md` **INB-33**, open, awaiting the operator.
 
-## Current state (as of 2026-08-24)
+## Current state (as of 2026-09-01)
+
+### Fixed — passive sync navigation (2026-09-01)
+
+Content projections and same-family background membership reconciliation no longer
+rewrite navigation. A card removed while selected stays on an unavailable detail until
+the member explicitly goes Back; other selected routes remain mounted through refresh.
+The session-expiry and active-family-loss gates remain intentionally immediate.
 
 ### Shipped — Timeline jump to now (2026-08-24)
 

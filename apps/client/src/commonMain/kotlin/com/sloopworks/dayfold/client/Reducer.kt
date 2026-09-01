@@ -29,12 +29,12 @@ fun activeFamilyIdFor(families: List<FamilyMembership>): String? =
 fun ownerFamiliesFor(families: List<FamilyMembership>): List<FamilyMembership> =
   families.filter { it.role == "owner" && it.status == "active" }
 
-/** Root-only transitions: global reset, back resolution, and content-to-navigation cleanup. */
+/** Root-only transitions: global reset, back resolution, and tenant-boundary cleanup. */
 fun rootReducer(state: AppState, action: Any): AppState = when (action) {
   is Back -> backAction(state)?.let { rootReducer(state, it) } ?: state
   is SignedOut -> signedOutState(state)
   is SessionExpired -> expiredSessionState(state)
-  is CardsLoaded -> reduceContent(state, action).copy(navigation = navigationAfterCardsLoaded(state, action.cards))
+  is CardsLoaded -> reduceContent(state, action)
   is SyncStarted, is SyncSucceeded, is SyncStopped, is SyncFailed -> reduceContent(state, action)
   is MembershipsLoaded, is FamilyCreated -> reduceRoutedFeatureWithFamilyTransition(state, action)
   is NavToDetail, is NavBack, is RestoreDetailStack, is OpenSearch, is CloseSearch,
@@ -99,22 +99,29 @@ private fun reduceRoutedFeatureWithFamilyTransition(state: AppState, action: Any
     // calendars) is a device preference, not tenant data, and stays untouched here.
     calendar = updated.calendar.copy(check = CalendarCheckState(), importState = ImportProposalState.None),
   ) else updated.copy(routines = routineStateAfterAuthorityChange(state, updated))
-  return reduceNavigation(familyScoped, action)
+  return if (action is MembershipsLoaded) {
+    familyScoped.copy(navigation = navigationAfterMembershipsLoaded(state, familyScoped))
+  } else {
+    reduceNavigation(familyScoped, action)
+  }
 }
 
-private fun navigationAfterCardsLoaded(state: AppState, cards: List<Card>): NavigationState {
-  val filtered = state.navigation.detailStack.filter { id -> cards.any { it.id == id } }
-  if (filtered.isNotEmpty() || state.navigation.detailStack.isEmpty()) {
-    return state.navigation.copy(detailStack = filtered)
-  }
-  return state.navigation.copy(
-    route = when (state.navigation.detailReturnDestination) {
-      DetailReturnDestination.FEED -> Route.Feed
-      DetailReturnDestination.SEARCH -> Route.Search
-    },
-    detailStack = emptyList(),
-    detailReturnDestination = DetailReturnDestination.FEED,
+private fun navigationAfterMembershipsLoaded(previous: AppState, updated: AppState): NavigationState {
+  val gateRoute = routeFor(updated.session.session, updated.session.families)
+  val resolvingSessionGate = previous.navigation.route in setOf(
+    Route.Loading,
+    Route.SignIn,
+    Route.AuthError,
+    Route.CreateFamily,
   )
+  // Losing the selected tenant is an authorization boundary, not passive navigation: the old
+  // family's screen cannot remain mounted after its family-scoped state has been cleared.
+  val lostActiveFamily = previous.session.activeFamilyId != null && updated.session.activeFamilyId == null
+  return if (resolvingSessionGate || lostActiveFamily) {
+    updated.navigation.copy(route = gateRoute)
+  } else {
+    updated.navigation
+  }
 }
 
 private fun signedOutState(state: AppState) = AppState(

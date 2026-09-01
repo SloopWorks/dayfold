@@ -36,7 +36,10 @@ data class AppShellState(
 
 /** Pure shell projection. It deliberately excludes all feature collections and profile data. */
 fun appShellState(state: AppState): AppShellState {
-  val detailCardId = currentDetailCard(state)?.id
+  // Navigation owns the selected id. Content availability must not implicitly pop a detail:
+  // CardsLoaded can remove the row during a passive sync, in which case ContentHost renders an
+  // unavailable state until the user explicitly backs out.
+  val detailCardId = state.navigation.detailStack.lastOrNull()
   val backTarget = when {
     state.devices.resuming -> null
     state.hubs.audienceSheetOpen -> BackTarget.Audience

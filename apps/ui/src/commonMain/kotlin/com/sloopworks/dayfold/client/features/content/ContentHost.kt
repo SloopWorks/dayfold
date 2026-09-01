@@ -9,10 +9,18 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -22,9 +30,13 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.backhandler.PredictiveBackHandler
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.sloopworks.dayfold.client.ui.loading.EmptyState
 import com.sloopworks.dayfold.client.ui.loading.rememberReduceMotion
 import kotlin.coroutines.cancellation.CancellationException
 import com.sloopworks.dayfold.client.cards.CardAction
@@ -113,12 +125,18 @@ internal fun ContentHost(
       ) {
         if (id != null) {
           val detail by store.selectorState(::feedDetailViewState)
-          detail?.let {
+          val resolvedDetail = detail
+          if (resolvedDetail != null) {
             DetailScreen(
-              it.card,
-              hubName = it.hubName,
+              resolvedDetail.card,
+              hubName = resolvedDetail.hubName,
               onBack = { store.dispatch(NavBack) },
               onAction = handle,
+              backContentDescription = detailBackContentDescription,
+            )
+          } else {
+            UnavailableDetailScreen(
+              onBack = { store.dispatch(NavBack) },
               backContentDescription = detailBackContentDescription,
             )
           }
@@ -138,6 +156,30 @@ internal fun ContentHost(
           )
         }
       }
+    }
+  }
+}
+
+/** Keeps a vanished selection user-controlled: sync may replace its data, but only Back exits it. */
+@Composable
+private fun UnavailableDetailScreen(
+  onBack: () -> Unit,
+  backContentDescription: String,
+) {
+  Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    TextButton(
+      onClick = onBack,
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        .semantics { contentDescription = backContentDescription },
+    ) {
+      Icon(DayfoldIcons.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+      Text("Back", modifier = Modifier.padding(start = 4.dp))
+    }
+    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+      EmptyState(
+        title = "This card is no longer available",
+        body = "It may have been removed while Dayfold was updating.",
+      )
     }
   }
 }

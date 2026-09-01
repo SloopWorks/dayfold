@@ -17,6 +17,21 @@ class SessionNavigationStateTest {
     assertSame(state.navigation, next.navigation)
   }
 
+  @Test fun `passive card projection preserves navigation when selected content disappears`() {
+    val state = AppState(
+      navigation = NavigationState(
+        route = Route.Search,
+        detailStack = listOf("card_1"),
+        detailReturnDestination = DetailReturnDestination.SEARCH,
+      ),
+      content = ContentState(cards = listOf(Card("card_1", title = "Selected"))),
+    )
+
+    val next = rootReducer(state, CardsLoaded(emptyList()))
+
+    assertSame(state.navigation, next.navigation)
+  }
+
   @Test fun `account reset clears session and navigation together`() {
     val state = AppState(
       session = SessionState(session = Session("access", "refresh", "user"), authBusy = true),
