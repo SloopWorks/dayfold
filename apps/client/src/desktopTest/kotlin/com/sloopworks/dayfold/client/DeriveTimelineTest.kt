@@ -16,7 +16,7 @@ class DeriveTimelineTest {
         HubBlock(id = id, sectionId = "s", type = type, payload = payload, bodyMd = bodyMd, triggers = triggers)
 
     private fun richTree() = HubTree(
-        hub = Hub(id = "h", title = "Maya starts college", countdownTo = "2026-08-24", startAt = "2026-08-01"),
+        hub = Hub(id = "h", title = "Maya starts college", countdownTo = "2026-08-24T09:00:00-04:00", startAt = "2026-08-01T09:00:00-04:00"),
         blocks = listOf(
             block("m1", "milestone", BlockPayload(date = "2026-05-01", label = "Enrollment deposit")),
             block("c1", "checklist", BlockPayload(items = listOf(
@@ -59,7 +59,7 @@ class DeriveTimelineTest {
 
     @Test fun `fewer than two dated stops does not derive but nudges at one`() {
         // Only the hub countdown is dated → one stop → no timeline, but a nudge.
-        val one = HubTree(hub = Hub(id = "h", title = "Trip", countdownTo = "2026-09-01"))
+        val one = HubTree(hub = Hub(id = "h", title = "Trip", countdownTo = "2026-09-01T09:00:00-04:00"))
         assertNull(deriveTimeline(one, ny))
         assertTrue(hubHasSingleDate(one, ny))
         // No dated content at all → neither.
@@ -68,10 +68,9 @@ class DeriveTimelineTest {
         assertFalse(hubHasSingleDate(none, ny))
     }
 
-    @Test fun `duplicate date+title collapses`() {
-        // countdown_to and a milestone share a date+title → one stop, not two.
+    @Test fun `simultaneous facts are not value-deduplicated`() {
         val tree = HubTree(
-            hub = Hub(id = "h", title = "Move-in day", countdownTo = "2026-08-24"),
+            hub = Hub(id = "h", title = "Move-in day", countdownTo = "2026-08-24T09:00:00-04:00"),
             blocks = listOf(
                 block("m", "milestone", BlockPayload(date = "2026-08-24", label = "Move-in day")),
                 block("c", "checklist", BlockPayload(items = listOf(
@@ -79,6 +78,6 @@ class DeriveTimelineTest {
             ),
         )
         val titles = collectDerivedStops(tree, ny).filter { it.title == "Move-in day" }
-        assertEquals(1, titles.size)
+        assertEquals(2, titles.size)
     }
 }

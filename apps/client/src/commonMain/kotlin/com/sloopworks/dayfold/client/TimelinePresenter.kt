@@ -87,7 +87,8 @@ internal fun stopStatuses(stops: List<Stop>, nowIso: String, tz: TimeZone): List
     val statusByOrig = HashMap<Int, StopStatus>()
     for ((origIdx, pair) in ordered) {
         val (stop, inst) = pair
-        val done = stop.done || (inst != null && now != null && inst < now)
+        val completionBoundary = stop.endExclusive?.let { parseInstantFlexible(it, tz) } ?: inst
+        val done = stop.done || (completionBoundary != null && now != null && completionBoundary < now)
         val status = when {
             done -> StopStatus.Done
             !nextAssigned -> { nextAssigned = true; StopStatus.Next }

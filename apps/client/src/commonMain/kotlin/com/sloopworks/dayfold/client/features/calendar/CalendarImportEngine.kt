@@ -366,23 +366,6 @@ class CalendarImportEngine(
     }
     store.dispatch(ChooseImportDestination(destination))
   }
-  /** Description is the sole opt-in source field. It is fetched only on this explicit user action
-   * and never joins the routine observation snapshot. */
-  fun setDescriptionIncluded(include: Boolean) {
-    if (!include) {
-      store.dispatch(SetImportDescriptionOptIn(null))
-      return
-    }
-    val proposalId = store.state.calendar.importState.proposalOrNull()?.proposalId ?: return
-    val eventId = sourceSnapshots[proposalId]?.platformEventId ?: return
-    scope.launch {
-      val description = calendarPort.readEventDescription(eventId)
-      // Do not publish a late read into a different or discarded proposal.
-      if (store.state.calendar.importState.proposalOrNull()?.proposalId == proposalId) {
-        store.dispatch(SetImportDescriptionOptIn(description))
-      }
-    }
-  }
   fun proceedToAudience() = store.dispatch(ProceedImportToAudience)
   fun setAudience(visibility: HubVisibilityChoice, audience: List<String>) = store.dispatch(SetImportAudience(visibility, audience))
   fun proceedToConfirm() = store.dispatch(ProceedImportToConfirm)

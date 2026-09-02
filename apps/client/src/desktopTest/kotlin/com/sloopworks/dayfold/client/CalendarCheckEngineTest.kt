@@ -13,6 +13,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.datetime.TimeZone
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * ADR 0063 §4/§5, ADR 0058 — the effect layer. CalendarCheckEngine owns every DB/port read+write
@@ -89,7 +93,7 @@ class CalendarCheckEngineTest {
     assertEquals(CalendarPermission.Granted, h.store.state.calendar.check.permission)
     assertTrue(h.store.state.calendar.check.results.dayfoldOnly.isEmpty())
 
-    val bound = h.contentStore.calendarBindingBySubjectKey("hub:h1")
+    val bound = h.contentStore.allCalendarBindings().single()
     assertEquals("evt-1", bound?.platformEventId)
     assertEquals(CalendarRelation.MATCHED, bound?.relation)
     assertEquals(CALENDAR_CHECK_HORIZON_DAYS, port.lastHorizonDays)
@@ -139,7 +143,9 @@ class CalendarCheckEngineTest {
     val obs = CalendarEventObservation("evt-1", "cal-a", "Dentist", "2026-08-20T09:00:00Z", null, false, "UTC", null, false, null)
     val h = Harness(
       FakeCalendarPort(observations = listOf(obs)),
-      initial = AppState(calendar = CalendarState(check = CalendarCheckState(ignored = setOf("hub:h1")))),
+      initial = AppState(calendar = CalendarState(check = CalendarCheckState(ignored = setOf(
+        localFactKey(EntityRef("hub:h1"), FactRef("hub:start")),
+      )))),
     )
     seedHub(h.contentStore, "h1", "Dentist", "2026-08-20T09:00:00Z")
     h.contentStore.setCalendarSettings(CalendarSettings(featureEnabled = true, selectedCalendarIds = setOf("cal-a")))
@@ -244,6 +250,81 @@ class CalendarCheckEngineTest {
     assertEquals("hub", op.targetKind)
     assertTrue(op.payload.contains("Dentist appointment"))
     assertTrue(h.store.state.calendar.check.results.differs.isEmpty())
+  }
+
+  @Test fun `Calendar milestone writeback updates the typed fact without inventing behavior`() {
+    val h = Harness(FakeCalendarPort())
+    val section = HubSection("s1", hubId = "h1")
+    val block = HubBlock(
+      "b1", "s1", "milestone",
+      payload = BlockPayload(date = "2026-08-20T09:00:00Z", label = "Dentist", tz = "UTC"),
+    )
+    h.contentStore.applyDelta(
+      emptyList(), emptyList(), listOf(section), listOf(block), emptyList(), "c1", "2026-08-01T00:00:00Z",
+    )
+    val candidate = deriveEventCandidates(emptyList(), listOf(section), listOf(block), emptyList(), TimeZone.UTC).single()
+    val observation = CalendarEventObservation(
+      "evt-1", "cal-a", "Dentist", "2026-08-20T10:00:00Z", null,
+      false, "UTC", null, false, null,
+    )
+
+    assertTrue(h.contentStore.applyCalendarFieldValue(candidate, observation, "start", "2026-08-09T12:00:00Z", "op-1"))
+    val updated = h.contentStore.allBlocks().single()
+    assertEquals("2026-08-20T10:00:00Z", updated.payload?.date)
+    assertTrue(updated.triggers.orEmpty().isEmpty(), "a Calendar correction must not opt into Now/notifications")
+    assertTrue("\"temporal\"" !in h.contentStore.nextPendingOp()!!.payload)
+  }
+
+  @Test fun `Calendar temporal writeback addresses the selected fact and preserves sibling facts`() {
+    val h = Harness(FakeCalendarPort())
+    val id1 = "01K45ABCDEF0123456789GHJKM"
+    val id2 = "01K45ABCDEF0123456789GHJKN"
+    val facet = Json.parseToJsonElement("""{"occurrences":[
+      {"id":"$id1","role":"event","label":"Warm-up","start":"2026-08-20T08:00:00Z","zone":"UTC","status":"confirmed"},
+      {"id":"$id2","role":"event","label":"Show","start":"2026-08-20T09:00:00Z","zone":"UTC","status":"confirmed"}
+    ]}""").jsonObject
+    val section = HubSection("s1", hubId = "h1")
+    val block = HubBlock("b1", "s1", "markdown", temporal = facet)
+    h.contentStore.applyDelta(
+      emptyList(), emptyList(), listOf(section), listOf(block), emptyList(), "c1", "2026-08-01T00:00:00Z",
+    )
+    val candidate = deriveEventCandidates(emptyList(), listOf(section), listOf(block), emptyList(), TimeZone.UTC)
+      .single { it.factRef.value == "temporal:$id2" }
+    val observation = CalendarEventObservation(
+      "evt-2", "cal-a", "Show", "2026-08-20T10:00:00Z", null,
+      false, "UTC", null, false, null,
+    )
+
+    assertTrue(h.contentStore.applyCalendarFieldValue(candidate, observation, "start", "2026-08-09T12:00:00Z", "op-2"))
+    val occurrences = h.contentStore.allBlocks().single().temporal!!["occurrences"]!!.jsonArray
+    assertEquals("2026-08-20T08:00:00Z", occurrences[0].jsonObject["start"]!!.jsonPrimitive.content)
+    assertEquals("2026-08-20T10:00:00Z", occurrences[1].jsonObject["start"]!!.jsonPrimitive.content)
+    val op = h.contentStore.nextPendingOp()!!
+    assertTrue("\"temporal\"" in op.payload)
+    assertEquals("temporal-v1", op.writerCapability)
+  }
+
+  @Test fun `Calendar temporal writeback fails closed when the selected fact disappeared`() {
+    val h = Harness(FakeCalendarPort())
+    val id = "01K45ABCDEF0123456789GHJKM"
+    val facet = Json.parseToJsonElement("""{"occurrences":[
+      {"id":"$id","role":"event","label":"Show","start":"2026-08-20T09:00:00Z","zone":"UTC","status":"confirmed"}
+    ]}""").jsonObject
+    val section = HubSection("s1", hubId = "h1")
+    val block = HubBlock("b1", "s1", "markdown", temporal = facet)
+    h.contentStore.applyDelta(
+      emptyList(), emptyList(), listOf(section), listOf(block), emptyList(), "c1", "2026-08-01T00:00:00Z",
+    )
+    val stale = deriveEventCandidates(emptyList(), listOf(section), listOf(block), emptyList(), TimeZone.UTC)
+      .single().copy(factRef = FactRef("temporal:01K45ABCDEF0123456789GHJKN"))
+    val observation = CalendarEventObservation(
+      "evt-3", "cal-a", "Show", "2026-08-20T10:00:00Z", null,
+      false, "UTC", null, false, null,
+    )
+
+    assertFalse(h.contentStore.applyCalendarFieldValue(stale, observation, "start", "2026-08-09T12:00:00Z", "op-3"))
+    assertEquals(facet, h.contentStore.allBlocks().single().temporal)
+    assertNull(h.contentStore.nextPendingOp())
   }
 
   @Test fun `confirmMatch on a stale pair (already superseded by a fresh check) writes nothing and does not dispatch`() = runBlocking {

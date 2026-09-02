@@ -47,11 +47,6 @@ fun CalendarImportHost(
 
     is ImportProposalState.PreviewingFields -> CalendarImportFieldsScreen(
       proposal = s.proposal,
-      // The description is fetched from the platform only after this explicit opt-in; it remains
-      // structurally absent from routine CalendarEventObservation values.
-      descriptionAvailable = true,
-      descriptionIncluded = s.proposal.description != null,
-      onToggleDescription = commands::setImportDescriptionIncluded,
       onBack = commands::backImportStep,
       onNext = commands::proceedImportToAudience,
       modifier = modifier,

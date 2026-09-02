@@ -83,11 +83,12 @@ export async function initSwip(opts: { required: boolean }): Promise<SwipInstanc
         // event can carry a family/member identifier, this must become a real decision
         // again (see ADR 0059 "When this must be revisited").
         consented: () => true,
-        // Keep `exception.message` — it is the triage payload, and this API is
-        // content-blind by construction (ADR 0015): it stores opaque blobs and never
-        // parses family content, so a server-side exception message carries ids and
-        // driver text, not household content. SWIP's scrubber still runs over it.
-        stripMessage: () => false,
+        // ADR 0067 adds bounded structural parsing of user-authored schedule
+        // metadata. Parser/driver failures can therefore contain labels, values,
+        // zones, or ids. Messages are never telemetry; the middleware records a
+        // stable content-free sentinel and SWIP strips any message captured by a
+        // global hook as defense in depth.
+        stripMessage: () => true,
       },
     ),
   );
@@ -126,7 +127,10 @@ export function swipErrors(get: () => SwipInstance | null = swip): MiddlewareHan
       // (401/404/413) — intended behaviour, not a defect. 5xx is a defect either way.
       if (err instanceof HTTPException && err.status < 500) return;
       s.errors.record(
-        err,
+        // Never pass the thrown object: exception messages/causes from parsers or
+        // PostgreSQL may echo family content. Route + method retain enough triage
+        // shape without identifiers or values.
+        new Error("dayfold.api.unhandled"),
         // The ROUTE PATTERN, never the URL: `/families/:fid/cards`, not the family id.
         { method: c.req.method, route: String(c.req.routePath ?? "unmatched") },
         "hono",

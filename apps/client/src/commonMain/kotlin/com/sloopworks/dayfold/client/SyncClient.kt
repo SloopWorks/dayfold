@@ -50,12 +50,14 @@ class SyncClient(
     body: String,
     baseVersion: Long?,
     opId: String,
+    writerCapability: String = "legacy",
   ): PutResult {
     val resp = http.put("$api/families/$familyId/blocks/$blockId") {
       header("authorization", "Bearer $accessToken")
       header("content-type", "application/json")
       if (baseVersion != null) header("if-match", baseVersion.toString())
       header("idempotency-key", opId)
+      if (writerCapability != "legacy") header("x-dayfold-content-capability", writerCapability)
       setBody(body)
     }
     val status = resp.status.value
@@ -78,12 +80,14 @@ class SyncClient(
     body: String,
     baseVersion: Long?,
     opId: String,
+    writerCapability: String = "legacy",
   ): PutResult {
     val resp = http.put("$api/families/$familyId/hubs/$hubId") {
       header("authorization", "Bearer $accessToken")
       header("content-type", "application/json")
       if (baseVersion != null) header("if-match", baseVersion.toString())
       header("idempotency-key", opId)
+      if (writerCapability != "legacy") header("x-dayfold-content-capability", writerCapability)
       setBody(body)
     }
     val status = resp.status.value
@@ -102,12 +106,14 @@ class SyncClient(
     body: String,
     baseVersion: Long?,
     opId: String,
+    writerCapability: String = "legacy",
   ): PutResult {
     val resp = http.put("$api/families/$familyId/sections/$sectionId") {
       header("authorization", "Bearer $accessToken")
       header("content-type", "application/json")
       if (baseVersion != null) header("if-match", baseVersion.toString())
       header("idempotency-key", opId)
+      if (writerCapability != "legacy") header("x-dayfold-content-capability", writerCapability)
       setBody(body)
     }
     val status = resp.status.value
@@ -123,12 +129,16 @@ class SyncClient(
     accessToken: String,
     cardId: String,
     body: String,
+    baseVersion: Long?,
     opId: String,
+    writerCapability: String = "legacy",
   ): PutResult {
     val resp = http.put("$api/families/$familyId/cards/$cardId") {
       header("authorization", "Bearer $accessToken")
       header("content-type", "application/json")
+      if (baseVersion != null) header("if-match", baseVersion.toString())
       header("idempotency-key", opId)
+      if (writerCapability != "legacy") header("x-dayfold-content-capability", writerCapability)
       setBody(body)
     }
     val status = resp.status.value

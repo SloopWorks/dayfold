@@ -87,7 +87,7 @@ class IosExactNotificationScheduler : ExactNotificationScheduler {
       return
     }   // UNTimeIntervalNotificationTrigger requires a strictly-positive interval
     val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(seconds, repeats = false)
-    val identifier = iosExactNotificationIdentifier(spec.subjectKey)
+    val identifier = iosExactNotificationIdentifier(spec.scheduleKey)
     val request = UNNotificationRequest.requestWithIdentifier(identifier, buildContent(spec), trigger)
     center.addNotificationRequest(request) { error -> onComplete(identifier.takeIf { error == null }) }
   }
@@ -298,7 +298,7 @@ internal object IosBackgroundNotificationPassCoordinator {
     }
     if (index == schedules.size) {
       val desiredIdentifiers = schedules.mapTo(linkedSetOf()) {
-        iosExactNotificationIdentifier(it.spec.subjectKey)
+        iosExactNotificationIdentifier(it.spec.scheduleKey)
       }
       val finalized = IosNotificationPostFence.completeIfCurrent(pass.generation) {
         // Desired stable identifiers were added/replaced first. Remove only stale prior requests;

@@ -792,8 +792,7 @@ val clientSnapshots: SnapshotApp = snapshotApp {
               onChooseNewHub = {}, onChooseExistingHub = {}, onClose = {},
             )
             "fields" -> CalendarImportFieldsScreen(
-              proposal = proposal, descriptionAvailable = true, descriptionIncluded = false,
-              onToggleDescription = {}, onBack = {}, onNext = {},
+              proposal = proposal, onBack = {}, onNext = {},
             )
             "audience-new" -> CalendarImportAudienceNewHubScreen(
               visibility = HubVisibilityChoice.RESTRICTED, familyMemberNames = "Pat, Maya, Leo and Sam can see it",

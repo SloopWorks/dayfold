@@ -1,0 +1,17 @@
+{
+  "temporal": {
+    "occurrences": [
+      {
+        "id": "01K45ABCDEF0123456789GHJKM",
+        "role": "reference",
+        "label": "Original announcement",
+        "start": "2026-08-28T21:00:00-07:00",
+        "zone": "America/Los_Angeles",
+        "status": "confirmed"
+      }
+    ]
+  },
+  "triggers": [
+    { "when": { "fact_ref": "temporal:01K45ABCDEF0123456789GHJKM" } }
+  ]
+}

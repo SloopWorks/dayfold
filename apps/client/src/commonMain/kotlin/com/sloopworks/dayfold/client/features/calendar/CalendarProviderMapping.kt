@@ -2,6 +2,9 @@ package com.sloopworks.dayfold.client
 
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 // CAL-8 (ADR 0063 §1/§3) — pure, platform-agnostic helpers behind AndroidCalendarPort. No Android
@@ -114,7 +117,10 @@ fun eventEditorIntentSpec(prefill: EventPrefill): EventEditorIntentSpec {
   // by eight hours and can display the previous/next day in another calendar client.
   val parseZone = if (prefill.allDay) TimeZone.UTC else TimeZone.of(prefill.timezone)
   val startMillis = parseInstantFlexible(prefill.startAt, parseZone)?.toEpochMilliseconds()
-  val endMillis = prefill.endAt?.let { parseInstantFlexible(it, parseZone)?.toEpochMilliseconds() }
+  val effectiveEnd = prefill.endAt ?: if (prefill.allDay) runCatching {
+    LocalDate.parse(prefill.startAt).plus(1, DateTimeUnit.DAY).toString()
+  }.getOrNull() else null
+  val endMillis = effectiveEnd?.let { parseInstantFlexible(it, parseZone)?.toEpochMilliseconds() }
   val extras = buildMap<String, Any> {
     put("title", prefill.title)
     startMillis?.let { put("beginTime", it) }

@@ -4,7 +4,7 @@ import com.sloopworks.dayfold.client.MediaValidation
 import com.sloopworks.dayfold.schema.BlockType
 import com.sloopworks.dayfold.schema.BriefingCard
 import com.sloopworks.dayfold.schema.BriefingCardPayload
-import com.sloopworks.dayfold.schema.Status
+import com.sloopworks.dayfold.schema.HubStatus
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -89,7 +89,7 @@ private fun mediaJsonErrors(prefix: String, obj: JsonObject?, urlKeys: List<Stri
 // a schema change can't silently drift this pre-check into rejecting newly-valid
 // content (or accepting a since-removed value). They match the hand-list today.
 private val HUB_CATALOG = setOf("vacation", "starting-college", "move", "party-event", "new-baby", "medical", "school-year")
-private val HUB_STATUS = Status.entries.map { it.value }.toSet()
+private val HUB_STATUS = HubStatus.entries.map { it.value }.toSet()
 private val BLOCK_TYPES = BlockType.entries.map { it.value }.toSet()
 
 /**

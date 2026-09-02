@@ -62,8 +62,7 @@ sealed interface ImportDestination {
 /**
  * spec §1.1 "Shape" — the ONLY representation that crosses from a calendar observation into the
  * import flow. [destination] is null until the destination step resolves it; every other field is
- * fixed at review-start (device randomness mints [proposalId]) except [description], which the
- * member may opt into on the fields step (spec OD-1, default off), and the fields the member edits
+ * fixed at review-start (device randomness mints [proposalId]) except the fields the member edits
  * before applying (title/location).
  */
 @Serializable data class CalendarImportProposal(
@@ -73,6 +72,7 @@ sealed interface ImportDestination {
   val end: EventInstant?,
   val timezone: String?,
   val location: StructuredLocation?,
+  // Decode-only compatibility for a pre-0067 device-local draft. Never rendered or materialized.
   val description: String? = null,
   val destination: ImportDestination? = null,
 )
@@ -87,7 +87,7 @@ sealed interface ImportDestination {
 @Serializable data class ImportOpIds(
   val hubId: String?,           // present only for a NewHub destination
   val sectionId: String,
-  val blockIds: List<String>,   // milestone [, location] [, markdown] — matches materialize() order
+  val blockIds: List<String>,   // milestone [, location] — matches materialize() order
 )
 
 /** Device-local recovery record decoded from calendar_import. */

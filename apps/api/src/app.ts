@@ -5,7 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { q, pool } from "./db.ts";
 import { stripServerManaged, stampProvenance, constantTimeEqual } from "./security.ts";
 import { BriefingCardSchema } from "./generated/content.ts";
-import { crossValidateCard, blockPayloadIssues, hubTimelineIssues } from "./content-validation.ts";
+import { crossValidateCard, blockPayloadIssues, hubTimelineIssues, temporalIssues, type CrossIssue } from "./content-validation.ts";
 import { validateHubMedia, validateCardMedia, validateBlockPayloadMedia, normalizedAccent } from "./media-validation.ts";
 import * as repo from "./repo.ts";
 import { authorizeTenant, bearer } from "./auth/middleware.ts";
@@ -470,20 +470,19 @@ app.put("/families/:fid/cards/:id", async (c) => {
   const a = await authorizeTenant(c, fid);
   if ("status" in a) return c.body(null, a.status);
   if (!(await requireScope(a.cred.id, "content", "write"))) return c.json({ type: "forbidden" }, 403);
-  // Visibility-on-write (ADR 0038/0030): a member cannot overwrite (or probe the
-  // existence of) a restricted card they can't see — invisible existing card → uniform
-  // 404. A new id or a family/own card → visible → proceed.
-  {
-    const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id]);
-    if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
-  }
   const rb = await requireJsonObject(c);
   if ("error" in rb) return rb.error;
   const raw = rb.value;
+  const temporalDirective = temporalWrite(raw);
   const va = parseVisibilityAudience(raw);
   if ("error" in va) return c.json(va.error, 422);
-  const { visibility, audience, rest } = va;
+  const { rest, visibilityProvided, audienceProvided } = va;
+  let { visibility, audience } = va;
   let body: any = stripServerManaged(rest);          // mass-assignment: drop server fields
+  if (temporalDirective.kind === "clear") {
+    const { temporal: _temporal, ...withoutTemporal } = body;
+    body = withoutTemporal;
+  }
   body = stampProvenance(body, a.cred.id);           // un-forgeable provenance
   const parsed = BriefingCardSchema.safeParse({ ...body, id }); // path id wins
   { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
@@ -502,10 +501,29 @@ app.put("/families/:fid/cards/:id", async (c) => {
   // family deliberately wrote as an error.
   const subjectRef = buildCardSubjectRef(id);
   return responses.withSubjectWriteLock(fid, subjectRef, async () => {
+    // One transaction owns visibility, version, tri-state temporal resolution,
+    // trigger compatibility, suppression, and the upsert. This prevents a stale
+    // route read from declassifying a card or erasing a fact during a concurrent edit.
+    const current = await q(
+      `SELECT visibility,audience,temporal,triggers,version,deleted_at
+         FROM briefing_cards WHERE family_id=$1 AND id=$2 FOR UPDATE`,
+      [fid, id],
+    );
+    const existing = current.rows[0] ?? null;
+    const live = existing && existing.deleted_at == null ? existing : null;
+    if (live && !cardVisible(live, callerFrom(a))) return c.body(null, 404);
+    if (ifMatchFails(c.req.header("if-match"), live ? Number(live.version) : null)) return c.body(null, 412);
+    if (live) {
+      if (!visibilityProvided) visibility = live.visibility === "restricted" ? "restricted" : "family";
+      if (visibility === "restricted" && !audienceProvided) audience = Array.isArray(live.audience) ? [...live.audience] : [];
+    }
+    const effective = effectiveTemporalData(parsed.data, temporalDirective, existing, hasTemporalCapability(c));
+    const temporalCross = [...effective.issues, ...temporalIssues(effective.data)];
+    if (temporalCross.length) return c.json({ type: "validation", issues: temporalCross }, 422);
     const gate = suppressedBy(await responses.listActive(fid), {
       subjectRef,
-      kind: (parsed.data as any).kind ?? null,
-      source: (parsed.data as any).provenance?.source ?? null,
+      kind: effective.data.kind ?? null,
+      source: effective.data.provenance?.source ?? null,
     });
     if (gate.blocked) return problem(c, 409, "subject-muted");
     // A personal mute does not block: it removes its owner from the audience so the routine
@@ -518,7 +536,7 @@ app.put("/families/:fid/cards/:id", async (c) => {
       // Nobody left to write for → writing anyway would create a card no member can see.
       if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
     }
-    return c.json(await repo.upsertCard(fid, id, { ...parsed.data, visibility, audience: finalAudience }), 200);
+    return c.json(await repo.upsertCard(fid, id, { ...effective.data, visibility, audience: finalAudience }), 200);
   });
 });
 
@@ -577,6 +595,54 @@ function idErrorResponse(c: any, id: string) {
 async function requireJsonObject(c: any): Promise<{ value: any } | { error: Response }> {
   const raw = await c.req.json().catch(() => null);
   return raw && typeof raw === "object" ? { value: raw } : { error: c.json({ type: "bad-json" }, 400) };
+}
+
+type TemporalWrite = { kind: "preserve" } | { kind: "clear" } | { kind: "replace"; value: unknown };
+function temporalWrite(raw: Record<string, unknown>): TemporalWrite {
+  if (!Object.prototype.hasOwnProperty.call(raw, "temporal")) return { kind: "preserve" };
+  return raw.temporal === null ? { kind: "clear" } : { kind: "replace", value: raw.temporal };
+}
+
+function jsonColumn(value: unknown): any {
+  if (typeof value !== "string") return value ?? null;
+  return runJson(value);
+}
+
+function runJson(value: string): any {
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+function hasTemporalCapability(c: any): boolean {
+  return (c.req.header("x-dayfold-content-capability") ?? "")
+    .split(",").map((token: string) => token.trim()).includes("temporal-v1");
+}
+
+function factRefTriggers(value: unknown): any[] {
+  const parsed = jsonColumn(value);
+  return Array.isArray(parsed) ? parsed.filter((trigger) => typeof trigger?.when?.fact_ref === "string") : [];
+}
+
+function effectiveTemporalData(
+  incoming: any,
+  directive: TemporalWrite,
+  existing: { temporal?: unknown; triggers?: unknown } | null,
+  capable: boolean,
+): { data: any; issues: CrossIssue[] } {
+  const data = { ...incoming };
+  data.temporal = directive.kind === "preserve"
+    ? jsonColumn(existing?.temporal)
+    : directive.kind === "clear" ? null : directive.value;
+  const oldFactTriggers = factRefTriggers(existing?.triggers);
+  const newFactTriggers = factRefTriggers(data.triggers);
+  const issues: CrossIssue[] = [];
+  if (!capable && newFactTriggers.length > 0 && oldFactTriggers.length === 0) {
+    issues.push({ path: ["triggers"], code: "temporal.capability-required", message: "temporal.capability-required" });
+  }
+  if (!capable && oldFactTriggers.length > 0 && newFactTriggers.length === 0) {
+    const incomingTriggers = Array.isArray(data.triggers) ? data.triggers : [];
+    data.triggers = [...incomingTriggers, ...oldFactTriggers];
+  }
+  return { data, issues };
 }
 
 // zod safeParse failure → 422 validation-issues body, else null (was repeated 4x;
@@ -733,25 +799,31 @@ app.put("/families/:fid/hubs/:id", async (c) => {
   const timelineIssues = hubTimelineIssues(parsed.data as any);
   if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
   const caller = callerFrom(a);
-  const existing = await hubs.getHub(fid, id);
-  if (existing) {
-    const allow = await hubs.allowListFor(fid, id);
-    const permitted = () => !!caller.userId && allow.has(caller.userId);
+  return responses.withSubjectWriteLock(fid, `hub:${id}`, async () => {
+    const locked = await q(
+      `SELECT * FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
+      [fid, id],
+    );
+    const existing = locked.rows[0] ?? null;
+    if (ifMatchFails(c.req.header("if-match"), existing ? Number(existing.version) : null)) return c.body(null, 412);
+    if (existing) {
+      const allow = await hubs.allowListFor(fid, id);
+      const permitted = () => !!caller.userId && allow.has(caller.userId);
     // DC-final security fix: a legacy re-authoring PUT that OMITS visibility/audience
     // (routine content-only re-push — e.g. `dayfold push <id> --hub`) must PRESERVE
     // the stored visibility + allow-list, not silently declassify a restricted hub to
     // family (parseVisibilityAudience's create-time default). Only an EXPLICIT
     // visibility/audience in the body may change them — a brand-new hub (no
     // `existing`) still gets today's create-time defaults.
-    if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
-    if (visibility === "restricted" && !audienceProvided) audience = [...allow];
+      if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
+      if (visibility === "restricted" && !audienceProvided) audience = [...allow];
     // Visibility-on-write (ADR 0038): a restricted hub the caller can't see is a uniform
     // 404 (no existence oracle) — takes precedence over the 403 author-gate below.
-    if (!hubs.hubVisible(existing, caller, permitted)) return c.body(null, 404);
+      if (!hubs.hubVisible(existing, caller, permitted)) return c.body(null, 404);
     // ADR 0030 §6: only the author / an already-permitted member / legacy may rewrite
     // an existing hub. A fresh hub's author is the caller → allowed.
-    if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
-      return c.json({ type: "forbidden" }, 403);
+      if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+        return c.json({ type: "forbidden" }, 403);
     // ADR 0053 item 5: a PUT that actually CHANGES visibility or the audience allow-
     // list is a MANAGEMENT action, not plain authoring — require canManageHub
     // (author/co_owner/legacy), same gate as the dedicated .../visibility and
@@ -761,12 +833,13 @@ app.put("/families/:fid/hubs/:id", async (c) => {
     // body edit that leaves visibility + audience unchanged) is NOT a management
     // action and stays open to any writer, so this check only fires on an actual
     // change.
-    const newAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
-    const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
-    if ((visibility !== existing.visibility || audienceChanged) && !(await hubs.canManageHub(fid, id, caller)))
-      return c.json({ type: "forbidden" }, 403);
-  }
-  return c.json(await hubs.upsertHub(fid, id, parsed.data, caller, visibility, audience), 200);
+      const newAudience = visibility === "restricted" ? new Set(audience ?? []) : new Set<string>();
+      const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
+      if ((visibility !== existing.visibility || audienceChanged) && !(await hubs.canManageHub(fid, id, caller)))
+        return c.json({ type: "forbidden" }, 403);
+    }
+    return c.json(await hubs.upsertHub(fid, id, parsed.data, caller, visibility, audience), 200);
+  });
 });
 
 app.post("/families/:fid/hubs/:id/archive", async (c) => {
@@ -843,6 +916,7 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const rb = await requireJsonObject(c);
   if ("error" in rb) return rb.error;
   const raw = rb.value;
+  const temporalDirective = temporalWrite(raw);
   const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
   if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
   const caller = callerFrom(a);
@@ -858,7 +932,10 @@ app.put("/families/:fid/blocks/:id", async (c) => {
   const gateResponse = hubWriteGateResponse(c, gate, "parent section missing or deleted");
   if (gateResponse) return gateResponse;
   const { sectionId: _s, ...rest } = raw;
-  const body = stampProvenance(rest, a.cred.id);     // un-forgeable provenance
+  const schemaRest = temporalDirective.kind === "clear"
+    ? (({ temporal: _temporal, ...withoutTemporal }) => withoutTemporal)(rest)
+    : rest;
+  const body = stampProvenance(schemaRest, a.cred.id);     // un-forgeable provenance
   const parsed = BlockSchema.safeParse({ ...body, id });
   { const ve = validationIssuesResponse(c, parsed); if (ve) return ve; }
   // BlockSchema.payload is z.any() (codegen stub) — validate the payload here (ADR 0035;
@@ -914,20 +991,31 @@ app.put("/families/:fid/blocks/:id", async (c) => {
         return c.json(existing, 200);
       }
     }
-    const st = await blockState(fid, id);
+    const current = await q(
+      `SELECT temporal,triggers,version,deleted_at FROM blocks
+        WHERE family_id=$1 AND id=$2 FOR UPDATE`,
+      [fid, id],
+    );
+    const existing = current.rows[0] ?? null;
+    const st = existing
+      ? { exists: true, deleted: existing.deleted_at != null, version: Number(existing.version) }
+      : { exists: false, deleted: false, version: null };
     // 410-on-tombstone: a member write never resurrects a soft-deleted block (ADR 0038 §6.3).
     if (member && st.deleted) return c.body(null, 410);
     // If-Match optimistic concurrency: stale base version → 412 re-merge-retry (ADR 0038 §6.2).
     if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+    const effective = effectiveTemporalData(parsed.data, temporalDirective, existing, hasTemporalCapability(c));
+    const temporalCross = [...effective.issues, ...temporalIssues(effective.data)];
+    if (temporalCross.length) return c.json({ type: "validation", issues: temporalCross }, 422);
     const suppression = suppressedBy(await responses.listActive(fid), {
       subjectRef,
       kind: null,
-      source: (parsed.data as any).provenance?.source ?? null,
+      source: effective.data.provenance?.source ?? null,
     });
     // Blocks carry no audience[] (ADR 0030 scopes them through their hub), so there is nothing
     // to strip — a personal rule cannot partially apply here. Only a blocking rule bites.
     if (suppression.blocked) return problem(c, 409, "subject-muted");
-    const row = await hubs.upsertBlock(fid, id, sectionId, parsed.data, {
+    const row = await hubs.upsertBlock(fid, id, sectionId, effective.data, {
       allowResurrect: !member,
       createdBy: a.userId,
       expectedHubId: hubId,

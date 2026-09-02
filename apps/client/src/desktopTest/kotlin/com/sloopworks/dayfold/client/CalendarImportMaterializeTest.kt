@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
@@ -74,29 +75,24 @@ class CalendarImportMaterializeTest {
       dest, ids(), "2026-08-09T10:00:00Z", opIdSeq(),
     )
     val blocks = ops.filter { it.targetKind == "block" }
-    assertEquals(3, blocks.size)
+    assertEquals(2, blocks.size)
     assertEquals(blocks[0].opId, blocks[1].dependsOn)
-    assertEquals(blocks[1].opId, blocks[2].dependsOn)
     assertEquals("location", field(blocks[1].payload, "type"))
     assertEquals("blk-2", blocks[1].targetId)
-    assertEquals("markdown", field(blocks[2].payload, "type"))
-    assertEquals("blk-3", blocks[2].targetId)
   }
 
-  @Test fun `description opt-in adds a markdown block using body_md, never a payload field`() {
+  @Test fun `description is never materialized into Dayfold content`() {
     val dest = ImportDestination.NewHub()
     val ops = materialize(proposal(description = "Bring a dessert"), dest, ids(), "2026-08-09T10:00:00Z", opIdSeq())
-    val markdown = ops.last()
-    assertEquals("markdown", field(markdown.payload, "type"))
-    assertEquals("Bring a dessert", field(markdown.payload, "body_md"))
-    assertTrue("payload" !in keys(markdown.payload))
+    assertTrue(ops.none { "Bring a dessert" in it.payload })
+    assertTrue(ops.none { runCatching { field(it.payload, "type") }.getOrNull() == "markdown" })
   }
 
   @Test fun `importBlockCount matches materialize's actual block count for every opt-in combination`() {
     assertEquals(1, importBlockCount(proposal()))
     assertEquals(2, importBlockCount(proposal(location = StructuredLocation("x"))))
-    assertEquals(2, importBlockCount(proposal(description = "d")))
-    assertEquals(3, importBlockCount(proposal(location = StructuredLocation("x"), description = "d")))
+    assertEquals(1, importBlockCount(proposal(description = "d")))
+    assertEquals(2, importBlockCount(proposal(location = StructuredLocation("x"), description = "d")))
   }
 
   // ── §4.1 non-goal 1 — exact allowed key-set proof, per op body ──
@@ -131,6 +127,10 @@ class CalendarImportMaterializeTest {
     assertEquals(setOf("sectionId", "type", "payload", "triggers", "provenance"), keys(milestone.payload))
     val payload = Json.parseToJsonElement(milestone.payload).jsonObject["payload"]!!.jsonObject
     assertTrue(payload.keys.all { it in setOf("date", "label", "end", "tz") })
+    val whenTrigger = Json.parseToJsonElement(milestone.payload).jsonObject["triggers"]!!
+      .jsonArray.single().jsonObject["when"]!!.jsonObject
+    assertEquals("payload:milestone", whenTrigger["fact_ref"]!!.jsonPrimitive.content)
+    assertTrue("at" !in whenTrigger)
   }
 
   @Test fun `all-day start omits triggers entirely (no when-at trigger for a dateless instant)`() {

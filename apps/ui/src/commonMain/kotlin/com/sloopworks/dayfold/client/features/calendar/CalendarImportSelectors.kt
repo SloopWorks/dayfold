@@ -21,11 +21,9 @@ fun CalendarImportProposal.dateTimeLine(): String {
   return if (end != null) "$start – $end" else start
 }
 
-/** How many fields go to Dayfold (spec §1.4 field-count line on Import.dc.html §24/§26): title +
- *  date/time + timezone (when present) + location (when present) — description is opt-in and
- *  counted only when included. */
+/** How many reviewed structured fields go to Dayfold. External description remains local. */
 fun CalendarImportProposal.approvedFieldCount(): Int =
-  2 + (if (timezone != null) 1 else 0) + (if (location != null) 1 else 0) + (if (description != null) 1 else 0)
+  2 + (if (timezone != null) 1 else 0) + (if (location != null) 1 else 0)
 
 data class ImportDestinationRow(val hubId: String, val title: String, val role: String)
 

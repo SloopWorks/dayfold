@@ -104,40 +104,9 @@ class CalendarImportEngineTest {
     assertEquals("saved", cs.calendarImportStatus(saved.proposal.proposalId))
     val hubId = assertNotNull(saved.ids.hubId)
     assertEquals(saved.proposal.title, cs.activeHubs().single { it.id == hubId }.title)
-    val finalBinding = cs.allCalendarBindings().single { it.subjectKey.startsWith("hub:$hubId/") }
+    val finalBinding = cs.allCalendarBindings().single { it.subjectRef.startsWith("hub:$hubId/") }
     assertEquals(CalendarRelation.MATCHED, finalBinding.relation)
     assertEquals("evt-1", finalBinding.platformEventId)
-  }
-
-  @Test fun `description is read only after explicit opt-in and joins the reviewed proposal`() = runBlocking<Unit> {
-    val cs = freshStore()
-    val store = appStore(AppState(session = sessionState()))
-    var descriptionReads = 0
-    val source = observation()
-    val port = object : CalendarPort {
-      override suspend fun observeEvents(calendarIds: Set<String>, horizonDays: Int) = listOf(source)
-      override suspend fun listCalendars() = emptyList<DeviceCalendar>()
-      override fun permissionState() = CalendarPermission.Granted
-      override fun openEventEditor(prefill: EventPrefill, onResult: (CalendarEditorOutcome) -> Unit) {}
-      override suspend fun readEventDescription(platformEventId: String): String? {
-        descriptionReads++
-        assertEquals(source.platformEventId, platformEventId)
-        return "Bring the birthday cake"
-      }
-      override fun requestPermission() {}
-    }
-    val e = engine(store, cs, calendarPort = port)
-
-    e.startImport(source)
-    e.chooseDestination(ImportDestination.NewHub(HubVisibilityChoice.RESTRICTED, listOf("me")))
-    assertEquals(0, descriptionReads)
-    e.setDescriptionIncluded(true)
-    awaitState(store) { it.proposalOrNull()?.description == "Bring the birthday cake" }
-
-    assertEquals(1, descriptionReads)
-    assertEquals("Bring the birthday cake", store.state.calendar.importState.proposalOrNull()?.description)
-    e.setDescriptionIncluded(false)
-    assertNull(store.state.calendar.importState.proposalOrNull()?.description)
   }
 
   @Test fun `no connectivity at confirm queues offline without enqueueing any op`() = runBlocking<Unit> {

@@ -121,6 +121,9 @@ class CalendarCheckEngine(
         contentStore.upsertCalendarBinding(
           CalendarBinding(
             subjectKey = itemKey,
+            subjectRef = candidate?.subjectRef ?: itemKey,
+            entityRef = candidate?.entityRef?.value,
+            factRef = candidate?.factRef?.value,
             sourceVersion = candidate?.sourceVersion ?: fingerprintOfObservation(requireNotNull(observation)),
             platformEventId = observation?.platformEventId,
             calendarId = observation?.calendarId,
@@ -157,6 +160,9 @@ class CalendarCheckEngine(
         contentStore.upsertCalendarBinding(
           CalendarBinding(
             subjectKey = subjectKey,
+            subjectRef = pair.candidate.subjectRef,
+            entityRef = pair.candidate.entityRef.value,
+            factRef = pair.candidate.factRef.value,
             sourceVersion = pair.candidate.sourceVersion,
             platformEventId = pair.observation.platformEventId,
             calendarId = pair.observation.calendarId,
@@ -182,6 +188,9 @@ class CalendarCheckEngine(
         contentStore.upsertCalendarBinding(
           CalendarBinding(
             subjectKey = subjectKey,
+            subjectRef = notice.candidate.subjectRef,
+            entityRef = notice.candidate.entityRef.value,
+            factRef = notice.candidate.factRef.value,
             sourceVersion = notice.candidate.sourceVersion,
             platformEventId = notice.observation.platformEventId,
             calendarId = notice.observation.calendarId,
@@ -211,6 +220,9 @@ class CalendarCheckEngine(
       contentStore.upsertCalendarBinding(
         CalendarBinding(
           subjectKey = candidate.subjectKey,
+          subjectRef = candidate.subjectRef,
+          entityRef = candidate.entityRef.value,
+          factRef = candidate.factRef.value,
           sourceVersion = candidate.sourceVersion,
           platformEventId = obs.platformEventId,
           calendarId = obs.calendarId,

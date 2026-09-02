@@ -8,6 +8,31 @@ dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. The app is pre-1.0 (`0.0.0-M0`) and untagged, so entries are dated; the
 CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
 
+## 2026-09-01 — Canonical date/time facts and verified authoring
+
+### Added
+- **Cards and Hub blocks can retain every material date or time as structured
+  content.** A single item may carry multiple identified events, deadlines,
+  windows, or reference dates without collapsing them into one timestamp.
+  Date-only facts remain civil dates; timed facts retain their offset and IANA
+  time zone.
+- **Dates no longer imply reminders.** A notification or Now behavior is a
+  separate, explicit trigger that references one confirmed timed fact. Historical,
+  tentative, cancelled, and date-only facts cannot silently schedule behavior.
+- **The curator and CLI now audit date coverage and verify repairs end to end.**
+  `dayfold content audit` reports likely prose-only dates, while the bounded
+  temporal-bundle flow checks a claim ledger, ACL, and base version before a
+  write, then verifies the response and a fresh pull rather than treating HTTP
+  success as proof that the facts survived.
+
+### Fixed
+- **Older or partial writers cannot erase new temporal facts or declassify a
+  restricted card by omission.** API updates preserve omitted temporal/ACL fields,
+  use optimistic versions for curated replacement, and round-trip the new facet
+  through tree, sync, and the mobile cache. Calendar Check and derived timelines
+  consume each eligible fact by stable identity, and notification reconciliation
+  removes schedules whose referenced fact disappears.
+
 ## 2026-09-01 — Sync no longer changes the current screen
 
 ### Fixed

@@ -9,10 +9,13 @@ import kotlinx.cinterop.value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.toKotlinInstant
 import kotlinx.datetime.toNSDate
-import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import platform.EventKit.*
 import platform.EventKitUI.*
@@ -109,8 +112,10 @@ class IosCalendarPort : CalendarPort {
     // EventKit requires an end. Match calendar-app defaults when Dayfold has only a start:
     // one whole date for all-day events, one hour for timed events; the native editor remains
     // authoritative and lets the member change either before saving.
-    val end = prefill.endAt?.let { parseInstantFlexible(it, zone) }
-      ?: start + if (prefill.allDay) 1.days else 1.hours
+    val end = prefill.endAt?.let { parseInstantFlexible(it, zone) } ?: if (prefill.allDay) {
+      val civilStart = runCatching { LocalDate.parse(prefill.startAt) }.getOrNull()
+      civilStart?.plus(1, DateTimeUnit.DAY)?.atStartOfDayIn(zone) ?: return
+    } else start + 1.hours
     val event = EKEvent.eventWithEventStore(store)
     event.title = prefill.title
     event.startDate = start.toNSDate()
@@ -148,11 +153,6 @@ class IosCalendarPort : CalendarPort {
       presenter.presentViewController(editController, animated = true, completion = null)
     }
   }
-
-  override suspend fun readEventDescription(platformEventId: String): String? =
-    withContext(Dispatchers.Default) {
-      store.eventWithIdentifier(platformEventId)?.notes?.trim()?.takeIf(String::isNotEmpty)
-    }
 
   private inner class EditDelegate(
     private val onResult: (CalendarEditorOutcome) -> Unit,

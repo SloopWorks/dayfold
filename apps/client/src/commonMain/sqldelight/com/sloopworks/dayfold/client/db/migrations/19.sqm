@@ -1,0 +1,6 @@
+-- Migration v19→v20 (ADR 0067) — split local Calendar identity from semantic subject.
+-- Legacy rows retain their old primary key and are matched only when one fact maps unambiguously.
+ALTER TABLE calendar_binding ADD COLUMN subject_ref TEXT;
+ALTER TABLE calendar_binding ADD COLUMN entity_ref TEXT;
+ALTER TABLE calendar_binding ADD COLUMN fact_ref TEXT;
+UPDATE calendar_binding SET subject_ref = subject_key WHERE subject_ref IS NULL;

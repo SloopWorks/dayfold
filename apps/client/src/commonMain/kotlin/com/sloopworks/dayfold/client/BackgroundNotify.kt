@@ -234,7 +234,7 @@ fun planExactSchedules(
     if (at <= now || at - now > horizon) return@mapNotNull null
     item to at
   }
-    .groupBy { it.first.subjectKey }
+    .groupBy { it.first.localFactKey ?: it.first.subjectKey }
     .map { (_, group) -> group.minBy { it.second.toEpochMilliseconds() }.first }
     .map { ExactSchedule(atIso = it.triggerAtIso!!, spec = it.toNotificationSpec()) }
 }
@@ -265,7 +265,7 @@ internal fun activeExactNotificationSubjects(
   snapshot.cards.asSequence()
     // A card can remain useful after its timed reminder is removed. In that case the card itself is
     // still live, but it no longer owns an exact-notification source and must not preserve old history.
-    .filter { card -> card.notBefore != null || card.triggers.orEmpty().any { it.whenTrigger?.at != null } }
+    .filter { card -> card.notBefore != null || card.triggers.orEmpty().any { it.whenTrigger?.at != null || it.whenTrigger?.factRef != null } }
     .filter { card ->
       now == null || card.expiresAt == null ||
         (parseInstantFlexible(card.expiresAt, zone)?.let { it > now } ?: true)
@@ -313,14 +313,17 @@ internal fun activeExactNotificationSubjects(
         triggerAtIso = hubTrigger,
       )
     }
+    val facts = temporalFacts(block, zone)
     block.triggers.orEmpty().forEachIndexed { index, trigger ->
-      trigger.whenTrigger?.at?.let { at ->
+      trigger.whenTrigger?.let { whenTrigger ->
+        val resolved = resolveWhenTrigger(facts, whenTrigger, zone) ?: return@let
         candidates += exactSourceItem(
           id = "exact-source:when:${block.id}:$index",
           kind = ReasonKind.WHEN,
           title = title,
           subjectKey = subjectKey,
-          triggerAtIso = at,
+          triggerAtIso = resolved.effectiveAt.toString(),
+          localFactKey = resolved.factRef?.let { localFactKey(EntityRef("block:${block.id}"), FactRef(it)) },
         )
       }
     }
@@ -332,7 +335,7 @@ internal fun activeExactNotificationSubjects(
     },
     snapshot.responses,
     snapshot.viewerUserId,
-  ).mapTo(linkedSetOf()) { it.subjectKey }
+  ).mapTo(linkedSetOf()) { it.localFactKey ?: it.subjectKey }
 }
 
 private fun exactSourceItem(
@@ -341,6 +344,7 @@ private fun exactSourceItem(
   title: String,
   subjectKey: String,
   triggerAtIso: String,
+  localFactKey: String? = null,
 ) = NowItem(
   id = id,
   origin = Origin.DERIVED,
@@ -350,6 +354,7 @@ private fun exactSourceItem(
   subjectKey = subjectKey,
   target = null,
   triggerAtIso = triggerAtIso,
+  localFactKey = localFactKey,
 )
 
 /**

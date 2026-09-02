@@ -1,0 +1,14 @@
+{
+  "temporal": {
+    "occurrences": [
+      {
+        "id": "01K45ABCDEF0123456789GHJKM",
+        "role": "window",
+        "label": "Show window",
+        "start": "2026-08-28",
+        "end": "2026-08-28T23:00:00-07:00",
+        "status": "confirmed"
+      }
+    ]
+  }
+}

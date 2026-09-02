@@ -152,6 +152,31 @@ class HubCacheTest {
             )
         """.trimIndent(), 0)
         d17.execute(null, """
+            CREATE TABLE hub_block (
+              id TEXT NOT NULL PRIMARY KEY, section_id TEXT NOT NULL, type TEXT NOT NULL,
+              body_md TEXT, payload TEXT, provenance TEXT, ord INTEGER NOT NULL DEFAULT 0,
+              updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
+              version INTEGER NOT NULL DEFAULT 1, local_state TEXT, created_by TEXT, triggers TEXT
+            )
+        """.trimIndent(), 0)
+        d17.execute(null, """
+            CREATE TABLE outbox (
+              op_id TEXT NOT NULL PRIMARY KEY, target_kind TEXT NOT NULL, target_id TEXT NOT NULL,
+              type TEXT NOT NULL, payload TEXT NOT NULL, base_version INTEGER, depends_on TEXT,
+              state TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+              result_version INTEGER, created_at TEXT NOT NULL
+            )
+        """.trimIndent(), 0)
+        d17.execute(null, """
+            CREATE TABLE calendar_binding (
+              subject_key TEXT NOT NULL PRIMARY KEY, source_version TEXT NOT NULL,
+              platform_event_id TEXT, calendar_id TEXT, fingerprint TEXT, last_seen_at TEXT,
+              relation TEXT NOT NULL DEFAULT 'needs_review',
+              notification_owner TEXT NOT NULL DEFAULT 'calendar', review_state TEXT,
+              created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            )
+        """.trimIndent(), 0)
+        d17.execute(null, """
             INSERT INTO card(
               id, title, target_hub_id, target_section_id, target_block_id, updated_at
             ) VALUES ('card-1', 'Cached card', 'hub-target', 'section-target', 'block-target', '2026-08-28T00:00:00Z')

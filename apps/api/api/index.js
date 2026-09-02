@@ -3292,11 +3292,12 @@ async function initSwip(opts) {
         // event can carry a family/member identifier, this must become a real decision
         // again (see ADR 0059 "When this must be revisited").
         consented: () => true,
-        // Keep `exception.message` — it is the triage payload, and this API is
-        // content-blind by construction (ADR 0015): it stores opaque blobs and never
-        // parses family content, so a server-side exception message carries ids and
-        // driver text, not household content. SWIP's scrubber still runs over it.
-        stripMessage: () => false
+        // ADR 0067 adds bounded structural parsing of user-authored schedule
+        // metadata. Parser/driver failures can therefore contain labels, values,
+        // zones, or ids. Messages are never telemetry; the middleware records a
+        // stable content-free sentinel and SWIP strips any message captured by a
+        // global hook as defense in depth.
+        stripMessage: () => true
       }
     )
   );
@@ -3313,7 +3314,10 @@ function swipErrors(get = swip) {
       reported = true;
       if (err instanceof HTTPException && err.status < 500) return;
       s.errors.record(
-        err,
+        // Never pass the thrown object: exception messages/causes from parsers or
+        // PostgreSQL may echo family content. Route + method retain enough triage
+        // shape without identifiers or values.
+        new Error("dayfold.api.unhandled"),
         // The ROUTE PATTERN, never the URL: `/families/:fid/cards`, not the family id.
         { method: c.req.method, route: String(c.req.routePath ?? "unmatched") },
         "hono"
@@ -3420,50 +3424,27 @@ var init_security = __esm({
 
 // src/generated/content.ts
 import { z } from "zod";
-var ProvenanceSchema, TriggerSchema, ActionSchema, LinkPayloadSchema, ChecklistPayloadSchema, DocumentPayloadSchema, MilestonePayloadSchema, ContactPayloadSchema, LocationPayloadSchema, BudgetPayloadSchema, BlockSchema, SectionSchema, TimelineSchema, HubSchema, BriefingCardSchema, PlaceSchema, SyncResponseSchema;
+var TemporalOccurrenceSchema, TemporalFacetSchema, ProvenanceSchema, TriggerSchema, ActionSchema, LinkPayloadSchema, ChecklistPayloadSchema, DocumentPayloadSchema, MilestonePayloadSchema, ContactPayloadSchema, LocationPayloadSchema, BudgetPayloadSchema, BlockSchema, SectionSchema, TimelineSchema, HubSchema, BriefingCardSchema, PlaceSchema, SyncResponseSchema;
 var init_content = __esm({
   "src/generated/content.ts"() {
     "use strict";
-    ProvenanceSchema = z.object({ "source": z.string().describe("claude | email | user | <url>"), "at": z.any(), "credential_id": z.string().describe("which credential pushed this (audit)").optional() }).strict();
-    TriggerSchema = z.any().superRefine((x, ctx) => {
-      const schemas = [z.object({ "geo": z.object({ "place_ref": z.string().optional(), "lat": z.number().optional(), "lng": z.number().optional(), "radius_m": z.number().int().default(150), "label": z.string().optional() }) }).strict(), z.object({ "when": z.object({ "at": z.any().optional(), "window": z.record(z.string(), z.any()).optional(), "relative": z.string().optional(), "recurring": z.string().optional(), "alert_offset": z.string().optional() }) }).strict(), z.object({ "activity": z.object({ "kind": z.enum(["walking", "running", "biking", "driving"]).optional() }) }).strict().describe("schema slot; matching DEFERRED")];
-      const { errors, failed } = schemas.reduce(
-        ({ errors: errors2, failed: failed2 }, schema) => ((result) => result.error ? {
-          errors: [...errors2, ...result.error.issues],
-          failed: failed2 + 1
-        } : { errors: errors2, failed: failed2 })(
-          schema.safeParse(x)
-        ),
-        { errors: [], failed: 0 }
-      );
-      const passed = schemas.length - failed;
-      if (passed !== 1) {
-        ctx.addIssue(errors.length ? {
-          path: [],
-          code: "invalid_union",
-          errors: [errors],
-          message: "Invalid input: Should pass single schema. Passed " + passed
-        } : {
-          path: [],
-          code: "custom",
-          errors: [errors],
-          message: "Invalid input: Should pass single schema. Passed " + passed
-        });
-      }
-    }).describe("ADR 0014 \u2014 matched ON-DEVICE; live position never leaves.");
+    TemporalOccurrenceSchema = z.object({ "id": z.string().regex(new RegExp("^[0-9A-HJKMNP-TV-Z]{26}$")).describe("client-supplied stable id (07 deterministic-id rule)"), "role": z.enum(["event", "deadline", "window", "reference"]), "label": z.string().min(1).max(256), "start": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value."), "end": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value.").optional(), "zone": z.string().regex(new RegExp("^(?:UTC|[A-Za-z][A-Za-z0-9._+-]*(?:/[A-Za-z0-9][A-Za-z0-9._+-]*)+)$")).min(1).max(128).optional(), "status": z.enum(["confirmed", "tentative", "cancelled"]) }).strict().describe("ADR 0067 canonical same-item temporal fact. End is exclusive.");
+    TemporalFacetSchema = z.object({ "occurrences": z.array(z.object({ "id": z.string().regex(new RegExp("^[0-9A-HJKMNP-TV-Z]{26}$")).describe("client-supplied stable id (07 deterministic-id rule)"), "role": z.enum(["event", "deadline", "window", "reference"]), "label": z.string().min(1).max(256), "start": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value."), "end": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value.").optional(), "zone": z.string().regex(new RegExp("^(?:UTC|[A-Za-z][A-Za-z0-9._+-]*(?:/[A-Za-z0-9][A-Za-z0-9._+-]*)+)$")).min(1).max(128).optional(), "status": z.enum(["confirmed", "tentative", "cancelled"]) }).strict().describe("ADR 0067 canonical same-item temporal fact. End is exclusive.")).min(1).max(64) }).strict();
+    ProvenanceSchema = z.object({ "source": z.string().describe("claude | email | user | <url>"), "at": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them."), "credential_id": z.string().describe("which credential pushed this (audit)").optional() }).strict();
+    TriggerSchema = z.union([z.object({ "geo": z.object({ "place_ref": z.string().optional(), "lat": z.number().optional(), "lng": z.number().optional(), "radius_m": z.number().int().default(150), "label": z.string().optional() }) }).strict(), z.object({ "when": z.union([z.object({ "at": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "window": z.record(z.string(), z.any()).optional(), "relative": z.string().optional(), "recurring": z.string().optional(), "alert_offset": z.string().optional() }).strict(), z.object({ "fact_ref": z.string().regex(new RegExp("^(?:temporal:[0-9A-HJKMNP-TV-Z]{26}|payload:milestone|checklist:[0-9A-HJKMNP-TV-Z]{26}:due|payload:invite:(?:start|rsvp)|payload:link:closes|payload:geo:leave)$")), "alert_offset": z.string().regex(new RegExp("^[+-]?P(?=[0-9]|T[0-9])(?:[0-9]+D)?(?:T(?:[0-9]+H)?(?:[0-9]+M)?(?:[0-9]+S)?)?$")).describe("Elapsed ISO-8601 duration using only days/hours/minutes/seconds; API/CLI enforce absolute value <= 30 fixed days.").optional() }).strict()]) }).strict(), z.object({ "activity": z.object({ "kind": z.enum(["walking", "running", "biking", "driving"]).optional() }) }).strict().describe("schema slot; matching DEFERRED")]).describe("ADR 0014 \u2014 matched ON-DEVICE; live position never leaves.");
     ActionSchema = z.object({ "label": z.string(), "action_id": z.string(), "params": z.record(z.string(), z.any()).optional() }).strict().describe("ADR 0016 RESERVED (bounded-now: buttons + structured asks; not built at MVP).");
     LinkPayloadSchema = z.object({ "url": z.string().url(), "label": z.string().optional(), "source": z.string().optional(), "thumbnailUrl": z.string().url().max(2048).describe("link preview image; https + allowlisted host (ADR 0036)").optional(), "thumbnailAlt": z.string().max(256).describe("a11y alt for thumbnailUrl").optional() }).strict();
-    ChecklistPayloadSchema = z.object({ "items": z.array(z.object({ "id": z.any(), "text": z.string().describe("loop-authoritative at M0"), "done": z.boolean().describe("member-mutable (the done-triple)").default(false), "doneBy": z.string().describe("NEW (ADR 0038) \u2014 user id who toggled (display byline)").optional(), "doneAt": z.any().optional(), "ord": z.number().int().describe("NEW (ADR 0038) \u2014 order; loop-authoritative at M0 (\xA75.3); doneBy/doneAt/id are the new ADR-0038 fields").default(0), "due": z.any().optional(), "assignee": z.string().describe("loop-authoritative at M0").optional() }).strict()) }).strict();
+    ChecklistPayloadSchema = z.object({ "items": z.array(z.object({ "id": z.any(), "text": z.string().describe("loop-authoritative at M0"), "done": z.boolean().describe("member-mutable (the done-triple)").default(false), "doneBy": z.string().describe("NEW (ADR 0038) \u2014 user id who toggled (display byline)").optional(), "doneAt": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "ord": z.number().int().describe("NEW (ADR 0038) \u2014 order; loop-authoritative at M0 (\xA75.3); doneBy/doneAt/id are the new ADR-0038 fields").default(0), "due": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value.").optional(), "assignee": z.string().describe("loop-authoritative at M0").optional() }).strict()) }).strict();
     DocumentPayloadSchema = z.object({ "ref": z.string().describe("url | fileRef (links+small refs at MVP)"), "label": z.string().optional(), "kind": z.string().optional(), "thumbnailUrl": z.string().url().max(2048).describe("document preview image; https + allowlisted host (ADR 0036)").optional(), "thumbnailAlt": z.string().max(256).describe("a11y alt for thumbnailUrl").optional() }).strict();
-    MilestonePayloadSchema = z.object({ "date": z.any(), "label": z.string(), "end": z.any().describe("ADR 0063 \xA76 CAL-10 \u2014 additive optional (OD-4); an instant or a bare YYYY-MM-DD, matching `date`'s own convention").optional(), "tz": z.string().describe("ADR 0063 \xA76 CAL-10 \u2014 additive optional (OD-4); IANA zone id").optional() }).strict();
+    MilestonePayloadSchema = z.object({ "date": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value."), "label": z.string(), "end": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0063 \xA76 CAL-10 \u2014 additive optional (OD-4); an instant or a bare YYYY-MM-DD, matching `date`'s own convention").optional(), "tz": z.string().describe("ADR 0063 \xA76 CAL-10 \u2014 additive optional (OD-4); IANA zone id").optional() }).strict();
     ContactPayloadSchema = z.object({ "name": z.string(), "role": z.string().optional(), "phone": z.string().optional(), "email": z.string().optional(), "avatarUrl": z.string().url().max(2048).describe("contact avatar photo; https + allowlisted host (ADR 0036); falls back to initials").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed (ADR 0036)").optional() }).strict();
     LocationPayloadSchema = z.object({ "label": z.string(), "address": z.string().optional(), "mapUrl": z.string().optional() }).strict();
     BudgetPayloadSchema = z.object({ "items": z.array(z.object({ "label": z.string(), "amount": z.number(), "paid": z.boolean().default(false) }).strict()) }).strict();
-    BlockSchema = z.object({ "id": z.any(), "type": z.enum(["text", "markdown", "link", "checklist", "document", "milestone", "contact", "location", "budget"]), "ord": z.number().int().default(0), "version": z.any().optional(), "body_md": z.string().max(1048576).describe("long-form markdown (text/markdown blocks); inline \u22641MB at M0, else spill to body_ref (06, M1)").optional(), "body_ref": z.string().describe("object-storage KEY when spilled (M1); never a URL; XOR with body_md").optional(), "payload": z.any().describe("structured fields for non-markdown block types; variant by `type` (see $comment)").optional(), "triggers": z.array(z.any()).optional(), "actions": z.array(z.any()).optional(), "provenance": z.any() }).strict().and(z.any());
+    BlockSchema = z.object({ "id": z.any(), "type": z.enum(["text", "markdown", "link", "checklist", "document", "milestone", "contact", "location", "budget"]), "ord": z.number().int().default(0), "version": z.any().optional(), "body_md": z.string().max(1048576).describe("long-form markdown (text/markdown blocks); inline \u22641MB at M0, else spill to body_ref (06, M1)").optional(), "body_ref": z.string().describe("object-storage KEY when spilled (M1); never a URL; XOR with body_md").optional(), "payload": z.any().describe("structured fields for non-markdown block types; variant by `type` (see $comment)").optional(), "triggers": z.array(z.any()).optional(), "temporal": z.object({ "occurrences": z.array(z.object({ "id": z.string().regex(new RegExp("^[0-9A-HJKMNP-TV-Z]{26}$")).describe("client-supplied stable id (07 deterministic-id rule)"), "role": z.enum(["event", "deadline", "window", "reference"]), "label": z.string().min(1).max(256), "start": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value."), "end": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value.").optional(), "zone": z.string().regex(new RegExp("^(?:UTC|[A-Za-z][A-Za-z0-9._+-]*(?:/[A-Za-z0-9][A-Za-z0-9._+-]*)+)$")).min(1).max(128).optional(), "status": z.enum(["confirmed", "tentative", "cancelled"]) }).strict().describe("ADR 0067 canonical same-item temporal fact. End is exclusive.")).min(1).max(64) }).strict().optional(), "actions": z.array(z.any()).optional(), "provenance": z.any() }).strict().and(z.any());
     SectionSchema = z.object({ "id": z.any(), "title": z.string().describe("[CONTENT/E2E-hole]").optional(), "ord": z.number().int().default(0), "version": z.any().optional(), "blocks": z.array(z.any()).optional() }).strict();
     TimelineSchema = z.object({ "title": z.string().describe("[CONTENT/E2E-hole]").optional(), "tz": z.string().describe("IANA timezone, author-stamped; anchors the day-boundary + NOW line"), "stops": z.array(z.any()).min(1) }).strict();
-    HubSchema = z.object({ "id": z.any(), "type": z.string().describe("bounded template-catalog key (ADR 0004/0006): vacation|starting-college|move|party-event|new-baby|medical|school-year \u2014 app-validated"), "title": z.string().describe("[CONTENT/E2E-hole]"), "status": z.enum(["planning", "active", "archived"]).default("active"), "start_at": z.any().optional(), "end_at": z.any().optional(), "countdown_to": z.any().optional(), "version": z.any().optional(), "sections": z.array(z.any()).optional(), "timeline": z.any().optional(), "media": z.object({ "heroUrl": z.string().url().max(2048).describe("hero image (Hub detail header + list-row fallback). https + allowlisted host.").optional(), "thumbnailUrl": z.string().url().max(2048).describe("list-row 1:1 thumbnail; absent \u2192 falls back to heroUrl client-side.").optional(), "heroFit": z.enum(["cover", "contain"]).describe("cover=photo edge-to-edge crop; contain=logo letterboxed on accent tint.").optional(), "imageAlt": z.string().max(256).describe("a11y alt \u2192 contentDescription (else derived from title).").optional(), "icon": z.string().max(40).describe("curated icon NAME, server-validated vs the bundled set (ADR 0036); unknown \u2192 fallback tile.").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed (edge/tile/chip/scrim); never body text (WCAG 1.4.1). Lowercased on write.").optional() }).strict().describe("visual enrichment (ADR 0036; all optional, absent = unenriched/today's look). URLs are https + allowlisted-host (ADR 0036 shared validator); icon \u2208 curated set; accentColor is decorative-only.").optional() }).strict();
-    BriefingCardSchema = z.object({ "id": z.any(), "kind": z.enum(["action", "info", "weather", "countdown"]).default("info"), "title": z.string().max(4096), "body_md": z.string().max(1048576).describe("limited inline markdown only (1MB cap, F8)").optional(), "target": z.object({ "hubId": z.string().optional(), "sectionId": z.string().optional(), "blockId": z.string().optional() }).strict().describe("deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)").optional(), "triggers": z.array(z.any()).optional(), "actions": z.array(z.any()).optional(), "not_before": z.any().optional(), "expires_at": z.any().optional(), "importance": z.number().gte(0).lte(1).describe("ADR 0043 \xA72b \u2014 bounded author weight/hint fed to the on-device Priority & Ordering Engine. The device decides final position (no author-controlled ordinal); the engine CLAMPS it so an author cannot pin spam to the top (the constitution's calm guarantee constrains the scoring function).").optional(), "version": z.any().optional(), "provenance": z.any(), "type": z.enum(["file", "link", "invite", "contact", "geo", "email"]).describe("content type (ADR 0022 D1) \u2014 drives the Now-card / detail layout. OPTIONAL for back-compat with kind-only M0 cards.").optional(), "media": z.object({ "icon": z.string().max(40).describe("curated icon NAME (server-validated); unknown \u2192 fallback.").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed; never body text. Lowercased on write.").optional(), "thumbnailUrl": z.string().url().max(2048).describe("optional leading thumbnail; https + allowlisted host.").optional(), "imageAlt": z.string().max(256).describe("a11y alt for thumbnailUrl.").optional(), "imageFit": z.enum(["cover", "contain"]).optional() }).strict().describe("card visual enrichment (ADR 0036; all optional). icon+accent on the kind chip + optional leading thumbnail. Same shared URL/host/icon/hex validation as Hub.media.").optional(), "hubRef": z.string().describe("parent Hub id \u2014 the adaptive supporting pane's 'PART OF THIS HUB' (ADR 0022; CL-10). Optional.").optional(), "relatedKicker": z.string().describe("section header for the RELATED rows (e.g. 'FROM THE SAME EMAIL'). CL-8.").optional(), "related": z.array(z.object({ "relation": z.string().describe("same-email | same-thread | same-hub | same-trip | attachment | contact-of"), "targetId": z.string(), "targetType": z.enum(["file", "link", "invite", "contact", "geo", "email"]), "title": z.string().optional(), "sub": z.string().optional() }).strict()).describe("cross-links to other cards in THIS family (CL-8). targetId resolves client-side vs the local cache; title/sub are author-denormalized so a row renders without resolving. Same-tenant only (rides authorizeTenant).").optional(), "privacy": z.object({ "storage": z.enum(["on_device", "in_browser", "location_local", "matched_on_device"]).optional() }).strict().describe("honesty chip (ADR 0014/0015) \u2014 a claim allowed ONLY where a real schema/API/client boundary enforces it.").optional(), "payload": z.any().superRefine((x, ctx) => {
+    HubSchema = z.object({ "id": z.any(), "type": z.string().describe("bounded template-catalog key (ADR 0004/0006): vacation|starting-college|move|party-event|new-baby|medical|school-year \u2014 app-validated"), "title": z.string().describe("[CONTENT/E2E-hole]"), "status": z.enum(["planning", "active", "archived"]).default("active"), "start_at": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "end_at": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "countdown_to": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "version": z.any().optional(), "sections": z.array(z.any()).optional(), "timeline": z.any().optional(), "media": z.object({ "heroUrl": z.string().url().max(2048).describe("hero image (Hub detail header + list-row fallback). https + allowlisted host.").optional(), "thumbnailUrl": z.string().url().max(2048).describe("list-row 1:1 thumbnail; absent \u2192 falls back to heroUrl client-side.").optional(), "heroFit": z.enum(["cover", "contain"]).describe("cover=photo edge-to-edge crop; contain=logo letterboxed on accent tint.").optional(), "imageAlt": z.string().max(256).describe("a11y alt \u2192 contentDescription (else derived from title).").optional(), "icon": z.string().max(40).describe("curated icon NAME, server-validated vs the bundled set (ADR 0036); unknown \u2192 fallback tile.").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed (edge/tile/chip/scrim); never body text (WCAG 1.4.1). Lowercased on write.").optional() }).strict().describe("visual enrichment (ADR 0036; all optional, absent = unenriched/today's look). URLs are https + allowlisted-host (ADR 0036 shared validator); icon \u2208 curated set; accentColor is decorative-only.").optional() }).strict();
+    BriefingCardSchema = z.object({ "id": z.any(), "kind": z.enum(["action", "info", "weather", "countdown"]).default("info"), "title": z.string().max(4096), "body_md": z.string().max(1048576).describe("limited inline markdown only (1MB cap, F8)").optional(), "target": z.object({ "hubId": z.string().optional(), "sectionId": z.string().optional(), "blockId": z.string().optional() }).strict().describe("deep-link into a hub (resolved client-side vs local cache, nearest-ancestor)").optional(), "triggers": z.array(z.any()).optional(), "temporal": z.object({ "occurrences": z.array(z.object({ "id": z.string().regex(new RegExp("^[0-9A-HJKMNP-TV-Z]{26}$")).describe("client-supplied stable id (07 deterministic-id rule)"), "role": z.enum(["event", "deadline", "window", "reference"]), "label": z.string().min(1).max(256), "start": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value."), "end": z.string().regex(new RegExp("^(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:Z|(?!-00:00)(?:[+-](?:0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)))$")).describe("ADR 0067 typed-carrier value: a civil date or strict offset-bearing timed value.").optional(), "zone": z.string().regex(new RegExp("^(?:UTC|[A-Za-z][A-Za-z0-9._+-]*(?:/[A-Za-z0-9][A-Za-z0-9._+-]*)+)$")).min(1).max(128).optional(), "status": z.enum(["confirmed", "tentative", "cancelled"]) }).strict().describe("ADR 0067 canonical same-item temporal fact. End is exclusive.")).min(1).max(64) }).strict().optional(), "actions": z.array(z.any()).optional(), "not_before": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "expires_at": z.string().datetime({ offset: true }).describe("RFC 3339 date-time; date-only values use a carrier that explicitly permits them.").optional(), "importance": z.number().gte(0).lte(1).describe("ADR 0043 \xA72b \u2014 bounded author weight/hint fed to the on-device Priority & Ordering Engine. The device decides final position (no author-controlled ordinal); the engine CLAMPS it so an author cannot pin spam to the top (the constitution's calm guarantee constrains the scoring function).").optional(), "version": z.any().optional(), "provenance": z.any(), "type": z.enum(["file", "link", "invite", "contact", "geo", "email"]).describe("content type (ADR 0022 D1) \u2014 drives the Now-card / detail layout. OPTIONAL for back-compat with kind-only M0 cards.").optional(), "media": z.object({ "icon": z.string().max(40).describe("curated icon NAME (server-validated); unknown \u2192 fallback.").optional(), "accentColor": z.string().regex(new RegExp("^#[0-9a-fA-F]{6}$")).describe("decorative-only accent seed; never body text. Lowercased on write.").optional(), "thumbnailUrl": z.string().url().max(2048).describe("optional leading thumbnail; https + allowlisted host.").optional(), "imageAlt": z.string().max(256).describe("a11y alt for thumbnailUrl.").optional(), "imageFit": z.enum(["cover", "contain"]).optional() }).strict().describe("card visual enrichment (ADR 0036; all optional). icon+accent on the kind chip + optional leading thumbnail. Same shared URL/host/icon/hex validation as Hub.media.").optional(), "hubRef": z.string().describe("parent Hub id \u2014 the adaptive supporting pane's 'PART OF THIS HUB' (ADR 0022; CL-10). Optional.").optional(), "relatedKicker": z.string().describe("section header for the RELATED rows (e.g. 'FROM THE SAME EMAIL'). CL-8.").optional(), "related": z.array(z.object({ "relation": z.string().describe("same-email | same-thread | same-hub | same-trip | attachment | contact-of"), "targetId": z.string(), "targetType": z.enum(["file", "link", "invite", "contact", "geo", "email"]), "title": z.string().optional(), "sub": z.string().optional() }).strict()).describe("cross-links to other cards in THIS family (CL-8). targetId resolves client-side vs the local cache; title/sub are author-denormalized so a row renders without resolving. Same-tenant only (rides authorizeTenant).").optional(), "privacy": z.object({ "storage": z.enum(["on_device", "in_browser", "location_local", "matched_on_device"]).optional() }).strict().describe("honesty chip (ADR 0014/0015) \u2014 a claim allowed ONLY where a real schema/API/client boundary enforces it.").optional(), "payload": z.any().superRefine((x, ctx) => {
       const schemas = [z.object({ "file": z.object({ "filename": z.string().optional(), "mime": z.string().optional(), "size": z.number().int().optional(), "pages": z.number().int().optional(), "source": z.string().optional(), "owner": z.string().optional(), "modified": z.string().datetime({ offset: true }).optional(), "sharedWith": z.array(z.string()).optional(), "docRef": z.string().describe("url | opaque storage ref").optional() }).strict() }).strict(), z.object({ "link": z.object({ "url": z.string().url().optional(), "domain": z.string().optional(), "title": z.string().optional(), "ogDesc": z.string().describe("author-stamped OG; server never fetches the URL (no SSRF)").optional(), "favicon": z.string().optional(), "kind": z.enum(["page", "form"]).optional(), "fieldCount": z.number().int().optional(), "closesAt": z.string().datetime({ offset: true }).optional(), "savedAt": z.string().datetime({ offset: true }).optional() }).strict() }).strict(), z.object({ "invite": z.object({ "eventName": z.string().optional(), "host": z.string().optional(), "startAt": z.string().datetime({ offset: true }).optional(), "place": z.string().optional(), "rsvpBy": z.string().datetime({ offset: true }).optional(), "rsvpState": z.enum(["yes", "no", "none"]).describe("display-of-state at M0 (no write path; ADR 0020/0016)").optional(), "guestCount": z.number().int().optional(), "confirmedCount": z.number().int().optional(), "notes": z.string().optional() }).strict() }).strict(), z.object({ "contact": z.object({ "name": z.string().optional(), "company": z.string().optional(), "role": z.string().optional(), "phone": z.string().optional(), "email": z.string().optional(), "address": z.string().optional(), "hours": z.string().optional(), "linkedEventId": z.string().optional(), "deliveryWindow": z.string().optional() }).strict() }).strict(), z.object({ "geo": z.object({ "label": z.string().optional(), "address": z.string().optional(), "lat": z.number().optional(), "lng": z.number().optional(), "etaMin": z.number().int().optional(), "distance": z.string().optional(), "travelMode": z.string().optional(), "parking": z.string().optional(), "leaveBy": z.string().datetime({ offset: true }).optional(), "linkedEventId": z.string().optional() }).strict() }).strict(), z.object({ "email": z.object({ "from": z.string().optional(), "fromAddr": z.string().optional(), "subject": z.string().optional(), "date": z.string().datetime({ offset: true }).optional(), "threadLen": z.number().int().optional(), "bodyExcerpt": z.string().describe("[E2E-ciphertext] authored over the operator's OWN mail (CLI/Claude) \u2014 never a server-side Gmail restricted-scope read (Guardrail 3)").optional(), "attachments": z.array(z.object({ "name": z.string().optional(), "mime": z.string().optional(), "size": z.number().int().optional() }).strict()).optional(), "labels": z.array(z.string()).optional() }).strict() }).strict()];
       const { errors, failed } = schemas.reduce(
         ({ errors: errors2, failed: failed2 }, schema) => ((result) => result.error ? {
@@ -3495,6 +3476,98 @@ var init_content = __esm({
 });
 
 // src/content-validation.ts
+function validCivilDate(value) {
+  const match = CIVIL_DATE.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+function validInstant(value) {
+  return TEMPORAL_INSTANT.test(value) && validCivilDate(value.slice(0, 10)) && Number.isFinite(Date.parse(value));
+}
+function temporalCode(path, code) {
+  return { path, code, message: code };
+}
+function alertOffsetSeconds(value) {
+  if (typeof value !== "string") return null;
+  const match = ALERT_OFFSET.exec(value);
+  if (!match) return null;
+  const total = Number(match[2] ?? 0) * 86400 + Number(match[3] ?? 0) * 3600 + Number(match[4] ?? 0) * 60 + Number(match[5] ?? 0);
+  return Number.isSafeInteger(total) ? match[1] === "-" ? -total : total : null;
+}
+function temporalIssues(resource) {
+  const issues = [];
+  const facet = resource.temporal;
+  const occurrences = Array.isArray(facet?.occurrences) ? facet.occurrences : [];
+  const byId = /* @__PURE__ */ new Map();
+  occurrences.forEach((occurrence, index) => {
+    const path = ["temporal", "occurrences", index];
+    const id3 = typeof occurrence.id === "string" ? occurrence.id : "";
+    if (byId.has(id3)) issues.push(temporalCode([...path, "id"], "temporal.duplicate-id"));
+    else if (id3) byId.set(id3, occurrence);
+    const start = typeof occurrence.start === "string" ? occurrence.start : "";
+    const end = typeof occurrence.end === "string" ? occurrence.end : null;
+    const allDay = validCivilDate(start);
+    const timed = validInstant(start);
+    if (!allDay && !timed) issues.push(temporalCode([...path, "start"], "temporal.invalid-start"));
+    if (allDay && occurrence.zone != null) issues.push(temporalCode([...path, "zone"], "temporal.all-day-zone-forbidden"));
+    if (timed && typeof occurrence.zone !== "string") issues.push(temporalCode([...path, "zone"], "temporal.timed-zone-required"));
+    if (end != null) {
+      if (allDay && (!validCivilDate(end) || end <= start))
+        issues.push(temporalCode([...path, "end"], "temporal.invalid-civil-end"));
+      if (timed && (!validInstant(end) || Date.parse(end) <= Date.parse(start)))
+        issues.push(temporalCode([...path, "end"], "temporal.invalid-timed-end"));
+      if (!allDay && !timed) issues.push(temporalCode([...path, "end"], "temporal.mixed-or-invalid-range"));
+    }
+    if (occurrence.role === "window" && end == null)
+      issues.push(temporalCode([...path, "end"], "temporal.window-end-required"));
+    if (occurrence.role === "deadline" && end != null)
+      issues.push(temporalCode([...path, "end"], "temporal.deadline-end-forbidden"));
+  });
+  const triggers = Array.isArray(resource.triggers) ? resource.triggers : [];
+  const factTriggers = triggers.map((trigger, index) => ({
+    index,
+    when: trigger?.when
+  })).filter(({ when }) => typeof when?.fact_ref === "string");
+  if (factTriggers.length > 1)
+    issues.push(temporalCode(["triggers"], "temporal.multiple-fact-triggers"));
+  for (const { index, when } of factTriggers) {
+    const path = ["triggers", index, "when"];
+    const ref = when.fact_ref;
+    const offset = when.alert_offset;
+    if (offset != null) {
+      const seconds = alertOffsetSeconds(offset);
+      if (seconds == null || Math.abs(seconds) > MAX_ALERT_SECONDS)
+        issues.push(temporalCode([...path, "alert_offset"], "temporal.invalid-alert-offset"));
+    }
+    let resolved = null;
+    if (ref.startsWith("temporal:")) resolved = byId.get(ref.slice("temporal:".length)) ?? null;
+    else if (ref === "payload:milestone" && resource.type === "milestone") {
+      const p = resource.payload;
+      resolved = p ? { start: p.date, status: "confirmed", role: "event" } : null;
+    } else if (ref.startsWith("checklist:") && ref.endsWith(":due") && resource.type === "checklist") {
+      const itemId = ref.slice("checklist:".length, -":due".length);
+      const items = resource.payload?.items;
+      const item = Array.isArray(items) ? items.find((candidate) => candidate?.id === itemId) : null;
+      resolved = item ? { start: item.due, status: "confirmed", role: "deadline" } : null;
+    } else {
+      const payload = resource.payload;
+      const typed = {
+        "payload:invite:start": payload?.invite?.startAt,
+        "payload:invite:rsvp": payload?.invite?.rsvpBy,
+        "payload:link:closes": payload?.link?.closesAt,
+        "payload:geo:leave": payload?.geo?.leaveBy
+      };
+      if (Object.prototype.hasOwnProperty.call(typed, ref))
+        resolved = { start: typed[ref], status: "confirmed", role: "event" };
+    }
+    if (!resolved) issues.push(temporalCode([...path, "fact_ref"], "temporal.dangling-fact-ref"));
+    else if (resolved.status !== "confirmed" || resolved.role === "reference" || typeof resolved.start !== "string" || !validInstant(resolved.start))
+      issues.push(temporalCode([...path, "fact_ref"], "temporal.ineligible-fact-ref"));
+  }
+  return issues;
+}
 function crossValidateCard(card) {
   const hasType = card.type != null;
   const hasPayload = card.payload != null;
@@ -3567,10 +3640,14 @@ function hubTimelineIssues(hub) {
   });
   return issues;
 }
-var ATTACH_KINDS;
+var CIVIL_DATE, TEMPORAL_INSTANT, ALERT_OFFSET, MAX_ALERT_SECONDS, ATTACH_KINDS;
 var init_content_validation = __esm({
   "src/content-validation.ts"() {
     "use strict";
+    CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+    TEMPORAL_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:Z|(?!-00:00)(?:[+-](?:0\d|1[0-3]):[0-5]\d|[+-]14:00))$/;
+    ALERT_OFFSET = /^([+-])?P(?=\d|T\d)(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/;
+    MAX_ALERT_SECONDS = 30 * 24 * 60 * 60;
     ATTACH_KINDS = /* @__PURE__ */ new Set(["call", "nav", "link", "open"]);
   }
 });
@@ -3803,8 +3880,8 @@ async function upsertCard(familyId, id3, b) {
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
         type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media,
-        subject_ref, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,1)
+        temporal, subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -3814,6 +3891,7 @@ async function upsertCard(familyId, id3, b) {
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
        visibility=EXCLUDED.visibility, audience=EXCLUDED.audience, media=EXCLUDED.media,
+       temporal=EXCLUDED.temporal,
        subject_ref=EXCLUDED.subject_ref,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
@@ -3840,6 +3918,7 @@ async function upsertCard(familyId, id3, b) {
         visibility,
         audience,
         J(b.media),
+        J(b.temporal),
         buildCardSubjectRef(id3)
       ]
     );
@@ -4170,9 +4249,10 @@ function hubWritableByMember(hub, caller, role) {
   return role === "contributor" || role === "co_owner";
 }
 async function upsertHub(familyId, id3, b, caller, visibility, audience) {
-  const client = await pool.connect();
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
   try {
-    await client.query("BEGIN");
+    if (!inheritedClient) await client.query("BEGIN");
     const r = await client.query(
       `INSERT INTO hubs (id, family_id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline, version)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
@@ -4209,13 +4289,13 @@ async function upsertHub(familyId, id3, b, caller, visibility, audience) {
     for (const uid of targetAudience)
       await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id3, uid]);
     await touchResponsesForHub(client, familyId, id3);
-    await client.query("COMMIT");
+    if (!inheritedClient) await client.query("COMMIT");
     return r.rows[0];
   } catch (e) {
-    await client.query("ROLLBACK");
+    if (!inheritedClient) await client.query("ROLLBACK");
     throw e;
   } finally {
-    client.release();
+    if (!inheritedClient) client.release();
   }
 }
 async function archiveHub(familyId, id3) {
@@ -4476,12 +4556,13 @@ async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
     }
     const subjectRef = buildBlockSubjectRef(newHubId, sectionId, id3);
     const r = await client.query(
-      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
+      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, temporal, subject_ref, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,1)
        ON CONFLICT (family_id, id) DO UPDATE SET
          section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
          body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
          triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+         temporal=EXCLUDED.temporal,
          subject_ref=EXCLUDED.subject_ref,
          version=blocks.version + 1, deleted_at=NULL
          ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
@@ -4499,6 +4580,7 @@ async function upsertBlock(familyId, id3, sectionId, b, opts = {}) {
         J2(b.actions),
         b.ord ?? 0,
         opts.createdBy ?? null,
+        J2(b.temporal),
         subjectRef
       ]
     );
@@ -5517,6 +5599,43 @@ async function requireJsonObject(c) {
   const raw = await c.req.json().catch(() => null);
   return raw && typeof raw === "object" ? { value: raw } : { error: c.json({ type: "bad-json" }, 400) };
 }
+function temporalWrite(raw) {
+  if (!Object.prototype.hasOwnProperty.call(raw, "temporal")) return { kind: "preserve" };
+  return raw.temporal === null ? { kind: "clear" } : { kind: "replace", value: raw.temporal };
+}
+function jsonColumn(value) {
+  if (typeof value !== "string") return value ?? null;
+  return runJson(value);
+}
+function runJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+function hasTemporalCapability(c) {
+  return (c.req.header("x-dayfold-content-capability") ?? "").split(",").map((token) => token.trim()).includes("temporal-v1");
+}
+function factRefTriggers(value) {
+  const parsed = jsonColumn(value);
+  return Array.isArray(parsed) ? parsed.filter((trigger) => typeof trigger?.when?.fact_ref === "string") : [];
+}
+function effectiveTemporalData(incoming, directive, existing, capable) {
+  const data = { ...incoming };
+  data.temporal = directive.kind === "preserve" ? jsonColumn(existing?.temporal) : directive.kind === "clear" ? null : directive.value;
+  const oldFactTriggers = factRefTriggers(existing?.triggers);
+  const newFactTriggers = factRefTriggers(data.triggers);
+  const issues = [];
+  if (!capable && newFactTriggers.length > 0 && oldFactTriggers.length === 0) {
+    issues.push({ path: ["triggers"], code: "temporal.capability-required", message: "temporal.capability-required" });
+  }
+  if (!capable && oldFactTriggers.length > 0 && newFactTriggers.length === 0) {
+    const incomingTriggers = Array.isArray(data.triggers) ? data.triggers : [];
+    data.triggers = [...incomingTriggers, ...oldFactTriggers];
+  }
+  return { data, issues };
+}
 function validationIssuesResponse(c, parsed) {
   return parsed.success ? null : c.json({ type: "validation", issues: parsed.error.issues }, 422);
 }
@@ -5919,17 +6038,19 @@ var init_app = __esm({
       const a = await authorizeTenant(c, fid);
       if ("status" in a) return c.body(null, a.status);
       if (!await requireScope(a.cred.id, "content", "write")) return c.json({ type: "forbidden" }, 403);
-      {
-        const cur = await q(`SELECT visibility, audience FROM briefing_cards WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL`, [fid, id3]);
-        if (cur.rowCount && !cardVisible(cur.rows[0], callerFrom(a))) return c.body(null, 404);
-      }
       const rb = await requireJsonObject(c);
       if ("error" in rb) return rb.error;
       const raw = rb.value;
+      const temporalDirective = temporalWrite(raw);
       const va = parseVisibilityAudience(raw);
       if ("error" in va) return c.json(va.error, 422);
-      const { visibility, audience, rest } = va;
+      const { rest, visibilityProvided, audienceProvided } = va;
+      let { visibility, audience } = va;
       let body = stripServerManaged(rest);
+      if (temporalDirective.kind === "clear") {
+        const { temporal: _temporal, ...withoutTemporal } = body;
+        body = withoutTemporal;
+      }
       body = stampProvenance(body, a.cred.id);
       const parsed = BriefingCardSchema.safeParse({ ...body, id: id3 });
       {
@@ -5944,10 +6065,26 @@ var init_app = __esm({
       if (media?.accentColor) media.accentColor = normalizedAccent(media.accentColor);
       const subjectRef = buildCardSubjectRef(id3);
       return withSubjectWriteLock(fid, subjectRef, async () => {
+        const current = await q(
+          `SELECT visibility,audience,temporal,triggers,version,deleted_at
+         FROM briefing_cards WHERE family_id=$1 AND id=$2 FOR UPDATE`,
+          [fid, id3]
+        );
+        const existing = current.rows[0] ?? null;
+        const live = existing && existing.deleted_at == null ? existing : null;
+        if (live && !cardVisible(live, callerFrom(a))) return c.body(null, 404);
+        if (ifMatchFails(c.req.header("if-match"), live ? Number(live.version) : null)) return c.body(null, 412);
+        if (live) {
+          if (!visibilityProvided) visibility = live.visibility === "restricted" ? "restricted" : "family";
+          if (visibility === "restricted" && !audienceProvided) audience = Array.isArray(live.audience) ? [...live.audience] : [];
+        }
+        const effective = effectiveTemporalData(parsed.data, temporalDirective, existing, hasTemporalCapability(c));
+        const temporalCross = [...effective.issues, ...temporalIssues(effective.data)];
+        if (temporalCross.length) return c.json({ type: "validation", issues: temporalCross }, 422);
         const gate = suppressedBy(await listActive(fid), {
           subjectRef,
-          kind: parsed.data.kind ?? null,
-          source: parsed.data.provenance?.source ?? null
+          kind: effective.data.kind ?? null,
+          source: effective.data.provenance?.source ?? null
         });
         if (gate.blocked) return problem(c, 409, "subject-muted");
         let finalAudience = audience;
@@ -5955,7 +6092,7 @@ var init_app = __esm({
           finalAudience = finalAudience.filter((u) => !gate.excludeUserIds.includes(u));
           if (finalAudience.length === 0) return problem(c, 409, "subject-muted");
         }
-        return c.json(await upsertCard(fid, id3, { ...parsed.data, visibility, audience: finalAudience }), 200);
+        return c.json(await upsertCard(fid, id3, { ...effective.data, visibility, audience: finalAudience }), 200);
       });
     });
     app.get("/families/:fid/cards", async (c) => {
@@ -6106,21 +6243,28 @@ var init_app = __esm({
       const timelineIssues = hubTimelineIssues(parsed.data);
       if (timelineIssues.length) return c.json({ type: "validation", issues: timelineIssues }, 422);
       const caller = callerFrom(a);
-      const existing = await getHub(fid, id3);
-      if (existing) {
-        const allow = await allowListFor(fid, id3);
-        const permitted = () => !!caller.userId && allow.has(caller.userId);
-        if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
-        if (visibility === "restricted" && !audienceProvided) audience = [...allow];
-        if (!hubVisible(existing, caller, permitted)) return c.body(null, 404);
-        if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
-          return c.json({ type: "forbidden" }, 403);
-        const newAudience = visibility === "restricted" ? new Set(audience ?? []) : /* @__PURE__ */ new Set();
-        const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
-        if ((visibility !== existing.visibility || audienceChanged) && !await canManageHub(fid, id3, caller))
-          return c.json({ type: "forbidden" }, 403);
-      }
-      return c.json(await upsertHub(fid, id3, parsed.data, caller, visibility, audience), 200);
+      return withSubjectWriteLock(fid, `hub:${id3}`, async () => {
+        const locked = await q(
+          `SELECT * FROM hubs WHERE family_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
+          [fid, id3]
+        );
+        const existing = locked.rows[0] ?? null;
+        if (ifMatchFails(c.req.header("if-match"), existing ? Number(existing.version) : null)) return c.body(null, 412);
+        if (existing) {
+          const allow = await allowListFor(fid, id3);
+          const permitted = () => !!caller.userId && allow.has(caller.userId);
+          if (!visibilityProvided) visibility = existing.visibility === "restricted" ? "restricted" : "family";
+          if (visibility === "restricted" && !audienceProvided) audience = [...allow];
+          if (!hubVisible(existing, caller, permitted)) return c.body(null, 404);
+          if (!caller.legacy && existing.created_by && existing.created_by !== caller.userId && !permitted())
+            return c.json({ type: "forbidden" }, 403);
+          const newAudience = visibility === "restricted" ? new Set(audience ?? []) : /* @__PURE__ */ new Set();
+          const audienceChanged = newAudience.size !== allow.size || [...newAudience].some((u) => !allow.has(u));
+          if ((visibility !== existing.visibility || audienceChanged) && !await canManageHub(fid, id3, caller))
+            return c.json({ type: "forbidden" }, 403);
+        }
+        return c.json(await upsertHub(fid, id3, parsed.data, caller, visibility, audience), 200);
+      });
     });
     app.post("/families/:fid/hubs/:id/archive", async (c) => {
       const fid = c.req.param("fid"), id3 = c.req.param("id");
@@ -6192,6 +6336,7 @@ var init_app = __esm({
       const rb = await requireJsonObject(c);
       if ("error" in rb) return rb.error;
       const raw = rb.value;
+      const temporalDirective = temporalWrite(raw);
       const sectionId = typeof raw.sectionId === "string" ? raw.sectionId : null;
       if (!sectionId) return c.json({ type: "validation", issues: [{ path: ["sectionId"], message: "required" }] }, 422);
       const caller = callerFrom(a);
@@ -6201,7 +6346,8 @@ var init_app = __esm({
       const gateResponse = hubWriteGateResponse(c, gate, "parent section missing or deleted");
       if (gateResponse) return gateResponse;
       const { sectionId: _s, ...rest } = raw;
-      const body = stampProvenance(rest, a.cred.id);
+      const schemaRest = temporalDirective.kind === "clear" ? (({ temporal: _temporal, ...withoutTemporal }) => withoutTemporal)(rest) : rest;
+      const body = stampProvenance(schemaRest, a.cred.id);
       const parsed = BlockSchema.safeParse({ ...body, id: id3 });
       {
         const ve = validationIssuesResponse(c, parsed);
@@ -6237,27 +6383,36 @@ var init_app = __esm({
             if (prior.result_kind !== "block" || prior.result_ref !== id3) {
               return problem(c, 409, "idempotency-key-reused");
             }
-            const existing = await getBlock(fid, id3);
-            if (!existing) return c.body(null, 410);
-            if (existing.section_id !== sectionId) return problem(c, 409, "idempotency-key-reused");
-            const currentHubId = await liveHubOfSection(fid, existing.section_id);
+            const existing2 = await getBlock(fid, id3);
+            if (!existing2) return c.body(null, 410);
+            if (existing2.section_id !== sectionId) return problem(c, 409, "idempotency-key-reused");
+            const currentHubId = await liveHubOfSection(fid, existing2.section_id);
             if (!currentHubId) return c.body(null, 410);
             const currentGate = await hubWriteGate(fid, currentHubId, caller);
             const currentResponse = hubWriteGateResponse(c, currentGate, "parent section missing or deleted");
             if (currentResponse) return currentResponse;
-            return c.json(existing, 200);
+            return c.json(existing2, 200);
           }
         }
-        const st = await blockState(fid, id3);
+        const current = await q(
+          `SELECT temporal,triggers,version,deleted_at FROM blocks
+        WHERE family_id=$1 AND id=$2 FOR UPDATE`,
+          [fid, id3]
+        );
+        const existing = current.rows[0] ?? null;
+        const st = existing ? { exists: true, deleted: existing.deleted_at != null, version: Number(existing.version) } : { exists: false, deleted: false, version: null };
         if (member && st.deleted) return c.body(null, 410);
         if (ifMatchFails(c.req.header("if-match"), st.deleted ? null : st.version)) return c.body(null, 412);
+        const effective = effectiveTemporalData(parsed.data, temporalDirective, existing, hasTemporalCapability(c));
+        const temporalCross = [...effective.issues, ...temporalIssues(effective.data)];
+        if (temporalCross.length) return c.json({ type: "validation", issues: temporalCross }, 422);
         const suppression = suppressedBy(await listActive(fid), {
           subjectRef,
           kind: null,
-          source: parsed.data.provenance?.source ?? null
+          source: effective.data.provenance?.source ?? null
         });
         if (suppression.blocked) return problem(c, 409, "subject-muted");
-        const row = await upsertBlock(fid, id3, sectionId, parsed.data, {
+        const row = await upsertBlock(fid, id3, sectionId, effective.data, {
           allowResurrect: !member,
           createdBy: a.userId,
           expectedHubId: hubId,

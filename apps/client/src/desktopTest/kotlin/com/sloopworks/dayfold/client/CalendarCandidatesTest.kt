@@ -22,7 +22,7 @@ class CalendarCandidatesTest {
     val hubs = listOf(Hub("h1", title = "Ski trip", startAt = "2026-07-10T09:00:00Z", endAt = "2026-07-12T17:00:00Z"))
     val out = deriveEventCandidates(hubs, emptyList(), emptyList(), emptyList(), zone)
     val c = out.single()
-    assertEquals("hub:h1", c.subjectKey)
+    assertEquals("hub:h1", c.subjectRef)
     assertEquals("Ski trip", c.title)
     assertEquals("2026-07-10T09:00:00Z", c.startAt)
     assertEquals("2026-07-12T17:00:00Z", c.endAt)
@@ -38,7 +38,7 @@ class CalendarCandidatesTest {
   @Test fun `countdown_to never produces a second candidate for the same hub`() {
     val hubs = listOf(Hub("h1", title = "Party", startAt = "2026-07-10T09:00:00Z", countdownTo = "2026-07-10"))
     val out = deriveEventCandidates(hubs, emptyList(), emptyList(), emptyList(), zone)
-    assertEquals(1, out.count { it.subjectKey == "hub:h1" })
+    assertEquals(1, out.count { it.subjectRef == "hub:h1" })
   }
 
   // ── source 2: explicitly dated milestone blocks ─────────────────────────────
@@ -53,10 +53,10 @@ class CalendarCandidatesTest {
     )
     val out = deriveEventCandidates(emptyList(), sections, blocks, emptyList(), zone)
     val c = out.single()
-    assertEquals("hub:h1/section:s1/block:b1", c.subjectKey)
+    assertEquals("hub:h1/section:s1/block:b1", c.subjectRef)
     assertEquals("Passport renewal", c.title)
     assertEquals("2026-07-04", c.startAt)
-    assertNull(c.endAt)
+    assertEquals("2026-07-05", c.endAt)
   }
 
   @Test fun `milestone block without a typed date produces no candidate`() {
@@ -105,7 +105,7 @@ class CalendarCandidatesTest {
     )
     val out = deriveEventCandidates(emptyList(), sections, blocks, emptyList(), zone)
     val c = out.single()
-    assertEquals("hub:h1/section:s1/block:b1", c.subjectKey)
+    assertEquals("hub:h1/section:s1/block:b1", c.subjectRef)
     assertEquals("School gate", c.title)
     assertEquals("2026-07-04T15:00:00Z", c.startAt)
     assertNull(c.endAt)
@@ -131,7 +131,7 @@ class CalendarCandidatesTest {
     )
     val out = deriveEventCandidates(emptyList(), emptyList(), emptyList(), cards, zone)
     val c = out.single()
-    assertEquals("hub:h1/section:s1/block:b1", c.subjectKey)
+    assertEquals("hub:h1/section:s1/block:b1", c.subjectRef)
     assertEquals("RSVP reminder", c.title)
     assertEquals("2026-07-05T18:00:00Z", c.startAt)
     assertEquals(CalendarCandidateSource.Card("c1"), c.source)
@@ -147,7 +147,7 @@ class CalendarCandidatesTest {
       Card("c1", title = "Loose reminder", triggers = listOf(BlockTrigger(whenTrigger = TriggerWhen(at = "2026-07-05T18:00:00Z")))),
     )
     val c = deriveEventCandidates(emptyList(), emptyList(), emptyList(), cards, zone).single()
-    assertEquals("card:c1", c.subjectKey)
+    assertEquals("card:c1", c.subjectRef)
     assertNull(c.deepLink)
   }
 
@@ -156,8 +156,9 @@ class CalendarCandidatesTest {
   // covered implicitly by the data class shape used throughout this file.)
 
   // ── allDay / timezone / null end ─────────────────────────────────────────────
-  @Test fun `a date-only start_at is treated as all-day, a timestamp is not`() {
-    val allDay = deriveEventCandidates(listOf(Hub("h1", title = "Trip", startAt = "2026-07-10")), emptyList(), emptyList(), emptyList(), zone).single()
+  @Test fun `a date-only milestone is treated as all-day, a timestamp is not`() {
+    val section = listOf(HubSection("s1", hubId = "h1"))
+    val allDay = deriveEventCandidates(emptyList(), section, listOf(HubBlock("b1", "s1", "milestone", payload = BlockPayload(date = "2026-07-10"))), emptyList(), zone).single()
     assertTrue(allDay.allDay)
     val timed = deriveEventCandidates(listOf(Hub("h2", title = "Meeting", startAt = "2026-07-10T09:00:00Z")), emptyList(), emptyList(), emptyList(), zone).single()
     assertTrue(!timed.allDay)
@@ -199,7 +200,7 @@ class CalendarCandidatesTest {
     val a = deriveEventCandidates(hubs, emptyList(), emptyList(), emptyList(), zone)
     val b = deriveEventCandidates(hubs.reversed(), emptyList(), emptyList(), emptyList(), zone)
     assertEquals(a, b)
-    assertEquals(listOf("hub:h1", "hub:h2"), a.map { it.subjectKey })
+    assertEquals(listOf("hub:h1", "hub:h2"), a.map { it.subjectRef })
   }
 
   @Test fun `deriveEventCandidates is pure - identical inputs give identical output`() {
