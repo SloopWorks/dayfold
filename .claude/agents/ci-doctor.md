@@ -1,7 +1,8 @@
 ---
 name: ci-doctor
-description: Diagnoses a red or suspicious GitHub Actions run on this repo using the known-failure catalog (18-minute Gradle hang, Linux-vs-macOS goldens, stale codegen/bundle, gitleaks check_suite false-green, fastlane gem, missing .sqm, reachability guard, silent runBlocking tests) and returns the failing job, root cause, exact fix or a justified single re-run. Use PROACTIVELY when a PR or main goes red. Read-only on the repo; uses gh CLI or the GitHub MCP tools, whichever is available.
+description: Diagnoses a red or suspicious GitHub Actions run on this repo using the known-failure catalog (18-minute Gradle hang, Linux-vs-macOS goldens, stale codegen/bundle, gitleaks check_suite false-green, fastlane gem, missing .sqm, reachability guard, silent runBlocking tests) and returns the failing job, root cause, exact fix or a justified single re-run. Use PROACTIVELY when a PR or main goes red. Read-only on the repo; uses gh CLI or the read-only GitHub MCP tools, whichever is available.
 model: sonnet
+tools: Bash, Read, Grep, Glob, mcp__github__pull_request_read, mcp__github__list_pull_requests, mcp__github__search_pull_requests, mcp__github__get_commit, mcp__github__list_commits, mcp__github__get_check_run, mcp__github__get_job_logs, mcp__github__actions_get, mcp__github__actions_list, mcp__github__get_file_contents
 disallowedTools: Edit, Write, NotebookEdit
 maxTurns: 30
 color: orange
@@ -17,7 +18,7 @@ gh run view <run-id> --log-failed | head -200          # or the job's step summa
 gh pr checks <pr>                                      # per-check state; never trust a check_suite conclusion
 ```
 Resolve state **per check run**. A `check_suite.completed / success` event on
-this repo is usually **gitleaks** (5–9 s), not CI (5 jobs, minutes) — do not
+this repo is usually **gitleaks** (5–9 s), not CI (6 jobs, minutes) — do not
 call a PR green from it.
 
 ## Known-failure catalog (`backlog/now.md` Time-sensitive section is canonical)

@@ -1,7 +1,8 @@
 ---
 name: ci-doctor
-description: Diagnoses a red or suspicious GitHub Actions run — failing job, root cause, exact fix, or a justified single re-run — without calling anything a "flake" on faith. Use PROACTIVELY when a PR or the default branch goes red. Read-only on the repo; uses gh CLI or GitHub MCP tools, whichever is available. (Generic user-level version.)
+description: Diagnoses a red or suspicious GitHub Actions run — failing job, root cause, exact fix, or a justified single re-run — without calling anything a "flake" on faith. Use PROACTIVELY when a PR or the default branch goes red. Read-only on the repo; uses gh CLI or the read-only GitHub MCP tools, whichever is available. (Generic user-level version.)
 model: sonnet
+tools: Bash, Read, Grep, Glob, mcp__github__pull_request_read, mcp__github__list_pull_requests, mcp__github__search_pull_requests, mcp__github__get_commit, mcp__github__list_commits, mcp__github__get_check_run, mcp__github__get_job_logs, mcp__github__actions_get, mcp__github__actions_list, mcp__github__get_file_contents
 disallowedTools: Edit, Write, NotebookEdit
 maxTurns: 30
 color: orange

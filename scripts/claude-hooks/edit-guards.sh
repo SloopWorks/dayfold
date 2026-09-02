@@ -20,7 +20,7 @@ rel="${path#"$root"/}"
 msgs=()
 case "$rel" in
   *sqldelight*/*.sq)
-    msgs+=("SQLDelight schema edited ($rel): every table/column change needs a companion migrations/<N>.sqm so Schema.version moves — otherwise existing devices never migrate (see backlog/now.md 2026-08-21). SQLite ALTER TABLE only appends: put new columns at the END of the table in Content.sq. Run :client:desktopTest (verifyCommonMainContentDbMigration) or ask kmp-verifier.") ;;
+    msgs+=("SQLDelight schema edited ($rel): every table/column change needs a companion migrations/<N>.sqm so Schema.version moves — otherwise existing devices never migrate (see backlog/now.md 2026-08-21). SQLite ALTER TABLE only appends: put new columns at the END of the table in Content.sq. Run the guard TASK explicitly — 'cd apps && ./gradlew :client:verifyCommonMainContentDbMigration' — it is not part of desktopTest; or ask kmp-verifier.") ;;
 esac
 case "$rel" in
   apps/ui/src/desktopTest/resources/snapshots/macos/*)
@@ -53,14 +53,38 @@ case "$rel" in
     esac ;;
 esac
 case "$rel" in
-  apps/client/src/commonMain/*)
+  apps/client/src/commonMain/*|apps/ui/src/commonMain/*)
     if grep -qE '^\s*expect\s+(fun|val|class|object)' "$path" 2>/dev/null; then
       msgs+=("commonMain file declares 'expect' ($rel): confirm an 'actual' exists for android, desktop AND ios — CI does not compile iOS, so a missing iosMain actual merges undetected (scripts/check-expect-actual.sh).")
     fi ;;
 esac
+# Reachability: only when a NEW surface appears (untracked file, or an added
+# Route/Screen/Host/Action declaration) — not on every edit under features/.
 case "$rel" in
-  apps/ui/src/*/features/*|apps/client/src/commonMain/*/Route*|apps/client/src/commonMain/*Action*.kt)
-    msgs+=("New Route/Screen/Action? ($rel) It needs a production dispatcher or call site, or a dated ReachabilityGuardTest allow-list entry — 'built, tested, unreachable' has shipped three times (WI-462).") ;;
+  apps/ui/src/*/features/*.kt|apps/client/src/commonMain/*.kt)
+    if ! git -C "$root" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 \
+       || git -C "$root" diff -U0 --no-color -- "$rel" 2>/dev/null | grep -qE '^\+.*((data )?object [A-Za-z]+ ?: ?Route|: Route\b|@Composable\s+fun [A-Za-z]+(Screen|Host)\(|sealed interface [A-Za-z]*Action\b)'; then
+      msgs+=("New Route/Screen/Host/Action in $rel? It needs a production dispatcher or call site, or a dated ReachabilityGuardTest allow-list entry — 'built, tested, unreachable' has shipped three times (WI-462).")
+    fi ;;
+esac
+# Silent-test gotcha: a JUnit test written as `= runBlocking {` whose last
+# expression is not Unit is never run. Demand runBlocking<Unit>.
+case "$rel" in
+  apps/*/src/*Test*/*.kt|apps/*/src/*/kotlin/*Test.kt)
+    # Only ADDED lines (or a new file) — existing tests are not re-flagged on every edit.
+    if git -C "$root" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1; then
+      hits=$(git -C "$root" diff -U0 --no-color -- "$rel" 2>/dev/null | grep -cE '^\+.*=\s*runBlocking\s*\{')
+    else
+      hits=$(grep -cE '=\s*runBlocking\s*\{' "$path" 2>/dev/null)
+    fi
+    if [ "${hits:-0}" -gt 0 ]; then
+      msgs+=("$hits new test(s) written as '= runBlocking {' in $rel — JUnit silently skips a test whose last expression is not Unit; use 'runBlocking<Unit> {' and verify the test COUNT moved.")
+    fi ;;
+esac
+# Toolchain pins are restated in processes/agent-dev-loop.md and .shipyard.yaml.
+case "$rel" in
+  apps/gradle/wrapper/gradle-wrapper.properties|apps/cli/gradle/wrapper/gradle-wrapper.properties|apps/build.gradle.kts|apps/gradle.properties|apps/settings.gradle.kts|.github/actions/setup-jvm/action.yml|apps/api/package.json)
+    msgs+=("Toolchain/version pin file changed ($rel): update the pins in processes/agent-dev-loop.md 'Toolchain' and .shipyard.yaml 'constraints' (doc-drift-auditor checks these four copies).") ;;
 esac
 
 [ "${#msgs[@]}" -gt 0 ] || exit 0

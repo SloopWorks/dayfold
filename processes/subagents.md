@@ -13,16 +13,16 @@ set and not another: `research/2026-09-02-subagent-practices-review.md`.
 | `simplification-reviewer` | Round 2, only after round-1 fixes are applied. | opus · high · 30 | no | SHIP-AFTER-TWEAKS / NEEDS-RESTRUCTURE + ordered tweaks |
 | `compose-ui-reviewer` | Any diff touching composables, theme, navigation, snapshot scenes; specs that define UI. | opus · high · 40 | snapshot PNGs only | SHIP / FIX-FIRST across UX, Compose, M3, a11y, redux-kotlin binding, reachability, goldens |
 | `privacy-security-reviewer` | Any diff touching `apps/api`, auth, sync, migrations, telemetry/error reporting, calendar, content ingestion, or a CLAUDE.md guardrail. | opus · high · 40 | no | SHIP / FIX-FIRST / ESCALATE-TO-OPERATOR; each finding has exploit + fix + proving test |
-| `kmp-verifier` | After edits under `apps/client`, `apps/ui`, `apps/swip-wiring`, `apps/androidApp`. | sonnet · 25 | no | GREEN/RED/UNVERIFIED table per lane, failing tests from JUnit XML, guard findings (`.sq`/`.sqm`, per-OS goldens, reachability) |
+| `kmp-verifier` | After edits under `apps/client`, `apps/ui`, `apps/swip-wiring`, `apps/androidApp`. | sonnet · 25 | no | GREEN/RED/UNVERIFIED table per lane (desktopTests, migration guard task, expect/actual, console, `:androidApp:assembleDebug`, iOS compile where a Mac exists), failing tests from JUnit XML, guard findings |
 | `api-verifier` | After edits under `apps/api`, `packages/`, `specs/domain-model/schemas`. | sonnet · 25 | no (restores tree) | same shape; mirrors CI's `api` job (routine-schema, codegen idempotence, bundle drift, vitest, migrations) |
 | `doc-drift-auditor` | The repo-maintenance pass; after changes to CLI commands, toolchain pins, CI, or module layout. | sonnet · 40 | no | table of stale claims with evidence + exact replacement; memory of drift hot spots |
 | `ci-doctor` | A PR or `main` goes red. | sonnet · 30 | no | failing job → root cause → fix / justified single re-run, from the known-failure catalog |
 | `research-verifier` | Research fleets (one per claim domain); re-verifying research > ~6 months old. | sonnet · 40 · web | no | JSON verdicts per claim with consulted URLs |
 | `viability-skeptic` | P0 viability review, gate decisions, pricing pressure-tests, any research synthesis before it becomes an ADR. | opus · high · 40 · web | no | JSON: fatal risks, weak assumptions, inconsistencies, re-run arithmetic, cheap kill checks |
 
-Every agent is **read-only on source** (`disallowedTools: Edit, Write,
-NotebookEdit`; `ci-doctor` inherits tools so it can use `gh` or the GitHub MCP
-tools). The main agent applies fixes — the diff stays human-visible and the
+Every agent is **read-only on source** — a `tools` allowlist, `disallowedTools:
+Edit, Write, NotebookEdit`, or both (`ci-doctor`'s allowlist names only the
+read-only GitHub MCP tools plus `Bash` for `gh`). The main agent applies fixes — the diff stays human-visible and the
 author/reviewer separation the process demands stays real.
 
 Deliberately **not** agents (a skill, a session, or a Routine fits better):
@@ -81,7 +81,7 @@ Precedence when names collide: managed > `--agents` flag > **project
    research agents are a documented failure); `model:` pinned by role —
    opus for judgment (review, security, viability), sonnet for run-and-parse
    (verify, audit, triage), haiku only for pure formatting.
-3. Body ≤ ~600 words: mandate, inputs, method, repo-specific traps, **exact
+3. Body ≤ ~750 words: mandate, inputs, method, repo-specific traps, **exact
    output shape** with a word cap, rules. Reference rules in `CLAUDE.md` /
    ADRs by name — never restate them (double-loads the context).
 4. Verdict first; every finding carries `path:line`; never claim a lane green
@@ -90,7 +90,8 @@ Precedence when names collide: managed > `--agents` flag > **project
    (`adversarial-reviewer`, `doc-drift-auditor`); the agent must be told to
    read `MEMORY.md` first and keep it short. Memory is working memory —
    repo Markdown wins on conflict (CLAUDE.md §Memory governance).
-6. Add the row here and keep `.claude/agents/README.md` pointing here.
+6. Add the row here. No `README.md` inside `.claude/agents/` — the directory
+   is scanned recursively and every `.md` is treated as an agent.
    `doc-drift-auditor` audits this file too.
 
 ## The rest of the harness config
@@ -99,8 +100,11 @@ Precedence when names collide: managed > `--agents` flag > **project
   Gradle-test, npm-verify, `gh` read, and `dayfold` read commands the agents
   and build loop run (fewer prompts, no widening); `ask` on the irreversible
   or outward-facing ones (`git push --force`, `git tag` — tags trigger
-  releases —, `gh pr merge`, `gh release`, `vercel deploy/env`,
-  `npm run db:migrate`, `dayfold push|content apply|archive`); `deny` on
+  releases —, `gh release`, `vercel deploy/env`, `npm run db:migrate`,
+  `dayfold push|content apply|archive`). Deliberately **not** on `git push`
+  or `gh pr merge`: the build loop pushes and merges-when-green on its own
+  (`processes/build-loop-prompt.md`, ADR 0012), and this pass does not
+  change that autonomy; `deny` on
   secrets files and on editing the operator-owned
   `context/values-and-direction.md`. `.claude/settings.local.json` is the
   per-machine override (gitignored).

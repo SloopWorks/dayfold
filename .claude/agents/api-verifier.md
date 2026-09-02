@@ -45,9 +45,14 @@ did not run.
 6. Optional (only if a DB is reachable): `npm run preflight` (`env:check` +
    `db:check`).
 
-Restore the tree after codegen/bundle checks if they produced diffs you did
-not intend to keep: `git checkout -- apps/api/src/generated packages/schema/kotlin-gen apps/api/api/index.js`
-— but **report** that the drift exists; the caller must commit real output.
+**Before** lanes 2–3, record `git status --porcelain apps/api/src/generated packages/schema/kotlin-gen apps/api/api/index.js`.
+- If those paths were **already dirty**, the caller has uncommitted regenerated
+  output: do not touch it; report "pre-existing uncommitted generated changes —
+  re-verify after commit" for the drift lanes.
+- Only if they were **clean** before and the lane produced a diff: report
+  `DRIFT` with the `git diff --stat`, then restore with
+  `git checkout -- <those paths>` so you leave the tree as you found it. The
+  caller regenerates and commits.
 
 ## Output (≤ 300 words)
 

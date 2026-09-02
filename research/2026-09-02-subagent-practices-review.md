@@ -24,7 +24,7 @@ gathered by two research subagents from the official Claude Code docs and
 | Signal | Value |
 |---|---|
 | Commits reachable after deepen | 848 (2026-06-18 → 2026-09-02) |
-| Co-Authored-By trailers | Claude Opus 4.8 (1M) 526 · Sonnet 5 24 · plain "Claude" 20 · Opus 4.8 17 · Sonnet 4.6 11 · Opus 5 / (1M) 18 · Fable 5 7 |
+| Co-Authored-By trailers `[estimate — `git log --format='%(trailers:key=Co-Authored-By,valueonly)'`, ±4 per bucket depending on merge-commit handling]` | Claude Opus 4.8 (1M) ~526 · Sonnet 5 ~24 · plain "Claude" ~20 · Opus 4.8 ~17 · Sonnet 4.6 ~11 · Opus 5 / (1M) ~18 · Fable 5 ~7 |
 | Other harness markers in bodies | Cursor 64 · Codex 13 |
 | PRs sampled | 300 (#102–#403); all authored by the operator account |
 | PR branch prefixes | conventional `fix/feat/test/docs/*` 153 · `claude/*` 55 (one web-session slug alone: 14 PRs) · `codex/*` 16 · `iter-*` 16 (all 2026-06-26) · `scan-*` 9 (2026-06-27) · `worktree-*` 6 · `design/*` 4 |
@@ -39,11 +39,11 @@ the other harnesses get the same prompts by paste (see `processes/subagents.md`)
 
 | Workflow | Evidence of recurrence | Existing prompt today |
 |---|---|---|
-| Two-round adversarial review (correctness → simplification) | 31 "adversarial review" mentions across process/backlog/spec docs; `operating-lessons.md` §5 calls it "the cheapest defect-removal step anywhere in the system" | `fleet-patterns.md` §3 prose; `build-loop-prompt.md` steps 2/5 say "launch a review subagent" with no named prompt |
-| Security/privacy review | 21 "security review" mentions; ADR 0063 requires tests that *prove* calendar data never leaves the device; 9 `scan-*` PRs were a one-day security test sweep | none named |
+| Two-round adversarial review (correctness → simplification) | ~31 "adversarial review(er)" hits `[estimate — grep -rhoiE over backlog/ processes/ specs/ docs/ adr/ CHANGELOG.md; repo-wide the count is higher]`; `operating-lessons.md` §5 calls it "the cheapest defect-removal step anywhere in the system" | `fleet-patterns.md` §3 prose; `build-loop-prompt.md` steps 2/5 say "launch a review subagent" with no named prompt |
+| Security/privacy review | ~21 "security review" hits (same grep, `[estimate]`); ADR 0063 requires tests that *prove* calendar data never leaves the device; 9 `scan-*` PRs were a one-day security test sweep | none named |
 | UI review (Compose / M3 Expressive / a11y) | `build-loop-prompt.md` "IF UI WORK" block; 4 `design/*` PRs; ADR 0008/0009 | none named |
 | Verify lane (Gradle + vitest + codegen + bundle) | CI job structure; `now.md` documents a 160 KB log needed to find one failing test; `ci-test-failures.sh` was written for exactly this | none — the main agent runs Gradle inline |
-| Repo-maintenance / agentic-docs drift audit | 20 numbered passes; "stale" appears 40+ times in `now-history.md`; toolchain pins live in 4 files | none named |
+| Repo-maintenance / agentic-docs drift audit | 20 numbered passes; ≥40 lines in `now-history.md` match rework/stale/drift/silently (`grep -nEi`, capped at 40); toolchain pins live in 4 files | none named |
 | CI triage | A catalog of ≥9 distinct known failures in `now.md` (18-min hang, per-OS goldens, codegen/bundle drift, gitleaks false-green, fastlane gem, missing `.sqm`, reachability, silent `runBlocking`, expect/actual) | buried in `now.md` |
 | Research fleets (cite-or-die) | `research-workflow.md`, `fleet-patterns.md` §1–2; 8-agent bootstrap fleet ≈ 307K tokens | prompt blocks to paste |
 | Viability skeptic | P0 viability review cadence (planning-loop.md) | prompt block |
@@ -80,7 +80,7 @@ addressed by recommendation only (`processes/claude-home/`).
 |---|---|---|
 | R1 | Ten project subagents, all read-only on source, trigger-shaped descriptions, `maxTurns`, verdict-first capped output | `.claude/agents/` |
 | R2 | The review gate as one command so it stops depending on memory or auto-delegation | `.agents/skills/two-round-review/` (+ `.claude/skills/` symlink) |
-| R3 | Project `settings.json`: allowlist for the verify/inspect commands; `ask` on push/tag/merge/deploy/`dayfold push`; deny on secrets and the operator-owned values file | `.claude/settings.json` |
+| R3 | Project `settings.json`: allowlist for the verify/inspect commands; `ask` on force-push/tag/release/deploy/`dayfold push` (plain push and `gh pr merge` stay autonomous — the build loop depends on them); deny on secrets and the operator-owned values file | `.claude/settings.json` |
 | R4 | PostToolUse edit-guard hook for the six drift classes in §1.3 | `scripts/claude-hooks/edit-guards.sh` |
 | R5 | Five generic user-level agents (same names; project overrides), install script, settings snippet — recommended home for the operator's `~/.claude` | `processes/claude-home/` |
 | R6 | Roster/rules doc; pointers from CLAUDE.md, AGENTS.md, routing, build loop, fleet patterns | `processes/subagents.md` |
@@ -204,6 +204,40 @@ at user level (pinned agents unaffected).
   (`.claude/agent-memory/**` committed)? Revisit after 10 runs.
 - Should the user-level set move to a dotfiles repo now (the operator has
   ≥6 sibling repos on the same template)?
+
+## Review
+
+Two-round review per `processes/fleet-patterns.md` §3, run with the new
+agent bodies handed to `general-purpose` (agent files load at session start).
+
+**Round 1 — `adversarial-reviewer`, kind=spec: USABLE-AFTER-FIXES (high).**
+Applied: P0 — `kmp-verifier` and the hook claimed `:client:desktopTest` runs
+the SQLDelight migration guard; it is a separate task
+(`:client:verifyCommonMainContentDbMigration`, CI invokes it explicitly) —
+both now name the task. P1 — `ci-doctor` inherited write-capable GitHub MCP
+tools → explicit read-only `tools` allowlist (project + user copies).
+P1 — `api-verifier`'s tree restore could revert a caller's uncommitted
+regenerated output → pre-check `git status --porcelain`, restore only if
+clean before. P1 — `kmp-verifier` lacked Android/iOS compile lanes the build
+loop delegates to it → `:androidApp:assembleDebug` and
+`:ui:compileKotlinIosArm64` (UNVERIFIED on Linux). P1 — hook `expect` guard
+missed `apps/ui/src/commonMain` → covered. P1 — `processes/subagents.md`
+mandated a `README.md` inside `.claude/agents/` that would itself load as an
+agent → removed. P2s applied: content-blind attribution corrected to ADR 0064
+§3 / `.shipyard.yaml` (not 0015/0017); non-existent `scan-md-scheme` test
+reference replaced with the real test classes; "5 jobs" → 6; grep-dependent
+counts labeled `[estimate]` with their commands; `gh pr merge` removed from
+`ask` (the build loop merges-when-green autonomously; narrowing that was not
+this pass's call) and the "ask on push" wording corrected; `"//"` comment key
+inside the settings snippet's `env` (would have become a literal env var)
+removed; `.gitignore` comment for `.rk-devtools/` corrected; body-length
+convention set to ~750 words; hook reachability check now fires only on a new
+file or an added Route/Screen/Host/Action declaration (was: every edit under
+`features/`); added hook guards for `= runBlocking {` (added lines only) and
+toolchain-pin files. Not applied: none.
+
+**Round 2 — `simplification-reviewer`:** _pending — verdict appended below
+when it returns._
 
 ## Sources
 

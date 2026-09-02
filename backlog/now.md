@@ -260,7 +260,7 @@ Agentic tooling pass (session review + practices research:
 `research/2026-09-02-subagent-practices-review.md`; roster + rules:
 `processes/subagents.md`). Landed: `.claude/agents/` (10 read-only reviewers /
 verifiers / auditors / fleet roles), `.claude/settings.json` (permission
-allowlist; `ask` on push/tag/deploy/`dayfold push`; deny on secrets and the
+allowlist; `ask` on force-push/tag/release/deploy/`dayfold push`; deny on secrets and the
 operator-owned values file; PostToolUse `scripts/claude-hooks/edit-guards.sh`
 reminding about `.sq`→`.sqm`, per-OS goldens, codegen/bundle drift, CLI-doc
 sync), the `two-round-review` skill (`.agents/skills/`, symlinked), and

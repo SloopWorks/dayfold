@@ -1,5 +1,4 @@
 {
-  "//": "Lines worth MERGING into ~/.claude/settings.json (user scope applies in every repo). Not a whole file — keep your existing hooks/env.",
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -19,7 +18,6 @@
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git tag:*)",
-      "Bash(gh pr merge:*)",
       "Bash(gh release:*)"
     ],
     "deny": [
@@ -29,7 +27,6 @@
     ]
   },
   "env": {
-    "//": "Optional cost lever: make every subagent that does not pin a model run on sonnet. Reviewers here pin opus explicitly and are unaffected.",
     "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
   }
 }

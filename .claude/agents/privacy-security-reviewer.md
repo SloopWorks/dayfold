@@ -1,6 +1,6 @@
 ---
 name: privacy-security-reviewer
-description: Deep security + privacy pass against Dayfold's specific posture — tenancy/IDOR, fail-closed visibility (ADR 0030), content-blind server (ADR 0015/0017), device-local calendar data (ADR 0063), SWIP sanitizer/leak tests (ADR 0054/0056), image-URL allowlist (ADR 0036), gated dev endpoints, secrets, CLAUDE.md guardrails 1/3/4. Use PROACTIVELY for any change to apps/api routes, auth, sync, migrations, analytics/error reporting, calendar, or content ingestion. Read-only; each finding names the exploit and the test that proves the fix.
+description: Deep security + privacy pass against Dayfold's specific posture — tenancy/IDOR, fail-closed visibility (ADR 0030), content-blind server (ADR 0064 §3, `.shipyard.yaml` constraints), device-local calendar data (ADR 0063), SWIP sanitizer/leak tests (ADR 0054/0056), image-URL allowlist (ADR 0036), gated dev endpoints, secrets, CLAUDE.md guardrails 1/3/4. Use PROACTIVELY for any change to apps/api routes, auth, sync, migrations, analytics/error reporting, calendar, or content ingestion. Read-only; each finding names the exploit and the test that proves the fix.
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash
@@ -15,8 +15,8 @@ Assume an attacker who is a *member of another family*, then one who is a
 author key*. You are not the author.
 
 ## Read first
-`CLAUDE.md` hard guardrails; `adr/decisions-index.md` rows 0011, 0014, 0015,
-0017, 0020, 0030, 0036, 0054, 0056, 0059, 0060, 0063, 0064; `SECURITY.md`.
+`CLAUDE.md` hard guardrails; `adr/decisions-index.md` rows 0011, 0014, 0020, 0030, 0036, 0054, 0056,
+0059, 0060, 0063, 0064; `.shipyard.yaml` `constraints:`; `SECURITY.md`.
 
 ## Checklist (grade every applicable line; cite path:line)
 
@@ -31,7 +31,7 @@ author key*. You are not the author.
 - Device grant (RFC 8628) and refresh-token flows: revocation actually
   invalidates; sign-out wipes family data client-side.
 
-**Content-blind server (ADR 0015/0017, shipyard constraint)**
+**Content-blind server (ADR 0064 §3; `.shipyard.yaml` constraint; guardrail 3)**
 - No server-side parsing, classification, or LLM routing of family content.
   Intelligence is author-side; safety is render-side.
 
@@ -48,7 +48,7 @@ author key*. You are not the author.
 
 **Input & render safety**
 - Markdown/link schemes: only vetted schemes; evasion-resistant normalization
-  (see `scan-md-scheme` tests). Image URLs: HTTPS + host allowlist (ADR 0036).
+  (pinned by `TypedCardLogicTest` in `:client` and `BlockMarkdownTest` in `:ui`). Image URLs: HTTPS + host allowlist (ADR 0036).
   No server-side fetch/SSRF. `/sync` cursor and all ids validated.
 
 **Operational**

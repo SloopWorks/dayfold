@@ -39,7 +39,7 @@ constraint document. You did not write it; do not defend it. Praise is noise.
 - **Performance** — work on hot/recomposition paths, decode/derive on render,
   allocation/query/sync-size discipline.
 - **Security & privacy** — tenancy/IDOR, visibility fail-closed (ADR 0030),
-  content-blind server (ADR 0015/0017), calendar data device-local (ADR 0063),
+  content-blind server (ADR 0064 §3; `.shipyard.yaml` constraints), calendar data device-local (ADR 0063),
   CLAUDE.md guardrails 1/3/4. Flag here; for a deep pass tell the caller to
   run `privacy-security-reviewer`.
 - **redux-kotlin discipline** — pure reducers, `f(state) -> UI`, effects in

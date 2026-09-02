@@ -34,4 +34,5 @@ apps/ui/.rk-snapshots/
 .claude/settings.local.json
 .claude/agent-memory-local/
 .claude/worktrees/
+# rk devtools capture output (processes/agent-dev-loop.md "Observe the redux loop")
 .rk-devtools/

@@ -31,9 +31,11 @@ you did not run.
 | `apps/client/**` logic, reducers, engines, db | `./gradlew :client:desktopTest` |
 | `apps/ui/**` composables, theme, scenes | `./gradlew :ui:desktopTest` (recompiles :client first) |
 | `apps/swip-wiring/**` or any new state slice | `./gradlew :swip-wiring:desktopTest` (mandatory sanitizer leak test) |
-| any `.sq` / `.sqm` | `:client:desktopTest` runs `verifyCommonMainContentDbMigration` — confirm it ran |
+| any `.sq` / `.sqm` | `./gradlew :client:verifyCommonMainContentDbMigration :client:desktopTest` — the guard is a **separate task** (CI invokes it explicitly; it is NOT part of `desktopTest` and once sat unrun for weeks) |
 | any commonMain `expect` | `bash ../scripts/check-expect-actual.sh` (repo root: `bash scripts/check-expect-actual.sh`) |
 | any client Kotlin | `bash scripts/check-no-direct-console.sh` |
+| `apps/androidApp/**` or shared code used by it | `./gradlew :androidApp:assembleDebug` (CI also runs `:androidApp:bundleRelease`; heavy — run when the change is not `:ui`/`:client`-test-only) |
+| shared code with iOS `actual`s / `apps/iosApp` | `./gradlew :ui:compileKotlinIosArm64` — macOS + Xcode only; on Linux report `UNVERIFIED (iOS compile needs macOS)` |
 
 Use `--no-daemon` only in CI-like sandboxes; locally the daemon is fine.
 Cap a single Gradle invocation at ~15 minutes; if it hangs with no failures,

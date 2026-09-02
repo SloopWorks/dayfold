@@ -26,7 +26,10 @@ collide (community finding, see the research doc). Five is the set.
 - `agents/*.md` — generic `adversarial-reviewer`, `simplification-reviewer`,
   `research-verifier`, `doc-drift-auditor`, `ci-doctor`.
 - `settings.snippet.json` — permission/allowlist lines worth **merging** into
-  `~/.claude/settings.json` (do not overwrite your file with it).
+  `~/.claude/settings.json` (do not overwrite your file with it). Its `env`
+  sets `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` as a cost lever: every subagent
+  that does not pin a model runs on sonnet; the reviewers here pin opus and
+  are unaffected. Drop that key if you want session-model inheritance.
 - `install.sh` — symlinks `agents/*.md` into `~/.claude/agents/` (refuses to
   overwrite). Symlinks mean a `git pull` here updates the live agents.
 
