@@ -96,26 +96,23 @@ Precedence when names collide: managed > `--agents` flag > **project
 
 ## The rest of the harness config
 
-- **`.claude/settings.json`** — `permissions.allow` for the read-only git,
-  Gradle-test, npm-verify, `gh` read, and `dayfold` read commands the agents
-  and build loop run (fewer prompts, no widening); `ask` on the irreversible
-  or outward-facing ones (`git push --force`, `git tag` — tags trigger
-  releases —, `gh release`, `vercel deploy/env`, `npm run db:migrate`,
-  `dayfold push|content apply|archive`). Deliberately **not** on `git push`
-  or `gh pr merge`: the build loop pushes and merges-when-green on its own
-  (`processes/build-loop-prompt.md`, ADR 0012), and this pass does not
-  change that autonomy; `deny` on
-  secrets files and on editing the operator-owned
-  `context/values-and-direction.md`. `.claude/settings.local.json` is the
-  per-machine override (gitignored).
+- **`.claude/settings.json`** (the file is the list; this is the rationale) —
+  `allow` pre-approves the read-only inspect/verify commands the agents and
+  build loop run, so fewer prompts without widening anything; `ask` marks
+  the irreversible or outward-facing commands (force-push, tags — they
+  trigger releases —, releases, deploys, prod migrations, `dayfold` writes).
+  Deliberately **not** on `git push` or `gh pr merge`: the build loop pushes
+  and merges-when-green on its own (`processes/build-loop-prompt.md`, ADR
+  0012) and this pass does not change that autonomy. `deny` covers secrets
+  files and edits to the operator-owned values file.
+  `.claude/settings.local.json` is the per-machine override (gitignored).
 - **`scripts/claude-hooks/edit-guards.sh`** (PostToolUse on Edit/Write) —
-  deterministic reminders for the drift classes that have shipped to `main`:
-  `.sq` without `.sqm`, macOS-only goldens, schema without codegen/bundle,
-  API source without the committed bundle, migration numbering, CLI change
-  without curator-doc update, ADR immutability, `expect` without iOS
-  `actual`, new Route/Screen/Action reachability. It only prints (exit 2
-  feeds the text back to Claude); it never blocks or edits. Test it with a
-  fake payload: `printf '{"tool_input":{"file_path":"…"}}' | bash scripts/claude-hooks/edit-guards.sh`.
+  one-line reminders for the drift classes that have shipped to `main`; each
+  `case` arm in the script is one class and the script is the canonical
+  list. It only prints (exit 2 feeds the text back to Claude); it never
+  blocks or edits. Self-test:
+  `printf '{"tool_input":{"file_path":"'"$PWD"'/apps/api/src/app.ts"}}' | bash scripts/claude-hooks/edit-guards.sh`
+  (should print the bundle reminder and exit 2).
 - **Skills** — `.agents/skills/` is the harness-neutral source;
   `.claude/skills/*` are symlinks. `two-round-review` orchestrates the
   reviewers; `dayfold-curator` authors content.

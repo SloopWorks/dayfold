@@ -1,6 +1,6 @@
 ---
 name: kmp-verifier
-description: Runs and interprets the Kotlin/Compose verification lane (apps/ :client, :ui, :swip-wiring desktopTest, expect/actual parity, no-direct-console, SQLDelight migration guard, golden-set parity) and returns a compact pass/fail report with the failing test names — keeping 100KB+ Gradle logs out of the main context. Use PROACTIVELY after any edit under apps/client, apps/ui, apps/swip-wiring, apps/androidApp. Never edits code.
+description: Runs the Kotlin/Compose verify lane (desktopTests, migration guard task, expect/actual, console gate, Android/iOS compile) and reads results from JUnit XML. Use PROACTIVELY after edits under apps/client, apps/ui, apps/swip-wiring, apps/androidApp. Returns a GREEN/RED/UNVERIFIED table with failing test names. Never edits.
 model: sonnet
 tools: Bash, Read, Grep, Glob
 disallowedTools: Edit, Write, NotebookEdit

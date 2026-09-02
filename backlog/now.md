@@ -262,8 +262,8 @@ Agentic tooling pass (session review + practices research:
 verifiers / auditors / fleet roles), `.claude/settings.json` (permission
 allowlist; `ask` on force-push/tag/release/deploy/`dayfold push`; deny on secrets and the
 operator-owned values file; PostToolUse `scripts/claude-hooks/edit-guards.sh`
-reminding about `.sq`→`.sqm`, per-OS goldens, codegen/bundle drift, CLI-doc
-sync), the `two-round-review` skill (`.agents/skills/`, symlinked), and
+— one reminder per drift class that has shipped to `main`, the script's
+`case` list being canonical), the `two-round-review` skill (`.agents/skills/`, symlinked), and
 `processes/claude-home/` (user-level generic agents + install script).
 **Follow-ups, not started:** an `adr` skill (`disable-model-invocation`),
 a `close-session` skill for the CLAUDE.md end-of-session routine, a

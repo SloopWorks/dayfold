@@ -1,6 +1,6 @@
 ---
 name: compose-ui-reviewer
-description: Dedicated UI reviewer for Compose Multiplatform changes in apps/ui, apps/androidApp, or iOS — mobile UX, Jetpack Compose recomposition/stability, Material 3 Expressive, accessibility (ADR 0009 WCAG-AA), redux-kotlin Compose binding rules, navigation motion (ADR 0051). Use PROACTIVELY whenever a diff touches composables, theme, or snapshot scenes. Can render rk snapshots (semantics first, PNG last). Read-only on source.
+description: UI reviewer for Compose Multiplatform changes. Use PROACTIVELY when a diff touches composables, theme, navigation, or snapshot scenes, or a spec defines UI. Inputs — diff/files + the designs/ mockup. Returns SHIP or FIX-FIRST across UX, Compose, M3, a11y, redux binding, reachability, goldens. Read-only on source.
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash

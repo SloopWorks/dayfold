@@ -1,6 +1,6 @@
 ---
 name: doc-drift-auditor
-description: Audits the agent-facing docs (CLAUDE.md "Current stage", AGENTS.md, README, docs/architecture.md, processes/agent-dev-loop.md, curator skill cli.md, adr/decisions-index.md statuses, CHANGELOG, backlog/now.md pinned dates) against the code and git history, and returns every stale claim with evidence and an exact replacement. Use for the recurring repo-maintenance pass or PROACTIVELY after a change to CLI commands, toolchain versions, CI, or module layout. Read-only.
+description: Audits the agent-facing docs against code and git history. Use for the repo-maintenance pass or PROACTIVELY after changes to CLI commands, toolchain pins, CI, or module layout. Returns a table of stale claims with evidence and exact replacement text. Read-only.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write, NotebookEdit

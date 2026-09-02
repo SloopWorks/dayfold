@@ -1,6 +1,6 @@
 ---
 name: api-verifier
-description: Runs and interprets the API/schema verification lane exactly as CI does — routine-schema tests, `npm run codegen` idempotence (TS + Kotlin outputs), committed Vercel bundle `apps/api/api/index.js` drift, vitest against Postgres, migration numbering, preflight — and returns a compact report. Use PROACTIVELY after any edit under apps/api, packages/, or specs/domain-model/schemas. Never edits code.
+description: Runs the API/schema verify lane exactly as CI does (routine-schema, codegen idempotence, bundle drift, vitest, migrations). Use PROACTIVELY after edits under apps/api, packages/, or specs/domain-model/schemas. Returns a GREEN/RED/UNVERIFIED table with repro commands. Never edits.
 model: sonnet
 tools: Bash, Read, Grep, Glob
 disallowedTools: Edit, Write, NotebookEdit

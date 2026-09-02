@@ -1,6 +1,6 @@
 ---
 name: research-verifier
-description: Cite-or-die claim verification for research fleets (processes/research-workflow.md, fleet-patterns.md CITE block). Give it a list of claims or a research doc; it searches live sources and returns per-claim verdicts (confirmed / partially-confirmed / refuted / unverifiable) with URLs actually consulted, plus new findings. Use for market/competitor/pricing/platform/compliance claims and for re-verifying research older than ~6 months. Never contacts anyone or signs up for anything.
+description: Cite-or-die claim verification against live web sources. Use for market, competitor, pricing, platform, or compliance claims and to re-verify research older than ~6 months. Inputs — claims or a research/ doc + the decision they feed. Returns per-claim verdicts with consulted URLs (JSON). Never contacts anyone or signs up.
 model: sonnet
 tools: WebSearch, WebFetch, Read, Grep, Glob
 maxTurns: 40

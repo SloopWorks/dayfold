@@ -81,7 +81,7 @@ addressed by recommendation only (`processes/claude-home/`).
 | R1 | Ten project subagents, all read-only on source, trigger-shaped descriptions, `maxTurns`, verdict-first capped output | `.claude/agents/` |
 | R2 | The review gate as one command so it stops depending on memory or auto-delegation | `.agents/skills/two-round-review/` (+ `.claude/skills/` symlink) |
 | R3 | Project `settings.json`: allowlist for the verify/inspect commands; `ask` on force-push/tag/release/deploy/`dayfold push` (plain push and `gh pr merge` stay autonomous — the build loop depends on them); deny on secrets and the operator-owned values file | `.claude/settings.json` |
-| R4 | PostToolUse edit-guard hook for the six drift classes in §1.3 | `scripts/claude-hooks/edit-guards.sh` |
+| R4 | PostToolUse edit-guard hook, one `case` per drift class that has shipped to `main` (§1.3 lists the incidents; the script is the canonical list) | `scripts/claude-hooks/edit-guards.sh` |
 | R5 | Five generic user-level agents (same names; project overrides), install script, settings snippet — recommended home for the operator's `~/.claude` | `processes/claude-home/` |
 | R6 | Roster/rules doc; pointers from CLAUDE.md, AGENTS.md, routing, build loop, fleet patterns | `processes/subagents.md` |
 | R7 | **Not** agents: ADR drafting, session close-out, maintenance pass (→ skills, follow-ups); PR babysitting (→ background session/Routine); implementer/planner (→ plan mode + superpowers) | `backlog/now.md` follow-ups |
@@ -99,11 +99,9 @@ at user level (pinned agents unaffected).
 - Locations/precedence: managed > `--agents` > `.claude/agents/` (project) >
   `~/.claude/agents/` (user) > plugin. Scanned recursively — hence no
   `README.md` inside `.claude/agents/`.
-- Frontmatter: `name`, `description` (required); `tools`, `disallowedTools`,
-  `model` (`sonnet|opus|haiku|inherit|<id>`), `permissionMode`, `maxTurns`,
-  `skills` (preloads full skill content), `mcpServers`, `hooks`, `memory`
-  (`user|project|local`), `effort`, `isolation: worktree`, `background`,
-  `color`. Combined descriptions warn above 15,000 tokens.
+- Frontmatter contract: full field table with defaults in the archived
+  `-agent-outputs/official-docs.md` §1. Combined descriptions warn above
+  15,000 tokens.
 - Custom subagents receive **every level of `CLAUDE.md`** and git status but
   **no conversation history**; built-in Explore/Plan skip CLAUDE.md. Results
   return as a summary. Earlier 2026 issues (#34572, #62944) showed periods
@@ -237,8 +235,24 @@ file or an added Route/Screen/Host/Action declaration (was: every edit under
 `features/`); added hook guards for `= runBlocking {` (added lines only) and
 toolchain-pin files. Not applied: none.
 
-**Round 2 — `simplification-reviewer`:** _pending — verdict appended below
-when it returns._
+**Round 2 — `simplification-reviewer` (callable by name by then): SHIP-AFTER-TWEAKS (high).**
+Applied all eight tweaks: descriptions cut from job postings to router rules
+(trigger + inputs + return; 4,454 → ~3,000 chars across the ten project
+agents); CLAUDE.md guardrail restatements in two reviewer bodies collapsed to
+one pointer line, and the skeptic's pinned hours/cash figures replaced by
+"read them from `context/`"; the placement rule now lives only in
+`processes/subagents.md` (the `claude-home` README points at it); prose
+enumerations of the drift classes replaced by "the hook's `case` list is
+canonical" in `subagents.md`, `now.md`, and R4; the CI failure catalog is
+canonical in the `ci-doctor` body (not `now.md`, which rotates into history);
+the settings paragraph keeps rationale + pointer instead of restating the
+lists; hook messages trimmed to one line each (13–26 words); the research
+frontmatter field list replaced by a pointer to the archived official-docs
+output. All three missing-for-practicality items added: the skill says what
+to do when the agent type is unknown mid-session, the hook self-test uses a
+real firing path, and `install.sh` replaces dangling symlinks. Left alone,
+per the reviewer: per-agent Rules boilerplate, inlined trap lists, the flat
+`case` list, the dated overlap between this report's §2 and the process doc.
 
 ## Sources
 

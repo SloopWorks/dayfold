@@ -10,7 +10,9 @@ linked=0
 for f in "$SRC"/*.md; do
   name="$(basename "$f")"
   dest="$DEST_DIR/$name"
-  if [ -e "$dest" ] || [ -L "$dest" ]; then
+  if [ -L "$dest" ] && [ ! -e "$dest" ]; then
+    rm -f "$dest"   # dangling symlink (repo moved) — replace it
+  elif [ -e "$dest" ]; then
     printf 'skip %s (exists — remove it first if you want the symlink)\n' "$dest" >&2
     continue
   fi

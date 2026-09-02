@@ -28,7 +28,9 @@ the orchestration — it exists so the gate is one command, not a memory test.
      scenes changed (for a `spec`, if it specifies UI).
    In Claude Code: `Agent(subagent_type=<name>, prompt=<target, kind,
    constraint docs, the ask>)`, one call per reviewer, same message so they
-   run concurrently. In a harness without named subagents (Codex): open a
+   run concurrently. If the tool says the agent type is unknown, the
+   definition was added this session — restart, or hand the agent file's
+   body to `general-purpose` as the prompt (same fresh context). In a harness without named subagents (Codex): open a
    fresh context per reviewer and paste the agent file's body as the system
    prompt with the same inputs.
 2. **Triage** the merged findings: every P0/Critical gets fixed or escalated
