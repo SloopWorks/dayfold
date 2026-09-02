@@ -1,0 +1,35 @@
+{
+  "//": "Lines worth MERGING into ~/.claude/settings.json (user scope applies in every repo). Not a whole file — keep your existing hooks/env.",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git worktree list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
+    ],
+    "ask": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git tag:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh release:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)"
+    ]
+  },
+  "env": {
+    "//": "Optional cost lever: make every subagent that does not pin a model run on sonnet. Reviewers here pin opus explicitly and are unaffected.",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  }
+}

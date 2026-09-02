@@ -5,6 +5,9 @@ multi-step task. Single-fact lookups and trivial edits skip routing.
 
 ## Routing table
 
+Named subagents for the routes below (what each does, model, cost, when to
+invoke explicitly vs. let the main agent delegate): `processes/subagents.md`.
+
 | Task class | Route | Output lands in | Operator gate |
 |---|---|---|---|
 | **Planning-loop iteration** | `processes/planning-loop.md` — ORIENT→SELECT→EXECUTE→INTEGRATE→REVIEW→IMPROVE→CLOSE; confidence protocol per ADR 0003 | board item's deliverable + journal + inbox | Sweep cadence; gates; interrupts |
@@ -12,7 +15,7 @@ multi-step task. Single-fact lookups and trivial edits skip routing.
 | Market / competitor / tech / regulatory research | Multi-agent research fleet per `processes/research-workflow.md` + `processes/fleet-patterns.md` (citations + adversarial verification mandatory) | `research/` dated report + raw-output archive | Accept conclusions → ADR/context |
 | Business strategy, pricing pressure-test | Solo-business-strategist-type agent with full inputs (budget, hours, geography, stage) | `research/` | Verdict informs ADRs |
 | Plan / spec / PRD authoring | Brainstorm → draft → **two adversarial review rounds** (1: correctness, 2: optimization/simplification) | `specs/`, `roadmap/` | Accept before dependent work |
-| Adversarial review of anything | Fresh-context agent(s), never the author; mechanics: `processes/fleet-patterns.md` §3 | Review doc or PR review | Author responds with rigor, not agreement |
+| Adversarial review of anything | `/two-round-review` — fresh-context subagents (`adversarial-reviewer` → fixes → `simplification-reviewer`; `privacy-security-reviewer` / `compose-ui-reviewer` on their surfaces), never the author; mechanics: `processes/fleet-patterns.md` §3 | Review doc or PR review | Author responds with rigor, not agreement |
 | Customer/prospect data work (enrichment, analysis) | Scripted + agent hybrid; **no contact with anyone** | create a working-data dir and add it to the CLAUDE.md directory map first | Before any outreach wave |
 | Outreach / sales material | Agent drafts | drafts only | **Operator sends. Always.** |
 | Administrative / setup (entity, accounts, insurance, banking) | Agent prepares runbook + comparison; operator executes | `processes/` runbook | All sign-ups/signatures human |

@@ -254,6 +254,24 @@ full before/after JSON and a separate operator confirmation, and the Big Night
 
 ## Current state (as of 2026-09-01)
 
+### Shipped — named subagents, edit-guard hook, review gate as a skill (2026-09-02)
+
+Agentic tooling pass (session review + practices research:
+`research/2026-09-02-subagent-practices-review.md`; roster + rules:
+`processes/subagents.md`). Landed: `.claude/agents/` (10 read-only reviewers /
+verifiers / auditors / fleet roles), `.claude/settings.json` (permission
+allowlist; `ask` on push/tag/deploy/`dayfold push`; deny on secrets and the
+operator-owned values file; PostToolUse `scripts/claude-hooks/edit-guards.sh`
+reminding about `.sq`→`.sqm`, per-OS goldens, codegen/bundle drift, CLI-doc
+sync), the `two-round-review` skill (`.agents/skills/`, symlinked), and
+`processes/claude-home/` (user-level generic agents + install script).
+**Follow-ups, not started:** an `adr` skill (`disable-model-invocation`),
+a `close-session` skill for the CLAUDE.md end-of-session routine, a
+`maintenance-pass` skill that fronts `doc-drift-auditor`; a first live pass
+of each agent to calibrate `maxTurns`/model against real cost. Verify on the
+first local session that subagents see `CLAUDE.md` (canary in
+`processes/subagents.md`).
+
 ### Fixed — passive sync navigation (2026-09-01)
 
 Content projections and same-family background membership reconciliation no longer
