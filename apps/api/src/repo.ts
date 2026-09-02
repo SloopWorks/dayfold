@@ -35,8 +35,8 @@ export async function upsertCard(familyId: string, id: string, b: any) {
        (id, family_id, kind, title, body_md, target_hub_id, target_section_id,
         target_block_id, provenance, triggers, actions, not_before, expires_at,
         type, payload, privacy, hub_ref, related, related_kicker, visibility, audience, media,
-        subject_ref, version)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,1)
+        temporal, subject_ref, version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,1)
      ON CONFLICT (family_id, id) DO UPDATE SET
        kind=EXCLUDED.kind, title=EXCLUDED.title, body_md=EXCLUDED.body_md,
        target_hub_id=EXCLUDED.target_hub_id, target_section_id=EXCLUDED.target_section_id,
@@ -46,6 +46,7 @@ export async function upsertCard(familyId: string, id: string, b: any) {
        type=EXCLUDED.type, payload=EXCLUDED.payload, privacy=EXCLUDED.privacy,
        hub_ref=EXCLUDED.hub_ref, related=EXCLUDED.related, related_kicker=EXCLUDED.related_kicker,
        visibility=EXCLUDED.visibility, audience=EXCLUDED.audience, media=EXCLUDED.media,
+       temporal=EXCLUDED.temporal,
        subject_ref=EXCLUDED.subject_ref,
        version=briefing_cards.version + 1, deleted_at=NULL
      RETURNING *`,
@@ -53,7 +54,7 @@ export async function upsertCard(familyId: string, id: string, b: any) {
      b.target?.hubId ?? null, b.target?.sectionId ?? null, b.target?.blockId ?? null,
      J(b.provenance), J(b.triggers), J(b.actions), b.not_before ?? null, b.expires_at ?? null,
      b.type ?? null, J(b.payload), J(b.privacy), b.hubRef ?? null, J(b.related), b.relatedKicker ?? null,
-     visibility, audience, J(b.media), buildCardSubjectRef(id)],
+     visibility, audience, J(b.media), J(b.temporal), buildCardSubjectRef(id)],
     );
     await touchResponsesForCard(client, familyId, id);
     if (!inherited) await client.query("COMMIT");

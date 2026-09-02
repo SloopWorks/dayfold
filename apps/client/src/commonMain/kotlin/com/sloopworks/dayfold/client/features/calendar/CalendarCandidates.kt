@@ -1,6 +1,7 @@
 package com.sloopworks.dayfold.client
 
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 
 // ADR 0063 §2 — the calendar-candidate projection. deriveEventCandidates synthesizes
 // DayfoldEventCandidates ON-DEVICE from already-synced TYPED content fields only: hub
@@ -33,6 +34,7 @@ sealed interface CalendarCandidateSource {
 }
 
 data class DayfoldEventCandidate(
+  // Compatibility name for the UI/action address. ADR 0067 values this with localFactKey.
   val subjectKey: String,
   val title: String,
   val startAt: String,
@@ -43,18 +45,24 @@ data class DayfoldEventCandidate(
   val sourceVersion: String,
   val deepLink: DeepLinkTarget?,
   val source: CalendarCandidateSource? = null,
-)
+  val entityRef: EntityRef = EntityRef(subjectKey),
+  val factRef: FactRef = FactRef("legacy:when"),
+  val subjectRef: String = subjectKey,
+) {
+  val localFactKey: String get() = localFactKey(entityRef, factRef)
+}
 
 /** Progressive "add only" handoff for a dated Hub. It does not require Calendar Check read access. */
 fun Hub.calendarEventPrefill(zone: TimeZone = TimeZone.currentSystemDefault()): EventPrefill? {
-  val start = startAt ?: return null
   if (status == "archived") return null
+  val fact = temporalFacts(this, zone).calendarEligible().singleOrNull { it.factRef.value == "hub:start" } ?: return null
+  val extent = fact.extent as? TemporalExtent.Timed ?: return null
   return EventPrefill(
     title = title,
-    startAt = start,
-    endAt = endAt,
-    allDay = isDateOnly(start),
-    timezone = zone.id,
+    startAt = extent.start.toString(),
+    endAt = extent.endExclusive?.toString(),
+    allDay = false,
+    timezone = extent.zone.id,
     deepLink = DeepLinkTarget(id),
   )
 }
@@ -69,22 +77,32 @@ fun deriveEventCandidates(
   val out = ArrayList<DayfoldEventCandidate>()
   val hubIdForSection = sections.associate { it.id to it.hubId }
 
-  // ── 1. Hub start_at/end_at. countdown_to is relevance metadata only — never read here,
-  // so a hub with a countdown_to but no start_at correctly produces nothing. ──
-  for (hub in hubs) {
-    val startAt = hub.startAt ?: continue
+  fun append(
+    fact: NormalizedFact,
+    subjectKey: String,
+    location: CandidateLocation?,
+    deepLink: DeepLinkTarget?,
+    source: CalendarCandidateSource,
+  ) {
+    val (start, end, allDay, timezone) = when (val extent = fact.extent) {
+      is TemporalExtent.AllDay -> listOf(extent.start.toString(), extent.endExclusive.toString(), "true", zone.id)
+      is TemporalExtent.Timed -> listOf(extent.start.toString(), extent.endExclusive?.toString(), "false", extent.zone.id)
+    }
     out += DayfoldEventCandidate(
-      subjectKey = SubjectRef.node(hub.id),
-      title = hub.title,
-      startAt = startAt,
-      endAt = hub.endAt,
-      allDay = isDateOnly(startAt),
-      timezone = zone.id,
-      location = null,
-      sourceVersion = fingerprintFor(hub.title, startAt, hub.endAt, null),
-      deepLink = DeepLinkTarget(hub.id),
-      source = CalendarCandidateSource.Hub(hub.id, hub.type),
+      subjectKey = localFactKey(fact.entityRef, fact.factRef), entityRef = fact.entityRef, factRef = fact.factRef,
+      subjectRef = subjectKey,
+      title = fact.label, startAt = start!!, endAt = end, allDay = allDay == "true",
+      timezone = timezone!!, location = location,
+      sourceVersion = fingerprintFor(fact.label, start, end, location, fact.factRef.value, timezone),
+      deepLink = deepLink, source = source,
     )
+  }
+
+  // ── 1. Hub start_at/end_at. countdown_to remains timeline/relevance-only. ──
+  for (hub in hubs) {
+    temporalFacts(hub, zone).calendarEligible().forEach { fact ->
+      append(fact, SubjectRef.node(hub.id), null, DeepLinkTarget(hub.id), CalendarCandidateSource.Hub(hub.id, hub.type))
+    }
   }
 
   for (block in blocks) {
@@ -96,58 +114,57 @@ fun deriveEventCandidates(
     val payload = block.payload
     val location = locationFromPayload(payload)
 
-    // ── 2. Explicitly dated milestone blocks. ──
-    val milestoneDate = payload?.date
-    if (block.type == "milestone" && milestoneDate != null) {
-      val title = payload.label ?: "Milestone"
-      out += DayfoldEventCandidate(
-        subjectKey = subjectKey, title = title, startAt = milestoneDate, endAt = payload.end,
-        allDay = isDateOnly(milestoneDate), timezone = payload.tz ?: zone.id, location = location,
-        sourceVersion = fingerprintFor(title, milestoneDate, payload.end, location),
-        deepLink = target,
-        source = CalendarCandidateSource.Block(block.id),
-      )
-    }
-
-    // ── 3. A block's `when.at` time trigger. A dated milestone already represents this subject;
-    // imported milestones intentionally carry both payload.date and an equal when.at trigger so
-    // Now can surface them. Emitting both here would produce two reconciliation rows with the same
-    // subject key and subtly lose the imported end/timezone on one of them. ──
-    val whenAt = block.triggers?.firstNotNullOfOrNull { it.whenTrigger?.at }
-    if (whenAt != null && milestoneDate == null) {
-      val title = payload?.label ?: "Reminder"
-      out += DayfoldEventCandidate(
-        subjectKey = subjectKey, title = title, startAt = whenAt, endAt = null,
-        allDay = isDateOnly(whenAt), timezone = zone.id, location = location,
-        sourceVersion = fingerprintFor(title, whenAt, null, location),
-        deepLink = target,
-        source = CalendarCandidateSource.Block(block.id),
-      )
+    val canonical = temporalFacts(block, zone).calendarEligible()
+    if (canonical.isNotEmpty()) {
+      canonical.forEach { append(it, subjectKey, location, target, CalendarCandidateSource.Block(block.id)) }
+    } else {
+      // Compatibility only: legacy when.at is not a second fact beside canonical content.
+      block.triggers.orEmpty().mapNotNull { it.whenTrigger?.at }.forEachIndexed { index, whenAt ->
+        val ex = legacyExtent(whenAt, zone) ?: return@forEachIndexed
+        append(
+          NormalizedFact(EntityRef("block:${block.id}"), FactRef("legacy:when:$index"), payload?.label ?: "Reminder",
+            TemporalRole.EVENT, TemporalStatus.CONFIRMED, ex, TemporalSource.LEGACY_WHEN,
+            TemporalCapabilities(calendar = true)),
+          subjectKey, location, target, CalendarCandidateSource.Block(block.id),
+        )
+      }
     }
   }
 
   // ── 4. A card's `when.at` time trigger. A card without a hub target has no node to
   // deep-link into (it keys its own subject via SubjectRef.card, mirroring subjectKeyFor). ──
   for (card in cards) {
-    val whenAt = card.triggers?.firstNotNullOfOrNull { it.whenTrigger?.at } ?: continue
     val location = locationFromPayload(card.payload?.geo)
-    out += DayfoldEventCandidate(
-      subjectKey = subjectKeyFor(card), title = card.title, startAt = whenAt, endAt = null,
-      allDay = isDateOnly(whenAt), timezone = zone.id, location = location,
-      sourceVersion = fingerprintFor(card.title, whenAt, null, location),
-      deepLink = card.targetHubId?.let { DeepLinkTarget(it, card.targetSectionId, card.targetBlockId) },
-      source = CalendarCandidateSource.Card(card.id),
-    )
+    val target = card.targetHubId?.let { DeepLinkTarget(it, card.targetSectionId, card.targetBlockId) }
+    val canonical = temporalFacts(card, zone).calendarEligible()
+    if (canonical.isNotEmpty()) canonical.forEach {
+      append(it, subjectKeyFor(card), location, target, CalendarCandidateSource.Card(card.id))
+    } else card.triggers.orEmpty().mapNotNull { it.whenTrigger?.at }.forEachIndexed { index, whenAt ->
+      val ex = legacyExtent(whenAt, zone) ?: return@forEachIndexed
+      append(
+        NormalizedFact(EntityRef("card:${card.id}"), FactRef("legacy:when:$index"), card.title,
+          TemporalRole.EVENT, TemporalStatus.CONFIRMED, ex, TemporalSource.LEGACY_WHEN,
+          TemporalCapabilities(calendar = true)),
+        subjectKeyFor(card), location, target, CalendarCandidateSource.Card(card.id),
+      )
+    }
   }
 
   // Stable order: tests + downstream reconciler diffing need deterministic output
   // regardless of input list order.
-  return out.sortedWith(compareBy({ it.subjectKey }, { it.startAt }, { it.title }))
+  return out.sortedWith(compareBy({ it.entityRef.value }, { it.startAt }, { it.factRef.value }))
 }
 
 private val DATE_ONLY = Regex("""^\d{4}-\d{2}-\d{2}$""")
 
 private fun isDateOnly(iso: String): Boolean = DATE_ONLY.matches(iso.trim())
+
+private fun legacyExtent(value: String, zone: TimeZone): TemporalExtent? =
+  if (isDateOnly(value)) runCatching {
+    val start = kotlinx.datetime.LocalDate.parse(value)
+    TemporalExtent.AllDay(start, start.plus(1, kotlinx.datetime.DateTimeUnit.DAY))
+  }.getOrNull()
+  else parseInstantFlexible(value, zone)?.let { TemporalExtent.Timed(it, null, zone) }
 
 private fun locationFromPayload(p: BlockPayload?): CandidateLocation? {
   if (p == null || (p.address == null && p.lat == null && p.lng == null)) return null
@@ -162,8 +179,13 @@ private fun locationFromPayload(geo: GeoPayload?): CandidateLocation? {
 // The typed inputs that feed a candidate's rendered fields (title/start/end/location) — exactly
 // what sourceVersion must track. Deliberately excludes subjectKey/timezone/deepLink: those are
 // structural/render context, not authored content whose drift the reconciler needs to detect.
-private fun fingerprintFor(title: String, startAt: String, endAt: String?, location: CandidateLocation?): String =
-  stableFingerprint(title, startAt, endAt, location?.label, location?.address, location?.lat?.toString(), location?.lng?.toString())
+private fun fingerprintFor(
+  title: String, startAt: String, endAt: String?, location: CandidateLocation?,
+  factRef: String? = null, timezone: String? = null,
+): String = stableFingerprint(
+  title, startAt, endAt, location?.label, location?.address, location?.lat?.toString(), location?.lng?.toString(),
+  factRef, timezone,
+)
 
 // A small, deterministic, non-cryptographic 64-bit digest (FNV-1a) — stable across Kotlin/JVM
 // versions, unlike hashCode(). No existing stable-digest util was found in :client to reuse.

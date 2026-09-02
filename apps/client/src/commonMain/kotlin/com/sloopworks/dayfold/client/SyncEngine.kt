@@ -246,16 +246,17 @@ class SyncEngine(
               // Calendar→Dayfold import's hub/section ops. base_version is always null here (a
               // client-minted, not-yet-existing row — spec §3.4), matching op.baseVersion already.
               op.targetKind == "hub" ->
-                syncClient.putHub(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
+                syncClient.putHub(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId, op.writerCapability)
               op.targetKind == "section" ->
-                syncClient.putSection(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId)
+                syncClient.putSection(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId, op.writerCapability)
               op.targetKind == "card" ->
-                syncClient.putCard(familyId, accessToken, op.targetId, op.payload, op.opId)
+                syncClient.putCard(familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId, op.writerCapability)
               op.type == "delete" ->
                 syncClient.deleteBlock(familyId, accessToken, op.targetId, op.opId)
               else ->
                 syncClient.putBlock(
                   familyId, accessToken, op.targetId, op.payload, op.baseVersion, op.opId,
+                  op.writerCapability,
                 )
             }
             if (sent.status == 401) throw SyncHttpException(401)

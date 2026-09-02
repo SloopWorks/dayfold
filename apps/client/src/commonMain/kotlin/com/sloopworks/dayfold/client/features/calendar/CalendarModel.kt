@@ -6,7 +6,11 @@ package com.sloopworks.dayfold.client
 // fingerprint that proved it, and the local relation/notification-owner/review decision. Raw
 // event fields never live here — see CalendarEventObservation's exclusions.
 data class CalendarBinding(
+  // Local row identity (entityRef + factRef for ADR 0067; legacy subject key before migration).
   val subjectKey: String,
+  val subjectRef: String = subjectKey,
+  val entityRef: String? = null,
+  val factRef: String? = null,
   val sourceVersion: String,
   val platformEventId: String? = null,
   val calendarId: String? = null,

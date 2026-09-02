@@ -137,7 +137,8 @@ fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone
   // Relevance anchor (#299 + timestamp hardening): use the soonest future effective trigger, then
   // retain the latest past trigger instead of silently falling back to not_before at the instant it
   // fires. The card itself remains governed by explicit expires_at; a trigger is not an expiry.
-  val whenAnchor = selectWhenTrigger(card.triggers, nowIso, zone)?.effectiveAt?.toString()
+  val resolvedWhen = selectWhenTrigger(card.triggers, nowIso, zone, facts = temporalFacts(card, zone))
+  val whenAnchor = resolvedWhen?.effectiveAt?.toString()
 
   return NowItem(
     id = "authored:${card.id}",
@@ -152,6 +153,7 @@ fun cardToNowItem(card: Card, config: RankConfig, nowIso: String, zone: TimeZone
     // importance is clamped to the engine cap here too (defense-in-depth; rank also clamps).
     weight = card.importance?.coerceIn(0.0, config.importanceCap) ?: DEFAULT_AUTHORED_WEIGHT,
     authoredSource = card.provenance?.source,
+    localFactKey = resolvedWhen?.factRef?.let { localFactKey(EntityRef("card:${card.id}"), FactRef(it)) },
   )
 }
 

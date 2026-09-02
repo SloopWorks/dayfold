@@ -1,7 +1,7 @@
 package com.sloopworks.dayfold.cli
 
 import com.sloopworks.dayfold.schema.BlockType
-import com.sloopworks.dayfold.schema.Status
+import com.sloopworks.dayfold.schema.HubStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -98,7 +98,7 @@ class HubTreeValidateTest {
       val body = if (t.value == "text" || t.value == "markdown") ""","body_md":"x"""" else ""
       ok(validateHubTree("blocks", """{"sectionId":"s1","type":"${t.value}"$body}"""))
     }
-    for (s in Status.entries)
+    for (s in HubStatus.entries)
       ok(validateHubTree("hubs", """{"type":"party-event","title":"x","status":"${s.value}"}"""))
   }
 }

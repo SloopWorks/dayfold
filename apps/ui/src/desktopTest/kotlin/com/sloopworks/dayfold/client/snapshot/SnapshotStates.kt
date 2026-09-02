@@ -299,7 +299,7 @@ object SnapshotStates {
 
   // Derived-timeline hub (DerivedTimelineSnapshotTest.kt `tree()`, verbatim).
   fun derivedTimelineTree() = HubTree(
-    hub = Hub(id = "h", title = "Maya starts college", countdownTo = "2026-08-24", startAt = "2026-05-01"),
+    hub = Hub(id = "h", title = "Maya starts college", countdownTo = "2026-08-24T00:00:00-04:00", startAt = "2026-05-01T00:00:00-04:00"),
     blocks = listOf(
       HubBlock(id = "m1", sectionId = "s", type = "milestone", payload = BlockPayload(date = "2026-06-12", label = "Housing confirmed")),
       HubBlock(id = "c1", sectionId = "s", type = "checklist", payload = BlockPayload(items = listOf(
@@ -333,7 +333,7 @@ object SnapshotStates {
   fun timelineHubHiddenState(): AppState = timelineHubCardState().let { it.copy(hubs = it.hubs.copy(hiddenIds = setOf("timeline:h1"), showHidden = true)) }
   fun timelineNudgeState(): AppState = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3",
     currentHubTree = HubTree(hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
-      visibility = "family", countdownTo = "2026-09-01"))))
+      visibility = "family", endAt = "2026-09-01T00:00:00-04:00"))))
   fun derivedTimelineHubState(): AppState =
     AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h", currentHubTree = derivedTimelineTree()))
 

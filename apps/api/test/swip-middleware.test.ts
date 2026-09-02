@@ -90,7 +90,7 @@ describe("swip error middleware", () => {
     expect(f.recorded).toHaveLength(1);
     expect(f.recorded[0]!.attrs).toEqual({ method: "GET", route: "/debug/boom" });
     expect(f.recorded[0]!.mechanism).toBe("hono");
-    expect((f.recorded[0]!.error as Error).message).toContain("deliberate unhandled route error");
+    expect((f.recorded[0]!.error as Error).message).toBe("dayfold.api.unhandled");
   });
 
   it("wtf() rides the same flush — the deliberate non-crash report is the point of the pillar", async () => {
@@ -143,5 +143,21 @@ describe("swip error middleware", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ handled: "kaboom" }); // the app's onError still ran
     expect(f.calls).toEqual(["record", "flush"]);
+  });
+
+  it("never records content-like exception messages or causes", async () => {
+    const f = fakeSwip();
+    const { Hono } = await import("hono");
+    const probe = new Hono();
+    probe.use("*", swipErrors(() => f.handle));
+    probe.get("/parse", () => {
+      throw new Error("LEAK_LABEL_7Q at 2026-08-28T21:00:00-07:00 family LEAK_FAMILY_7Q", {
+        cause: new Error("America/Los_Angeles LEAK_OCCURRENCE_7Q"),
+      });
+    });
+    await probe.request("/parse");
+    const recorded = JSON.stringify(f.recorded);
+    for (const sentinel of ["LEAK_LABEL_7Q", "2026-08-28", "America/Los_Angeles", "LEAK_FAMILY_7Q", "LEAK_OCCURRENCE_7Q"])
+      expect(recorded).not.toContain(sentinel);
   });
 });

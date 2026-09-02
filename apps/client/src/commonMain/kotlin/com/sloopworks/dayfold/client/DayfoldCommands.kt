@@ -312,7 +312,6 @@ class DayfoldCommands internal constructor(
   override fun startCalendarImport(observation: CalendarEventObservation) { calendarImportEngine?.startImport(observation) }
   override fun loadCalendarImportDestinations() { calendarImportEngine?.loadEligibleDestinations() }
   override fun chooseImportDestination(destination: ImportDestination) { calendarImportEngine?.chooseDestination(destination) }
-  override fun setImportDescriptionIncluded(include: Boolean) { calendarImportEngine?.setDescriptionIncluded(include) }
   override fun proceedImportToAudience() { calendarImportEngine?.proceedToAudience() }
   override fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>) { calendarImportEngine?.setAudience(visibility, audience) }
   override fun proceedImportToConfirm() { calendarImportEngine?.proceedToConfirm() }

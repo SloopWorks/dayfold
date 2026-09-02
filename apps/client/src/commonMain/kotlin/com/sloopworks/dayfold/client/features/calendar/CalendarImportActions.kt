@@ -19,9 +19,6 @@ data class StartCalendarImport(val proposal: CalendarImportProposal) : CalendarI
 /** Destination step → fields step. */
 data class ChooseImportDestination(val destination: ImportDestination) : CalendarImportAction
 
-/** Fields step: the one opt-in control (spec OD-1). [description] is null when unticked. */
-data class SetImportDescriptionOptIn(val description: String?) : CalendarImportAction
-
 /** Fields step → audience step. */
 data object ProceedImportToAudience : CalendarImportAction
 

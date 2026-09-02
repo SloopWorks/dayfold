@@ -2,6 +2,8 @@ package com.sloopworks.dayfold.client
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonObject
 
 // Wire DTOs for the M0 /sync envelope (feed surface). Field names match the API
 // (snake_case). NOTE: keep aligned with the SyncResponse contract in
@@ -42,6 +44,12 @@ data class Card(
   // ADR 0043/0049 — on-device relevance triggers (when/geo). Synced-from-server, never written.
   // Reuses BlockTrigger (identical wire shape); consumed by cardToNowItem + authoredGeoItems (#299).
   val triggers: List<BlockTrigger>? = null,
+  // ADR 0067 — retained as raw JSON so a newer authoring schema can add members without an
+  // older supported client erasing them during cache/full-resource round trips.
+  val temporal: JsonObject? = null,
+  val version: Long? = null,
+  val visibility: String = "family",
+  val audience: List<String>? = null,
 )
 
 // ADR 0036 — card visual enrichment (icon + accent on the kind chip + optional thumb).
@@ -254,6 +262,9 @@ data class Stop(
   // ADR 0046 — client-only source tag for a *derived* stop (checklist|milestone|pickup|hubdate);
   // null for authored stops. Never serialized.
   @kotlinx.serialization.Transient val source: String? = null,
+  // ADR 0067 — derived-only identity/range boundary; never changes authored Timeline wire JSON.
+  @kotlinx.serialization.Transient val factRef: String? = null,
+  @kotlinx.serialization.Transient val endExclusive: String? = null,
 )
 
 @Serializable
@@ -283,6 +294,8 @@ data class OutboxOp(
   val payload: String,
   val baseVersion: Long?,
   val attempts: Long,
+  // Captured when the mutation is created. Never infer this from the binary that later drains it.
+  val writerCapability: String,
 )
 
 @Serializable
@@ -303,6 +316,8 @@ data class HubBlock(
   // (schema/DB-present, client-absent until now); matched ON-DEVICE by deriveNow against the live
   // clock/location — live position never leaves the device (ADR 0014). Dropped on the wire before.
   val triggers: List<BlockTrigger>? = null,
+  // Raw preservation is deliberate; TemporalFacts parses only the validated members it knows.
+  val temporal: JsonObject? = null,
   // ADR 0038 — client-only optimistic-write state ('pending'/'failed'/null=synced). Not on the
   // wire; @Transient so it never (de)serializes — it's projected from the local hub_block row.
   @kotlinx.serialization.Transient val localState: String? = null,
@@ -311,11 +326,12 @@ data class HubBlock(
 // ADR 0014/0043 — a single on-device trigger on a hub block. Exactly one of geo/when/activity is
 // set per element (the server stores them verbatim). Matched locally by deriveNow; never evaluated
 // server-side. `when` is a Kotlin hard keyword → the field is `whenTrigger`, wire name "when".
-@Serializable
+@Serializable(with = BlockTriggerSerializer::class)
 data class BlockTrigger(
   val geo: TriggerGeo? = null,
   @SerialName("when") val whenTrigger: TriggerWhen? = null,
   val activity: TriggerActivity? = null,
+  @Transient val raw: JsonObject? = null,
 )
 
 @Serializable
@@ -329,12 +345,14 @@ data class TriggerGeo(
   @SerialName("radius_m") val radiusM: Long? = null,
 )
 
-@Serializable
+@Serializable(with = TriggerWhenSerializer::class)
 data class TriggerWhen(
   val at: String? = null,                                    // absolute instant/date the window fires at
   val relative: String? = null,
   val recurring: String? = null,
   @SerialName("alert_offset") val alertOffset: String? = null,
+  @SerialName("fact_ref") val factRef: String? = null,
+  @Transient val raw: JsonObject? = null,
 )
 
 @Serializable

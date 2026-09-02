@@ -15,7 +15,128 @@
 export const CONTENT_TYPES = ["file", "link", "invite", "contact", "geo", "email"] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
-export type CrossIssue = { path: (string | number)[]; message: string };
+export type CrossIssue = { path: (string | number)[]; message: string; code?: string };
+
+const CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const TEMPORAL_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:Z|(?!-00:00)(?:[+-](?:0\d|1[0-3]):[0-5]\d|[+-]14:00))$/;
+const ALERT_OFFSET = /^([+-])?P(?=\d|T\d)(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/;
+const MAX_ALERT_SECONDS = 30 * 24 * 60 * 60;
+
+function validCivilDate(value: string): boolean {
+  const match = CIVIL_DATE.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+
+function validInstant(value: string): boolean {
+  return TEMPORAL_INSTANT.test(value) && validCivilDate(value.slice(0, 10)) && Number.isFinite(Date.parse(value));
+}
+
+function temporalCode(path: (string | number)[], code: string): CrossIssue {
+  return { path, code, message: code };
+}
+
+function alertOffsetSeconds(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const match = ALERT_OFFSET.exec(value);
+  if (!match) return null;
+  const total = Number(match[2] ?? 0) * 86400 + Number(match[3] ?? 0) * 3600 +
+    Number(match[4] ?? 0) * 60 + Number(match[5] ?? 0);
+  return Number.isSafeInteger(total) ? (match[1] === "-" ? -total : total) : null;
+}
+
+type TemporalResource = {
+  type?: unknown;
+  temporal?: unknown;
+  triggers?: unknown;
+  payload?: unknown;
+};
+
+/**
+ * Content-blind ADR 0067 cross-field validation. This reads only bounded
+ * structured fields already accepted by generated Zod; it never examines prose
+ * or includes a content value in an issue/exception.
+ */
+export function temporalIssues(resource: TemporalResource): CrossIssue[] {
+  const issues: CrossIssue[] = [];
+  const facet = resource.temporal as { occurrences?: unknown } | null | undefined;
+  const occurrences = Array.isArray(facet?.occurrences) ? facet.occurrences as Record<string, unknown>[] : [];
+  const byId = new Map<string, Record<string, unknown>>();
+
+  occurrences.forEach((occurrence, index) => {
+    const path = ["temporal", "occurrences", index] as (string | number)[];
+    const id = typeof occurrence.id === "string" ? occurrence.id : "";
+    if (byId.has(id)) issues.push(temporalCode([...path, "id"], "temporal.duplicate-id"));
+    else if (id) byId.set(id, occurrence);
+
+    const start = typeof occurrence.start === "string" ? occurrence.start : "";
+    const end = typeof occurrence.end === "string" ? occurrence.end : null;
+    const allDay = validCivilDate(start);
+    const timed = validInstant(start);
+    if (!allDay && !timed) issues.push(temporalCode([...path, "start"], "temporal.invalid-start"));
+    if (allDay && occurrence.zone != null) issues.push(temporalCode([...path, "zone"], "temporal.all-day-zone-forbidden"));
+    if (timed && typeof occurrence.zone !== "string") issues.push(temporalCode([...path, "zone"], "temporal.timed-zone-required"));
+    if (end != null) {
+      if (allDay && (!validCivilDate(end) || end <= start))
+        issues.push(temporalCode([...path, "end"], "temporal.invalid-civil-end"));
+      if (timed && (!validInstant(end) || Date.parse(end) <= Date.parse(start)))
+        issues.push(temporalCode([...path, "end"], "temporal.invalid-timed-end"));
+      if (!allDay && !timed) issues.push(temporalCode([...path, "end"], "temporal.mixed-or-invalid-range"));
+    }
+    if (occurrence.role === "window" && end == null)
+      issues.push(temporalCode([...path, "end"], "temporal.window-end-required"));
+    if (occurrence.role === "deadline" && end != null)
+      issues.push(temporalCode([...path, "end"], "temporal.deadline-end-forbidden"));
+  });
+
+  const triggers = Array.isArray(resource.triggers) ? resource.triggers as Record<string, unknown>[] : [];
+  const factTriggers = triggers.map((trigger, index) => ({
+    index,
+    when: trigger?.when as Record<string, unknown> | undefined,
+  })).filter(({ when }) => typeof when?.fact_ref === "string");
+  if (factTriggers.length > 1)
+    issues.push(temporalCode(["triggers"], "temporal.multiple-fact-triggers"));
+
+  for (const { index, when } of factTriggers) {
+    const path = ["triggers", index, "when"] as (string | number)[];
+    const ref = when!.fact_ref as string;
+    const offset = when!.alert_offset;
+    if (offset != null) {
+      const seconds = alertOffsetSeconds(offset);
+      if (seconds == null || Math.abs(seconds) > MAX_ALERT_SECONDS)
+        issues.push(temporalCode([...path, "alert_offset"], "temporal.invalid-alert-offset"));
+    }
+
+    let resolved: { start: unknown; status?: unknown; role?: unknown } | null = null;
+    if (ref.startsWith("temporal:")) resolved = (byId.get(ref.slice("temporal:".length)) as any) ?? null;
+    else if (ref === "payload:milestone" && resource.type === "milestone") {
+      const p = resource.payload as Record<string, unknown> | undefined;
+      resolved = p ? { start: p.date, status: "confirmed", role: "event" } : null;
+    } else if (ref.startsWith("checklist:") && ref.endsWith(":due") && resource.type === "checklist") {
+      const itemId = ref.slice("checklist:".length, -":due".length);
+      const items = (resource.payload as any)?.items;
+      const item = Array.isArray(items) ? items.find((candidate: any) => candidate?.id === itemId) : null;
+      resolved = item ? { start: item.due, status: "confirmed", role: "deadline" } : null;
+    } else {
+      const payload = resource.payload as Record<string, any> | undefined;
+      const typed: Record<string, unknown> = {
+        "payload:invite:start": payload?.invite?.startAt,
+        "payload:invite:rsvp": payload?.invite?.rsvpBy,
+        "payload:link:closes": payload?.link?.closesAt,
+        "payload:geo:leave": payload?.geo?.leaveBy,
+      };
+      if (Object.prototype.hasOwnProperty.call(typed, ref))
+        resolved = { start: typed[ref], status: "confirmed", role: "event" };
+    }
+    if (!resolved) issues.push(temporalCode([...path, "fact_ref"], "temporal.dangling-fact-ref"));
+    else if (resolved.status !== "confirmed" || resolved.role === "reference" ||
+      typeof resolved.start !== "string" || !validInstant(resolved.start))
+      issues.push(temporalCode([...path, "fact_ref"], "temporal.ineligible-fact-ref"));
+  }
+  return issues;
+}
 
 /**
  * Returns [] when the card is consistent, else a zod-issue-shaped list (so the

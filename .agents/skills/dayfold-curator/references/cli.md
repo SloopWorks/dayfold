@@ -126,6 +126,9 @@ dayfold push <blockId> block.json --block         # block (body carries sectionI
   Without `--type`, a card is sent unchanged (no local validation).
 - Hub/section/block pushes (via `--hub`, `--section`, `--block`) run an always-on
   structural pre-check with no flag — the server is the authority for hub-tree shape.
+- Card and block pushes always run ADR 0067 temporal validation, even without
+  `--type`: occurrence shape/ranges/zones, duplicate IDs, one eligible same-item
+  `fact_ref`, and bounded fixed-time offsets. There is no bypass flag.
 - By default `push` auto-links bare phone/email in every `body_md` to tappable
   `tel:`/`mailto:` links and prints a diff of what changed — so author plain text, not
   hand-rolled markdown links. `--no-linkify` stores the body verbatim.
@@ -183,6 +186,34 @@ dayfold push <id> <file.json> --dry-run        # prints the target + final paylo
 - A muted subject still reports `skipped …` and a malformed body still fails validation,
   exactly as a real push would — a clean dry run is real evidence the push will land.
 - Composes with every push flag (`--hub/--section/--block`, `--type`, `--no-linkify`).
+
+## Temporal audit and verified bundle apply (curator path)
+
+```
+dayfold content audit [--hub <id>]
+dayfold content apply --dry-run <bundle.json>
+dayfold content apply <bundle.json>
+```
+
+`audit` reads only content already authorized by the credential and runs local,
+linear, content-minimal checks. It reports stable issue codes and structural paths;
+it does not send prose to a second model. Exit `0` is clean, `1` means coverage or
+validation findings, and `2` means invocation/read failure.
+Resource IDs are redacted to structural indexes by default; add `--detail` only
+for an authorized local repair session that needs exact item IDs.
+
+`apply` consumes a bounded `dayfold.temporal-bundle.v1` containing complete
+resources, Temporal Claim Ledger rows, explicit Card/Block `temporal` object or
+`null`, ACL, and base version. Dry-run performs current-state/version/ACL reads but
+writes nothing. Real apply revalidates the in-memory file, sends `If-Match` and the
+`temporal-v1` capability, then compares canonical fields and ACL in both the 200
+response and a fresh pull. HTTP 200 without preserved facts is failure. Apply is
+stateless/resumable; rerun after inspecting the content-minimal receipt.
+
+For a claim resolved from relative language, the ledger row also carries
+`"relative":true`, `"source_base_instant":"…±HH:MM"`, and
+`"source_base_zone":"Area/City"`. `zone` remains the normalized occurrence's
+zone. Missing, partial, or zone/offset-inconsistent source bases block apply.
 
 ## Archive — retire a hub without deleting it
 

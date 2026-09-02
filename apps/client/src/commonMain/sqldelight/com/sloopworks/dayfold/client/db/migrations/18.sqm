@@ -1,0 +1,8 @@
+-- Migration v18→v19 (ADR 0067) — raw temporal round trip, safe Card replacement,
+-- and creation-time outbox capability. All columns are additive; NULL preserves old caches.
+ALTER TABLE card ADD COLUMN temporal TEXT;
+ALTER TABLE card ADD COLUMN version INTEGER;
+ALTER TABLE card ADD COLUMN visibility TEXT;
+ALTER TABLE card ADD COLUMN audience TEXT;
+ALTER TABLE hub_block ADD COLUMN temporal TEXT;
+ALTER TABLE outbox ADD COLUMN writer_capability TEXT NOT NULL DEFAULT 'legacy';

@@ -41,7 +41,9 @@ import com.sloopworks.dayfold.client.SyncFailed
 import com.sloopworks.dayfold.client.createAppStore
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
 import org.reduxkotlin.createStore
 import org.reduxkotlin.concurrent.NotificationContext
 import works.sloop.swip.ConsentDecision
@@ -67,6 +69,23 @@ class DayfoldLeakTest {
     profile = ProfileState(displayName = "Salted Q. User"),
     hubs = HubState(filter = "salted-search someone@example.com padding-padding-padding"), // synthetic: real values are chip literals; salt proves the fence anyway
     navigation = NavigationState(detailStack = listOf("card_salt_1")),
+    // ADR 0067 privacy gate — raw temporal content and fact-ref behavior are parent content,
+    // never an allowed Redux-journal/analytics field. Unique sentinels make this proof
+    // independent of the older calendar-content salts below.
+    content = com.sloopworks.dayfold.client.ContentState(cards = listOf(
+      com.sloopworks.dayfold.client.Card(
+        id = "temporal-card-safe-id",
+        title = "Temporal private card",
+        temporal = Json.parseToJsonElement(
+          """{"occurrences":[{"id":"01K45TEMPORALLEAK9931GHJKM","role":"event","label":"TEMPORAL_LABEL_LEAK_9931","start":"2026-08-28T21:00:00-07:00","zone":"Etc/TEMPORAL_ZONE_LEAK_9931","status":"confirmed"}]}""",
+        ).jsonObject,
+        triggers = listOf(com.sloopworks.dayfold.client.BlockTrigger(
+          whenTrigger = com.sloopworks.dayfold.client.TriggerWhen(
+            factRef = "temporal:01K45TEMPORALLEAK9931GHJKM",
+          ),
+        )),
+      ),
+    )),
     routines = RoutineState.preview().copy(
       provider = RoutineProvider.CLAUDE,
       externalSources = setOf(RoutineExternalSource.GMAIL),
@@ -145,6 +164,10 @@ class DayfoldLeakTest {
     assertFalse("456 Salted Blvd" in text)
     assertFalse("prop-salted" in text)
     assertFalse("u_salted_importer" in text)
+    assertFalse("01K45TEMPORALLEAK9931GHJKM" in text)
+    assertFalse("TEMPORAL_LABEL_LEAK_9931" in text)
+    assertFalse("2026-08-28T21:00:00-07:00" in text)
+    assertFalse("TEMPORAL_ZONE_LEAK_9931" in text)
     // pseudonymous + derived slices ARE present (registry works)
     assertTrue("card_salt_1" in text)     // detailStack ids allowed (internal debug)
     assertTrue("cardsCount" in text)

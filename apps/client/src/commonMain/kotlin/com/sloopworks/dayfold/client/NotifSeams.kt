@@ -26,7 +26,10 @@ data class NotificationSpec(
   val target: DeepLinkTarget?,
   val urgent: Boolean,
   val group: String = DAYFOLD_NOTIF_GROUP,
+  val localFactKey: String? = null,
 )
+
+val NotificationSpec.scheduleKey: String get() = localFactKey ?: subjectKey
 
 const val DAYFOLD_NOTIF_GROUP = "dayfold.now"
 const val DEFAULT_GEOFENCE_RADIUS_M = 150.0
@@ -102,6 +105,7 @@ fun notificationSubtext(item: NowItem): String = when {
 // One ranked item → its notification spec. body uses the computed "why" (one useful sentence).
 fun NowItem.toNotificationSpec(): NotificationSpec = NotificationSpec(
   subjectKey = subjectKey,
+  localFactKey = localFactKey,
   title = title,
   body = why,
   subtext = notificationSubtext(this),

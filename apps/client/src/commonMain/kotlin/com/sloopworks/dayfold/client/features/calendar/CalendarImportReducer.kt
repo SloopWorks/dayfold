@@ -36,10 +36,6 @@ fun reduceCalendarImport(state: ImportProposalState, action: CalendarImportActio
     else -> state
   }
 
-  is SetImportDescriptionOptIn -> (state as? ImportProposalState.PreviewingFields)?.let {
-    ImportProposalState.PreviewingFields(it.proposal.copy(description = action.description))
-  } ?: state
-
   ProceedImportToAudience -> (state as? ImportProposalState.PreviewingFields)?.let {
     ImportProposalState.ChoosingAudience(it.proposal)
   } ?: state

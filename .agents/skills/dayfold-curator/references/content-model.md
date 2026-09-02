@@ -26,6 +26,13 @@ Required: `id`, `kind`, `title`, `provenance`.
   already saved on-device (matched against their saved-places geofence set).
   Don't promise "you'll get notified when you're near X" for a plain lat/lng
   trigger — that's only true for a `place_ref` trigger.
+- `temporal` — canonical facts that do not fit a typed carrier:
+  `{ "occurrences": [{ id, role, label, start, end?, zone?, status }] }`.
+  `role` is `event|deadline|window|reference`; `status` is
+  `confirmed|tentative|cancelled`. Date-only values are civil intervals with an
+  exclusive end and no zone. Timed values require full seconds, explicit offset,
+  and an IANA `zone`; end is exclusive. Use 1–64 opaque stable occurrence ULIDs.
+  Multiple dates are multiple occurrences—never pick only the first.
 - `related[]` — cross-links to other cards in THIS family:
   `{ relation, targetId, targetType, title?, sub? }` — `relation` is free text
   (e.g. `same-email | same-thread | same-hub | same-trip | attachment | contact-of`),
@@ -79,6 +86,21 @@ Per-type payload keys (the common ones):
   - `contact`: `{ name, role?, phone?, email? }`
   - `location`: `{ label, address?, mapUrl? }`
   - `budget`: `{ items: [{ label, amount, paid? }] }`
+
+Blocks and Cards may carry the same top-level `temporal` facet. Existing typed
+fields remain canonical: milestone date/end, checklist due, invite start/RSVP,
+link close, and geo leave-by. Do not duplicate the same logical fact in both a
+typed carrier and `temporal`.
+
+### Facts are not behavior (ADR 0067)
+
+New time behavior references one confirmed timed fact on the same item:
+`{ "when": { "fact_ref": "temporal:<occurrence-ulid>", "alert_offset": "-PT30M" } }`.
+Closed carrier refs also include `payload:milestone`, `checklist:<item-ulid>:due`,
+`payload:invite:start`, `payload:invite:rsvp`, `payload:link:closes`, and
+`payload:geo:leave`. V1 permits one fact-ref trigger per item. Date-only,
+tentative, cancelled, and reference facts never schedule behavior. `when.at` is
+legacy-read compatibility, not a place to copy every date.
 
 ## Hub `timeline` — an axis of time (ADR 0045)
 

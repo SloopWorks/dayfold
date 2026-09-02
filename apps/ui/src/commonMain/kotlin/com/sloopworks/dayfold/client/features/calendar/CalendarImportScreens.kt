@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -97,9 +96,6 @@ fun CalendarImportDestinationScreen(
 @Composable
 fun CalendarImportFieldsScreen(
   proposal: CalendarImportProposal,
-  descriptionAvailable: Boolean,
-  descriptionIncluded: Boolean,
-  onToggleDescription: (Boolean) -> Unit,
   onBack: () -> Unit,
   onNext: () -> Unit,
   modifier: Modifier = Modifier,
@@ -123,13 +119,7 @@ fun CalendarImportFieldsScreen(
     SectionLabel("STAYS IN YOUR CALENDAR")
     Surface(shape = RoundedCornerShape(18.dp), color = cs.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
       Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (descriptionAvailable) {
-          Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = descriptionIncluded, onCheckedChange = onToggleDescription)
-            Text("Event description", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text("Add anyway", style = MaterialTheme.typography.labelMedium, color = cs.secondary)
-          }
-        }
+        StayText("Event description")
         StayText("Guests & responses")
         StayText("Meeting link")
         StayText("Organizer & account details")
@@ -274,9 +264,7 @@ fun CalendarImportConfirmScreen(
       Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Icon(Icons.Filled.Info, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Text(
-          "${proposal.approvedFieldCount()} fields go to Dayfold. " +
-            if (proposal.description == null) "Description, guests and reminders stay in your calendar."
-            else "Guests and reminders stay in your calendar.",
+          "${proposal.approvedFieldCount()} fields go to Dayfold. Description, guests and reminders stay in your calendar.",
           style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
         )
       }

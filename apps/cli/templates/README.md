@@ -18,6 +18,12 @@ it locally before the server does.
 
 ## Loop
 
+For curator-authored content, first build a Temporal Claim Ledger and use
+`dayfold content apply --dry-run` / `dayfold content apply` with a
+`dayfold.temporal-bundle.v1`; see the curator skill. Raw `push` remains the
+single-resource compatibility surface and still performs unconditional local
+temporal validation for Cards and Blocks.
+
 1. **Start from a template** (printed from the classpath starters; the source of
    truth for these lives in `apps/cli/src/main/resources/templates/`):
 

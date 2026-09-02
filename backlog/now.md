@@ -11,6 +11,18 @@ latest pass's findings so it doesn't re-grow past its own stated purpose.
 
 ## ⚠ Time-sensitive (hard dates — keep pinned at top)
 
+### Canonical temporal facts — ADR 0067 accepted and S0–S4 complete (2026-09-01)
+
+Material dates/times on Cards and Blocks now have a lossless multi-occurrence
+carrier separate from explicit Now/notification behavior. The authoring ledger,
+read-only audit, version/ACL-preserving verified CLI apply, additive API/Postgres
+persistence, raw mobile-cache preservation, shared normalizer, Calendar/timeline
+multi-fact consumers, fact-referenced triggers, stale-notification cleanup, and
+privacy canaries are implemented and release-gated across API, CLI, Android/iOS,
+SQLDelight, and UI goldens. Production content repair remains S5: it still requires
+full before/after JSON and a separate operator confirmation, and the Big Night
+6:30/7:00 meeting conflict must not be guessed.
+
 - **✅ SQLDelight migration gap — FOUND AND FIXED 2026-08-21/22 (20th pass).**
   `membership`, `calendar_import` and `card.target_{hub,section,block}_id` reached
   `Content.sq` (WI-450 `a50876e`, `0e47b04`) with no companion `.sqm`.

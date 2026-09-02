@@ -148,9 +148,10 @@ export async function upsertHub(
   familyId: string, id: string, b: any, caller: Caller,
   visibility: "family" | "restricted", audience: string[] | undefined,
 ) {
-  const client = await pool.connect();
+  const inheritedClient = currentDbClient();
+  const client = inheritedClient ?? await pool.connect();
   try {
-    await client.query("BEGIN");
+    if (!inheritedClient) await client.query("BEGIN");
     const r = await client.query(
       `INSERT INTO hubs (id, family_id, type, title, status, start_at, end_at, countdown_to, visibility, created_by, media, timeline, version)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1)
@@ -181,9 +182,14 @@ export async function upsertHub(
     for (const uid of targetAudience)
       await client.query(`INSERT INTO resource_visibility(family_id,hub_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, [familyId, id, uid]);
     await touchResponsesForHub(client, familyId, id);
-    await client.query("COMMIT");
+    if (!inheritedClient) await client.query("COMMIT");
     return r.rows[0];
-  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
+  } catch (e) {
+    if (!inheritedClient) await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (!inheritedClient) client.release();
+  }
 }
 
 // status -> archived. Returns false if the hub is absent/already deleted.
@@ -491,18 +497,19 @@ export async function upsertBlock(
     // every write (not just the INSERT) so a block MOVED to another section re-keys.
     const subjectRef = buildBlockSubjectRef(newHubId, sectionId, id);
     const r = await client.query(
-      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, subject_ref, version)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,1)
+      `INSERT INTO blocks (id, family_id, section_id, type, payload, body_md, body_ref, provenance, triggers, actions, ord, created_by, temporal, subject_ref, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,1)
        ON CONFLICT (family_id, id) DO UPDATE SET
          section_id=EXCLUDED.section_id, type=EXCLUDED.type, payload=EXCLUDED.payload,
          body_md=EXCLUDED.body_md, body_ref=EXCLUDED.body_ref, provenance=EXCLUDED.provenance,
          triggers=EXCLUDED.triggers, actions=EXCLUDED.actions, ord=EXCLUDED.ord,
+         temporal=EXCLUDED.temporal,
          subject_ref=EXCLUDED.subject_ref,
          version=blocks.version + 1, deleted_at=NULL
          ${allowResurrect ? "" : "WHERE blocks.deleted_at IS NULL"}
        RETURNING *`,
       [id, familyId, sectionId, b.type, J(b.payload), b.body_md ?? null, b.body_ref ?? null,
-       J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null, subjectRef],
+       J(b.provenance), J(b.triggers), J(b.actions), b.ord ?? 0, opts.createdBy ?? null, J(b.temporal), subjectRef],
     );
     if (r.rows[0] && oldSectionId && oldSectionId !== sectionId) {
       if (oldHubId) await touchResponsesForHub(client, familyId, oldHubId);

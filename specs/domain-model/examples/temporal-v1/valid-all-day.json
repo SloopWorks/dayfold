@@ -1,0 +1,14 @@
+{
+  "temporal": {
+    "occurrences": [
+      {
+        "id": "01K45ABCDEF0123456789GHJKP",
+        "role": "event",
+        "label": "Band camp",
+        "start": "2026-08-28",
+        "end": "2026-08-30",
+        "status": "confirmed"
+      }
+    ]
+  }
+}

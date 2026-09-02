@@ -274,9 +274,9 @@ class AndroidExactNotificationScheduler(private val context: Context) : ExactNot
   override fun schedule(atIso: String, spec: NotificationSpec) {
     synchronized(REGISTRY_LOCK) {
       val scheduled = arm(atIso, spec)
-      if (scheduled && !writeTracked(tracked() + spec.subjectKey)) {
+      if (scheduled && !writeTracked(tracked() + spec.scheduleKey)) {
         // Never leave an alarm the next family boundary cannot enumerate.
-        runCatching { alarms.cancel(pendingIntent(spec.subjectKey)) }
+        runCatching { alarms.cancel(pendingIntent(spec.scheduleKey)) }
       }
     }
   }
@@ -285,9 +285,9 @@ class AndroidExactNotificationScheduler(private val context: Context) : ExactNot
   internal fun replace(schedules: List<ExactSchedule>) {
     synchronized(REGISTRY_LOCK) {
       val previous = tracked()
-      val desired = schedules.mapTo(linkedSetOf()) { it.spec.subjectKey }
+      val desired = schedules.mapTo(linkedSetOf()) { it.spec.scheduleKey }
       val accepted = schedules.filter { arm(it.atIso, it.spec) }
-        .mapTo(linkedSetOf()) { it.spec.subjectKey }
+        .mapTo(linkedSetOf()) { it.spec.scheduleKey }
 
       // Persist newly armed keys before any cancellation. If that durable registry write fails,
       // retract only the untracked additions and leave the previous plan intact/enumerable.
@@ -310,7 +310,7 @@ class AndroidExactNotificationScheduler(private val context: Context) : ExactNot
   private fun arm(atIso: String, spec: NotificationSpec): Boolean {
     val atMillis = parseInstantFlexible(atIso, TimeZone.UTC)?.toEpochMilliseconds() ?: return false
     return runCatching {
-      val alarm = pendingIntent(spec.subjectKey)
+      val alarm = pendingIntent(spec.scheduleKey)
       if (alarms.canScheduleExactAlarms()) {
         alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, alarm)
       } else {

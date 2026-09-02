@@ -85,11 +85,6 @@ interface CalendarPort {
    * device calendar boundary. */
   suspend fun openEvent(platformEventId: String) {}
 
-  /** Reads the event description only after the member explicitly opts it into a reviewed
-   * Calendar→Dayfold proposal. Descriptions deliberately remain absent from
-   * [CalendarEventObservation], so routine reconciliation can never collect them. */
-  suspend fun readEventDescription(platformEventId: String): String? = null
-
   /** Fire the OS calendar-access permission prompt (primer "Continue"). */
   fun requestPermission()
 

@@ -150,22 +150,6 @@ class AndroidCalendarPort(context: Context) : CalendarPort {
     CalendarActivityBridge.launchEditorIntent?.invoke(Intent(Intent.ACTION_VIEW, uri))
   }
 
-  override suspend fun readEventDescription(platformEventId: String): String? = withContext(Dispatchers.IO) {
-    if (permissionState() != CalendarPermission.Granted) return@withContext null
-    val eventId = eventIdForInstance(platformEventId) ?: return@withContext null
-    resolver.query(
-      ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
-      arrayOf(CalendarContract.Events.DESCRIPTION),
-      null,
-      null,
-      null,
-    )?.use { cursor ->
-      if (cursor.moveToFirst()) cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION))
-        ?.trim()?.takeIf(String::isNotEmpty)
-      else null
-    }
-  }
-
   private fun eventIdForInstance(platformEventId: String): Long? {
     val now = System.currentTimeMillis()
     val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {

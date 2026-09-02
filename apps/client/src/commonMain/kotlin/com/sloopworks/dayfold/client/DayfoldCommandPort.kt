@@ -91,7 +91,6 @@ interface DayfoldCommandPort {
   fun startCalendarImport(observation: CalendarEventObservation)
   fun loadCalendarImportDestinations()
   fun chooseImportDestination(destination: ImportDestination)
-  fun setImportDescriptionIncluded(include: Boolean)
   fun proceedImportToAudience()
   fun setImportAudience(visibility: HubVisibilityChoice, audience: List<String>)
   fun proceedImportToConfirm()

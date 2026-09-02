@@ -24,12 +24,14 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private val RELATED_SER = ListSerializer(RelatedRef.serializer())
 private val TRIGGERS_SER = ListSerializer(BlockTrigger.serializer())   // ADR 0043 — block triggers JSON list
 private val CALENDAR_IDS_SER = ListSerializer(String.serializer())     // ADR 0063 §1 — selected device calendar ids
+private const val TEMPORAL_WRITER_CAPABILITY = "temporal-v1"
 
 // Issue #283 — the client CONTENT-schema version. BUMP THIS BY HAND whenever a synced model
 // gains (or changes) a BEHAVIOR-affecting field, so devices upgrading over an older cache force a
@@ -42,7 +44,7 @@ private val CALENDAR_IDS_SER = ListSerializer(String.serializer())     // ADR 00
 //       them, and incremental sync never prunes undelivered rows. reconcileSchemaVersion wipes
 //       synced content+cursor once so the next sync full-rehydrates from the server (truth). The
 //       seed source was removed (MainActivity), so this is a durable heal, not a recurring one.
-const val CLIENT_SCHEMA_VERSION: Long = 4L   // 3→4: response createdAt drives durable Hub completion history
+const val CLIENT_SCHEMA_VERSION: Long = 5L   // 4→5: temporal/fact-ref readers require a full cache rehydrate
 
 // The local SQLDelight DB = the single source of truth (ADR 0020). The sync
 // engine writes here; the UI projects from here. Driver is injected per platform
@@ -105,6 +107,8 @@ class ContentStore(driver: SqlDriver) {
           c.relatedKicker,
           c.media?.let { json.encodeToString(CardMedia.serializer(), it) },   // ADR 0036
           c.triggers?.let { json.encodeToString(TRIGGERS_SER, it) },          // ADR 0043/0049 (#299)
+          c.temporal?.toString(), c.version, c.visibility,
+          c.audience?.let { json.encodeToString(CALENDAR_IDS_SER, it) },
           nowIso,
         )
       }
@@ -138,6 +142,7 @@ class ContentStore(driver: SqlDriver) {
           b.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
           b.ord, nowIso, b.version, b.createdBy,    // ADR 0038 §W4 — mirror the set-once author id
           b.triggers?.let { json.encodeToString(TRIGGERS_SER, it) },   // ADR 0043 — on-device trigger metadata
+          b.temporal?.toString(),
         )
         // Echo-suppress + reconcile (§5.5): drop the member's own acked op once the
         // server delivers its result version, then clear the pending flag if nothing is
@@ -200,6 +205,8 @@ class ContentStore(driver: SqlDriver) {
     related = decode(row.related, RELATED_SER), relatedKicker = row.related_kicker,
     media = decode(row.media, CardMedia.serializer()),   // ADR 0036
     triggers = decode(row.triggers, TRIGGERS_SER),        // ADR 0043/0049 (#299)
+    temporal = decodeJsonObject(row.temporal), version = row.version,
+    visibility = row.visibility ?: "family", audience = decode(row.audience, CALENDAR_IDS_SER),
   )
 
   private fun rowToHub(r: com.sloopworks.dayfold.client.db.ActiveHubs): Hub = Hub(
@@ -220,6 +227,7 @@ class ContentStore(driver: SqlDriver) {
       provenance = decode(r.provenance, Provenance.serializer()),
       ord = r.ord, version = r.version, localState = r.local_state, createdBy = r.created_by,
       triggers = decode(r.triggers, TRIGGERS_SER),   // ADR 0043 — on-device trigger metadata
+      temporal = decodeJsonObject(r.temporal),
     )
 
   private fun rowToPlace(r: com.sloopworks.dayfold.client.db.ActivePlaces): Place =
@@ -229,6 +237,9 @@ class ContentStore(driver: SqlDriver) {
   // the card still renders title/kind (ADR 0020 the DB cache is disposable).
   private fun <T> decode(text: String?, serializer: kotlinx.serialization.KSerializer<T>): T? =
     text?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
+
+  private fun decodeJsonObject(text: String?): kotlinx.serialization.json.JsonObject? =
+    text?.let { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
 
   /** ADR 0030 (round-1 P0-2): hard-wipe the local cache on tenancy revocation — a
    *  removed/non-member must not retain family content. Drops cards + hubs + sections +
@@ -328,7 +339,7 @@ class ContentStore(driver: SqlDriver) {
    */
   fun enqueueResponseOp(opId: String, id: String, type: String, payload: String, nowIso: String) =
     withWriteGate {
-      q.enqueueOp(opId, "response", id, type, payload, 0L, null, nowIso)
+      q.enqueueOp(opId, "response", id, type, payload, 0L, null, nowIso, TEMPORAL_WRITER_CAPABILITY)
     }
 
   /**
@@ -362,7 +373,7 @@ class ContentStore(driver: SqlDriver) {
       // explicit dependency. pendingOps admits the DELETE only after this PUT is acked or removed.
       val dependsOn = q.latestOpenResponseUpsert(id).executeAsOneOrNull()
       q.deleteResponse(id)
-      q.enqueueOp(opId, "response", id, "delete", rollback, 0L, dependsOn, nowIso)
+      q.enqueueOp(opId, "response", id, "delete", rollback, 0L, dependsOn, nowIso, TEMPORAL_WRITER_CAPABILITY)
     }
     bumpSearchRevisionLocked()
     true
@@ -433,7 +444,7 @@ class ContentStore(driver: SqlDriver) {
         q.optimisticBlockUpdate(payloadJson, nowIso, "pending", blockId)
         val body = blockPutBody(row.section_id, row.type, payloadJson, row.provenance, nowIso)
         q.deletePendingForTarget(blockId, "toggle")               // coalesce N taps → one op
-        q.enqueueOp(opId, "block", blockId, "toggle", body, row.version, null, nowIso)
+        q.enqueueOp(opId, "block", blockId, "toggle", body, row.version, null, nowIso, TEMPORAL_WRITER_CAPABILITY)
       }
     }
   }
@@ -452,7 +463,7 @@ class ContentStore(driver: SqlDriver) {
         q.blockById(blockId).executeAsOneOrNull() ?: return@transaction
         q.setBlockLocalState("pending", blockId)
         q.deletePendingForTarget(blockId, "delete")               // coalesce repeated delete taps
-        q.enqueueOp(opId, "block", blockId, "delete", "", null, null, nowIso)  // no body, no base version
+        q.enqueueOp(opId, "block", blockId, "delete", "", null, null, nowIso, TEMPORAL_WRITER_CAPABILITY)  // no body, no base version
       }
     }
   }
@@ -667,7 +678,7 @@ class ContentStore(driver: SqlDriver) {
   }
 
   private fun com.sloopworks.dayfold.client.db.Outbox.toOutboxOp(): OutboxOp =
-    OutboxOp(op_id, target_kind, target_id, type, payload, base_version, attempts)
+    OutboxOp(op_id, target_kind, target_id, type, payload, base_version, attempts, writer_capability)
 
   /** Reactive hub projection — emits current active hubs and re-emits on any hub-table write. */
   fun activeHubsFlow(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Default): Flow<List<Hub>> =
@@ -732,6 +743,7 @@ class ContentStore(driver: SqlDriver) {
       provenance = decode(r.provenance, Provenance.serializer()),
       ord = r.ord, version = r.version, localState = r.local_state, createdBy = r.created_by,
       triggers = decode(r.triggers, TRIGGERS_SER),
+      temporal = decodeJsonObject(r.temporal),
     )
 
   /**
@@ -862,6 +874,7 @@ class ContentStore(driver: SqlDriver) {
     q.upsertCalendarBinding(
       b.subjectKey, b.sourceVersion, b.platformEventId, b.calendarId, b.fingerprint, b.lastSeenAt,
       b.relation.wire, b.notificationOwner.wire, b.reviewState, b.createdAt, b.updatedAt,
+      b.subjectRef, b.entityRef, b.factRef,
     )
   }
 
@@ -881,6 +894,7 @@ class ContentStore(driver: SqlDriver) {
     calendarId = calendar_id, fingerprint = fingerprint, lastSeenAt = last_seen_at,
     relation = CalendarRelation.of(relation), notificationOwner = CalendarNotificationOwner.of(notification_owner),
     reviewState = review_state, createdAt = created_at, updatedAt = updated_at,
+    subjectRef = subject_ref ?: subject_key, entityRef = entity_ref, factRef = fact_ref,
   )
 
   // ── Calendar→Dayfold import (ADR 0063 §6, calendar-import-contract-design.md §3) — DEVICE-LOCAL,
@@ -894,7 +908,7 @@ class ContentStore(driver: SqlDriver) {
     q.transaction {
       ops.forEach { op ->
         q.deletePendingForTarget(op.targetId, op.type)
-        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso)
+        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso, TEMPORAL_WRITER_CAPABILITY)
       }
     }
   }
@@ -935,6 +949,7 @@ class ContentStore(driver: SqlDriver) {
           payload?.let { json.encodeToString(BlockPayload.serializer(), it) },
           provenance, index.toLong(), nowIso, 1L, importerId,
           triggers?.let { json.encodeToString(TRIGGERS_SER, it) },
+          null,
         )
         q.setBlockLocalState("pending", blockId)
         index++
@@ -947,17 +962,15 @@ class ContentStore(driver: SqlDriver) {
           end = proposal.end?.wire, tz = proposal.timezone,
         ),
         triggers = if (proposal.start is EventInstant.Timed) {
-          listOf(BlockTrigger(whenTrigger = TriggerWhen(at = proposal.start.wire)))
+          listOf(BlockTrigger(whenTrigger = TriggerWhen(factRef = "payload:milestone")))
         } else null,
       )
       proposal.location?.let { location ->
         putBlock("location", null, BlockPayload(label = location.label, address = location.address), null)
       }
-      proposal.description?.let { description -> putBlock("markdown", description, null, null) }
-
       ops.forEach { op ->
         q.deletePendingForTarget(op.targetId, op.type)
-        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso)
+        q.enqueueOp(op.opId, op.targetKind, op.targetId, op.type, op.payload, null, op.dependsOn, nowIso, TEMPORAL_WRITER_CAPABILITY)
       }
     }
   }
@@ -993,11 +1006,13 @@ class ContentStore(driver: SqlDriver) {
 
       if (source != null && hubId != null && milestoneId != null) {
         q.deleteCalendarBindingForSubject(provisionalKey)
+        val importedSubjectRef = SubjectRef.node(hubId, sectionId, milestoneId)
         q.upsertCalendarBinding(
-          SubjectRef.node(hubId, sectionId, milestoneId), pending.proposal_id,
+          localFactKey(EntityRef("block:$milestoneId"), FactRef("payload:milestone")), pending.proposal_id,
           source.platform_event_id, source.calendar_id, source.fingerprint, nowIso,
           CalendarRelation.MATCHED.wire, CalendarNotificationOwner.CALENDAR.wire, null,
           source.created_at, nowIso,
+          importedSubjectRef, "block:$milestoneId", "payload:milestone",
         )
       }
       q.upsertCalendarImport(
@@ -1135,18 +1150,28 @@ class ContentStore(driver: SqlDriver) {
     opId: String,
   ): Boolean = withWriteGate {
     val cardId = (candidate.source as? CalendarCandidateSource.Card)?.id
-      ?: if (candidate.source == null) SubjectRef.cardIdOf(candidate.subjectKey) else null
+      ?: if (candidate.source == null) SubjectRef.cardIdOf(candidate.subjectRef) else null
     val blockId = (candidate.source as? CalendarCandidateSource.Block)?.id
-      ?: if (candidate.source == null) SubjectRef.blockIdOf(candidate.subjectKey) else null
+      ?: if (candidate.source == null) SubjectRef.blockIdOf(candidate.subjectRef) else null
     val hubId = (candidate.source as? CalendarCandidateSource.Hub)?.id
-      ?: if (candidate.source == null) SubjectRef.hubIdOf(candidate.subjectKey) else null
+      ?: if (candidate.source == null) SubjectRef.hubIdOf(candidate.subjectRef) else null
 
     when {
       cardId != null -> {
         val card = activeCards().firstOrNull { it.id == cardId } ?: return@withWriteGate false
         val updated = when (field) {
-          "title" -> card.copy(title = observation.title)
-          "start" -> card.copy(triggers = card.triggers.withCalendarStart(observation.startAt))
+          "title" -> if (candidate.factRef.value.startsWith("temporal:"))
+            card.copy(temporal = card.temporal.withOccurrence(candidate.factRef, "label", observation.title)
+              ?: return@withWriteGate false)
+          else card.copy(title = observation.title)
+          "start" -> if (candidate.factRef.value.startsWith("temporal:"))
+            card.copy(temporal = card.temporal.withOccurrence(candidate.factRef, "start", observation.startAt)
+              ?: return@withWriteGate false)
+          else card.copy(triggers = card.triggers.withCalendarStart(observation.startAt, candidate.factRef))
+          "end" -> if (candidate.factRef.value.startsWith("temporal:"))
+            card.copy(temporal = card.temporal.withOccurrence(candidate.factRef, "end", observation.endAt)
+              ?: return@withWriteGate false)
+          else return@withWriteGate false
           "location" -> {
             val location = observation.location ?: return@withWriteGate false
             val geo = card.payload?.geo ?: return@withWriteGate false
@@ -1156,7 +1181,7 @@ class ContentStore(driver: SqlDriver) {
           }
           else -> return@withWriteGate false
         }
-        val body = calendarCardPutBody(updated, nowIso)
+        val body = calendarCardPutBody(updated, nowIso, includeTemporal = candidate.factRef.value.startsWith("temporal:"))
         q.transaction {
           q.upsertCard(
             updated.id, updated.kind, updated.title, updated.bodyMd, updated.provenance?.source,
@@ -1166,10 +1191,12 @@ class ContentStore(driver: SqlDriver) {
             updated.hubRef, updated.targetHubId, updated.targetSectionId, updated.targetBlockId,
             updated.related?.let { json.encodeToString(RELATED_SER, it) }, updated.relatedKicker,
             updated.media?.let { json.encodeToString(CardMedia.serializer(), it) },
-            updated.triggers?.let { json.encodeToString(TRIGGERS_SER, it) }, nowIso,
+            updated.triggers?.let { json.encodeToString(TRIGGERS_SER, it) }, updated.temporal?.toString(),
+            updated.version, updated.visibility,
+            updated.audience?.let { json.encodeToString(CALENDAR_IDS_SER, it) }, nowIso,
           )
           q.deletePendingForTarget(cardId, "calendarField")
-          q.enqueueOp(opId, "card", cardId, "calendarField", body, null, null, nowIso)
+          q.enqueueOp(opId, "card", cardId, "calendarField", body, updated.version, null, nowIso, TEMPORAL_WRITER_CAPABILITY)
         }
         true
       }
@@ -1179,23 +1206,37 @@ class ContentStore(driver: SqlDriver) {
         val sectionId = block.sectionId ?: return@withWriteGate false
         val updated = when (field) {
           "title" -> {
-            if (block.type !in setOf("milestone", "location", "link", "document")) return@withWriteGate false
-            block.copy(payload = (block.payload ?: BlockPayload()).copy(label = observation.title))
+            when {
+              candidate.factRef.value.startsWith("temporal:") ->
+                block.copy(temporal = block.temporal.withOccurrence(candidate.factRef, "label", observation.title)
+                  ?: return@withWriteGate false)
+              block.type in setOf("milestone", "location", "link", "document") ->
+                block.copy(payload = (block.payload ?: BlockPayload()).copy(label = observation.title))
+              else -> return@withWriteGate false
+            }
           }
-          "start" -> if (block.type == "milestone") {
+          "start" -> if (candidate.factRef.value.startsWith("temporal:")) {
+            block.copy(temporal = block.temporal.withOccurrence(candidate.factRef, "start", observation.startAt)
+              ?: return@withWriteGate false)
+          } else if (candidate.factRef.value == "payload:milestone" && block.type == "milestone") {
             block.copy(
               payload = (block.payload ?: BlockPayload()).copy(
                 date = observation.startAt,
                 tz = observation.timezone,
               ),
-              triggers = if (observation.allDay) block.triggers else block.triggers.withCalendarStart(observation.startAt),
             )
           } else {
-            block.copy(triggers = block.triggers.withCalendarStart(observation.startAt))
+            block.copy(triggers = block.triggers.withCalendarStart(observation.startAt, candidate.factRef))
           }
           "end" -> {
-            if (block.type != "milestone") return@withWriteGate false
-            block.copy(payload = (block.payload ?: BlockPayload()).copy(end = observation.endAt))
+            when {
+              candidate.factRef.value.startsWith("temporal:") ->
+                block.copy(temporal = block.temporal.withOccurrence(candidate.factRef, "end", observation.endAt)
+                  ?: return@withWriteGate false)
+              candidate.factRef.value == "payload:milestone" && block.type == "milestone" ->
+                block.copy(payload = (block.payload ?: BlockPayload()).copy(end = observation.endAt))
+              else -> return@withWriteGate false
+            }
           }
           "location" -> {
             if (block.type != "location") return@withWriteGate false
@@ -1211,23 +1252,24 @@ class ContentStore(driver: SqlDriver) {
         }
         val payloadJson = updated.payload?.let { json.encodeToString(BlockPayload.serializer(), it) }
         val triggerJson = updated.triggers?.let { json.encodeToString(TRIGGERS_SER, it) }
-        val body = calendarBlockPutBody(updated, nowIso)
+        val body = calendarBlockPutBody(updated, nowIso, includeTemporal = candidate.factRef.value.startsWith("temporal:"))
         q.transaction {
           q.upsertBlock(
             updated.id, sectionId, updated.type, updated.bodyMd,
             payloadJson, updated.provenance?.let { json.encodeToString(Provenance.serializer(), it) },
             updated.ord, nowIso, updated.version, updated.createdBy, triggerJson,
+            updated.temporal?.toString(),
           )
           q.setBlockLocalState("pending", blockId)
           q.deletePendingForTarget(blockId, "calendarField")
-          q.enqueueOp(opId, "block", blockId, "calendarField", body, updated.version, null, nowIso)
+          q.enqueueOp(opId, "block", blockId, "calendarField", body, updated.version, null, nowIso, TEMPORAL_WRITER_CAPABILITY)
         }
         true
       }
 
       hubId != null -> {
         // A section-only subject is not emitted by the calendar candidate projection.
-        if (SubjectRef.sectionIdOf(candidate.subjectKey) != null) return@withWriteGate false
+        if (SubjectRef.sectionIdOf(candidate.subjectRef) != null) return@withWriteGate false
         val hub = activeHubs().firstOrNull { it.id == hubId } ?: return@withWriteGate false
         if (hub.type == null) return@withWriteGate false
         val updated = when (field) {
@@ -1245,7 +1287,7 @@ class ContentStore(driver: SqlDriver) {
             updated.timeline?.let { json.encodeToString(Timeline.serializer(), it) }, nowIso,
           )
           q.deletePendingForTarget(hubId, "calendarField")
-          q.enqueueOp(opId, "hub", hubId, "calendarField", body, null, null, nowIso)
+          q.enqueueOp(opId, "hub", hubId, "calendarField", body, updated.version, null, nowIso, TEMPORAL_WRITER_CAPABILITY)
         }
         true
       }
@@ -1254,11 +1296,12 @@ class ContentStore(driver: SqlDriver) {
     }
   }
 
-  private fun List<BlockTrigger>?.withCalendarStart(startAt: String): List<BlockTrigger> {
+  private fun List<BlockTrigger>?.withCalendarStart(startAt: String, factRef: FactRef): List<BlockTrigger> {
     val current = orEmpty()
+    val legacyIndex = factRef.value.removePrefix("legacy:when:").toIntOrNull()
     var replaced = false
-    val next = current.map { trigger ->
-      if (!replaced && trigger.whenTrigger?.at != null) {
+    val next = current.mapIndexed { index, trigger ->
+      if (!replaced && trigger.whenTrigger?.at != null && (legacyIndex == null || legacyIndex == index)) {
         replaced = true
         trigger.copy(whenTrigger = trigger.whenTrigger.copy(at = startAt))
       } else trigger
@@ -1277,7 +1320,7 @@ class ContentStore(driver: SqlDriver) {
     hub.timeline?.let { put("timeline", json.encodeToJsonElement(Timeline.serializer(), it)) }
   }.toString()
 
-  private fun calendarBlockPutBody(block: HubBlock, nowIso: String): String =
+  private fun calendarBlockPutBody(block: HubBlock, nowIso: String, includeTemporal: Boolean = false): String =
     kotlinx.serialization.json.buildJsonObject {
       put("sectionId", kotlinx.serialization.json.JsonPrimitive(requireNotNull(block.sectionId)))
       put("type", kotlinx.serialization.json.JsonPrimitive(block.type))
@@ -1285,10 +1328,11 @@ class ContentStore(driver: SqlDriver) {
       block.bodyMd?.let { put("body_md", kotlinx.serialization.json.JsonPrimitive(it)) }
       block.payload?.let { put("payload", json.encodeToJsonElement(BlockPayload.serializer(), it)) }
       block.triggers?.let { put("triggers", json.encodeToJsonElement(TRIGGERS_SER, it)) }
+      if (includeTemporal) block.temporal?.let { put("temporal", it) }
       put("provenance", calendarMemberProvenance(nowIso))
     }.toString()
 
-  private fun calendarCardPutBody(card: Card, nowIso: String): String =
+  private fun calendarCardPutBody(card: Card, nowIso: String, includeTemporal: Boolean = false): String =
     kotlinx.serialization.json.buildJsonObject {
       put("kind", kotlinx.serialization.json.JsonPrimitive(card.kind))
       put("title", kotlinx.serialization.json.JsonPrimitive(card.title))
@@ -1304,6 +1348,7 @@ class ContentStore(driver: SqlDriver) {
         })
       }
       card.triggers?.let { put("triggers", json.encodeToJsonElement(TRIGGERS_SER, it)) }
+      if (includeTemporal) card.temporal?.let { put("temporal", it) }
       card.type?.let { put("type", kotlinx.serialization.json.JsonPrimitive(it)) }
       card.payload?.let { put("payload", json.encodeToJsonElement(Payload.serializer(), it)) }
       card.media?.let { put("media", json.encodeToJsonElement(CardMedia.serializer(), it)) }
@@ -1317,6 +1362,29 @@ class ContentStore(driver: SqlDriver) {
   private fun calendarMemberProvenance(nowIso: String) = kotlinx.serialization.json.buildJsonObject {
     put("source", kotlinx.serialization.json.JsonPrimitive("member"))
     put("at", kotlinx.serialization.json.JsonPrimitive(nowIso))
+  }
+
+  private fun kotlinx.serialization.json.JsonObject?.withOccurrence(
+    factRef: FactRef,
+    field: String,
+    value: String?,
+  ): kotlinx.serialization.json.JsonObject? {
+    val current = this ?: return null
+    val wanted = factRef.value.removePrefix("temporal:")
+    val occurrences = current["occurrences"]?.let { runCatching { it.jsonArray }.getOrNull() } ?: return null
+    var found = false
+    val replaced = occurrences.map { element ->
+      val occurrence = runCatching { element.jsonObject }.getOrNull() ?: return@map element
+      if (occurrence["id"]?.jsonPrimitive?.content != wanted) return@map element
+      found = true
+      kotlinx.serialization.json.JsonObject(occurrence.toMutableMap().apply {
+        if (value == null) remove(field) else put(field, kotlinx.serialization.json.JsonPrimitive(value))
+      })
+    }
+    if (!found) return null
+    return kotlinx.serialization.json.JsonObject(current.toMutableMap().apply {
+      put("occurrences", kotlinx.serialization.json.JsonArray(replaced))
+    })
   }
 
   private fun com.sloopworks.dayfold.client.db.CalendarSettingsRow.toCalendarSettings() = CalendarSettings(

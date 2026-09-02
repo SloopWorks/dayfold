@@ -18,6 +18,38 @@ setup gates), INB-19 (Maven Central publish + Homebrew symlink fix), INB-15
 
 ---
 
+- **INB-39 · RESOLVED 2026-09-01 — ADR 0067 accepted; implementation requested.**
+  The operator explicitly approved ADR 0067 after its timestamp/timezone,
+  data-model, privacy/security, end-to-end system, and simplification reviews,
+  then requested complete implementation and verification. Acceptance authorizes
+  the staged code/skill/schema/API/client work. It does not waive the curator's
+  separate full-JSON propose-confirm boundary for production content repair; the
+  unresolved 6:30/7:00 Big Night meeting time must still be resolved rather than
+  guessed. Original ask below.
+
+- **INB-39 · 2026-09-01 · high · open — accept canonical temporal facts and
+  behavioral-trigger boundaries?** The Marching Band “Big Night” incident proved
+  the authoring process knew the schedule but independently wrote prose and a Hub
+  timeline, leaving the Block with `payload: null` and some operational times with
+  no typed representation. The cross-stack review also found old whole-resource
+  writers can erase unknown fields, card ACLs can widen on an omitted update, API
+  error reporting assumes parsed values are content-free, and iOS exact
+  notifications are not currently cancelled when desired schedules disappear.
+  **Proposed default: accept Proposed ADR 0067's direction, then implement its
+  staged prerequisites before any production temporal facet or repair.** This
+  accepts: material Dayfold-authored claims must be structured; multiple facts do
+  not imply triggers; the item-local `temporal` facet and same-item `fact_ref`
+  namespace are the V1 extension; existing Hub start/end stays timed-only rather
+  than coercing civil dates into `timestamptz`; server meaning stays content-
+  blind; and rollout must first close ACL/version, old-writer/outbox,
+  error-privacy, round-trip, and stale-notification gaps. It does **not**
+  authorize a schema deploy, content migration, Calendar write, notification, or
+  repair. Big Night remains a separate full-JSON propose/confirm write after
+  implementation, and its conflicting 6:30/7:00 meeting time must be resolved
+  rather than guessed. Context:
+  `adr/0067-canonical-temporal-facts-and-behavioral-triggers.md` and
+  `docs/superpowers/plans/2026-09-01-canonical-temporal-content.md`.
+
 - **INB-36 · RESOLVED 2026-08-28 — ADR 0063 and its design/defaults accepted.**
   The operator explicitly approved ADR 0063 and instructed full implementation
   and enablement. That approval is also ADR 0008 sign-off on the complete

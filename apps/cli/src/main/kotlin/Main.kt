@@ -26,9 +26,13 @@ private val J = Json { ignoreUnknownKeys = true }
 /** Shared HTTP call; returns Pair<statusCode, body>. `postStatus`/`putStatus`/
  *  `getStatus`/`deleteStatus` below were four near-identical ~8-line functions
  *  differing only by method — collapsed by a repo-maintenance pass. */
-private fun httpStatus(method: String, url: String, token: String?, body: String? = null): Pair<Int, String> {
+private fun httpStatus(
+  method: String, url: String, token: String?, body: String? = null,
+  headers: Map<String, String> = emptyMap(),
+): Pair<Int, String> {
   val b = HttpRequest.newBuilder(URI.create(url))
   if (token != null) b.header("authorization", "Bearer $token")
+  headers.forEach(b::header)
   when (method) {
     "GET" -> b.GET()
     "DELETE" -> b.DELETE()
@@ -46,6 +50,9 @@ internal fun postStatus(url: String, body: String, token: String?): Pair<Int, St
 // Kotlin requires a default expression to be at least as visible as its function. They are
 // not otherwise part of any wider surface.
 internal fun putStatus(url: String, body: String, token: String?): Pair<Int, String> = httpStatus("PUT", url, token, body)
+internal fun putStatusWithHeaders(
+  url: String, body: String, token: String?, headers: Map<String, String>,
+): Pair<Int, String> = httpStatus("PUT", url, token, body, headers)
 internal fun getStatus(url: String, token: String?): Pair<Int, String> = httpStatus("GET", url, token)
 internal fun deleteStatus(url: String, token: String?): Pair<Int, String> = httpStatus("DELETE", url, token)
 
@@ -114,6 +121,18 @@ internal fun authedPut(
   val first = transport("$api$path", requestBody, token)
   if (first.first != 401 || store == null || refreshable == null) return first
   return transport("$api$path", requestBody, refresh(store, keychain))
+}
+
+internal fun authedPutWithHeaders(
+  store: Credentials?, keychain: SecretStore?,
+  api: String, token: String, refreshable: Creds?, path: String, requestBody: String,
+  headers: Map<String, String>,
+  transport: (url: String, requestBody: String, token: String?, headers: Map<String, String>) -> Pair<Int, String> = ::putStatusWithHeaders,
+  refresh: (Credentials, SecretStore?) -> String = ::refreshAccessToken,
+): Pair<Int, String> {
+  val first = transport("$api$path", requestBody, token, headers)
+  if (first.first != 401 || store == null || refreshable == null) return first
+  return transport("$api$path", requestBody, refresh(store, keychain), headers)
 }
 
 /** Authed POST with one transparent refresh on 401 (mirrors authedGet/authedDelete).
@@ -214,6 +233,22 @@ private fun emitRoutineResult(result: RoutineCommandResult) {
   if (result.exitCode != 0) exitProcess(result.exitCode)
 }
 
+private fun emitContentResult(result: ContentCommandResult) {
+  if (result.stdout.isNotEmpty()) println(result.stdout)
+  if (result.stderr.isNotEmpty()) System.err.println(result.stderr)
+  if (result.exitCode != 0) exitProcess(result.exitCode)
+}
+
+private fun boundedContentFile(file: String): String = try {
+  val path = Path.of(file)
+  if (Files.size(path) > MAX_TEMPORAL_BUNDLE_BYTES) {
+    System.err.println("bundle too large"); exitProcess(2)
+  }
+  Files.readString(path)
+} catch (e: Exception) {
+  System.err.println(fileReadError(file, e)); exitProcess(2)
+}
+
 /** A human-readable message for a failed payload-file read — pure, so it's tested.
  *  Keeps `push` from dumping a raw Java stack trace on a bad path. */
 internal fun fileReadError(file: String, e: Exception): String = when (e) {
@@ -281,6 +316,53 @@ fun main(args: Array<String>) {
         ),
       )
       ChangesetInvocation.Invalid -> usage()
+    }
+
+    "content" -> {
+      val operation = args.getOrNull(1) ?: usage()
+      val session = loadSession()
+      requireAuthSetup(session.creds != null)
+      val (api, family, token) = resolveAuth(session.creds)
+      val store = session.store.takeIf { session.creds != null }
+      when (operation) {
+        "audit" -> {
+          val hubId = flagValue(args, "--hub")
+          if (hubId != null) {
+            val (code, body) = authedGet(store, session.keychain, api, token, session.creds, "/families/$family/hubs/$hubId/tree")
+            if (code != 200) emitContentResult(ContentCommandResult(2, stderr = "audit / audit.read-failed"))
+            emitContentResult(auditContent(body, includeResourceIds = "--detail" in args))
+          } else {
+            val (cardCode, cardBody) = authedGet(store, session.keychain, api, token, session.creds, "/families/$family/cards")
+            val (hubCode, hubBody) = authedGet(store, session.keychain, api, token, session.creds, "/families/$family/hubs")
+            if (cardCode != 200 || hubCode != 200) emitContentResult(ContentCommandResult(2, stderr = "audit / audit.read-failed"))
+            val cards = runCatching { J.parseToJsonElement(cardBody).jsonArray }.getOrNull() ?: JsonArray(emptyList())
+            val hubRows = runCatching { J.parseToJsonElement(hubBody).jsonArray }.getOrNull() ?: JsonArray(emptyList())
+            val blocks = mutableListOf<JsonElement>()
+            hubRows.mapNotNull { (it as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull }.forEach { hub ->
+              val (treeCode, treeBody) = authedGet(store, session.keychain, api, token, session.creds, "/families/$family/hubs/$hub/tree")
+              if (treeCode != 200) emitContentResult(ContentCommandResult(2, stderr = "audit / audit.read-failed"))
+              val tree = runCatching { J.parseToJsonElement(treeBody).jsonObject }.getOrNull()
+              (tree?.get("blocks") as? JsonArray)?.let(blocks::addAll)
+            }
+            emitContentResult(auditContent(JsonObject(mapOf(
+              "cards" to cards, "hubs" to hubRows, "blocks" to JsonArray(blocks),
+            )).toString(), includeResourceIds = "--detail" in args))
+          }
+        }
+        "apply" -> {
+          val file = args.drop(2).firstOrNull { !it.startsWith("--") } ?: usage()
+          val (bundle, decodeIssues) = decodeTemporalBundle(boundedContentFile(file))
+          if (bundle == null) emitContentResult(ContentCommandResult(1, stderr = decodeIssues.joinToString("\n", transform = ContentIssue::render)))
+          val network = ContentNetwork(
+            get = ContentGet { path -> authedGet(store, session.keychain, api, token, session.creds, path) },
+            put = ContentPut { path, body, headers ->
+              authedPutWithHeaders(store, session.keychain, api, token, session.creds, path, body, headers)
+            },
+          )
+          emitContentResult(applyTemporalBundle(bundle!!, family, network, "--dry-run" in args))
+        }
+        else -> usage()
+      }
     }
 
     // dayfold pull [--hub <id>]  — read content back (proves the author→read loop).
@@ -369,9 +451,14 @@ fun main(args: Array<String>) {
       // Fail fast with field errors before the server (which stays the authority).
       // Cards: opt-in typed validation via `--type` (against the generated schema).
       // Hub tree: always-on structural pre-check (cheap, no flag).
-      val preErrors: List<String> =
+      val structuralErrors: List<String> =
         if (resource == "cards") flagValue(args, "--type")?.let { validateCard(it, withId(stamped, id)) } ?: emptyList()
         else validateHubTree(resource, stamped)
+      // ADR 0067: temporal validation is unconditional for every card/block push,
+      // independent of the optional typed-card --type assertion. Hubs/sections
+      // have no temporal facet or fact_ref trigger in V1.
+      val preErrors = structuralErrors + if (resource == "cards" || resource == "blocks")
+        temporalValidationErrors(stamped) else emptyList()
       if (preErrors.isNotEmpty()) {
         System.err.println("validation failed:\n  " + preErrors.joinToString("\n  "))
         exitProcess(1)

@@ -12,9 +12,52 @@ const schemaPath = resolve(here, "../../specs/domain-model/schemas/content.schem
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const defs = schema.$defs;
 
+// json-schema-to-zod 2.6 does not reliably resolve nested local $refs (for
+// example refs inside oneOf or array items); it silently emits z.any(), which
+// defeats the generated boundary exactly where temporal facts need it most.
+// Expand only this document's #/$defs refs before generation. The content graph
+// is acyclic; keep an explicit stack so a future recursive def fails codegen
+// rather than producing an unbounded expansion or another permissive z.any().
+const MUST_RESOLVE = new Set(["TemporalOccurrence", "TemporalFacet", "civilDate", "temporalInstant", "temporalValue", "timestamp", "alertOffset"]);
+function dereferenceLocal(node, stack = []) {
+  if (Array.isArray(node)) return node.map((value) => dereferenceLocal(value, stack));
+  if (!node || typeof node !== "object") return node;
+  if (typeof node.$ref === "string") {
+    const match = node.$ref.match(/^#\/\$defs\/([^/]+)$/);
+    if (!match) throw new Error(`unsupported schema ref: ${node.$ref}`);
+    const name = match[1];
+    if (!defs[name]) throw new Error(`missing $def referenced by ${node.$ref}`);
+    // Preserve the established generated surface for older defs: broadening their
+    // formerly-permissive z.any refs in this ADR would be an unrelated compatibility
+    // break. Temporal refs (and their children) are the fail-closed boundary fixed here.
+    if (!MUST_RESOLVE.has(name) && !stack.some((parent) => parent.startsWith("Temporal"))) return node;
+    if (stack.includes(name)) throw new Error(`recursive $def unsupported by codegen: ${[...stack, name].join(" -> ")}`);
+    const { $ref: _ignored, ...siblings } = node;
+    return dereferenceLocal({ ...defs[name], ...siblings }, [...stack, name]);
+  }
+  const { $defs: _ignored, ...rest } = node;
+  return Object.fromEntries(Object.entries(rest).map(([key, value]) => [key, dereferenceLocal(value, stack)]));
+}
+
+// Trigger's oneOf arms are disjoint closed objects (`geo`, `when`, `activity`;
+// and legacy-vs-fact-ref inside `when`). json-schema-to-zod renders oneOf as a
+// z.any().superRefine wrapper, obscuring the generated boundary even though it
+// re-parses every arm. For this TS emit only, use a Zod union; the normative JSON
+// Schema and Kotlin generation retain oneOf semantics.
+function triggerUnions(node) {
+  if (Array.isArray(node)) return node.map(triggerUnions);
+  if (!node || typeof node !== "object") return node;
+  const result = Object.fromEntries(Object.entries(node).map(([key, value]) => [key, triggerUnions(value)]));
+  if (result.oneOf) {
+    result.anyOf = result.oneOf;
+    delete result.oneOf;
+  }
+  return result;
+}
+
 // Emit in dependency-friendly order; $refs are inlined by the tool.
 const order = [
-  "Provenance", "Trigger", "Action",
+  "TemporalOccurrence", "TemporalFacet", "Provenance", "Trigger", "Action",
   "LinkPayload", "ChecklistPayload", "DocumentPayload", "MilestonePayload",
   "ContactPayload", "LocationPayload", "BudgetPayload",
   "Block", "Section", "Timeline", "Hub", "BriefingCard", "Place", "SyncResponse",
@@ -27,7 +70,7 @@ out += `import { z } from "zod";\n\n`;
 for (const name of order) {
   if (!defs[name]) throw new Error(`missing $def: ${name}`);
   // Pass the def plus full $defs so internal $refs (#/$defs/ulid, etc.) resolve.
-  const sub = { ...defs[name], $defs: defs };
+  let sub = { ...defs[name] };
   // Block.payload is a oneOf of $refs. json-schema-to-zod does NOT resolve nested
   // $refs inside a oneOf and emits a 7×z.any() superRefine requiring "exactly one to
   // pass" — but every z.any() passes, so ALL structured block payloads are rejected
@@ -39,7 +82,12 @@ for (const name of order) {
   if (name === "Block" && sub.properties?.payload?.oneOf) {
     sub.properties = { ...sub.properties, payload: { description: sub.properties.payload.description } };
   }
+  if (name === "Trigger") sub = triggerUnions(sub);
+  sub = dereferenceLocal(sub, [name]);
   const code = jsonSchemaToZod(sub, { name: `${name}Schema`, module: false, type: false });
+  if (name === "Trigger" && (code.includes('"when": z.any()') || code.startsWith("const TriggerSchema = z.any()"))) {
+    throw new Error("Trigger codegen regressed to a permissive z.any boundary");
+  }
   out += `export ${code}\n`;
   out += `export type ${name} = z.infer<typeof ${name}Schema>;\n\n`;
 }

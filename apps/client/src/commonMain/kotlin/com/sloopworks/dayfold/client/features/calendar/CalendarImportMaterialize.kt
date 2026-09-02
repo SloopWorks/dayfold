@@ -89,16 +89,13 @@ fun materialize(
   if (proposal.location != null) {
     appendBlock(locationBlockBody(sectionTargetId, proposal.location, nowIso))
   }
-  if (proposal.description != null) {
-    appendBlock(markdownBlockBody(sectionTargetId, proposal.description, nowIso))
-  }
   return ops
 }
 
 /** How many block ids [materialize] will need for [proposal] — the caller mints exactly this many
  *  at confirm time before calling [materialize]. */
 fun importBlockCount(proposal: CalendarImportProposal): Int =
-  1 + (if (proposal.location != null) 1 else 0) + (if (proposal.description != null) 1 else 0)
+  1 + (if (proposal.location != null) 1 else 0)
 
 // ── PUT body builders — spec §4.1's exact allowed key sets. Nothing calendar-derived (platform
 // event/calendar id, account name, fingerprint, recurrence id) is ever a key here — there is no
@@ -144,7 +141,7 @@ private fun milestoneBlockBody(sectionId: String, proposal: CalendarImportPropos
     }
     if (proposal.start is EventInstant.Timed) {
       putJsonArray("triggers") {
-        add(buildJsonObject { putJsonObject("when") { put("at", proposal.start.wire) } })
+        add(buildJsonObject { putJsonObject("when") { put("fact_ref", "payload:milestone") } })
       }
     }
     put("provenance", calendarProvenance(nowIso))
@@ -158,13 +155,5 @@ private fun locationBlockBody(sectionId: String, location: StructuredLocation, n
       put("label", location.label)
       location.address?.let { put("address", it) }
     }
-    put("provenance", calendarProvenance(nowIso))
-  }.toString()
-
-private fun markdownBlockBody(sectionId: String, description: String, nowIso: String): String =
-  buildJsonObject {
-    put("sectionId", sectionId)
-    put("type", "markdown")
-    put("body_md", description)
     put("provenance", calendarProvenance(nowIso))
   }.toString()

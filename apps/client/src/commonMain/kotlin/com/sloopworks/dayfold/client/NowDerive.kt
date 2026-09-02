@@ -65,6 +65,8 @@ data class NowItem(
   // to 3 preview rows. Null/empty for every other reasonKind.
   val calendarCheckCount: Int? = null,
   val calendarCheckPreviews: List<CalendarCheckPreview> = emptyList(),
+  // Device-local schedule identity. Calm-feed/response semantics continue using subjectKey.
+  val localFactKey: String? = null,
 )
 
 // One preview row on the aggregate Calendar Check Now unit — a title plus which reconciliation
@@ -197,7 +199,9 @@ fun deriveNow(
     // Keep the actual event instant for honest display copy, while alert_offset controls the
     // relevance/notification anchor. Multiple triggers prefer the soonest eligible future one;
     // once its effective anchor passes, the latest one remains until two hours after its event.
-    val whenAnchor = selectWhenTrigger(block.triggers, nowIso, zone, config.whenWindowMinutes)
+    val whenAnchor = selectWhenTrigger(
+      block.triggers, nowIso, zone, config.whenWindowMinutes, temporalFacts(block, zone),
+    )
     if (whenAnchor != null) {
       val label = firstLine(block.bodyMd) ?: "Reminder"
       out += NowItem(
@@ -206,6 +210,7 @@ fun deriveNow(
         title = label, why = "$label at ${clockTime(whenAnchor.eventAt, zone)}",
         subjectKey = subjectKey, target = target,
         triggerAtIso = whenAnchor.effectiveAt.toString(), weight = config.whenWeight,
+        localFactKey = whenAnchor.factRef?.let { localFactKey(EntityRef("block:${block.id}"), FactRef(it)) },
       )
     }
   }
@@ -242,8 +247,9 @@ internal fun parseInstantFlexible(s: String?, zone: TimeZone): Instant? {
 }
 
 // Shift an authored trigger instant by its ISO-8601 alert_offset (e.g. "-PT1H" → an hour earlier),
-// folding the offset into the single relevance/notify anchor (#299). Pure. A malformed or absent
-// offset fails open to the raw instant; an unparseable `at` returns null. kotlin.time.Duration's
+// folding the offset into the single relevance/notify anchor (#299). Legacy `when.at` keeps its
+// historical fail-open behavior here; ADR 0067 fact_ref offsets use the strict resolver below.
+// An unparseable `at` returns null. kotlin.time.Duration's
 // parseIsoString is the multiplatform parser (kotlinx-datetime's DateTimePeriod is the wrong,
 // calendar type here); it accepts a leading sign, so "-PT1H" yields a negative duration.
 internal fun applyOffset(atIso: String?, offsetIso: String?, zone: TimeZone): Instant? {
@@ -255,17 +261,22 @@ internal fun applyOffset(atIso: String?, offsetIso: String?, zone: TimeZone): In
 internal data class ResolvedWhenTrigger(
   val eventAt: Instant,
   val effectiveAt: Instant,
+  val factRef: String? = null,
 )
 
 // Resolve every absolute `when.at` once, keeping the event time separate from the alert-offset
 // anchor. `eventAt` drives honest copy; `effectiveAt` drives ranking and exact local scheduling.
-private fun resolveWhenTriggers(triggers: List<BlockTrigger>?, zone: TimeZone): List<ResolvedWhenTrigger> =
-  triggers.orEmpty().mapNotNull { trigger ->
+private fun resolveWhenTriggers(
+  triggers: List<BlockTrigger>?, zone: TimeZone, facts: List<NormalizedFact>,
+): List<ResolvedWhenTrigger> {
+  val values = triggers.orEmpty()
+  val invalidFactRefs = values.count { it.whenTrigger?.factRef != null } > 1
+  return values.mapNotNull { trigger ->
     val whenTrigger = trigger.whenTrigger ?: return@mapNotNull null
-    val eventAt = parseInstantFlexible(whenTrigger.at, zone) ?: return@mapNotNull null
-    val effectiveAt = applyOffset(whenTrigger.at, whenTrigger.alertOffset, zone) ?: return@mapNotNull null
-    ResolvedWhenTrigger(eventAt, effectiveAt)
+    if (invalidFactRefs && whenTrigger.factRef != null) return@mapNotNull null
+    resolveWhenTrigger(facts, whenTrigger, zone)
   }
+}
 
 // Pick one stable time anchor for a Now subject. With [windowMinutes], candidates enter within the
 // bounded interval before their effective alert/surfacing instant, then remain until that interval
@@ -277,8 +288,9 @@ internal fun selectWhenTrigger(
   nowIso: String,
   zone: TimeZone,
   windowMinutes: Long? = null,
+  facts: List<NormalizedFact> = emptyList(),
 ): ResolvedWhenTrigger? {
-  val resolved = resolveWhenTriggers(triggers, zone)
+  val resolved = resolveWhenTriggers(triggers, zone, facts)
   if (resolved.isEmpty()) return null
   val now = parseInstantFlexible(nowIso, zone) ?: return resolved.minBy { it.effectiveAt }
   val window = windowMinutes?.minutes

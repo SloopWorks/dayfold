@@ -57,6 +57,7 @@ data class Block (
     val payload: BlockPayload? = null,
 
     val provenance: Provenance,
+    val temporal: Temporal? = null,
     val triggers: List<TriggerElement>? = null,
     val type: BlockType,
     val version: Long? = null
@@ -192,6 +193,40 @@ data class Provenance (
     val source: String
 )
 
+@Serializable
+data class Temporal (
+    val occurrences: List<OccurrenceElement>
+)
+
+/**
+ * ADR 0067 canonical same-item temporal fact. End is exclusive.
+ */
+@Serializable
+data class OccurrenceElement (
+    val end: String? = null,
+    val id: String,
+    val label: String,
+    val role: Role,
+    val start: String,
+    val status: OccurrenceStatus,
+    val zone: String? = null
+)
+
+@Serializable
+enum class Role(val value: String) {
+    @SerialName("deadline") Deadline("deadline"),
+    @SerialName("event") Event("event"),
+    @SerialName("reference") Reference("reference"),
+    @SerialName("window") Window("window");
+}
+
+@Serializable
+enum class OccurrenceStatus(val value: String) {
+    @SerialName("cancelled") Cancelled("cancelled"),
+    @SerialName("confirmed") Confirmed("confirmed"),
+    @SerialName("tentative") Tentative("tentative");
+}
+
 /**
  * ADR 0014 — matched ON-DEVICE; live position never leaves.
  *
@@ -241,7 +276,10 @@ data class When (
     val at: String? = null,
     val recurring: String? = null,
     val relative: String? = null,
-    val window: JsonObject? = null
+    val window: JsonObject? = null,
+
+    @SerialName("fact_ref")
+    val factRef: String? = null
 )
 
 @Serializable
@@ -331,6 +369,7 @@ data class BriefingCard (
      */
     val target: Target? = null,
 
+    val temporal: Temporal? = null,
     val title: String,
     val triggers: List<TriggerElement>? = null,
 
@@ -615,7 +654,7 @@ data class Hub (
     @SerialName("start_at")
     val startAt: String? = null,
 
-    val status: Status? = null,
+    val status: HubStatus? = null,
     val timeline: Timeline? = null,
 
     /**
@@ -689,7 +728,7 @@ data class WrapperSchema (
 )
 
 @Serializable
-enum class Status(val value: String) {
+enum class HubStatus(val value: String) {
     @SerialName("active") Active("active"),
     @SerialName("archived") Archived("archived"),
     @SerialName("planning") Planning("planning");

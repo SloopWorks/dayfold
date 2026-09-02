@@ -6,6 +6,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -190,6 +192,29 @@ class BackgroundNotifyTest {
 
     assertEquals(listOf("2026-06-30T13:00:00Z"), out.map { it.atIso })
     assertEquals("Pickup at 3:00 PM", out.single().spec.body)
+  }
+
+  @Test fun `canonical fact schedules keep semantic subject and reconcile by stable local fact key`() {
+    val occurrenceId = "01K45ABCDEF0123456789GHJKM"
+    fun canonical(start: String, triggered: Boolean = true): Card = Card(
+      id = "canonical", title = "Show",
+      temporal = Json.parseToJsonElement("""{"occurrences":[{"id":"$occurrenceId","role":"event","label":"Show","start":"$start","zone":"UTC","status":"confirmed"}]}""").jsonObject,
+      triggers = if (triggered) listOf(BlockTrigger(whenTrigger = TriggerWhen(
+        factRef = "temporal:$occurrenceId", alertOffset = "-PT1H",
+      ))) else emptyList(),
+    )
+    val expectedKey = localFactKey(EntityRef("card:canonical"), FactRef("temporal:$occurrenceId"))
+    val first = NotifSnapshot(cards = listOf(canonical("2026-06-30T15:00:00Z")), config = NotifConfig(enabled = true))
+    val moved = NotifSnapshot(cards = listOf(canonical("2026-06-30T16:00:00Z")), config = NotifConfig(enabled = true))
+
+    assertEquals("card:canonical", planExactSchedules(first, noon, zone).single().spec.subjectKey)
+    assertEquals(expectedKey, planExactSchedules(first, noon, zone).single().spec.scheduleKey)
+    assertEquals(expectedKey, planExactSchedules(moved, noon, zone).single().spec.scheduleKey)
+    assertEquals(setOf(expectedKey), activeExactNotificationSubjects(first, noon, zone))
+    assertTrue(activeExactNotificationSubjects(
+      NotifSnapshot(cards = listOf(canonical("2026-06-30T15:00:00Z", triggered = false)), config = NotifConfig(enabled = true)),
+      noon, zone,
+    ).isEmpty())
   }
 
   // an authored card that surfaces as a current (NOW-band) item; subjectKey = "card:c1" (no target).

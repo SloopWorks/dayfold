@@ -33,9 +33,6 @@ class CalendarImportReducerTest {
     assertIs<ImportProposalState.PreviewingFields>(s)
     assertEquals(dest, (s as ImportProposalState.PreviewingFields).proposal.destination)
 
-    s = reduceCalendarImport(s, SetImportDescriptionOptIn("Bring a dessert"))
-    assertEquals("Bring a dessert", (s as ImportProposalState.PreviewingFields).proposal.description)
-
     s = reduceCalendarImport(s, ProceedImportToAudience)
     assertIs<ImportProposalState.ChoosingAudience>(s)
 

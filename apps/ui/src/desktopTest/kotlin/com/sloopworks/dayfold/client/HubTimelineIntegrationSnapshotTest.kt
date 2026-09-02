@@ -104,7 +104,7 @@ class HubTimelineIntegrationSnapshotTest {
     @Test fun derivedTimelineCardAppearsWhenNoAuthoredTimeline() = runComposeUiTest {
         // hub has NO timeline, but a countdown + a milestone + a checklist due → derives one.
         val hub = Hub(id = "h2", type = "party-event", title = "Maya's party", status = "active",
-            visibility = "family", countdownTo = "2026-08-24")
+            visibility = "family", countdownTo = "2026-08-24T00:00:00-04:00")
         val blocks = listOf(
             HubBlock(id = "m", sectionId = "s", type = "milestone",
                 payload = BlockPayload(date = "2026-08-20", label = "Order cake")),
@@ -124,9 +124,9 @@ class HubTimelineIntegrationSnapshotTest {
     }
 
     @Test fun singleDatedBlockShowsNudgeNotACard() = runComposeUiTest {
-        // only the hub countdown is dated → one stop → "No timeline yet" nudge, no card.
+        // only the hub end is dated → one stop → "No timeline yet" nudge, no card.
         val hub = Hub(id = "h3", type = "vacation", title = "Cape Cod", status = "active",
-            visibility = "family", countdownTo = "2026-09-01")
+            visibility = "family", endAt = "2026-09-01T00:00:00-04:00")
         val state = AppState(navigation = NavigationState(route = Route.Hubs), hubs = HubState(currentHubId = "h3", currentHubTree = HubTree(hub = hub)))
         setContent {
             DayfoldTheme(darkTheme = false) {

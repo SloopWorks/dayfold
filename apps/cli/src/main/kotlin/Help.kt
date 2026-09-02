@@ -147,6 +147,31 @@ val COMMANDS: List<HelpCommand> = listOf(
     ),
   ),
   HelpCommand(
+    name = "content",
+    synopsis = "content <audit|apply> [--hub <id>] [--detail] [--dry-run] [bundle.json]",
+    summary = "Audit temporal coverage or validate, write, and verify a temporal claim bundle.",
+    args = listOf(
+      HelpArg("audit|apply", "audit reads authorized Dayfold content; apply consumes a dayfold.temporal-bundle.v1 file."),
+      HelpArg("bundle.json", "For apply, the bounded local bundle containing full resources, ACLs, base versions, and claim ledgers.", required = false),
+    ),
+    options = listOf(
+      HelpOption("--hub", "<id>", "For audit, stay within one already-authorized Hub and inspect its tree."),
+      HelpOption("--detail", description = "For audit, include authorized resource IDs in local diagnostics. The default uses structural resource indexes."),
+      HelpOption("--dry-run", description = "For apply, perform local validation plus authorized current-state/version/ACL reads, then stop before writes."),
+    ),
+    details = listOf(
+      "audit is a conservative local review net: it reports structural temporal errors and likely unstructured date/time claims without sending prose to another service.",
+      "apply uses the same validator, requires explicit temporal object/null on card and block replacements, verifies base versions and ACLs, sends If-Match plus temporal-v1 capability, and compares the response and a fresh pull directly.",
+      "A successful dry-run diagnoses the exact current file only; it is not authorization for a later changed file. Apply revalidates its in-memory bytes before every write.",
+      "Diagnostics contain resource keys, structural paths, and stable codes—not occurrence labels, source phrases, or timestamp values.",
+    ),
+    examples = listOf(
+      "dayfold content audit --hub 01J000000000000000000HUB",
+      "dayfold content apply --dry-run temporal-bundle.json",
+      "dayfold content apply temporal-bundle.json",
+    ),
+  ),
+  HelpCommand(
     name = "push",
     synopsis = "push <id> <file.json> [--hub|--section|--block] [--type <t>] [--no-linkify]",
     summary = "Author a briefing card (default) or a hub-tree node.",
