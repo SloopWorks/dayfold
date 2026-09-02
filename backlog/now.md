@@ -19,9 +19,22 @@ read-only audit, version/ACL-preserving verified CLI apply, additive API/Postgre
 persistence, raw mobile-cache preservation, shared normalizer, Calendar/timeline
 multi-fact consumers, fact-referenced triggers, stale-notification cleanup, and
 privacy canaries are implemented and release-gated across API, CLI, Android/iOS,
-SQLDelight, and UI goldens. Production content repair remains S5: it still requires
-full before/after JSON and a separate operator confirmation, and the Big Night
-6:30/7:00 meeting conflict must not be guessed.
+SQLDelight, and UI goldens.
+
+**S5 production content repair — DONE 2026-09-02** through the
+propose/approve/apply gate (full before/after JSON, separate operator confirmation
+per batch): **35 blocks + 13 live cards** repaired, **0 triggers** added, ACLs
+unchanged, `dayfold content audit` findings **97 → 57**. Three defects the repair
+surfaced were fixed the same day (card `provenance` byline dropped by the API,
+apply verification failing on Postgres `timestamptz` text, audit false-positives on
+lifecycle fields) — see `CHANGELOG.md` 2026-09-02. **Deliberately NOT repaired:**
+29 expired cards (no longer rendered); the Camp Parsons hub (archived; legacy
+`payload.md`/`label` shapes); 3 Butler money blocks whose only claim is a
+month-only "mid-Dec / early Jan" spring bill (V1 blocks month-only material
+claims — never guess); hub timeline stops (presentation, ADR 0045, not coverage).
+The remaining 57 audit findings are those exclusions plus heuristic noise.
+Residual decisions are tracked in `context/open-questions.md`
+(`OQ-adr0067-s5-residual`), not here.
 
 - **✅ SQLDelight migration gap — FOUND AND FIXED 2026-08-21/22 (20th pass).**
   `membership`, `calendar_import` and `card.target_{hub,section,block}_id` reached

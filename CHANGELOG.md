@@ -8,6 +8,23 @@ dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. The app is pre-1.0 (`0.0.0-M0`) and untagged, so entries are dated; the
 CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
 
+## 2026-09-02 — ADR 0067 follow-ups from the first production content repair
+
+### Fixed
+- **Card bylines persist again.** The API stripped `provenance` from card writes
+  before re-stamping it, so every card lost its `source`/`at` byline and kept only
+  the server-owned `credential_id`; blocks were unaffected. Cards now keep the
+  author-supplied `source` and `at` while `credential_id` stays server-owned.
+- **`dayfold content apply` verifies timestamps as instants.** Postgres returns
+  `timestamptz` columns as `YYYY-MM-DD HH:MM:SS+00` while bundles send RFC-3339,
+  so every card apply with `expires_at`, `not_before`, Hub `start_at`/`end_at`/
+  `countdown_to`, or a typed payload date (`closesAt`, `startAt`, `rsvpBy`,
+  `leaveBy`) failed round-trip verification after a successful write. Equal
+  instants now pass; a genuinely drifted value still fails.
+- **`dayfold content audit` ignores lifecycle fields.** `not_before`/`expires_at`
+  gate visibility only (ADR 0067 §2) and never satisfy a claim, so their stored
+  text no longer counts as a prose date and false-positives fully covered content.
+
 ## 2026-09-01 — Canonical date/time facts and verified authoring
 
 ### Added

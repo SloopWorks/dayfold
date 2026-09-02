@@ -93,6 +93,14 @@ Cloud (live): `https://family-ai-dashboard.vercel.app`. Redeploy (operator-gated
 the `AUTH_*` env must be set in Vercel — see below):
 `npm run build:fn && vercel deploy --prod --yes --scope patrick-jacksons-projects-c406a118`.
 
+**⚠ `npm run build:fn` is mandatory before every Vercel deploy, and the rebuilt
+`apps/api/api/index.js` must be committed.** Vercel deploys that committed esbuild
+bundle, not `src/`. A deploy without the rebuild ships stale bytes: on 2026-09-02 a
+`src/security.ts` fix was live-tested against prod and appeared not to work because
+the function artifact still carried the old code. Rule: after any `src/` change,
+`npm test && npm run build:fn && git diff --exit-code apps/api/api/index.js` must be
+clean (or the artifact diff committed alongside the source) before `vercel deploy`.
+
 **Prod config state (2026-06-26):** prod now has the full DB schema (all 11
 migrations) + `AUTH_SIGNING_KEY`/`AUTH_ISS`/`AUTH_AUD` + `FIREBASE_PROJECT_ID` set;
 real Google sign-in + foreground sync work on-device. This was NOT always true — prod

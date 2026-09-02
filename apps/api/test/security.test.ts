@@ -16,9 +16,11 @@ describe("household-token compare", () => {
 });
 
 describe("mass-assignment strip (content writes)", () => {
-  it("drops server-managed fields incl. body_ref/provenance/falsy version", () => {
+  it("drops server-managed fields incl. body_ref/falsy version", () => {
     const out = stripServerManaged({ title: "Party", family_id: "ATTACKER", version: 0, body_ref: "k", provenance: { source: "x" } });
-    expect(out).toEqual({ title: "Party" });
+    // provenance passes through here: stampProvenance() rebuilds it (allow-listed source/at
+    // + server-owned credential_id), so stripping it would drop the client byline.
+    expect(out).toEqual({ title: "Party", provenance: { source: "x" } });
   });
   it("does not mutate the input", () => {
     const input = { title: "x", family_id: "y" };
