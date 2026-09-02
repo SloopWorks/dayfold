@@ -53,6 +53,7 @@ includeBuild(debugDrawerBuild) {
     substitute(module("com.sloopworks.debugdrawer:debugdrawer-redux")).using(project(":debugdrawer-redux"))
     if (hasSloopworksPackagesCredential) {
       substitute(module("com.sloopworks.debugdrawer:debugdrawer-swip")).using(project(":debugdrawer-swip"))
+      substitute(module("com.sloopworks.debugdrawer:debugdrawer-bugreport")).using(project(":debugdrawer-bugreport"))
     }
   }
 }
