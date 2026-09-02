@@ -113,10 +113,11 @@ at user level (pinned agents unaffected).
 - `memory: project` → `.claude/agent-memory/<name>/MEMORY.md`, first 200
   lines / 25 KB loaded; the agent must be told to read it first
   `[fact:https://code.claude.com/docs/en/memory]`.
-- Agent files are read at **session start**: a definition added mid-session
-  is not callable until restart (observed this session — the new
-  `adversarial-reviewer` was run by handing its body to `general-purpose`)
-  `[fact:this session]`.
+- Agent files are **not callable the moment they are written**: in this
+  session the new definitions were rejected by the `Agent` tool right after
+  creation and appeared only after a later turn boundary (a wake). Round 1
+  was therefore run by handing the agent body to `general-purpose`; the
+  roster was callable by name before round 2 `[fact:this session]`.
 - Skills vs agents: skill = knowledge/procedure injected inline (persists in
   the conversation); subagent = isolated context + tool restriction + own
   model; `context: fork` runs a skill *as* a subagent
