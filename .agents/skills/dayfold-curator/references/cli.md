@@ -197,7 +197,9 @@ dayfold content apply <bundle.json>
 
 `audit` reads only content already authorized by the credential and runs local,
 linear, content-minimal checks. It reports stable issue codes and structural paths;
-it does not send prose to a second model. Exit `0` is clean, `1` means coverage or
+it does not send prose to a second model. Lifecycle fields (`not_before`,
+`expires_at`) are ignored by the coverage heuristic — they gate visibility only
+and never satisfy a claim (ADR 0067 §2). Exit `0` is clean, `1` means coverage or
 validation findings, and `2` means invocation/read failure.
 Resource IDs are redacted to structural indexes by default; add `--detail` only
 for an authorized local repair session that needs exact item IDs.
@@ -207,8 +209,12 @@ resources, Temporal Claim Ledger rows, explicit Card/Block `temporal` object or
 `null`, ACL, and base version. Dry-run performs current-state/version/ACL reads but
 writes nothing. Real apply revalidates the in-memory file, sends `If-Match` and the
 `temporal-v1` capability, then compares canonical fields and ACL in both the 200
-response and a fresh pull. HTTP 200 without preserved facts is failure. Apply is
-stateless/resumable; rerun after inspecting the content-minimal receipt.
+response and a fresh pull. HTTP 200 without preserved facts is failure. Timestamp
+leaves (`expires_at`, `not_before`, Hub `start_at`/`end_at`/`countdown_to`, typed
+payload dates) compare as **instants**, so the API's Postgres `timestamptz` text
+(`2026-09-30 00:00:00+00`) matches the bundle's RFC-3339 value; any other string
+must match exactly. Apply is stateless/resumable; rerun after inspecting the
+content-minimal receipt.
 
 For a claim resolved from relative language, the ledger row also carries
 `"relative":true`, `"source_base_instant":"…±HH:MM"`, and

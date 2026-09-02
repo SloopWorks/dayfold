@@ -93,6 +93,20 @@ bootstrap from validation round 1 (`research/validation-round1-2026-06.md`).
   ever pursued. → feeds A2, A3, post-MVP Gmail ADR.
 
 ## Important, not blocking
+- **OQ-adr0067-s5-residual** — *opened 2026-09-02 after the S5 production content
+  repair.* Four sets of content were deliberately left out of the repair and each
+  needs a call that is not agent-autonomous: (1) **3 Butler money blocks** whose
+  spring-bill claim is month-only ("mid-Dec / early Jan") — V1 blocks month-only
+  material claims, so either the operator supplies the real due date from the
+  source or the prose is rewritten as an explicit `reference` claim; (2) the
+  **Camp Parsons hub** (archived) still carries legacy `payload.md`/`label` block
+  shapes — migrate, or accept that archived hubs are exempt from the ADR 0067
+  invariant; (3) **29 expired cards** are unrepaired — decide whether expired
+  content is ever audited or is simply pruned; (4) **hub timeline stops** are
+  presentation (ADR 0045) and are not coverage for a Block/Card claim, but the
+  audit heuristic still surfaces them — decide whether `audit` should skip
+  `Hub.timeline` outright. Until decided, `dayfold content audit` sits at 57
+  findings and that number is not a regression signal.
 - **OQ-response-subjectref-stability** — *opened 2026-08-08 by ADR 0064 (Accepted).* The
   suppression key is now load-bearing in a way it wasn't as a dedup key. If extraction mints a
   **different** `subjectRef` for the same source across runs, Mark done silently stops working:

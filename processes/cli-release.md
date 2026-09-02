@@ -139,6 +139,11 @@ publishes, and `brew install` silently keeps serving the previous version.
      (skipped if `HOMEBREW_TAP_TOKEN` is unset).
 3. Users get it via `brew install sloopworks/tap/dayfold` / `brew upgrade dayfold`.
 
+**Not the API.** This file covers the CLI tarball only. The API (`apps/api`) deploys
+as a committed esbuild bundle — `npm run build:fn` must be run and
+`apps/api/api/index.js` committed before any `vercel deploy`, or the deploy ships
+stale bytes. See `processes/agent-dev-loop.md` → `## API`.
+
 ## Maintaining the tap mirror
 
 `apps/cli/homebrew/dayfold.rb` is the source of truth;
