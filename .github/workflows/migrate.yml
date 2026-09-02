@@ -31,6 +31,10 @@ jobs:
     name: "db:migrate (${{ inputs.mode }})"
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Root .npmrc reads this token for the private @sloopworks/swip-* packages.
+      # Keep migration installs aligned with the API and Firebase CI jobs.
+      NODE_AUTH_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     # If a protected `production` GitHub Environment exists, this adds an approval gate
     # before the job runs; harmless if unconfigured.
     environment: production
