@@ -3412,8 +3412,9 @@ var init_security = __esm({
       "deleted_at",
       "body_ref",
       // M1 object-storage spill key — never client-set at M0
-      "provenance",
-      // defense-in-depth: rebuilt server-side by stampProvenance
+      // "provenance" is deliberately NOT stripped here: stampProvenance() rebuilds it from an
+      // allow-list (source, at) and stamps the server-owned credential_id. Stripping it first
+      // silently dropped every card byline (source/at) while blocks kept theirs.
       "subject_ref"
       // ADR 0064 suppression key — derived server-side from the id/node path.
       // An author-chosen key would let a write pick a key no rule matches,

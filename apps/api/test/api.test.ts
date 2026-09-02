@@ -73,6 +73,15 @@ describe("M0 content API — card round-trip + security (vs live Postgres)", () 
     expect(row.provenance.credential_id).toBe("hcred");
   });
 
+  it("provenance source/at from the client survive the card write (byline), credential_id still server-owned", async () => {
+    const r = await put("fam1", "c6b", card({ provenance: { source: "claude", at: "2026-09-02T20:50:42Z", credential_id: "FORGED", extra: "nope" } }));
+    expect(r.status).toBe(200);
+    const row = await r.json();
+    expect(row.provenance).toEqual({ credential_id: "hcred", source: "claude", at: "2026-09-02T20:50:42Z" });
+    const list = await (await app.request("/families/fam1/cards", { headers: AUTH })).json();
+    expect(list.find((c: any) => c.id === "c6b").provenance).toEqual({ credential_id: "hcred", source: "claude", at: "2026-09-02T20:50:42Z" });
+  });
+
   it("[F4] malformed sync cursor → 400 (not a silent full re-scan)", async () => {
     const r = await app.request("/families/fam1/sync?since=not-a-cursor", { headers: AUTH });
     expect(r.status).toBe(400);
