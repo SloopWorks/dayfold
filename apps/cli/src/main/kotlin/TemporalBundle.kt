@@ -181,10 +181,14 @@ private fun stringFields(element: JsonElement, path: String = ""): Sequence<Pair
   }
 }
 
+// Lifecycle fields (not_before/expires_at) gate visibility only and never satisfy a claim
+// (ADR 0067 §2); they are excluded so their stored "HH:MM:SS" text cannot false-positive
+// the time regex against prose that is already fully covered.
 private fun reviewableText(path: String): Boolean =
   !path.startsWith("/temporal/") && !path.startsWith("/triggers/") &&
     !path.startsWith("/provenance/") && path !in setOf(
       "/created_at", "/updated_at", "/start_at", "/end_at", "/countdown_to",
+      "/not_before", "/expires_at",
       "/payload/email/date", "/payload/email/bodyExcerpt", "/payload/file/modified",
     ) && !path.endsWith("/due") && !path.endsWith("/date") && !path.endsWith("/end") &&
     !path.endsWith("/startAt") && !path.endsWith("/rsvpBy") && !path.endsWith("/closesAt") &&
@@ -432,11 +436,44 @@ private fun temporalValueMatches(expected: JsonElement, actual: JsonElement?): B
   return byId(expectedOccurrences) == byId(actualOccurrences)
 }
 
+// Postgres renders timestamptz columns as "YYYY-MM-DD HH:MM:SS[.ffffff]+HH[:MM]" while the
+// bundle sends strict RFC-3339. Lifecycle (not_before/expires_at), Hub start/end/countdown, and
+// typed payload carriers therefore compare as parsed instants, never as lexical strings
+// (ADR 0067 §5: compare instants, not offset strings). Non-timestamp leaves stay exact.
+private val storedInstantPattern = Regex(
+  "^(\\d{4}-\\d{2}-\\d{2})[ T](\\d{2}:\\d{2}:\\d{2})(\\.\\d{1,9})?(Z|[+-]\\d{2}(?::?\\d{2})?)$",
+)
+
+internal fun parseStoredInstant(value: String): java.time.Instant? {
+  val m = storedInstantPattern.matchEntire(value) ?: return null
+  var offset = m.groupValues[4]
+  if (offset != "Z") {
+    if (offset.length == 3) offset += ":00"
+    else if (offset.length == 5) offset = offset.substring(0, 3) + ":" + offset.substring(3)
+  }
+  return runCatching {
+    java.time.OffsetDateTime.parse(m.groupValues[1] + "T" + m.groupValues[2] + m.groupValues[3] + offset).toInstant()
+  }.getOrNull()
+}
+
+private fun jsonEquivalent(expected: JsonElement?, actual: JsonElement?): Boolean = when {
+  expected == actual -> true
+  expected is JsonObject && actual is JsonObject ->
+    expected.keys == actual.keys && expected.all { (key, value) -> jsonEquivalent(value, actual[key]) }
+  expected is JsonArray && actual is JsonArray ->
+    expected.size == actual.size && expected.indices.all { jsonEquivalent(expected[it], actual[it]) }
+  expected is JsonPrimitive && actual is JsonPrimitive && expected.isString && actual.isString -> {
+    val e = parseStoredInstant(expected.content)
+    e != null && e == parseStoredInstant(actual.content)
+  }
+  else -> false
+}
+
 private fun selectedValueMatches(field: String, expected: JsonElement, actual: JsonElement?): Boolean = when {
   field == "provenance" && expected is JsonObject && actual is JsonObject ->
-    listOf("source", "at").all { expected[it] == actual[it] }
+    listOf("source", "at").all { jsonEquivalent(expected[it], actual[it]) }
   field == "temporal" -> temporalValueMatches(expected, actual)
-  else -> actual == expected
+  else -> jsonEquivalent(expected, actual)
 }
 
 private fun roundTripIssues(

@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -144,6 +145,16 @@ class TemporalBundleTest {
     assertEquals(0, auditContent(twoFacts).exitCode, auditContent(twoFacts).stderr)
   }
 
+  @Test fun `audit ignores lifecycle fields so stored expires_at text does not count as a prose claim`() {
+    val covered = """{"cards":[{
+      "id":"c1","type":"link","body_md":"Registration closes Sep 12 at 1pm",
+      "payload":{"link":{"url":"https://example.org","closesAt":"2026-09-12T17:00:00Z"}},
+      "expires_at":"2026-09-30 00:00:00+00","not_before":"2026-09-01 00:00:00+00"
+    }]}"""
+    val result = auditContent(covered)
+    assertEquals(0, result.exitCode, result.stderr)
+  }
+
   @Test fun `dry run performs current version and ACL checks but does not write`() {
     val bundle = decodeTemporalBundle(bundleRaw).first!!
     var writes = 0
@@ -273,5 +284,42 @@ class TemporalBundleTest {
     ), dryRun = false)
     assertEquals(1, result.exitCode)
     assertTrue(result.stderr.contains("response-field-mismatch"), result.stderr)
+  }
+
+  @Test fun `round trip compares stored timestamptz text and typed carriers as instants`() {
+    assertEquals(parseStoredInstant("2026-09-30T00:00:00+00:00"), parseStoredInstant("2026-09-30 00:00:00+00"))
+    assertEquals(parseStoredInstant("2026-08-27T14:34:41.121209Z"), parseStoredInstant("2026-08-27 14:34:41.121209+00"))
+    assertEquals(parseStoredInstant("2026-09-12T17:00:00Z"), parseStoredInstant("2026-09-12 13:00:00-04"))
+    assertTrue(parseStoredInstant("Big Night") == null)
+    val base = decodeTemporalBundle(bundleRaw).first!!
+    val resource = base.resources.single()
+    val desired = resource.copy(content = JsonObject(resource.content + mapOf(
+      "expires_at" to JsonPrimitive("2026-09-30T00:00:00+00:00"),
+      "type" to JsonPrimitive("link"),
+      "payload" to Json.parseToJsonElement("""{"link":{"url":"https://example.org","closesAt":"2026-09-12T17:00:00Z"}}"""),
+    )), ledger = resource.ledger + resource.ledger.single().copy(
+      claimId = "claim-closes", classification = "deadline",
+      normalized = JsonPrimitive("2026-09-12T17:00:00Z"), zone = "UTC", carrierPath = "/payload/link/closesAt",
+    ))
+    val bundle = base.copy(resources = listOf(desired))
+    fun row(version: Long, expires: String, closes: String, extra: Map<String, JsonElement> = emptyMap()) = JsonObject(desired.content + mapOf(
+      "id" to JsonPrimitive("card-1"), "version" to JsonPrimitive(version),
+      "visibility" to JsonPrimitive("family"), "audience" to JsonArray(emptyList()),
+      "expires_at" to JsonPrimitive(expires),
+      "payload" to Json.parseToJsonElement("""{"link":{"url":"https://example.org","closesAt":"$closes"}}"""),
+    ) + extra)
+    var reads = 0
+    val ok = applyTemporalBundle(bundle, "family", ContentNetwork(
+      ContentGet { reads++; 200 to "[${if (reads == 1) row(2, "2026-09-29 00:00:00+00", "2026-09-12 13:00:00-04") else row(3, "2026-09-30 00:00:00+00", "2026-09-12 13:00:00-04")}]" },
+      ContentPut { _, _, _ -> 200 to row(3, "2026-09-30 00:00:00+00", "2026-09-12 13:00:00-04").toString() },
+    ), dryRun = false)
+    assertEquals(0, ok.exitCode, ok.stderr)
+    assertTrue(ok.stdout.contains("writes=1"), ok.stdout)
+    val drifted = applyTemporalBundle(bundle, "family", ContentNetwork(
+      ContentGet { 200 to "[${row(2, "2026-09-29 00:00:00+00", "2026-09-12 13:00:00-04")}]" },
+      ContentPut { _, _, _ -> 200 to row(3, "2026-10-01 00:00:00+00", "2026-09-12 13:00:00-04").toString() },
+    ), dryRun = false)
+    assertEquals(1, drifted.exitCode)
+    assertTrue(drifted.stderr.contains("/content/expires_at apply.response-field-mismatch"), drifted.stderr)
   }
 }
