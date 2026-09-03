@@ -144,6 +144,7 @@ internal fun RouteHost(
       AccountScreen(
         state.account,
         onSignOut = commands::signOut,
+        onDeleteAccount = platformActions::deleteAccount,
         onClose = { store.dispatch(CloseAccount) },
         onOpenMembers = { store.dispatch(OpenMembers) },
         onOpenDevices = { store.dispatch(OpenDevices) },

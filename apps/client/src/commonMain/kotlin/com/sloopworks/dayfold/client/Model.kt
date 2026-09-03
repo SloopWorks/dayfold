@@ -482,6 +482,8 @@ data class SessionState(
   val joinFamilyName: String? = null,
   val pendingProvider: String? = null,
   val signOutBusy: Boolean = false,
+  val deleteAccountBusy: Boolean = false,
+  val deleteAccountError: String? = null,
   // Invite deep-link (ADR 0048): an /invite/<token> tapped pre-sign-in; redeemed
   // once memberships resolve. Null = nothing pending.
   val pendingInviteLink: String? = null,
@@ -702,6 +704,8 @@ data object OpenCalendarImport : Action                    // Calendar-only revi
 data object CloseCalendarImport : Action                   // import → Calendar review
 data object SignOutRequested : Action
 data object SignedOut : Action                             // clears session + feed → SignIn
+data object DeleteAccountRequested : Action
+data class DeleteAccountFailed(val message: String) : Action
 // invitee-join (S5 slice-2). RedeemRequested is an effect trigger (AuthEngine);
 // InviteRedeemed/Rejected carry the outcome the join screen renders.
 data object OpenJoinInvite : Action                           // CreateFamily → the paste-invite screen

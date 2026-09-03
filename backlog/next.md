@@ -52,7 +52,10 @@ to import/review/implement is ADR 0008 sign-off for that simulated preview only.
 ## TASK-LOCAL-SEARCH — on-device retrieval over saved content
 
 **Added 2026-08-19 (operator-requested exploration). Status: research and hi-fi
-gallery complete; blocked on ADR 0008 operator sign-off; no build authorized.**
+gallery complete; partial operator review recorded 2026-08-19 (breadcrumb,
+compact/no-chevron row, offline behavior, and plain-list default accepted;
+teal close-match revision awaiting visual confirmation); full ADR 0008 sign-off
+still pending; no build authorized.**
 Recommended first slice: a temporary search route from Now/Hubs, a derived
 permission-filtered in-memory corpus, shared-Kotlin exact/prefix/substring
 matching with bounded fuzzy fallback, one compact mixed result list, and

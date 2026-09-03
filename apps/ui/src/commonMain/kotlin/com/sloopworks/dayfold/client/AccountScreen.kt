@@ -62,6 +62,9 @@ fun AccountScreen(
   // ADR 0064 — appended, not inserted: this parameter list has positional call sites, and
   // slotting a new lambda mid-list silently shifts every argument after it.
   onOpenSmartContent: () -> Unit = {},
+  onDeleteAccount: () -> Unit = {},
+  calendarCheckEnabled: Boolean = false,
+  onOpenCalendarCheck: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.activeFamily
@@ -70,6 +73,7 @@ fun AccountScreen(
   // every ephemeral dialog). Signing out is reversible but deliberate; a one-tap
   // guard avoids an accidental session clear.
   var confirmSignOut by remember { mutableStateOf(false) }
+  var confirmDeleteAccount by remember { mutableStateOf(false) }
   // Delta A / Task 5 — the avatar picker sheet, opened from the profile card's avatar.
   var avatarPickerOpen by remember { mutableStateOf(false) }
   // Profile name edit — opened from the profile card's name (pencil affordance).
@@ -122,6 +126,30 @@ fun AccountScreen(
         }
       },
       dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+      containerColor = cs.surfaceContainerHigh,
+    )
+  }
+
+  if (confirmDeleteAccount) {
+    AlertDialog(
+      onDismissRequest = { if (!state.deleteAccountBusy) confirmDeleteAccount = false },
+      title = { Text("Delete your account?", style = MaterialTheme.typography.titleLarge) },
+      text = {
+        Text(
+          "This permanently deletes your Dayfold account and removes your access from every family. This can't be undone.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        TextButton(
+          enabled = !state.deleteAccountBusy,
+          onClick = { confirmDeleteAccount = false; onDeleteAccount() },
+          modifier = Modifier.testTag("confirm-delete-account"),
+        ) { Text("Delete account", color = cs.error) }
+      },
+      dismissButton = {
+        TextButton(enabled = !state.deleteAccountBusy, onClick = { confirmDeleteAccount = false }) { Text("Cancel") }
+      },
       containerColor = cs.surfaceContainerHigh,
     )
   }
@@ -284,6 +312,28 @@ fun AccountScreen(
       SectionLabel("ON THIS DEVICE")
       Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(onClick = onOpenCalendarCheck).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        androidx.compose.material3.Icon(
+          DayfoldIcons.CalendarMonth,
+          contentDescription = null,
+          tint = cs.primary,
+          modifier = Modifier.size(24.dp),
+        )
+        Column(Modifier.weight(1f)) {
+          Text("Calendar Check", style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+          Text(
+            if (calendarCheckEnabled) "On · compared on this device" else "Off · optional and device-local",
+            style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+          )
+        }
+        androidx.compose.material3.Icon(DayfoldIcons.ChevronRight, contentDescription = null, tint = cs.onSurfaceVariant, modifier = Modifier.size(24.dp))
+      }
+
+      Spacer(Modifier.height(10.dp))
+      Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
           .clickable(onClick = onOpenProximity).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
       ) {
@@ -324,11 +374,21 @@ fun AccountScreen(
       }
 
       Spacer(Modifier.height(12.dp))
-      // delete (designed: deleteconfirm/transferowner — wired in a later slice)
       Box(
-        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer),
+        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(enabled = !state.deleteAccountBusy) { confirmDeleteAccount = true }
+          .semantics { if (state.deleteAccountBusy) stateDescription = "Busy" },
         contentAlignment = Alignment.Center,
-      ) { Text("Delete account", style = MaterialTheme.typography.labelLarge, color = cs.error) }
+      ) {
+        if (state.deleteAccountBusy) {
+          androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = cs.error, modifier = Modifier.size(20.dp))
+        } else {
+          Text("Delete account", style = MaterialTheme.typography.labelLarge, color = cs.error)
+        }
+      }
+      state.deleteAccountError?.let { error ->
+        Text(error, style = MaterialTheme.typography.bodySmall, color = cs.error, modifier = Modifier.padding(8.dp))
+      }
     }
   }
 }

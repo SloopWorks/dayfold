@@ -16,7 +16,14 @@ kotlin {
   androidTarget()
   jvm("desktop")
   listOf(iosArm64(), iosSimulatorArm64()).forEach {
-    it.binaries.framework { baseName = "client"; isStatic = true }
+    it.binaries.framework {
+      baseName = "client"
+      isStatic = true
+      // Swift owns notification/background delegates implemented in :client's
+      // iosMain source set; export the dependency so those host APIs are present
+      // in the umbrella framework header rather than only linked internally.
+      export(project(":client"))
+    }
   }
 
   sourceSets {

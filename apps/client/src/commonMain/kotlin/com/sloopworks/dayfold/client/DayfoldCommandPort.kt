@@ -12,6 +12,7 @@ interface DayfoldCommandPort {
   fun retryAuth()
   fun createFamily(name: String)
   fun signOut()
+  fun deleteAccount()
   fun redeemInvite(token: String)
   fun loadApprovals(familyId: String)
   fun approveMember(familyId: String, userId: String)

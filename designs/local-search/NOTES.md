@@ -60,11 +60,11 @@ Arrival, adaptive, and match-mode states live in their own files (above).
   that lives in Now, secondary/teal for anything inside a Hub. The container is
   always `surfaceContainerHigh`, so the only saturated fill in a row is the
   match mark.
-- **The mark** — `primaryContainer` wash + an inset 2px `primary` rule, with
-  `#4E1000` on `#FFDAD2` (light) and `#FFEDE8` on `#9A2A12` (dark). Both pairs
-  are well above 4.5:1, and the rule means the mark survives greyscale,
-  monochrome displays, and every form of colour blindness — hue is never the
-  only cue.
+- **The mark** — exact text uses `primaryContainer` + an inset 2px `primary`
+  rule (`#4E1000` on `#FFDAD2` light; `#FFEDE8` on `#9A2A12` dark). A
+  `Close match` uses the same structure with `secondaryContainer` + `secondary`
+  (`#00201C` on `#9DF2E4`; `#A8F4E7` on `#005048`). The heading and label remain,
+  so hue is never the only cue. Semantic-only rows remain unmarked.
 - **State labels** — `Close match` and `Archived`, both in the same
   quiet `surfaceContainerHigh` pill, so no label can outshout the match. No
   score, percentage, or model name exists anywhere in these files.
@@ -144,8 +144,10 @@ still legible).
    from the order the brief listed those three examples in; ranking by field
    weight is what the research report specifies, and a list that ranks by
    anything a reader cannot see is the thing that makes search feel arbitrary.
-3. **The mark travels.** One treatment, appearing in title, breadcrumb, or
-   excerpt — wherever the typed words really are. Its absence is information.
+3. **The mark travels.** The same wash-plus-rule structure appears in title,
+   breadcrumb, or excerpt — wherever the words really are. Coral means exact;
+   teal plus explicit disclosure means a stored-word close match. Its absence is
+   information.
 4. **A typo is disclosed, never corrected.** The field keeps `socer`, the
    fallback set gets its own heading, and each row carries `Close match` while
    the mark sits on `soccer`.
@@ -171,20 +173,38 @@ still legible).
     for; device-hidden content stays out of ordinary results, matching the
     research report's default.
 
+## Operator review — 2026-08-19
+
+- Breadcrumb/location context: accepted (“I think so”).
+- Compact row: LGTM, including the no-chevron treatment.
+- Offline behavior: LGTM.
+- Filters: plain mixed list accepted as the default; chips remain exploration
+  only.
+- Close match: operator requested current-industry review and consideration of
+  another highlight color. The gallery now uses a secondary-teal wash/rule plus
+  the existing `Close matches for…` heading and per-row `Close match` label.
+  Final visual confirmation remains open.
+
+The close-match synthesis follows three current patterns: typo tolerance is a
+baseline mobile-search capability; exact hits stay above typo hits; and the UI
+discloses the interpretation instead of silently rewriting the query. Algolia's
+current docs rank zero-typo hits above one- and two-typo hits and explicitly let
+custom UIs vary typo highlighting; Baymard's mobile research favors keeping
+useful corrected results available so people do not have to edit the query.
+Sources: [Algolia typo tolerance](https://www.algolia.com/doc/guides/managing-results/optimize-search-results/typo-tolerance),
+[Algolia typo highlighting](https://support.algolia.com/hc/en-us/articles/6558731269649-How-do-I-prevent-highlighting-results-with-typos),
+[Baymard misspelling UX](https://baymard.com/blog/offer-autocomplete-suggestions-for-misspellings).
+
 ## Unresolved questions
 
-1. **Chips or no chips.** The exploration recommends the plain list
-   (`results-plain`); both densities are drawn so the operator can compare. If
-   chips stay, do they need a count to be worth their row?
-2. **The missing chevron** — relief, or a lost affordance on touch?
-3. **Should a `Close match` row differ visually beyond its label** (for example
-   a lighter mark), or does that start ranking honesty by shade?
-4. **Result-kind colour** — coral for Now, teal for Hubs reads well here, but it
+1. **Close-match color:** does the new teal treatment read as useful distinction
+   rather than decoration? The heading and text label remain regardless.
+2. **Result-kind colour** — coral for Now, teal for Hubs reads well here, but it
    is a third meaning for those two roles in the app. Worth checking against the
    Now/Hubs surfaces before it becomes a convention.
-5. **`⌘F` on desktop/tablet** is drawn in the keyboard map but not specified
+3. **`⌘F` on desktop/tablet** is drawn in the keyboard map but not specified
    anywhere in the product — it needs confirming, not assuming.
-6. **Sections as results.** A section row is useful but its excerpt is
+4. **Sections as results.** A section row is useful but its excerpt is
    necessarily generic; dogfooding should say whether sections earn their rows or
    should fold into their block hits.
 

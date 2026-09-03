@@ -5,10 +5,12 @@
     <!-- ADR 0044 Phase B — LOCAL notifications (no FCM/APNs). Runtime-requested on API 33+ via the
          opt-in notification ladder; the app works fully if denied (reminders just wait inside Now). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- ADR 0044 Phase B — background proximity (opt-in, reversible, default-off). FINE is the
-         while-using grant primed first; BACKGROUND is the separate "Always" upgrade. RECEIVE_BOOT +
+    <!-- ADR 0044 Phase B — background proximity (opt-in, reversible, default-off). COARSE and FINE
+         are requested together so people can choose approximate or precise access on Android 12+;
+         BACKGROUND is the separate "Always" upgrade. RECEIVE_BOOT +
          SCHEDULE_EXACT_ALARM re-arm geofences + fire known-future-instant reminders. Matched on-device;
          the live position never leaves the phone (ADR 0014). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -37,9 +39,10 @@
     <application
         android:name=".DayfoldApp"
         android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
         android:label="Dayfold"
-        android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:usesCleartextTraffic="false"
+        android:theme="@style/Theme.Dayfold.Starting">
         <activity
             android:name=".MainActivity"
             android:exported="true"

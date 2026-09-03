@@ -79,6 +79,8 @@ data class AccountViewState(
   val nameError: String?,
   val proximityEnabled: Boolean,
   val signOutBusy: Boolean,
+  val deleteAccountBusy: Boolean,
+  val deleteAccountError: String?,
 )
 
 fun accountViewState(state: AppState): AccountViewState = AccountViewState(
@@ -92,6 +94,8 @@ fun accountViewState(state: AppState): AccountViewState = AccountViewState(
   nameError = state.profile.nameError,
   proximityEnabled = state.notifications.config.enabled,
   signOutBusy = state.session.signOutBusy,
+  deleteAccountBusy = state.session.deleteAccountBusy,
+  deleteAccountError = state.session.deleteAccountError,
 )
 
 @Immutable

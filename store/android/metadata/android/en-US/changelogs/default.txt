@@ -1,0 +1,1 @@
+The first Dayfold release: a calm family briefing, shared event hubs, checklists, optional device-local reminders, and Google or Apple sign-in.

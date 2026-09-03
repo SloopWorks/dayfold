@@ -9,6 +9,14 @@ options:
     iOS: "15.0"
   createIntermediateGroups: true
 
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    exactVersion: 12.18.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    exactVersion: 9.2.0
+
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -20,15 +28,45 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseCore
+      - package: GoogleSignIn
+        product: GoogleSignIn
+    entitlements:
+      path: Dayfold.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
     info:
       path: Info.plist
       properties:
         CFBundleDisplayName: Dayfold
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         # Compose Multiplatform requires this on iOS or it aborts on first composition (high-refresh check).
         CADisableMinimumFrameDurationOnPhone: true
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.826284956186-oc85k29c0ln1en2a7j9tde5visiasd0f
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         NSLocationWhenInUseUsageDescription: "Dayfold uses your location on this device to notice when you arrive at a saved place, so it can surface the right reminder. Your live location never leaves the device."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Dayfold matches your saved places in the background so a place reminder can reach you even when the app is closed. The matching happens on this device; your live location is never uploaded."
         UIBackgroundModes:
@@ -37,35 +75,64 @@ targets:
           - processing
         BGTaskSchedulerPermittedIdentifiers:
           - com.sloopworks.dayfold.now.refresh
+        NSCameraUsageDescription: "Dayfold uses the camera only when you choose to scan a device authorization QR code."
+        NSCalendarsFullAccessUsageDescription: "Dayfold reads calendars you select so you can review plans before importing them into your family briefing. Raw calendar events stay on this device unless you choose to import an item."
+        NSCalendarsUsageDescription: "Dayfold reads calendars you select so you can review plans before importing them into your family briefing. Raw calendar events stay on this device unless you choose to import an item."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sloopworks.dayfold
+        DEVELOPMENT_TEAM: 2XAXFD3872
         TARGETED_DEVICE_FAMILY: "1,2"
-        # Simulator builds don't need signing; real-device signing is set up in S5 if available.
-        CODE_SIGNING_ALLOWED: NO
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
         # Static KMP framework: link it, do NOT embed.
         OTHER_LDFLAGS:
           - $(inherited)
+          - -ObjC
           - -framework
           - client
           - -lsqlite3   # touchlab/sqliter native driver links system sqlite3
-        FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]:
-          - $(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework
-        FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]:
-          - $(SRCROOT)/../ui/build/bin/iosArm64/debugFramework
+        FRAMEWORK_SEARCH_PATHS:
+          - $(SRCROOT)/build/KotlinFramework
+      configs:
+        Debug:
+          CODE_SIGNING_ALLOWED: NO
+        Release:
+          CODE_SIGNING_ALLOWED: YES
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: Dayfold App Store CI
     preBuildScripts:
       - name: "Build Kotlin :ui framework"
         basedOnDependencyAnalysis: false
         script: |
           set -e
           export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-          if [[ "$SDK_NAME" == iphonesimulator* ]]; then
-            TASK=linkDebugFrameworkIosSimulatorArm64
+          if [[ "$CONFIGURATION" == "Release" ]]; then
+            VARIANT=Release
+            # Kotlin/Native Release LTO exceeds the shared 4 GiB Gradle heap while
+            # devirtualizing the full Compose framework. Scope the larger heap to
+            # Apple Release links so Android and local debug builds keep their
+            # existing memory profile.
+            export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.jvmargs=-Xmx8g"
           else
-            TASK=linkDebugFrameworkIosArm64
+            VARIANT=Debug
+          fi
+          variant_lower=$(printf '%s' "$VARIANT" | tr '[:upper:]' '[:lower:]')
+          if [[ "$SDK_NAME" == iphonesimulator* ]]; then
+            TARGET=IosSimulatorArm64
+            SOURCE_DIR="ui/build/bin/iosSimulatorArm64/${variant_lower}Framework"
+          else
+            TARGET=IosArm64
+            SOURCE_DIR="ui/build/bin/iosArm64/${variant_lower}Framework"
           fi
           cd "$SRCROOT/.."
-          ./gradlew :ui:$TASK
+          ./gradlew ":ui:link${VARIANT}Framework${TARGET}"
+          rm -rf "$SRCROOT/build/KotlinFramework"
+          mkdir -p "$SRCROOT/build/KotlinFramework"
+          cp -R "$SOURCE_DIR/client.framework" "$SRCROOT/build/KotlinFramework/client.framework"
           # Copy Compose Multiplatform resources (fonts/images) into the app bundle. Reads the Xcode
           # env (BUILT_PRODUCTS_DIR / CONTENTS_FOLDER_PATH / CONFIGURATION / ARCHS) → syncs into the .app.
           ./gradlew :ui:syncComposeResourcesForIos

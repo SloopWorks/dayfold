@@ -289,6 +289,57 @@ class AuthEngine(
     signOutCurrentIdentity(context)
   }
 
+  suspend fun deleteAccount(afterRemoteDelete: suspend () -> Unit = {}) {
+    val context = coordinator.authSnapshot()
+    if (context == null) {
+      store.dispatch(DeleteAccountFailed("Sign in again to delete your account."))
+    } else {
+      deleteAccount(context, afterRemoteDelete)
+    }
+  }
+
+  /**
+   * Permanently closes the Dayfold account. The server is authoritative and runs
+   * first so a transfer-required conflict cannot destroy the provider identity.
+   * Once it succeeds, provider cleanup is best-effort and local terminal cleanup
+   * always commits because the Dayfold account is already gone.
+   */
+  internal suspend fun deleteAccount(
+    context: AuthSessionContext,
+    afterRemoteDelete: suspend () -> Unit = {},
+  ) {
+    if (!publish(context, DeleteAccountRequested)) return
+    try {
+      authorized(context) { accessToken -> authClient.deleteAccount(accessToken) }
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: AuthHttpException) {
+      val message = if (e.status == 409) {
+        "Transfer ownership of each family with other members before deleting your account."
+      } else {
+        "Couldn't delete your account. Try again."
+      }
+      publish(context, DeleteAccountFailed(message))
+      return
+    } catch (e: Exception) {
+      Log.w("auth", e) { "account deletion failed" }
+      publish(context, DeleteAccountFailed("Couldn't delete your account. Try again."))
+      return
+    }
+
+    try {
+      afterRemoteDelete()
+    } catch (e: CancellationException) {
+      // The server account no longer exists; complete local cleanup before
+      // propagating cancellation so stale tenant data cannot remain visible.
+      withContext(NonCancellable) { terminateSession(context, expired = false) }
+      throw e
+    } catch (e: Exception) {
+      Log.w("auth", e) { "provider cleanup after account deletion failed" }
+    }
+    terminateSession(context, expired = false)
+  }
+
   private suspend fun signOutCurrentIdentity(expected: AuthSessionContext? = null) {
     val invalidated = coordinator.invalidateAndCommit(expected?.identityEpoch) {
       store.dispatch(SignOutRequested)

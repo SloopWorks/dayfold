@@ -133,22 +133,28 @@ class Component extends DCLogic {
       onSurface:'#271814', onSurfaceVar:'#5A423C', outline:'#A98B84', outlineVar:'#E6D2CB',
       primary:'#C0381E', secondary:'#00796F', privacyFg:'#0B5048',
       markBg:'#FFDAD2', markFg:'#4E1000', markRule:'#C0381E',
+      fuzzyMarkBg:'#9DF2E4', fuzzyMarkFg:'#00201C', fuzzyMarkRule:'#00796F',
     };
     const dark = {
       surface:'#1A110E', surfaceContainer:'#271D1A', surfaceContainerHigh:'#322824',
       onSurface:'#F0DFDA', onSurfaceVar:'#D8C2BB', outline:'#A08D87', outlineVar:'#3D322E',
       primary:'#FFB4A3', secondary:'#50DBC9', privacyFg:'#A8F4E7',
       markBg:'#9A2A12', markFg:'#FFEDE8', markRule:'#FFB4A3',
+      fuzzyMarkBg:'#005048', fuzzyMarkFg:'#A8F4E7', fuzzyMarkRule:'#50DBC9',
     };
     const c = mode === 'dark' ? dark : light;
     // [bracketed] text is what the query actually matched — semantic rows carry none
     const MARK = { background:c.markBg, color:c.markFg, boxShadow:'inset 0 -2px 0 ' + c.markRule, borderRadius:'4px', padding:'0 1px' };
-    const hl = (s) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
+    const FUZZY_MARK = { background:c.fuzzyMarkBg, color:c.fuzzyMarkFg, boxShadow:'inset 0 -2px 0 ' + c.fuzzyMarkRule, borderRadius:'4px', padding:'0 1px' };
+    const hl = (s, style) => s.split(/(\[[^\]]*\])/g).filter((p) => p !== '').map((p, i) =>
       (p.charAt(0) === '[' && p.charAt(p.length - 1) === ']')
-        ? React.createElement('span', { key:i, style:MARK }, p.slice(1, -1))
+        ? React.createElement('span', { key:i, style:style }, p.slice(1, -1))
         : React.createElement(React.Fragment, { key:i }, p));
     const NOW = c.primary, HUB = c.secondary;
-    const row = (icon, glyphFg, title, bc, ex, label) => ({ icon, glyphFg, title: hl(title), bc: hl(bc), ex: hl(ex), hasLabel: !!label, label: label || '' });
+    const row = (icon, glyphFg, title, bc, ex, label) => {
+      const style = label === 'Close match' ? FUZZY_MARK : MARK;
+      return { icon, glyphFg, title: hl(title, style), bc: hl(bc, style), ex: hl(ex, style), hasLabel: !!label, label: label || '' };
+    };
     const withDividers = (rows) => rows.map((r, i) => ({ ...r, hasDivider: i < rows.length - 1 }));
 
     const boards = [

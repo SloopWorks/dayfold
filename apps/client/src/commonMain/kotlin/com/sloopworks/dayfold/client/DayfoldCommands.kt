@@ -56,6 +56,15 @@ class DayfoldCommands internal constructor(
     bindSelectedFamily()
   }
   override fun signOut() = launchIdentity { authEngine?.signOut(it) }
+  override fun deleteAccount() = deleteAccount(afterRemoteDelete = {})
+
+  /**
+   * Deletes the server account, then lets the host revoke/delete its native identity
+   * credential before the shared terminal cleanup clears the local session.
+   */
+  fun deleteAccount(afterRemoteDelete: suspend () -> Unit) = launchIdentity {
+    authEngine?.deleteAccount(it, afterRemoteDelete)
+  }
   override fun redeemInvite(token: String) = launchIdentity {
     authEngine?.redeemInvite(it, token)
     bindSelectedFamily()

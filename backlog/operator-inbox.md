@@ -16,6 +16,29 @@ Each item: question, context link, **proposed default**, urgency.
 
 ---
 
+- **INB-39 · 2026-09-01 · high · open — accept canonical temporal facts and
+  behavioral-trigger boundaries?** The Marching Band “Big Night” incident proved
+  the authoring process knew the schedule but independently wrote prose and a Hub
+  timeline, leaving the Block with `payload: null` and some operational times with
+  no typed representation. The cross-stack review also found old whole-resource
+  writers can erase unknown fields, card ACLs can widen on an omitted update, API
+  error reporting assumes parsed values are content-free, and iOS exact
+  notifications are not currently cancelled when desired schedules disappear.
+  **Proposed default: accept Proposed ADR 0067's direction, then implement its
+  staged prerequisites before any production temporal facet or repair.** This
+  accepts: material Dayfold-authored claims must be structured; multiple facts do
+  not imply triggers; the item-local `temporal` facet and same-item `fact_ref`
+  namespace are the V1 extension; existing Hub start/end stays timed-only rather
+  than coercing civil dates into `timestamptz`; server meaning stays content-
+  blind; and rollout must first close ACL/version, old-writer/outbox,
+  error-privacy, round-trip, and stale-notification gaps. It does **not**
+  authorize a schema deploy, content migration, Calendar write, notification, or
+  repair. Big Night remains a
+  separate full-JSON propose/confirm write after implementation, and its
+  conflicting 6:30/7:00 meeting time must be resolved rather than guessed.
+  Context: `adr/0067-canonical-temporal-facts-and-behavioral-triggers.md` and
+  `docs/superpowers/plans/2026-09-01-canonical-temporal-content.md`.
+
 - **INB-38 · 2026-08-10 · med · open — authorize the component-picker design
   pass?** `SloopWorks/debugdrawer` PR #1
   (WI-256) is merged + CI-green and declares the standalone repo the source of

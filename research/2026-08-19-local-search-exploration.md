@@ -189,6 +189,19 @@ large share of unrelated family prose. When the winning excerpt depends on that
 fallback, show **Close match** and highlight the actual matched target token.
 Never visually mark characters that are not present in the result.
 
+Current search practice supports the disclosure/ranking split: Algolia ranks
+zero-typo hits ahead of one- and two-typo hits and exposes typo count so custom
+UIs can decide whether and how to highlight them
+[fact:[Algolia typo-tolerance guidance](https://www.algolia.com/doc/guides/managing-results/optimize-search-results/typo-tolerance)]
+[fact:[Algolia typo-highlighting guidance](https://support.algolia.com/hc/en-us/articles/6558731269649-How-do-I-prevent-highlighting-results-with-typos)].
+Baymard's mobile testing likewise found that preserving useful corrected
+suggestions avoids forcing people to repair a query character by character
+[fact:[Baymard misspelling research](https://baymard.com/blog/offer-autocomplete-suggestions-for-misspellings)].
+Dayfold's operator-directed exploration therefore keeps the heading and label,
+but uses a secondary-teal wash/rule for the actual stored target word while
+exact matches remain coral. This is a Dayfold design synthesis, not a claimed
+industry-standard color mapping.
+
 ### Stable result order
 
 Suggested starting weights (implementation constants, not accepted product

@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeUIViewController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.reduxkotlin.compose.rememberSelectorStore
 import platform.Foundation.NSNotificationCenter
@@ -17,22 +18,29 @@ import platform.UIKit.UIApplicationState
 import platform.UIKit.UIApplicationWillResignActiveNotification
 import platform.UIKit.UIViewController
 
-// iOS entry — the SHARED FeedApp with the AUTH-S5 route gate. Session persists via
-// NSUserDefaults (IosTokenStore). The dev-token sign-in secret + a real API base
-// stay unset here (iOS run config is operator-gated on Mac/Xcode), so sign-in is
-// inert on-device this slice; the gate + onboarding UI + restore are all wired.
+/** Native Firebase/Apple authentication boundary implemented by the Swift host. */
+interface IosAuthHost {
+  fun signIn(provider: String, completion: (token: String?, error: String?) -> Unit)
+  fun prepareAccountDeletion(completion: (error: String?) -> Unit)
+  fun finishAccountDeletion(completion: (error: String?) -> Unit)
+}
+
+// iOS entry — the SHARED FeedApp with the AUTH-S5 route gate. Session persists in
+// the iOS Keychain (IosTokenStore); native provider UI returns Firebase ID tokens
+// through IosAuthHost and the shared engine performs the Dayfold exchange.
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)   // Platform.isDebugBinary (release-gate DevTools)
-fun MainViewController(): UIViewController {
+fun MainViewController(authHost: IosAuthHost? = null): UIViewController {
   // One runtime graph belongs to exactly one controller invocation. Keeping construction outside
   // composition prevents a disposed/recreated composition from silently creating a second graph.
   // The database remains process-global for foreground/headless single-writer coordination.
   val contentStore = IosContentStoreHolder.get()
   val graph = DayfoldRuntimeFactory(
-    api = "",
+    api = "https://family-ai-dashboard.vercel.app",
     contentStore = contentStore,
     tokenStore = IosTokenStore(),
     notificationContext = mainNotificationContext(),
     debug = kotlin.native.Platform.isDebugBinary,
+    calendarPort = IosCalendarPort(),
   ).create()
   // ADR 0020 R3 — register as soon as this runtime is live, mirroring the Android ViewModel's
   // RuntimeHandleHolder registration. A headless caller (the BGAppRefreshTask, same process) must
@@ -49,6 +57,7 @@ fun MainViewController(): UIViewController {
       graph = graph,
       contentStore = contentStore,
       runtimeHandleRegistration = runtimeHandleRegistration,
+      authHost = authHost,
     )
   }
 }
@@ -59,6 +68,7 @@ private fun IosControllerContent(
   graph: DayfoldRuntimeGraph,
   contentStore: ContentStore,
   runtimeHandleRegistration: suspend () -> Boolean,
+  authHost: IosAuthHost?,
 ) {
   // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
@@ -137,6 +147,9 @@ private fun IosControllerContent(
       // Re-read OS permission truth on every foreground (iOS has no notif permission-change broadcast;
       // the user may have toggled it in Settings while backgrounded). ADR 0044 §S3.
       locPerm.refresh(); notifPerm.refresh()
+      // EventKit authorization/events can change in Settings or Calendar while Dayfold is away.
+      // Disabled Calendar Check exits before reading events.
+      graph.commands.startCalendarCheck()
     }
     val pauseToken = nc.addObserverForName(
       name = UIApplicationWillResignActiveNotification,
@@ -165,12 +178,38 @@ private fun IosControllerContent(
     }
   }
   val selectorStore = rememberSelectorStore(store)
-  val stablePlatformActions = remember(actions, locPerm, notifPerm) {
+  val stablePlatformActions = remember(actions, locPerm, notifPerm, authHost, graph) {
     StablePlatformActions(
       platformActions = actions,
-      // Native provider UI is not implemented on iOS yet. A provider tap is therefore a no-op;
-      // importantly it cannot fall through into the debug-token path.
-      onSignIn = {},
+      onSignIn = { provider ->
+        authHost?.signIn(provider) { token, error ->
+          when {
+            token != null -> graph.commands.signIn(provider, token)
+            error != null -> graph.commands.dispatch(SignInFailed(error))
+          }
+        }
+      },
+      onDeleteAccount = {
+        if (authHost == null) {
+          graph.commands.deleteAccount()
+        } else {
+          store.dispatch(DeleteAccountRequested)
+          authHost.prepareAccountDeletion { preparationError ->
+            if (preparationError != null) {
+              store.dispatch(DeleteAccountFailed(preparationError))
+            } else {
+              graph.commands.deleteAccount {
+                suspendCancellableCoroutine { continuation ->
+                  authHost.finishAccountDeletion { cleanupError ->
+                    if (cleanupError == null) continuation.resume(Unit) { _, _, _ -> }
+                    else continuation.resumeWith(Result.failure(IllegalStateException(cleanupError)))
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       onDevSignIn = if (kotlin.native.Platform.isDebugBinary) graph.commands::devSignIn else null,
       onRequestProximityPermissions = { notifPerm.request(); locPerm.requestAlways() },
       onOpenAppSettings = locPerm::openOsSettings,
