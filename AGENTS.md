@@ -20,6 +20,10 @@ drifting out of sync.
   `backlog/next.md`; **operator decisions awaiting an answer:**
   `backlog/operator-inbox.md`.
 - **Decisions already made (don't re-litigate):** `adr/decisions-index.md`.
+- **Subagents (reviewers, verifiers, auditors) + when to use them:**
+  `processes/subagents.md`; definitions in `.claude/agents/` (Claude Code
+  loads them; other harnesses can paste an agent file's body as a fresh-context
+  system prompt). The review gate is the `two-round-review` skill.
 - **The `dayfold` CLI + curator skill** (the content-authoring surface):
   `apps/cli/templates/README.md` and `.agents/skills/dayfold-curator/` — one
   harness-neutral copy; `.claude/skills/dayfold-curator` symlinks to it, so edit

@@ -62,7 +62,8 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 |---|---|---|
 | `CLAUDE.md` | This file — session protocol, governance | Source of truth |
 | `AGENTS.md` | Thin pointer to this file, for agent tooling that looks for `AGENTS.md` by convention, plus a cold-agent orientation index | Redirect only — no restated policy |
-| `.agents/skills/` | Agent skills, harness-neutral (Codex's repo skills root). `dayfold-curator` — the content-authoring skill — lives here; `.claude/skills/dayfold-curator` is a symlink to it, so **edit only the `.agents/` copy** | Source of truth for skill content |
+| `.agents/skills/` | Agent skills, harness-neutral (Codex's repo skills root). `dayfold-curator` (content authoring) and `two-round-review` (the review gate as one command) live here; `.claude/skills/*` are symlinks to them, so **edit only the `.agents/` copy** | Source of truth for skill content |
+| `.claude/` | Claude Code project config: `agents/` (the subagent roster — reviewers, verifiers, auditors, fleet roles; documented in `processes/subagents.md`), `settings.json` (permission allowlist + the edit-guard hook), `skills/` (symlinks into `.agents/skills/`). User-level counterparts (`~/.claude/agents/`) are sourced from `processes/claude-home/` | Source of truth for harness config |
 | `adr/` | Decision records + `decisions-index.md` | Source of truth (immutable once Accepted) |
 | `context/` | Values & direction (operator-owned), constitution, goals/constraints, kill switches, open questions, operating lessons | Source of truth |
 | `planning/` | Waterfall workstream board the loop executes | Live working state |
@@ -112,7 +113,8 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
 
 - **Adversarial review by default.** Plans, specs, and research syntheses
   get two rounds of adversarial review (round 1 correctness, round 2
-  optimization/simplification) before acceptance. Research claims require
+  optimization/simplification) before acceptance — run it as
+  `/two-round-review` (reviewer subagents: `processes/subagents.md`). Research claims require
   citations labeled `[fact:source]` / `[estimate]` / `[assumption]`.
 - **Confidence protocol** (ADR 0003; canonical table:
   `processes/planning-loop.md` §3): HIGH → agent decides + records;

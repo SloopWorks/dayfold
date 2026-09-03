@@ -7,6 +7,13 @@ everything below except the resume notes still applies. Agents get web
 access and read repo files by absolute path. Always: ground-truth block,
 citation rules, structured schema, archive raw outputs after.
 
+Two fleet roles exist as named subagents so a fleet can be assembled from
+`Agent(subagent_type=…)` calls without re-pasting prompts: `research-verifier`
+(the CITE block + verification schema, one agent per claim domain) and
+`viability-skeptic` (`adversarial:skeptic`). `adversarial:strategist` stays a
+prompt below — it needs the operator's live inputs each time. Roster:
+`processes/subagents.md`.
+
 ## Shared blocks (paste into every fleet)
 
 ```text
@@ -72,6 +79,11 @@ slip PDFs, Google Scholar (`as_sdt=2006` for case law), CourtListener
 statutes at official legislature sites, archive.org for dead vendor pages.
 
 ## 3. Two-round adversarial review (any plan/spec/playbook)
+
+One command: `/two-round-review <target>` (skill) — it runs the two agents
+below (`adversarial-reviewer`, `simplification-reviewer`) plus the
+surface-specific reviewers, and records the outcome. The mechanics, for any
+harness:
 
 Sequential, fresh context each round, never the author:
 

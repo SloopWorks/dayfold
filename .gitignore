@@ -28,3 +28,11 @@ apps/androidApp/google-services.json
 
 # rk snapshot batch/dashboard output (regenerate: agent-dev-loop.md "Golden dashboard")
 apps/ui/.rk-snapshots/
+
+# Claude Code local state. The COMMITTED harness config is .claude/settings.json,
+# .claude/agents/ and .claude/skills/ (see processes/subagents.md); these are per-machine.
+.claude/settings.local.json
+.claude/agent-memory-local/
+.claude/worktrees/
+# rk devtools capture output (processes/agent-dev-loop.md "Observe the redux loop")
+.rk-devtools/
