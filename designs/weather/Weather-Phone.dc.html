@@ -239,7 +239,7 @@ class Component extends DCLogic {
     // DERIVED family — the weather chip lives here. Not the privacy family: a
     // forecast fetch leaves the device, so the teal "never leaves" promise
     // would be a false claim. Not the provenance family either: no author
-    // wrote this. It is a computed reason, exactly like "Pickup at 3:00".
+    // wrote this. It is a computed reason, exactly like "Pickup at 3:00 PM".
     const derivedChip = (icon, text) => chip(icon, text, c.surfaceContainerHigh, c.onSurfaceVar);
     const provClaude = chip('auto_awesome', 'Added by Claude', c.provBg, c.provFg, { border:'1px solid '+c.provBorder });
     const provEmail  = chip('mail', 'From your email', c.provBg, c.provFg, { border:'1px solid '+c.provBorder });
@@ -283,7 +283,7 @@ class Component extends DCLogic {
       footer:[ provEmail ],
     });
     const pickup = () => card({
-      chips: [ derivedChip('schedule', 'Pickup at 3:00') ],
+      chips: [ derivedChip('schedule', 'Pickup at 3:00 PM') ],
       title:'Leo from soccer at Riverside', body:"Leave by 2:40 — it's about 8 minutes away.",
       actText:'Open day', footer:[ onDevice ],
     });
