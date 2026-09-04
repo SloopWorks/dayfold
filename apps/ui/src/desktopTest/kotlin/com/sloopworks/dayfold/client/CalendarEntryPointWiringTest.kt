@@ -22,6 +22,7 @@ class CalendarEntryPointWiringTest {
     activeFamily = null, pendingApprovalCount = 0, displayName = "Zoe", avatarColor = null,
     avatarRef = null, avatarBusy = false, avatarError = null, nameError = null,
     proximityEnabled = false, signOutBusy = false, calendarCheckEnabled = false,
+    deleteAccountBusy = false, deleteAccountError = null,
   )
 
   @Test fun theSettingsRowIsAlwaysAvailable() = runComposeUiTest {

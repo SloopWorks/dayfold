@@ -12,6 +12,7 @@ interface StablePlatformActions {
   fun perform(action: CardAction)
   fun openUri(uri: String)
   fun signIn(provider: String)
+  fun deleteAccount()
   fun devSignIn()
   fun openAppSettings()
   fun requestProximityPermissions()
@@ -20,6 +21,7 @@ interface StablePlatformActions {
     /** A deterministic platform seam for previews and tests. */
     fun noOp(
       onSignIn: (String) -> Unit = {},
+      onDeleteAccount: () -> Unit = {},
       onDevSignIn: (() -> Unit)? = null,
       onOpenAppSettings: () -> Unit = {},
       onRequestProximityPermissions: () -> Unit = {},
@@ -29,6 +31,7 @@ interface StablePlatformActions {
       onPerform = onPerform,
       onOpenUri = onOpenUri,
       onSignIn = onSignIn,
+      onDeleteAccount = onDeleteAccount,
       onDevSignIn = onDevSignIn,
       onOpenAppSettings = onOpenAppSettings,
       onRequestProximityPermissions = onRequestProximityPermissions,
@@ -40,6 +43,7 @@ interface StablePlatformActions {
 fun StablePlatformActions(
   platformActions: PlatformActions,
   onSignIn: (String) -> Unit = {},
+  onDeleteAccount: () -> Unit = {},
   onDevSignIn: (() -> Unit)? = null,
   onOpenAppSettings: () -> Unit = {},
   onRequestProximityPermissions: () -> Unit = {},
@@ -47,6 +51,7 @@ fun StablePlatformActions(
   onPerform = platformActions::perform,
   onOpenUri = platformActions::openUri,
   onSignIn = onSignIn,
+  onDeleteAccount = onDeleteAccount,
   onDevSignIn = onDevSignIn,
   onOpenAppSettings = onOpenAppSettings,
   onRequestProximityPermissions = onRequestProximityPermissions,
@@ -56,6 +61,7 @@ private class RuntimeStablePlatformActions(
   private val onPerform: (CardAction) -> Unit,
   private val onOpenUri: (String) -> Unit,
   private val onSignIn: (String) -> Unit,
+  private val onDeleteAccount: () -> Unit,
   private val onDevSignIn: (() -> Unit)?,
   private val onOpenAppSettings: () -> Unit,
   private val onRequestProximityPermissions: () -> Unit,
@@ -65,6 +71,7 @@ private class RuntimeStablePlatformActions(
   override fun perform(action: CardAction) = onPerform(action)
   override fun openUri(uri: String) = onOpenUri(uri)
   override fun signIn(provider: String) = onSignIn(provider)
+  override fun deleteAccount() = onDeleteAccount()
   override fun devSignIn() { onDevSignIn?.invoke() }
   override fun openAppSettings() = onOpenAppSettings()
   override fun requestProximityPermissions() = onRequestProximityPermissions()

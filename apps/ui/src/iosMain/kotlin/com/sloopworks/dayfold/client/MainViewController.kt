@@ -9,6 +9,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.sloopworks.dayfold.client.fake.fakeClientForApi
 import com.sloopworks.dayfold.client.fake.initialStateForFakeScenario
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.reduxkotlin.compose.rememberSelectorStore
 import platform.Foundation.NSNotificationCenter
@@ -19,12 +20,20 @@ import platform.UIKit.UIApplicationState
 import platform.UIKit.UIApplicationWillResignActiveNotification
 import platform.UIKit.UIViewController
 
-// iOS entry — the SHARED FeedApp with the AUTH-S5 route gate. Session persists via
-// NSUserDefaults (IosTokenStore). Release keeps the real API base operator-gated;
-// DEBUG uses the same deterministic busy-family backend as Android's “Dev sign-in
-// (fake)” affordance so that the labelled action is functional on the simulator.
+/** Native Firebase/Apple authentication boundary implemented by the Swift host. */
+interface IosAuthHost {
+  fun signIn(provider: String, completion: (token: String?, error: String?) -> Unit)
+  fun prepareAccountDeletion(completion: (error: String?) -> Unit)
+  fun finishAccountDeletion(completion: (error: String?) -> Unit)
+}
+
+// iOS entry — the SHARED FeedApp with the AUTH-S5 route gate. Session persists in the
+// iOS Keychain (IosTokenStore). Native provider UI returns Firebase ID tokens through
+// IosAuthHost and the shared engine performs the Dayfold exchange. DEBUG uses the same
+// deterministic busy-family backend as Android's “Dev sign-in (fake)” affordance so
+// that the labelled action is functional on the simulator.
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)   // Platform.isDebugBinary (release-gate DevTools)
-fun MainViewController(): UIViewController {
+fun MainViewController(authHost: IosAuthHost? = null): UIViewController {
   // One runtime graph belongs to exactly one controller invocation. Keeping construction outside
   // composition prevents a disposed/recreated composition from silently creating a second graph.
   // The database remains process-global for foreground/headless single-writer coordination.
@@ -38,7 +47,7 @@ fun MainViewController(): UIViewController {
   IosNotificationContentStoreHolder.select(contentStore)
   val clearFamilyNotifications = IosNotifGlue::clearFamilyNotificationState
   val graph = DayfoldRuntimeFactory(
-    api = if (fakeHttp != null) "http://fake.local" else "",
+    api = if (fakeHttp != null) "http://fake.local" else "https://family-ai-dashboard.vercel.app",
     contentStore = contentStore,
     tokenStore = IosTokenStore(key = if (usingFake) "dayfold_debug_fake_session" else "dayfold_session"),
     notificationContext = mainNotificationContext(),
@@ -70,6 +79,7 @@ fun MainViewController(): UIViewController {
       resetFakeContent = usingFake,
       usingFake = usingFake,
       clearFamilyNotifications = clearFamilyNotifications,
+      authHost = authHost,
     )
   }
 }
@@ -83,6 +93,7 @@ private fun IosControllerContent(
   resetFakeContent: Boolean,
   usingFake: Boolean,
   clearFamilyNotifications: () -> Unit,
+  authHost: IosAuthHost?,
 ) {
   // debug=false in release → no redux DevTools enhancer + no action-log middleware (each serializes the
   // full AppState per dispatch; both are dev-only). Was defaulting to true in all builds.
@@ -191,6 +202,8 @@ private fun IosControllerContent(
       // Re-read OS permission truth on every foreground (iOS has no notif permission-change broadcast;
       // the user may have toggled it in Settings while backgrounded). ADR 0044 §S3.
       locPerm.refresh(); notifPerm.refresh()
+      // EventKit authorization/events can change in Settings or Calendar while Dayfold is away.
+      // Disabled Calendar Check exits before reading events.
       graph.commands.startCalendarCheck()
     }
     val pauseToken = nc.addObserverForName(
@@ -220,14 +233,40 @@ private fun IosControllerContent(
     }
   }
   val selectorStore = rememberSelectorStore(store)
-  val stablePlatformActions = remember(actions, locPerm, notifPerm, usingFake) {
+  val stablePlatformActions = remember(actions, locPerm, notifPerm, authHost, graph, usingFake) {
     StablePlatformActions(
       platformActions = actions,
-      // Native provider UI is not implemented on iOS yet. A provider tap is therefore a no-op;
-      // importantly it cannot fall through into the debug-token path.
-      onSignIn = {},
-      // iosArm64 intentionally has no fake transport and no configured production API yet. Hiding
-      // this affordance there prevents a labelled sign-in action that can only fail/no-op.
+      onSignIn = { provider ->
+        authHost?.signIn(provider) { token, error ->
+          when {
+            token != null -> graph.commands.signIn(provider, token)
+            error != null -> graph.commands.dispatch(SignInFailed(error))
+          }
+        }
+      },
+      onDeleteAccount = {
+        if (authHost == null) {
+          graph.commands.deleteAccount()
+        } else {
+          store.dispatch(DeleteAccountRequested)
+          authHost.prepareAccountDeletion { preparationError ->
+            if (preparationError != null) {
+              store.dispatch(DeleteAccountFailed(preparationError))
+            } else {
+              graph.commands.deleteAccount {
+                suspendCancellableCoroutine { continuation ->
+                  authHost.finishAccountDeletion { cleanupError ->
+                    if (cleanupError == null) continuation.resume(Unit) { _, _, _ -> }
+                    else continuation.resumeWith(Result.failure(IllegalStateException(cleanupError)))
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      // Only the DEBUG fake transport can honour a dev sign-in; hiding the affordance elsewhere
+      // prevents a labelled sign-in action that can only fail/no-op.
       onDevSignIn = graph.commands::devSignIn.takeIf { usingFake },
       onRequestProximityPermissions = { notifPerm.request(); locPerm.requestAlways() },
       onOpenAppSettings = locPerm::openOsSettings,

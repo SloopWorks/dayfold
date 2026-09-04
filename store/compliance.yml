@@ -1,0 +1,96 @@
+version: 1
+last_reviewed: 2026-08-19
+operator_attestation_required: true
+
+audience:
+  intended_age: 14+
+  children_directed: false
+  notes: "Minor-account policy remains governed by ADR 0005 and counsel review; do not select a children-directed store category."
+
+business_model:
+  price: free
+  advertising: false
+  in_app_purchases: false
+
+permissions:
+  camera:
+    purpose: "Scan a Dayfold device authorization QR code."
+    optional: true
+  precise_location:
+    purpose: "Match an explicitly saved place for an on-device reminder."
+    optional: true
+    transmitted_off_device: false
+  background_location:
+    purpose: "Deliver an opted-in saved-place reminder while the app is closed."
+    optional: true
+    transmitted_off_device: false
+  calendar_read:
+    purpose: "Compare selected calendars on device and let the user review an import."
+    optional: true
+    raw_calendar_transmitted: false
+  notifications:
+    purpose: "Deliver device-local reminders."
+    optional: true
+
+data_categories:
+  name:
+    collected: true
+    linked_to_user: true
+    purposes: [app_functionality, account_management]
+  account_identifiers:
+    collected: true
+    linked_to_user: true
+    purposes: [app_functionality, account_management, security]
+  email_address:
+    collected: true
+    linked_to_user: true
+    purposes: [authentication, account_management]
+  user_content:
+    collected: true
+    linked_to_user: true
+    purposes: [app_functionality]
+    includes_structured_contact_fields: [name, email_address, phone_number, physical_address]
+    includes_email_or_text_content: true
+  precise_live_location:
+    collected: false
+    note: "Processed only on device and never transmitted."
+  saved_place_location:
+    collected: true
+    linked_to_user: true
+    purposes: [app_functionality]
+    note: "Coordinates for a place the user explicitly saves are shared family content; they are distinct from the device's live position."
+  calendar_events:
+    collected: false
+    note: "Raw events stay on device; a reviewed import becomes user content."
+  diagnostics:
+    collected: true
+    linked_to_user: false
+    purposes: [app_functionality, security]
+    note: "Hosted-service technical error metadata only; no advertising analytics in release mobile binaries."
+
+sharing:
+  sold: false
+  advertising: false
+  service_providers_only: true
+
+account_deletion:
+  available_in_app: true
+  path: "Account > Delete account"
+  privacy_url: "https://family-ai-dashboard.vercel.app/privacy"
+
+apple:
+  uses_encryption: true
+  exempt_non_proprietary_https_only: true
+  sign_in_with_apple: true
+  tracking: false
+
+google_play:
+  ads: false
+  ai_generated_store_assets:
+    declared: true
+    labeled_assets: [app_icon, feature_graphic, phone_screenshots]
+    source: "Claude Design outputs rendered by the checked-in deterministic asset generator."
+  app_access_restricted: true
+  reviewer_account_required: true
+  content_rating: "Operator must complete IARC questionnaire."
+  target_audience: "Operator must confirm 14+ posture against ADR 0005/counsel."

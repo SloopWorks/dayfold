@@ -44,6 +44,49 @@ app.use("*", swipErrors());
 // Liveness — no auth, no DB (isolates routing/cold-start from the DB path).
 app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
 
+const legalPage = (title: string, updated: string, body: string) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} · Dayfold</title><style>
+:root{color-scheme:light dark;font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff8f6;color:#271814}
+body{margin:0}.wrap{max-width:720px;margin:auto;padding:48px 24px 72px}a{color:#a52f1a}h1{font-size:2.25rem;line-height:1.1;margin:.25rem 0}h2{margin-top:2rem}p,li{font-size:1rem;line-height:1.65}.eyebrow{color:#8a5044;font-weight:700}.updated{color:#6e5b55}.card{background:#fcebe6;border-radius:20px;padding:18px 22px;margin:24px 0}
+@media(prefers-color-scheme:dark){:root{background:#1a110e;color:#f0dfda}a{color:#ffb4a3}.eyebrow,.updated{color:#cbb5ae}.card{background:#271d1a}}
+</style></head><body><main class="wrap"><p class="eyebrow">DAYFOLD</p><h1>${title}</h1><p class="updated">Last updated ${updated}</p>${body}</main></body></html>`;
+
+app.get("/privacy", (c) => c.html(legalPage("Privacy Policy", "August 19, 2026", `
+<div class="card"><strong>In brief:</strong> Dayfold uses your information to provide a private family briefing. We do not sell personal information, show ads, or use family content to train advertising models.</div>
+<h2>Information Dayfold handles</h2>
+<ul><li><strong>Account and profile:</strong> a Firebase user identifier, sign-in provider, verified-email status, display name, and optional avatar choices.</li>
+<li><strong>Family content:</strong> family membership, cards, hubs, checklists, saved places, responses, and content you choose to import or share.</li>
+<li><strong>Security and operations:</strong> session/device records, timestamps, IP address and user-agent information used for abuse prevention, account security, and reliable operation.</li>
+<li><strong>Diagnostics:</strong> limited technical error metadata from the hosted service. Dayfold's production mobile app does not include advertising analytics.</li></ul>
+<h2>Location and calendars</h2>
+<p>Precise live location used for proximity reminders is matched on your device and is not uploaded. A saved place name or coordinate that you explicitly add is family content and may sync. Calendar access is optional. Raw calendar events stay on your device; only an item you explicitly review and import becomes Dayfold family content.</p>
+<h2>How information is used and shared</h2>
+<p>We use information to authenticate you, synchronize the family content you are allowed to see, deliver device-local reminders, secure the service, and resolve failures. Information is processed by service providers that host authentication and infrastructure, including Firebase, Vercel, and the database and error-monitoring providers used by Dayfold. We do not sell or rent personal information.</p>
+<h2>Retention and deletion</h2>
+<p>You can delete your account in Dayfold under <strong>Account → Delete account</strong>. If you are the only owner of a family with other members, you must transfer ownership first. Deletion immediately removes your sign-in identities and profile fields, removes your family memberships, revokes credentials, and clears local app data. Shared family content may remain for the other family members; security and relational records may retain an opaque identifier where required for integrity, legal obligations, or abuse prevention.</p>
+<h2>Your choices</h2>
+<p>Location, notifications, and calendar access are optional and can be changed in system settings. You may request an export from the authenticated account API or ask for help with access, correction, export, or deletion.</p>
+<h2>Contact</h2>
+<p>Privacy questions can be sent to <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20privacy">patjackson52@gmail.com</a>. Dayfold is operated by SloopWorks LLC in the United States.</p>
+`)));
+
+app.get("/support", (c) => c.html(legalPage("Support", "August 19, 2026", `
+<div class="card">For help with Dayfold, email <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20support">patjackson52@gmail.com</a>.</div>
+<h2>Before contacting support</h2><ul><li>Include your device type and app version.</li><li>Describe what you expected and what happened.</li><li>Do not send passwords, sign-in tokens, private family content, or precise location data.</li></ul>
+<h2>Account deletion</h2><p>Open Dayfold, go to <strong>Account</strong>, and choose <strong>Delete account</strong>. Owners may need to transfer a family to another member first.</p>
+<h2>Non-sensitive bugs</h2><p>You can also use the public <a href="https://github.com/SloopWorks/dayfold/issues">Dayfold issue tracker</a>. Do not post personal or family information there.</p>
+<p><a href="/privacy">Privacy Policy</a></p>
+`)));
+
+app.get("/terms", (c) => c.html(legalPage("Terms of Use", "August 19, 2026", `
+<p>Dayfold is a family briefing service provided by SloopWorks LLC. By using it, you agree to use the service lawfully, protect access to your account, and share content only when you have the right to do so.</p>
+<h2>Family content</h2><p>You retain rights in content you provide. You grant Dayfold the limited permission needed to host, process, synchronize, and display that content to authorized family members.</p>
+<h2>Availability</h2><p>The service is provided as available. Features may change, and uninterrupted operation is not guaranteed. Dayfold is not an emergency, medical, legal, safety, or child-monitoring service.</p>
+<h2>Accounts</h2><p>You may stop using Dayfold at any time and delete your account in the app. We may suspend abusive or unlawful use when necessary to protect people or the service.</p>
+<h2>Contact</h2><p>Questions can be sent to <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20terms">patjackson52@gmail.com</a>.</p>
+`)));
+
 // Error-pillar smoke routes. GATED exactly like /auth/dev-token (`devAuthAllowed`
 // below): opt-in env AND never in a deployed environment (production/preview refuse).
 // They exist so the flush can be PROVEN end-to-end against the real Sentry + PostHog
@@ -356,13 +399,13 @@ app.delete("/auth/me/credentials/:id", async (c) => {
   return c.body(null, 204);
 });
 
-// Soft-delete the caller's account (operator-chosen: soft). Guarded by the
+// Soft-delete the caller's relational account record. Guarded by the
 // ADR-0011 last-owner invariant: a SOLE active owner of a family that still has
 // OTHER active members must transfer ownership first (→ 409 transfer-required;
-// promote a member via /members/:uid:promote). Otherwise: mark users.deleted_at,
-// drop the user's memberships to 'removed', and revoke ALL their credentials
-// (every session/CLI dies on its next request via the not-revoked gate). A purge
-// job hard-deletes later. Apple revokeToken folds in at S2 (Apple not built yet).
+// promote a member via /members/:uid:promote). Otherwise: erase provider identities
+// and profile fields, mark users.deleted_at, drop memberships to 'removed', and
+// delete ALL credentials (refresh tokens cascade). Shared-family content remains
+// for surviving members and retains only the caller's opaque relational id.
 app.delete("/auth/me", async (c) => {
   const rc = await requireCred(c); if ("status" in rc) return c.body(null, rc.status);
   const { sub } = rc;
@@ -375,9 +418,11 @@ app.delete("/auth/me", async (c) => {
     [sub]);
   if (blocked.rowCount && blocked.rowCount > 0)
     return c.json({ type: "transfer-required", families: blocked.rows }, 409);
-  await q(`UPDATE users SET deleted_at=now() WHERE id=$1 AND deleted_at IS NULL`, [sub]);
+  await q(`DELETE FROM user_identities WHERE user_id=$1`, [sub]);
+  await q(`UPDATE users SET display_name=NULL, avatar_color=NULL, avatar_ref=NULL, deleted_at=now(), updated_at=now()
+             WHERE id=$1 AND deleted_at IS NULL`, [sub]);
   await q(`UPDATE memberships SET status='removed', updated_at=now() WHERE user_id=$1 AND status<>'removed'`, [sub]);
-  await q(`UPDATE credentials SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [sub]);
+  await q(`DELETE FROM credentials WHERE user_id=$1`, [sub]);
   audit("account.soft_delete", { actorUserId: sub });
   return c.body(null, 204);
 });
@@ -418,8 +463,9 @@ app.get("/.well-known/assetlinks.json", (c) => {
 });
 
 app.get("/.well-known/apple-app-site-association", (c) => {
-  // APPLE_APP_ID = "<TeamID>.<bundleId>" — placeholder until the iOS host ships.
-  const appID = process.env.APPLE_APP_ID || "TEAMID.com.sloopworks.dayfold";
+  // APPLE_APP_ID = "<TeamID>.<bundleId>". The checked-in fallback is the
+  // non-secret production identity; env remains available for a future fork.
+  const appID = process.env.APPLE_APP_ID || "2XAXFD3872.com.sloopworks.dayfold";
   c.header("content-type", "application/json");   // AASA must be application/json, no extension
   c.header("cache-control", "public, max-age=300");
   return c.json({ applinks: { apps: [], details: [{ appID, paths: ["/device", "/device?*", "/invite/*"] }] } });
