@@ -147,6 +147,12 @@ class AuthClient(
     resp.requireStatus("signout", 200..204)
   }
 
+  /** DELETE /auth/me — permanently closes the caller's Dayfold account. */
+  suspend fun deleteAccount(access: String) {
+    val resp = http.delete("$api/auth/me") { header("authorization", "Bearer $access") }
+    resp.requireStatus("delete-account", 200..204)
+  }
+
   /**
    * POST /invites:redeem (Bearer access) — claim an invite token. Success creates
    * a PENDING membership (every invite is owner-approved, ADR 0011) → the invitee

@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
     DebugDrawer.install(
       DebugDrawerConfig(
         buildInfo = BuildInfo(
-          version = BuildConfig.VERSION_NAME ?: "dev",
+          version = BuildConfig.VERSION_NAME,
           build = BuildConfig.VERSION_CODE.toString(),
           buildType = if (BuildConfig.DEBUG) "debug" else "release",
         ),
@@ -385,6 +385,7 @@ class MainActivity : ComponentActivity() {
             }
           },
           onDevSignIn = if (BuildConfig.DEBUG) runtimeViewModel.commands::devSignIn else null,
+          onDeleteAccount = runtimeViewModel.commands::deleteAccount,
           onRequestProximityPermissions = ::requestProximityPermissions,
         )
       }

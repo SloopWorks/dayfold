@@ -1,5 +1,7 @@
 import SwiftUI
 import BackgroundTasks
+import FirebaseCore
+import GoogleSignIn
 import client
 
 // ADR 0044 Phase B — the iOS app host. Renders the shared Compose MainViewController; installs the
@@ -11,7 +13,7 @@ struct DayfoldApp: App {
   @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
   var body: some Scene {
     WindowGroup {
-      ContentView().ignoresSafeArea()
+      ContentView(authHost: appDelegate.authCoordinator).ignoresSafeArea()
     }
   }
 }
@@ -19,11 +21,13 @@ struct DayfoldApp: App {
 final class AppDelegate: NSObject, UIApplicationDelegate {
   // Must match Info.plist BGTaskSchedulerPermittedIdentifiers.
   private let bgTaskId = "com.sloopworks.dayfold.now.refresh"
+  let authCoordinator = AuthCoordinator()
 
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    FirebaseApp.configure()
     // ADR 0020 R3 — the BGTask now also drives the headless refresh pass (sync + reconcile), not
     // reconcile alone. register() MUST happen before didFinishLaunching returns.
     BGTaskScheduler.shared.register(forTaskWithIdentifier: bgTaskId, using: nil) { [weak self] task in
@@ -62,6 +66,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
     #endif
     return true
+  }
+
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    GIDSignIn.sharedInstance.handle(url)
   }
 
   func applicationDidEnterBackground(_ application: UIApplication) {

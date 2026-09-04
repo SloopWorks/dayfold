@@ -8,10 +8,10 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../node_modules/@sloopworks/swip-js/src/types.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/types.ts
 var PESSIMISTIC_CONSENT;
 var init_types = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/types.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/types.ts"() {
     PESSIMISTIC_CONSENT = {
       analytics: "unknown",
       telemetry: "unknown",
@@ -20,7 +20,7 @@ var init_types = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/ulid.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/ulid.ts
 function defaultFillRandom(bytes) {
   crypto.getRandomValues(bytes);
 }
@@ -59,15 +59,15 @@ function makeUlidFactory(deps) {
 }
 var B32;
 var init_ulid = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/ulid.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/ulid.ts"() {
     B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/pipeline.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/pipeline.ts
 var Pipeline;
 var init_pipeline = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/pipeline.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/pipeline.ts"() {
     init_types();
     Pipeline = class {
       #opts;
@@ -509,10 +509,10 @@ var init_pipeline = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/coordinator.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/coordinator.ts
 var FlushCoordinator;
 var init_coordinator = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/coordinator.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/coordinator.ts"() {
     FlushCoordinator = class {
       #flushables = /* @__PURE__ */ new Set();
       #windowUntil = 0;
@@ -539,10 +539,10 @@ var init_coordinator = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/analytics.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/analytics.ts
 var MemoryStorage, KEY_INSTALLATION, KEY_DISTINCT, KEY_SESSION, SESSION_BACKGROUND_ROTATE_MS, SESSION_MAX_MS, SwipAnalytics;
 var init_analytics = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/analytics.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/analytics.ts"() {
     init_pipeline();
     MemoryStorage = class {
       map = /* @__PURE__ */ new Map();
@@ -772,7 +772,7 @@ var init_analytics = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/murmur3.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/murmur3.ts
 function murmur3_32(input, seed = 0) {
   const data = encoder.encode(input);
   const nblocks = data.length >>> 2;
@@ -810,12 +810,12 @@ function murmur3_32(input, seed = 0) {
 }
 var encoder;
 var init_murmur3 = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/murmur3.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/murmur3.ts"() {
     encoder = new TextEncoder();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/bucketing.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/bucketing.ts
 function bucketOf(salt, unitId) {
   return murmur3_32(`${salt}.${unitId}`, 0) % 1e4;
 }
@@ -833,12 +833,12 @@ function multivariateVariant(bucket, weights) {
   return last;
 }
 var init_bucketing = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/bucketing.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/bucketing.ts"() {
     init_murmur3();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/semver.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/semver.ts
 function segments(version) {
   const core = version.split(/[+-]/, 1)[0];
   return core.split(".").map((s) => Number.parseInt(s, 10) || 0);
@@ -873,12 +873,12 @@ function satisfiesVersion(version, range) {
 }
 var RANGE_RE;
 var init_semver = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/semver.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/semver.ts"() {
     RANGE_RE = /^(>=|<=|>|<|=)?\s*(.+)$/;
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/evaluate.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/evaluate.ts
 function attrValue(context, attr) {
   if (attr === "platform") return context.platform;
   if (attr === "app_version") return context.appVersion;
@@ -1000,14 +1000,14 @@ function evaluateKey(spec, context, options = {}) {
 }
 var VERSION_ATTRS;
 var init_evaluate = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/evaluate.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/evaluate.ts"() {
     init_bucketing();
     init_semver();
     VERSION_ATTRS = /* @__PURE__ */ new Set(["app_version", "os_version"]);
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/duration.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/duration.ts
 function parseDuration(value) {
   const match = DURATION_RE.exec(value.trim());
   if (!match) throw new Error(`invalid duration: ${JSON.stringify(value)}`);
@@ -1015,13 +1015,13 @@ function parseDuration(value) {
 }
 var DURATION_RE, UNIT_MS;
 var init_duration = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/duration.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/duration.ts"() {
     DURATION_RE = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/;
     UNIT_MS = { ms: 1, s: 1e3, m: 6e4, h: 36e5, d: 864e5 };
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/key.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/key.ts
 function extractTyped(type, r) {
   const { value } = r;
   switch (type) {
@@ -1042,15 +1042,15 @@ function extractTyped(type, r) {
   return value;
 }
 var init_key = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/key.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/key.ts"() {
     init_duration();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config/facade.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config/facade.ts
 var KEY_EXPOSURES, SwipConfig;
 var init_facade = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config/facade.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config/facade.ts"() {
     init_evaluate();
     init_key();
     KEY_EXPOSURES = "swip.exposures";
@@ -1188,10 +1188,10 @@ var init_facade = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts
 var NoOpCrashReporter;
 var init_crash_reporter = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/crash-reporter.ts"() {
     NoOpCrashReporter = {
       capture() {
       },
@@ -1203,10 +1203,10 @@ var init_crash_reporter = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/facade.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/facade.ts
 var NoOpErrors;
 var init_facade2 = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/facade.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/facade.ts"() {
     init_crash_reporter();
     NoOpErrors = {
       record() {
@@ -1224,7 +1224,7 @@ var init_facade2 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts
 function makeTraceparent(traceId, spanId, sampled) {
   return `00-${traceId}-${spanId}-${sampled ? "01" : "00"}`;
 }
@@ -1245,15 +1245,15 @@ function isSampledByRatio(traceId, ratio) {
 }
 var TRACEPARENT_RE;
 var init_traceparent = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/telemetry/traceparent.ts"() {
     TRACEPARENT_RE = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/telemetry/facade.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/telemetry/facade.ts
 var InMemoryExporter, SwipTelemetry;
 var init_facade3 = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/telemetry/facade.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/telemetry/facade.ts"() {
     init_traceparent();
     InMemoryExporter = class {
       spans = [];
@@ -1387,10 +1387,10 @@ var init_facade3 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/transports.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/transports.ts
 var NoOpTransport, InMemoryTransport, MultiTransport;
 var init_transports = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/transports.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/transports.ts"() {
     NoOpTransport = class {
       async send(_batch) {
         return { kind: "ok" };
@@ -1431,10 +1431,10 @@ var init_transports = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/init.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/init.ts
 var SDK_VERSION, FLUSH_TIMEOUT_MS, NoOpAnalytics, NoOpExporter, Swip;
 var init_init = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/init.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/init.ts"() {
     init_analytics();
     init_coordinator();
     init_facade();
@@ -1664,7 +1664,7 @@ var init_init = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/index.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/index.ts
 var src_exports = {};
 __export(src_exports, {
   FlushCoordinator: () => FlushCoordinator,
@@ -1694,7 +1694,7 @@ __export(src_exports, {
   satisfiesVersion: () => satisfiesVersion
 });
 var init_src = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/index.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/index.ts"() {
     init_types();
     init_ulid();
     init_pipeline();
@@ -1714,7 +1714,7 @@ var init_src = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/posthog.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/posthog.ts
 function verifyPostHogHost(region, host) {
   const rule = REGION_HOST[region];
   if (rule === void 0) {
@@ -1738,7 +1738,7 @@ function verifyPostHogHost(region, host) {
 }
 var REGION_HOST, ORIGIN_RE, SCHEMA_NAME_RE, PostHogTransport;
 var init_posthog = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/posthog.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/posthog.ts"() {
     REGION_HOST = {
       eu: /^eu(\.i)?\.posthog\.com$/i,
       us: /^(us(\.i)?|app)\.posthog\.com$/i
@@ -1819,7 +1819,7 @@ var init_posthog = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts
 var analytics_exports = {};
 __export(analytics_exports, {
   DayfoldSwipAnalytics: () => DayfoldSwipAnalytics
@@ -1838,7 +1838,7 @@ function requireEnv(env, name) {
 }
 var DayfoldSwipAnalytics;
 var init_analytics2 = __esm({
-  "../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/analytics.ts"() {
     init_posthog();
     DayfoldSwipAnalytics = {
       /** PostHog, region "eu" — declared in registry/products/dayfold.yaml, asserted against
@@ -1864,7 +1864,7 @@ var init_analytics2 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-logging/src/index.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-logging/src/index.ts
 function scrubString(value) {
   return value.replace(URL_QUERY_RE, "$1?[redacted-query]").replace(MGMT_LINK_RE, "/m/[redacted-token]").replace(EMAIL_RE, "[redacted-email]").replace(HIGH_ENTROPY_RE, "[redacted-token]");
 }
@@ -1873,7 +1873,7 @@ function scrubField(key, value) {
 }
 var PII_KEY_RE, EMAIL_RE, MGMT_LINK_RE, HIGH_ENTROPY_RE, URL_QUERY_RE, REDACTED;
 var init_src2 = __esm({
-  "../../node_modules/@sloopworks/swip-logging/src/index.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-logging/src/index.ts"() {
     PII_KEY_RE = /(email|token|api_key|envelope_key)/i;
     EMAIL_RE = /\S+@\S+\.\S+/g;
     MGMT_LINK_RE = /\/m\/[A-Za-z0-9_-]{22,}/g;
@@ -1883,7 +1883,7 @@ var init_src2 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/sha1.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/sha1.ts
 function sha1Hex(input) {
   const data = encoder2.encode(input);
   const ml = data.length;
@@ -1945,12 +1945,12 @@ function sha1Hex(input) {
 }
 var encoder2;
 var init_sha1 = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/sha1.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/sha1.ts"() {
     encoder2 = new TextEncoder();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts
 function normalizeType(type) {
   return asciiTrim(
     type.replace(/<[^>]*>/g, "").replace(/@0x[0-9a-fA-F]+/g, "").replace(/[-_.]?\d+$/g, "")
@@ -2027,23 +2027,23 @@ function isAlnum(c) {
 }
 var MAX_MESSAGE_CHARS, PATH_PLACEHOLDER;
 var init_fingerprint = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/fingerprint.ts"() {
     init_sha1();
     MAX_MESSAGE_CHARS = 256;
     PATH_PLACEHOLDER = "<path>";
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts
 var init_memory_reporter = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/memory-reporter.ts"() {
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/errors/index.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/index.ts
 var SEVERITIES, BREADCRUMB_RING, BREADCRUMB_ATTACHED, BREADCRUMB_MSG_CHARS, BREADCRUMB_CATEGORY_CHARS, ATTR_KEYS, ATTR_VALUE_CHARS, STACK_CHARS, MESSAGE_CHARS, TYPE_CHARS, KEY_CHARS, MECHANISM_CHARS, STORM_TABLE_MAX, MIRROR_DEDUPE_MAX, MIRROR_EVENT_ID_CHARS, SwipErrors;
 var init_errors = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/errors/index.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/errors/index.ts"() {
     init_src2();
     init_crash_reporter();
     init_fingerprint();
@@ -2392,7 +2392,7 @@ var init_errors = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-sentry/src/vendor-event.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-sentry/src/vendor-event.ts
 function isReservedTag(key) {
   return key.startsWith(RESERVED_TAG_PREFIX) && !SWIP_CONTEXT_TAGS.includes(key);
 }
@@ -2649,7 +2649,7 @@ function runBeforeSend(event, consented, scrub2, chain) {
 }
 var SEVERITIES2, ORIGIN_TAG, ORIGIN_TEE, FINGERPRINT_TAG, WTF_KEY_TAG, RESERVED_TAG_PREFIX, SWIP_CONTEXT_TAGS, SDK_CONTEXT_KEYS, FRAME_TEXT, FRAME_TEXT_ARRAYS;
 var init_vendor_event = __esm({
-  "../../node_modules/@sloopworks/swip-sentry/src/vendor-event.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-sentry/src/vendor-event.ts"() {
     init_src2();
     SEVERITIES2 = ["fatal", "error", "warning", "log", "info", "debug"];
     ORIGIN_TAG = "swip.origin";
@@ -2680,7 +2680,7 @@ var init_vendor_event = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-sentry/src/privacy.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-sentry/src/privacy.ts
 function scrubSentryEvent(event, opts) {
   try {
     return scrub(event, opts);
@@ -2785,12 +2785,12 @@ function failClosed(event) {
   }
 }
 var init_privacy = __esm({
-  "../../node_modules/@sloopworks/swip-sentry/src/privacy.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-sentry/src/privacy.ts"() {
     init_src2();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-sentry/src/index.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-sentry/src/index.ts
 function toForeign(event) {
   const values = event.exception?.values;
   const thrown = values === void 0 || values.length === 0 ? void 0 : values[values.length - 1];
@@ -2858,7 +2858,7 @@ function toSeverity(level) {
 }
 var LEVEL, STACK_CHARS2, FLUSH_TIMEOUT_MS2, SentryCrashReporter;
 var init_src3 = __esm({
-  "../../node_modules/@sloopworks/swip-sentry/src/index.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-sentry/src/index.ts"() {
     init_src2();
     init_vendor_event();
     init_privacy();
@@ -2986,7 +2986,7 @@ var init_src3 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-sentry/src/options.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-sentry/src/options.ts
 function verifyDsn(options) {
   const { region, orgId, projectId } = options;
   let host;
@@ -3091,7 +3091,7 @@ function initSentry(sdk, options) {
 }
 var DEDUPE, SESSION, REGION_HOST2, VERIFIED, ORG_ID, PROJECT_ID;
 var init_options = __esm({
-  "../../node_modules/@sloopworks/swip-sentry/src/options.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-sentry/src/options.ts"() {
     init_src3();
     init_privacy();
     init_vendor_event();
@@ -3109,21 +3109,21 @@ var init_options = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-sentry/src/node.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-sentry/src/node.ts
 import * as Sentry from "@sentry/node";
 function initSentryNode(options) {
   return initSentry(Sentry, options);
 }
 var init_node = __esm({
-  "../../node_modules/@sloopworks/swip-sentry/src/node.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-sentry/src/node.ts"() {
     init_options();
   }
 });
 
-// ../../node_modules/@sloopworks/swip-js/src/config-keys.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-js/src/config-keys.ts
 var configKeyImpl, ConfigKey;
 var init_config_keys = __esm({
-  "../../node_modules/@sloopworks/swip-js/src/config-keys.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-js/src/config-keys.ts"() {
     init_key();
     configKeyImpl = {};
     for (const type of ["boolean", "string", "duration", "variant", "json"]) {
@@ -3133,10 +3133,10 @@ var init_config_keys = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts
 var DayfoldConfig, DayfoldConfigDefaults;
 var init_config = __esm({
-  "../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/config.ts"() {
     init_config_keys();
     DayfoldConfig = {
       analyticsEventsEnabled: ConfigKey.boolean("analytics.events.enabled"),
@@ -3157,10 +3157,10 @@ var init_config = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts
 var DayfoldSwip;
 var init_init2 = __esm({
-  "../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/init.ts"() {
     init_errors();
     init_config();
     DayfoldSwip = {
@@ -3209,7 +3209,7 @@ var init_init2 = __esm({
   }
 });
 
-// ../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts
+// ../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts
 var init_node_exports = {};
 __export(init_node_exports, {
   DayfoldSwipNode: () => DayfoldSwipNode
@@ -3228,7 +3228,7 @@ function requireEnv2(env, name) {
 }
 var DayfoldSwipNode;
 var init_init_node = __esm({
-  "../../node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts"() {
+  "../../../dayfold/node_modules/@sloopworks/swip-schema-dayfold/src/generated/init-node.ts"() {
     init_errors();
     init_node();
     init_config();
@@ -5721,7 +5721,7 @@ async function ownerGate(c, fid) {
   if (a.cred.kind !== "app") return { status: 403 };
   return { sub: a.userId, caller: callerFrom(a) };
 }
-var app, ANDROID_DEBUG_SHA256, RESOURCE_ID, idError, PARTICIPANT_ROLES, HUB_VISIBILITIES;
+var app, legalPage, ANDROID_DEBUG_SHA256, RESOURCE_ID, idError, PARTICIPANT_ROLES, HUB_VISIBILITIES;
 var init_app = __esm({
   "src/app.ts"() {
     "use strict";
@@ -5752,6 +5752,45 @@ var init_app = __esm({
     app = new Hono();
     app.use("*", swipErrors());
     app.get("/health", (c) => c.json({ ok: true, surface: "m0" }));
+    legalPage = (title, updated, body) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} \xB7 Dayfold</title><style>
+:root{color-scheme:light dark;font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff8f6;color:#271814}
+body{margin:0}.wrap{max-width:720px;margin:auto;padding:48px 24px 72px}a{color:#a52f1a}h1{font-size:2.25rem;line-height:1.1;margin:.25rem 0}h2{margin-top:2rem}p,li{font-size:1rem;line-height:1.65}.eyebrow{color:#8a5044;font-weight:700}.updated{color:#6e5b55}.card{background:#fcebe6;border-radius:20px;padding:18px 22px;margin:24px 0}
+@media(prefers-color-scheme:dark){:root{background:#1a110e;color:#f0dfda}a{color:#ffb4a3}.eyebrow,.updated{color:#cbb5ae}.card{background:#271d1a}}
+</style></head><body><main class="wrap"><p class="eyebrow">DAYFOLD</p><h1>${title}</h1><p class="updated">Last updated ${updated}</p>${body}</main></body></html>`;
+    app.get("/privacy", (c) => c.html(legalPage("Privacy Policy", "August 19, 2026", `
+<div class="card"><strong>In brief:</strong> Dayfold uses your information to provide a private family briefing. We do not sell personal information, show ads, or use family content to train advertising models.</div>
+<h2>Information Dayfold handles</h2>
+<ul><li><strong>Account and profile:</strong> a Firebase user identifier, sign-in provider, verified-email status, display name, and optional avatar choices.</li>
+<li><strong>Family content:</strong> family membership, cards, hubs, checklists, saved places, responses, and content you choose to import or share.</li>
+<li><strong>Security and operations:</strong> session/device records, timestamps, IP address and user-agent information used for abuse prevention, account security, and reliable operation.</li>
+<li><strong>Diagnostics:</strong> limited technical error metadata from the hosted service. Dayfold's production mobile app does not include advertising analytics.</li></ul>
+<h2>Location and calendars</h2>
+<p>Precise live location used for proximity reminders is matched on your device and is not uploaded. A saved place name or coordinate that you explicitly add is family content and may sync. Calendar access is optional. Raw calendar events stay on your device; only an item you explicitly review and import becomes Dayfold family content.</p>
+<h2>How information is used and shared</h2>
+<p>We use information to authenticate you, synchronize the family content you are allowed to see, deliver device-local reminders, secure the service, and resolve failures. Information is processed by service providers that host authentication and infrastructure, including Firebase, Vercel, and the database and error-monitoring providers used by Dayfold. We do not sell or rent personal information.</p>
+<h2>Retention and deletion</h2>
+<p>You can delete your account in Dayfold under <strong>Account \u2192 Delete account</strong>. If you are the only owner of a family with other members, you must transfer ownership first. Deletion immediately removes your sign-in identities and profile fields, removes your family memberships, revokes credentials, and clears local app data. Shared family content may remain for the other family members; security and relational records may retain an opaque identifier where required for integrity, legal obligations, or abuse prevention.</p>
+<h2>Your choices</h2>
+<p>Location, notifications, and calendar access are optional and can be changed in system settings. You may request an export from the authenticated account API or ask for help with access, correction, export, or deletion.</p>
+<h2>Contact</h2>
+<p>Privacy questions can be sent to <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20privacy">patjackson52@gmail.com</a>. Dayfold is operated by SloopWorks LLC in the United States.</p>
+`)));
+    app.get("/support", (c) => c.html(legalPage("Support", "August 19, 2026", `
+<div class="card">For help with Dayfold, email <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20support">patjackson52@gmail.com</a>.</div>
+<h2>Before contacting support</h2><ul><li>Include your device type and app version.</li><li>Describe what you expected and what happened.</li><li>Do not send passwords, sign-in tokens, private family content, or precise location data.</li></ul>
+<h2>Account deletion</h2><p>Open Dayfold, go to <strong>Account</strong>, and choose <strong>Delete account</strong>. Owners may need to transfer a family to another member first.</p>
+<h2>Non-sensitive bugs</h2><p>You can also use the public <a href="https://github.com/SloopWorks/dayfold/issues">Dayfold issue tracker</a>. Do not post personal or family information there.</p>
+<p><a href="/privacy">Privacy Policy</a></p>
+`)));
+    app.get("/terms", (c) => c.html(legalPage("Terms of Use", "August 19, 2026", `
+<p>Dayfold is a family briefing service provided by SloopWorks LLC. By using it, you agree to use the service lawfully, protect access to your account, and share content only when you have the right to do so.</p>
+<h2>Family content</h2><p>You retain rights in content you provide. You grant Dayfold the limited permission needed to host, process, synchronize, and display that content to authorized family members.</p>
+<h2>Availability</h2><p>The service is provided as available. Features may change, and uninterrupted operation is not guaranteed. Dayfold is not an emergency, medical, legal, safety, or child-monitoring service.</p>
+<h2>Accounts</h2><p>You may stop using Dayfold at any time and delete your account in the app. We may suspend abusive or unlawful use when necessary to protect people or the service.</p>
+<h2>Contact</h2><p>Questions can be sent to <a href="mailto:patjackson52@gmail.com?subject=Dayfold%20terms">patjackson52@gmail.com</a>.</p>
+`)));
     if (process.env.ENABLE_DEV_ERRORS === "1" && !isDeployedEnv()) {
       app.get("/debug/boom", () => {
         throw new Error("dayfold api smoke: deliberate unhandled route error", {
@@ -5965,9 +6004,11 @@ var init_app = __esm({
       );
       if (blocked.rowCount && blocked.rowCount > 0)
         return c.json({ type: "transfer-required", families: blocked.rows }, 409);
-      await q(`UPDATE users SET deleted_at=now() WHERE id=$1 AND deleted_at IS NULL`, [sub]);
+      await q(`DELETE FROM user_identities WHERE user_id=$1`, [sub]);
+      await q(`UPDATE users SET display_name=NULL, avatar_color=NULL, avatar_ref=NULL, deleted_at=now(), updated_at=now()
+             WHERE id=$1 AND deleted_at IS NULL`, [sub]);
       await q(`UPDATE memberships SET status='removed', updated_at=now() WHERE user_id=$1 AND status<>'removed'`, [sub]);
-      await q(`UPDATE credentials SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [sub]);
+      await q(`DELETE FROM credentials WHERE user_id=$1`, [sub]);
       audit("account.soft_delete", { actorUserId: sub });
       return c.body(null, 204);
     });
@@ -5995,7 +6036,7 @@ var init_app = __esm({
       }]);
     });
     app.get("/.well-known/apple-app-site-association", (c) => {
-      const appID = process.env.APPLE_APP_ID || "TEAMID.com.sloopworks.dayfold";
+      const appID = process.env.APPLE_APP_ID || "2XAXFD3872.com.sloopworks.dayfold";
       c.header("content-type", "application/json");
       c.header("cache-control", "public, max-age=300");
       return c.json({ applinks: { apps: [], details: [{ appID, paths: ["/device", "/device?*", "/invite/*"] }] } });

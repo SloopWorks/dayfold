@@ -23,6 +23,14 @@ class LoadingReducerTest {
     assertTrue(rootReducer(AppState(), SignOutRequested).session.signOutBusy)
   }
 
+  @Test fun deleteAccountRequestedAndFailedUpdateAccountState() {
+    val busy = rootReducer(AppState(), DeleteAccountRequested)
+    assertTrue(busy.session.deleteAccountBusy)
+    val failed = rootReducer(busy, DeleteAccountFailed("transfer first"))
+    assertFalse(failed.session.deleteAccountBusy)
+    assertEquals("transfer first", failed.session.deleteAccountError)
+  }
+
   @Test fun memberOpRequestedThenResolvedClearsId() {
     val a = rootReducer(AppState(), MemberOpRequested("u1"))
     assertEquals("u1", a.familyAdmin.memberOpId)
