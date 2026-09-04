@@ -208,6 +208,11 @@ jobs:
               "oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ],
               "api_key": [ { "current_key": "AIzaSyStubStubStubStubStubStubStubStub00" } ],
               "services": { "appinvite_service": { "other_platform_oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ] } }
+            }, {
+              "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000001", "android_client_info": { "package_name": "com.sloopworks.dayfold.dev" } },
+              "oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ],
+              "api_key": [ { "current_key": "AIzaSyStubStubStubStubStubStubStubStub00" } ],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [ { "client_id": "000000000000-stub.apps.googleusercontent.com", "client_type": 3 } ] } }
             } ],
             "configuration_version": "1"
           }

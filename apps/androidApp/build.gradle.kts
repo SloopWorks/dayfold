@@ -2,12 +2,38 @@
 // (the KMP module) — no more srcDir borrow, no Main.kt/ContentStore excludes, no
 // duplicated SQLDelight setup. This module only owns the Android entrypoint
 // (MainActivity), the manifest, and the in-app redux devtools drawer.
+import java.util.Properties
+
+// Shipyard Deploy (dev-build distribution): build identity + shipyardPublishDebug (see
+// ../.shipyard-deploy.yaml). The plugin only exists as a composite build included by
+// settings.gradle.kts when the sibling checkout is present, so it is applied from the
+// buildscript classpath behind that same check rather than requested in `plugins {}`,
+// which would fail resolution on CI and fresh clones.
+val shipyardPluginDir = file(
+  (findProperty("shipyardDeployPluginDir") as String?)
+    ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+)
+val hasShipyardPlugin = shipyardPluginDir.resolve("settings.gradle.kts").isFile
+
+buildscript {
+  dependencies {
+    val dir = file(
+      (project.findProperty("shipyardDeployPluginDir") as String?)
+        ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+    )
+    // Coordinates are substituted by the included build; no version, no repository.
+    if (dir.resolve("settings.gradle.kts").isFile) classpath("works.sloop.shipyard:shipyard-deploy-gradle-plugin")
+  }
+}
+
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
   id("org.jetbrains.kotlin.plugin.compose")
   id("com.google.gms.google-services")   // S2: reads google-services.json → Firebase config
 }
+
+if (hasShipyardPlugin) apply(plugin = "works.sloop.shipyard.deploy")
 
 android {
   namespace = "com.sloopworks.dayfold.android"
@@ -40,7 +66,26 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Shipyard Deploy shared DEVELOPMENT signing identity (non-production; sample key).
+  // Debug builds carry the ".dev" application id and this signer so every developer's
+  // dev build can update in place on an enrolled device. Never used for release.
+  val shipyardSigningProps = file(
+    (findProperty("shipyardDevSigningProps") as String?)
+      ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/infra/dev-signing/sample-dev.properties",
+  )
+  val hasShipyardSigning = shipyardSigningProps.isFile
+
   signingConfigs {
+    if (hasShipyardSigning) {
+      val props = Properties()
+      shipyardSigningProps.inputStream().use { props.load(it) }
+      create("shipyardDev") {
+        storeFile = shipyardSigningProps.parentFile.resolve(props.getProperty("storeFile"))
+        storePassword = props.getProperty("storePassword")
+        keyAlias = props.getProperty("keyAlias")
+        keyPassword = props.getProperty("keyPassword")
+      }
+    }
     if (hasReleaseSigning) {
       create("release") {
         storeFile = file(releaseStoreFile!!)
@@ -53,6 +98,9 @@ android {
 
   buildTypes {
     getByName("debug") {
+      // Shipyard Deploy: distinct dev application id + shared dev signer.
+      applicationIdSuffix = ".dev"
+      if (hasShipyardSigning) signingConfig = signingConfigs.getByName("shipyardDev")
       // SWIP analytics (debug-only — never on the release classpath/APK).
       buildConfigField("String", "POSTHOG_PROJECT_KEY", "\"${System.getenv("POSTHOG_PROJECT_KEY") ?: ""}\"")
       buildConfigField("String", "POSTHOG_HOST", "\"${System.getenv("POSTHOG_HOST") ?: "https://eu.i.posthog.com"}\"")
