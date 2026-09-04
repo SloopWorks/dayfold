@@ -4,13 +4,36 @@
 // (MainActivity), the manifest, and the in-app redux devtools drawer.
 import java.util.Properties
 
+// Shipyard Deploy (dev-build distribution): build identity + shipyardPublishDebug (see
+// ../.shipyard-deploy.yaml). The plugin only exists as a composite build included by
+// settings.gradle.kts when the sibling checkout is present, so it is applied from the
+// buildscript classpath behind that same check rather than requested in `plugins {}`,
+// which would fail resolution on CI and fresh clones.
+val shipyardPluginDir = file(
+  (findProperty("shipyardDeployPluginDir") as String?)
+    ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+)
+val hasShipyardPlugin = shipyardPluginDir.resolve("settings.gradle.kts").isFile
+
+buildscript {
+  dependencies {
+    val dir = file(
+      (project.findProperty("shipyardDeployPluginDir") as String?)
+        ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+    )
+    // Coordinates are substituted by the included build; no version, no repository.
+    if (dir.resolve("settings.gradle.kts").isFile) classpath("works.sloop.shipyard:shipyard-deploy-gradle-plugin")
+  }
+}
+
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
   id("org.jetbrains.kotlin.plugin.compose")
   id("com.google.gms.google-services")   // S2: reads google-services.json → Firebase config
-  id("works.sloop.shipyard.deploy")      // Shipyard Deploy: build identity + shipyardPublishDebug (see .shipyard-deploy.yaml)
 }
+
+if (hasShipyardPlugin) apply(plugin = "works.sloop.shipyard.deploy")
 
 android {
   namespace = "com.sloopworks.dayfold.android"
