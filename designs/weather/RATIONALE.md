@@ -55,7 +55,7 @@ the match genuinely happens on-device, and the teal family already reads
 "matched on your device." It would be dishonest. That family's promise is that
 nothing left the device, and a forecast fetch is the client's *first external
 egress*: a place's rounded coordinates go to a vendor. So the weather chip sits
-in the neutral **derived** family, alongside "Pickup at 3:00", and the network
+in the neutral **derived** family, alongside "Pickup at 3:00 PM", and the network
 disclosure is made explicitly in the why-you-see-this sheet.
 
 **Family coherence.** The existing 18 authored icons are nouns — school,
