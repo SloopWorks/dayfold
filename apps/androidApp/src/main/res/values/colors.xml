@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dayfold_surface">#FFF8F6</color>
+    <color name="dayfold_surface_dark">#1A110E</color>
+    <color name="ic_launcher_background">#FFDAD2</color>
+</resources>

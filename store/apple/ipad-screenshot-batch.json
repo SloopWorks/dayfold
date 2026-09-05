@@ -1,0 +1,7 @@
+{
+  "shots": [
+    { "id": "01-sign-in", "scene": "auth", "preset": "signin", "width": 1032, "height": 1376 },
+    { "id": "02-family-briefing", "scene": "feed", "preset": "enriched", "width": 1032, "height": 1376 },
+    { "id": "03-event-hub", "scene": "hub-detail", "preset": "enriched", "width": 1032, "height": 1376 }
+  ]
+}

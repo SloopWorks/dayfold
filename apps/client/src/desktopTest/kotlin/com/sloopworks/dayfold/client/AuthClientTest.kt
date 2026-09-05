@@ -118,6 +118,18 @@ class AuthClientTest {
     client(engine).signout("ACCESS")   // no throw
   }
 
+  @Test fun `deleteAccount deletes auth me with bearer and accepts 204`() = runBlocking<Unit> {
+    var method = ""; var path = ""; var auth: String? = null
+    val engine = MockEngine { req ->
+      method = req.method.value; path = req.url.encodedPath; auth = req.headers[HttpHeaders.Authorization]
+      respond("", HttpStatusCode.NoContent)
+    }
+    client(engine).deleteAccount("ACCESS")
+    assertEquals("DELETE", method)
+    assertEquals("/auth/me", path)
+    assertEquals("Bearer ACCESS", auth)
+  }
+
   @Test fun `devToken throws on a rejected dev secret`() = runBlocking<Unit> {
     val engine = MockEngine { respond("forbidden", HttpStatusCode.Forbidden) }
     val ex = assertFailsWith<AuthHttpException> { client(engine).devToken("dev", "alice", "WRONG") }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Dayfold" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/dayfold_surface</item>
+        <item name="android:navigationBarColor">@color/dayfold_surface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    <style name="Theme.Dayfold.Starting" parent="Theme.Dayfold" />
+</resources>

@@ -8,6 +8,39 @@ dates are when a slice landed on `main`, not necessarily when it shipped to a
 device. The app is pre-1.0 (`0.0.0-M0`) and untagged, so entries are dated; the
 CLI versions independently under `cli-v<semver>` tags (first: `cli-v0.1.0`).
 
+## 2026-09-03 — Store-release scaffolding, account deletion, native iOS sign-in
+
+Salvaged from the never-merged `codex/calendar-now-complete-staging` tree
+(work dated 2026-08-19 → 2026-08-28) and re-based onto `main`.
+
+### Added
+- **Delete account** (Account → Delete account) on Android and iOS. The server
+  runs first (`DELETE /auth/me` now also purges provider identities and every
+  credential/refresh token); a 409 explains that each family with other members
+  needs an ownership transfer first. On iOS the native Google/Apple credential is
+  revoked after the server confirms, and local cleanup always completes.
+- **Native iOS sign-in.** The Swift host (`AuthCoordinator`) runs Google Sign-In
+  and Sign in with Apple and hands the Firebase ID token to the shared engine;
+  the session now lives in the iOS Keychain instead of `NSUserDefaults`.
+- **Legal pages** served by the API: `/privacy`, `/support`, `/terms`, plus the
+  Apple app-site-association for the production bundle id.
+- **Mobile release channels (ADR 0066 — file now in the repo; the index row
+  already was).** `release-android.yml` gains dev/alpha/beta/production
+  channels (Play internal/alpha/production tracks); new `release-ios.yml`
+  builds a simulator artifact or uploads to TestFlight / App Store Connect
+  without ever submitting for review. Fastlane `Deliverfile`, store metadata
+  and screenshots under `store/`, `scripts/asc-testflight.mjs`, and
+  `processes/mobile-release.md` runbook rewrite. The pipelines stay inert
+  until the operator-only store gates (secrets, accounts, spend) are done.
+- **App identity assets**: adaptive launcher icon, splash mark and Material
+  themes on Android; app icon set, launch background and `PrivacyInfo.xcprivacy`
+  on iOS; `designs/brand/dayfold-mark.svg`.
+
+### Changed
+- Android store builds are HTTPS-only (`usesCleartextTraffic=false`); debug
+  builds keep cleartext for local backends. `ACCESS_COARSE_LOCATION` is
+  requested alongside FINE so Android 12+ users can pick approximate location.
+
 ## 2026-09-02 — ADR 0067 follow-ups from the first production content repair
 
 ### Fixed

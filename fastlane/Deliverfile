@@ -1,0 +1,18 @@
+ENV["FASTLANE_ENABLE_BETA_DELIVER_SYNC_SCREENSHOTS"] = "true"
+
+api_key_path(ENV.fetch("ASC_API_KEY_PATH"))
+app_identifier("com.sloopworks.dayfold")
+app_version(ENV.fetch("DAYFOLD_VERSION", "1.0.0"))
+platform("ios")
+
+metadata_path("store/apple/metadata")
+screenshots_path("store/apple/fastlane-screenshots")
+overwrite_screenshots(false)
+sync_screenshots(true)
+
+skip_binary_upload(true)
+skip_metadata(false)
+skip_screenshots(false)
+submit_for_review(false)
+force(true)
+run_precheck_before_submit(false)

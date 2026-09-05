@@ -82,6 +82,8 @@ data class AccountViewState(
   // CalendarSettings.featureEnabled (ADR 0063 §1), the member's own on/off, for the
   // always-reachable settings row subtitle.
   val calendarCheckEnabled: Boolean,
+  val deleteAccountBusy: Boolean,
+  val deleteAccountError: String?,
 )
 
 fun accountViewState(state: AppState): AccountViewState = AccountViewState(
@@ -96,6 +98,8 @@ fun accountViewState(state: AppState): AccountViewState = AccountViewState(
   proximityEnabled = state.notifications.config.enabled,
   signOutBusy = state.session.signOutBusy,
   calendarCheckEnabled = state.calendar.settings.featureEnabled,
+  deleteAccountBusy = state.session.deleteAccountBusy,
+  deleteAccountError = state.session.deleteAccountError,
 )
 
 @Immutable

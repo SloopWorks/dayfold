@@ -267,6 +267,25 @@ Residual decisions are tracked in `context/open-questions.md`
 
 ## Current state (as of 2026-09-01)
 
+### Shipped — store-release scaffolding (ADR 0066), account deletion, native iOS sign-in (2026-09-03)
+
+Ported from the never-merged `codex/calendar-now-complete-staging` tree (work
+dated 2026-08-19 → 2026-08-28; snapshot preserved on that branch at `be6eb2b1`,
+now retired — do not merge it). `adr/0066-…` file landed (its index row had
+been on `main` since 2026-08-19 without the document); `release-ios.yml` +
+four-channel `release-android.yml`, Fastlane `Deliverfile`, `store/` metadata
+and screenshots, `scripts/asc-testflight.mjs`, `processes/mobile-release.md`
+rewrite; API `/privacy` `/support` `/terms`; `DELETE /auth/me` purges provider
+identities + credentials; Account → Delete account on Android/iOS; iOS
+`AuthCoordinator` (Google + Apple) behind `IosAuthHost`, Keychain-backed
+session; launcher/app-icon/splash assets. The release pipelines remain
+**inert until the operator-only store gates G1–G4 in the inbox are done.**
+Not exercised locally: the iOS Xcode build (new Firebase/GoogleSignIn
+packages in `project.yml`) and the workflows themselves. Same salvage also
+produced the Shipyard Deploy onboarding PR (`apps/.shipyard-deploy.yaml`,
+plugin applied only when the sibling composite build exists) and a docs-only
+PR (`specs/file-upload-design.md`, PROPOSED/UNDECIDED).
+
 ### Shipped — named subagents, edit-guard hook, review gate as a skill (2026-09-02)
 
 Agentic tooling pass (session review + practices research:

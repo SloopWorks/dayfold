@@ -3,7 +3,8 @@
 # Trigger map:
 #   • push to `main` (= PR merge)        → build + publish to the Play **internal**
 #                                          track ("alpha": instant, ≤100 testers, no review)
-#   • tag `android-beta-v<semver>`       → Play **beta** (closed/open testing)
+#   • tag `android-beta-v<semver>`       → Play **alpha** API track (the Console's
+#                                          closed-testing lane; Dayfold calls it beta)
 #   • tag `android-v<semver>`            → Play **production** as a **draft** (the
 #                                          operator clicks "roll out" in the Console —
 #                                          keeps go-live an operator action, CLAUDE.md
@@ -27,6 +28,17 @@ on:
   push:
     branches: [main]
     tags: ["android-v*", "android-beta-v*"]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options: [dev, alpha, beta, production]
+      version:
+        description: Semantic version for beta/production (for example 1.0.0)
+        required: false
+        type: string
 
 permissions:
   contents: read           # Play upload needs no repo write (unlike the CLI GitHub Release)
@@ -39,6 +51,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SLOOPWORKS_PACKAGES_TOKEN: ${{ secrets.SLOOPWORKS_PACKAGES_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5    # v4 (SHA-pinned)
         with:
@@ -49,16 +63,34 @@ jobs:
 
       - name: Derive track + version (from the ref; tag strictly validated)
         id: derive
+        env:
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           ref="$GITHUB_REF_NAME"
-          case "$GITHUB_REF" in
-            refs/tags/android-beta-v*) version="${ref#android-beta-v}"; track="beta";       status="completed" ;;
-            refs/tags/android-v*)      version="${ref#android-v}";      track="production";  status="draft"     ;;
-            refs/heads/main)           version="";                      track="internal";    status="completed" ;;
-            *) echo "::error::unsupported ref '$GITHUB_REF' (expect main, android-v*, or android-beta-v*)"; exit 1 ;;
-          esac
-          if [ "$track" = "internal" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            channel="$INPUT_CHANNEL"
+            version="$INPUT_VERSION"
+            case "$channel" in
+              dev)        track="";           status="" ;;
+              alpha)      track="internal";   status="completed" ;;
+              beta)       track="alpha";      status="completed" ;;
+              production) track="production"; status="draft" ;;
+              *) echo "::error::unsupported channel '$channel'"; exit 1 ;;
+            esac
+          else
+            case "$GITHUB_REF" in
+              refs/tags/android-beta-v*) version="${ref#android-beta-v}"; track="alpha";      status="completed" ;;
+              refs/tags/android-v*)      version="${ref#android-v}";      track="production"; status="draft"     ;;
+              refs/heads/main)           version="";                      track="internal";   status="completed" ;;
+              *) echo "::error::unsupported ref '$GITHUB_REF'"; exit 1 ;;
+            esac
+            channel="$(if [ "$track" = internal ]; then echo alpha; elif [ "$track" = alpha ]; then echo beta; else echo production; fi)"
+          fi
+          if [ "$channel" = "dev" ]; then
+            version_name="0.0.0-dev.${GITHUB_RUN_NUMBER}"
+          elif [ "$channel" = "alpha" ]; then
             version_name="0.0.0-alpha.${GITHUB_RUN_NUMBER}"
           else
             # Anchored full-match — rejects metacharacters / suffixes / pre-release.
@@ -74,6 +106,7 @@ jobs:
             echo "status=$status"
             echo "version_name=$version_name"
             echo "version_code=$version_code"
+            echo "channel=$channel"
           } >> "$GITHUB_OUTPUT"
           echo "::notice::track=$track status=$status versionName=$version_name versionCode=$version_code"
 
@@ -127,6 +160,10 @@ jobs:
           "$SDK" "platforms;android-37" "build-tools;36.0.0" >/dev/null 2>&1 \
             || "$SDK" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null 2>&1 || true
 
+      - name: Verify shared client and Android release
+        working-directory: apps
+        run: ./gradlew --no-daemon :client:desktopTest :ui:desktopTest :androidApp:lintRelease
+
       - name: Build the release AAB
         working-directory: apps
         env:
@@ -140,6 +177,27 @@ jobs:
           # dev-token secret into a distributed build (ADR 0034 §security; gap G5).
           DAYFOLD_API: https://family-ai-dashboard.vercel.app
         run: ./gradlew --no-daemon :androidApp:bundleRelease
+
+      - name: Verify signed Play payload
+        if: steps.keystore.outputs.signed == 'true'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.DAYFOLD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DAYFOLD_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          aab=apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab
+          test -f "$aab"
+          # Play upload keys are intentionally self-signed, so jarsigner's strict
+          # trust-chain policy exits non-zero for a valid AAB. Verify the JAR
+          # signature normally, then pin the exact upload certificate below.
+          jarsigner -verify "$aab"
+          expected='DF:98:A1:F9:15:F6:D1:FE:27:6A:95:8D:45:65:49:02:E2:2F:B8:73:2E:2D:F7:F0:19:D9:E5:EF:E9:D9:D2:43'
+          actual="$(keytool -list -v \
+            -keystore "$DAYFOLD_KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" | awk -F': ' '/SHA256:/{print $2; exit}')"
+          test "$actual" = "$expected"
+          echo "::notice::verified signed Play AAB and Dayfold upload certificate"
 
       - name: Is Play configured?
         id: play
@@ -158,11 +216,12 @@ jobs:
       # production goes up as a DRAFT so the operator performs the externally-visible
       # roll-out in the Play Console.
       - name: Publish to Google Play
-        if: steps.keystore.outputs.signed == 'true' && steps.play.outputs.ready == 'true'
+        if: steps.derive.outputs.channel != 'dev' && steps.keystore.outputs.signed == 'true' && steps.play.outputs.ready == 'true'
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           TRACK: ${{ steps.derive.outputs.track }}
           STATUS: ${{ steps.derive.outputs.status }}
+          VERSION_CODE: ${{ steps.derive.outputs.version_code }}
         run: |
           set -euo pipefail
           printf '%s' "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
@@ -175,11 +234,34 @@ jobs:
           export GEM_HOME="$RUNNER_TEMP/gems"
           export PATH="$GEM_HOME/bin:$PATH"
           gem install --no-document fastlane >/dev/null
-          fastlane supply \
-            --package_name com.sloopworks.dayfold \
-            --aab apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab \
-            --track "$TRACK" \
-            --release_status "$STATUS" \
-            --json_key "$RUNNER_TEMP/play.json" \
-            --skip_upload_metadata --skip_upload_images --skip_upload_screenshots --skip_upload_changelogs
-          echo "::notice::uploaded versionCode ${{ steps.derive.outputs.version_code }} to '$TRACK' ($STATUS)"
+          publish() {
+            fastlane supply \
+              --package_name com.sloopworks.dayfold \
+              --aab apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab \
+              --metadata_path store/android/metadata/android \
+              --track "$TRACK" \
+              --release_status "$1" \
+              --json_key "$RUNNER_TEMP/play.json"
+          }
+          effective_status="$STATUS"
+          if ! publish "$STATUS"; then
+            if [ "$STATUS" != completed ]; then exit 1; fi
+            echo "::warning::Play did not accept an active testing release; retrying as a safe draft for first-app bootstrap"
+            publish draft
+            effective_status=draft
+          fi
+          echo "::notice::uploaded versionCode $VERSION_CODE to '$TRACK' ($effective_status)"
+
+      - name: Keep the exact Android build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dayfold-android-${{ steps.derive.outputs.channel }}-${{ steps.derive.outputs.version_name }}
+          path: apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary Android credentials
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/play.json"
+          rm -f apps/androidApp/google-services.json

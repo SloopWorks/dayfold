@@ -1,98 +1,179 @@
-# Mobile Release — Alpha/Beta/Prod to Google Play (ADR 0034)
+# Mobile release — dev, alpha, beta, production
 
-How the Android app ships to testers and users, and how to cut a release.
+Dayfold's Android and iOS release train is defined by ADR 0066 and the two
+`release-*.yml` workflows. A public release is always an operator action: CI may
+upload a production candidate, but it does not roll out Play production or submit
+an App Store version for review.
 
+## Channel map
+
+| Channel | Android | iOS | Trigger |
+|---|---|---|---|
+| dev | signed CI AAB artifact; no upload | unsigned simulator `.app` archive | manual workflow dispatch |
+| alpha | Play internal testing | TestFlight build for internal testing | merge to `main` on Android; `ios-alpha-vX.Y.Z` or manual on iOS |
+| beta | Play closed testing (API track `alpha`) | TestFlight build for external testing | `android-beta-vX.Y.Z` / `ios-beta-vX.Y.Z` or manual |
+| production | Play production draft | App Store Connect build only | `android-vX.Y.Z` / `ios-vX.Y.Z` or manual |
+
+Manual dispatch accepts `dev`, `alpha`, `beta`, or `production` in both workflows.
+Beta and production versions must be `MAJOR.MINOR.PATCH`. Android's monotonic
+`versionCode` is `GITHUB_RUN_NUMBER + 1000`; iOS's `CFBundleVersion` is
+`GITHUB_RUN_NUMBER + 2000`, above the validated TestFlight bootstrap build 1001.
+
+## Account and app records
+
+- Google Play developer: Patrick Jackson 52 (`6592419883867360357`)
+- Play app: Dayfold (`com.sloopworks.dayfold`, Play app `4973429963864753978`)
+- Apple team: SloopWorks LLC (`2XAXFD3872`)
+- App Store Connect app: Dayfold Family Briefing (`6803282435`)
+- Bundle/App ID: `com.sloopworks.dayfold`
+- Production API and policy origin: `https://family-ai-dashboard.vercel.app`
+
+Play uses app-scoped automation through
+`dayfold-play-publisher@dayfold-app.iam.gserviceaccount.com`; App Store Connect
+uses the App Manager API key recorded in the repository secrets. Apple Sign in,
+the Firebase iOS app, the distribution certificate, and the App Store provisioning
+profile are configured. The App ID and production AASA file are ready for universal
+links, but the associated-domains entitlement remains intentionally deferred by
+ADR 0048.
+
+## GitHub secrets
+
+Android:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `DAYFOLD_KEYSTORE_PASSWORD`
+- `DAYFOLD_KEY_ALIAS`
+- `DAYFOLD_KEY_PASSWORD`
+- `GOOGLE_SERVICES_JSON_BASE64`
+- `PLAY_SERVICE_ACCOUNT_JSON`
+
+iOS:
+
+- `GOOGLE_SERVICE_INFO_PLIST_BASE64`
+- `IOS_DISTRIBUTION_CERTIFICATE_BASE64`
+- `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`
+- `IOS_PROVISIONING_PROFILE_BASE64`
+- `ASC_KEY_ID`
+- `ASC_ISSUER_ID`
+- `ASC_PRIVATE_KEY`
+- `APPLE_SIGN_IN_KEY_P8`
+- `APPLE_SIGN_IN_KEY_ID`
+- `APPLE_TEAM_ID`
+
+`DEBUGDRAWER_REPO_TOKEN` remains the private-package/submodule credential shared
+with the normal mobile build. Workflows decode credentials only inside runner
+temporary storage and delete them during cleanup.
+
+## Local release checks
+
+Android upload signing material lives outside the repository at
+`/Users/patrick/keys/dayfold-upload.jks`; its password is in the macOS Keychain
+under service `com.sloopworks.dayfold.upload.keystore`, account `dayfold`.
+
+```sh
+cd apps
+./gradlew :client:desktopTest :ui:desktopTest :androidApp:lintRelease
+./gradlew :androidApp:bundleRelease
 ```
-merge a PR to main          → builds + publishes to Play INTERNAL (alpha)
-git tag android-beta-v1.2.0 → publishes to Play BETA
-git tag android-v1.2.0      → publishes to Play PRODUCTION as a DRAFT (you roll it out)
-git push origin <tag>
+
+The release AAB is
+`apps/androidApp/build/outputs/bundle/release/dayfold-android-release.aab`.
+Before uploading, CI verifies both the bundle signature and the pinned Dayfold
+upload-certificate SHA-256 fingerprint.
+
+For iOS, install XcodeGen, the Apple Distribution identity, and the `Dayfold App
+Store CI` provisioning profile, then:
+
+```sh
+cd apps/iosApp
+xcodegen generate
+xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/Dayfold.xcarchive archive
+xcodebuild -exportArchive -archivePath /tmp/Dayfold.xcarchive \
+  -exportPath /tmp/Dayfold-export -exportOptionsPlist ExportOptions.plist
 ```
 
-The pipeline (`.github/workflows/release-android.yml`) is **inert until the one-time
-operator gates below are done**: with no secrets it builds an *unsigned* AAB and skips
-the Play upload, so it stays green. Each external step is gated on its secret being
-present (same posture as the CLI release, `processes/cli-release.md`).
+The Xcode project is generated from `project.yml`; do not hand-edit it. The
+release workflow performs the same archive/export and uploads with the App Store
+Connect API key. Before uploading, it opens the exported IPA and verifies the
+bundle/version identity, arm64 payload, distribution signature and profile,
+production `get-task-allow=false`, Sign in with Apple entitlement, and packaged
+privacy manifest. `scripts/asc-testflight.mjs` waits for Apple processing and
+assigns alpha to `Dayfold Internal` or beta to `Dayfold Beta`; production remains
+unassigned. Its read-only `audit-app` command reports the live version metadata,
+screenshot counts, and testing groups; `audit-build <marketing-version>
+<build-number>` reports processing state and the groups to which that exact build
+is assigned.
 
-## How it works
+## Store source of truth
 
-- **Supported Android versions:** **minSdk 33** (Android 13) → the app installs on
-  Android 13+ devices; **compileSdk / targetSdk 37**. minSdk is a plain build-config
-  floor (`:androidApp` + `:client`; the pinned shared debugdrawer build uses the same
-  floor) — not ADR-governed and carries no API-34-only code (dropping 34→33 needed
-  zero source change, no `NewApi` lint). Lowering it further re-runs the same check:
-  `assembleDebug` + `lintDebug` must stay clean (no `NewApi` / API-guard additions)
-  or the change isn't free.
-- **versionCode** = `GITHUB_RUN_NUMBER + 1000` (strictly monotonic across every track —
-  Play requires it). **versionName** = the tag's semver (alpha builds get
-  `0.0.0-alpha.<run>`). Local dev keeps the `1` / `0.0.0-M0` defaults.
-- **Signing** is env/Gradle-property driven (`:androidApp/build.gradle.kts`): CI signs
-  the AAB with the **upload key**; **Play App Signing** holds the real app key. No
-  keystore env → unsigned (local builds still work).
-- **Build vs publish are separate**: `./gradlew :androidApp:bundleRelease` makes the
-  signed AAB; `fastlane supply` uploads it. Production uploads as a **draft** — the
-  artifact reaches Play, but you click **roll out** in the Play Console (keeps go-live an
-  operator action).
+- `store/android/metadata/android/en-US/` — Play copy, icon, feature graphic,
+  screenshots, and release notes (fastlane `supply` layout)
+- `store/apple/metadata/` and `store/apple/fastlane-screenshots/en-US/` —
+  fastlane-ready App Store copy and required iPhone/iPad screenshots (the
+  dimension-named sibling directories preserve the generation inputs)
+- `store/compliance.yml` — objective inputs for Play Data safety and Apple App
+  Privacy; it is not an operator attestation
+- `store/apple/app_privacy_details.json` — reviewable Fastlane-format translation
+  of those Apple privacy inputs; the operator must approve it before upload/publish
+- `store/android/app-access.md` and `store/apple/review-notes.md` — reviewer
+  navigation instructions with no shared credentials
+- `apps/iosApp/Resources/PrivacyInfo.xcprivacy` — first-party collection and
+  required-reason API declarations packaged into the iOS app
+- `fastlane/Deliverfile` — repeatable metadata/screenshot upload configuration;
+  it never uploads a binary or submits for review
+- `designs/brand/dayfold-mark.svg` — approved source mark
+- `scripts/generate-store-assets.swift` — deterministic app/store asset generator
 
-## One-time operator setup (the ADR 0034 gates)
+Run the asset generator from the repository root whenever the approved mark or
+palette changes, then visually inspect the regenerated icon, launch surfaces,
+feature graphic, and screenshots.
 
-These need a human (keystore, accounts, spend, store listing) — not agent-buildable:
+With an App Store Connect API-key JSON path in `ASC_API_KEY_PATH`, run
+`fastlane deliver` to refresh the listing without uploading a binary or submitting
+for review. On a brand-new app record, Fastlane may report its upstream `No data`
+review-detail edge case after the metadata is accepted; complete the screenshots
+independently with `fastlane deliver --skip_metadata true`. The Deliverfile enables
+Fastlane's checksum-based screenshot synchronization so a processing retry does not
+create duplicate image records; `asc-testflight.mjs dedupe-screenshots` is the
+idempotent repair command for a legacy duplicate set.
 
-1. **G1 — Upload keystore.** Generate it and **opt into Play App Signing** so this is the
-   *upload* key (resettable if leaked):
-   ```
-   keytool -genkeypair -v -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 9125
-   openssl base64 -A < upload.jks   # → ANDROID_KEYSTORE_BASE64
-   ```
-   Add repo **secrets**: `ANDROID_KEYSTORE_BASE64`, `DAYFOLD_KEYSTORE_PASSWORD`,
-   `DAYFOLD_KEY_ALIAS`, `DAYFOLD_KEY_PASSWORD`.
-2. **G2 — Real `google-services.json`.** Create the Firebase Android app for
-   `com.sloopworks.dayfold` (ADR 0023/0027); `openssl base64 -A < google-services.json`
-   → secret **`GOOGLE_SERVICES_JSON_BASE64`**. Until then store builds compile with a
-   stub but **Google sign-in does not work**.
-3. **G3 — Play Console + service account** ($25 one-time — **spend**). Create the app
-   listing; in Google Cloud mint a service-account JSON; in Play Console → Users &
-   permissions grant it **app-scoped release** permission (not account admin). Secret
-   **`PLAY_SERVICE_ACCOUNT_JSON`** (full JSON). **The very first AAB per app must be
-   uploaded by hand** in the Console before the API can publish.
-4. **G4 — Store listing + data-safety form.** Icon, screenshots, description, privacy
-   policy URL, data-safety answers. External-facing; the data-safety form intersects the
-   CLAUDE.md children's-data / restricted-scope guardrails — review carefully.
-5. **G5 — Confirm the API target + auth path.** All three tracks currently build with
-   `DAYFOLD_API=https://family-ai-dashboard.vercel.app` (no staging API exists) and rely
-   on **real sign-in (AUTH-S3)**. `FAMILY_ID` / `HOUSEHOLD_SECRET` / `DEV_AUTH_SECRET` are
-   left **unset** — never bake a household credential or the dev-token secret into a
-   store build. Confirm before the first upload.
+## Publishing procedure
 
-Until G1+G3 are set, merges/tags still run the workflow (build + AAB), they just skip the
-upload. Order to go live: G1 → G2 → G3 (manual first upload) → then merges auto-ship to
-`internal`.
+1. Run the local checks and update both stores' release notes.
+2. Ship alpha and exercise sign-in, account deletion, family creation/join, camera,
+   optional calendar access, notifications, and optional background location.
+3. Promote to beta only after the alpha smoke test passes. Use the Play closed
+   tester list and the `Dayfold Beta` TestFlight external group.
+4. Create the production candidates with the final tags. Verify that Play says
+   `Draft` and that App Store Connect has not been submitted for review.
+5. The operator reviews the policy answers, agreements, review notes, screenshots,
+   phased/staged-release choice, and then performs the two public-release actions.
 
-## Cutting a release
+Never embed `FAMILY_ID`, `HOUSEHOLD_SECRET`, or `DEV_AUTH_SECRET` in a distributed
+binary. Every store build targets the production API and uses Firebase-backed
+Google/Apple sign-in.
 
-- **Alpha:** nothing to do — every merge to `main` publishes to `internal`.
-- **Beta:** `git tag android-beta-v1.2.0 && git push origin android-beta-v1.2.0`.
-- **Prod:** `git tag android-v1.2.0 && git push origin android-v1.2.0`, then open the
-  Play Console and **roll out** the drafted production release (optionally as a staged %).
+Each non-dev Android run uploads the checked-in Play listing alongside the AAB;
+the Play Console remains the authority for policy questionnaires and tester lists.
+While the Play app record itself is still a draft, the publishing API may refuse
+an active testing release. The workflow automatically retries that first upload as
+a safe track draft; after the operator completes the Play setup gates, subsequent
+alpha/beta uploads activate normally.
 
-Restrict who can push `android-*` tags (operator), like `cli-v*`.
+## Outstanding operator/time gates
 
-## Known follow-ups (ADR 0034 gaps)
+- A personal Play account must run a closed test with at least 12 opted-in testers
+  continuously for at least 14 days before production access can be requested.
+  The current account cannot bypass that calendar gate.
+- Tester email addresses are required to populate the Play closed list and the
+  TestFlight external group; never invent them.
+- The operator must personally attest Play Data safety, target audience/content
+  rating, background-location use, and app access answers.
+- The Account Holder must complete Apple's Digital Services Act trader status,
+  agreements, tax/banking if applicable, App Privacy, age rating, export compliance,
+  TestFlight beta review, and App Review declarations.
 
-- **G6** promote-the-tested-artifact instead of rebuild-from-tag · **G7** enable R8 with
-  vetted keep-rules · **G8** iOS release pipeline (the Xcode/Swift host itself already
-  exists, sim-verified — see below; G8 needs fastlane `match`+`pilot` → TestFlight) ·
-  **G9** first-CI-run check of the runner SDK platform name (`android-37` vs
-  `android-37.0`).
-
-## iOS (not yet — G8)
-
-The Xcode/Swift host (`apps/iosApp`, SwiftUI/xcodegen) has existed and been sim-verified
-since 2026-07-01 — it is not the gap. What's missing is the **release pipeline**:
-TestFlight-internal as the iOS "alpha" (no merge-time auto-publish — Apple processing/
-review latency); fastlane `match` (signing) + `pilot` (TestFlight) / `deliver` (App
-Store) authenticated by an **App Store Connect API key** (`.p8` + issuer/key ids), on a
-**macOS runner** (~10× the minute cost). Tags would drive it: `android-beta-v*`-equivalent
-→ TestFlight, final tag → App Store submit (Apple review + operator submit). Also blocked
-on the operator's Mac + an Apple Developer account ($99/yr spend). Tracked as backlog
-tasks (`TASK-ios-pipeline`, `backlog/next.md`).
+These gates do not prevent dev/internal builds. They do prevent truthful completion
+of beta distribution or a public production release until the required people,
+elapsed test period, and legal attestations exist.

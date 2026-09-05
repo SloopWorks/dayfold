@@ -43,6 +43,8 @@ describe("DELETE /auth/me — soft delete", () => {
     const r = await app.request("/auth/me", { method: "DELETE", headers: auth(o.token) });
     expect(r.status).toBe(204);
     expect((await q(`SELECT deleted_at FROM users WHERE id=$1`, [uid])).rows[0].deleted_at).not.toBeNull();
+    expect((await q(`SELECT count(*)::int AS n FROM user_identities WHERE user_id=$1`, [uid])).rows[0].n).toBe(0);
+    expect((await q(`SELECT count(*)::int AS n FROM credentials WHERE user_id=$1`, [uid])).rows[0].n).toBe(0);
     // the session is dead — the same token now 401s
     expect((await app.request("/auth/me/credentials", { headers: auth(o.token) })).status).toBe(401);
   });

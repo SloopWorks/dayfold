@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Dayfold turned-corner mark</title>
+  <desc id="desc">A coral content card with a light turned upper-right corner.</desc>
+  <defs>
+    <linearGradient id="card" x1="80.5" y1="-60.6" x2="943.5" y2="1084.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF8A6E"/>
+      <stop offset="1" stop-color="#C0381E"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="1024" y1="0" x2="552.96" y2="471.04" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE2D8"/>
+      <stop offset="1" stop-color="#FFB4A3"/>
+    </linearGradient>
+    <clipPath id="card-clip">
+      <rect width="1024" height="1024" rx="307.2"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="307.2" fill="url(#card)"/>
+  <g clip-path="url(#card-clip)">
+    <path d="M552.96 0H1024V471.04Z" fill="url(#flap)"/>
+    <path d="M552.96 0L1024 471.04H552.96Z" fill="#5A1100" fill-opacity=".20"/>
+  </g>
+</svg>

@@ -66,6 +66,42 @@ class AuthEngineTest {
   private val activeOwner =
     """{"family_id":"fam1","name":"The Jacksons","role":"owner","status":"active"}"""
 
+  @Test fun `delete account runs provider cleanup then clears the local identity`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    var providerCleaned = false
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/families/fam1/members" -> respond("""{"members":[]}""", HttpStatusCode.OK, jsonCt)
+        "/auth/me" -> respond("", HttpStatusCode.NoContent)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.deleteAccount { providerCleaned = true }
+    assertTrue(providerCleaned)
+    assertNull(ts.session)
+    assertNull(store.state.session.session)
+    assertEquals(Route.SignIn, store.state.navigation.route)
+  }
+
+  @Test fun `delete account transfer conflict keeps the identity and shows guidance`() = runBlocking {
+    val ts = MemTokenStore(Session("ax", "rx"))
+    val (eng, store) = engine(ts, handler = MockEngine { req ->
+      when (req.url.encodedPath) {
+        "/auth/whoami" -> respond(whoami(activeOwner), HttpStatusCode.OK, jsonCt)
+        "/families/fam1/members" -> respond("""{"members":[]}""", HttpStatusCode.OK, jsonCt)
+        "/auth/me" -> respond("""{"type":"transfer-required"}""", HttpStatusCode.Conflict, jsonCt)
+        else -> respond("", HttpStatusCode.NotFound)
+      }
+    })
+    eng.restore()
+    eng.deleteAccount()
+    assertEquals("ax", ts.session?.access)
+    assertEquals(Route.Feed, store.state.navigation.route)
+    assertTrue(store.state.session.deleteAccountError?.contains("Transfer ownership") == true)
+  }
+
   private fun coordinator() = SessionCoordinator(
     refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     refreshSession = { error("refresh is not expected") },

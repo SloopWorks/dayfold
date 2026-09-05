@@ -63,6 +63,7 @@ fun AccountScreen(
   // slotting a new lambda mid-list silently shifts every argument after it.
   onOpenSmartContent: () -> Unit = {},
   onOpenCalendarSettings: () -> Unit = {},
+  onDeleteAccount: () -> Unit = {},
 ) {
   val cs = MaterialTheme.colorScheme
   val active = state.activeFamily
@@ -71,6 +72,7 @@ fun AccountScreen(
   // every ephemeral dialog). Signing out is reversible but deliberate; a one-tap
   // guard avoids an accidental session clear.
   var confirmSignOut by remember { mutableStateOf(false) }
+  var confirmDeleteAccount by remember { mutableStateOf(false) }
   // Delta A / Task 5 — the avatar picker sheet, opened from the profile card's avatar.
   var avatarPickerOpen by remember { mutableStateOf(false) }
   // Profile name edit — opened from the profile card's name (pencil affordance).
@@ -123,6 +125,30 @@ fun AccountScreen(
         }
       },
       dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+      containerColor = cs.surfaceContainerHigh,
+    )
+  }
+
+  if (confirmDeleteAccount) {
+    AlertDialog(
+      onDismissRequest = { if (!state.deleteAccountBusy) confirmDeleteAccount = false },
+      title = { Text("Delete your account?", style = MaterialTheme.typography.titleLarge) },
+      text = {
+        Text(
+          "This permanently deletes your Dayfold account and removes your access from every family. This can't be undone.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        TextButton(
+          enabled = !state.deleteAccountBusy,
+          onClick = { confirmDeleteAccount = false; onDeleteAccount() },
+          modifier = Modifier.testTag("confirm-delete-account"),
+        ) { Text("Delete account", color = cs.error) }
+      },
+      dismissButton = {
+        TextButton(enabled = !state.deleteAccountBusy, onClick = { confirmDeleteAccount = false }) { Text("Cancel") }
+      },
       containerColor = cs.surfaceContainerHigh,
     )
   }
@@ -348,11 +374,21 @@ fun AccountScreen(
       }
 
       Spacer(Modifier.height(12.dp))
-      // delete (designed: deleteconfirm/transferowner — wired in a later slice)
       Box(
-        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer),
+        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(cs.surfaceContainer)
+          .clickable(enabled = !state.deleteAccountBusy) { confirmDeleteAccount = true }
+          .semantics { if (state.deleteAccountBusy) stateDescription = "Busy" },
         contentAlignment = Alignment.Center,
-      ) { Text("Delete account", style = MaterialTheme.typography.labelLarge, color = cs.error) }
+      ) {
+        if (state.deleteAccountBusy) {
+          androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = cs.error, modifier = Modifier.size(20.dp))
+        } else {
+          Text("Delete account", style = MaterialTheme.typography.labelLarge, color = cs.error)
+        }
+      }
+      state.deleteAccountError?.let { error ->
+        Text(error, style = MaterialTheme.typography.bodySmall, color = cs.error, modifier = Modifier.padding(8.dp))
+      }
     }
   }
 }
