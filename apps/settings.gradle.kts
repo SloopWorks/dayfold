@@ -12,6 +12,18 @@ pluginManagement {
   }
 }
 
+// Shipyard Deploy Gradle plugin (dev-build distribution). The plugin is not published
+// to any Maven repository, so it joins as a composite build when the sibling checkout
+// exists (override with -PshipyardDeployPluginDir) and is simply absent otherwise — CI
+// and fresh clones build without it. androidApp applies it from the buildscript
+// classpath only when this include happened; a `plugins { id(...) }` request would fail
+// resolution whenever the checkout is missing.
+val shipyardPluginDir = file(
+  (extra.properties["shipyardDeployPluginDir"] as String?)
+    ?: "${System.getProperty("user.home")}/workspace/shipyard-deploy/gradle-plugin",
+)
+if (shipyardPluginDir.resolve("settings.gradle.kts").isFile) includeBuild(shipyardPluginDir)
+
 val hasSloopworksPackagesCredential =
   !System.getenv("SLOOPWORKS_PACKAGES_TOKEN").isNullOrBlank() ||
     !providers.gradleProperty("gpr.token").orNull.isNullOrBlank()
