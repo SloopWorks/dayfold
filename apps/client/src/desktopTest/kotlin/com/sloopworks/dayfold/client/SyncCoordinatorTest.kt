@@ -1,5 +1,7 @@
 package com.sloopworks.dayfold.client
 
+// Every fake syncPass counts BEFORE it signals `started`: the tests sample passCount right
+// after started.receive(), so counting afterwards races the assertion (CI: expected 2 but was 1).
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -177,8 +179,8 @@ class SyncCoordinatorTest {
     val releases = Channel<Unit>(Channel.UNLIMITED)
     val finished = Channel<Unit>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-      started.send(reason)
       passCount.incrementAndGet()
+      started.send(reason)
       releases.receive()
       finished.send(Unit)
       true
@@ -218,8 +220,8 @@ class SyncCoordinatorTest {
     val started = Channel<SyncReason>(Channel.UNLIMITED)
     val releases = Channel<Unit>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-      started.send(reason)
       passCount.incrementAndGet()
+      started.send(reason)
       releases.receive()
       true
     }, pollIntervalMs = Long.MAX_VALUE)
@@ -260,8 +262,8 @@ class SyncCoordinatorTest {
     val passCount = AtomicInteger()
     val started = Channel<SyncReason>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-      started.send(reason)
       passCount.incrementAndGet()
+      started.send(reason)
       true
     }, pollIntervalMs = 20L)
 
@@ -291,8 +293,8 @@ class SyncCoordinatorTest {
     val started = Channel<SyncReason>(Channel.UNLIMITED)
     val releases = Channel<Unit>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-      started.send(reason)
       passCount.incrementAndGet()
+      started.send(reason)
       releases.receive()
       true
     }, pollIntervalMs = Long.MAX_VALUE)
@@ -347,8 +349,8 @@ class SyncCoordinatorTest {
     val releases = Channel<Unit>(Channel.UNLIMITED)
     val finished = Channel<Unit>(Channel.UNLIMITED)
     val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-      started.send(reason)
       passCount.incrementAndGet()
+      started.send(reason)
       releases.receive()
       finished.send(Unit)
       true
@@ -393,8 +395,8 @@ class SyncCoordinatorTest {
       val started = Channel<SyncReason>(Channel.UNLIMITED)
       val releases = Channel<Unit>(Channel.UNLIMITED)
       val coordinator = SyncCoordinator(syncPass = { reason, _ ->
-        started.send(reason)
         passCount.incrementAndGet()
+        started.send(reason)
         releases.receive()
         true
       }, pollIntervalMs = Long.MAX_VALUE)
