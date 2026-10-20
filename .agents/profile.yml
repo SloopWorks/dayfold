@@ -1,0 +1,62 @@
+# .agents/profile.yml — Dayfold (KMP/Compose-MP client + TS API).
+# The ONE file this repo owns. Roles resolve paths/commands through these keys.
+# CLAUDE.md outranks every role contract; its hard guardrails are operator-gated.
+
+repo:
+  kind: app
+  brand: dayfold             # portfolio/dayfold.md in the org hub
+  stack: [kmp, compose-mp, typescript, postgres]
+
+paths:
+  agent_doc: CLAUDE.md       # AGENTS.md is a thin pointer to it; apps/AGENTS.md is nested
+  adr_index: adr/decisions-index.md
+  designs: designs/          # ADR 0008: a hi-fi mockup exists before deep planning or build
+  specs: specs/
+  plans: docs/superpowers/plans/
+  backlog_now: backlog/now.md
+  backlog_next: backlog/next.md
+  client_module: apps/client
+  ui_module: apps/ui         # platform hosts: apps/androidApp, apps/iosApp
+  api_module: apps/api       # TS/Hono/Postgres, deployed as a Vercel function
+  worker_module: none
+  dev_loop: processes/agent-dev-loop.md        # canonical toolchain + per-area lanes
+  review_contract: processes/repo-review-contract.md   # repo traps, lane map, known-failure catalog
+  subagent_roster: processes/subagents.md
+
+verify:                      # canonical copies live in processes/agent-dev-loop.md
+  full: cd apps && ./gradlew :client:desktopTest :ui:desktopTest :swip-wiring:desktopTest
+  kmp: cd apps && ./gradlew :client:desktopTest            # :ui for composables (recompiles :client)
+  api: npm run test:routine-schema && npm run codegen && cd apps/api && npm run build:fn && npx vitest run
+  ui_snapshot: cd apps && ./gradlew :ui:snapshotUi -PsnapshotArgs="--list"
+  lint: none                 # the gates are the guard scripts below, not a linter
+  migration_guard: cd apps && ./gradlew :client:verifyCommonMainContentDbMigration
+  guards: bash scripts/check-expect-actual.sh && bash scripts/check-no-direct-console.sh
+  test_failures: bash scripts/ci-test-failures.sh apps   # failing names from JUnit XML, not console
+  # The Gradle build needs the debugdrawer submodule: a fresh clone must run
+  #   git submodule update --init third_party/debugdrawer
+  # or configuration fails with "Shared DebugDrawer is not initialized".
+  # JAVA_HOME must be JDK 17: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+  # The API lane needs DATABASE_URL (postgres) and NODE_AUTH_TOKEN for GitHub Packages
+  # (`export NODE_AUTH_TOKEN=$(gh auth token)`); without them report UNVERIFIED, never green.
+  # migration_guard is a SEPARATE task — it is NOT part of desktopTest, and CI invokes it
+  # explicitly. Run it whenever a .sq or .sqm file changed.
+  # A verify role must read processes/repo-review-contract.md before reporting: the lane
+  # map by changed path, the deterministic guards, and the known-failure catalog live there.
+
+factory:
+  swip: true                 # apps/swip-wiring; mandatory sanitizer leak test (ADR 0054)
+  debug_drawer: true         # com.sloopworks.debugdrawer:* 0.1.0 (debug) + -noop (release)
+  design_system: none        # dayfold does not consume com.sloopworks.ui:foundation yet
+  shipyard_project: dayfold  # P-3
+  product_atlas: none
+  deploy: shipyard-deploy    # dev builds: apps/.shipyard-deploy.yaml, project `dayfold`.
+                             # Store releases go through fastlane/ and are operator-gated.
+
+gates:
+  design_before_build: true  # ADR 0008 — no deep planning or build of a surface without a mockup
+  ui_change_requires_snapshot: true   # re-record BOTH snapshots/macos/ and snapshots/linux/ (CI is Linux)
+  review_rounds: [adversarial-reviewer, simplification-reviewer]
+  privacy_review_when: [auth, routes, sync, telemetry, identifiers, migrations, bug-reports, calendar, content-ingestion]
+  human_gate_when: [children-data, pricing, scope, llm-data-routing, gmail-scopes, external-actions, spend, legal]
+  # The human gates are CLAUDE.md's hard guardrails 1-6. A change that touches one is a P0
+  # and the verdict is ESCALATE-TO-OPERATOR, however good the code is.

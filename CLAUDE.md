@@ -123,6 +123,15 @@ renders on-device) — see `specs/prototype/00-build-spec-plan.md`.
   external actions.**
 - **Routing.** Match the task class to the right agent/process via
   `processes/agent-routing.md` before starting multi-step work.
+- **Agent roles come from the factory pack.** `.claude/agents/` and
+  `.agents/roles/` are **generated** from the SloopWorks agent pack (org hub
+  `factory/agents/`) and are parameterized — they read this repo's paths,
+  verify commands and gates from `.agents/profile.yml`. Never hand-edit a
+  generated role file; change the role in the hub and re-run the installer.
+  What a generic role cannot know — the lane map by changed path, the
+  deterministic guards, the known-failure catalog, the ADR-to-dimension map,
+  and the privacy threat model — is `processes/repo-review-contract.md`, and
+  every reviewer/verifier must read it before reporting.
 - **ADR-class decisions** (anything touching product scope, pricing, legal
   or compliance posture, platform/vendor choices, customer-data handling,
   automation-autonomy boundaries, or maintenance burden) must be written as
