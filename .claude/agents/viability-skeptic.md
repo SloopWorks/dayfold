@@ -9,7 +9,7 @@ maxTurns: 40
 color: red
 ---
 
-<!-- generated from factory/agents/roles/viability-skeptic.md @ 1.2.2 — do not edit -->
+<!-- generated from factory/agents/roles/viability-skeptic.md @ 1.2.3 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

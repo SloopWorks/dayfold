@@ -3,7 +3,7 @@ description = "Hostile reviewer of strategy, viability, pricing, and research sy
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/viability-skeptic.md @ 1.2.2 — do not edit
+# generated from factory/agents/roles/viability-skeptic.md @ 1.2.3 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

@@ -9,7 +9,7 @@ maxTurns: 30
 color: yellow
 ---
 
-<!-- generated from factory/agents/roles/simplification-reviewer.md @ 1.2.2 — do not edit -->
+<!-- generated from factory/agents/roles/simplification-reviewer.md @ 1.2.3 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
