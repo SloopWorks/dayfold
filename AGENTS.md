@@ -67,6 +67,8 @@ author's context confirms the author.
 | `doc-drift-auditor` | steward | read-only | Audits agent-facing docs (CLAUDE.md, AGENTS.md, README, architecture docs, ADR index, runbooks, role profiles) against the code and git history and returns every stale factual claim with evidence and exact replacement text |
 | `release-shepherd` | ship | write-ops | Takes verified work to a device or a store: picks the channel, runs the publish path (Shipyard Deploy dev builds, TestFlight, Play, Cloudflare deploy command), and checks the release prerequisites the company actually owes |
 | `api-verifier` | verify | read-only | Runs the repo's backend/schema verify lane as CI does (unit/contract tests, codegen idempotence, schema and bundle drift, migration checks, worker dry-run) and reports machine-read results |
+| `research-verifier` | intake | read-only | Cite-or-die verification of external claims against live sources |
+| `viability-skeptic` | intake | read-only | Hostile reviewer of strategy, viability, pricing, and research syntheses |
 
 Pipeline: intake → design → plan → build → verify → ship, with `steward` roles
 on a maintenance cadence. Do not skip a gate the profile declares in `gates.*`.

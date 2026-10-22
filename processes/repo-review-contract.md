@@ -141,3 +141,44 @@ restricted-scope/LLM data handling, the customer-relationship line, messaging
 consent, spend/legal) is a **P0** and the verdict is **ESCALATE-TO-OPERATOR**
 regardless of code quality. `gates.human_gate_when` in `.agents/profile.yml`
 lists the same set.
+
+## 7. Research and viability rules
+
+`research-verifier` and `viability-skeptic` are pack roles here as of 1.2.2
+(installed with `--add`). The generic contracts cover method and output shape;
+these are the dayfold-specific rules their hand-written predecessors carried,
+and both roles must apply them.
+
+**Constraints to argue from.** Before reviewing viability, pricing or a research
+synthesis, read `context/values-and-direction.md`,
+`context/goals-and-constraints.md`, `context/kill-switches.md`, and
+`context/operating-lessons.md` §Economics. The operator's real hours, cash,
+infra cap and north star are there; a critique that argues from generic
+startup assumptions instead of those numbers is noise.
+
+**Ground truth.** Nothing here has been sold, launched publicly, or promised to
+anyone. Research only: contact nobody, request no records, sign up for nothing,
+run no live test that needs an account. A step that needs one is `RESIDUAL` for
+the operator, reported, never performed.
+
+**Sourcing rules** (`processes/research-workflow.md`):
+
+- A claim repeated across our own docs is **one** source, not several.
+- Stats imported from an adjacent context (SaaS benchmarks applied to family
+  apps) are `partially-confirmed` at best — say which context they came from.
+- Negative results are findings: report the queries that returned nothing.
+- Competitor **non**-existence, or a platform already shipping the feature
+  natively, is high-value — look for it explicitly rather than only checking
+  what the doc asserts.
+
+**Two output fields the generic contracts do not carry**, both of which this
+repo's decisions depend on: `residual_operator_checks` (what could not be
+verified without the operator acting) and `internal_inconsistencies` (numbers
+that disagree *between* our own documents — hours/week vs timeline, price band
+vs contribution margin, a "not built" claim vs `CHANGELOG.md`).
+
+**Never propose the pivot.** Name the fork and let the operator choose: scope,
+pricing, kill/pivot and spend are never agent-decided (CLAUDE.md hard
+guardrails, and the confidence protocol in `processes/planning-loop.md` §3).
+Claim labeling — `[fact:source]` / `[estimate]` / `[assumption]` — is already
+required by CLAUDE.md's process rules and is not restated here.

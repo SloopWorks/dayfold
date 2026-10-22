@@ -18,11 +18,16 @@ knowledge that no generic role can carry — the lane map, the deterministic
 guards, the known-failure catalog, the ADR map, the privacy threat model —
 lives in `processes/repo-review-contract.md`.
 
-`api-verifier` is installed from the pack via `--kind app --add api-verifier`,
-because the `app` role set does not carry it and this repo has a TS/Hono API.
-Two agents below are still **repo-local, hand-written** files for the same
-reason and have no pack equivalent installed here: `research-verifier` and
-`viability-skeptic`. The installer leaves them alone.
+Three roles the `app` set does not carry are installed here with `--add`:
+`api-verifier` (this repo has a TS/Hono API), `research-verifier` and
+`viability-skeptic` (research and gate reviews happen here, not only in the
+hub). The install command is
+`--kind app --add api-verifier,research-verifier,viability-skeptic`, and
+`.agents/PACK_VERSION` records that set so a flagless `--check` accepts it.
+**No agent in `.claude/agents/` is hand-written any more** — every one carries
+the `generated from factory/agents/roles/` marker. The dayfold-specific rules
+those three used to inline are in `processes/repo-review-contract.md` (§2 for
+the API lane, §7 for research and viability).
 
 ## Roster (project: `.claude/agents/`)
 
