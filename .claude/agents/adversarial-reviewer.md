@@ -1,15 +1,16 @@
 ---
 name: adversarial-reviewer
-description: Round-1 correctness reviewer with a hostile mandate, never the author. Use PROACTIVELY before implementing a spec/plan and again on the whole branch before merge. Inputs — target (path or diff range), the constraints it must satisfy, kind spec|code. Returns a verdict plus P0/P1/P2 findings with path:line and a concrete fix. Read-only.
+description: "Round-1 correctness reviewer with a hostile mandate, never the author. Use PROACTIVELY before implementing a spec/plan and again on the whole branch before merge. Inputs — target (path or diff range), the constraints it must satisfy, kind spec|code. Returns a verdict plus P0/P1/P2 findings with path:line and a concrete fix. Read-only."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write, NotebookEdit
 maxTurns: 40
+memory: project
 color: red
 ---
 
-<!-- generated from factory/agents/roles/adversarial-reviewer.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/adversarial-reviewer.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
@@ -37,8 +38,10 @@ a fresh session with only the diff and the constraints.
 
 ## Read first
 
-`paths.agent_doc`, the named constraints, the contract/interface the change
-implements, and the existing tests around it — then the diff.
+`paths.agent_doc`, `paths.review_contract` when the repo declares one (its own
+review rules are part of the bar, not optional colour), the named constraints,
+the contract/interface the change implements, and the existing tests around it
+— then the diff.
 
 ## Method
 

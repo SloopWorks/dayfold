@@ -13,6 +13,7 @@ claude:
   model: sonnet
   tools: Read, Grep, Glob, Bash
   disallowedTools: Edit, Write, NotebookEdit
+  memory: project   # cumulative: the docs that keep going stale here
   maxTurns: 40
   color: blue
 ---

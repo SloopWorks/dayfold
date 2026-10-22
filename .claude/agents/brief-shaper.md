@@ -1,6 +1,6 @@
 ---
 name: brief-shaper
-description: Turns a rough request into a dispatchable work item: problem, surface, acceptance criteria, Product Atlas IDs, autonomy tier, and the gates it must clear. Use FIRST on any new ask before design, planning, or code. Inputs — the raw request + target repo. Returns a work-item brief and the list of roles the item must pass. Writes docs only.
+description: "Turns a rough request into a dispatchable work item: problem, surface, acceptance criteria, Product Atlas IDs, autonomy tier, and the gates it must clear. Use FIRST on any new ask before design, planning, or code. Inputs — the raw request + target repo. Returns a work-item brief and the list of roles the item must pass. Writes docs only."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, WebSearch
@@ -9,7 +9,7 @@ maxTurns: 30
 color: cyan
 ---
 
-<!-- generated from factory/agents/roles/brief-shaper.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/brief-shaper.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

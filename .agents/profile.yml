@@ -45,6 +45,7 @@ verify:                      # canonical copies live in processes/agent-dev-loop
 
 factory:
   swip: true                 # apps/swip-wiring; mandatory sanitizer leak test (ADR 0054)
+  design_authority: none     # designs/ is in this repo; it is the authority for the shared modules too
   debug_drawer: true         # com.sloopworks.debugdrawer:* 0.1.0 (debug) + -noop (release)
   design_system: none        # dayfold does not consume com.sloopworks.ui:foundation yet
   shipyard_project: dayfold  # P-3

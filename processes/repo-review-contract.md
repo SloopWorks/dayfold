@@ -13,7 +13,11 @@ file. **Every verify or review role must read it before reporting** — the
 profile points here as `paths.review_contract`.
 
 Canonical copies live elsewhere where one already exists; this file points
-rather than duplicates. Toolchain, per-area loops and snapshot commands are
+rather than duplicates. Pack 1.2.2 promoted several rules that started here —
+the generated-tree protocol, per-lane degradation, executed-test counting,
+every-platform goldens, and naming the targets CI does not build — so those are
+gone from this file and only their dayfold-specific half remains. When a rule
+here turns out to be general, move it to the hub rather than keeping two copies. Toolchain, per-area loops and snapshot commands are
 `processes/agent-dev-loop.md`. Roster and invocation are `processes/subagents.md`.
 
 ## 1. Lane map — pick by changed path
@@ -44,34 +48,32 @@ the test count per module — a count that did not move means a test did not run
    — the committed esbuild artifact **is** the Vercel function.
 4. `cd apps/api && npx vitest run` — needs `DATABASE_URL` with migrations applied.
 5. Migrations: new `apps/api/migrations/NNNN_*.sql` sequential, no number
-   collision, ADR 0033 runner semantics (idempotent, re-run-safe), no grant widening.
+   collision, ADR 0033 runner semantics (idempotent, re-run-safe).
 
-**Before** steps 2–3, record
-`git status --porcelain apps/api/src/generated packages/schema/kotlin-gen apps/api/api/index.js`.
-Already dirty → the caller has uncommitted regenerated output: do not touch it,
-report "pre-existing uncommitted generated changes — re-verify after commit".
-Clean before and dirty after → report `DRIFT` with `git diff --stat`, then
-`git restore` those paths so the tree is left as it was found.
+The generic tree protocol in `api-verifier` applies to steps 2–3 (its `TREE:`
+output line). The paths it applies to here are
+`apps/api/src/generated`, `packages/schema/kotlin-gen` and `apps/api/api/index.js`.
 
-No Postgres → the vitest lane is `UNVERIFIED`; the codegen and bundle lanes
-still run. No npm egress and no `node_modules` → `UNVERIFIED`, rely on CI.
-Never report green for a lane that did not run.
+Preconditions the role cannot know: the vitest lane needs `DATABASE_URL` with
+migrations applied, and `npm ci` needs `NODE_AUTH_TOKEN` for GitHub Packages
+(`export NODE_AUTH_TOKEN=$(gh auth token)`). Which lanes survive a missing one
+is the role's own per-lane degradation rule.
 
 ## 3. Deterministic guards (no build needed)
 
 - A `.sq` schema change with no companion `.sqm` migration or no `Schema.version`
   bump strands existing devices. `ALTER TABLE` appends only — **new columns go at
   the END** of the table in `Content.sq`.
-- `@Test fun x() = runBlocking { … }` whose last expression is not `Unit` is
-  silently never run. Demand `runBlocking<Unit>`; check that test counts moved.
 - "Built but not wired": a new `Route` / `*Screen` / `*Host` / `*Action` with no
   production dispatcher or call site is a P0 unless `ReachabilityGuardTest` has a
   dated allow-list entry with a reason.
-- Goldens re-recorded under `snapshots/macos/` but not `snapshots/linux/` (or the
-  reverse) goes red in CI — CI runs Linux.
+- The golden dirs here are `snapshots/macos/` and `snapshots/linux/`; CI runs
+  Linux, so a macOS-only re-record is the one that goes red.
 - A schema edit without the `npm run codegen` output committed, or an
   `apps/api/src` edit without the rebuilt `apps/api/api/index.js`.
-- A commonMain `expect` with no `iosMain` `actual` — CI does not compile iOS.
+- `bash scripts/check-expect-actual.sh` is the expect/actual check here, and it
+  matters because CI does not compile iOS — nothing else catches a missing
+  `actual`.
 
 ## 4. Known-failure catalog (CI triage)
 
@@ -87,7 +89,7 @@ row here when a new class lands there.
 | `Gem::FilePermissionError` in Play upload | system Ruby on the runner | `GEM_HOME` under `$RUNNER_TEMP` (already fixed — if back, the step regressed) |
 | `verifyCommonMainContentDbMigration` fails | `.sq` changed without `.sqm`, or a column added mid-table | add the `.sqm`; new columns at END |
 | `ReachabilityGuardTest` fails | new Route/Screen/Action with no production caller | wire it, or add a dated allow-list entry |
-| "0 failed" but a new test is missing from XML | `= runBlocking { }` returning non-Unit | `runBlocking<Unit>` |
+| "0 failed" but a new test is missing from XML | `= runBlocking { }` returning non-Unit (the role's `TESTS RUN:` count catches this class generally) | `runBlocking<Unit>` |
 | `check-expect-actual.sh` fails | commonMain `expect` without `iosMain` `actual` | add the actual |
 | `check-no-direct-console.sh` fails | raw `println` / `android.util.Log` | route via `com.sloopworks.dayfold.client.Log` |
 | API job fails before tests | `npm ci` needs `NODE_AUTH_TOKEN` (GitHub Packages) | secret/permissions, not code |

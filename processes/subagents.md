@@ -6,18 +6,23 @@ rules for adding one. Definitions live in `.claude/agents/*.md` (project) and
 set and not another: `research/2026-09-02-subagent-practices-review.md`.
 
 **The project definitions are generated.** They come from the SloopWorks
-factory agent pack (org hub `factory/agents/roles/`), installed here as
-`.agents/roles/*.md` (harness-neutral, what Codex and Grok Build read via the
-generated block in `AGENTS.md`) and `.claude/agents/*.md` (the same contracts
-with Claude Code frontmatter). They are parameterized: every path, verify
-command and gate resolves through `.agents/profile.yml`, the one file this repo
-owns. Repo-specific review knowledge that no generic role can carry — the lane
-map, the deterministic guards, the known-failure catalog, the ADR map, the
-privacy threat model — lives in `processes/repo-review-contract.md`.
+factory agent pack (org hub `factory/agents/roles/`), installed here three ways
+from one canonical role file: `.agents/roles/*.md` (harness-neutral contracts),
+`.claude/agents/*.md` (Claude Code frontmatter — **Grok Build loads these as
+subagents too**), and `.codex/agents/*.toml` (Codex project subagents). All
+three harnesses dispatch roles as subagents; running a review role in a fresh
+session is the fallback when one cannot, not the mechanism. They are
+parameterized: every path, verify command and gate resolves through
+`.agents/profile.yml`, the one file this repo owns. Repo-specific review
+knowledge that no generic role can carry — the lane map, the deterministic
+guards, the known-failure catalog, the ADR map, the privacy threat model —
+lives in `processes/repo-review-contract.md`.
 
-Three agents below are still **repo-local, hand-written** files, because the
-pack's `app` role set does not include them: `api-verifier`, `research-verifier`
-and `viability-skeptic`. The installer leaves them alone.
+`api-verifier` is installed from the pack via `--kind app --add api-verifier`,
+because the `app` role set does not carry it and this repo has a TS/Hono API.
+Two agents below are still **repo-local, hand-written** files for the same
+reason and have no pack equivalent installed here: `research-verifier` and
+`viability-skeptic`. The installer leaves them alone.
 
 ## Roster (project: `.claude/agents/`)
 
@@ -45,12 +50,11 @@ and `viability-skeptic`. The installer leaves them alone.
 | `swip-instrumenter` | Adding or changing instrumentation. | code | schema + wiring + the sanitizer leak test |
 | `release-shepherd` | Shipping a dev build or preparing a store release. | ops | the release steps actually run, and what is operator-gated |
 
-Two behaviours the pack versions do **not** carry yet, both tracked as hub
-feedback: the `memory: project` frontmatter that gave `adversarial-reviewer`
-and `doc-drift-auditor` a cumulative defect-class / drift-hot-spot memory under
-`.claude/agent-memory/`, and the repo-specific catalogs those agents used to
-inline — now in `processes/repo-review-contract.md`, which the profile points
-at as `paths.review_contract`.
+Pack 1.2.2 restored `memory: project` on `adversarial-reviewer` and
+`doc-drift-auditor`, so their cumulative defect-class and drift-hot-spot memory
+under `.claude/agent-memory/` works again. The repo-specific catalogs those
+agents used to inline live in `processes/repo-review-contract.md`, which the
+profile points at as `paths.review_contract`.
 
 Every agent is **read-only on source** — a `tools` allowlist, `disallowedTools:
 Edit, Write, NotebookEdit`, or both (`ci-doctor`'s allowlist names only the
@@ -84,8 +88,10 @@ Deliberately **not** agents (a skill, a session, or a Routine fits better):
 - **Results are summaries.** Each agent caps its return (≤300–700 words) so
   seven agents cannot blow the parent context. Long raw output (fleet
   outputs) is archived under `research/<topic>-agent-outputs/` by the caller.
-- Other harnesses (Codex, Cursor) do not load `.claude/agents/`; paste an
-  agent file's body as a fresh-context system prompt with the same inputs.
+- Grok Build loads `.claude/agents/` and Codex loads `.codex/agents/*.toml`, so
+  both dispatch these roles as subagents — the installer generates all three
+  forms. For a harness that loads none of them, paste the role body from
+  `.agents/roles/<role>.md` as a fresh-context system prompt with the same inputs.
 
 ## Placement: project vs user level
 
@@ -111,7 +117,8 @@ Precedence when names collide: managed > `--agents` flag > **project
 0. **Never hand-edit a generated role file.** For a pack role, change
    `factory/agents/roles/<role>.md` in the org hub, run
    `python3 factory/agents/install.py --reindex`, then re-run
-   `factory/agents/install.sh --target . --kind app` here and commit the result.
+   `factory/agents/install.sh --target . --kind app --add api-verifier` here and
+   commit the result.
    `install.py --target . --kind app --check` reports drift and belongs in CI.
    If the change is repo-specific rather than role-specific, it belongs in
    `.agents/profile.yml` or `processes/repo-review-contract.md` instead.

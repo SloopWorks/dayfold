@@ -1,14 +1,15 @@
 ---
 name: doc-drift-auditor
-description: Audits agent-facing docs (CLAUDE.md, AGENTS.md, README, architecture docs, ADR index, runbooks, role profiles) against the code and git history and returns every stale factual claim with evidence and exact replacement text. Use on the maintenance pass or after changes to commands, versions, CI, or layout. Read-only.
+description: "Audits agent-facing docs (CLAUDE.md, AGENTS.md, README, architecture docs, ADR index, runbooks, role profiles) against the code and git history and returns every stale factual claim with evidence and exact replacement text. Use on the maintenance pass or after changes to commands, versions, CI, or layout. Read-only."
 model: sonnet
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write, NotebookEdit
 maxTurns: 40
+memory: project
 color: blue
 ---
 
-<!-- generated from factory/agents/roles/doc-drift-auditor.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/doc-drift-auditor.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

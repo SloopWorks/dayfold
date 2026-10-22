@@ -1,6 +1,6 @@
 ---
 name: swip-instrumenter
-description: Wires analytics, telemetry, and remote config through SWIP with the right privacy class, schema registration, and debug-drawer visibility. Use whenever a change adds or alters events, config flags, identifiers, or bug-report content. Inputs — the surface + its Atlas IDs. Returns the schema diff, wiring, and a privacy classification per field.
+description: "Wires analytics, telemetry, and remote config through SWIP with the right privacy class, schema registration, and debug-drawer visibility. Use whenever a change adds or alters events, config flags, identifiers, or bug-report content. Inputs — the surface + its Atlas IDs. Returns the schema diff, wiring, and a privacy classification per field."
 model: sonnet
 effort: high
 tools: Read, Grep, Glob, Bash, Edit, Write
@@ -8,7 +8,7 @@ maxTurns: 50
 color: orange
 ---
 
-<!-- generated from factory/agents/roles/swip-instrumenter.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/swip-instrumenter.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

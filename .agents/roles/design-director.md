@@ -42,7 +42,9 @@ index. Never touch source modules.
 ## Read first
 
 `paths.designs` for the existing `DESIGN-BRIEF-*` / spec conventions in this
-repo, the brand system (`sloopworks-ui` `:foundation` tokens — palette, shapes,
+repo — or, when `paths.designs` is `none` and `factory.design_authority` names
+another repo and path, the spec and brand rules there, since a shared module
+does not own its own design truth and must not fork it — the brand system (`sloopworks-ui` `:foundation` tokens — palette, shapes,
 spacing, motion, marks), the debug-drawer/status rules when the surface shows
 state, and any Atlas definition for the surface so the spec names the same IDs
 the code and SWIP events will use.

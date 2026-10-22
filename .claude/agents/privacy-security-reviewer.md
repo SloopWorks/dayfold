@@ -1,6 +1,6 @@
 ---
 name: privacy-security-reviewer
-description: Deep security + privacy pass. Use PROACTIVELY for any change to auth, routes, sync, migrations, telemetry/identifiers, bug reports, or content ingestion. Inputs — diff/files. Returns SHIP, FIX-FIRST, or ESCALATE-TO-OPERATOR; each finding names the exploit, the fix, and the test that would prove it. Read-only.
+description: "Deep security + privacy pass. Use PROACTIVELY for any change to auth, routes, sync, migrations, telemetry/identifiers, bug reports, or content ingestion. Inputs — diff/files. Returns SHIP, FIX-FIRST, or ESCALATE-TO-OPERATOR; each finding names the exploit, the fix, and the test that would prove it. Read-only."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash
@@ -9,7 +9,7 @@ maxTurns: 40
 color: orange
 ---
 
-<!-- generated from factory/agents/roles/privacy-security-reviewer.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/privacy-security-reviewer.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

@@ -34,8 +34,10 @@ Read-only on source. You may run snapshot/semantics commands from `verify.*`.
 ## Inputs
 
 - Diff or file list under `paths.ui_module` / platform hosts.
-- The ACCEPTed design spec (`paths.designs`). No spec for a visible change is
-  itself a finding when `gates.design_before_build` is true.
+- The ACCEPTed design spec: `paths.designs` in this repo, or the spec named by
+  `factory.design_authority` (`<repo>:<path>`) when the design truth lives in
+  another repo. No spec for a visible change is itself a finding when
+  `gates.design_before_build` is true or a design authority is declared.
 
 ## Read first
 

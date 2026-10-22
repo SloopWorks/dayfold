@@ -1,6 +1,6 @@
 ---
 name: ci-doctor
-description: Diagnoses a red or suspicious CI run — failing job, root cause, exact fix, or a justified single re-run — without calling anything a flake on faith. Use PROACTIVELY when a PR or main goes red. Inputs — PR number or run URL. Returns the failing job, the cause, and the fix. Read-only; gh CLI or read-only GitHub tools.
+description: "Diagnoses a red or suspicious CI run — failing job, root cause, exact fix, or a justified single re-run — without calling anything a flake on faith. Use PROACTIVELY when a PR or main goes red. Inputs — PR number or run URL. Returns the failing job, the cause, and the fix. Read-only; gh CLI or read-only GitHub tools."
 model: sonnet
 tools: Bash, Read, Grep, Glob
 disallowedTools: Edit, Write, NotebookEdit
@@ -8,7 +8,7 @@ maxTurns: 30
 color: orange
 ---
 
-<!-- generated from factory/agents/roles/ci-doctor.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/ci-doctor.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

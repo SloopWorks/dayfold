@@ -1,6 +1,6 @@
 ---
 name: kmp-implementer
-description: Implements client work in Kotlin Multiplatform + Compose Multiplatform against an accepted plan, test-first, honoring the design system and redux-kotlin rules. Use for any change under the client/UI modules. Inputs — plan stage + design spec. Returns the change, the green verify output, and UI snapshots for visible surfaces.
+description: "Implements client work in Kotlin Multiplatform + Compose Multiplatform against an accepted plan, test-first, honoring the design system and redux-kotlin rules. Use for any change under the client/UI modules. Inputs — plan stage + design spec. Returns the change, the green verify output, and UI snapshots for visible surfaces."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Edit, Write
@@ -8,7 +8,7 @@ maxTurns: 80
 color: green
 ---
 
-<!-- generated from factory/agents/roles/kmp-implementer.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/kmp-implementer.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

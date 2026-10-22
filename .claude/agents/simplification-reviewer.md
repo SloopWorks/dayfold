@@ -1,6 +1,6 @@
 ---
 name: simplification-reviewer
-description: Round-2 reviewer: usability at the point of use, redundancy, over-engineering relative to the next few uses, dead code. Use AFTER round-1 findings are applied, never instead. Forbidden from relitigating round 1. Inputs — the fixed artifact + round-1 findings. Returns SHIP-AFTER-TWEAKS or NEEDS-RESTRUCTURE with ordered tweaks. Read-only.
+description: "Round-2 reviewer: usability at the point of use, redundancy, over-engineering relative to the next few uses, dead code. Use AFTER round-1 findings are applied, never instead. Forbidden from relitigating round 1. Inputs — the fixed artifact + round-1 findings. Returns SHIP-AFTER-TWEAKS or NEEDS-RESTRUCTURE with ordered tweaks. Read-only."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash
@@ -9,7 +9,7 @@ maxTurns: 30
 color: yellow
 ---
 
-<!-- generated from factory/agents/roles/simplification-reviewer.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/simplification-reviewer.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

@@ -14,6 +14,7 @@ claude:
   effort: high
   tools: Read, Grep, Glob, Bash
   disallowedTools: Edit, Write, NotebookEdit
+  memory: project   # cumulative: defect classes this repo keeps producing
   maxTurns: 40
   color: red
 ---
@@ -41,8 +42,10 @@ a fresh session with only the diff and the constraints.
 
 ## Read first
 
-`paths.agent_doc`, the named constraints, the contract/interface the change
-implements, and the existing tests around it — then the diff.
+`paths.agent_doc`, `paths.review_contract` when the repo declares one (its own
+review rules are part of the bar, not optional colour), the named constraints,
+the contract/interface the change implements, and the existing tests around it
+— then the diff.
 
 ## Method
 

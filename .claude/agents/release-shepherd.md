@@ -1,6 +1,6 @@
 ---
 name: release-shepherd
-description: Takes verified work to a device or a store: picks the channel, runs the publish path (Shipyard Deploy dev builds, TestFlight, Play, Cloudflare deploy command), and checks the release prerequisites the company actually owes. Use when a work item is green and needs to reach a human. Returns what was published where, plus the blocking prereqs.
+description: "Takes verified work to a device or a store: picks the channel, runs the publish path (Shipyard Deploy dev builds, TestFlight, Play, Cloudflare deploy command), and checks the release prerequisites the company actually owes. Use when a work item is green and needs to reach a human. Returns what was published where, plus the blocking prereqs."
 model: sonnet
 effort: high
 tools: Read, Grep, Glob, Bash
@@ -9,7 +9,7 @@ maxTurns: 40
 color: green
 ---
 
-<!-- generated from factory/agents/roles/release-shepherd.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/release-shepherd.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

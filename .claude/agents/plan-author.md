@@ -1,6 +1,6 @@
 ---
 name: plan-author
-description: Turns a brief (+ accepted design spec) into an ordered, test-first implementation plan with explicit file-level targets, verification commands, and stage gates. Use before any multi-step build. Inputs — brief + spec + repo profile. Returns a staged plan each of whose stages ends in a green command. Writes plan docs only.
+description: "Turns a brief (+ accepted design spec) into an ordered, test-first implementation plan with explicit file-level targets, verification commands, and stage gates. Use before any multi-step build. Inputs — brief + spec + repo profile. Returns a staged plan each of whose stages ends in a green command. Writes plan docs only."
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash
@@ -9,7 +9,7 @@ maxTurns: 40
 color: blue
 ---
 
-<!-- generated from factory/agents/roles/plan-author.md @ 1.0.0 — do not edit -->
+<!-- generated from factory/agents/roles/plan-author.md @ 1.2.2 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
