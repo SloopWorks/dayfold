@@ -3,7 +3,7 @@ description = "Owns the design round: writes the self-contained Claude design pr
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
-# generated from factory/agents/roles/design-director.md @ 1.2.3 — do not edit
+# generated from factory/agents/roles/design-director.md @ 1.2.4 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

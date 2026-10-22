@@ -2,7 +2,7 @@ name = "research_verifier"
 description = "Cite-or-die verification of external claims against live sources. Use for market, competitor, pricing, platform-policy, and compliance claims, and to re-verify research older than ~6 months. Inputs — claims or a research doc + the decision they feed. Returns per-claim verdicts with the URLs actually consulted. Never contacts anyone."
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/research-verifier.md @ 1.2.3 — do not edit
+# generated from factory/agents/roles/research-verifier.md @ 1.2.4 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
