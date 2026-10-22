@@ -3,7 +3,7 @@ description = "Round-1 correctness reviewer with a hostile mandate, never the au
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/adversarial-reviewer.md @ 1.2.4 — do not edit
+# generated from factory/agents/roles/adversarial-reviewer.md @ 1.3.0 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

@@ -2,7 +2,7 @@ name = "kmp_verifier"
 description = "Runs the repo's Kotlin/Compose verify lane exactly as CI does (common/desktop tests, Android/iOS compile, lint, stability and console gates) and reports results read from machine output, not from vibes. Use PROACTIVELY after client/UI edits. Returns a GREEN/RED/UNVERIFIED table with failing test names and repro commands. Never edits."
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/kmp-verifier.md @ 1.2.4 — do not edit
+# generated from factory/agents/roles/kmp-verifier.md @ 1.3.0 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

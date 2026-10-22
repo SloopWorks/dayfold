@@ -2,7 +2,7 @@ name = "api_verifier"
 description = "Runs the repo's backend/schema verify lane as CI does (unit/contract tests, codegen idempotence, schema and bundle drift, migration checks, worker dry-run) and reports machine-read results. Use PROACTIVELY after worker/API/schema edits. Returns a GREEN/RED/UNVERIFIED table with repro commands. Never edits."
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/api-verifier.md @ 1.2.4 — do not edit
+# generated from factory/agents/roles/api-verifier.md @ 1.3.0 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.

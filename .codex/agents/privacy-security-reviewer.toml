@@ -3,7 +3,7 @@ description = "Deep security + privacy pass. Use PROACTIVELY for any change to a
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = '''
-# generated from factory/agents/roles/privacy-security-reviewer.md @ 1.2.4 — do not edit
+# generated from factory/agents/roles/privacy-security-reviewer.md @ 1.3.0 — do not edit
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
