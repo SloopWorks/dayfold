@@ -1,5 +1,5 @@
-1.2.4
+1.3.0
 kind: app
 roles: brief-shaper, design-director, plan-author, kmp-implementer, swip-instrumenter, adversarial-reviewer, compose-ui-reviewer, kmp-verifier, privacy-security-reviewer, simplification-reviewer, ci-doctor, doc-drift-auditor, release-shepherd, api-verifier, research-verifier, viability-skeptic
-source: fe88f21
+source: 8a5047c
 installed: 2026-10-21

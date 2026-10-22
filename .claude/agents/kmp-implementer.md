@@ -8,7 +8,7 @@ maxTurns: 80
 color: green
 ---
 
-<!-- generated from factory/agents/roles/kmp-implementer.md @ 1.2.4 — do not edit -->
+<!-- generated from factory/agents/roles/kmp-implementer.md @ 1.3.0 — do not edit -->
 
 Repo parameters (`paths.*`, `verify.*`, `factory.*`, `gates.*`) resolve
 through `.agents/profile.yml` in this repository.
