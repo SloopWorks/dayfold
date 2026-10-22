@@ -5,6 +5,30 @@ rules for adding one. Definitions live in `.claude/agents/*.md` (project) and
 `~/.claude/agents/` (user; source copy in `processes/claude-home/`). Why this
 set and not another: `research/2026-09-02-subagent-practices-review.md`.
 
+**The project definitions are generated.** They come from the SloopWorks
+factory agent pack (org hub `factory/agents/roles/`), installed here three ways
+from one canonical role file: `.agents/roles/*.md` (harness-neutral contracts),
+`.claude/agents/*.md` (Claude Code frontmatter — **Grok Build loads these as
+subagents too**), and `.codex/agents/*.toml` (Codex project subagents). All
+three harnesses dispatch roles as subagents; running a review role in a fresh
+session is the fallback when one cannot, not the mechanism. They are
+parameterized: every path, verify command and gate resolves through
+`.agents/profile.yml`, the one file this repo owns. Repo-specific review
+knowledge that no generic role can carry — the lane map, the deterministic
+guards, the known-failure catalog, the ADR map, the privacy threat model —
+lives in `processes/repo-review-contract.md`.
+
+Three roles the `app` set does not carry are installed here with `--add`:
+`api-verifier` (this repo has a TS/Hono API), `research-verifier` and
+`viability-skeptic` (research and gate reviews happen here, not only in the
+hub). The install command is
+`--kind app --add api-verifier,research-verifier,viability-skeptic`, and
+`.agents/PACK_VERSION` records that set so a flagless `--check` accepts it.
+**No agent in `.claude/agents/` is hand-written any more** — every one carries
+the `generated from factory/agents/roles/` marker. The dayfold-specific rules
+those three used to inline are in `processes/repo-review-contract.md` (§2 for
+the API lane, §7 for research and viability).
+
 ## Roster (project: `.claude/agents/`)
 
 | Agent | Invoke when | Model / turns | Writes? | Returns |
@@ -19,6 +43,23 @@ set and not another: `research/2026-09-02-subagent-practices-review.md`.
 | `ci-doctor` | A PR or `main` goes red. | sonnet · 30 | no | failing job → root cause → fix / justified single re-run, from the known-failure catalog |
 | `research-verifier` | Research fleets (one per claim domain); re-verifying research > ~6 months old. | sonnet · 40 · web | no | JSON verdicts per claim with consulted URLs |
 | `viability-skeptic` | P0 viability review, gate decisions, pricing pressure-tests, any research synthesis before it becomes an ADR. | opus · high · 40 · web | no | JSON: fatal risks, weak assumptions, inconsistencies, re-run arithmetic, cheap kill checks |
+
+### Added by the factory pack (build/plan/ship stages)
+
+| Agent | Invoke when | Writes? | Returns |
+|---|---|---|---|
+| `brief-shaper` | First, on any new ask — before design, planning or code. | docs | a work-item brief + the roles the item must pass |
+| `design-director` | A visible surface needs a spec before build (ADR 0008). | docs | design brief → spec + mockup prompt |
+| `plan-author` | A shaped brief needs an implementation plan. | docs | an ordered plan with a checkable DoD |
+| `kmp-implementer` | Building client/UI work from an accepted plan. | code | the change + the verify evidence |
+| `swip-instrumenter` | Adding or changing instrumentation. | code | schema + wiring + the sanitizer leak test |
+| `release-shepherd` | Shipping a dev build or preparing a store release. | ops | the release steps actually run, and what is operator-gated |
+
+Pack 1.2.2 restored `memory: project` on `adversarial-reviewer` and
+`doc-drift-auditor`, so their cumulative defect-class and drift-hot-spot memory
+under `.claude/agent-memory/` works again. The repo-specific catalogs those
+agents used to inline live in `processes/repo-review-contract.md`, which the
+profile points at as `paths.review_contract`.
 
 Every agent is **read-only on source** — a `tools` allowlist, `disallowedTools:
 Edit, Write, NotebookEdit`, or both (`ci-doctor`'s allowlist names only the
@@ -52,8 +93,10 @@ Deliberately **not** agents (a skill, a session, or a Routine fits better):
 - **Results are summaries.** Each agent caps its return (≤300–700 words) so
   seven agents cannot blow the parent context. Long raw output (fleet
   outputs) is archived under `research/<topic>-agent-outputs/` by the caller.
-- Other harnesses (Codex, Cursor) do not load `.claude/agents/`; paste an
-  agent file's body as a fresh-context system prompt with the same inputs.
+- Grok Build loads `.claude/agents/` and Codex loads `.codex/agents/*.toml`, so
+  both dispatch these roles as subagents — the installer generates all three
+  forms. For a harness that loads none of them, paste the role body from
+  `.agents/roles/<role>.md` as a fresh-context system prompt with the same inputs.
 
 ## Placement: project vs user level
 
@@ -61,7 +104,9 @@ Precedence when names collide: managed > `--agents` flag > **project
 `.claude/agents/`** > **user `~/.claude/agents/`** > plugin.
 
 - **Project** — anything naming repo paths, pinned commands, ADR numbers, or
-  the CI failure catalog. All ten above.
+  the CI failure catalog. All of the above; the pack-generated ones get that
+  specificity from `.agents/profile.yml` plus
+  `processes/repo-review-contract.md` rather than from hard-coded text.
 - **User** (`processes/claude-home/agents/`, installed by its `install.sh`) —
   generic `adversarial-reviewer`, `simplification-reviewer`,
   `research-verifier`, `doc-drift-auditor`, `ci-doctor` for every other repo
@@ -74,6 +119,14 @@ Precedence when names collide: managed > `--agents` flag > **project
 
 ## Conventions for adding or editing an agent
 
+0. **Never hand-edit a generated role file.** For a pack role, change
+   `factory/agents/roles/<role>.md` in the org hub, run
+   `python3 factory/agents/install.py --reindex`, then re-run
+   `factory/agents/install.sh --target . --kind app --add api-verifier` here and
+   commit the result.
+   `install.py --target . --kind app --check` reports drift and belongs in CI.
+   If the change is repo-specific rather than role-specific, it belongs in
+   `.agents/profile.yml` or `processes/repo-review-contract.md` instead.
 1. One responsibility; the `description` states the **trigger** ("Use
    PROACTIVELY when …", "Use AFTER …"), the inputs it needs, and what it
    returns — a router rule, not a job posting. Keep it under ~4 lines.
